@@ -29,6 +29,7 @@ import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
 import { malwareScanConfig } from "./config/malware-scan";
+import { publicSourceFetcherConfig } from "./config/public-source-fetcher";
 import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
 import {
   type BffJobsConfig,
@@ -206,6 +207,13 @@ export interface DeployConfig {
     /** `clamav/clamav` with its signatures baked in, pinned by digest (refused otherwise). */
     image: string;
   };
+
+  /**
+   * The sandboxed fetcher of public legal and geodata sources (ADR-0162,
+   * `app/public-source-fetcher.ts`): RIS and later sources, fetched from a pod
+   * that reaches public hosts and nothing in the cluster.
+   */
+  publicSourceFetcher: { enabled: boolean; replicas: number };
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -582,6 +590,7 @@ export function loadConfig(): DeployConfig {
     },
 
     malwareScan,
+    publicSourceFetcher: publicSourceFetcherConfig(cfg),
 
     ...loadWorkers(cfg),
 

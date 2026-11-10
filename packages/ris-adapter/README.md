@@ -113,8 +113,7 @@ back (never clobbering curated fields; fails loudly on unverifiable seeds). New
 seeds go into `configs/norms/<country>/seeds_ris.yml`:
 
 ```bash
-uv run --no-project --with httpx --with pydantic --with beautifulsoup4 \
-    --with pyyaml --with ruamel.yaml python scripts/build_ris_catalog.py
+.venv/bin/python scripts/build_ris_catalog.py   # needs the workspace venv: it imports ris_adapter and public_sources
 ```
 
 ### On-demand documents as knowledge sources
@@ -162,6 +161,28 @@ Platform integration: per call, the planner model passes through
 use — so per-org runtime model overrides (ADR-0014) and BYOK credentials
 (ADR-0022) apply consistently. Outside the Piloti agent the wrappers degrade to
 no-ops.
+
+## The source record: RIS is configuration (ADR-0162)
+
+Every Austrian value this adapter uses is read from
+[`configs/sources/at/ris/source.yml`](../../configs/sources/at/ris/source.yml),
+one `rest` + `ris_xml` record of [`public-sources`](../public-sources/README.md):
+the API and document hosts, the application -> controller map, the page sizes,
+the document path segments and prefixes, the nine Bundesland parameters, which
+date parameter each application takes, and the OGD host rewrite. `client.py`
+derives its constants from it and builds searches through the record's
+`search` operation; the RIS search and page parsing is the `ris_xml` engine,
+re-exported from `ris_adapter.client`. The norm admin route and
+`scripts/build_ris_catalog.py` read the Bundesland table from the same record
+(`federal_state_param`). `tests/test_source_record_parity.py` freezes the code
+the record replaced, so an edit that moves an Austrian request fails there.
+
+**`sourceRouting`.** With the organization's `source-routing` flag on
+(`routing.py`), `RisClient` makes the same requests through
+`public_sources.routing.source_transport("at-ris")`: the sandboxed
+`public-source-fetcher` when `PUBLIC_SOURCE_FETCHER_URL` is set, the same guard
+in process when not. Off is the default and the behaviour before it.
+`SOURCE_ROUTING=on|off` overrides the flag for a process (the answer suite).
 
 ## Configuration
 

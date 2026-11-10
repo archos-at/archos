@@ -49,6 +49,7 @@ backend:
   - 'ci/german_stems.json'
   # The Python packages (ADR-0145 row 6); ifc-spatial-py is the packages tier's.
   - 'packages/knowledge-layer/**'
+  - 'packages/public-sources/**'
   - 'packages/ris-adapter/**'
   - 'packages/tavily-web-search/**'
   # The one-time Chroma exporter's own tests (`be:test:migration`).
@@ -257,7 +258,6 @@ workspace:
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
-  - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
   # The Node version every job of this tier runs on (setup-node reads it).
