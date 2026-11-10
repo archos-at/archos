@@ -145,7 +145,7 @@ describe('POST /api/internal/turn-context', () => {
   it('carries no knowledgeContext key with its flag off, so the response is what it was (ADR-0173)', async () => {
     const { data } = await (await call()).json()
     expect(Object.keys(data)).not.toContain('knowledgeContext')
-    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Function))
+    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Function), 's_text-conversation')
   })
 
   it('carries the knowledge context once its flag is on (positive control)', async () => {

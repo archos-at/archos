@@ -109,6 +109,12 @@ export const knowledgeContextSchema = z
     uses: z.array(contextUseSchema).max(MAX_CONTEXT_USES),
     /** What the turn may retrieve from the shared corpus: the countries whose chunks it may read. Empty reads none. */
     retrieval: z.object({ countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(300) }).strict(),
+    /**
+     * The packs released since the conversation's last answer that recorded a use
+     * (E42): the answer says "Grundlage seit der letzten Antwort aktualisiert".
+     * Read per conversation, after the cached context; absent outside one.
+     */
+    updatedSinceLastAnswer: z.array(z.string()).max(16).optional(),
   })
   .strict()
 

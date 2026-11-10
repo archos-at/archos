@@ -43,6 +43,7 @@ WIRE = {
     ],
     "uses": [{"workId": "work:bauo-nrw", "role": "binding", "qualifier": "uncurated"}],
     "retrieval": {"countries": ["DE", "EU"]},
+    "updatedSinceLastAnswer": ["DE"],
 }
 
 
@@ -99,6 +100,7 @@ def test_trace_metadata_names_chains_gate_coverage_packs_and_stichtage():
         "jurisdiction_chains": "DE-NW:DE-NW>DE>EU",
         "pack_seqs": "DE:12,EU:3",
         "stichtage": "p1@DE-NW=undetermined",
+        "base_updated_since_last_answer": "DE",
     }
 
 

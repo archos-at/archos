@@ -167,7 +167,7 @@ export async function loadTurnContext(
     advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null, timed)),
     // Which country, coverage and editions apply, and what the turn may retrieve (ADR-0173).
     // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge` once its flag is on.
-    knowledgeContextForTurn(organizationId, projectId ?? null, timed),
+    knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)

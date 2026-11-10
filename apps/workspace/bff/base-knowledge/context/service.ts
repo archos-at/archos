@@ -34,6 +34,7 @@ import { loadGraph } from '../chain/load'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
+import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { siteLeaves } from './site'
 import type { KnowledgeContext, ProcedureContext } from './wire'
 
@@ -167,13 +168,18 @@ export async function knowledgeContextForTurn(
   organizationId: string,
   projectId: string | null,
   time: PhaseTimer = untimed,
+  conversationId: string | null = null,
 ): Promise<KnowledgeContext | undefined> {
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.knowledgeContext, organizationId))) return undefined
   return time('knowledge', async () => {
     try {
       const inputs = await readContextInputs(organizationId, projectId)
       const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
-      return await getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
+      const context = await getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
+      if (!conversationId) return context
+      // After the cache: whether the base moved since this conversation's last answer is per conversation (E42).
+      const previous = await lastAnswerPackSeqs(organizationId, conversationId)
+      return { ...context, updatedSinceLastAnswer: packsUpdatedSince(context.packs, previous) }
     } catch (error) {
       unavailableTurns.add(1)
       console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })

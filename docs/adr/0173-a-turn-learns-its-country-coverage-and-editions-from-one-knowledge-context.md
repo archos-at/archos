@@ -96,6 +96,13 @@ Chosen option 3.
   used, in which role and at which pack sequences, keyed by its organization,
   append-only and gone only with its message (E25); `project_base_confirmations`
   holds a confirmed Steckbrief the same way.
+  The BFF writes the uses when it persists the backend's answer
+  (`context/edition-uses.ts`): role, edition and sequences from its own
+  context, the backend's cited file names only choosing among them.
+- **The base moved (E42).** The turn context names the packs released since
+  the conversation's newest recorded answer (`updatedSinceLastAnswer`), read
+  per conversation after the cache, so the answer can say "Grundlage seit der
+  letzten Antwort aktualisiert".
 - **Edge cases as data.** `evals/base-knowledge/edge_cases.yaml` holds the
   design's E-fixtures as paper records; `context/edge-cases.spec.ts` runs each
   through the resolver a turn uses.

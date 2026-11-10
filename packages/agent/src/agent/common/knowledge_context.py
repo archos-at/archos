@@ -52,6 +52,8 @@ class KnowledgeContext:
     stichtage: dict[str, dict[str, str]] = field(default_factory=dict)
     uses: tuple[dict[str, object], ...] = ()
     date: str | None = None
+    #: The packs released since this conversation's last answer (E42): the answer says the base was updated.
+    updated_since_last_answer: tuple[str, ...] = ()
 
     @property
     def withholds_law(self) -> bool:
@@ -113,6 +115,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         stichtage=_stichtage(raw.get("procedures")),
         uses=uses,
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
+        updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
     )
 
 
@@ -128,6 +131,7 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
             for procedure, days in sorted(context.stichtage.items())
             for node, day in sorted(days.items())
         ),
+        "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
     }
 
 

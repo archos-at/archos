@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS "message_edition_uses" (
   CONSTRAINT message_edition_uses_qualifier_known CHECK (
     "qualifier" IS NULL OR "qualifier" IN ('uncurated', 'office_maintained')),
   CONSTRAINT message_edition_uses_pack_seqs_object CHECK (jsonb_typeof("pack_seqs") = 'object'),
-  CONSTRAINT message_edition_uses_one_per_edition UNIQUE ("message_id", "work_id", "edition_id")
+  -- NULLS NOT DISTINCT: a live law (no edition) is recorded once per answer too.
+  CONSTRAINT message_edition_uses_one_per_edition UNIQUE NULLS NOT DISTINCT ("message_id", "work_id", "edition_id")
 );
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "message_edition_uses_edition_idx" ON "message_edition_uses" ("edition_id", "created_at" DESC);
