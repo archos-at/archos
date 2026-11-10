@@ -220,9 +220,10 @@ services:
   # source) and parses their PDFs (`POST /v1/extract`): the backend roles reach
   # them only through it (PUBLIC_SOURCE_FETCHER_URL), never from their own
   # process. It holds no secret: no env_file, only its port and the records.
-  # Compose cannot give it Kubernetes' NetworkPolicy; its own guard
-  # (public_sources/egress.py: the hosts at every hop, public addresses only)
-  # is what holds here.
+  # Compose cannot give it Kubernetes' NetworkPolicy, and Coolify puts every
+  # service on its one managed network (see the note at the end), so here it
+  # shares a network with the stores; its own guard (public_sources/egress.py:
+  # the hosts at every hop, public addresses only) is what holds.
   public-source-fetcher:
     build:
       context: .

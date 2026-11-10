@@ -4,7 +4,7 @@ import { DeployConfig } from "../config";
 import { appPullPolicy, backendImage } from "../config/images";
 import { commonLabels } from "../platform/namespaces";
 import { type RolloutProfile, gracefulShutdown, surgeRollout } from "../platform/rollout";
-import { onNodeGroup } from "../platform/scheduling";
+import { installPdb, onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { UID } from "../constants";
 import { API_TIERS, CHAT_TIERS } from "./tier-names";
@@ -42,10 +42,12 @@ export const PUBLIC_SOURCE_FETCHER = {
   privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96", "::ffff:0:0/96"],
   /**
    * It also parses the PDFs it fetches (`POST /v1/extract`): at most two readers at once, each a child process
-   * held to 1 GiB of address space (`public_sources/pdf.py`), beside the server itself.
+   * held to 1 GiB of address space (`public_sources/pdf.py`), beside the server itself (about 65 MiB idle,
+   * measured 2026-11-10). The request holds the server and one large reader, so under node pressure it is not
+   * the first pod evicted; the limit holds both readers at their ceiling.
    */
   resources: {
-    requests: { cpu: "100m", memory: "256Mi" },
+    requests: { cpu: "100m", memory: "1Gi" },
     limits: { cpu: "1000m", memory: "2560Mi" },
   },
 } as const;
@@ -76,6 +78,12 @@ export interface PublicSourceFetcher {
   service: k8s.core.v1.Service;
   /** Undefined when the stack runs without NetworkPolicies (`networkPolicies: false`). */
   networkPolicy?: k8s.networking.v1.NetworkPolicy;
+  /**
+   * At most one pod away in a voluntary disruption. With one replica (the default) a node drain still
+   * evicts it, and public sources and PDF captures are refused until it is scheduled again (the surge
+   * rollout covers a deploy, not a drain); `replicas: 2` closes that gap.
+   */
+  pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
 export function installPublicSourceFetcher(
@@ -180,5 +188,7 @@ export function installPublicSourceFetcher(
       )
     : undefined;
 
-  return { deployment, service, networkPolicy };
+  const pdb = installPdb(name, namespace, provider, labels, [deployment]);
+
+  return { deployment, service, networkPolicy, pdb };
 }

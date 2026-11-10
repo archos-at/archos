@@ -138,7 +138,9 @@ Two layers hold it:
 - **Its NetworkPolicy** (Kubernetes only): in, the chat, api and agent-worker
   roles; out, DNS and public addresses on 443. It holds no secret and no
   service-account token, so a hostile PDF that took the reader reaches nothing.
-  Compose has no NetworkPolicy; there the guard is the only layer.
+  In Compose it has a network of its own (`public-sources`) shared with those
+  three roles and no store; Coolify puts every service on one managed network,
+  so there the guard is the only layer.
 
 ### When the fetcher is not there
 
@@ -153,6 +155,8 @@ backend's `/health` probes no dependency (`agent_host/health.py`).
 | The fetcher has no ready replica (crash loop, image pull, OOM) | The same lookups fail with "not reachable" after the connect error; a PDF capture with `PDF_READER_FAILED` | The `DeploymentUnavailable` alert after 15 minutes (`deploy/pulumi/src/platform/workload-alerts.ts`); `kubectl get deploy public-source-fetcher` |
 | A PDF reader hit its 1 GiB ceiling, or the pod its 2560Mi limit | That one capture refuses with `PDF_READER_FAILED` (the reader's exit signal in the message); other reads go on | The fetcher's log line for `/v1/extract` (size and outcome, never content); an OOMKilled restart in the pod's status |
 | A parse past 45 s, or the fetcher not answering within 50 s | `PDF_PARSE_TIMEOUT` | The same log line |
+| Both PDF readers busy (two captures already parsing) | `PDF_PARSE_TIMEOUT` at once, with "try again in a minute"; nothing queues, and law lookups (`/v1/fetch`) go on | `extract refused: 2 readers busy` in the fetcher's log |
+| A node drain while it runs one replica | Lookups and PDF captures refused as "not reachable" until the pod is scheduled again (the surge rollout covers a deploy, not a drain); its PodDisruptionBudget holds once `replicas` is 2 or more | `kubectl get pdb public-source-fetcher` |
 
 To check a stack by hand: `curl -s <backend>/health` for the configuration;
 `kubectl -n <ns> exec deploy/api -- python -c "import httpx; print(httpx.get('http://public-source-fetcher:8095/healthz').text)"`

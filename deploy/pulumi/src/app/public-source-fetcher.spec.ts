@@ -63,9 +63,16 @@ describe("public-source-fetcher", () => {
     ]);
   });
 
-  it("has room for two PDF readers of 1 GiB each beside the server", async () => {
+  it("has room for two PDF readers of 1 GiB each beside the server, and requests one", async () => {
     const spec = await resolve(find("kubernetes:apps/v1:Deployment", "public-source-fetcher").inputs.spec);
     expect(spec.template.spec.containers[0].resources.limits.memory).toBe("2560Mi");
+    expect(spec.template.spec.containers[0].resources.requests.memory).toBe("1Gi");
+  });
+
+  it("lets a voluntary disruption take at most one fetcher pod", async () => {
+    const pdb = await resolve(find("kubernetes:policy/v1:PodDisruptionBudget", "public-source-fetcher").inputs.spec);
+    expect(pdb.maxUnavailable).toBe(1);
+    expect(pdb.selector.matchLabels["app.kubernetes.io/name"]).toBe("public-source-fetcher");
   });
 
   it("drains a parse in flight before it stops, and rolls out without dropping capacity", async () => {

@@ -73,6 +73,17 @@ PDF_CONTENT_TYPE = "application/pdf"
 
 _READERS = threading.BoundedSemaphore(MAX_PDF_READERS)
 
+#: Whether :func:`read_pdf` may parse in this process when no fetcher is set. Code turns it on, never
+#: configuration, and only in a process that is no backend role: the fixture runner
+#: (``python -m public_sources test``) and the test suites (:func:`allow_parsing_here`).
+_parse_here = False
+
+
+def allow_parsing_here() -> None:
+    """Let :func:`read_pdf` parse in this process without a fetcher: for the fixture runner and tests only."""
+    global _parse_here
+    _parse_here = True
+
 
 class PdfError(ValueError):
     """A PDF that cannot be read. ``code`` is the problem's code, stable for a caller to branch on."""
@@ -148,14 +159,21 @@ def read_pdf(content: bytes, *, max_pages: int = MAX_PDF_PAGES) -> PdfText:
     With ``PUBLIC_SOURCE_FETCHER_URL`` set (every backend role, Compose
     included) the bytes go to the fetcher's ``/v1/extract``, which runs
     :func:`parse_pdf` in its sandbox: no secrets, no service-account token,
-    public egress only. Without it, this process is the fetcher (or a test) and
-    parses here. Raises :class:`PdfError`. Blocking: an async caller runs it
-    with ``asyncio.to_thread``.
+    public egress only. Without it the read is refused (``pdf_reader_failed``),
+    unless the process said in code that it may parse here
+    (:func:`allow_parsing_here`: the fixture runner, a test). The fetcher
+    itself calls :func:`parse_pdf`. Raises :class:`PdfError`. Blocking: an
+    async caller runs it with ``asyncio.to_thread``.
     """
     fetcher_url = os.environ.get(ENV_FETCHER_URL, "").strip()
     if fetcher_url:
         return _extracted_by(fetcher_url, content, max_pages)
-    return parse_pdf(content, max_pages=max_pages)
+    if _parse_here:
+        return parse_pdf(content, max_pages=max_pages)
+    raise PdfError(
+        "pdf_reader_failed",
+        f"no public-source fetcher is configured ({ENV_FETCHER_URL}): a public PDF is parsed only there",
+    )
 
 
 def _extracted_by(fetcher_url: str, content: bytes, max_pages: int) -> PdfText:

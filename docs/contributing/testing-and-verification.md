@@ -577,6 +577,14 @@ through the real agent, several runs each, timed call by call and checked
 against what the answer must say. The loop eval asks how the turn looked for
 its passage; this asks what the reader waited for and what they got.
 
+- **Public sources:** the agent reads RIS, and parses any public PDF, only
+  through the public-source fetcher (`PUBLIC_SOURCE_FETCHER_URL`, ADR-0162
+  amendment). With the variable unset, the first run starts one on a free
+  local port (`scripts/turn_census/local_fetcher.py`: this checkout's records,
+  none of your environment) and every run shares it until the suite exits; a
+  set variable is kept. It reaches the source hosts directly, as the
+  cluster's fetcher does, so a machine behind a proxy that blocks them sees
+  the same refusals the agent would. The census uses the same fetcher.
 - **Questions:** the loop eval's set, the ones tagged `suite: core` by
   default (`--all` for every question without a project; a question about an
   office's own files needs a project and is skipped, and the report says so;

@@ -147,6 +147,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -197,6 +198,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -241,6 +243,7 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
+      - public-sources
     # The drain budget (600 s: the Hatchet SDK waits for held runs on SIGTERM)
     # and slack; docker's default 10 s would kill it first.
     stop_grace_period: 660s
@@ -371,8 +374,10 @@ services:
       PUBLIC_SOURCES_DIR: /app/configs/sources
     volumes:
       - ../../configs:/app/configs:ro
+    # Its own network, shared with the three roles that call it and nothing else:
+    # not postgres, qdrant, dragonfly or seaweedfs on `app`.
     networks:
-      - app
+      - public-sources
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8095/healthz')"]
       interval: 15s
@@ -1620,6 +1625,10 @@ volumes:
 
 networks:
   app:
+    driver: bridge
+  # The public-source fetcher and the roles that call it (chat, api, agent-worker),
+  # apart from the stores on `app`. Not internal: the fetcher reaches public hosts.
+  public-sources:
     driver: bridge
   # No route out of the host: gotenberg and the frontend only (ADR-0070).
   gotenberg-internal:

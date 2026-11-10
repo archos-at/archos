@@ -46,3 +46,18 @@ def test_every_caller_knows_the_fetcher_and_starts_it_without_waiting_on_it(name
     assert "http://public-source-fetcher:8095" in _environment(services, caller)
     # service_started: without its fetcher a role still serves all but public sources.
     assert services[caller]["depends_on"][FETCHER] == {"condition": "service_started"}
+
+
+def _networks(service: dict) -> set[str]:
+    networks = service.get("networks") or []
+    return set(networks if isinstance(networks, list) else networks.keys())
+
+
+def test_the_fetcher_shares_a_network_with_its_callers_and_no_store():
+    """Its own network: a hostile PDF that took the reader reaches the three callers' ports at most, never a store."""
+    services = _services("docker-compose.yaml")
+    assert _networks(services[FETCHER]) == {"public-sources"}
+    for caller in CALLERS:
+        assert "public-sources" in _networks(services[caller])
+    on_it = {name for name, service in services.items() if "public-sources" in _networks(service)}
+    assert on_it == {FETCHER, *CALLERS}
