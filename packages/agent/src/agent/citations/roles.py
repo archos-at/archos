@@ -28,15 +28,14 @@ Fail closed: no context bound, or a gate that carries no uses, maps every passag
 A base-corpus passage maps to an edition by its corpus file, and a passage
 read through a legal database (RIS) by an identity the edition's records carry
 (``sourceRefs``, ``{scheme, value}``: a Gesetzesnummer as the RIS URL's query
-parameter, a document number as a whole token, an ELI by whole path segments of the URL; an
-unknown scheme never matches). An
+parameter, an ELI by whole path segments of the URL; an unknown scheme never
+matches). An
 office's copy that happens to share a file name is the office's, and its label
 is the office layer's.
 """
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs
@@ -65,6 +64,11 @@ class BindingClassification:
     binding_status: str = "unknown"
 
 
+#: The identity schemes a work's records carry and this module matches (``SOURCE_REF_SCHEMES`` in the
+#: TypeScript wire); any other scheme never matches.
+SOURCE_REF_SCHEMES: tuple[str, ...] = ("ris_gesetzesnummer", "eli")
+
+
 def _eli_segments(url: str) -> tuple[str, ...]:
     """A URL as the segments an ELI is matched on: the host without ``www.`` (RIS links come both ways:
     ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``), then each path segment, lower case. Pure."""
@@ -89,18 +93,14 @@ def _law_number(url: str | None) -> str | None:
 def _ref_matches(ref: SourceRef, entry: SourceEntry) -> bool:
     """Whether one identity names the passage ``entry`` read, by its scheme; an unknown scheme never matches. Pure.
 
-    ``eli`` holds the passage's URL by whole path segments (host with or without ``www.``), ``ris_gesetzesnummer``
-    the Gesetzesnummer its RIS URL asks for, ``ris_dokumentnummer`` a whole token of its URL, citation key
-    or collection.
+    ``eli`` holds the passage's URL by whole path segments (host with or without ``www.``), and
+    ``ris_gesetzesnummer`` is the Gesetzesnummer its RIS URL asks for (``SOURCE_REF_SCHEMES``).
     """
     if ref.scheme == "eli":
         return bool(entry.url) and _within_eli(entry.url, ref.value)
     if ref.scheme == "ris_gesetzesnummer":
         return _law_number(entry.url) == ref.value
-    if ref.scheme != "ris_dokumentnummer":
-        return False
-    where = " ".join(part for part in (entry.url, entry.citation_key, entry.collection) if part)
-    return bool(re.search(rf"(?<![0-9A-Za-z]){re.escape(ref.value)}(?![0-9A-Za-z])", where, re.IGNORECASE))
+    return False
 
 
 def _use_for_legal_database(uses: tuple[EditionUse, ...], entry: SourceEntry) -> EditionUse | None:

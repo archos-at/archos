@@ -208,8 +208,11 @@ export async function readContextInputs(organizationId: string, projectId: strin
   }
 }
 
-/** Who reads a context: a chat turn, or an operation (`project-base-get`, `-confirm`) a person or an agent called. */
-export type ContextReader = 'turn' | 'operation'
+/**
+ * Who reads a context: a chat turn; an operation (`project-base-get`, `-confirm`)
+ * a person or an agent called; or a background run, which carries its own.
+ */
+export type ContextReader = 'turn' | 'operation' | 'run'
 
 /**
  * The turn's knowledge context, always present: a read that fails gives
@@ -240,7 +243,7 @@ export async function knowledgeContextForTurn(
         unavailableTurns.add(1)
         console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })
       } else {
-        console.error('[knowledge_context_page_read=false] the knowledge context could not be read for an operation', { organizationId, error })
+        console.error(`[knowledge_context_page_read=false] the knowledge context could not be read for ${reader === 'run' ? 'a background run' : 'an operation'}`, { organizationId, error })
       }
       return unavailableContext(calendarDayIn('UTC'))
     }

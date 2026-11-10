@@ -29,3 +29,20 @@ describe('the record types an agent is told about', () => {
     }
   })
 })
+
+describe('a work’s identifiers at its source', () => {
+  const work = (identifiers: Record<string, string>) => proposedRecordSchema.safeParse({ type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', territoryIds: ['AT-9'], identifiers, citations: [] })
+
+  it('takes a RIS law number and an ELI that ends at a path segment', () => {
+    expect(work({ 'ris_gesetzesnummer': '20000006', eli: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/' }).success).toBe(true)
+  })
+
+  it('refuses a scheme it does not know, a document number of one paragraph among them', () => {
+    expect(work({ 'ris_dokumentnummer': 'LWI40000225' }).success).toBe(false)
+    expect(work({ 'gesetzesnummer': '20000006' }).success).toBe(false)
+  })
+
+  it('refuses an ELI that does not end with "/": …/1930/11 would also name …/1930/110', () => {
+    expect(work({ eli: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11' }).success).toBe(false)
+  })
+})

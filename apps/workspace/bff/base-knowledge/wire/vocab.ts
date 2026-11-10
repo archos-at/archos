@@ -3,7 +3,11 @@
  * 0204, 0205 and 0209, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
- * Pure, so the UI reads them too.
+ * Pure, so the UI reads them too. A source's protocols and formats are not
+ * here: Python's registry is their one list (`SOURCE_PROTOCOLS`,
+ * `SOURCE_FORMATS` in `shared/vocabularies.generated.ts`, read by
+ * `./source.ts`), and no CHECK holds them. This module imports nothing, so a
+ * change to it reaches only its own importers (`scripts/blast-radius.mjs`).
  */
 
 export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'] as const
@@ -203,7 +207,7 @@ export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
  * Dokumentnummer (one paragraph's document, a whole token), and an ELI (a URL
  * prefix). A scheme added here is matched by the agent only once it learns it.
  */
-export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'ris_dokumentnummer', 'eli'] as const
+export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
 export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
@@ -265,14 +269,6 @@ export type IndexRunState = (typeof INDEX_RUN_STATES)[number]
 export const CHANGE_REQUEST_ORIGINS = ['operator', 'monitor'] as const
 export type ChangeRequestOrigin = (typeof CHANGE_REQUEST_ORIGINS)[number]
 
-/** The access types a source record may name (`packages/public-sources/src/access`); a new one is code, once. */
-export const SOURCE_PROTOCOLS = ['rest', 'http_eli', 'web_document', 'ogc'] as const
-export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
-
-/** The format engines a source record may name (`packages/public-sources/src/engines`). */
-export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson', 'pdf_document'] as const
-export type SourceFormat = (typeof SOURCE_FORMATS)[number]
-
 /** What may leave towards a source: nothing about a tenant, or a site point too (privacy review, design §6.4). */
 export const SOURCE_DATA_FLOWS = ['public_only', 'site_keyed'] as const
 export type SourceDataFlow = (typeof SOURCE_DATA_FLOWS)[number]
@@ -311,8 +307,6 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_second_reviews.role': APPROVAL_ROLES,
   'knowledge_second_reviews.decision': SECOND_REVIEW_DECISIONS,
   'knowledge_second_reviews.decision_source': DECISION_SOURCES,
-  'knowledge_source_revisions.protocol': SOURCE_PROTOCOLS,
-  'knowledge_source_revisions.format': SOURCE_FORMATS,
   'knowledge_source_revisions.data_flow': SOURCE_DATA_FLOWS,
   'knowledge_source_revisions.monitor_kind': MONITOR_KINDS,
 } as const satisfies Record<string, readonly string[]>

@@ -36,8 +36,20 @@ def _context(land: str) -> dict[str, Any]:
     return TURN_LAW[land]["knowledgeContext"]
 
 
-def test_the_fixture_covers_every_austrian_land() -> None:
-    assert sorted(TURN_LAW) == [f"AT-{n}" for n in range(1, 10)]
+#: A synthetic place nobody curated (open coverage): uncurated law, its label and a work bound by the office's seat.
+OPEN = "open:DE-NW"
+
+
+def test_the_fixture_covers_every_austrian_land_and_an_open_country() -> None:
+    assert sorted(TURN_LAW) == sorted([*(f"AT-{n}" for n in range(1, 10)), OPEN])
+
+
+def test_where_coverage_is_open_law_is_uncurated_and_the_office_seat_binds_nothing_here() -> None:
+    uses = {use["workId"]: use for use in _context(OPEN)["uses"]}
+    assert uses["work:bauo-nrw"]["qualifier"] == "uncurated"
+    assert uses["work:bauo-nrw"]["labels"] == ["uncurated_source"]
+    assert uses["work:hoai"]["role"] == "information"
+    assert uses["work:hoai"]["connectsBy"] == ["office_seat", "client"]
 
 
 @pytest.mark.parametrize("land", sorted(TURN_LAW))

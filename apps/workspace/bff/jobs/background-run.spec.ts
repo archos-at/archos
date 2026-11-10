@@ -74,7 +74,7 @@ describe('submitBackgroundRun', () => {
 
   it('carries the knowledge context of an entitled Austrian project, chain text included, read for its office and project', async () => {
     await submit()
-    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_at', 'project_graz')
+    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_at', 'project_graz', undefined, null, 'run')
     expect(payload()).toMatchObject({ knowledge_context: STYRIA_CONTEXT })
   })
 

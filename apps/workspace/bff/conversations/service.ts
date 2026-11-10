@@ -27,6 +27,7 @@
 import 'server-only'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled'
 import { FEATURE_FLAGS, isCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { ConflictError, ForbiddenError, NotFoundError, UpstreamError } from '@/lib/api/errors'
@@ -870,33 +871,6 @@ export async function cutStoppedAnswer(
   return row
 }
 
-/**
- * A message arrived carrying collaboration input in a deployment where
- * collaboration is off (spec NF-8).
- *
- * **Refused, not silently ignored.** Dropping the mentions would let the author
- * believe they had handed the thread to a colleague — the composer would show the
- * agent staying quiet, nobody would be asked, and no inbox item would ever
- * arrive. A stated refusal is the only outcome that does not invent a hand-off
- * that never happened. The chat path itself is untouched: a message WITHOUT
- * mentions behaves exactly as it did before this feature existed, which is the
- * whole point of the flag.
- *
- * Subclassed from `ForbiddenError` (which takes no `details`) so the reason is
- * machine-readable, mirroring the `feature-disabled` envelope
- * `requireCollaborationEnabled` answers with on every other collaboration route.
- */
-class CollaborationDisabledError extends ForbiddenError {
-  constructor() {
-    super('Collaboration is not enabled here, so a message cannot mention anyone.')
-    // `ApiError.details` is a readonly constructor property, so it is attached
-    // rather than passed through a constructor that does not accept it.
-    Object.assign(this, {
-      details: { reason: 'feature-disabled', feature: FEATURE_FLAGS.collaboration },
-    })
-  }
-}
-
 /** The agent answers — no mentions, today's behaviour unchanged (spec MN-1). */
 const AGENT_ADDRESSED: AddresseeSet = { agent: true, users: [] }
 
@@ -1038,8 +1012,9 @@ async function prepareMessage(
   // The mention path is the collaboration feature, and it must not switch itself
   // on where an operator has not chosen it (spec NF-8). Checked BEFORE the
   // replay lookup and before `applyMessageMentions`, so a flag-off send writes no
-  // grant, no request and no inbox row.
-  if (!isCollaborationEnabled(session)) throw new CollaborationDisabledError()
+  // grant, no request and no inbox row. Refused, never silently dropped: dropping
+  // the mentions would let the author believe a colleague was asked.
+  if (!isCollaborationEnabled(session)) throw new FeatureDisabledError(FEATURE_FLAGS.collaboration)
 
   // A replayed client-generated id must not create a second request or a second
   // notification. The first attempt's ruling is authoritative — read it back

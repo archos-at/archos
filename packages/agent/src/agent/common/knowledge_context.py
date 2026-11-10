@@ -63,8 +63,8 @@ MAX_LEAVES = 8
 MAX_PACKS = 16
 MAX_USES = 40
 
-#: Longest chain text kept; the BFF's text is far shorter, this only bounds a broken one.
-MAX_TEXT_CHARS = 12_000
+#: Longest chain text kept: the BFF's own bound (``MAX_CONTEXT_TEXT_CHARS``), which cuts at a line and says so.
+MAX_TEXT_CHARS = 16_000
 
 #: The roles an edition can have (design §3.5); the TypeScript source is
 #: ``EDITION_ROLES`` in ``apps/workspace/bff/base-knowledge/wire/vocab.ts``.

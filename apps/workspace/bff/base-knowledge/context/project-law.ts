@@ -11,15 +11,9 @@
  */
 
 import 'server-only'
-import type { ProjectLaw } from '../wire/project-law'
+import { gateNamesLaw, type ProjectLaw } from '../wire/project-law'
 import { contextForPage } from './service'
-import type { GateState, KnowledgeContext } from './wire'
-
-/** The gate states that name no law: the turn refuses, and so does the page. */
-const REFUSING: ReadonlySet<GateState> = new Set(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'])
-
-/** Whether a gate lets the page name law. Pure. */
-export const gateNamesLaw = (gate: GateState): boolean => !REFUSING.has(gate)
+import type { KnowledgeContext } from './wire'
 
 /** The law a context names, with the names its uses carry. Pure. */
 export function lawOf(context: KnowledgeContext): ProjectLaw {

@@ -194,7 +194,6 @@ RIS_URLS = {
         f"https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer={value}"
     ],
     "eli": lambda value: [f"{value.rstrip('/')}/P63", f"{value.rstrip('/').replace('://www.', '://')}/P63"],
-    "ris_dokumentnummer": lambda value: [f"https://www.ris.bka.gv.at/Dokument.wxe?Abfrage=LrW&Dokumentnummer={value}"],
 }
 
 
@@ -232,11 +231,11 @@ def test_a_law_number_matches_only_as_the_ris_url_s_query_parameter(url):
     assert use_for_entry(_ris(url)) is None
 
 
-def test_a_document_number_matches_as_a_whole_token():
+def test_a_retired_document_number_scheme_never_matches():
+    """``ris_dokumentnummer`` left the wire (#1584): it only ever matched one paragraph."""
     ref = {"scheme": "ris_dokumentnummer", "value": "LWI40000225"}
     _bind(_with(VIENNA, [{**BO_WIEN, "sourceRefs": [ref]}]))
-    assert use_for_entry(_ris("https://www.ris.bka.gv.at/Dokument.wxe?Dokumentnummer=LWI40000225")) is not None
-    assert use_for_entry(_ris("https://www.ris.bka.gv.at/Dokument.wxe?Dokumentnummer=LWI400002251")) is None
+    assert use_for_entry(_ris("https://www.ris.bka.gv.at/Dokument.wxe?Dokumentnummer=LWI40000225")) is None
 
 
 def test_a_web_page_carrying_a_ris_number_is_not_matched():
