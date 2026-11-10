@@ -195,14 +195,21 @@ def base_corpus_readable() -> bool | None:
     return None if countries is None else bool(countries)
 
 
+#: The gates under which no country's primary law is read at all: the office has no country, the site's
+#: country is not the office's, or the base could not be read. Everything else reads the primary source.
+LAW_READ_WITHHELD: frozenset[str] = frozenset({"organization_unplaced", "not_entitled", "knowledge_unavailable"})
+
+
 def law_tools_allowed(country: str) -> bool:
     """Whether the turn may run ``country``'s law lookup; False without a bound context (fail closed).
 
-    Stricter than the corpus: a gate that withholds law (:attr:`KnowledgeContext.withholds_law`) withholds
-    the legal-database tools even where the turn may still read the office's entitled corpus (``site_unknown``).
+    Reading the primary source is not a verdict: coverage ``none`` or ``open`` and an unknown site withhold
+    verdicts and binding claims (:attr:`KnowledgeContext.withholds_law`), never reading the law itself. So the
+    lookup runs wherever the office may read ``country`` (an office-level question in its home country, a
+    project placed there), and is withheld only by :data:`LAW_READ_WITHHELD` or a country the turn may not read.
     """
     context = turn_knowledge_context()
-    return not context.withholds_law and country.upper() in context.retrieval_countries
+    return context.gate not in LAW_READ_WITHHELD and country.upper() in context.retrieval_countries
 
 
 def corpus_country_allowed(country: str) -> bool:
@@ -219,9 +226,11 @@ _GATE_NOTES: dict[str, str] = {
     ),
     "site_unknown": (
         "## Building law: site not stated\n\n"
-        "Nothing places this project's site, so no country's building law is known to apply: no requirement is "
-        "presented as binding, no building class is derived, and the legal-database tools are not used. When the "
-        "answer turns on the jurisdiction, say that the site is missing and ask for the country and Land."
+        "Nothing places this project's site, so no country's building law is known to apply. Present no value as "
+        "this project's requirement, derive no building class, name no edition as binding, and do not assume a "
+        "country. You may read and quote the primary law of {covered} as information. When the answer turns on "
+        "the jurisdiction, say that the site is missing and ask for the country and Land. A place the question "
+        "names outside {covered} is not covered by this office's base: say so plainly."
     ),
     "not_entitled": (
         "## Building law: {country}, not included\n\n"
@@ -236,8 +245,9 @@ _GATE_NOTES: dict[str, str] = {
     ),
     "none": (
         "## Building law: {country}, no base yet\n\n"
-        "No building-law base is held for {country} yet. Present no rule as binding for this site and derive "
-        "no building class; say once that its building law is not yet covered here."
+        "{country}'s base knowledge is not published yet. You may read and quote its primary law, but present "
+        "no edition as binding at this site and derive no building class; say once that which edition binds "
+        "cannot be determined until the base is published."
     ),
     "open": (
         "## Building law: {country}, open coverage\n\n"
@@ -246,11 +256,21 @@ _GATE_NOTES: dict[str, str] = {
     ),
 }
 
+#: Said under every note that withholds a binding claim, and under open coverage: the web never fills the gap.
+WEB_IS_INFORMATION = (
+    "A web page is never the source of a requirement or of which edition binds: what the web says about a "
+    "law is unverified information, labelled as such, and a norm the knowledge base holds is cited from the "
+    "knowledge base, never from a web copy."
+)
+
 
 def gate_note(context: KnowledgeContext) -> str | None:
     """What the turn context says about the gate (ADR-0173 §4.6); None for core or full with nothing moved. Pure."""
     note = _GATE_NOTES.get(context.gate)
-    lines = [note.format(country=context.site_country or "the site's country")] if note else []
+    covered = ", ".join(sorted(context.retrieval_countries)) or "no country"
+    lines = [note.format(country=context.site_country or "the site's country", covered=covered)] if note else []
+    if note:
+        lines.append(WEB_IS_INFORMATION)
     if context.updated_since_last_answer:
         lines.append(
             "The building-law base was updated since this conversation's last answer "

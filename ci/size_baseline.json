@@ -420,7 +420,7 @@
     "packages/ris-adapter/src/register.py::ris_fetch_document._ris_fetch_document": 97,
     "packages/ris-adapter/src/register.py::ris_search": 239,
     "packages/ris-adapter/src/register.py::ris_search._ris_search": 208,
-    "packages/tavily-web-search/src/register.py::tavily_web_search": 180,
+    "packages/tavily-web-search/src/register.py::tavily_web_search": 169,
     "packages/tavily-web-search/src/register.py::tavily_web_search._search": 85,
     "scripts/build_clause_index.py::build_index": 67,
     "scripts/decision_eval.py::_evaluate": 61,

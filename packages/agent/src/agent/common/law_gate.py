@@ -35,6 +35,29 @@ def law_sources_withheld() -> frozenset[str]:
     return frozenset(source for source, country in LAW_SOURCE_COUNTRIES.items() if not law_tools_allowed(country))
 
 
+def withheld_notice(source_id: str, label: str) -> str | None:
+    """What a call to a legal database the gate withholds is answered with; None when the gate lets it run.
+
+    It names what is missing, so the answer can say so: never that the source is "switched off", which reads
+    as a setting the person could change (QC on staging: „RIS ist deaktiviert"). The answer then says what it
+    could not read and holds its confidence below high.
+    """
+    country = LAW_SOURCE_COUNTRIES.get(source_id.lower())
+    if country is None or law_tools_allowed(country):
+        return None
+    context = turn_knowledge_context()
+    site = context.site_country or "a country"
+    reason = {
+        "organization_unplaced": "the office's country is not set, so no country's law is read",
+        "not_entitled": f"the site is in {site} and this office's workspace does not include its law",
+        "knowledge_unavailable": "the building-law base could not be read for this turn",
+    }.get(context.gate, f"{label} holds the law of {country}, which this turn does not read")
+    return (
+        f"Not executed: {label} was not consulted because {reason}. Answer with what you already have, say in "
+        "one sentence which source could not be read and why, and keep confidence below high."
+    )
+
+
 def jurisdiction_note() -> str | None:
     """The gate's note for this turn (``knowledge_context.gate_note``); None for core or full with nothing moved."""
     return gate_note(turn_knowledge_context())

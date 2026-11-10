@@ -124,10 +124,65 @@ def test_a_gate_that_does_not_read_austria_withholds_the_corpus_and_ris():
     assert law_sources_withheld() == frozenset({"ris"})
 
 
-def test_an_unknown_site_reads_the_corpus_but_not_the_legal_database():
-    set_turn_knowledge_context(KnowledgeContext(gate="site_unknown", retrieval_countries=frozenset({"AT"})))
+@pytest.mark.parametrize("gate", ["site_unknown", "none", "open", "core"])
+def test_reading_the_primary_law_is_not_a_verdict(gate):
+    """Dev acceptance A5: an office-level question in its home country quotes RIS, whatever the coverage."""
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
     assert corpus_country_allowed("AT") is True
-    assert law_sources_withheld() == frozenset({"ris"})
+    assert law_sources_withheld() == frozenset()
+
+
+@pytest.fixture
+def ris_registered():
+    from agent.common.data_source_registry import populate_from_config
+    from agent.common.data_source_registry import reset_registry
+
+    reset_registry()
+    populate_from_config([{"id": "ris", "name": "RIS", "description": "Austrian law.", "tools": ["ris_lookup_tool"]}])
+    yield
+    reset_registry()
+
+
+@pytest.mark.parametrize(
+    ("gate", "country", "reason"),
+    [
+        ("organization_unplaced", None, "the office's country is not set"),
+        ("not_entitled", "DE", "the site is in DE"),
+        ("knowledge_unavailable", "AT", "could not be read"),
+    ],
+)
+def test_a_withheld_legal_database_says_why_and_never_that_it_is_switched_off(gate, country, reason, ris_registered):
+    from agent.common.data_sources import disabled_source_notice
+
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country=country))
+    notice = disabled_source_notice("ris_lookup_tool", {"ris"})
+    assert notice is not None and reason in notice
+    assert "switched off" not in notice
+    assert "below high" in notice
+
+
+def test_a_switched_off_source_the_gate_allows_still_reads_as_switched_off(ris_registered):
+    """The org's own toggle is a setting; only the gate's reasons replace its text."""
+    from agent.common.data_sources import disabled_source_notice
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
+    assert "switched off" in (disabled_source_notice("ris_lookup_tool", {"ris"}) or "")
+
+
+def test_the_unknown_site_note_names_what_the_base_covers_and_keeps_the_web_to_information():
+    """Dev acceptance A3 and A4: no assumed country, a place outside the base is not covered, the web is information."""
+    set_turn_knowledge_context(KnowledgeContext(gate="site_unknown", retrieval_countries=frozenset({"AT", "EU"})))
+    note = jurisdiction_note() or ""
+    assert "AT, EU" in note and "do not assume a" in note
+    assert "unverified information" in note and "never from a web copy" in note
+
+
+@pytest.mark.parametrize(
+    "gate", ["organization_unplaced", "site_unknown", "not_entitled", "knowledge_unavailable", "none", "open"]
+)
+def test_every_note_keeps_the_web_from_supplying_a_requirement_or_an_edition(gate):
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT"))
+    assert "never the source of a requirement or of which edition binds" in (jurisdiction_note() or "")
 
 
 def test_a_covered_austrian_site_keeps_the_legal_database():
