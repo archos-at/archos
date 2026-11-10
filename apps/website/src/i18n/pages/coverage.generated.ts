@@ -18,3 +18,6 @@ export const coverageCopy = {
     faqA: 'The legal texts cover Austria today. {name} works with project documents, plans, models and office knowledge in any country.',
   },
 }
+
+// A dictionary like every page module, so scripts/check_brand_rules.mjs reads these lines too.
+export default coverageCopy

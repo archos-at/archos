@@ -107,6 +107,9 @@ def render(levels: dict[str, str]) -> str:
         out.extend(f"    {key}: {_quote(value)}," for key, value in strings.items())
         out.append("  },")
     out.append("}")
+    out.append("")
+    out.append("// A dictionary like every page module, so scripts/check_brand_rules.mjs reads these lines too.")
+    out.append("export default coverageCopy")
     return "\n".join(out) + "\n"
 
 
