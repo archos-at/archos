@@ -6,8 +6,9 @@
  */
 
 import { z } from 'zod'
-import { COVERAGE_LEVELS, EDITION_ROLES } from '../wire/vocab'
-import { GATE_STATES, knowledgeContextSchema, MAX_CONTEXT_USES } from './wire'
+import { projectLawSchema } from '@/lib/project-intake/types'
+import { COVERAGE_LEVELS } from '../wire/vocab'
+import { knowledgeContextSchema } from './wire'
 
 const countryId = z.string().regex(/^[A-Z]{2}$/, 'an ISO 3166-1 alpha-2 code such as DE')
 
@@ -56,32 +57,6 @@ export const baseKnowledgeReportBodySchema = z
 
 export const baseKnowledgeReportResultSchema = z.object({ changeRequestId: z.uuid(), status: z.literal('draft') }).strict()
 
-/** One edition the law at a project's site names, as a person reads it: its designation, edition and role there. */
-export const projectLawUseSchema = z
-  .object({
-    workId: z.string(),
-    /** Null for law read live at its source: the consolidated text in force today. */
-    editionId: z.string().nullable(),
-    role: z.enum(EDITION_ROLES),
-    designation: z.string().nullable(),
-    editionLabel: z.string().nullable(),
-  })
-  .strict()
-
-/**
- * The law at a project's site from the platform's records (ADR-0175): the
- * gate of its knowledge context, and the editions the chain names with their
- * role. Empty where the gate refuses (no home country, no site, a country the
- * office is not entitled to, records that could not be read, no coverage).
- * What the project's Steckbrief shows; it replaced the OIB verdict list.
- */
-export const projectLawSchema = z
-  .object({
-    gate: z.enum(GATE_STATES),
-    uses: z.array(projectLawUseSchema).max(MAX_CONTEXT_USES),
-  })
-  .strict()
-
 export const projectBaseViewSchema = z
   .object({
     context: knowledgeContextSchema,
@@ -111,7 +86,6 @@ export type CoverageView = z.infer<typeof coverageViewSchema>
 export type BaseKnowledgeReportBody = z.infer<typeof baseKnowledgeReportBodySchema>
 export type BaseKnowledgeReportResult = z.infer<typeof baseKnowledgeReportResultSchema>
 export type ProjectBaseView = z.infer<typeof projectBaseViewSchema>
-export type ProjectLaw = z.infer<typeof projectLawSchema>
-export type ProjectLawUse = z.infer<typeof projectLawUseSchema>
+export type { ProjectLaw, ProjectLawUse } from '@/lib/project-intake/types'
 export type ProjectBaseConfirmBody = z.infer<typeof projectBaseConfirmBodySchema>
 export type ProjectBaseConfirmResult = z.infer<typeof projectBaseConfirmResultSchema>

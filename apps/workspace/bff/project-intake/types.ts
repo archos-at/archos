@@ -12,8 +12,7 @@
 
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
-import { SETUP_DETERMINANTS, type SetupDeterminant } from '@/lib/base-knowledge/wire/vocab'
-import { projectLawSchema } from '@/lib/base-knowledge/context/operations-wire'
+import { EDITION_ROLES, GATE_STATES, SETUP_DETERMINANTS, type SetupDeterminant } from '@/lib/base-knowledge/wire/vocab'
 import {
   DERIVATION_RULES,
   derivationInputSchema,
@@ -56,6 +55,22 @@ export type {
 // ---------------------------------------------------------------------------
 // Vocabularies
 // ---------------------------------------------------------------------------
+
+
+/** One edition the law at a project's site names: designation, edition (null: read live at its source) and role there. */
+export const projectLawUseSchema = z
+  .object({ workId: z.string(), editionId: z.string().nullable(), role: z.enum(EDITION_ROLES), designation: z.string().nullable(), editionLabel: z.string().nullable() })
+  .strict()
+
+/**
+ * The law at a project's site from the platform's records (ADR-0175): the
+ * knowledge context's gate and the chain's editions with their role (at most
+ * MAX_CONTEXT_USES), none where the gate refuses. The Steckbrief and
+ * `project-base-get` show it; it replaced the OIB verdict list.
+ */
+export const projectLawSchema = z.object({ gate: z.enum(GATE_STATES), uses: z.array(projectLawUseSchema).max(40) }).strict()
+export type ProjectLaw = z.infer<typeof projectLawSchema>
+export type ProjectLawUse = z.infer<typeof projectLawUseSchema>
 
 /**
  * `waiting`: created, nothing read yet. `reading`: a run holds `job_id`.
