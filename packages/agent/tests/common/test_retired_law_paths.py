@@ -38,3 +38,11 @@ def test_no_prompt_file_carries_a_building_law_block() -> None:
         if "<building_law>\n" in path.read_text(encoding="utf-8")
     ]
     assert carriers == []
+
+
+def test_no_document_class_label_claims_that_it_binds() -> None:
+    """A Dokumentart names a document's role; whether it binds here is its edition's role (ADR-0175)."""
+    from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASS_LABELS
+
+    claims = {key: label for key, label in DOCUMENT_CLASS_LABELS.items() if "verbindlich" in label.lower()}
+    assert claims == {}
