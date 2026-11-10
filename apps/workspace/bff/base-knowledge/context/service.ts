@@ -1,7 +1,7 @@
 /**
- * The knowledge context a turn carries (design §5.5, ADR-0173), behind
- * `knowledge-context`. With the flag off nothing is read, timed or returned, so
- * the turn context is what it was.
+ * The knowledge context a turn carries (design §5.5, ADR-0173), on every turn
+ * since the cut-over (ADR-0175): which country an office reads is decided by
+ * its entitlement rows (`knowledge_country_entitled`), never by a switch.
  *
  * The inputs that decide the context are cheap (the office row, its
  * entitlements, the project's site facts, the packs' newest stable sequence,
@@ -20,7 +20,6 @@ import 'server-only'
 import { createHash } from 'node:crypto'
 import { metrics } from '@opentelemetry/api'
 import { sql } from 'drizzle-orm'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { getCached } from '@/lib/cache'
 import { getDb } from '@/lib/db'
 import { sqlTextArray } from '@/lib/db/sql-list'
@@ -28,7 +27,6 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import type { PhaseTimer } from '../chain/turn'
 import { loadGraph } from '../chain/load'
 import { readOrganizationCountries } from '../platform/entitlements'
@@ -186,8 +184,9 @@ export async function readContextInputs(organizationId: string, projectId: strin
 export type ContextReader = 'turn' | 'operation'
 
 /**
- * The turn's knowledge context, or undefined with the flag off (the key is
- * then absent from the turn context, not null). Timed as the `knowledge` phase.
+ * The turn's knowledge context, always present: a read that fails gives
+ * `knowledge_unavailable`, never no context, so the agent fails closed
+ * (ADR-0175). Timed as the `knowledge` phase.
  * Only a turn's failed read counts toward the `knowledge_context_available`
  * alert: an operation's failure is its caller's error, already in its response.
  */
@@ -197,8 +196,7 @@ export async function knowledgeContextForTurn(
   time: PhaseTimer = untimed,
   conversationId: string | null = null,
   reader: ContextReader = 'turn',
-): Promise<KnowledgeContext | undefined> {
-  if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.knowledgeContext, organizationId))) return undefined
+): Promise<KnowledgeContext> {
   return time('knowledge', async () => {
     try {
       const inputs = await readContextInputs(organizationId, projectId)

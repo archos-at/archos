@@ -47,7 +47,6 @@ describe('the registry', () => {
         'agent-mcp-access',
         'agent-mcp-controls',
         'agent-mcp-secrets',
-        'building-law-chain',
         'byok-llm',
         'collaboration',
         'deep-research',
@@ -70,9 +69,19 @@ describe('the registry', () => {
         // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0162).
         'source-routing',
         'task-automation',
-        'time-editions',
       ].sort()
     )
+  })
+})
+
+describe('the switches the cut-over removed (ADR-0175)', () => {
+  // Which office reads which country is its entitlement rows, never a switch:
+  // a slug coming back would bring a second, silent answer to that question.
+  const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions']
+
+  it.each(RETIRED)('%s is not in the registry', (slug) => {
+    expect(REGISTRY_FLAG_SLUGS as readonly string[]).not.toContain(slug)
+    expect(Object.keys(FLAG_KINDS)).not.toContain(slug)
   })
 })
 

@@ -6,8 +6,7 @@
  * is missing.
  *
  * GET — any member may read, as base knowledge is read; a project's procedure
- *       needs project:view on it (checked in the service). Behind the
- *       time-editions flag.
+ *       needs project:view on it (checked in the service).
  *
  * Thin handler; the logic is `@/lib/base-knowledge/time/service`.
  */
