@@ -481,8 +481,11 @@ export interface OrganizationCountriesView {
   entitled: { countryId: string; source: 'home' | 'platform'; entitledAt: string | null }[]
 }
 
-/** Why an office has no home country (ADR-0158): no row yet (its first page load writes one), or nobody stated it. */
-export const UNPLACED_REASONS = ['no_row', 'no_row_directory_names', 'not_stated'] as const
+/**
+ * Why an office has no home country (ADR-0158): its WorkOS metadata names one, which the next signed-in page load
+ * writes; or no row yet and nothing names one; or a row whose admins never stated it.
+ */
+export const UNPLACED_REASONS = ['directory_names', 'no_row', 'not_stated'] as const
 
 /** One office's placement as the platform reads it: `platform-org-countries-list`. */
 export interface OrganizationPlacementView {

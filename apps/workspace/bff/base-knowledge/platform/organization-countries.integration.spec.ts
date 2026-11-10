@@ -13,8 +13,8 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { UserSession } from '@/lib/auth/types'
 
-const RUN = Date.now().toString(36)
 const fixed = vi.hoisted(() => ({ run: Date.now().toString(36) }))
+const RUN = fixed.run
 const PLATFORM = `org_platform_place_${fixed.run}`
 const PLACED = `org_place_a_${fixed.run}`
 const UNSEEN = `org_place_b_${fixed.run}`
@@ -92,7 +92,7 @@ describe.skipIf(!url)('where every office is placed (platform-org-countries-list
       ],
     })
     expect(byId.get(UNSEEN)?.unplaced).toEqual({ reason: 'no_row', directoryHomeCountry: null })
-    expect(byId.get(NAMED)?.unplaced).toEqual({ reason: 'no_row_directory_names', directoryHomeCountry: 'DE' })
+    expect(byId.get(NAMED)?.unplaced).toEqual({ reason: 'directory_names', directoryHomeCountry: 'DE' })
     expect(byId.get(UNSTATED)).toMatchObject({
       unplaced: { reason: 'not_stated' },
       entitled: [{ countryId: 'AT', source: 'platform' }],

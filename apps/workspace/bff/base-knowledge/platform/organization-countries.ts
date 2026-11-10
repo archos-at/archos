@@ -18,7 +18,7 @@ import { organizations } from '@/lib/db/schema/organizations'
 import { organizationCountries } from '@/lib/db/schema/knowledge-platform'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import { getWorkOS } from '@/lib/workos/client'
-import { homeCountrySchema } from '@/lib/organizations/home-country'
+import { homeCountryFromMetadata } from '@/lib/organizations/home-country-row'
 import type { OrganizationPlacementView, PlatformOrganizationCountries } from './wire'
 
 /** The most organizations one page returns: WorkOS's own page size. */
@@ -35,23 +35,15 @@ interface PlacementRows {
   entitlements: { organizationId: string; countryId: string; entitledBy: string; decisionSource: string; entitledAt: Date }[]
 }
 
-/** The home country an organization's WorkOS metadata names: what its first page load will write. */
-function directoryHome(organization: DirectoryOrganization): string | null {
-  const raw = organization.metadata?.home_country
-  const parsed = homeCountrySchema.safeParse(typeof raw === 'string' ? raw.trim().toUpperCase() : raw)
-  return parsed.success ? parsed.data : null
-}
-
 /** One organization's placement, from its directory entry and its rows. Pure. */
 export function placementOf(organization: DirectoryOrganization, rows: PlacementRows): OrganizationPlacementView {
   const hasRow = rows.homes.has(organization.id)
   const home = rows.homes.get(organization.id) ?? null
-  const fromDirectory = directoryHome(organization)
+  // What the next signed-in page load writes (`ensureOrganizationRow`), with a row or without one.
+  const fromDirectory = homeCountryFromMetadata(organization.metadata)
   const unplaced: OrganizationPlacementView['unplaced'] = home
     ? null
-    : !hasRow
-      ? { reason: fromDirectory ? 'no_row_directory_names' : 'no_row', directoryHomeCountry: fromDirectory }
-      : { reason: 'not_stated', directoryHomeCountry: fromDirectory }
+    : { reason: fromDirectory ? 'directory_names' : hasRow ? 'not_stated' : 'no_row', directoryHomeCountry: fromDirectory }
   const granted = rows.entitlements
     .filter((entry) => entry.organizationId === organization.id && entry.countryId !== home)
     .map((entry) => ({

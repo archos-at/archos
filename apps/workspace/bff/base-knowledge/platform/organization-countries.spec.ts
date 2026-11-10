@@ -9,6 +9,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
 
 import { placementOf } from './organization-countries'
 
@@ -34,12 +35,11 @@ describe('an office’s placement', () => {
     })
   })
 
-  it('names the country the directory will write on the first page load', () => {
+  it('names the country the directory will write on the next page load, with a row or without one', () => {
     const office = { id: 'org_c', name: 'Büro C', metadata: { home_country: ' de ' } }
-    expect(placementOf(office, { homes: new Map(), entitlements: [] }).unplaced).toEqual({
-      reason: 'no_row_directory_names',
-      directoryHomeCountry: 'DE',
-    })
+    const named = { reason: 'directory_names', directoryHomeCountry: 'DE' }
+    expect(placementOf(office, { homes: new Map(), entitlements: [] }).unplaced).toEqual(named)
+    expect(placementOf(office, { homes: new Map([['org_c', null]]), entitlements: [] }).unplaced).toEqual(named)
   })
 
   it('says a row whose admins never stated a country is not stated, and keeps its entitlements', () => {

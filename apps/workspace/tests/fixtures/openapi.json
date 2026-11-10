@@ -33795,7 +33795,7 @@
       "get": {
         "operationId": "platform-org-countries-list",
         "summary": "List where every organization is placed: its home country and the countries it is entitled to",
-        "description": "Per organization (the platform organization left out): `homeCountry`, or null with `unplaced.reason`: `no_row` (nobody signed in to it yet), `no_row_directory_names` (its WorkOS metadata names `directoryHomeCountry`, written on the first page load) or `not_stated` (its admins have not stated it). Then `entitled`: its home (source `home`) and each country the platform entitled it to (source `platform`, with who and when). A page at a time (`limit`, `cursor` from `nextCursor`), the unplaced first within it. Read only: place an office with platform-organization-home-country-set, entitle it with platform-org-country-entitle.",
+        "description": "Per organization (the platform organization left out): `homeCountry`, or null with `unplaced.reason`: `directory_names` (its WorkOS metadata names `directoryHomeCountry`, written on the next signed-in page load), `no_row` (nobody signed in to it yet, and nothing names a country) or `not_stated` (its admins have not stated it). Then `entitled`: its home (source `home`) and each country the platform entitled it to (source `platform`, with who and when). A page at a time (`limit`, `cursor` from `nextCursor`), the unplaced first within it. Read only: place an office with platform-organization-home-country-set, entitle it with platform-org-country-entitle.",
         "tags": [
           "platform"
         ],
