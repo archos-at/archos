@@ -14,9 +14,11 @@
  * 4. A change (the bytes, the validator or the version, by the monitor's kind)
  *    or changed terms opens a draft request, origin `monitor`, holding a
  *    capture of the new page and the finding: previous and current state,
- *    whether the terms moved, and what the reviewer needs to recheck. While
- *    one is open for the source, a further change is recorded in the state
- *    only; the open request is where it is reviewed.
+ *    whether the terms moved, and what the reviewer needs to recheck. The
+ *    state then moves to that page. While the request is open, a check moves
+ *    only `checked_at` and `ok_at`: the state stays the page under review, so
+ *    a change made meanwhile is still a change against it once the request
+ *    closes, and opens the next one.
  * 5. One trace `source-monitor` with `freshness-lag-days` per watched source.
  *
  * An operator's agent finds the work with
@@ -31,12 +33,12 @@ import { isUniqueViolation } from '@/lib/db/errors'
 import { knowledgeChangeRequests, knowledgeReleaseMoves } from '@/lib/db/schema/knowledge-platform'
 import { recordSourceMonitorRun, type SourceMonitorRun } from '@/lib/langfuse/source-monitor-trace'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
-import { sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { CaptureFetchError } from './capture-fetch'
 import { insertCapture } from './captures'
 import { configuredSource } from './onboarding'
 import { lagDays, type ProbeAnswer, probeSource } from './source-service'
-import { activeSources, type MonitorState, monitorStates, type RegisteredSource, writeMonitorState } from './sources'
+import { activeSources, MONITOR_REQUEST_OPEN_STATUSES, type MonitorState, monitorStates, type RegisteredSource, writeMonitorState } from './sources'
 import { platformTransaction } from './store'
 import type { Tx } from '../store/repository'
 
@@ -159,6 +161,40 @@ async function openRequest(
   return id
 }
 
+type Baseline = Pick<MonitorState, 'etag' | 'sha256' | 'version' | 'termsSha256'>
+
+/** The state as it stands: what the next check compares against. */
+function baselineOf(state: MonitorState | undefined): Baseline {
+  return { etag: state?.etag ?? null, sha256: state?.sha256 ?? null, version: state?.version ?? null, termsSha256: state?.termsSha256 ?? null }
+}
+
+/** The page just seen, as the new state. */
+function stateOf(seen: ProbeAnswer, state: MonitorState | undefined): Baseline {
+  const hex = /^[0-9a-f]{64}$/
+  return {
+    etag: seen.current.etag || null,
+    sha256: hex.test(seen.current.sha256) ? seen.current.sha256 : null,
+    version: seen.current.version || null,
+    termsSha256: hex.test(seen.current.termsSha256) ? seen.current.termsSha256 : (state?.termsSha256 ?? null),
+  }
+}
+
+/** Whether a monitor's request for the source is still open: the page it holds is the one under review. */
+async function hasOpenMonitorRequest(tx: Tx, recordId: string): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: knowledgeChangeRequests.id })
+    .from(knowledgeChangeRequests)
+    .where(
+      and(
+        eq(knowledgeChangeRequests.origin, 'monitor'),
+        eq(knowledgeChangeRequests.sourceRecordId, recordId),
+        inArray(knowledgeChangeRequests.status, [...MONITOR_REQUEST_OPEN_STATUSES]),
+      ),
+    )
+    .limit(1)
+  return Boolean(row)
+}
+
 interface Checked {
   recordId: string
   lagSince: Date | null
@@ -188,20 +224,22 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
     )
     return { recordId: source.recordId, lagSince: state?.okAt ?? null, failed: true, changed: false, opened: null }
   }
+  const changed = seen.changed || seen.termsChanged
   const opened = await platformTransaction(async (tx) => {
+    const underReview = await hasOpenMonitorRequest(tx, source.recordId)
+    const id = changed && !underReview ? await openRequest(tx, source, state, seen, now) : null
+    // A change that opened no request (one is open, or another run opened it a moment ago) is not reviewed yet.
+    const keep = underReview || (changed && id === null)
     await writeMonitorState(tx, {
       recordId: source.recordId,
       checkedAt: now,
       okAt: now,
       failure: null,
-      etag: seen.current.etag || null,
-      sha256: /^[0-9a-f]{64}$/.test(seen.current.sha256) ? seen.current.sha256 : null,
-      version: seen.current.version || null,
-      termsSha256: /^[0-9a-f]{64}$/.test(seen.current.termsSha256) ? seen.current.termsSha256 : (state?.termsSha256 ?? null),
+      ...(keep ? baselineOf(state) : stateOf(seen, state)),
     })
-    return seen.changed || seen.termsChanged ? openRequest(tx, source, state, seen, now) : null
+    return id
   })
-  return { recordId: source.recordId, lagSince: now, failed: false, changed: seen.changed || seen.termsChanged, opened }
+  return { recordId: source.recordId, lagSince: now, failed: false, changed, opened }
 }
 
 /**

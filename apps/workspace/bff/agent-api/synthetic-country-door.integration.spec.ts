@@ -392,11 +392,23 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(again.opened[recordId]).toBeUndefined()
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_change_requests WHERE source_record_id = ${recordId}`)).toBe(1)
 
-    // A reviewer with nothing to do closes it (a draft may be rejected, the person's yes), and the next change files anew.
+    // The state stays the page under review (V2): the check moved only its clock.
+    const state = async () =>
+      withPlatformAccess('synthetic spec state', async () =>
+        (await db.execute<{ sha256: string; checked_at: string }>(sql`SELECT sha256, checked_at::text FROM knowledge_source_monitor_states WHERE record_id = ${recordId}`))[0],
+      )
+    expect((await state())?.sha256).toBe(sha(PAGE_V2))
+
+    // A reviewer with nothing to do closes it (a draft may be rejected, the person's yes).
     const closed = await ok(expert, 'platform-knowledge-change-request-decide', { params: { changeRequestId: opened }, body: { decision: 'reject', role: 'domain_expert' } }, { person: 'yes' })
     expect(closed.status).toBe('rejected')
-    served = `${PAGE_V2}\n§ 4 Fountains`
+    // The change made while it was open (§ 3) was never reviewed: the next check files it, with no further change to the page.
     const reopened = await runSourceMonitor(new Date(later.getTime() + 75 * 3_600_000), deps)
-    expect(reopened.opened[recordId]).toBeTruthy()
+    const next = reopened.opened[recordId]
+    expect(next).toBeTruthy()
+    const filed = await ok(author, 'platform-knowledge-change-request-list', { query: { origin: 'monitor' } })
+    const second = (filed.changeRequests as { id: string; monitorFinding: { previous: { sha256: string }; current: { sha256: string } } }[]).find((row) => row.id === next)
+    expect(second?.monitorFinding).toMatchObject({ previous: { sha256: sha(PAGE_V2) }, current: { sha256: sha(`${PAGE_V2}\n§ 3 Gardens`) } })
+    expect((await state())?.sha256).toBe(sha(`${PAGE_V2}\n§ 3 Gardens`))
   })
 })

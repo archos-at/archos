@@ -33,6 +33,9 @@ export const TESTING_WINDOW_MS = 24 * 60 * 60 * 1000
 
 const OPEN_STATUSES = ['draft', 'submitted'] as const
 
+/** A monitor's request is open in these states: the WHERE of `knowledge_change_requests_one_open_per_source` (0212). */
+export const MONITOR_REQUEST_OPEN_STATUSES = ['draft', 'submitted', 'approved'] as const
+
 export type SourceState = 'active' | 'testing'
 
 export interface RegisteredSource {
