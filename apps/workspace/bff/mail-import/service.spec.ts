@@ -134,7 +134,13 @@ describe('startMailImport', () => {
   it('takes only Outlook archives, and only up to the ceiling', async () => {
     await expect(startMailImport(session, PROJECT, { filename: 'a.zip', sizeBytes: 10 })).rejects.toThrow(/Outlook/)
     vi.stubEnv('MAIL_IMPORT_MAX_BYTES', '100')
-    await expect(startMailImport(session, PROJECT, { filename: 'a.pst', sizeBytes: 101 })).rejects.toThrow(/maximum/)
+    try {
+      await expect(startMailImport(session, PROJECT, { filename: 'a.pst', sizeBytes: 101 })).rejects.toThrow(/maximum/)
+    } finally {
+      // Restored here, not only by the next beforeEach: a full vm-pool run once saw this ceiling in a later case (gotchas.md).
+      vi.unstubAllEnvs()
+      vi.stubEnv('REQUIRE_AUTH', 'true')
+    }
   })
 
   it('refuses a second open import of the same person in the project, naming the open one', async () => {

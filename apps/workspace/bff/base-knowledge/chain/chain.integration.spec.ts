@@ -138,6 +138,26 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
+  it('reads a work’s identifiers at its source as its sourceRefs, by scheme, and nothing else of them', async () => {
+    await published('AT', 'A Viennese statute read live at RIS', [
+      {
+        type: 'work',
+        key: `wien-statute-${RUN}`,
+        kind: 'statute',
+        title: 'Testgesetz für Wien',
+        designation: 'TG Wien',
+        territoryIds: ['AT-9'],
+        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}` },
+        citations: [{ url: 'https://www.ris.bka.gv.at/', note: 'fixture' }],
+      },
+    ])
+    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
+    expect(graph.works.get(`work:wien-statute-${RUN}`)?.sourceRefs).toEqual([
+      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}` },
+      { scheme: 'ris_gesetzesnummer', value: '20000006' },
+    ])
+  })
+
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {
     expect(await bindingOf(AUSTRIAN, 'AT-9', 'work:eu-cpr')).toEqual([['edition:eu-cpr-305-2011', 'binding']])
     // Positive control above; the same reads for an office not entitled to Austria.

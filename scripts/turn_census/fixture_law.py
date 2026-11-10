@@ -5,7 +5,7 @@ nothing else (its chain text and every edition's role); a turn without it reads 
 fixture BFF answer to ``POST /api/internal/turn-context`` therefore carries it, for the Land of the
 turn's project, as the production resolvers wrote it from the Austria and EU packs
 (``tests/fixtures/base-knowledge/turn_law_austria.json``, from
-``apps/workspace/bff/base-knowledge/context/suite-turn-law.fixture.spec.ts``).
+``apps/workspace/bff/base-knowledge/context/turn-law.fixture.spec.ts``).
 """
 
 from __future__ import annotations

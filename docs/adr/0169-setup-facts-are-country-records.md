@@ -68,6 +68,9 @@ re-derives the classes only when it selects another classification.
 runs the classification on the planned values and, for a Bestand, on today's,
 and answers the shift, the open inputs, the classes still possible, and the
 document each open input needs (E34).
+Amended by ADR-0175: where the project's knowledge context withholds law (not
+entitled, unreadable, no coverage, no site), it names no class and answers
+`undetermined` with that gate, as the turn would.
 
 **Where the records live today.** Austria's three records ship as seeds
 (`bff/base-knowledge/rulesets/seeds/`, listed in `rulesets/shipped.ts`) and are

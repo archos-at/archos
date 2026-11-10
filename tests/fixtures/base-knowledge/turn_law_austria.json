@@ -51,7 +51,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:bgld-bauvo",
@@ -66,7 +69,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Bgld. BauVO 2008",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-bgld",
@@ -81,7 +87,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Bgld. BauG",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -99,7 +108,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -117,7 +129,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -135,7 +150,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -153,7 +171,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -171,7 +192,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -189,7 +213,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -207,7 +234,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -225,7 +255,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -243,7 +276,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -263,7 +299,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -283,7 +322,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -303,7 +345,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -323,7 +368,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -341,7 +389,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -361,7 +412,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -381,7 +435,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -401,7 +458,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -421,7 +481,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -441,7 +504,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -459,16 +525,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Burgenland (AT-1, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“, the consolidated text in force at its source: ordinance of AT-1, in force\n- Bgld. BauG „Burgenländisches Baugesetz 1997“, the consolidated text in force at its source: law of AT-1, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Burgenland (AT-1, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“, the consolidated text in force at its source: ordinance of AT-1, in force\n- Bgld. BauG „Burgenländisches Baugesetz 1997“, the consolidated text in force at its source: law of AT-1, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by Bgld. BauVO 2008 „Burgenländische Bauverordnung 2008“ (Bgld. BauVO 2008 idF LGBl. 22/2021)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-2": {
@@ -523,7 +592,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-ktn",
@@ -538,7 +610,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "K-BO 1996",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:ktn-btv",
@@ -553,7 +628,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "K-BTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -573,7 +651,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -593,7 +674,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -613,7 +697,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -633,7 +720,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -653,7 +743,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -673,7 +766,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -693,7 +789,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -713,7 +812,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -733,7 +835,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -751,7 +856,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -769,7 +877,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -787,7 +898,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -805,7 +919,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -823,7 +940,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -841,7 +961,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -859,7 +982,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -877,7 +1003,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -895,7 +1024,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -913,7 +1045,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -931,16 +1066,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Kärnten (AT-2, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- K-BO 1996 „Kärntner Bauordnung 1996“, the consolidated text in force at its source: law of AT-2, in force\n- K-BTV „Kärntner Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-2, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe Mai 2023\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Kärnten (AT-2, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- K-BO 1996 „Kärntner Bauordnung 1996“, the consolidated text in force at its source: law of AT-2, in force\n- K-BTV „Kärntner Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-2, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by K-BTV „Kärntner Bautechnikverordnung“ (K-BTV 2024, LGBl. 105/2024)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe Mai 2023\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-3": {
@@ -995,7 +1133,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-noe",
@@ -1010,7 +1151,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "NÖ BO 2014",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:noe-btv",
@@ -1025,7 +1169,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "NÖ BTV 2014",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -1045,7 +1192,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -1065,7 +1215,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -1085,7 +1238,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -1105,7 +1261,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1125,7 +1284,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -1145,7 +1307,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -1165,7 +1330,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -1185,7 +1353,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -1205,7 +1376,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1223,7 +1397,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -1241,7 +1418,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -1259,7 +1439,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -1277,7 +1460,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -1295,7 +1481,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1313,7 +1502,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -1331,7 +1523,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -1349,7 +1544,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -1367,7 +1565,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -1385,7 +1586,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -1403,16 +1607,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Niederösterreich (AT-3, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- NÖ BO 2014 „NÖ Bauordnung 2014“, the consolidated text in force at its source: law of AT-3, in force\n- NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“, the consolidated text in force at its source: ordinance of AT-3, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe Mai 2023\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Niederösterreich (AT-3, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- NÖ BO 2014 „NÖ Bauordnung 2014“, the consolidated text in force at its source: law of AT-3, in force\n- NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“, the consolidated text in force at its source: ordinance of AT-3, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by NÖ BTV 2014 „NÖ Bautechnikverordnung 2014“ (NÖ BTV 2014 idF LGBl. 41/2025)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe Mai 2023\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-4": {
@@ -1467,7 +1674,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-ooe",
@@ -1482,7 +1692,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Oö. BauO 1994",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:ooe-bautv",
@@ -1497,7 +1710,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Oö. BauTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -1517,7 +1733,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -1537,7 +1756,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -1557,7 +1779,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -1577,7 +1802,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1595,7 +1823,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -1615,7 +1846,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -1635,7 +1869,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -1655,7 +1892,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -1675,7 +1915,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1693,7 +1936,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -1711,7 +1957,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -1729,7 +1978,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -1747,7 +1999,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -1765,7 +2020,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -1785,7 +2043,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -1803,7 +2064,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -1821,7 +2085,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -1839,7 +2106,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -1857,7 +2127,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -1875,16 +2148,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Oberösterreich (AT-4, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Oö. BauO 1994 „Oö. Bauordnung 1994“, the consolidated text in force at its source: law of AT-4, in force\n- Oö. BauTV „Oö. Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-4, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Oberösterreich (AT-4, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Oö. BauO 1994 „Oö. Bauordnung 1994“, the consolidated text in force at its source: law of AT-4, in force\n- Oö. BauTV „Oö. Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-4, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by Oö. BauTV „Oö. Bautechnikverordnung“ (Oö. BauTV-Novelle 2025, LGBl. 70/2025)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n10 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-5": {
@@ -1939,7 +2215,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:sbg-btv",
@@ -1954,7 +2233,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Sbg. BTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:btg-sbg",
@@ -1969,7 +2251,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Sbg. BTG 2015",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -1989,7 +2274,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -2009,7 +2297,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -2029,7 +2320,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -2049,7 +2343,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -2069,7 +2366,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -2089,7 +2389,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -2109,7 +2412,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -2129,7 +2435,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2147,7 +2456,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -2165,7 +2477,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -2183,7 +2498,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -2201,7 +2519,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -2219,7 +2540,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2237,7 +2561,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2257,7 +2584,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -2275,7 +2605,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -2293,7 +2626,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -2311,7 +2647,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -2329,7 +2668,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -2347,16 +2689,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Salzburg (AT-5, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Sbg. BTV „Bautechnikverordnung (Salzburg)“, the consolidated text in force at its source: ordinance of AT-5, in force\n- Sbg. BTG 2015 „Salzburger Bautechnikgesetz 2015“, the consolidated text in force at its source: law of AT-5, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the records name no binding edition here; check the Land's ordinance\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Salzburg (AT-5, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Sbg. BTV „Bautechnikverordnung (Salzburg)“, the consolidated text in force at its source: ordinance of AT-5, in force\n- Sbg. BTG 2015 „Salzburger Bautechnikgesetz 2015“, the consolidated text in force at its source: law of AT-5, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by Sbg. BTV „Bautechnikverordnung (Salzburg)“ (LGBl. 83/2026)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the records name no binding edition here; check the Land's ordinance\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-6": {
@@ -2411,7 +2756,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:stmk-btv",
@@ -2426,7 +2774,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "StBTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-stmk",
@@ -2441,7 +2792,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Stmk. BauG",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -2459,7 +2813,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -2477,7 +2834,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -2495,7 +2855,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -2513,7 +2876,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2531,7 +2897,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -2549,7 +2918,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -2567,7 +2939,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -2585,7 +2960,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -2603,7 +2981,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -2623,7 +3004,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -2643,7 +3027,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -2663,7 +3050,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -2683,7 +3073,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2701,7 +3094,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -2721,7 +3117,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -2741,7 +3140,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -2761,7 +3163,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -2781,7 +3186,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -2801,7 +3209,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -2819,16 +3230,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Steiermark (AT-6, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- StBTV „Steiermärkische Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-6, in force\n- Stmk. BauG „Steiermärkisches Baugesetz“, the consolidated text in force at its source: law of AT-6, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Steiermark (AT-6, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- StBTV „Steiermärkische Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-6, in force\n- Stmk. BauG „Steiermärkisches Baugesetz“, the consolidated text in force at its source: law of AT-6, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by StBTV „Steiermärkische Bautechnikverordnung“ (StBTV 2020)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-7": {
@@ -2883,7 +3297,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:tirol-tbv",
@@ -2898,7 +3315,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "TBV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:bo-tirol",
@@ -2913,7 +3333,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "TBO 2022",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -2933,7 +3356,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -2953,7 +3379,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -2973,7 +3402,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -2993,7 +3425,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3011,7 +3446,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -3031,7 +3469,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -3051,7 +3492,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -3071,7 +3515,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -3091,7 +3538,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -3109,7 +3559,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -3127,7 +3580,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -3145,7 +3601,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -3163,7 +3622,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3181,7 +3643,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3201,7 +3666,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -3219,7 +3687,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -3237,7 +3708,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -3255,7 +3729,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -3273,7 +3750,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -3291,16 +3771,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Tirol (AT-7, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- TBV „Technische Bauvorschriften (Tirol)“, the consolidated text in force at its source: ordinance of AT-7, in force\n- TBO 2022 „Tiroler Bauordnung 2022“, the consolidated text in force at its source: law of AT-7, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n  - pkt_2.2 is not adopted here by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n  - pkt_2.3.1 is not adopted here by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Tirol (AT-7, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- TBV „Technische Bauvorschriften (Tirol)“, the consolidated text in force at its source: ordinance of AT-7, in force\n- TBO 2022 „Tiroler Bauordnung 2022“, the consolidated text in force at its source: law of AT-7, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n  - pkt_2.2 is not adopted here by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n  - pkt_2.3.1 is not adopted here by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by TBV „Technische Bauvorschriften (Tirol)“ (§ 43 TBV 2026, LGBl. 59/2026)\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-8": {
@@ -3352,7 +3835,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Vbg. BauG",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-cpr",
@@ -3370,7 +3856,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:vbg-btv",
@@ -3385,7 +3874,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Vbg. BTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -3403,7 +3895,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -3421,7 +3916,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -3439,7 +3937,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -3457,7 +3958,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3475,7 +3979,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -3493,7 +4000,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -3511,7 +4021,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -3529,7 +4042,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -3547,7 +4063,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -3567,7 +4086,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -3587,7 +4109,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -3607,7 +4132,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -3627,7 +4155,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3645,7 +4176,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -3665,7 +4199,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -3685,7 +4222,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -3705,7 +4245,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -3725,7 +4268,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3745,7 +4291,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -3763,16 +4312,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Vorarlberg (AT-8, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Vbg. BauG „Baugesetz (Vorarlberg)“, the consolidated text in force at its source: law of AT-8, in force\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Vbg. BTV „Bautechnikverordnung (Vorarlberg)“, the consolidated text in force at its source: ordinance of AT-8, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Vorarlberg (AT-8, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- Vbg. BauG „Baugesetz (Vorarlberg)“, the consolidated text in force at its source: law of AT-8, in force\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- Vbg. BTV „Bautechnikverordnung (Vorarlberg)“, the consolidated text in force at its source: ordinance of AT-8, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe April 2019: declared binding by Vbg. BTV „Bautechnikverordnung (Vorarlberg)“ (Vbg. BTV idF LGBl. 67/2021)\nGuidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: guidance only; the edition that binds here is edition Ausgabe April 2019\nLegal commentaries are not available; say so when asked for one.\n2 other editions are not in force here and are information only."
+      }
     }
   },
   "AT-9": {
@@ -3824,7 +4376,23 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "BO für Wien",
+          "editionLabel": null,
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11"
+            },
+            {
+              "scheme": "ris_dokumentnummer",
+              "value": "LWI40000225"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20000006"
+            }
+          ]
         },
         {
           "workId": "work:eu-cpr",
@@ -3842,7 +4410,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Verordnung (EU) Nr. 305/2011",
+          "editionLabel": "Verordnung (EU) Nr. 305/2011",
+          "sourceRefs": []
         },
         {
           "workId": "work:wbtv",
@@ -3857,7 +4428,10 @@
             "site"
           ],
           "labels": [],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "WBTV",
+          "editionLabel": null,
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -3877,7 +4451,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -3897,7 +4474,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -3917,7 +4497,10 @@
           ],
           "corpusFiles": [
             "oib-richtlinie_2.2_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -3937,7 +4520,10 @@
           ],
           "corpusFiles": [
             "oib-rl_2.3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -3955,7 +4541,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe 2025",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -3975,7 +4564,10 @@
           ],
           "corpusFiles": [
             "oib-rl_3_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -3995,7 +4587,10 @@
           ],
           "corpusFiles": [
             "oib-rl_1_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -4015,7 +4610,10 @@
           ],
           "corpusFiles": [
             "oib-rl_4_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -4035,7 +4633,10 @@
           ],
           "corpusFiles": [
             "oib-rl_5_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2",
@@ -4053,7 +4654,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-1",
@@ -4071,7 +4675,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-2",
@@ -4089,7 +4696,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.2",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-2-3",
@@ -4107,7 +4717,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 2.3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -4125,7 +4738,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-6",
@@ -4145,7 +4761,10 @@
           ],
           "corpusFiles": [
             "oib-rl_6_ausgabe_mai_2023.pdf"
-          ]
+          ],
+          "designation": "OIB-Richtlinie 6",
+          "editionLabel": "Ausgabe Mai 2023",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-3",
@@ -4163,7 +4782,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 3",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-1",
@@ -4181,7 +4803,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 1",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-4",
@@ -4199,7 +4824,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 4",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         },
         {
           "workId": "work:eu-epbd",
@@ -4217,7 +4845,10 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "Richtlinie (EU) 2024/1275",
+          "editionLabel": "Richtlinie (EU) 2024/1275",
+          "sourceRefs": []
         },
         {
           "workId": "work:oib-rl-5",
@@ -4235,16 +4866,19 @@
             "check_overdue",
             "unchecked_since"
           ],
-          "corpusFiles": []
+          "corpusFiles": [],
+          "designation": "OIB-Richtlinie 5",
+          "editionLabel": "Ausgabe April 2019",
+          "sourceRefs": []
         }
       ],
+      "text": "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- BO für Wien „Bauordnung für Wien“, the consolidated text in force at its source: law of AT-9, in force\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- WBTV „Wiener Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-9, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: declared binding by WBTV „Wiener Bautechnikverordnung“ (LGBl. 26/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only.",
       "retrieval": {
         "countries": [
           "AT",
           "EU"
         ]
-      },
-      "text": "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records. What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- BO für Wien „Bauordnung für Wien“, the consolidated text in force at its source: law of AT-9, in force\n- Verordnung (EU) Nr. 305/2011 „Bauproduktenverordnung“, edition Verordnung (EU) Nr. 305/2011: law of EU, in force\n- WBTV „Wiener Bautechnikverordnung“, the consolidated text in force at its source: ordinance of AT-9, in force\n- OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.1 „Brandschutz bei Betriebsbauten“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.2 „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 2.3 „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 6 „Energieeinsparung und Wärmeschutz“, edition Ausgabe 2025: declared binding by WBTV „Wiener Bautechnikverordnung“ (LGBl. 26/2026)\n- OIB-Richtlinie 3 „Hygiene, Gesundheit und Umweltschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 1 „Mechanische Festigkeit und Standsicherheit“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 4 „Nutzungssicherheit und Barrierefreiheit“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\n- OIB-Richtlinie 5 „Schallschutz“, edition Ausgabe Mai 2023: declared binding by WBTV „Wiener Bautechnikverordnung“ (WBTV 2023, LGBl. 14/2024)\nLegal commentaries are not available; say so when asked for one.\n11 other editions are not in force here and are information only."
+      }
     }
   }
 }

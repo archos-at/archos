@@ -5,6 +5,7 @@
  * by hand ("paper" fixtures).
  */
 
+import type { SourceRef } from './source-refs'
 import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
@@ -38,6 +39,8 @@ export interface GraphWork {
   addresseeTerritoryIds: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
+  /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
+  sourceRefs?: readonly SourceRef[]
 }
 
 export interface GraphEdition {

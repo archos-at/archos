@@ -1,0 +1,23 @@
+---
+# area: building-law
+improvements:
+  - >
+    A research run now works from the same law as the chat: the editions that
+    apply at the project's site, in their role there, or a clear note when that
+    law cannot be named.
+  - >
+    Where the law of a project's site cannot be named (the office is not
+    entitled to its country, or it cannot be read), the building class is no
+    longer named either: the evaluation says why, as the chat does.
+  - >
+    An office's base knowledge entry keeps who proposed it after it is
+    confirmed, and names who confirmed it.
+  - >
+    A licensed standard your office holds but has not cleared for AI
+    processing is now named in answers as held and not read, so the answer
+    says why it cannot quote it instead of leaving it out.
+operators:
+  - >
+    A statute read live in RIS can now carry its RIS law number and ELI on its
+    work record, so a passage the agent reads there is badged with its role.
+    Propose them with the records; no migration is needed.

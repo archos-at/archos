@@ -78,6 +78,7 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseK
     status: stored.confirmed ? 'confirmed' : 'proposed',
     values: stored.values,
     proposedBy: stored.provenance.proposedBy ?? 'reading',
+    confirmedBy: stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null,
     textUse: textUseOf(stored.values.licenceClass, stored.terms),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
@@ -242,7 +243,7 @@ async function writeValues(
   await writeConfirmedValues(stored, values, {
     organizationId: session.organizationId,
     createdBy: session.userId,
-    provenance: { proposedBy: 'person' },
+    provenance: { proposedBy: stored.provenance.proposedBy ?? 'reading', confirmedBy: session.userId },
     terms,
     firstCheck,
   })
@@ -355,8 +356,9 @@ export interface BaseKnowledgeTurn {
 }
 
 export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
-  const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed)
-  const held = stored.flatMap((entry) => (entry.values.designation ? [entry.values.designation] : []))
+  // Confirmed copies, and licensed ones still proposals: those are named as held and never read (ADR-0164).
+  const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed || entry.values.licenceClass === 'licensed')
+  const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
   const [documents, profile, listed] = await Promise.all([
     visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
@@ -372,6 +374,6 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   })
   return {
     block: renderBaseKnowledgeBlock(entries, territory, listed, directives),
-    labels: entries.map((entry) => officeAnswerLabel(entry, territory)),
+    labels: entries.filter((entry) => entry.status === 'confirmed').map((entry) => officeAnswerLabel(entry, territory)),
   }
 }

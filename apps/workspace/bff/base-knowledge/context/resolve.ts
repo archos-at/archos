@@ -15,7 +15,8 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
-import type { GraphEdition, KnowledgeGraph } from '../chain/graph'
+import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
+import { nameOf, renderChainText } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
@@ -94,6 +95,7 @@ function refusal(state: GateState, inputs: ContextInputs, leaves: Leaf[], retrie
     date: inputs.date,
     procedures: [...inputs.procedures],
     uses: [],
+    text: null,
     retrieval: { countries: retrieval },
   }
 }
@@ -165,7 +167,26 @@ function contextUse(
     connectsBy,
     labels,
     corpusFiles: [...(edition?.corpusFiles ?? [])],
+    designation: work.designation ? nameOf(work.designation) : null,
+    editionLabel: edition?.label ? nameOf(edition.label) : null,
+    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
   }
+}
+
+/**
+ * The chain text of a resolution in the roles the context gives each use: the
+ * open-coverage, freshness and connecting-factor corrections reach the words
+ * the agent reads, so the block and the uses never disagree. Null where no
+ * law binds in its own territory by the records: there is no chain to read.
+ */
+function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string): string | null {
+  const roles = new Map(uses.map((use) => [`${use.workId}/${use.editionId ?? ''}`, use.role]))
+  const named = resolved.uses.flatMap((use) => {
+    const role = roles.get(`${use.workId}/${use.editionId ?? ''}`)
+    return role ? [{ ...use, role }] : []
+  })
+  const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')
+  return lawHere ? renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId) : null
 }
 
 /** The countries a site's chain reads from the shared corpus: its own, and a union the graph let it read. */
@@ -200,6 +221,7 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     date: inputs.date,
     procedures: [...inputs.procedures],
     uses: [],
+    text: null,
     retrieval: { countries: retrieval },
   }
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
@@ -210,5 +232,5 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     .map((use) => contextUse(graph, use, coverage, inputs))
     .filter((use): use is ContextUse => use !== null)
     .slice(0, MAX_CONTEXT_USES)
-  return { ...base, uses }
+  return { ...base, uses, text: textOf(graph, resolved, uses, first.territoryId) }
 }

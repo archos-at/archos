@@ -1489,7 +1489,10 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
    and the knowledge context carries the chain text (`text`) and each
    edition's role (`uses`), with the open-coverage, freshness and
-   connecting-factor corrections applied. It is the turn's one answer to which
+   connecting-factor corrections applied, and each use's designation, edition
+   label and the work's identifiers at its source (`sourceRefs`,
+   `{scheme, value}`); the contract is
+   `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
    law applies: the citation chip reads the same roles the gate does
    (`citations/roles.py`), so a citation never says binding where the gate says
    information. The chain text is the turn context's

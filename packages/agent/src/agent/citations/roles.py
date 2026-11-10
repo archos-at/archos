@@ -63,6 +63,14 @@ class BindingClassification:
     binding_status: str = "unknown"
 
 
+def _comparable(url: str) -> str:
+    """A URL for a prefix match: lower case, any scheme, and the host without ``www.`` (RIS links come both
+    ways: ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``). Pure."""
+    parts = urlsplit(url.strip().lower())
+    host = parts.netloc.removeprefix("www.")
+    return f"{host}{parts.path}" + (f"?{parts.query}" if parts.query else "")
+
+
 def _law_number(url: str | None) -> str | None:
     """The ``Gesetzesnummer`` query parameter of a RIS URL (``GeltendeFassung.wxe?…&Gesetzesnummer=20000006``)."""
     query = parse_qs(urlsplit(url or "").query)
@@ -73,11 +81,12 @@ def _law_number(url: str | None) -> str | None:
 def _ref_matches(ref: SourceRef, entry: SourceEntry) -> bool:
     """Whether one identity names the passage ``entry`` read, by its scheme; an unknown scheme never matches. Pure.
 
-    ``eli`` is the prefix of the passage's URL, ``ris_gesetzesnummer`` the Gesetzesnummer its RIS URL asks
-    for, ``ris_dokumentnummer`` a whole token of its URL, citation key or collection.
+    ``eli`` is the prefix of the passage's URL (host with or without ``www.``), ``ris_gesetzesnummer``
+    the Gesetzesnummer its RIS URL asks for, ``ris_dokumentnummer`` a whole token of its URL, citation key
+    or collection.
     """
     if ref.scheme == "eli":
-        return bool(entry.url) and entry.url.lower().startswith(ref.value.lower())
+        return bool(entry.url) and _comparable(entry.url).startswith(_comparable(ref.value))
     if ref.scheme == "ris_gesetzesnummer":
         return _law_number(entry.url) == ref.value
     if ref.scheme != "ris_dokumentnummer":

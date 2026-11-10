@@ -259,9 +259,8 @@ const schemaCache = new Map<string, JsonSchemaNode>()
 
 function part(schema: Parameters<typeof toJsonSchema>[0]): { node: JsonSchemaNode; required: boolean } {
   try {
-    const node = toJsonSchema(schema)
-    const required = Array.isArray(node.required) ? node.required.length > 0 : !z.safeParse(schema, undefined).success
-    return { node, required }
+    // Required when dispatch would refuse it absent, which it checks as `{}` (`validateOperationInput`).
+    return { node: toJsonSchema(schema), required: !z.safeParse(schema, {}).success }
   } catch {
     // The route's own schema is the gate; the export only shapes what is shown.
     return { node: { description: 'Shape not describable here; the route validates it.' }, required: false }

@@ -54,6 +54,7 @@
 import type { UserSession } from '@/lib/auth/types'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { NextResponse } from 'next/server'
+import { featureDisabledProblem } from './feature-disabled'
 
 export const FEATURE_FLAGS = {
   /** Runtime AI model configuration (ADR-0014) — a premium admin feature. */
@@ -521,14 +522,11 @@ export function requireTaskAutomationEnabled(
   return requireFeature(session, FEATURE_FLAGS.taskAutomation)
 }
 
-/**
- * Route guard: stable-coded 403 when the feature is off, null when allowed.
- * Usage: `const gated = requireFeature(session, FEATURE_FLAGS.x); if (gated) return gated`
- */
+/** Route guard: the feature-disabled problem (403, `feature-disabled.ts`) when off, null when allowed. */
 export function requireFeature(
   session: Pick<UserSession, 'featureFlags'>,
   flag: KnownFeatureFlag
 ): Response | null {
   if (isFeatureEnabled(session, flag)) return null
-  return NextResponse.json({ error: 'feature-disabled', feature: flag }, { status: 403 })
+  return NextResponse.json(featureDisabledProblem(flag), { status: 403, headers: { 'Content-Type': 'application/problem+json' } })
 }

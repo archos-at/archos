@@ -62,7 +62,7 @@
       "post": {
         "operationId": "classification-evaluate",
         "summary": "Evaluate a building’s class under its site’s rules",
-        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Where the project’s knowledge context withholds law, `undetermined` with its `gate`. Needs project:view.",
         "tags": [
           "projects"
         ],
@@ -29761,7 +29761,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
         "tags": [
           "platform"
         ],
@@ -29916,6 +29916,30 @@
                                   "client"
                                 ]
                               }
+                            },
+                            "identifiers": {
+                              "default": {},
+                              "description": "The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.",
+                              "type": "object",
+                              "properties": {
+                                "ris_gesetzesnummer": {
+                                  "description": "RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. \"20000006\".",
+                                  "type": "string",
+                                  "pattern": "^\\d{1,12}$"
+                                },
+                                "ris_dokumentnummer": {
+                                  "description": "RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.",
+                                  "type": "string",
+                                  "pattern": "^[A-Z0-9_]{4,60}$"
+                                },
+                                "eli": {
+                                  "description": "The European Legislation Identifier of the work, as a URL; a passage under it is this work.",
+                                  "type": "string",
+                                  "maxLength": 300,
+                                  "format": "uri"
+                                }
+                              },
+                              "additionalProperties": false
                             },
                             "citations": {
                               "default": [],
@@ -31910,7 +31934,8 @@
                                 "ris_xml",
                                 "akn",
                                 "html_statute",
-                                "geojson"
+                                "geojson",
+                                "pdf_document"
                               ]
                             },
                             "hosts": {
@@ -32095,12 +32120,21 @@
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 120,
-                                          "description": "e.g. text/html; charset=utf-8 or application/geo+json."
+                                          "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
                                         },
                                         "body": {
                                           "type": "string",
                                           "maxLength": 500000,
-                                          "description": "The body as the source served it (text formats only)."
+                                          "description": "The body as the source served it: the text itself, or base64 for a binary body."
+                                        },
+                                        "encoding": {
+                                          "default": "utf-8",
+                                          "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
+                                          "type": "string",
+                                          "enum": [
+                                            "utf-8",
+                                            "base64"
+                                          ]
                                         }
                                       },
                                       "required": [
@@ -32373,7 +32407,7 @@
       "get": {
         "operationId": "platform-knowledge-schema-get",
         "summary": "Read the JSON Schema of each platform record type",
-        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
+        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
         "tags": [
           "platform"
         ],
@@ -32391,6 +32425,7 @@
                 "work",
                 "edition",
                 "manifestation",
+                "relation",
                 "ruleset",
                 "source"
               ]

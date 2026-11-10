@@ -2,7 +2,7 @@
 
 A turn without a knowledge context reads no building law, so a suite whose fixture BFF sent none
 would measure fail-closed answers and call them a regression. The fixture is the production
-resolvers' output from the packs (``suite-turn-law.fixture.spec.ts``); this holds the Python half:
+resolvers' output from the packs (``turn-law.fixture.spec.ts``); this holds the Python half:
 the agent reads it as an entitled Austrian office's turn, in every Land.
 """
 

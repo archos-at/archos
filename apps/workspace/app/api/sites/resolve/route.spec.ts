@@ -58,7 +58,7 @@ describe('the site routes behind site-resolution', () => {
     const [read, write] = await Promise.all([resolve(), setSite()])
     expect(read.status).toBe(403)
     expect(write.status).toBe(403)
-    expect(await read.json()).toMatchObject({ error: 'feature-disabled', feature: 'site-resolution' })
+    expect(await read.json()).toMatchObject({ code: 'feature_disabled', feature: 'site-resolution' })
     expect(service.resolveSite).not.toHaveBeenCalled()
     expect(service.setProjectSite).not.toHaveBeenCalled()
   })

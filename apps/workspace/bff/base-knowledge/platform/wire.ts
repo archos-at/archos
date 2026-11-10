@@ -104,6 +104,23 @@ const workRecord = z.object({
     .max(3)
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
+  identifiers: z
+    .object({
+      'ris_gesetzesnummer': z
+        .string()
+        .regex(/^\d{1,12}$/)
+        .optional()
+        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
+      'ris_dokumentnummer': z
+        .string()
+        .regex(/^[A-Z0-9_]{4,60}$/)
+        .optional()
+        .describe('RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.'),
+      eli: z.url().max(300).optional().describe('The European Legislation Identifier of the work, as a URL; a passage under it is this work.'),
+    })
+    .strict()
+    .default({})
+    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
   ...common,
 })
 
@@ -330,11 +347,16 @@ export interface CaptureView {
   bytes: number
   /** Characters of text kept for the quote check; 0 when the capture holds none. */
   textChars: number
+  /** A PDF's pages, its text joined by form feeds; null for any other capture or a PDF that kept no text. */
+  pages: number | null
+  /** What the reader or the operator said about the text: a PDF's pages with no text layer, why it was not fetched. */
+  note: string | null
   retrievedAt: string
 }
 
 /** The record types `platform-knowledge-schema-get` describes. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset', 'source'] as const
+/** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
