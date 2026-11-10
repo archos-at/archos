@@ -468,6 +468,11 @@ export const files = {
   browser: {
     folderEmptyTitle: 'This folder is empty',
     folderEmptyDescription: 'Upload documents here, or drop them anywhere on this page.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Upload documents here.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Search: “{query}”',
+    searchCount: '{count, plural, one {# match} other {# matches}}',
     noDocumentsTitle: 'No documents yet',
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
@@ -723,6 +728,7 @@ export const files = {
   // Explorer detail view — column headings for the sortable listing.
   selection: {
     start: 'Select',
+    nothingToPick: 'No file here to select',
     done: 'Done',
     all: 'Select all',
     move: 'Move',

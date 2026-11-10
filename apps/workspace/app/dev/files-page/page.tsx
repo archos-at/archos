@@ -50,6 +50,9 @@ import { DevRailShell } from '../_fixtures/rail-shell'
 import { FILES as BROWSER_FILES, FOLDERS as BROWSER_FOLDERS, useFixtureFolderNav } from '../file-browser/fixtures'
 import { MANY_FOLDERS, REAL_FILES, REAL_FINDINGS, REAL_FOLDERS } from './fixtures'
 
+/** The project the preview draws, named alike by the rail's selector and the page's crumb. */
+const projectNameFor = (real: boolean): string => (real ? 'Holzbau Wien' : 'Wohnhaus Lindengasse')
+
 /** The tracked uploads `?upload=1` shows in the tray: one sending, one queued. */
 const UPLOADING: TrackedFile[] = [
   { id: 'up1', fileName: 'Brandschutzkonzept_Wohnhausanlage_Bauteil_C_Index-D.pdf', fileSize: 4_800_000, status: 'uploading', progress: 0, collectionName: 'dev', uploadStartedAt: 1, bytesUploaded: 3_000_000 },
@@ -81,7 +84,7 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   // Two picked, as a person ticks them: the bar floats at the foot as the workspace draws it.
   const picked = new Set(levelFiles.slice(0, 2).map((file) => file.id))
   const currentFolderName = FOLDERS.find((folder) => folder.id === folderNav.currentFolderId)?.name ?? null
-  const projectName = real ? 'Holzbau Wien' : 'Wohnhaus Lindengasse'
+  const projectName = projectNameFor(real)
 
   // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting('dev', { count: 3, more: false })
@@ -152,6 +155,12 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
                   {card}
                 </DocumentObjectMenu>
               )}
+              // A list row's menu, as the workspace wraps it (`wrapFileRow`): without it a phone's file rows had no ⋯.
+              wrapFileRow={(file, row) => (
+                <DocumentObjectMenu asChild document={file} scope="files" folders={FOLDERS} onOpen={() => setSelected(file.id)}>
+                  {row}
+                </DocumentObjectMenu>
+              )}
               renderActions={() => <DocumentActionsTrigger />}
             />
             {/* The workspace ends a phone's list above the floating Hochladen (`pb-24`): the last tiles are never under it. */}
@@ -191,10 +200,13 @@ function FilesPageInLocale(): JSX.Element {
 }
 
 function FilesPageInShell(): JSX.Element {
-  const inShell = useSearchParams()?.get('rail') === '1'
+  const params = useSearchParams()
+  const inShell = params?.get('rail') === '1'
+  const real = params?.get('project') === 'real'
   if (!inShell) return <FilesPage />
   return (
-    <DevRailShell projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files">
+    // The rail's project selector names the project the crumb names (it said „Wohnhaus Lindengasse“ over „Holzbau Wien“).
+    <DevRailShell projectId="dev" projectName={projectNameFor(real)} pathname="/app/projects/dev/files">
       <FilesPage inShell />
     </DevRailShell>
   )

@@ -22,20 +22,27 @@ describe('a file name keeps its end', () => {
   it.each([
     ['file-card.tsx', 'name'],
     ['file-list-view.tsx', 'documentDisplayName\\('],
-    ['folder-navigation.tsx', 'folder.name'],
   ])('%s draws the name through FileName', (file, subject) => {
     expect(read(file)).toMatch(new RegExp(`<FileName\\s+text=\\{${subject.replace('.', '\\.')}`))
   })
 
-  it('a folder tile wraps its name before any cut, as a file tile does', () => {
-    // One line cut „Besprechungsprotokolle“ to „B…chungsprotokolle“ on a 225px tile (dev, 2026-11-10).
-    expect(read('folder-navigation.tsx')).toMatch(/<FileName text=\{folder\.name\} wrap \/>/)
+  it('a tile keeps two lines for its name, by the one rule every file name follows', () => {
+    // „Baustellenbesprechun/g.pdf“ (a tile's `overflow-wrap: anywhere`) and „R…Stand-2026-11-03.pdf“ (a row's
+    // MiddleTruncate) were two rules for one name (review of 2026-11-10, findings 5, 16, 17).
+    expect(read('file-card.tsx')).toMatch(/<FileName text=\{name\} lines=\{2\}/)
+    expect(read('file-name.tsx')).toContain('<FittedName')
+    expect(read('file-card.tsx')).not.toMatch(/overflow-wrap:anywhere|break-all/)
   })
 
-  it('FileName cuts in the middle and is read once', () => {
+  it('a folder is named on one line, cut at its end with its whole name as its title', () => {
+    // A folder's start tells it apart; one card of three lines made its row 138px beside rows of 82 (finding 6).
+    expect(read('folder-navigation.tsx')).toMatch(/<FolderName text=\{folder\.name\}/)
+    expect(read('folder-table-row.tsx')).toMatch(/<FolderName text=\{folder\.name\}/)
+  })
+
+  it('FileName is read once', () => {
     // The read-once lives in the atom, so every name it draws is read once.
-    expect(read('file-name.tsx')).toContain('<MiddleTruncate')
-    const atom = read('../../../components/ui/middle-truncate.tsx')
+    const atom = read('../../../components/ui/fitted-name.tsx')
     expect(atom).toContain('aria-hidden')
     expect(atom).toContain('sr-only')
   })
@@ -83,13 +90,14 @@ describe('the folder tile on a phone', () => {
   const folders = read('folder-navigation.tsx')
 
   // Round 4 of Paper on a desk: three full-width folder rows put the first thumbnail at y=475 on a 390px phone. A
-  // folder is a 48px sheet in the grid's two columns (glyph, name, count), its menu a long press away.
-  it('is a 48px sheet in the grid’s two columns, its ⋯ and chevron left to the long press', () => {
+  // folder is a sheet in the grid's two columns (glyph, name, count); since the review of 2026-11-10 (finding 19) its
+  // ⋯ stands at its end, as on every other row a finger meets, and the chevron steps aside for it.
+  it('is a 56px sheet in the grid’s two columns, its ⋯ at its end, no chevron', () => {
     expect(folders.match(/data-folder-tile=""/g)?.length).toBeGreaterThanOrEqual(2)
     expect(folders).not.toContain('col-span-full')
-    expect(folders).toMatch(/phone:min-h-12/)
-    expect(folders).toMatch(/-translate-y-1\/2 phone:hidden/)
-    expect(folders).toMatch(/data-slot="folder-opens"/)
+    expect(folders).toMatch(/<FileTileBody className="flex h-14 /)
+    expect(folders).toMatch(/-translate-y-1\/2 phone:right-1\.5/)
+    expect(folders).toMatch(/size-4 shrink-0 phone:hidden" aria-hidden data-slot="folder-opens"/)
   })
 })
 

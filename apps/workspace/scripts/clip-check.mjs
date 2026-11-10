@@ -48,8 +48,15 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     if (cs.clip && cs.clip !== 'auto') return false
     return true
   }
+  // The text a reader sees: a screen reader's copy of a drawn name (`.sr-only` beside its `aria-hidden` lines) is not.
+  const shownText = (el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let text = ''
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (!node.parentElement?.closest('.sr-only')) text += node.textContent
+    return text
+  }
   const reachable = (el) => {
-    const text = (el.textContent || '').trim().replace(/\s+/g, ' ')
+    const text = shownText(el).trim().replace(/\s+/g, ' ')
     for (let node = el; node && node !== document.body; node = node.parentElement) {
       const t = (node.getAttribute('title') || '') + ' ' + (node.getAttribute('aria-label') || '')
       if (text && t.replace(/\s+/g, ' ').includes(text)) return true

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import { cn } from '@/lib/utils'
-import { Camera, ChevronDown, FolderUp, Images, Mail, Upload } from 'lucide-react'
+import { Camera, ChevronDown, FolderPlus, FolderUp, Images, Mail, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
+import { useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLocale, useTranslations } from '@/i18n'
 import { captureCopy } from '@/i18n/namespaces/capture'
@@ -95,6 +96,14 @@ export function ProjectUppyUpload({
     }
   }, [pickFilesRef, pickFolderRef])
   const buttonLabel = label ?? t('upload.upload')
+  // The header's Hochladen (the one with the menu) in the section's tool row: its glyph alone on a narrow row, the
+  // raised press while an empty level's own Hochladen is the pane's primary, and „Neuer Ordner“ in its menu where the
+  // row has no room for that press.
+  const tier = useSectionToolTier()
+  const yields = useSectionPrimaryYields()
+  const newFolder = useSectionNewFolder()
+  const headerInstance = allowFolders && !glyphOnly
+  const compact = headerInstance && tier === 'narrow'
   // Server-computed, flag-gated accept-list and size limit (image types only
   // when the `image-upload` flag allows). Falls back to the static defaults if
   // the AppConfig provider is somehow absent (e.g. isolated tests).
@@ -199,11 +208,12 @@ export function ProjectUppyUpload({
       onClick={allowFolders ? undefined : () => inputRef.current?.click()}
       disabled={isUploading}
       size={size}
-      variant={variant}
-      className="gap-2"
+      variant={headerInstance && yields ? 'secondary' : variant}
+      className={cn('gap-2', compact && 'gap-1 px-2.5')}
+      title={compact ? buttonLabel : undefined}
     >
       {isUploading ? <Spinner size="sm" /> : <Upload className="size-4" aria-hidden />}
-      <span className={cn(glyphOnly && 'sr-only')}>{isUploading ? t('upload.uploading') : buttonLabel}</span>
+      <span className={cn((glyphOnly || compact) && 'sr-only')}>{isUploading ? t('upload.uploading') : buttonLabel}</span>
       {allowFolders && !glyphOnly && <ChevronDown className="size-3.5 opacity-70" aria-hidden />}
     </Button>
   )
@@ -296,6 +306,12 @@ export function ProjectUppyUpload({
             >
               <FolderUp className="size-4" aria-hidden />
               {t('upload.uploadFolder')}
+            </DropdownMenuItem>
+          )}
+          {headerInstance && newFolder && (
+            <DropdownMenuItem onSelect={newFolder} data-testid="project-upload-new-folder">
+              <FolderPlus className="size-4" aria-hidden />
+              {t('folders.newFolder')}
             </DropdownMenuItem>
           )}
           {onSendByMail && (

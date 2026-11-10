@@ -8,6 +8,7 @@ import { ProjectSectionPlace } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { cn } from '@/lib/utils'
 import type { FolderItem } from '../file-types'
 
 /** The chain of ancestors from the root to `folderId`, oldest first. */
@@ -37,6 +38,9 @@ export function trailSteps(path: readonly FolderItem[]): { shown: FolderItem[]; 
 /** One step's look: the crumb's 12px, ink under the pointer, cut at 16rem with its whole name as the title. */
 const STEP = 'block max-w-[16rem] truncate rounded-inline hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-quick ease-out'
 
+/** A phone crumb's step: 13px, a 44px target by its padding, hanging into the line. */
+const PHONE_STEP = 'hover:text-foreground focus-visible:ring-ring -my-3 block rounded-inline py-3 focus-visible:outline-none focus-visible:ring-2'
+
 const Separator = (): JSX.Element => <ChevronRight className="size-3 shrink-0" aria-hidden />
 
 /**
@@ -49,7 +53,10 @@ export function FolderPlaceInHeader({
   path,
   onNavigate,
   wrapStep,
+  itemCount,
 }: {
+  /** What the open folder holds, said beside its name („240 Elemente“). */
+  itemCount?: number
   /** Root to the open folder, oldest first (`folderPath`); never empty here. */
   path: readonly FolderItem[]
   onNavigate: (folderId: string | null) => void
@@ -99,5 +106,41 @@ export function FolderPlaceInHeader({
     () => ({ label: t('folders.backTo', { name: parent?.name ?? root }), onSelect: () => onNavigate(parent?.id ?? null) }),
     [t, parent, root, onNavigate]
   )
-  return <ProjectSectionPlace title={current.name} trail={trail} up={up} />
+  // A phone's crumb: the parent, and before it everything above it folded into „…“ (a menu of those levels), one line
+  // above the title. Five levels deep the ← alone named no parent and offered no way up two levels (finding 4).
+  const levels = [{ id: null, name: root }, ...path.slice(0, -1).map((folder) => ({ id: folder.id as string | null, name: folder.name }))]
+  const near = levels.slice(-2)
+  const folded = levels.length > 2 ? levels.slice(0, -1) : []
+  const phoneTrail = (
+    <span className="flex min-w-0 items-center gap-1" data-testid="folder-trail-phone">
+      {folded.length > 0 ? (
+        <>
+          <ActionMenu
+            mode="dropdown"
+            entries={folded.map((level) => ({ type: 'item' as const, id: level.id ?? 'root', label: level.name, onSelect: () => onNavigate(level.id) }))}
+            trigger={
+              <button type="button" className="hover:text-foreground focus-visible:ring-ring -my-3 shrink-0 rounded-inline px-1 py-3 focus-visible:outline-none focus-visible:ring-2" aria-label={t('folders.hiddenLevels', { count: folded.length })} data-testid="folder-trail-phone-more">
+                …
+              </button>
+            }
+          />
+          <Separator />
+        </>
+      ) : (
+        near.length > 1 && (
+          <>
+            <button type="button" className={cn(PHONE_STEP, 'shrink-0')} onClick={() => onNavigate(null)}>
+              {root}
+            </button>
+            <Separator />
+          </>
+        )
+      )}
+      <button type="button" className={cn(PHONE_STEP, 'min-w-0 truncate')} title={near.at(-1)?.name} onClick={() => onNavigate(near.at(-1)?.id ?? null)}>
+        {near.at(-1)?.name}
+      </button>
+    </span>
+  )
+  const count = itemCount === undefined ? undefined : t('folders.items', { count: itemCount })
+  return <ProjectSectionPlace title={current.name} trail={trail} phoneTrail={phoneTrail} up={up} count={count} />
 }

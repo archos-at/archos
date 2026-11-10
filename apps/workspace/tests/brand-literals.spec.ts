@@ -664,15 +664,29 @@ describe('press, thumb and sheet', () => {
   })
   it('the thumb is white with the 1px shadow, and only ever on a track', () => {
     const group = source('ui/components/ui/toggle-group.tsx')
-    expect(group).toMatch(/default: 'bg-sheet shadow-xs'/)
+    expect(group).toMatch(/default: 'bg-sheet shadow-thumb'/)
     // The pill is mounted for the active item of a segmented group only, whose root draws the track.
     expect(group).toMatch(/const isActive =\s*context\.segmented &&/)
-    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/onTrack \? 'bg-sheet shadow-xs' : 'bg-selected'/)
+    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/onTrack \? 'bg-sheet shadow-thumb' : 'bg-selected'/)
+  })
+  it('the thumb has an edge at 3:1 against its track in dark, where its fill stands only 1.2:1 above it', () => {
+    // Finding 25 (2026-11-10): the open tab and the chosen view were barely lighter than the track.
+    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+    const dark = tokens.slice(tokens.lastIndexOf('.dark {'))
+    expect(dark).toMatch(/--elevation-thumb: 0 0 0 1px var\(--field-border\)/)
+    const hex = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6});`).exec(dark)?.[1] ?? '#000000'
+    const luminance = (value: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    expect((luminance(hex('field-border')) + 0.05) / (luminance(hex('desk')) + 0.05)).toBeGreaterThanOrEqual(3)
   })
   it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
     expect(source('ui/features/documents/components/folder-card-frame.tsx')).toMatch(/FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'/)
     const tile = source('ui/features/documents/components/folder-navigation.tsx')
-    expect(tile).toMatch(/<FileTileBody className="flex min-h-14 /)
+    // 56px at every width, its name on one line: a three-line name made its row 138px beside rows of 82 (finding 6).
+    expect(tile).toMatch(/<FileTileBody className="flex h-14 /)
+    expect(tile).toMatch(/<FolderName text=\{folder\.name\}/)
     expect(tile).toMatch(/<ChevronRight[^>]*data-slot="folder-opens"/)
   })
   it('Dateien draws neither look itself: no shadow-xs or shadow-press outside the kit, no fill over a press', () => {
@@ -788,10 +802,12 @@ describe('rows, weights and the phone', () => {
     expect(tokens).toMatch(/--field-border: #8a8784;/)
     expect(source('ui/features/documents/components/file-search-bar.tsx')).toMatch(/inputClassName="[^"]*border-field-border bg-sheet /)
   })
-  it('on a phone a folder is a 48px sheet in two columns, and Hochladen a 56px glyph', () => {
+  it('on a phone a folder is a 56px sheet in two columns with its ⋯, and Hochladen a 56px glyph', () => {
     const tile = source('ui/features/documents/components/folder-navigation.tsx')
     expect(tile).not.toMatch(/FOLDER_ROWS_ON_PHONE/)
-    expect(tile).toMatch(/phone:min-h-12 phone:gap-2\.5 phone:py-1\.5/)
+    // Its ⋯ at the sheet's end, always under a finger: the long press alone hid every folder's menu (finding 19).
+    expect(tile).toMatch(/phone:gap-2\.5 phone:pr-10/)
+    expect(tile).toMatch(/absolute right-8 top-1\/2 z-\[1\] -translate-y-1\/2 phone:right-1\.5 pointer-coarse:opacity-100/)
     expect(source('ui/features/documents/components/upload-fab.tsx')).toMatch(/\[&_button\]:size-14 \[&_button\]:rounded-full/)
     expect(source('ui/features/documents/components/file-workspace.tsx')).toMatch(/glyphOnly: true/)
   })
@@ -803,7 +819,7 @@ describe('rows, weights and the phone', () => {
   })
   it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
     // At 12px (8px on a phone) „Alle Dateien“, „E-Mail-Eingang“… hung on the title above them (pilot feedback, 2026-11-10).
-    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/'-mb-2 mt-6 flex items-start justify-between gap-4 phone:mt-4'/)
+    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/'-mb-2 mt-6 min-w-0 phone:mt-4'/)
   })
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/track\s+compactOnPhone/)
@@ -889,10 +905,10 @@ describe('Dateien in a real project (round 6)', () => {
     expect(doc('selection-bar')).toMatch(/md:mx-8 md:max-w-\[1216px\] @min-\[90rem\]\/section:mx-auto!/)
   })
 
-  it('gives the places their room on a narrow section: the level’s presses keep their glyph, the tabs their glyph, the header stacks', () => {
-    const frame = source('ui/components/shell/project-section-frame.tsx')
-    expect(frame).toMatch(/@max-\[60rem\]\/section:\[&_\[data-slot=button\]>span\]:sr-only/)
-    expect(frame).toMatch(/@max-\[60rem\]\/section:flex-col!/)
-    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/compactOnPhone && !active && 'phone:sr-only @max-\[44rem\]\/section:sr-only'/)
+  it('gives the places their room on a narrow section: every place keeps its name, a narrow one gives up its glyph', () => {
+    const nav = source('ui/components/shell/section-nav.tsx')
+    // Glyphs alone beside the rail were four boxes to guess (finding 2); a strip that scrolled cut „Papierkorb“ off.
+    expect(nav).toMatch(/compactOnPhone && !active && 'phone:sr-only'\)/)
+    expect(nav).toMatch(/onTrack && 'md:@max-\[44rem\]\/section:hidden'/)
   })
 })

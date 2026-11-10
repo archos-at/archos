@@ -51,7 +51,9 @@ export const nav: typeof en.nav = {
   /** A page inside a section (Dateien › E-Mail-Eingang): its title, under the crumb „Projekt › Dateien“. */
   subpages: {
     'files/all': {
-      title: 'Alle Dateien',
+      title: 'Dateien',
+      /** The tab: true at every depth of the tree, where „Alle Dateien“ over a subfolder was not. */
+      tab: 'Ordner',
     },
     'files/mail': {
       title: 'E-Mail-Eingang',

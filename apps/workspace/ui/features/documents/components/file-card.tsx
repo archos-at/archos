@@ -21,6 +21,7 @@ import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { revisionCount } from '../lib/revision-chain'
+import { documentBadgeState } from '../lib/document-lifecycle'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
@@ -261,6 +262,8 @@ export interface FileCardProps {
    * Absent is the ordinary card.
    */
   selection?: { checked: boolean }
+  /** Where it lies (its folder), first on the meta line: a search's results span every folder. */
+  where?: string
 }
 
 /**
@@ -315,6 +318,7 @@ export const FileCard = memo(function FileCard({
   actions,
   draggable = false,
   selection,
+  where,
 }: FileCardProps) {
   const t = useTranslations(filesCopy)
   const name = documentDisplayName(file)
@@ -437,10 +441,11 @@ export const FileCard = memo(function FileCard({
             {/* The name the document goes by. The format chip beside it still
                 comes from the FILE name, because that is what the bytes are —
                 a rename changes the label, never the format. */}
-            {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
-            {/* Room at its end for the ⋯, which sits on this line (6 + 124 + 10px down), off the thumbnail. */}
-            <p className={cn('text-name text-foreground min-w-0', actions && !selection && 'pointer-coarse:pr-8')}>
-              <FileName text={name} wrap />
+            {/* Two lines kept on every tile, the second empty under a short name, so every meta line of a row stands on
+                one baseline (findings 7 and 17): whole, broken between words, else cut in the middle (`FileName`). The
+                first line leaves its end to the ⋯, which stands there; the second has the whole width. */}
+            <p className="text-name text-foreground min-h-10 min-w-0">
+              <FileName text={name} lines={2} firstLineInset={actions && !selection ? TILE_ACTIONS_INSET : 0} />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
                 the footer, because the footer is where the faces and the word
@@ -465,7 +470,7 @@ export const FileCard = memo(function FileCard({
                 <OlderRevisionBadge file={file} />
               </div>
             ) : (
-              ((file.versionCount ?? 0) > 1 || revisionCount(file) > 1) && (
+              (documentBadgeState({ versionState: file.versionState, versionCount: file.versionCount, authoredBy: file.authoredBy }) !== null || revisionCount(file) > 1) && (
                 // One height with a badge or without (a 20px chip beside plain text jumped the line by 3px).
                 <div className="mt-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   {(file.versionCount ?? 0) > 1 && (
@@ -521,7 +526,7 @@ export const FileCard = memo(function FileCard({
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot mt-0 cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
+          className="@container/foot group/foot cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}
@@ -529,6 +534,12 @@ export const FileCard = memo(function FileCard({
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
             {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
             {footerLead}{footerLead && <FactDot />}
+            {where && (
+              <>
+                <span className="min-w-0 truncate" title={where} data-testid="file-card-where">{where}</span>
+                <FactDot />
+              </>
+            )}
           </span>
           {/* On a 156px card the size and the age are about 125px, so the
               phone's card keeps 10px of padding (the title's too) and a tighter
@@ -552,6 +563,9 @@ export const FileCard = memo(function FileCard({
     </TileShell>
   )
 })
+
+/** What the name's first line leaves at its end for the ⋯ (32px, 2px off the tile's edge, its glyph 8px in) and a 4px gap. */
+const TILE_ACTIONS_INSET = 24
 
 function FactDot(): JSX.Element {
   return (

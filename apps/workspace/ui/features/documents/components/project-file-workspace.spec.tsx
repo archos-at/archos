@@ -125,6 +125,11 @@ vi.mock('@/components/shell/project-section-frame', () => ({
   // No header in the spec either: a folder keeps its path row, where the specs look for the way back.
   ProjectSectionPlace: () => null,
   useSectionPlaceSlot: () => false,
+  // Outside the frame: no tool row, so no tier, the level's tools on the path row and Hochladen as it is.
+  useSectionToolTier: () => null,
+  SectionLevelTools: () => null,
+  useSectionNewFolder: () => null,
+  useSectionPrimaryYields: () => false,
 }))
 
 // useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.

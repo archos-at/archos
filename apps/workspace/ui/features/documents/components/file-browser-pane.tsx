@@ -1,7 +1,6 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import type { JSX } from 'react'
 import { Fragment, memo, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import type { FileItem, FolderItem } from '../file-types'
 import { CheckSquare, Search, SearchX, FilterX, FolderOpen, Sparkles } from 'lucide-react'
@@ -9,8 +8,8 @@ import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
-import { useSectionPlaceSlot, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ProjectSectionPlace, useSectionPlaceSlot, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
@@ -18,7 +17,7 @@ import { fileMatchesQuery } from '../lib/file-query-match'
 import type { FileSearch } from '../hooks/use-file-search'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLevelDirection } from '../hooks/use-level-direction'
-import { motion, motionEntrance } from '@/components/motion'
+import { motion } from '@/components/motion'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { useMoveInSheet } from './document-actions'
 import { FileCard, type FileCardProps } from './file-card'
@@ -37,12 +36,11 @@ import { withoutOlderRevisions } from '../lib/revision-chain'
 import {
   FolderBreadcrumbRow,
   FolderCard,
-  FolderCardSkeleton,
-  FolderRowSkeleton,
   type DropFilesInFolder,
 } from './folder-navigation'
 import type { FileDropAim } from '../hooks/use-document-drag'
 import { AssignmentFaces } from './assignment-faces'
+import { CONTENT_MAX, FileBrowserSkeleton, levelTransition } from './file-browser-skeleton'
 
 /** Finder-style drill-down wiring — see `folder-navigation.tsx`. */
 export interface FolderNavigation {
@@ -240,6 +238,8 @@ interface FileTileProps {
   renderActions?: (file: FileItem) => ReactNode
   wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
   draggable: boolean
+  /** Where it lies, first on its meta line: a search's results span every folder. */
+  where?: string
   /** Selection mode: the card is a toggle, `checked` says whether it is picked. */
   selecting: boolean
   checked: boolean
@@ -267,6 +267,7 @@ const FileTile = memo(function FileTile({
   selecting,
   checked,
   onToggle,
+  where,
 }: FileTileProps): ReactNode {
   const onSelect = useCallback(
     () => (selecting ? onToggle(file.id) : onSelectFile(file.id)),
@@ -283,6 +284,7 @@ const FileTile = memo(function FileTile({
       actions={renderActions?.(file)}
       draggable={draggable}
       selection={selecting ? { checked } : undefined}
+      where={where}
     />
   )
   return wrapFile ? wrapFile(file, card) : card
@@ -323,8 +325,11 @@ export function FileBrowserPane({
   rootToolsInMenu = false,
 }: FileBrowserPaneProps) {
   const t = useTranslations(filesCopy)
+  const nav = useTranslations(navCopy)
   const { locale } = useLocale()
   const { semantic } = search
+  const { clear: clearSearch } = search
+  const searchUp = useMemo(() => ({ label: t('browser.clearSearch'), onSelect: clearSearch }), [t, clearSearch])
   // Whether the path row went elsewhere (its tools to the tabs row or a phone's ⋯; inside a folder its path to the
   // header's title and crumb): the brief then rises to the tabs.
   const tabSlot = useSectionTabActionsSlot()
@@ -416,7 +421,7 @@ export function FileBrowserPane({
   const toggleSelected = selection?.onToggle ?? noToggle
   const moveInSheet = useMoveInSheet()
 
-  const fileCard = (file: FileItem, extra: { match?: FileCardProps['match'] } = {}) => (
+  const fileCard = (file: FileItem, extra: { match?: FileCardProps['match']; where?: string } = {}) => (
     <FileTile
       file={file}
       isSelected={selectedFileId === file.id}
@@ -430,8 +435,11 @@ export function FileBrowserPane({
       selecting={picking && !extra.match}
       checked={selection?.selectedIds.has(file.id) === true}
       onToggle={toggleSelected}
+      where={extra.where}
     />
   )
+  const folderNameOf = (folderId: string | null | undefined): string =>
+    (folderId && folderNav?.folders.find((folder) => folder.id === folderId)?.name) || nav('sections.files')
 
   const folderTile = (folder: FolderItem, asRow: boolean) => {
     const props = {
@@ -649,6 +657,7 @@ export function FileBrowserPane({
   const currentFolder =
     folderNav && currentFolderId ? (folderNav.folders.find((folder) => folder.id === currentFolderId) ?? null) : null
   const levelEmpty = files.length === 0 && childFolders.length === 0 && !paging?.hasMore
+  const bothKinds = Boolean(folderNav) && childFolders.length > 0 && orderedFiles.length > 0
 
   // The end of a paged level or search: the next page when the reader gets there.
   const pagingFooter = paging ? (
@@ -681,8 +690,11 @@ export function FileBrowserPane({
           click back out, and "New folder" for the level they are in. Hidden
           while a query is active in either mode (the query is the context and
           its results span the corpus). */}
-      {folderNav && !semantic.active && !searching && (
+      {folderNav && !semantic.active && (
         <FolderBreadcrumbRow
+          searching={searching}
+          itemCount={currentFolderId === null ? undefined : folderItemCount(currentFolderId)}
+          emptyLevel={levelEmpty && !searching && !slice}
           folders={folderNav.folders}
           currentFolderId={folderNav.currentFolderId}
           onNavigate={folderNav.onNavigate}
@@ -696,14 +708,17 @@ export function FileBrowserPane({
           readOnly={!writableHere}
           rootToolsElsewhere={rootToolsInMenu}
         >
-          {selection?.onStart && !picking && orderedFiles.length > 0 && writableHere && (
+          {/* Wherever the reader may file, at a level of folders only too (disabled, nothing to pick): a press that came
+              and went moved „Ordner anlegen“ under the pointer (finding 19). */}
+          {selection?.onStart && !picking && writableHere && (
             <Button
               type="button"
               variant="secondary"
               size="sm"
               className="gap-1.5"
               onClick={selection.onStart}
-              title={t('selection.start')}
+              disabled={orderedFiles.length === 0}
+              title={orderedFiles.length === 0 ? t('selection.nothingToPick') : t('selection.start')}
               data-testid="selection-start"
             >
               <CheckSquare className="size-4" aria-hidden />
@@ -713,6 +728,16 @@ export function FileBrowserPane({
         </FolderBreadcrumbRow>
       )}
 
+      {/* While the field filters, the query is where the reader is: the title says it and how much it found, the crumb
+          that it searches the whole of Dateien, and the phone's ← clears it (finding 13). */}
+      {searching && placeSlot && (
+        <ProjectSectionPlace
+          title={t('browser.searchTitle', { query: query.trim() })}
+          trail={<span className="shrink-0">{nav('sections.files')}</span>}
+          up={searchUp}
+          count={paging?.hasMore ? undefined : t('browser.searchCount', { count: filteredFiles.length })}
+        />
+      )}
       {/* What Piloti knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
@@ -865,7 +890,7 @@ export function FileBrowserPane({
           <div className={`${CONTENT_MAX} p-4`}>
             <FileGrid>
               {filteredFiles.map((file) => (
-                <Fragment key={file.id}>{fileCard(file)}</Fragment>
+                <Fragment key={file.id}>{fileCard(file, { where: folderNav ? folderNameOf(file.folderId) : undefined })}</Fragment>
               ))}
             </FileGrid>
             {pagingFooter}
@@ -928,10 +953,12 @@ export function FileBrowserPane({
           // in the pane at an edge of its own.
           className={cn(CONTENT_MAX, 'px-4 pt-6')}
         >
-          <EmptyState variant="bare" className="items-start py-0 text-left"
+          {/* `data-empty-level`: its Hochladen is the pane's one ink press, so the phone's floating one steps out
+              (`UploadFab`) and the tool row's steps back (`useSectionPrimaryYields`). A finger cannot drop on a page. */}
+          <EmptyState variant="bare" className="items-start py-0 text-left" data-empty-level=""
             icon={FolderOpen}
             title={t('browser.folderEmptyTitle')}
-            description={t('browser.folderEmptyDescription')}
+            description={t(touch ? 'browser.folderEmptyDescriptionTouch' : 'browser.folderEmptyDescription')}
             action={writableHere ? uploadControl : undefined}
           />
         </motion.div>
@@ -965,33 +992,40 @@ export function FileBrowserPane({
           // 4px on top: a folder tile's own 10px inset and a tile's 6px already part it from the brief.
           className={`${CONTENT_MAX} px-4 pb-4 pt-1`}
         >
-            {/* The files' label at the root only: inside a folder the crumb names it, while searching the query does. */}
-
             {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
                 slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`
                 until hydration. The level's transition carries the grid: one animation, a Finder-style drill. */}
-            <FileGrid>
-              {/* Two sections at the root under their labels, „Ordner“ and „Dateien“, 32px apart (a folder's 6px inset, the
-                  grid's 10px and 16px); a phone drops „Ordner“ for its chrome budget, the glyphs say it. */}
-              {currentFolderId === null && folderNav && childFolders.length > 0 && (
-                <SectionLabel as="p" className="col-span-full -mb-2 px-1.5 phone:hidden" data-testid="folders-label">
-                  {t('folders.heading')}
-                </SectionLabel>
-              )}
-              {folderNav &&
-                childFolders.map((folder) => (
-                  <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
-                ))}
-              {currentFolderId === null && orderedFiles.length > 0 && (
-                // On the column's edge (the grid bleeds by the tile's inset), 8px nearer the tiles it heads than the gap.
-                <SectionLabel as="p" className={cn('col-span-full -mb-2 px-1.5', folderNav && childFolders.length > 0 && 'mt-4 phone:mt-0')}>
-                  {t('browser.recentlyUploaded')}
-                </SectionLabel>
-              )}
-              {orderedFiles.map((file) => (
-                <Fragment key={file.id}>{fileCard(file)}</Fragment>
-              ))}
-            </FileGrid>
+            {/* One grammar at every level: the folders first, a grid of their own, then the files, each under its label
+                when both kinds are there („Ordner“, „Dateien“, 32px apart, 12px over their tiles). A subfolder mixed
+                them in one grid and stretched „Index C“ to a thumbnail's height (finding 9). */}
+            {folderNav && childFolders.length > 0 && (
+              <section aria-label={t('folders.heading')} data-testid="folder-grid">
+                {bothKinds && (
+                  <SectionLabel as="p" className="mb-3 px-0" data-testid="folders-label">
+                    {t('folders.heading')}
+                  </SectionLabel>
+                )}
+                <FileGrid>
+                  {childFolders.map((folder) => (
+                    <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
+                  ))}
+                </FileGrid>
+              </section>
+            )}
+            {orderedFiles.length > 0 && (
+              <section aria-label={t('browser.recentlyUploaded')} className={cn(bothKinds && 'mt-8')}>
+                {bothKinds && (
+                  <SectionLabel as="p" className="mb-3 px-0">
+                    {t('browser.recentlyUploaded')}
+                  </SectionLabel>
+                )}
+                <FileGrid>
+                  {orderedFiles.map((file) => (
+                    <Fragment key={file.id}>{fileCard(file)}</Fragment>
+                  ))}
+                </FileGrid>
+              </section>
+            )}
             {pagingFooter}
         </motion.div>
       )}
@@ -1011,106 +1045,5 @@ export function FileBrowserPane({
 
 
 
-/**
- * ENTERING A FOLDER IS AN ARRIVAL, NOT A HANDOVER.
- *
- * This was an `AnimatePresence mode="wait"`, and `wait` means exactly what it
- * says: the level you are leaving plays its exit to completion, and only then
- * does the level you asked for begin to appear. Two 180ms tweens end to end,
- * with a frame in the middle where the pane holds nothing and collapses to the
- * height of its own padding — on the gesture this page is built around, and one
- * a person repeats a dozen times walking a tree.
- *
- * Nothing needed the outgoing level to be watched on its way out. Dropping the
- * presence wrapper makes the swap instant and leaves the arrival, which is the
- * half that carries the direction: the new level slides in from the side it
- * came from, in one 240ms entrance, over content that is already there.
- *
- * `initial: false` when the direction is 0 — no navigation happened, so this is
- * the first paint (which, since the page now server-renders its listing, is a
- * real listing that must not slide) or a re-render the key did not change.
- */
-const levelTransition = (direction: number, distance: number) =>
-  ({
-    initial: direction === 0 ? false : { opacity: 0, x: direction * distance },
-    animate: { opacity: 1, x: 0 },
-    transition: motionEntrance,
-  }) as const
-
-/**
- * THE FIRST FRAME, SHAPED LIKE THE SECOND ONE.
- *
- * This is the placeholder the whole pane renders while the listing is being
- * read, and it lives beside the listing rather than in a components-of-loading
- * file, because the failure it fixes is drift: the old skeleton drew a
- * full-width `h-9` bar — a search field that had moved into the page header a
- * release earlier and was never coming back — over a full-width grid, and then
- * the answer arrived as a breadcrumb row above a 1200px column of folder tiles
- * and cards. Nothing about the loading state predicted the loaded one, so every
- * load ended in a jump.
- *
- * What it mirrors, in the order the real pane renders them:
- *
- *   - the breadcrumb row, at its real height, when this surface has folders;
- *   - the content cap, so the grid does not start full-width and then narrow;
- *   - the „Zuletzt hochgeladen" eyebrow, which is always there at the root;
- *   - folder tiles BEFORE file tiles, which is the order the grid fills in.
- *
- * It cannot know how many of each are coming. It draws a plausible few — the
- * point of a skeleton is the shape of the page, not a forecast of its contents.
- */
-export function FileBrowserSkeleton({
-  view = 'cards',
-  withFolders = false,
-  /** Placeholder folder tiles. Two: enough to read as "folders come first". */
-  folders = 2,
-  files = 6,
-}: {
-  view?: 'cards' | 'list'
-  withFolders?: boolean
-  folders?: number
-  files?: number
-}): JSX.Element {
-  const folderCount = withFolders ? folders : 0
-  return (
-    <div className="flex h-full flex-col" data-testid="file-browser-skeleton">
-      {/* No path row: at the root its tools stand beside the tabs (or in a phone's ⋯), so a placeholder row was a promise
-          of a row that never arrives. */}
-      {view === 'list' ? (
-        <div className={CONTENT_MAX}>
-          {folderCount > 0 && (
-            <div className="flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0">
-              {Array.from({ length: folderCount }).map((_, index) => (
-                <FolderRowSkeleton key={index} />
-              ))}
-            </div>
-          )}
-          <FileListSkeleton rows={files} />
-        </div>
-      ) : (
-        <div className={`${CONTENT_MAX} px-4 pb-4 pt-1`} /* the grid's own start, as the level draws it */>
-          <FileGrid>
-            {Array.from({ length: folderCount }).map((_, index) => (
-              <FolderCardSkeleton key={`folder-${index}`} />
-            ))}
-            {/* Where the real label falls: after the folders, heading the files. */}
-            <Skeleton className="col-span-full mx-1.5 mt-1 h-3 w-36" />
-            {Array.from({ length: files }).map((_, index) => (
-              <FileCardSkeleton key={`file-${index}`} />
-            ))}
-          </FileGrid>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-/**
- * The listing's width cap (a 4K monitor would stretch cards into a wall), on
- * the section header's edges: the design system's 1280px container with its
- * 32px margins, which the header keeps too. Centred, the page had three left edges.
- */
-const CONTENT_MAX = 'listing-container md:px-8'
 
 const noToggle = (): void => undefined

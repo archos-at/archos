@@ -119,7 +119,8 @@ describe('the app rail’s material', () => {
     // Once as the crumb's text and once as its title: cut on a deep path, the whole name stays in reach.
     expect(frame.match(/\{projectName\}/g)).toHaveLength(2)
     expect(frame).toMatch(/<span className="[^"]*\btruncate\b[^"]*" title=\{projectName\}>\{projectName\}<\/span>/)
-    expect(frame).toMatch(/crumbClassName="max-md:hidden"/)
+    // At desk width only, but for a phone's way inside a folder (`place.phoneTrail`), which names no project.
+    expect(frame).toMatch(/crumbClassName=\{phone \? 'text-\[13px\] leading-5' : 'max-md:hidden'\}/)
     expect(frame).not.toMatch(/ProjectCrumb|MiddleTruncate|PhoneProjectList|data-project-selector/)
     // The title's line holds what a phone's top holds: one way back, and the app's search (not beside a page's own).
     // Inside a folder of Alle Dateien the way back is the folder's way up; elsewhere the page's link.

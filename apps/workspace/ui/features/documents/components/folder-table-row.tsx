@@ -11,7 +11,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import { folderDragProps, useFolderDropTarget } from '../hooks/use-document-drag'
-import { FileName } from './file-name'
+import { FolderName } from './file-name'
 import { FILE_LIST_CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
 import { FolderAccessMark, FolderReadOnlyBadge } from './folder-access-mark'
 import { FolderActionsMenu, FolderNameEditor, dropRing, useFolderLabels, type FolderTileProps } from './folder-navigation'
@@ -99,7 +99,7 @@ export function FolderRow({
             <span className="flex w-8 shrink-0 items-center">
               <Folder className="text-muted-foreground size-4" aria-hidden />
             </span>
-            <FileName text={folder.name} className="text-foreground shrink font-medium" />
+            <FolderName text={folder.name} className="text-foreground shrink font-medium" />
             {folder.description && (
               <span className="text-muted-foreground hidden min-w-0 truncate text-xs sm:inline" title={folder.description} data-testid={`folder-description-${folder.id}`}>
                 {folder.description}

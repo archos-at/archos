@@ -455,6 +455,11 @@ export const files: typeof en.files = {
   browser: {
     folderEmptyTitle: 'Dieser Ordner ist leer',
     folderEmptyDescription: 'Laden Sie hier Dokumente hoch oder ziehen Sie sie irgendwo auf die Seite.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Laden Sie hier Dokumente hoch.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Suche: „{query}“',
+    searchCount: '{count, plural, one {# Treffer} other {# Treffer}}',
     noDocumentsTitle: 'Noch keine Dokumente',
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
@@ -716,6 +721,7 @@ export const files: typeof en.files = {
   // Detailansicht des Explorers – Spaltenüberschriften der sortierbaren Liste.
   selection: {
     start: 'Auswählen',
+    nothingToPick: 'Hier liegt keine Datei zum Auswählen',
     done: 'Fertig',
     all: 'Alle auswählen',
     move: 'Verschieben',
