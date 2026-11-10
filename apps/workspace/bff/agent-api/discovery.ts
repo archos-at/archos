@@ -60,6 +60,7 @@ import {
 import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
+import { personYesOf } from './person-decision'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 /**
@@ -474,7 +475,8 @@ export async function executeOperation(
       return { refusal: failure(refused), status: 403, code: 'FORBIDDEN' }
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
-    const result = await callOperation(op, input, ctx.principal.session, 'agent')
+    // The person's yes, when the door got one, rides along for a route that asks (`person-decision.ts`).
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', personYesOf(ctx.decisionSource))
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {

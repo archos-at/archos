@@ -36,6 +36,8 @@ export {
 export interface KnowledgeAddressee {
   name: string
   territoryId: string
+  /** The platform's authority record it names (`authority:at-wien-ma37`), when one does (0203). */
+  authorityId?: string
 }
 
 export interface KnowledgeIdentifiers {
@@ -60,6 +62,8 @@ export interface KnowledgeTerms {
 export interface KnowledgeProvenance {
   proposedBy?: 'reading' | 'person' | 'agent'
   note?: string
+  /** Where a platform revision's values were taken from, for the reviewer (0203). */
+  citations?: { url?: string; note?: string }[]
 }
 
 export const knowledgeRecords = pgTable('knowledge_records', {
@@ -69,6 +73,8 @@ export const knowledgeRecords = pgTable('knowledge_records', {
   headRevisionId: uuid('head_revision_id'),
   /** The office document the record was read from; deleting it deletes the record. */
   documentId: uuid('document_id'),
+  /** The country a platform record belongs to (ISO 3166-1), what an office is entitled to; NULL for an office's (0203). */
+  countryId: text('country_id'),
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -81,6 +87,8 @@ export const knowledgeRevisions = pgTable('knowledge_revisions', {
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   provenance: jsonb('provenance').$type<KnowledgeProvenance>().notNull().default({}),
+  /** The change request a platform revision was proposed in; NULL for an office's (0203). */
+  changeRequestId: uuid('change_request_id'),
 })
 
 export const knowledgeWorkRevisions = pgTable('knowledge_work_revisions', {
@@ -118,6 +126,8 @@ export const knowledgeManifestationRevisions = pgTable('knowledge_manifestation_
   licenceClass: text('licence_class').$type<LicenceClass>().notNull(),
   terms: jsonb('terms').$type<KnowledgeTerms>().notNull().default({}),
   sha256: text('sha256'),
+  /** A platform text's file in the base corpus (0203); an office copy is its Archiv document instead. */
+  corpusFile: text('corpus_file'),
 })
 
 export const knowledgeChecks = pgTable('knowledge_checks', {

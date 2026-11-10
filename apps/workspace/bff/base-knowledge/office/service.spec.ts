@@ -113,6 +113,8 @@ beforeEach(() => {
   vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
   vi.mocked(documentHasEntry).mockResolvedValue(false)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
+  // The platform's records are their own spec's (`platform/*.integration.spec.ts`); here the platform answers nothing.
+  usePlatformKnowledge(STUB_PLATFORM_KNOWLEDGE)
 })
 
 describe('who may do what', () => {
@@ -357,7 +359,7 @@ describe('the turn', () => {
   it('names what the platform lists and the office does not hold, through the one platform interface', async () => {
     const previous = usePlatformKnowledge({
       ...STUB_PLATFORM_KNOWLEDGE,
-      listedNotHeld: async (held) =>
+      listedNotHeld: async (_organizationId, held) =>
         held.includes('ÖNORM B 5371:2021')
           ? []
           : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15', hasText: false }],
@@ -368,6 +370,39 @@ describe('the turn', () => {
       expect(turn?.block).toContain('ÖNORM B 5371:2021 „Treppen“: listed by the platform')
       expect(turn?.block).toContain('gelistet, kein Text')
       expect(turn?.labels).toEqual([])
+    } finally {
+      usePlatformKnowledge(previous)
+    }
+  })
+})
+
+describe('the platform directives in a turn', () => {
+  it('carries a platform directive that applies, and none that is excluded for the project', async () => {
+    const seen: (string | null)[] = []
+    const previous = usePlatformKnowledge({
+      ...STUB_PLATFORM_KNOWLEDGE,
+      directivesFor: async (_organizationId, territoryId) => {
+        seen.push(territoryId)
+        return [
+          {
+            title: 'Stellplatzregulativ',
+            designation: null,
+            editionLabel: '2024',
+            authorities: ['Bau- und Anlagenbehörde Graz'],
+            verdict: { verdict: 'applies', authority: 'Bau- und Anlagenbehörde Graz', territoryId: 'AT-6' },
+          },
+        ]
+      },
+    })
+    try {
+      vi.mocked(readOfficeEntries).mockResolvedValue([])
+      vi.mocked(findProjectProfileInOrg).mockResolvedValue({
+        profile: { facts: { federal_state: { value: 'styria' } } },
+      } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
+      const turn = await baseKnowledgeForTurn('org-2', 'project-graz')
+      expect(seen).toEqual(['AT-6'])
+      expect(turn?.block).toContain('„Stellplatzregulativ“: authority practice of Bau- und Anlagenbehörde Graz, published by the platform')
+      expect(turn?.block).toContain('applies to this project')
     } finally {
       usePlatformKnowledge(previous)
     }

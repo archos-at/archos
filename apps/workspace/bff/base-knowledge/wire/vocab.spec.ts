@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0203_platform_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -14,14 +14,22 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KNOWLEDGE_VOCABULARIES } from './vocab'
 
-const MIGRATION = readFileSync(join(process.cwd(), 'migrations/0202_base_knowledge.sql'), 'utf8')
+/** In order: a later migration's CHECK on a column replaces an earlier one (0203 widens the record types). */
+const MIGRATIONS = ['migrations/0202_base_knowledge.sql', 'migrations/0203_platform_base_knowledge.sql'].map((path) =>
+  readFileSync(join(process.cwd(), path), 'utf8'),
+)
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
-/** The values a CHECK on `column` lists: `"column" IN ('a', 'b')`, across line breaks. */
-function checkedValues(column: string): string[] {
-  const match = new RegExp(`"${column}"\\s+IN\\s*\\(([^)]*)\\)`).exec(MIGRATION)
-  if (!match) return []
-  return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1])
+/**
+ * The values the newest CHECK of `table` on `column` lists:
+ * `CONSTRAINT <table>_… CHECK ("column" IN ('a', 'b'))`, across line breaks.
+ */
+function checkedValues(table: string, column: string): string[] {
+  const pattern = new RegExp(`CONSTRAINT ${table}_\\w+\\s+CHECK \\(\\s*"${column}"\\s+IN\\s*\\(([^)]*)\\)`, 'g')
+  const matches = MIGRATIONS.flatMap((migration) => [...migration.matchAll(pattern)])
+  const newest = matches.at(-1)
+  if (!newest) return []
+  return [...newest[1].matchAll(/'([^']+)'/g)].map((value) => value[1])
 }
 
 function vocabularySchema() {
@@ -38,8 +46,8 @@ function vocabularySchema() {
 
 describe('the base knowledge vocabularies', () => {
   it.each(Object.entries(KNOWLEDGE_VOCABULARIES))('%s is what its CHECK lists', (qualified, values) => {
-    const column = qualified.split('.')[1]
-    expect(checkedValues(column).sort()).toEqual([...values].sort())
+    const [table, column] = qualified.split('.')
+    expect(checkedValues(table, column).sort()).toEqual([...values].sort())
   })
 
   it('matches the committed fixture the Python tier reads', () => {

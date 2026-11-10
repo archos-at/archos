@@ -1,0 +1,118 @@
+/**
+ * The platform's side of the base knowledge records (migration 0203, ADR-0165):
+ * the two record types only the platform owns (territories, authorities), the
+ * change requests every platform revision is proposed in, the review verdicts
+ * and approvals on them, the insert-only release moves that move a platform
+ * head, the indexing runs of a published text, and the countries an office is
+ * entitled to.
+ *
+ * The change-request tables are platform-private (RLS `false` for the runtime
+ * role); `organizationCountries` is read by its office and written by the
+ * platform only. The SQL holds the invariants (four eyes, head follows the
+ * release, revisions only into a draft); this file only declares columns.
+ */
+
+import { bigint, date, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import type {
+  ApprovalRole,
+  ChangeRequestStatus,
+  IndexRunState,
+  PersonDecisionSource,
+  ReleaseAction,
+  ReleaseChannel,
+  ReviewDecision,
+  TerritoryKind,
+} from '@/lib/base-knowledge/wire/vocab'
+
+export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revisions', {
+  revisionId: uuid('revision_id').primaryKey(),
+  recordId: text('record_id').notNull(),
+  organizationId: text('organization_id'),
+  kind: text('kind').$type<TerritoryKind>().notNull(),
+  name: text('name').notNull(),
+  parentIds: text('parent_ids').array().notNull().default([]),
+  aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
+  validFrom: date('valid_from'),
+  validTo: date('valid_to'),
+})
+
+export const knowledgeAuthorityRevisions = pgTable('knowledge_authority_revisions', {
+  revisionId: uuid('revision_id').primaryKey(),
+  recordId: text('record_id').notNull(),
+  organizationId: text('organization_id'),
+  name: text('name').notNull(),
+  functionCodes: text('function_codes').array().notNull().default([]),
+  seatTerritoryId: text('seat_territory_id').notNull(),
+  competenceTerritoryIds: text('competence_territory_ids').array().notNull(),
+  identifiers: jsonb('identifiers').$type<Record<string, string>>().notNull().default({}),
+})
+
+export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
+  id: uuid('id').primaryKey(),
+  title: text('title').notNull(),
+  countryId: text('country_id').notNull(),
+  status: text('status').$type<ChangeRequestStatus>().notNull().default('draft'),
+  baseReleaseSeq: bigint('base_release_seq', { mode: 'number' }).notNull().default(0),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+})
+
+export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
+  id: uuid('id').primaryKey(),
+  changeRequestId: uuid('change_request_id').notNull(),
+  revisionId: uuid('revision_id').notNull(),
+  claimPath: text('claim_path').notNull(),
+  decision: text('decision').$type<ReviewDecision>().notNull(),
+  note: text('note'),
+  reviewer: text('reviewer').notNull(),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const knowledgeApprovals = pgTable('knowledge_approvals', {
+  id: uuid('id').primaryKey(),
+  changeRequestId: uuid('change_request_id').notNull(),
+  approver: text('approver').notNull(),
+  role: text('role').$type<ApprovalRole>().notNull(),
+  decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const knowledgeReleaseMoves = pgTable('knowledge_release_moves', {
+  seq: bigint('seq', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  recordId: text('record_id').notNull(),
+  channel: text('channel').$type<ReleaseChannel>().notNull(),
+  action: text('action').$type<ReleaseAction>().notNull(),
+  fromRevisionId: uuid('from_revision_id'),
+  toRevisionId: uuid('to_revision_id'),
+  changeRequestId: uuid('change_request_id').notNull(),
+  releasedBy: text('released_by').notNull(),
+  decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+  releasedAt: timestamp('released_at', { withTimezone: true }).notNull().defaultNow(),
+  reason: text('reason'),
+})
+
+export const knowledgeIndexRuns = pgTable('knowledge_index_runs', {
+  id: uuid('id').primaryKey(),
+  revisionId: uuid('revision_id').notNull(),
+  corpusFile: text('corpus_file').notNull(),
+  changeRequestId: uuid('change_request_id').notNull(),
+  state: text('state').$type<IndexRunState>().notNull().default('requested'),
+  failure: text('failure'),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const organizationCountries = pgTable(
+  'organization_countries',
+  {
+    organizationId: text('organization_id').notNull(),
+    countryId: text('country_id').notNull(),
+    entitledBy: text('entitled_by').notNull(),
+    decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+    entitledAt: timestamp('entitled_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ name: 'organization_countries_pkey', columns: [table.organizationId, table.countryId] })]
+)

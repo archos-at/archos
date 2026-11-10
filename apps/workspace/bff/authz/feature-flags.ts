@@ -329,6 +329,23 @@ export const FEATURE_FLAGS = {
    * already written stay untouched.
    */
   officeBaseKnowledge: 'office-base-knowledge',
+  /**
+   * The platform's own base knowledge (ADR-0165, migration 0203): territories,
+   * authorities, listed norms and texts as records that change only through a
+   * reviewed change request. For an office, its turn reads the norms the platform
+   * lists that it holds no copy of ("gelistet, kein Text") and the platform's
+   * authority directives that apply to the project, for the countries it is
+   * entitled to (`isOrgFeatureEnabled`). For the platform organization, its
+   * operators' view and routes answer (`isFeatureEnabled` on the session), and
+   * the norm registry stops taking edits (409): its pointers move into change
+   * requests.
+   *
+   * An entitlement, off until an operator targets the organization. With it off
+   * an office's turn is what it was (the stub's empty answers), the platform
+   * routes answer 403, the registry takes edits, and records already written
+   * stay untouched.
+   */
+  platformBaseKnowledge: 'platform-base-knowledge',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -361,6 +378,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'office-conventions': 'entitlement',
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',
+  'platform-base-knowledge': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

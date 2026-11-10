@@ -37,11 +37,22 @@ interface ActingCall {
   readonly reader: ActingReader
   /** The agent's proposal the person accepted, when the call is that acceptance applied (ADR-0105). */
   readonly proposalId?: string
+  /** How the door got the person's yes for this call, when it got one (`confirmation.ts`, `mcp-apps.ts`). */
+  readonly decisionSource?: ActingDecisionSource
 }
 
-/** What else the call carries besides the person: the proposal it applies, if it applies one. */
+/**
+ * How the person said yes to an agent's call: answering the door's elicitation,
+ * or an MCP Apps card in a client that declared it renders them. The door's
+ * `app-unverified` is not one of these: a client that declared nothing may be
+ * its model speaking, so it never counts as the person's yes.
+ */
+export type ActingDecisionSource = 'elicitation' | 'app'
+
+/** What else the call carries besides the person: the proposal it applies, or the yes it carries. */
 export interface ActingOrigin {
   readonly proposalId?: string
+  readonly decisionSource?: ActingDecisionSource
 }
 
 const acting = new AsyncLocalStorage<ActingCall>()
@@ -53,7 +64,15 @@ export function runAsActingSession<T>(
   reader: ActingReader = 'person',
   origin: ActingOrigin = {},
 ): Promise<T> {
-  return acting.run({ session, reader, ...(origin.proposalId ? { proposalId: origin.proposalId } : {}) }, fn)
+  return acting.run(
+    {
+      session,
+      reader,
+      ...(origin.proposalId ? { proposalId: origin.proposalId } : {}),
+      ...(origin.decisionSource ? { decisionSource: origin.decisionSource } : {}),
+    },
+    fn,
+  )
 }
 
 /** The session bound by {@link runAsActingSession}, or `undefined` outside one. */
@@ -75,4 +94,16 @@ export function actingReaderIsAgent(): boolean {
  */
 export function actingProposalId(): string | undefined {
   return acting.getStore()?.proposalId
+}
+
+/**
+ * Whether a call is in flight under an acting session, and the yes it carries:
+ * `undefined` outside one (a person's own request), else the call's proposal
+ * and decision source, either of which may be absent. Read only by
+ * `person-decision.ts`.
+ */
+export function actingDecision(): { proposalId?: string; decisionSource?: ActingDecisionSource } | undefined {
+  const call = acting.getStore()
+  if (!call) return undefined
+  return { proposalId: call.proposalId, decisionSource: call.decisionSource }
 }
