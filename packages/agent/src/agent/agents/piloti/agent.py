@@ -128,6 +128,7 @@ from .answer_pipeline import RepairFn
 from .answer_pipeline import finalize_answer
 from .answer_pipeline import handed_this_turn
 from .envelope_call import ainvoke
+from .envelope_call import ainvoke_synthesis
 from .envelope_call import ainvoke_with_envelope_json_mode
 from .grounding import tool_result_is_measurement
 from .ledger import assemble_result
@@ -1046,9 +1047,9 @@ class ChatAgent:
                 runaway guard far above any batch the prompt asks for. The calls
                 past it are told to ask again next round, never deleted. 0 disables it.
             callbacks: Optional LangGraph callbacks.
-            envelope_json_mode_with_tools: Whether provider JSON mode is ALSO
-                bound on tool-bound research iterations, not only on the
-                tool-free forced-synthesis call. Default False: some providers
+            envelope_json_mode_with_tools: Whether provider JSON mode is
+                bound on tool-bound research iterations, forced synthesis
+                included (it follows the rounds). Default False: some providers
                 accept it and then stop emitting tool calls, unseen.
             repair_pass: Correct a misremembered quotation in place, on
                 ``card_repair_llm`` (``quote_patch.py``, ADR-0067). Off, or
@@ -1278,11 +1279,11 @@ class ChatAgent:
 
         The answer carries ``research_truncated`` whichever bound fired, so the
         reader can be told that evidence-gathering was cut off rather than
-        finished. Forced synthesis is the tool-FREE call, so provider JSON mode
-        is safe here unconditionally.
+        finished. It keeps the round's binding and asks for no tool call
+        (``envelope_call.ainvoke_synthesis``), so the cached prefix holds.
         """
         self._record_cutoff(state, binding, cutoff)
-        # This call IS the synthesis, by construction (tool-free, anchored on
+        # This call IS the synthesis, by construction (no tool call, anchored on
         # the answer), so the status goes out before it rather than after: the
         # final generation is the longest call of the turn, and the live line
         # would otherwise show the last retrieval event through all of it.
@@ -1296,8 +1297,7 @@ class ChatAgent:
             *request_messages(prompt, state.messages, steering),
             HumanMessage(content=_SYNTHESIS_ANCHOR),
         ]
-        answering, call_config = streaming_call(binding.llm, live=_live_answer(state))
-        response = await ainvoke_with_envelope_json_mode(answering, messages, call_config)
+        response = await ainvoke_synthesis(binding, messages, _live_answer(state), self.envelope_json_mode_with_tools)
         return {
             "messages": [response],
             "tool_iterations": state.tool_iterations,
