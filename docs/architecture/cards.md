@@ -67,9 +67,12 @@ channel with the Markdown that replaced it (`RETIRED_CARD_REPLACEMENTS`,
 walks an enforcement ladder per call — OpenRouter structured
 outputs (`json_schema`, strict, derived from the same Pydantic models by
 `render_envelope_response_format`), then `json_object`, then a plain request —
-on the tool-free forced-synthesis call, and on tool-bound iterations only
-behind the `envelope_json_mode_with_tools` config flag, because some routed
-providers accept the parameter and silently stop emitting tool calls.
+only behind the `envelope_json_mode_with_tools` config flag, because some
+routed providers accept the parameter and silently stop emitting tool calls.
+Forced synthesis follows the rounds: it keeps the turn's tools, asks for no
+call (`tool_choice: "none"`) and sends the format only where they did, so its
+cached prefix holds (`envelope_call.ainvoke_synthesis`); a provider that calls
+a tool anyway gets the tool-free call down the ladder.
 The families are not decoration: each answers
 "where does a number on this card come from?" differently, and that answer is
 what decides whether the model may emit the card at all, on which surface, and

@@ -78,8 +78,8 @@ async def ainvoke_with_envelope_json_mode(llm: Any, messages: list[Any], config:
     The fallback catches the LOUD failure only. OpenRouter's other mode,
     accepting the parameter and silently degrading (dropping tool calls, or
     routing to a provider that ignores it), is invisible here by nature, which
-    is why enforcement defaults to the tool-FREE forced-synthesis call and
-    rides tool-bound iterations only behind ``envelope_json_mode_with_tools``.
+    is why it rides tool-bound calls only behind ``envelope_json_mode_with_tools``;
+    forced synthesis follows the rounds (:func:`ainvoke_synthesis`).
     """
     for response_format in _ENVELOPE_RESPONSE_FORMATS:
         try:
@@ -87,3 +87,36 @@ async def ainvoke_with_envelope_json_mode(llm: Any, messages: list[Any], config:
         except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting the parameter
             _fall_through(exc, response_format)
     return await ainvoke(llm, messages, config)
+
+
+#: Forced synthesis tells the provider to answer, not call (``ainvoke_synthesis``).
+NO_TOOL_CALLS = "none"
+
+
+async def ainvoke_synthesis(binding: Any, messages: list[Any], live: Any, json_mode_with_tools: bool = False) -> Any:
+    """The forced-synthesis call, on the turn's ``binding`` with ``tool_choice: "none"``, streamed to ``live``.
+
+    The rounds before it sent the tools and no ``response_format`` (unless
+    ``json_mode_with_tools``). Dropping the tools changes the first block of the
+    cached prefix and invalidates all of it; switching the output format
+    invalidates the conversation's cache on Claude (Anthropic, Prompt caching
+    and Structured outputs, on or after 2026-11-09). So the longest call of a
+    truncated turn was a full re-write. Keeping both and changing only
+    ``tool_choice`` invalidates the messages at most, and the envelope rests on
+    the fenced contract and its parser (rung 3), as every round's does.
+
+    A provider that ignores ``tool_choice`` and calls a tool anyway gets the
+    tool-free call down the format ladder, as before: a tool call here would
+    run past the turn's ceiling.
+    """
+    from agent.turn.answer_stream import streaming_call
+
+    answering, config = streaming_call(binding.llm_with_tools.bind(tool_choice=NO_TOOL_CALLS), live=live)
+    invoke = ainvoke_with_envelope_json_mode if json_mode_with_tools else ainvoke
+    response = await invoke(answering, messages, config)
+    calls = getattr(response, "tool_calls", None) or []
+    if not calls:
+        return response
+    logger.warning("Forced synthesis: tool_choice=none was ignored (%d call(s)); answering tool-free", len(calls))
+    answering, config = streaming_call(binding.llm, live=live)
+    return await ainvoke_with_envelope_json_mode(answering, messages, config)

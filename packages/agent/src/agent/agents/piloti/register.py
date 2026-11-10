@@ -211,8 +211,8 @@ class ResearchAgentConfig(FunctionBaseConfig, name="research_agent"):
         default=False,
         description=(
             "Whether provider JSON mode (`response_format: json_object`) for the answer envelope is "
-            "ALSO bound on tool-bound research iterations, not only on the tool-free forced-synthesis "
-            "call (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
+            "bound on tool-bound research iterations, forced synthesis included, which follows the "
+            "rounds (default OFF). Some OpenRouter-routed providers accept the parameter and then stop "
             "emitting tool calls — a silent degradation the per-call fallback cannot see — so turning "
             "this on is a per-deployment decision made against a provider known to honor both."
         ),
