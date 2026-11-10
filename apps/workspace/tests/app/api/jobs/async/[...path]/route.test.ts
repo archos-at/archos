@@ -186,7 +186,7 @@ describe('/api/jobs/async/[...path]', () => {
       const res = await POST(req, makeParams(['submit']))
 
       expect(res.status).toBe(403)
-      expect(await res.json()).toEqual({ error: 'feature-disabled', feature: 'deep-research' })
+      expect(await res.json()).toMatchObject({ code: 'feature_disabled', feature: 'deep-research' })
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
