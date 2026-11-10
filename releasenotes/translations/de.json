@@ -560,6 +560,10 @@
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
   },
   {
+    "en": "A project's address can now be confirmed against the Austrian address register, kept in our own database, so what you type is never sent to anyone else. A match names the Gemeinde and Bundesland; an address the register does not hold stays unconfirmed, with its candidates shown.",
+    "de": "Eine Projektadresse lässt sich jetzt mit dem österreichischen Adressregister abgleichen, das in unserer eigenen Datenbank gespeichert ist. Ihre Eingaben werden dabei nie an Dritte übermittelt. Bei einem Treffer werden Gemeinde und Bundesland angegeben; eine im Register nicht geführte Adresse bleibt unbestätigt, mögliche Treffer werden angezeigt."
+  },
+  {
     "en": "A project's completion month is now set when you close it. A running project shows \"ongoing\", and a month entered earlier is no longer shown; you are asked for it again when you close the project.",
     "de": "Der Abschlussmonat eines Projekts wird jetzt beim Schließen festgelegt. Ein laufendes Projekt zeigt „laufend“, und ein früher eingetragener Monat wird nicht mehr angezeigt; beim Schließen des Projekts wird er erneut abgefragt."
   },
