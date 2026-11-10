@@ -13,7 +13,7 @@
  * - **source-credential-set** stores a key write-only, on the person's yes.
  *
  * Reads take `platform:settings:view`, the live probe and the key
- * `platform:settings:manage` (`requirePlatform`).
+ * `platform:knowledge:write` (`requirePlatform`).
  */
 
 import 'server-only'
@@ -96,7 +96,7 @@ export async function testPlatformSource(
   sourceKey: string,
   body: { changeRequestId?: string; live: boolean },
 ): Promise<SourceTestView> {
-  await requirePlatform(session, body.live ? PLATFORM_PERMISSIONS.settingsManage : PLATFORM_PERMISSIONS.settingsView)
+  await requirePlatform(session, body.live ? PLATFORM_PERMISSIONS.knowledgeWrite : PLATFORM_PERMISSIONS.settingsView)
   const found = await platformTransaction(async (tx) => {
     const source = await usableSource(tx, sourceKey, body.changeRequestId ?? null)
     return source ? { source, configured: await configuredSource(tx, source) } : null
@@ -247,7 +247,7 @@ export async function setPlatformSourceCredential(
   sourceKey: string,
   secret: string,
 ): Promise<{ sourceKey: string; credential: CredentialView }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const decisionSource = requirePersonDecision('Setting the key a public source is fetched with')
   const organizationId = await getPlatformOrganizationId()
   if (!organizationId) throw new ServiceUnavailableError('The platform organization is not configured.')

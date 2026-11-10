@@ -1527,6 +1527,13 @@
       "when": 1793300000000,
       "tag": "0217_edition_end_exclusive",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1793400000000,
+      "tag": "0218_knowledge_four_eyes_in_the_database",
+      "breakpoints": true
     }
   ]
 }

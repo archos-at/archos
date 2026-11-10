@@ -15,6 +15,7 @@
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { publishedRequest } from '../platform/testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -34,13 +35,10 @@ const ORG = `org_time_${RUN}`
 const OUTSIDER = `org_time_${RUN}_outsider`
 const AUTHOR = 'user_time_author'
 const EXPERT = 'user_time_expert'
-const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
 const NODE = `AT:test:${RUN}`
 const NOW = new Date('2026-11-10T09:00:00Z')
 
 describe.skipIf(!url)('editions in time against Postgres', () => {
-  let store: typeof import('../platform/store')
-  let release: typeof import('../platform/release')
   let wire: typeof import('../platform/wire')
   let repository: typeof import('./repository')
   let rulesets: typeof import('../store/rulesets')
@@ -53,37 +51,10 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
   const workId = () => `work:${key('noe-bo')}`
 
   async function published(title: string, raw: unknown[]): Promise<void> {
-    const id = await store.insertChangeRequest({ title, countryId: 'AT', createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      const records = raw.map((record) => wire.proposedRecordSchema.parse(record))
-      await store.insertProposedRecords(tx, request!, records, {
-        createdBy: AUTHOR,
-        proposedBy: 'person',
-      })
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      const decisions = view!.revisions.flatMap((revision) =>
-        revision.claims.map((claim) => ({
-          revisionId: revision.revisionId,
-          claimPath: claim.path,
-          decision: 'accepted' as const,
-        }))
-      )
-      await store.insertReviewDecisions(tx, id, { by: EXPERT, decisionSource: 'app' }, decisions)
-      await store.insertApproval(tx, {
-        changeRequestId: id,
-        approver: EXPERT,
-        role: 'domain_expert',
-        decisionSource: 'app',
-      })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    await release.publishChangeRequest(id, 'preview', ACTOR)
-    await release.publishChangeRequest(id, 'stable', ACTOR)
+    const records = raw.map((record) => wire.proposedRecordSchema.parse(record))
+    await publishedRequest({ title, countryId: 'AT', records }, { author: AUTHOR, expert: EXPERT })
   }
+
 
   const transition = {
     inputs: [
@@ -131,8 +102,6 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
-    store = await import('../platform/store')
-    release = await import('../platform/release')
     wire = await import('../platform/wire')
     repository = await import('./repository')
     rulesets = await import('../store/rulesets')

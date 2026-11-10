@@ -18,5 +18,5 @@ type Params = { changeRequestId: string }
 export const POST = platformApiRoute<Params>(
   async ({ session, params, request }) =>
     asProblem(async () => capturePlatformCitation(session, params.changeRequestId, await parseJsonBody(request, captureBodySchema))),
-  { permission: PLATFORM_PERMISSIONS.settingsManage, status: 201 },
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite, status: 201 },
 )

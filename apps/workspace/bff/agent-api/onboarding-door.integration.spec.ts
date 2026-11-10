@@ -94,9 +94,9 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
   const session = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
   const operator = (who: AuthorizedSession): Principal => platformOperator(who)
   const APPROVER = 'platform:knowledge:approve_as_domain_expert'
-  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', APPROVER]))
+  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:write', 'platform:knowledge:review', APPROVER]))
   const expert = operator(
-    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:organizations:manage', APPROVER]),
+    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:write', 'platform:knowledge:review', 'platform:organizations:manage', APPROVER]),
   )
 
   const key = (name: string) => `${name}-${RUN}`

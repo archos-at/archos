@@ -45,7 +45,7 @@ every office on an agent's call alone.
 
 ## Decision Outcome
 
-**Amended by [ADR-0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) (2026-11-10):** an approval alone defers the source check of an operator-supplied capture to the second review, whose confirmation is held to it (`knowledge_sources_unchecked`, migration 0214).
+**Amended by [ADR-0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) (2026-11-10):** an approval alone defers the source check of an operator-supplied capture to the second review, whose confirmation is held to it (`knowledge_sources_unchecked`, migration 0214). Reverted the same day (migration 0218): the source check holds for an approval alone too.
 
 **The guide is a resource.** `<scheme>://platform/onboarding-guide`
 (`bff/agent-api/door/platform/onboarding-guide.md`, embedded like the office

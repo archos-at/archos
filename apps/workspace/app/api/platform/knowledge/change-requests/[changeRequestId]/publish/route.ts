@@ -15,5 +15,5 @@ type Params = { changeRequestId: string }
 export const POST = platformApiRoute<Params>(
   async ({ session, params, request }) =>
     publishPlatformChangeRequest(session, params.changeRequestId, await parseJsonBody(request, publishBodySchema)),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeReview },
 )

@@ -110,7 +110,7 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
 
   const session = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
-  const MANAGE = ['platform:settings:view', 'platform:settings:manage']
+  const MANAGE = ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review']
   const author = platformOperator(session(`user_xa_author_${RUN}`, MANAGE))
   const expert = platformOperator(session(`user_xa_expert_${RUN}`, [...MANAGE, 'platform:knowledge:approve_as_domain_expert']))
   const counsel = platformOperator(session(`user_xa_counsel_${RUN}`, [...MANAGE, 'platform:knowledge:approve_as_counsel']))
