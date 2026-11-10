@@ -97,7 +97,7 @@ async def _read_processing_policy() -> ProcessingPolicy:
 def _processing_policy_from_context() -> ProcessingPolicy:
     from agent.project_context import get_organization_id_from_context
 
-    return resolve_org_processing_policy(get_organization_id_from_context())
+    return resolve_org_processing_policy(get_organization_id_from_context()) or UNREADABLE_POLICY
 
 
 async def _read_model_overrides() -> dict[str, str]:
@@ -140,6 +140,8 @@ def with_turn_effort(efforts: dict[str, str], turn_effort: str | None) -> dict[s
 async def _read_zdr_only() -> bool:
     try:
         return await asyncio.to_thread(get_zdr_only_from_context)
+    except residency.ResidencyViolation:
+        raise  # an organization this cell may not serve: the turn stops here, it is not a lookup failure
     except Exception:  # noqa: BLE001 - fails CLOSED, unlike its three siblings
         # A missing override costs the org its model choice; a missing ZDR bit
         # sends the org's prompts to endpoints that may retain them, which is

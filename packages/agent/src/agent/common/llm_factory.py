@@ -320,12 +320,9 @@ def _route(llm: Any) -> residency.Route:
     """Where a chat call to ``llm`` is processed; refused outside the cell's zone (``common/residency``).
 
     A chat model's client is bound to its base URL at construction, so nothing is rewritten here: a cell's
-    chat models are built on the zone's endpoint (``OPENROUTER_BASE_URL``, held by the boot check).
+    chat models are built on the zone's endpoint (``OPENROUTER_BASE_URL``, held by the boot check). The
+    organization's placement is checked by the caller: blocking in ``_generate``, off the loop in ``_agenerate``.
     """
-    if residency.active_cell() is not None:
-        from agent.common.model_overrides import resolve_org_processing_policy
-
-        residency.check_organization(resolve_org_processing_policy(_request_organization_id()))
     return residency.enforce(_llm_base_url(llm), rewrite=False)[1]
 
 
@@ -371,6 +368,7 @@ def _contract_generate(base: type) -> Any:
     """The contract's ``_generate``, over ``base``'s."""
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
         route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
@@ -392,6 +390,7 @@ def _contract_agenerate(base: type) -> Any:
     """The contract's ``_agenerate``, over ``base``'s."""
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
         route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
@@ -413,6 +412,7 @@ def _contract_stream(base: type) -> Any:
     """The contract's ``_stream``, over ``base``'s."""
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
         route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
@@ -439,6 +439,7 @@ def _contract_astream(base: type) -> Any:
     """The contract's ``_astream``, over ``base``'s."""
 
     async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
         route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)

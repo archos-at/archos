@@ -56,7 +56,10 @@ Option 1.
   decisions, the distiller, dictation, the judge scripts); the chat contract judges the chat
   model's fixed base URL, which a cell sets through `OPENROUTER_BASE_URL`.
 - **An office is placed in a cell** (`organizations.residency_cell`, migration 0205). A deployment
-  refuses to serve an organization placed in another cell. NULL is served by the cell it reaches.
+  refuses to serve an organization placed in another cell, or one whose placement cannot be read,
+  on every path: both transports and the chat contract check the request's organization (off the
+  event loop on the async paths), and `data_policy_for` checks it for detached work. NULL is served
+  by the cell it reaches. A call with no organization is pinned to zero retention inside a cell.
 - **Zero retention is the cell's promise.** Inside a cell the organization's switch cannot turn it
   off: the backend pins whatever is stored, and the BFF refuses the switch (409).
 - **Bring-your-own-key is held to the zone.** An office's OpenRouter key is rewritten to the zone's

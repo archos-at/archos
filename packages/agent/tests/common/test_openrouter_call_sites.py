@@ -52,9 +52,7 @@ ADAPTERS = re.compile(
 )
 
 #: A client the residency guard sits on (ADR-0167): the seam's transports, or the guard called by hand.
-ROUTED = re.compile(
-    r"limited_async_http_client\(|pinned_(?:async_)?http_client\(|openai_client\(|residency\.enforce\(|make_embed_model\("
-)
+ROUTED = re.compile(r"limited_async_http_client\(|pinned_(?:async_)?http_client\(|openai_client\(|residency\.enforce\(")
 
 #: Mentions of a model endpoint that send no tenant content, with the reason.
 NO_TENANT_CONTENT = {

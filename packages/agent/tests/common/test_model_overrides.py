@@ -15,6 +15,7 @@ from agent.common.model_overrides import apply_model_override
 from agent.common.model_overrides import override_model
 from agent.common.model_overrides import parse_model_overrides
 from agent.common.model_overrides import sanitize_model_overrides
+from agent.common.org_config_shared import shared_model_config_key
 from agent.common.residency import ProcessingPolicy
 from agent.common.residency import policy_to_json
 
@@ -388,7 +389,9 @@ class TestCacheTtlConstants:
 
         assert M._POSITIVE_TTL_SECONDS == 10
         assert M._NEGATIVE_TTL_SECONDS == 1
-        assert M._SHARED_TTL_SECONDS == 60
+        from agent.common import org_config_shared
+
+        assert org_config_shared._SHARED_TTL_SECONDS == 60
 
 
 class TestSharedTier:
@@ -439,7 +442,7 @@ class TestSharedTier:
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "old/model"}
 
         # What `invalidateBackendModelConfig` does on the BFF after a save.
-        cache.delete(M.shared_model_config_key("org_1"))
+        cache.delete(shared_model_config_key("org_1"))
         M.reset_overrides_cache()  # the in-process memo expiring
 
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "new/model"}
@@ -454,7 +457,7 @@ class TestSharedTier:
         monkeypatch.setattr(M, "_fetch_org_config", boom)
         entry = M._resolve_org_config("org_1")
         assert entry.overrides == {} and entry.zdr_only is True
-        assert cache.get_json(M.shared_model_config_key("org_1")) is None
+        assert cache.get_json(shared_model_config_key("org_1")) is None
 
     def test_missing_token_resolution_writes_nothing_to_the_shared_tier(self, monkeypatch):
         """No INTERNAL_API_TOKEN -> YAML models with ZDR pinned, and no L2
@@ -465,7 +468,7 @@ class TestSharedTier:
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
         entry = M._resolve_org_config("org_1")
         assert entry.overrides == {} and entry.zdr_only is True
-        assert cache.get_json(M.shared_model_config_key("org_1")) is None
+        assert cache.get_json(shared_model_config_key("org_1")) is None
 
     def test_an_authoritative_empty_config_is_cached_in_l2(self, monkeypatch):
         """An unconfigured org is the DEFAULT state, and it is a real answer.
@@ -488,7 +491,7 @@ class TestSharedTier:
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
         monkeypatch.setattr(M, "_fetch_org_config", empty)
         assert M.resolve_org_model_overrides("org_1") == {}
-        assert cache.get_json(M.shared_model_config_key("org_1")) == {
+        assert cache.get_json(shared_model_config_key("org_1")) == {
             "overrides": {},
             "zdr_only": False,
             "processing": policy_to_json(DEFAULT_POLICY),
@@ -570,7 +573,7 @@ class TestSharedTier:
         from agent.common import cache
         from agent.common import model_overrides as M
 
-        cache.set_json(M.shared_model_config_key("org_1"), {"overrides": "nope"}, 60)
+        cache.set_json(shared_model_config_key("org_1"), {"overrides": "nope"}, 60)
         monkeypatch.setattr(
             M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY)
         )

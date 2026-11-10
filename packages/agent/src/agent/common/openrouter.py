@@ -221,10 +221,13 @@ def data_policy_for(organization_id: str | None) -> DataPolicy:
     pins it: see the module docstring.
     """
     if not organization_id:
-        return NO_RETENTION_LIMITS
+        return ZERO_DATA_RETENTION if residency.active_cell() is not None else NO_RETENTION_LIMITS
     try:
+        from agent.common.model_overrides import resolve_org_processing_policy
         from agent.common.model_overrides import resolve_org_zdr_only
 
+        if residency.active_cell() is not None:  # an organization this cell may not serve gets no policy at all
+            residency.check_organization(resolve_org_processing_policy(organization_id) or residency.UNREADABLE_POLICY)
         return ZERO_DATA_RETENTION if resolve_org_zdr_only(organization_id) else NO_RETENTION_LIMITS
     except residency.ResidencyViolation:
         raise
@@ -457,6 +460,7 @@ class _PinningTransport(httpx.BaseTransport):
         self._inner = inner or httpx.HTTPTransport()
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        residency.check_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return self._inner.handle_request(request)
@@ -502,6 +506,7 @@ class _AsyncPinningTransport(httpx.AsyncBaseTransport):
         self._inner = inner or httpx.AsyncHTTPTransport()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        await residency.acheck_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return await self._inner.handle_async_request(request)

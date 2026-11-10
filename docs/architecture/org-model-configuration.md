@@ -482,11 +482,13 @@ invalidation path is intact:
   each side falls back to a per-process (BFF: per-replica) memory store, the
   delete reaches only the replica that performed the save, and every other
   replica serves its memo until the TTLs below expire.
-- **Backend tiers** (`packages/agent/src/agent/common/model_overrides.py`): L1 10 s
-  in-process memo, L2 60 s shared entry, both write-invalidated by the BFF
-  delete. Errors are negative-cached for 1 s in L1 only; empty successes
-  (`{}, False` — also what a missing `INTERNAL_API_TOKEN` resolves to)
-  stay L1-only so "no configuration" can never shadow a concurrent save in L2.
+- **Backend tiers** (`packages/agent/src/agent/common/model_overrides.py`, the L2
+  codec in `common/org_config_shared.py`): L1 10 s in-process memo, L2 60 s
+  shared entry, both write-invalidated by the BFF delete. The entry also carries
+  the organization's processing policy (cell and purposes, ADR-0167); an L2 entry
+  without it reads as a miss. Errors are negative-cached for 1 s in L1 only, and a
+  missing `INTERNAL_API_TOKEN` (nobody was asked) stays L1-only; an answer from the
+  BFF, even an empty one (`{}, False`), is authoritative and is written to L2.
   Residual race: a fetch that started before the save can complete after the
   delete and re-populate L2 with the pre-save record (stale up to L2 60 s);
   a replica holding a pre-save L1 entry serves it for up to L1 10 s regardless.

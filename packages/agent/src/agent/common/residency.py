@@ -272,17 +272,59 @@ def enforce(url: str, *, rewrite: bool = True) -> tuple[str, Route]:
 
 
 def check_organization(policy: ProcessingPolicy) -> None:
-    """Refuse to serve an organization placed in a cell other than this deployment's.
+    """Refuse to serve an organization placed in a cell other than this deployment's, or whose placement is unknown.
 
-    An organization with no cell is served by the cell it reaches, under that cell's zone. Without residency
-    switched on nothing is refused.
+    An organization with no cell is served by the cell it reaches, under that cell's zone. A policy that could
+    not be read is refused: its organization may be placed anywhere. Without residency switched on nothing is
+    refused.
     """
     cell = active_cell()
-    if cell is None or policy.residency_cell in (None, cell.id):
+    if cell is None:
         return
-    raise ResidencyViolation(
-        f"the organization is placed in cell {policy.residency_cell}; this deployment is cell {cell.id} (ADR-0167)"
-    )
+    if not policy.known:
+        raise ResidencyViolation(f"the organization's placement cannot be read; cell {cell.id} refuses (ADR-0167)")
+    if policy.residency_cell not in (None, cell.id):
+        raise ResidencyViolation(
+            f"the organization is placed in cell {policy.residency_cell}; this deployment is cell {cell.id} (ADR-0167)"
+        )
+
+
+def _current_organization() -> str | None:
+    try:
+        from agent.project_context import get_organization_id_from_context
+
+        return get_organization_id_from_context()
+    except Exception:  # noqa: BLE001 - no request context: nothing to place
+        return None
+
+
+def check_current_organization() -> None:
+    """:func:`check_organization` for the organization the current request runs for. Blocking on a cache miss."""
+    if active_cell() is None:
+        return
+    organization_id = _current_organization()
+    if not organization_id:
+        return
+    from agent.common.model_overrides import resolve_org_processing_policy
+
+    check_organization(resolve_org_processing_policy(organization_id) or UNREADABLE_POLICY)
+
+
+async def acheck_current_organization() -> None:
+    """:func:`check_current_organization` off the event loop: the cached policy, else a worker thread."""
+    if active_cell() is None:
+        return
+    organization_id = _current_organization()
+    if not organization_id:
+        return
+    import asyncio
+
+    from agent.common.model_overrides import resolve_org_processing_policy
+
+    policy = resolve_org_processing_policy(organization_id, cached_only=True)
+    if policy is None:
+        policy = await asyncio.to_thread(resolve_org_processing_policy, organization_id)
+    check_organization(policy)
 
 
 # --- Recording -------------------------------------------------------------------------------------------------

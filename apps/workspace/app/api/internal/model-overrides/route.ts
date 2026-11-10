@@ -42,7 +42,12 @@ export const GET = internalApiRoute(
       const [overrides, zdrOnly, processingPolicy] = await Promise.all([
         getEffectiveModelOverrides(organizationId),
         isZdrOnlyForOrg(organizationId),
-        getProcessingPolicy(organizationId),
+        // Never the whole answer's failure: without it the backend reads the policy as unreadable (the
+        // service alone, and refused inside a residency cell), and still gets the overrides and the ZDR bit.
+        getProcessingPolicy(organizationId).catch((error: unknown) => {
+          console.error('[model-overrides] processing policy unreadable:', error)
+          return null
+        }),
       ])
       return { overrides, zdrOnly, processingPolicy }
     })

@@ -419,3 +419,67 @@ class TestTheAsyncTransport:
 
     def test_flag_off_leaves_it_alone(self, no_cell):
         assert self._post(f"{GLOBAL_BASE}/chat/completions")[0].url.host == "openrouter.ai"
+
+
+class TestPlacementOnEveryPath:
+    """An organization this cell may not serve is refused on the bespoke paths too, not only on chat."""
+
+    @pytest.fixture
+    def elsewhere(self, monkeypatch):
+        from agent.common import model_overrides as M
+
+        M.reset_overrides_cache()
+        monkeypatch.setattr(residency, "_current_organization", lambda: "org_elsewhere")
+        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True, ProcessingPolicy(residency_cell="de-de-1")))
+
+    def test_an_embedding_for_an_org_placed_elsewhere_never_leaves(self, cell, elsewhere):
+        sent: list[httpx.Request] = []
+        with pytest.raises(ResidencyViolation):
+            _client(sent).post(f"{GLOBAL_BASE}/embeddings", json={"model": "m", "input": "x"})
+        assert sent == []
+
+    def test_an_async_call_for_an_org_placed_elsewhere_never_leaves(self, cell, elsewhere):
+        with pytest.raises(ResidencyViolation):
+            TestTheAsyncTransport()._post(f"{GLOBAL_BASE}/chat/completions")
+
+    def test_an_async_chat_call_for_an_org_placed_elsewhere_never_leaves(self, cell, elsewhere):
+        import asyncio
+
+        sent: list[httpx.Request] = []
+        with pytest.raises(ResidencyViolation):
+            asyncio.run(_chat(EU_BASE, sent).ainvoke([HumanMessage("hi")]))
+        assert sent == []
+
+    def test_an_unreadable_placement_is_refused_inside_a_cell(self, cell, monkeypatch):
+        from agent.common import model_overrides as M
+
+        M.reset_overrides_cache()
+        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True, residency.UNREADABLE_POLICY))
+        with pytest.raises(ResidencyViolation):
+            openrouter.data_policy_for("org_unreadable")
+
+    def test_flag_off_an_org_placed_elsewhere_is_served(self, no_cell, elsewhere):
+        sent: list[httpx.Request] = []
+        _client(sent).post(f"{GLOBAL_BASE}/embeddings", json={"model": "m", "input": "x"})
+        assert sent
+
+    def test_the_turn_does_not_read_a_refusal_as_a_lookup_failure(self, cell, monkeypatch):
+        import asyncio
+
+        from agent.common import request_llm_context
+
+        def refuse():
+            raise ResidencyViolation("placed elsewhere")
+
+        monkeypatch.setattr(request_llm_context, "get_zdr_only_from_context", refuse)
+        with pytest.raises(ResidencyViolation):
+            asyncio.run(request_llm_context._read_zdr_only())
+
+    def test_a_call_with_no_organization_is_pinned_inside_a_cell(self, cell):
+        assert openrouter.data_policy_for(None) is ZERO_DATA_RETENTION
+
+    def test_revert_check_without_the_placement_guard_the_embedding_leaves(self, cell, elsewhere, monkeypatch):
+        monkeypatch.setattr(residency, "check_current_organization", lambda: None)
+        sent: list[httpx.Request] = []
+        _client(sent).post(f"{GLOBAL_BASE}/embeddings", json={"model": "m", "input": "x"})
+        assert sent and sent[0].url.host == "eu.openrouter.ai"
