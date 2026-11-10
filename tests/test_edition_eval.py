@@ -2,8 +2,8 @@
 
 Every expected value is read off ``configs/knowledge-packs/at.json``: a pack change
 that moves an edition, an LGBl or an in-force day fails here until the set follows
-it. A row marked ``disputed_source`` expects the RIS value instead, and its ``pack``
-values are held to the pack all the same, so a corrected pack says to drop the dispute.
+it. The checks are held to answers the 2026-11-10 review wrote by hand: each named the
+expected edition and said the opposite.
 """
 
 from __future__ import annotations
@@ -71,8 +71,8 @@ class TestTheSetsShape:
 
 
 class TestEveryValueResolvesAgainstThePack:
-    @pytest.mark.parametrize("row", [r for r in ROWS if "relation" in r], ids=lambda r: r["id"])
-    def test_an_undisputed_row_expects_what_the_pack_says(self, row):
+    @pytest.mark.parametrize("row", ROWS, ids=lambda r: r["id"])
+    def test_every_row_expects_what_the_pack_says(self, row):
         key, values = _pack_values(row)
         assert key == row["relation"], f"{row['id']}: the pack binds {key} on {row['day']}"
         if row["group"] == "r3":
@@ -81,31 +81,37 @@ class TestEveryValueResolvesAgainstThePack:
         for name in VALUES:
             assert expect.get(name) == values[name], f"{row['id']}: {name} is {values[name]} in the pack"
 
-    @pytest.mark.parametrize("row", [r for r in ROWS if "disputed_source" in r], ids=lambda r: r["id"])
-    def test_a_disputed_row_keeps_the_packs_values_and_cites_ris(self, row):
-        dispute = row["disputed_source"]
-        key, values = _pack_values(row)
-        assert key == dispute["pack"]["relation"], f"{row['id']}: the pack now binds {key}"
-        for name in VALUES:
-            assert dispute["pack"].get(name) == values[name], f"{row['id']}: the pack's {name} moved"
-        differs = [name for name in VALUES if row["expect"].get(name) != values[name]]
-        assert differs, f"{row['id']}: the pack now agrees with RIS; drop disputed_source and name the relation"
-        assert dispute["ris"]["url"].startswith("https://ogd.ris.bka.gv.at/")
-        assert dispute["ris"]["document"] in dispute["ris"]["url"]
-        assert dispute["ris"]["quote"] and dispute["note"].startswith("RIS:")
-
     def test_r1_and_r5_rows_carry_every_value_the_pack_holds(self):
         for row in _group("r1") + _group("r5"):
             assert row["expect"].get("edition") and row["expect"].get("ris_link"), row["id"]
+
+    @pytest.mark.parametrize("row", [r for r in ROWS if "transition" in r], ids=lambda r: r["id"])
+    def test_a_transitional_rule_comes_from_the_gazette_the_new_relation_cites(self, row):
+        later = max(
+            (r for r in PACK if r["type"] == "relation" and r.get("relationType") == "makes_binding"),
+            key=lambda r: (
+                r["validFrom"] if r["key"].startswith(f"at-{row['land'][3:]}-oib-rl-{row['guideline']}-") else ""
+            ),
+        )
+        cited = " ".join(c.get("url", "") + c.get("note", "") for c in later["citations"])
+        assert row["transition"]["source"] in cited, f"{row['id']}: {later['key']} does not cite it"
+        assert row["expect"]["transition"] is True and row["group"] == "r2"
 
 
 class TestAbstentions:
     @pytest.mark.parametrize("row", _group("r3"), ids=lambda r: r["id"])
     def test_the_records_hold_nothing_for_that_day_or_territory(self, row):
-        assert "disputed_source" not in row
         if row["land"] in edition_eval.territories(PACK):
             assert _pack_values(row)[0] is None, f"{row['id']}: the pack binds an edition that day"
         assert row["expect"] == {"abstain": True}
+
+    def test_a_binding_edition_without_text_in_the_corpus_must_not_be_quoted(self):
+        texts = {r["editionKey"] for r in PACK if r["type"] == "manifestation"}
+        for row in _group("r1") + _group("r2") + _group("r5"):
+            held = _relation(row["relation"])["to"]["key"] in texts
+            asks = bool(row["expect"].get("abstain") or row["expect"].get("no_substitute"))
+            assert asks is not held, row["id"]
+        assert _row("r1-sbg-rl6")["expect"]["abstain"] and _row("r5-sbg-rl6")["expect"]["abstain"]
 
 
 class TestFalsePremises:
@@ -131,7 +137,30 @@ class TestPairs:
                 assert other is None or other in editions - {row["expect"]["edition"]}
 
 
-class TestChecks:
+def _relation(key: str) -> dict:
+    return next(r for r in PACK if r["type"] == "relation" and r["key"] == key)
+
+
+def _row(ident: str) -> dict:
+    return next(r for r in ROWS if r["id"] == ident)
+
+
+def _run(answer: str, cited: list[str] | None = None) -> SimpleNamespace:
+    return SimpleNamespace(kind="", cited_families=cited or [], answer=answer, signals=[])
+
+
+class _Judge:
+    """A judge that answers ``verdict`` and records what it was asked."""
+
+    def __init__(self, verdict: bool | None) -> None:
+        self.verdict, self.asked = verdict, []
+
+    def __call__(self, kind: str, question: str, answer: str) -> bool | None:
+        self.asked.append((kind, question))
+        return self.verdict
+
+
+class TestPatterns:
     @pytest.mark.parametrize(
         ("text", "guideline", "year", "found"),
         [
@@ -172,39 +201,95 @@ class TestChecks:
     def test_mentions_day(self, text, found):
         assert edition_eval.mentions_day(text, "2026-09-01") is found
 
-    def test_edition_checks_read_patterns_and_ask_the_judge_for_meanings(self):
-        row = next(r for r in ROWS if r["id"] == "r1-sbg-rl6")
-        answer = (
-            "In Salzburg gilt die OIB-RL 6 Ausgabe März 2015 (LGBl Nr 83/2026, in Kraft seit 1. September 2026), "
-            "https://www.ris.bka.gv.at/eli/lgbl/SA/2026/83. Den Text dieser Ausgabe habe ich nicht."
+    @pytest.mark.parametrize(
+        ("link", "lgbl_too"),
+        [
+            ("https://www.ris.bka.gv.at/eli/lgbl/SA/2026/83/20260806", True),
+            ("https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml", True),
+            ("https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrSbg&Gesetzesnummer=20001000", False),
+        ],
+    )
+    def test_a_ris_link_is_any_ris_host_and_the_lgbl_link_names_that_gazette(self, link, lgbl_too):
+        assert edition_eval.links_ris(f"Siehe {link} .")
+        assert edition_eval.links_lgbl(f"Siehe {link} .", "AT-5", "83/2026") is lgbl_too
+        assert not edition_eval.links_lgbl(f"Siehe {link} .", "AT-9", "83/2026")
+
+
+class TestWhichEditionTheAnswerSaysBinds:
+    """The review's wrong answers (2026-11-10): each named the expected year and said the opposite."""
+
+    def test_a_changeover_answer_that_names_the_right_year_as_the_future_one_fails(self):
+        row = _row("r2-sbg-rl2-2026-09-01")
+        wrong = (
+            "Am 1. September 2026 gilt noch die Ausgabe 2019; die Ausgabe Mai 2023 wird erst später verbindlich "
+            "(LGBl Nr 83/2026, https://www.ris.bka.gv.at/eli/lgbl/SA/2026/83)."
         )
-        asked: list[str] = []
+        assert edition_eval.mentions_edition(wrong, "2", "2023")  # the year is there: a word check passes it
+        no_judge = _run(wrong)
+        assert edition_eval.set_checks(row, no_judge, wrong, None)["binding"] is False
+        assert "judge_unavailable:binding" in no_judge.signals
+        judge = _Judge(False)
+        assert edition_eval.set_checks(row, _run(wrong), wrong, judge)["binding"] is False
+        kind, asked = judge.asked[0]
+        assert (
+            kind == "binding"
+            and "CLAIM: OIB-Richtlinie 2, Ausgabe 2023, is the edition binding in Salzburg on 2026-09-01" in asked
+        )
 
-        def judge(kind: str, question: str, text: str) -> bool:
-            asked.append(kind)
-            return True
+    def test_a_negated_lone_year_goes_to_the_judge(self):
+        row = _row("r1-bgld-rl2")
+        wrong = "Nicht die Ausgabe 2019 gilt im Burgenland, sondern 2023."
+        assert edition_eval.plainly_binding(wrong, "2", "2019", ["2023"]) is None
+        assert edition_eval.set_checks(row, _run(wrong), wrong, _Judge(False))["binding"] is False
+        assert edition_eval.set_checks(row, _run(wrong), wrong, None)["binding"] is False
 
-        signals: list[str] = []
-        checks = edition_eval.edition_checks(row, answer, [], judge, signals)
-        assert all(checks.values()) and asked == ["abstains"] and signals == []
-        assert edition_eval.edition_checks(row, answer, ["6"], None, signals)["no_substitute"] is False
-        assert signals == ["judge_unavailable:abstains"]
+    def test_a_plain_right_answer_passes_without_a_judge_and_a_missing_edition_fails_without_one(self):
+        row = _row("r1-bgld-rl2")
+        right = "Im Burgenland ist die OIB-RL 2 Ausgabe April 2019 verbindlich (Bgld. BauVO 2008 idF LGBl. 22/2021)."
+        judge = _Judge(False)
+        assert edition_eval.set_checks(row, _run(right), right, judge)["binding"] is True
+        missing = "Im Burgenland gilt die OIB-RL 2 Ausgabe Mai 2023."
+        assert edition_eval.set_checks(row, _run(missing), missing, judge)["binding"] is False
+        assert judge.asked == []
 
-    def test_the_suite_skips_family_cited_for_an_abstention(self):
-        row = next(r for r in ROWS if r["group"] == "r3")
-        run = SimpleNamespace(kind="", cited_families=[], answer="Nicht vorhanden.", signals=[])
-        assert "family_cited" not in suite.check(row, run, {"cards": []})
 
-    def test_the_report_counts_disputed_rows_apart(self, monkeypatch):
-        rows = [
-            {"id": "r1-a", "group": "r1", "disputed_source": {"note": "RIS: differs"}},
-            {"id": "r1-b", "group": "r1"},
-        ]
-        monkeypatch.setattr(edition_eval, "load_questions", lambda: rows)
+class TestJudgedChecks:
+    def test_an_abstention_that_names_a_held_edition_fails_and_no_judge_fails_too(self):
+        row = _row("r3-wien-rl2-2020-01-31")
+        wrong = "Damals galt die Ausgabe 2019 der OIB-RL 2."
+        run = _run(wrong)
+        checks = edition_eval.set_checks(row, run, wrong, None)
+        assert checks["no_held_edition"] is False and checks["abstains"] is False
+        assert run.signals == ["judge_unavailable:abstains"]
+
+    def test_the_suite_records_an_unavailable_judge_after_the_precedent_checks(self, monkeypatch):
+        monkeypatch.setattr(suite, "_judge", lambda: None)
+        row = _row("r3-wien-rl2-2020-01-31")
+        run = _run("Damals galt die Ausgabe 2019.")
+        checks = suite.check(row, run, {"cards": []})
+        assert checks["abstains"] is False and "judge_unavailable:abstains" in run.signals
+        assert "family_cited" not in checks
+
+    def test_a_transition_row_asks_for_the_quoted_rule(self):
+        row = _row("r2-wien-rl6-2026-07-15")
+        judge = _Judge(True)
+        answer = "Ab 15. Juli 2026 gilt die OIB-RL 6 Ausgabe 2025; anhängige Verfahren nach bisheriger Rechtslage."
+        checks = edition_eval.set_checks(row, _run(answer), answer, judge)
+        assert checks["transition"] is True
+        assert any(kind == "transition" and "CLAIM: Für alle zur Zeit" in asked for kind, asked in judge.asked)
+
+    def test_the_loop_set_gets_none_of_these_checks(self):
+        row = {"id": "q", "family": "OIB-RL 2", "question": "?", "expect": {"edition": "2023"}}
+        checks = suite.check(row, _run("Ausgabe 2019"), {"cards": []})
+        assert "binding" not in checks and "family_cited" in checks
+
+
+class TestReport:
+    def test_it_counts_runs_whose_judge_could_not_grade(self):
         runs = [
-            SimpleNamespace(question_id="r1-a", error="", checks={"a": True}),
-            SimpleNamespace(question_id="r1-b", error="", checks={"a": False}),
+            SimpleNamespace(question_id="r1-wien-rl1", error="", checks={"a": True}, signals=[]),
+            SimpleNamespace(
+                question_id="r1-wien-rl2", error="", checks={"a": False}, signals=["judge_unavailable:binding"]
+            ),
         ]
-        lines = edition_eval.report_lines(runs)
-        assert "| r1 | 2 | 0/1 (0%) | 1/1 (100%) |" in lines
-        assert any("r1-a" in line for line in lines)
+        assert "| r1 | 2 | 1/2 (50%) | 1 |" in edition_eval.report_lines(runs)

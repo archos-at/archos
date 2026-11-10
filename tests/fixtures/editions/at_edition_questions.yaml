@@ -17,22 +17,32 @@
 # `validFrom`. tests/test_edition_eval.py resolves every row against the pack, so
 # a pack change that moves a value fails CI until this file follows it.
 #
-# Where RIS disagrees with the pack (and with the OIB table it was built from),
-# RIS wins: the row carries `disputed_source` instead of `relation`, expects the
-# RIS value, names the RIS document and quotes it, and keeps the pack's values
-# under `pack`. The report counts disputed rows apart. The test holds `pack` to
-# the pack too: when the pack is corrected, it fails and says to drop the dispute.
+# The pack follows the authentic gazette on RIS where the OIB's table differs
+# (Salzburg, Niederösterreich, Burgenland; each record cites its LgblAuth
+# document). The OIB table's values are asked as false premises in r5.
+#
+# `transition` quotes a Verordnung's transitional rule, read off the gazette text
+# the later relation cites; r2 rows across that changeover expect the answer to
+# state it. Only Wien LGBl. 26/2026, Salzburg LGBl. 83/2026 and NÖ LGBl. 41/2025
+# were read for one, so other changeovers carry none.
 #
 # An `expect` value the pack does not hold is left out, never filled from
 # memory: the 2019 adoptions in Steiermark and Oberösterreich RL 6 name no LGBl.
 #
-#   edition        the year of the edition that binds that day („Ausgabe Mai 2023", „OIB-RL 6:2025")
+#   edition        the edition that binds that day: `binding` fails when it is never named, passes
+#                  when it is the only one named with no negation in its sentence, else the judge decides
 #   other_edition  r2: the edition on the other side of the changeover, which the answer names too
 #   lgbl           the Landesgesetzblatt number that makes it binding („LGBl. Nr. 83/2026")
 #   in_force       the day that relation took effect, ISO; any common German date form matches
-#   ris_link       a link to ris.bka.gv.at
-#   abstain        no OIB-RL passage cited (`no_substitute`) and the judge reads an abstention (`abstains`)
+#   ris_link       a link to ris.bka.gv.at or ogd.ris.bka.gv.at; `ris_lgbl` also asks that it point at the LGBl
+#   no_substitute  the corpus holds no text of the binding edition (it holds only the 2023 texts):
+#                  the answer cites no passage of that Richtlinie, since any it cites is another edition's
+#   abstain        no OIB-RL passage cited (`no_substitute`), the judge reads an abstention (`abstains`),
+#                  and in r3 no edition the pack holds is named (`no_held_edition`)
+#   transition     r2: the judge reads the quoted transitional rule in the answer (`transition`)
 #   premise        r5: the false part of the question; the judge reads a correction (`corrects_premise`)
+#
+# A judged check whose judge cannot answer is a recorded failure (`judge_unavailable:<kind>`).
 
 questions:
 - id: r1-bgld-rl1
@@ -49,6 +59,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r1-bgld-rl2
   group: r1
   land: AT-1
@@ -63,6 +74,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r1-bgld-rl3
   group: r1
   land: AT-1
@@ -77,6 +89,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r1-bgld-rl4
   group: r1
   land: AT-1
@@ -91,6 +104,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r1-bgld-rl5
   group: r1
   land: AT-1
@@ -105,6 +119,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r1-bgld-rl6
   group: r1
   land: AT-1
@@ -119,6 +134,7 @@ questions:
     lgbl: 75/2026
     in_force: '2026-11-05'
     ris_link: true
+    no_substitute: true
 - id: r1-ktn-rl1
   group: r1
   land: AT-2
@@ -370,6 +386,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-sbg-rl1
   group: r1
   land: AT-5
@@ -468,6 +485,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-stmk-rl2
   group: r1
   land: AT-6
@@ -481,6 +499,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-stmk-rl3
   group: r1
   land: AT-6
@@ -494,6 +513,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-stmk-rl4
   group: r1
   land: AT-6
@@ -507,6 +527,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-stmk-rl5
   group: r1
   land: AT-6
@@ -520,6 +541,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-stmk-rl6
   group: r1
   land: AT-6
@@ -533,6 +555,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r1-tirol-rl1
   group: r1
   land: AT-7
@@ -617,6 +640,7 @@ questions:
     lgbl: 59/2026
     in_force: '2026-07-16'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl1
   group: r1
   land: AT-8
@@ -631,6 +655,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl2
   group: r1
   land: AT-8
@@ -645,6 +670,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl3
   group: r1
   land: AT-8
@@ -659,6 +685,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl4
   group: r1
   land: AT-8
@@ -673,6 +700,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl5
   group: r1
   land: AT-8
@@ -687,6 +715,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-vbg-rl6
   group: r1
   land: AT-8
@@ -701,6 +730,7 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
+    no_substitute: true
 - id: r1-wien-rl1
   group: r1
   land: AT-9
@@ -785,6 +815,7 @@ questions:
     lgbl: 26/2026
     in_force: '2026-07-15'
     ris_link: true
+    no_substitute: true
 - id: r2-wien-rl6-2026-07-14
   group: r2
   land: AT-9
@@ -794,6 +825,10 @@ questions:
   suite: core
   question: Unser Bauansuchen in Wien wird am 14. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
   relation: at-9-oib-rl-6-2023
+  transition:
+    source: LGBLA_WI_20260715_26
+    provision: Art. II
+    quote: Für alle zur Zeit des Inkrafttretens dieser Verordnung anhängigen Verfahren gilt die bisherige Rechtslage.
   pair: wien-rl6
   expect:
     edition: '2023'
@@ -801,6 +836,7 @@ questions:
     lgbl: 14/2024
     in_force: '2024-02-23'
     ris_link: true
+    transition: true
 - id: r2-wien-rl6-2026-07-15
   group: r2
   land: AT-9
@@ -810,6 +846,10 @@ questions:
   suite: core
   question: Unser Bauansuchen in Wien wird am 15. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
   relation: at-9-oib-rl-6-2025
+  transition:
+    source: LGBLA_WI_20260715_26
+    provision: Art. II
+    quote: Für alle zur Zeit des Inkrafttretens dieser Verordnung anhängigen Verfahren gilt die bisherige Rechtslage.
   pair: wien-rl6
   expect:
     edition: '2025'
@@ -817,6 +857,8 @@ questions:
     lgbl: 26/2026
     in_force: '2026-07-15'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-wien-rl4-2024-02-22
   group: r2
   land: AT-9
@@ -832,6 +874,7 @@ questions:
     other_edition: '2023'
     in_force: '2020-02-01'
     ris_link: true
+    no_substitute: true
 - id: r2-wien-rl4-2024-02-23
   group: r2
   land: AT-9
@@ -857,12 +900,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 5. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl2
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-sbg-rl2-2026-08-06
   group: r2
   land: AT-5
@@ -872,12 +921,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 6. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl2
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-sbg-rl2-2026-08-31
   group: r2
   land: AT-5
@@ -887,12 +942,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl2
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-sbg-rl2-2026-09-01
   group: r2
   land: AT-5
@@ -902,6 +963,10 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-2-2023
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl2
   expect:
     edition: '2023'
@@ -909,6 +974,7 @@ questions:
     lgbl: 83/2026
     in_force: '2026-09-01'
     ris_link: true
+    transition: true
 - id: r2-sbg-rl3-2026-08-31
   group: r2
   land: AT-5
@@ -918,12 +984,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-3-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl3
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-sbg-rl3-2026-09-01
   group: r2
   land: AT-5
@@ -933,6 +1005,10 @@ questions:
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
   relation: at-5-oib-rl-3-2023
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
   pair: sbg-rl3
   expect:
     edition: '2023'
@@ -940,6 +1016,7 @@ questions:
     lgbl: 83/2026
     in_force: '2026-09-01'
     ris_link: true
+    transition: true
 - id: r2-tirol-rl6-2026-07-15
   group: r2
   land: AT-7
@@ -955,6 +1032,7 @@ questions:
     other_edition: '2025'
     in_force: '2020-06-01'
     ris_link: true
+    no_substitute: true
 - id: r2-tirol-rl6-2026-07-16
   group: r2
   land: AT-7
@@ -971,6 +1049,7 @@ questions:
     lgbl: 59/2026
     in_force: '2026-07-16'
     ris_link: true
+    no_substitute: true
 - id: r2-tirol-rl3-2026-07-15
   group: r2
   land: AT-7
@@ -986,6 +1065,7 @@ questions:
     other_edition: '2023'
     in_force: '2020-06-01'
     ris_link: true
+    no_substitute: true
 - id: r2-tirol-rl3-2026-07-16
   group: r2
   land: AT-7
@@ -1017,6 +1097,7 @@ questions:
     other_edition: '2023'
     in_force: '2020-09-12'
     ris_link: true
+    no_substitute: true
 - id: r2-ktn-rl4-2024-12-31
   group: r2
   land: AT-2
@@ -1042,12 +1123,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Niederösterreich wird am 17. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-3-oib-rl-2-2019
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
   pair: noe-rl2
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-07-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-noe-rl2-2025-03-18
   group: r2
   land: AT-3
@@ -1057,12 +1144,18 @@ questions:
   suite: core
   question: Unser Bauansuchen in Niederösterreich wird am 18. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-3-oib-rl-2-2019
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
   pair: noe-rl2
   expect:
     edition: '2019'
     other_edition: '2023'
     in_force: '2021-07-01'
     ris_link: true
+    no_substitute: true
+    transition: true
 - id: r2-noe-rl2-2025-03-20
   group: r2
   land: AT-3
@@ -1072,6 +1165,10 @@ questions:
   suite: core
   question: Unser Bauansuchen in Niederösterreich wird am 20. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
   relation: at-3-oib-rl-2-2023
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
   pair: noe-rl2
   expect:
     edition: '2023'
@@ -1079,6 +1176,7 @@ questions:
     lgbl: 41/2025
     in_force: '2025-03-20'
     ris_link: true
+    transition: true
 - id: r2-ooe-rl1-2025-09-30
   group: r2
   land: AT-4
@@ -1094,6 +1192,7 @@ questions:
     other_edition: '2023'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r2-ooe-rl1-2025-10-01
   group: r2
   land: AT-4
@@ -1126,6 +1225,7 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
+    no_substitute: true
 - id: r2-bgld-rl6-2026-11-05
   group: r2
   land: AT-1
@@ -1142,6 +1242,7 @@ questions:
     lgbl: 75/2026
     in_force: '2026-11-05'
     ris_link: true
+    no_substitute: true
 - id: r2-ooe-rl6-2025-10-01
   group: r2
   land: AT-4
@@ -1156,6 +1257,7 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
+    no_substitute: true
 - id: r3-wien-rl2-2020-01-31
   group: r3
   land: AT-9
@@ -1390,6 +1492,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-stmk-rl4
   group: r5
   land: AT-6
@@ -1404,6 +1507,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-stmk-rl6
   group: r5
   land: AT-6
@@ -1418,6 +1522,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2025'
+    no_substitute: true
 - id: r5-vbg-rl1
   group: r5
   land: AT-8
@@ -1433,6 +1538,7 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-vbg-rl3
   group: r5
   land: AT-8
@@ -1448,6 +1554,7 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-vbg-rl6
   group: r5
   land: AT-8
@@ -1463,6 +1570,7 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2025'
+    no_substitute: true
 - id: r5-bgld-rl2
   group: r5
   land: AT-1
@@ -1478,6 +1586,7 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-bgld-rl5
   group: r5
   land: AT-1
@@ -1493,6 +1602,7 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-ooe-rl6
   group: r5
   land: AT-4
@@ -1507,6 +1617,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-ooe-rl6-2
   group: r5
   land: AT-4
@@ -1521,6 +1632,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2025'
+    no_substitute: true
 - id: r5-wien-rl6
   group: r5
   land: AT-9
@@ -1536,6 +1648,7 @@ questions:
     in_force: '2026-07-15'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-tirol-rl6
   group: r5
   land: AT-7
@@ -1551,6 +1664,7 @@ questions:
     in_force: '2026-07-16'
     ris_link: true
     premise: '2023'
+    no_substitute: true
 - id: r5-ktn-rl2
   group: r5
   land: AT-2
@@ -1685,6 +1799,7 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: WBTV 2023
+    no_substitute: true
 - id: r5-ooe-rl4
   group: r5
   land: AT-4
@@ -1715,6 +1830,7 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: TBV 2026
+    no_substitute: true
 - id: r5-bgld-rl1
   group: r5
   land: AT-1
@@ -1730,6 +1846,7 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: NÖ BTV 2014
+    no_substitute: true
 - id: r5-tirol-rl3
   group: r5
   land: AT-7
@@ -1775,6 +1892,7 @@ questions:
     in_force: '2026-07-15'
     ris_link: true
     premise: LGBl. 14/2024
+    no_substitute: true
 - id: r5-ktn-rl2-2
   group: r5
   land: AT-2
@@ -1864,6 +1982,7 @@ questions:
     in_force: '2021-10-01'
     ris_link: true
     premise: 06.08.2026
+    no_substitute: true
 - id: r5-noe-rl4-2
   group: r5
   land: AT-3
@@ -1878,6 +1997,7 @@ questions:
     in_force: '2021-07-01'
     ris_link: true
     premise: 18.03.2025
+    no_substitute: true
 - id: r5-bgld-rl6
   group: r5
   land: AT-1
@@ -1893,6 +2013,7 @@ questions:
     in_force: '2026-11-05'
     ris_link: true
     premise: '2019'
+    no_substitute: true
 - id: r5-sbg-rl6
   group: r5
   land: AT-5
@@ -1908,3 +2029,4 @@ questions:
     in_force: '2026-09-01'
     ris_link: true
     premise: keine OIB-RL 6
+    abstain: true

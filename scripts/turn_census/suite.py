@@ -86,7 +86,6 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
@@ -107,6 +106,7 @@ from census import run_stamp  # noqa: E402
 from census import source_packages  # noqa: E402
 from census import timed_out  # noqa: E402
 from census import tree_pythonpath  # noqa: E402
+from eval_sets import set_module  # noqa: E402
 from files_eval import recorded_calls  # noqa: E402
 from fixture_bff import lookups_served  # noqa: E402
 from fixture_bff import marks_proposed  # noqa: E402
@@ -238,7 +238,7 @@ def set_questions(name: str | None) -> list[dict]:
     """Every row of a set, whatever its ``suite``: a fixture set's from its own module, a norm set's from its file."""
     if name == "precedent":
         return load_precedent_questions()
-    if module := _set_module(name):
+    if module := set_module(name):
         return module.load_questions()
     return load_questions(path=NORM_QUESTIONS.get(str(name), QUESTIONS), core_only=False)[0]
 
@@ -512,9 +512,10 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
         accepted = [question["kind"], *((question.get("expect") or {}).get("kind_also") or [])]
         checks["kind"] = run.kind in accepted
     family = _family_number(question.get("family"))
-    expect = question.get("expect") or {}
-    if family and not expect.get("abstain"):  # an abstention must cite no Richtlinie (`edition_eval`)
+    module = set_module(question.get("set"))
+    if family and getattr(module, "CHECKS_FAMILY", True):
         checks["family_cited"] = family in run.cited_families
+    expect = question.get("expect") or {}
     # The reader sees the prose AND the cards (a variant's table sits in a tab),
     # so a value counts wherever it was delivered.
     answer = _normal("\n".join([run.answer, *_card_strings((envelope or {}).get("cards") or [])]))
@@ -529,14 +530,15 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
         cards = (envelope or {}).get("cards") or []
         checks[f"shape:{'|'.join(options)}"] = any(_has_shape(option, run.answer, cards) for option in options)
     projects = _office_projects(str(question.get("scenario") or "")) if expect.get("lookup") else None
-    from edition_eval import edition_checks
-
-    checks.update(edition_checks(question, answer, run.cited_families, _judge(), run.signals))
     checks.update(
         precedent_checks(
             expect, run, answer, question=str(question.get("question") or ""), judge=_judge(), projects=projects
         )
     )
+    if callable(
+        set_checks := getattr(module, "set_checks", None)
+    ):  # after precedent_checks, which clears judge signals
+        checks.update(set_checks(question, run, answer, _judge()))
     return checks
 
 
@@ -737,25 +739,13 @@ def render(
         "",
         *(failing or ["None."]),
     ]
-    if module := _set_module(meta.get("set")):
+    if module := set_module(meta.get("set")):
         lines += ["", *module.report_lines(runs, meta)]
     if skipped:
         lines += ["", f"Skipped, need a project: {', '.join(skipped)}."]
     if not_in_corpus:
         lines += ["", f"Skipped, the ingested corpus lacks the Richtlinie: {', '.join(not_in_corpus)}."]
     return "\n".join(lines) + "\n"
-
-
-def _set_module(name: str | None) -> ModuleType | None:
-    """A set's own module: its ``load_questions()``, and the ``report_lines(runs, meta)`` it adds to the report."""
-    import edition_eval
-    import files_eval
-    import north_star_eval
-    import visual_eval
-    import workspace_eval
-
-    modules = {"workspace": workspace_eval, "files": files_eval, "visual": visual_eval, "editions": edition_eval}
-    return {**modules, "north-star": north_star_eval}.get(str(name))
 
 
 def split_lines(runs: list[Run]) -> list[str]:

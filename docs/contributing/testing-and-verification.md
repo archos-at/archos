@@ -626,14 +626,25 @@ task be:eval:answer-suite -- --out /tmp/suite/after --baseline /tmp/suite/before
 OIB-RL edition binds in an Austrian Land on a given day: market requirements R1,
 R2, R3 and R5 (`docs/design/international/research/market-2026-11.md`, (d)). The
 134 rows are in `tests/fixtures/editions/at_edition_questions.yaml`: 54 Land × RL
-items, 24 changeover days, 20 abstentions and 36 false premises. The checks
-(`scripts/turn_census/edition_eval.py`) are patterns for the edition, the LGBl, the
-in-force day and a link to `ris.bka.gv.at`, `no_substitute` (no Richtlinie cited
-by an abstention), and two judge rubrics, `abstains` and `corrects_premise`. Every
-expected value is read off the relation records in `configs/knowledge-packs/at.json`;
-where RIS disagrees, the row is `disputed_source`, expects the RIS value, quotes the
-RIS document, and the report counts it apart. `tests/test_edition_eval.py` holds
-every row to the pack, so a pack change fails CI until the set follows.
+items, 24 changeover days, 20 abstentions and 36 false premises. Its checks
+(`scripts/turn_census/edition_eval.py`, which the suite dispatches to by the row's
+`set`, as it does for the files and visual sets) are:
+
+- `binding`: which edition the answer says applies that day. That is a meaning, so
+  it fails without asking when the edition is never named, passes without asking
+  only when it is the one edition named with no negation in its sentence, and
+  otherwise asks the judge to confirm a stated claim.
+- patterns: the LGBl, the in-force day, a link to `ris.bka.gv.at` or
+  `ogd.ris.bka.gv.at` (`ris_lgbl` also wants it to name that gazette), and
+  `no_substitute`, which bans citing a Richtlinie whose binding edition the corpus
+  does not hold (it holds only the 2023 texts);
+- judge rubrics: `abstains`, `corrects_premise`, and `transition`, the quoted
+  transitional rule of the Verordnung across an r2 changeover.
+
+A judged check with no judge is a recorded failure (`judge_unavailable:<kind>`).
+Every expected value is read off the relation records in
+`configs/knowledge-packs/at.json`; `tests/test_edition_eval.py` holds every row to
+the pack, so a pack change fails CI until the set follows.
 
 **The precedent set** (`-- --set precedent`) asks whether the agent uses the
 office's other projects well (docs/roadmap/office-experience.md, step A). Each
