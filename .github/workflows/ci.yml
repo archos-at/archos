@@ -470,6 +470,10 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
@@ -540,6 +544,10 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
@@ -605,6 +613,10 @@ jobs:
     services:
       qdrant:
         image: qdrant/qdrant:v1.19.2
+        # WARN, not the default INFO: the runner prints the service's log after the
+        # job, and thousands of request lines buried the pytest failure out of reach.
+        env:
+          QDRANT__LOG_LEVEL: WARN
         ports:
           - 6333:6333
     env:
