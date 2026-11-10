@@ -129,3 +129,14 @@ export function buildingClassificationOf(scope: SetupScope): BuildingClassificat
 /** The inputs a classification reads, in its table's order: what a change to the profile must touch to move a class. */
 export const classificationInputs = (classification: BuildingClassification | null): string[] =>
   classification ? classification.table.inputs.map((input) => input.key) : []
+
+/**
+ * Where a project is, for a consumer that only needs the chain (the BIM rules):
+ * `null` when nothing places it, an empty chain when it is placed in no country
+ * the records can name, else its territories, leaf first.
+ */
+export function siteOfProfile(profile: Pick<ProjectProfile, 'facts' | 'assumptions'>): { chain: readonly string[] } | null {
+  const { chain } = setupScopeOf(profile)
+  if (chain.length === 0 && siteCountry(profile) === null) return null
+  return { chain }
+}

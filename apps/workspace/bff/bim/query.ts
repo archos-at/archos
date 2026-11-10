@@ -49,6 +49,7 @@ import {
   type CachedCompliance,
 } from './compliance-cache'
 import { buildStoredRuleInputs, readStoredRuleInputs } from './rule-inputs'
+import { siteKey, siteOfModel, storeyFacts } from './compliance-facts'
 import { compareModels, renderComparison, type BimComparison } from './compare'
 import { deriveProfileSuggestions, renderProfileSuggestions, type BimProfileSuggestion } from './profile'
 import {
@@ -431,22 +432,6 @@ export class BimModelNotReadyError extends ApiError {
 }
 
 /**
- * Storey names and elevations for the rule catalogue.
- *
- * OIB 2 Tabelle 1b asks a different fire-resistance duration of a
- * Kellergeschoß wall than of a ground-floor one; without this a rule cannot
- * tell them apart and has to report the requirement as undetermined.
- */
-function storeyFacts(
-  summary: BimModelHeader['summary']
-): Array<{ name: string; elevation: number | null }> | undefined {
-  return summary?.storeys.map((storey) => ({
-    name: storey.name ?? '',
-    elevation: storey.elevation,
-  }))
-}
-
-/**
  * The rule catalogue over one model, through every shortcut there is.
  *
  * Written once because it is needed twice, and the second caller — the
@@ -465,7 +450,8 @@ async function complianceRun(
   organizationId: string,
   facts: { buildingClass: number | null; mainUse: string | null }
 ): Promise<CachedCompliance> {
-  const cached = readComplianceCache(header.id, facts.buildingClass, facts.mainUse)
+  const site = await siteOfModel(header, organizationId)
+  const cached = readComplianceCache(header.id, facts.buildingClass, facts.mainUse, siteKey(site))
   if (cached) return cached
 
   // The fast path: a single column of a single row, ~120 bytes per element
@@ -501,6 +487,7 @@ async function complianceRun(
 
   const compliance = runBimRules(loaded.elements, {
     ...facts,
+    site,
     // The model declares its length unit; a rule that guessed could be wrong
     // by a factor of a thousand. Each revision is judged with ITS OWN, so a
     // re-export from millimetres to metres does not register as every
@@ -517,7 +504,7 @@ async function complianceRun(
     complianceSummary: summarizeBimRules(compliance),
     complianceShoppingList: missingPropertyShoppingList(compliance),
   }
-  writeComplianceCache(header.id, facts.buildingClass, facts.mainUse, computed)
+  writeComplianceCache(header.id, facts.buildingClass, facts.mainUse, siteKey(site), computed)
   return computed
 }
 
