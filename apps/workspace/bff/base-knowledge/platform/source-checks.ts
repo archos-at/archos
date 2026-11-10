@@ -40,6 +40,37 @@ export async function checkSourceConfig(config: Record<string, unknown>): Promis
   return check
 }
 
+/**
+ * A built-in source: one of the repository's own (`configs/sources`), an engine's configuration the agent's tools
+ * read and that is reviewed as code, never a platform record (ADR-0174, "Which kind a source is").
+ */
+export interface BuiltInSource {
+  sourceKey: string
+  title: string
+  territory: string
+  protocol: string
+  format: string
+  hosts: string[]
+  dataFlow: 'public_only' | 'site_keyed'
+  licence: string
+  monitor: { kind: string; intervalHours: number }
+  credentialHeader: string | null
+  /** Its recorded fixtures, run once per api-tier process: the check KC-7 runs on a record. */
+  fixtures: SourceCheck
+}
+
+/** How long source-status waits for the built-in list before it lists the records alone: it is read once per process. */
+export const BUILT_IN_TIMEOUT_MS = 5_000
+
+/** The built-in sources as the api tier lists them; throws {@link CaptureFetchError} when it cannot answer. */
+export async function builtInSources(): Promise<BuiltInSource[]> {
+  const answer = await callPublicSources('/v1/public-sources/built-in', {}, BUILT_IN_TIMEOUT_MS)
+  if (answer.status === 200 && isRecord(answer.body) && Array.isArray(answer.body.sources)) {
+    return answer.body.sources.filter((source): source is BuiltInSource => isRecord(source) && checkOf(source.fixtures) !== null)
+  }
+  throw new CaptureFetchError(`The built-in sources did not answer: ${refusalDetail(answer)}`, 502)
+}
+
 type SourceRecord = Extract<ProposedRecord, { type: 'source' }>
 
 async function problemsOf(record: SourceRecord): Promise<Problem[]> {

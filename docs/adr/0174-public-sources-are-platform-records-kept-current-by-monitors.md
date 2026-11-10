@@ -144,6 +144,16 @@ publish without them, whatever path reaches it.
 
 ### Consequences
 
+- Which kind a source is (2026-11-10, the one place this rule is written; the
+  package README points here). A source is **built in** when an engine's own
+  configuration is code-level: the agent's tools read it on every turn (the RIS
+  adapter's controllers, Bundesland parameters and document paths, Fedlex's
+  SPARQL). It lives in `configs/sources/`, is reviewed as code, ships with the
+  image, and no record can override its hosts (the fetcher refuses). Every
+  other source is a **record**, onboarded through the door: an HTML statute
+  portal, a PDF publisher (the OIB), an ELI portal, a geodata service, the
+  German Länder's portals. `platform-knowledge-source-status` lists both, by
+  `origin` (`built_in`, read-only with its fixtures' result; `record`).
 - Good: a country's sources, advice policy and terminology are onboarded and
   kept current through the door, with no code and no deploy.
 - Good: a source that changed is a request in a reviewer's queue, with the new
