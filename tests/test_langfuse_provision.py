@@ -145,3 +145,21 @@ def test_the_rule_provisioned_follows_the_cell_it_runs_in(monkeypatch):
     assert condition not in provision._rules()[0].filter
     monkeypatch.setenv(residency.RESIDENCY_CELL_ENV, "eu-at-1")
     assert condition in provision._rules()[0].filter
+
+
+def test_the_advice_policy_judge_runs_only_on_turns_that_carried_a_policy_and_keeps_every_other_filter():
+    """ADR-0174: its own rule, so a turn without hedges is never graded against a policy."""
+    from agent.observability.onboarding_scores import ADVICE_POLICY_TRACE_TAG
+
+    for residency_on in (False, True):
+        rules = {rule.name: rule for rule in judge_rules(residency_on)}
+        chat, advice = rules["chat-turn-judges"], rules["advice-policy-judges"]
+        assert "advice-policy-held" not in chat.judge_names
+        assert advice.judge_names == ("advice-policy-held",)
+        assert all(condition in advice.filter for condition in chat.filter)
+        assert {
+            "type": "arrayOptions",
+            "column": "tags",
+            "operator": "any of",
+            "value": [ADVICE_POLICY_TRACE_TAG],
+        } in advice.filter
