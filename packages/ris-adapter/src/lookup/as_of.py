@@ -9,9 +9,11 @@ parameter [verify the OGD API], so a Land search may return only today's
 versions.
 
 Fail closed, whatever the search returns: a hit is read only when its own
-in-force window covers the day. The day it went out of force is excluded, so
-the reading holds whether RIS prints that date as the last day or as the first
-day without. The whole-law document is today's consolidation and is never read
+in-force window covers the day. RIS prints ``Ausserkrafttretensdatum`` as the
+last day in force (the Bauproduktegesetz 1997 ends ``2018-12-31``, its
+successor starts ``2019-01-01``, OGD API checked 2026-11-10), shown here as
+``In Kraft bis``; that day is in force. Base knowledge stores the same end one
+day later, half-open (ADR-0171, migration 0216). The whole-law document is today's consolidation and is never read
 for a past day, nor is the catalog's pointer to it. Nothing found is a miss
 that says the version was not found, never today's text under a past date.
 """
@@ -58,11 +60,11 @@ def in_force_on(metadata: dict[str, str], day: date) -> bool:
     since = parse_day(metadata.get("In Kraft seit", ""))
     if since is None or since > day:
         return False
-    until_text = metadata.get("Außer Kraft seit", "").strip()
+    until_text = metadata.get("In Kraft bis", "").strip()
     if not until_text:
         return True
     until = parse_day(until_text)
-    return until is not None and day < until
+    return until is not None and day <= until
 
 
 #: ``TIME_EDITIONS=on|off`` overrides the flag for a whole process: the answer suite runs without a BFF.

@@ -141,7 +141,7 @@ _METADATA_FIELDS = (
     ("Gesetzesnummer", "Gesetzesnummer"),
     ("Kundmachungsorgan", "Kundmachungsorgan"),
     ("Inkrafttretensdatum", "In Kraft seit"),
-    ("Ausserkrafttretensdatum", "Außer Kraft seit"),
+    ("Ausserkrafttretensdatum", "In Kraft bis"),  # the last day in force, inclusive (OGD-RIS)
     ("Geschaeftszahl", "Geschäftszahl"),
     ("Entscheidungsdatum", "Entscheidungsdatum"),
     ("Gericht", "Gericht"),
