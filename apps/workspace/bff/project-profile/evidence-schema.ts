@@ -25,7 +25,7 @@ export const MAX_EVIDENCE_QUOTE_LENGTH = 400
 /** Most inputs a derivation names. The building class has seven. */
 export const MAX_DERIVATION_INPUTS = 20
 
-export const PROFILE_EVIDENCE_KINDS = ['document', 'geocoder', 'derivation', 'person'] as const
+export const PROFILE_EVIDENCE_KINDS = ['document', 'geocoder', 'register', 'derivation', 'person'] as const
 export type ProfileEvidenceKind = (typeof PROFILE_EVIDENCE_KINDS)[number]
 
 /**
@@ -57,6 +57,21 @@ export const geocoderEvidenceSchema = z.object({
   resolvedAt: instant,
 })
 
+/**
+ * An official address register in the cell confirmed the address
+ * (`lib/site-resolution`, ADR-0172): the register's address id, prefixed by
+ * the register, and the reference date of the release it was read from.
+ */
+export const registerEvidenceSchema = z.object({
+  kind: z.literal('register'),
+  /** `<register>:<its own id>`, e.g. `at-bev:5734380`. */
+  addressId: z.string().min(1).max(100),
+  label: z.string().min(1).max(300),
+  /** The reference date (Stichtag) of the release it was read from. */
+  referenceDate: z.string().max(10),
+  resolvedAt: instant,
+})
+
 /** One input a derivation read, and whether it was only suggested when it did. */
 export const derivationInputSchema = z.object({
   key: z.string().min(1).max(200),
@@ -82,6 +97,7 @@ export const personEvidenceSchema = z.object({
 export const profileEvidenceSchema = z.discriminatedUnion('kind', [
   documentEvidenceSchema,
   geocoderEvidenceSchema,
+  registerEvidenceSchema,
   derivationEvidenceSchema,
   personEvidenceSchema,
 ])

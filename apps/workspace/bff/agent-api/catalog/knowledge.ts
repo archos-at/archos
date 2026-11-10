@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { geocodeQuerySchema } from '@/lib/geocoding/types'
 import { listNormsQuerySchema } from '@/lib/norms/norm-list-wire'
+import { siteResolveQuerySchema } from '@/lib/site-resolution/wire'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -44,6 +45,20 @@ export const knowledgeOperations = [
     path: '/api/geocode',
     query: geocodeQuerySchema,
     load: () => import('@/app/api/geocode/route'),
+  },
+  {
+    name: 'site-resolve',
+    domain: 'knowledge',
+    summary: 'Resolve a site address against official registers',
+    description:
+      'Looks a typed address (`q`) up in the official address registers hosted here (Austria: BEV); nothing leaves to a third party. ' +
+      '`verified`: exactly one register address; `site` has country, `state`, `municipality`, the territory `chain` and the ' +
+      'competent `authority` (`decided`, or `undetermined` with a reason). `unverified`: a `reason` and up to 8 `candidates` to ' +
+      'ask the person about; never treat it as placed. Then project-site-set with an `addressId`.',
+    method: 'GET',
+    path: '/api/sites/resolve',
+    query: siteResolveQuerySchema,
+    load: () => import('@/app/api/sites/resolve/route'),
   },
   {
     name: 'widget-token-get',

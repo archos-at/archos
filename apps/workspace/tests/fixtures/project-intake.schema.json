@@ -766,6 +766,39 @@
           "type": "object",
           "properties": {
             "kind": {
+              "const": "register"
+            },
+            "addressId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "referenceDate": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "resolvedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "kind",
+            "addressId",
+            "label",
+            "referenceDate",
+            "resolvedAt"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
               "const": "derivation"
             },
             "rule": {
@@ -1200,6 +1233,39 @@
                       "type": "object",
                       "properties": {
                         "kind": {
+                          "const": "register"
+                        },
+                        "addressId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "referenceDate": {
+                          "type": "string",
+                          "maxLength": 10
+                        },
+                        "resolvedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "addressId",
+                        "label",
+                        "referenceDate",
+                        "resolvedAt"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
                           "const": "derivation"
                         },
                         "rule": {
@@ -1385,6 +1451,39 @@
                               "kind",
                               "provider",
                               "label",
+                              "resolvedAt"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "register"
+                              },
+                              "addressId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "referenceDate": {
+                                "type": "string",
+                                "maxLength": 10
+                              },
+                              "resolvedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "addressId",
+                              "label",
+                              "referenceDate",
                               "resolvedAt"
                             ]
                           },
@@ -1887,6 +1986,39 @@
                             "type": "object",
                             "properties": {
                               "kind": {
+                                "const": "register"
+                              },
+                              "addressId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "referenceDate": {
+                                "type": "string",
+                                "maxLength": 10
+                              },
+                              "resolvedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "addressId",
+                              "label",
+                              "referenceDate",
+                              "resolvedAt"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
                                 "const": "derivation"
                               },
                               "rule": {
@@ -2072,6 +2204,39 @@
                                     "kind",
                                     "provider",
                                     "label",
+                                    "resolvedAt"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "register"
+                                    },
+                                    "addressId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "referenceDate": {
+                                      "type": "string",
+                                      "maxLength": 10
+                                    },
+                                    "resolvedAt": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "addressId",
+                                    "label",
+                                    "referenceDate",
                                     "resolvedAt"
                                   ]
                                 },
@@ -2437,6 +2602,39 @@
                               "type": "object",
                               "properties": {
                                 "kind": {
+                                  "const": "register"
+                                },
+                                "addressId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                },
+                                "referenceDate": {
+                                  "type": "string",
+                                  "maxLength": 10
+                                },
+                                "resolvedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "addressId",
+                                "label",
+                                "referenceDate",
+                                "resolvedAt"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
                                   "const": "derivation"
                                 },
                                 "rule": {
@@ -2622,6 +2820,39 @@
                                       "kind",
                                       "provider",
                                       "label",
+                                      "resolvedAt"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "register"
+                                      },
+                                      "addressId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 100
+                                      },
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "referenceDate": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                      },
+                                      "resolvedAt": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "addressId",
+                                      "label",
+                                      "referenceDate",
                                       "resolvedAt"
                                     ]
                                   },
@@ -3221,6 +3452,7 @@
                     {
                       "type": "string",
                       "enum": [
+                        "register",
                         "geocoder",
                         "document",
                         "person"

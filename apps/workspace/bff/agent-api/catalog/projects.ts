@@ -25,6 +25,7 @@ import { ProjectProfileSchema } from '@/lib/project-profile/types'
 import { intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
 import { confirmCleanupSchema, proposeCleanupSchema } from '@/lib/projects/cleanup-wire'
 import { createProjectSchema } from '@/lib/projects/create-project-schema'
+import { projectSiteSetBodySchema } from '@/lib/site-resolution/wire'
 import { addMemberSchema, listMembersQuerySchema } from '@/lib/projects/project-members-wire'
 import {
   createMemorySchema,
@@ -328,6 +329,21 @@ export const projectsOperations = [
     body: ProjectProfileSchema,
     ifMatchHeader: true,
     load: () => import('@/app/api/projects/[id]/profile/route'),
+  },
+  {
+    name: 'project-site-set',
+    domain: 'projects',
+    summary: 'Set a project’s site',
+    description:
+      'Pass `addressId` from site-resolve: the address, country, state and municipality become confirmed facts with the register ' +
+      'as evidence. Or `typed`: kept unconfirmed unless exactly one register address matches. Replaces the previous site. ' +
+      'Needs project:edit. Answers `{ resolution, profileVersion }`.',
+    method: 'POST',
+    path: '/api/projects/[id]/site',
+    params: projectParams,
+    body: projectSiteSetBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/projects/[id]/site/route'),
   },
   {
     name: 'project-profile-patch',

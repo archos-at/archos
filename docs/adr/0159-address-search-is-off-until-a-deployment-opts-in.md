@@ -54,5 +54,9 @@ Compose passes `${GEOCODER_URL-}`. Everything else of ADR-0151 stands.
 
 ## More Information
 
+Amended by [ADR-0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md): a
+site address is confirmed against official registers hosted in the cell
+(`site-resolve`), not by the geocoder, which stays as this record leaves it.
+
 Revisit when the data-flow register lists komoot (build split S5), or when
 address resolution from registers in the cell replaces the geocoder.

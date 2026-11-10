@@ -302,6 +302,7 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'base-knowledge-edition-as-of':
     'which edition of a law applied, from records that belong to no project; a project’s procedure dates only when its `projectId` names one, which the gate judges as any named project',
   'knowledge-base-get': 'the platform’s base corpus, the same for every organization',
+  'site-resolve': 'a public address register and the organization’s own rulesets, read for the typed text; no project is read',
   'release-note-list': 'the product’s release notes, the same for every organization',
   'norm-list': 'the platform’s norm register, public law pointers, the same for every organization',
   'organization-member-list': 'the organization’s members, which every member sees',

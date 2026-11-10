@@ -132,6 +132,7 @@ export const intakeProfileStep: typeof en.intakeProfileStep = {
     document: '{name} · S. {page}',
     documentNoPage: '{name}',
     geocoder: 'Adresssuche',
+    register: 'Adressregister',
     derivation: 'Abgeleitet',
     person: 'Ihre Angabe',
     none: 'Ohne Beleg',
