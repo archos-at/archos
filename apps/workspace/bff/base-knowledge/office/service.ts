@@ -360,7 +360,7 @@ export interface BaseKnowledgeRemoval {
 /**
  * What a turn carries (`turn-context/service.ts`): the block and each copy's
  * answer-label data, or null when the flag is off for the organization. The
- * platform's listings come through `platformKnowledge()` (a stub until S7). Read as the model
+ * platform's listings and directives come through `platformKnowledge()` (ADR-0165). Read as the model
  * reads (`SCREENED_ONLY`), so a held upload stays out of the turn.
  */
 export interface BaseKnowledgeTurn {
@@ -377,17 +377,18 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   const [documents, profile, listed] = await Promise.all([
     visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
-    platformKnowledge().listedNotHeld(held),
+    platformKnowledge().listedNotHeld(organizationId, held),
   ])
   const facts = profile?.profile?.facts ?? {}
   const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
+  const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
   const entries = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
     return document ? [toEntry(entry, document, now)] : []
   })
   return {
-    block: renderBaseKnowledgeBlock(entries, territory, listed),
+    block: renderBaseKnowledgeBlock(entries, territory, listed, directives),
     labels: entries.map((entry) => officeAnswerLabel(entry, territory)),
   }
 }

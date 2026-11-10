@@ -8,7 +8,8 @@
  *     npx vitest run bff/base-knowledge/store/rulesets.integration.spec.ts
  *
  * What the SQL must hold: an office reads its own ruleset in force and another
- * office reads none of it (with a positive control); a proposal without a head
+ * office reads none of it (with a positive control); a platform ruleset only once
+ * released to an entitled office (0205); a proposal without a head
  * does not count; a body is never updated; a row that is both a table and a
  * deferral, or a table for a purpose with no table schema, is refused by the
  * database itself; a tenant never writes a platform ruleset. And end to end,
@@ -141,18 +142,24 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     })
   })
 
-  it('an office reads a platform ruleset once it is in force, never before', async () => {
+  it('an office reads a platform ruleset once it is released and the office is entitled, never before', async () => {
+    // Since 0205 (ADR-0165) a platform row exists only in a change request, its head moves
+    // only with a stable release, and an office reads it only for a country it is entitled to.
     const recordId = `ruleset_${randomUUID()}`
     const revisionId = randomUUID()
+    const requestId = randomUUID()
     const territory = `DE:test:platform-${Date.now()}`
     const payload = JSON.stringify(BERLIN.body.kind === 'table' ? BERLIN.body.payload : {})
     await withPlatformAccess('rulesets spec platform row', () =>
       db.transaction(async (tx) => {
         await tx.execute(
-          sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${recordId}, NULL, 'ruleset', 'platform')`
+          sql`INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES (${requestId}, 'ruleset spec', 'DE', 'platform')`
         )
         await tx.execute(
-          sql`INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by) VALUES (${revisionId}, ${recordId}, 'ruleset', NULL, 'platform')`
+          sql`INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES (${recordId}, NULL, 'ruleset', 'DE', 'platform')`
+        )
+        await tx.execute(
+          sql`INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id) VALUES (${revisionId}, ${recordId}, 'ruleset', NULL, 'platform', ${requestId})`
         )
         await tx.execute(sql`INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
           VALUES (${revisionId}, ${recordId}, NULL, 'competence', ARRAY[${territory}], '2020-01-01', 'decision_table.v1', ${payload}::jsonb)`)
@@ -161,15 +168,24 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     const read = () =>
       store.readRulesetsInForce(ORG, { purpose: 'competence', territoryIds: [territory] })
     expect((await read()).rulesets).toEqual([])
-    await withPlatformAccess('rulesets spec platform head', () =>
-      db.execute(
-        sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`
-      )
+    await withPlatformAccess('rulesets spec platform release', () =>
+      db.transaction(async (tx) => {
+        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`)
+        await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
+          VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
+        await tx.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`)
+      })
+    )
+    // Released, but the office is not entitled to Germany: still nothing.
+    expect((await read()).rulesets).toEqual([])
+    await withPlatformAccess('rulesets spec entitlement', () =>
+      db.execute(sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source) VALUES (${ORG}, 'DE', 'platform', 'app')`)
     )
     expect((await read()).rulesets.map((ruleset) => ruleset.id)).toEqual([recordId])
-    await withPlatformAccess('rulesets spec platform cleanup', () =>
-      db.execute(sql`DELETE FROM knowledge_records WHERE id = ${recordId}`)
-    )
+    await withPlatformAccess('rulesets spec platform cleanup', async () => {
+      await db.execute(sql`DELETE FROM organization_countries WHERE organization_id = ${ORG}`)
+      await db.execute(sql`DELETE FROM knowledge_records WHERE id = ${recordId}`)
+    })
   })
 
   it('reports a read past the cap as truncated, and returns no more than the cap', async () => {

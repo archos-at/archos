@@ -61,6 +61,7 @@ describe('the registry', () => {
         'piloti-notices',
         'piloti-wakes',
         'platform-agent-mcp',
+        'platform-base-knowledge',
         'runtime-model-config',
         'skills',
         // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0162).

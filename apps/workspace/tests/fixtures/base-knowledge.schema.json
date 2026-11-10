@@ -9,7 +9,9 @@
         "work",
         "edition",
         "manifestation",
-        "ruleset"
+        "ruleset",
+        "territory",
+        "authority"
       ]
     },
     "knowledge_work_revisions.kind": {
@@ -79,6 +81,73 @@
       "type": "string",
       "enum": [
         "decision_table.v1"
+      ]
+    },
+    "knowledge_territory_revisions.kind": {
+      "type": "string",
+      "enum": [
+        "union",
+        "country",
+        "state",
+        "district",
+        "municipality",
+        "city_district"
+      ]
+    },
+    "knowledge_change_requests.status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected",
+        "published",
+        "rolled_back"
+      ]
+    },
+    "knowledge_review_decisions.decision": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "edited",
+        "rejected"
+      ]
+    },
+    "knowledge_approvals.role": {
+      "type": "string",
+      "enum": [
+        "domain_expert",
+        "counsel",
+        "second_reviewer"
+      ]
+    },
+    "knowledge_approvals.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation"
+      ]
+    },
+    "knowledge_release_moves.channel": {
+      "type": "string",
+      "enum": [
+        "preview",
+        "stable"
+      ]
+    },
+    "knowledge_release_moves.action": {
+      "type": "string",
+      "enum": [
+        "publish",
+        "rollback"
+      ]
+    },
+    "knowledge_index_runs.state": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "queued",
+        "failed"
       ]
     }
   }

@@ -474,7 +474,7 @@ export async function executeOperation(
       return { refusal: failure(refused), status: 403, code: 'FORBIDDEN' }
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
-    const result = await callOperation(op, input, ctx.principal.session, 'agent')
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource })
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {

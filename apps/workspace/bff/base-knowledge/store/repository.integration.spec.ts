@@ -9,8 +9,8 @@
  *
  * What the SQL itself must hold, whatever the service does: another office
  * reads none of an office's records (with a positive control: the owner does);
- * a platform row is read only once it has a head and is never written by a
- * tenant; history is never updated or deleted on its own; an office cannot
+ * a platform row is never written by a tenant (when one is read, and by whom,
+ * is `../platform/platform.integration.spec.ts`, migration 0205); history is never updated or deleted on its own; an office cannot
  * attach its copy to another office's edition; and deleting the document
  * leaves no record, revision, body or check behind.
  */
@@ -195,32 +195,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
         db.execute(sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${`work_${randomUUID()}`}, NULL, 'work', 'user_bk')`)
       )
     ).rejects.toThrow()
-  })
-
-  it('reads a platform work once it has a head, never before', async () => {
-    const workId = `work_${randomUUID()}`
-    const revisionId = randomUUID()
-    await withPlatformAccess('base knowledge spec platform row', () =>
-      db.transaction(async (tx) => {
-        await tx.execute(sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${workId}, NULL, 'work', 'platform')`)
-        await tx.execute(sql`INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
-                             VALUES (${revisionId}, ${workId}, 'work', NULL, 'platform')`)
-        await tx.execute(sql`INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, identifiers)
-                             VALUES (${revisionId}, ${workId}, NULL, 'technical_standard', 'Listed', '{"designation":"ÖNORM B 1600:2017"}')`)
-      })
-    )
-    const visible = () => as(ORG, () => db.execute(sql`SELECT 1 FROM knowledge_work_revisions WHERE record_id = ${workId}`))
-    expect(await visible()).toHaveLength(0)
-    await withPlatformAccess('base knowledge spec platform head', () =>
-      db.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${workId}`)
-    )
-    expect(await visible()).toHaveLength(1)
-    // Read, never written, by a tenant.
-    const moved = await as(ORG, () => db.execute(sql`UPDATE knowledge_records SET head_revision_id = NULL WHERE id = ${workId} RETURNING id`))
-    expect(moved).toHaveLength(0)
-    await withPlatformAccess('base knowledge spec platform cleanup', () =>
-      db.execute(sql`DELETE FROM knowledge_records WHERE id = ${workId}`)
-    )
   })
 
   it('leaves nothing behind once the document is deleted', async () => {

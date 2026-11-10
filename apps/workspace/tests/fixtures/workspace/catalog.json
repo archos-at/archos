@@ -1938,6 +1938,15 @@
    "describe": "{\"name\":\"office-conventions-list\",\"domain\":\"organization\",\"summary\":\"List what ARCHOS has learned about the office’s conventions\",\"description\":\"The office’s conventions as ARCHOS counted them from its projects: where each document type is usually filed, the folders most projects keep, the shape of Plannummern, the Index style and how file names write a date. Each line has a `key`, the projects that show it (`projects` of `of`), whether the latest count still `counted` it, and the office’s `decision` (`confirmed`, `declined` or null). Declined lines never reach ARCHOS’s answers; confirmed lines always do. Any member may read. The keys feed office-conventions-decide.\",\"annotations\":{\"title\":\"List what ARCHOS has learned about the office’s conventions\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
   },
   {
+   "name": "organization-countries-get",
+   "domain": "organization",
+   "summary": "Read the office’s home country and the countries it is entitled to",
+   "description": "Its home country, and each country the platform entitled it to: the countries whose platform base knowledge (listed norms, authorities, directives) its answers draw on. Any member may read.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"organization-countries-get\",\"domain\":\"organization\",\"summary\":\"Read the office’s home country and the countries it is entitled to\",\"description\":\"Its home country, and each country the platform entitled it to: the countries whose platform base knowledge (listed norms, authorities, directives) its answers draw on. Any member may read.\",\"annotations\":{\"title\":\"Read the office’s home country and the countries it is entitled to\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+  },
+  {
    "name": "organization-download-log-list",
    "domain": "organization",
    "summary": "Read the download log",
@@ -2078,7 +2087,7 @@
    "project-annotation-list",
    "project-task-run-list",
    "document-list",
-   "document-role-list"
+   "project-person-add"
   ],
   "Projekte auflisten": [
    "project-list",

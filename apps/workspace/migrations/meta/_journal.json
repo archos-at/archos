@@ -1436,6 +1436,13 @@
       "when": 1792890000000,
       "tag": "0204_rulesets",
       "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1792900000000,
+      "tag": "0205_platform_base_knowledge",
+      "breakpoints": true
     }
   ]
 }

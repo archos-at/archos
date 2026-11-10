@@ -40,7 +40,7 @@
  */
 
 import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
-
+import { PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS } from './schemas-platform-knowledge.mjs'
 export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
 
 /**
@@ -928,7 +928,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'document' }],
     metadata: { subjectUserId: 'string' },
   },
-  ...INBOUND_MAIL_AUDIT_SCHEMAS,
+  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */

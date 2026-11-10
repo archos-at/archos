@@ -31,6 +31,7 @@ import {
   type LicenceClass,
   type KnowledgeRecordType,
 } from '@/lib/db/schema/knowledge-records'
+import { knowledgeAuthorityRevisions, knowledgeTerritoryRevisions } from '@/lib/db/schema/knowledge-platform'
 import type { EntryCheck, EntryValues } from '../wire'
 
 /** Most entries one office lists or a turn reads. */
@@ -59,7 +60,21 @@ export interface StoredEntry extends EntryRecordIds {
 
 export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** One revision of a record, with its typed body; returns the revision id. */
+/** The typed body table of each record type (0202, 0204, 0205). */
+const BODY_TABLES = {
+  work: knowledgeWorkRevisions,
+  edition: knowledgeEditionRevisions,
+  manifestation: knowledgeManifestationRevisions,
+  ruleset: knowledgeRulesetRevisions,
+  territory: knowledgeTerritoryRevisions,
+  authority: knowledgeAuthorityRevisions,
+} as const
+
+/**
+ * One revision of a record, with its typed body; returns the revision id.
+ * Owner-neutral: the office passes its organization, the platform `null` and
+ * the change request the revision is proposed in (0205 requires it).
+ */
 export async function appendRevision(
   tx: Tx,
   input: {
@@ -68,6 +83,7 @@ export async function appendRevision(
     type: KnowledgeRecordType
     createdBy: string
     provenance: KnowledgeProvenance
+    changeRequestId?: string
   },
   body: Record<string, unknown>
 ): Promise<string> {
@@ -80,19 +96,10 @@ export async function appendRevision(
     organizationId: input.organizationId,
     createdBy: input.createdBy,
     provenance: input.provenance,
+    changeRequestId: input.changeRequestId ?? null,
   })
-  if (input.type === 'work') {
-    await tx.insert(knowledgeWorkRevisions).values({ ...base, ...(body as WorkBody) })
-  } else if (input.type === 'edition') {
-    await tx.insert(knowledgeEditionRevisions).values({ ...base, ...(body as EditionBody) })
-  } else if (input.type === 'manifestation') {
-    await tx.insert(knowledgeManifestationRevisions).values({ ...base, ...(body as CopyBody) })
-  } else if (input.type === 'ruleset') {
-    await tx.insert(knowledgeRulesetRevisions).values({ ...base, ...(body as RulesetBody) })
-  } else {
-    const unhandled: never = input.type
-    throw new Error(`no body table for knowledge record type ${String(unhandled)}`)
-  }
+  // The body's columns are the caller's typed values; each table's own CHECKs hold them.
+  await tx.insert(BODY_TABLES[input.type]).values({ ...base, ...body } as typeof knowledgeWorkRevisions.$inferInsert)
   return revisionId
 }
 

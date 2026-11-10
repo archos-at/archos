@@ -2514,7 +2514,36 @@ owner's.
 | `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256` | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
 | `knowledge_checks` | That somebody checked a work, edition or copy is still in force, and the `result` | Append-only; target and owner checked by trigger (`knowledge_refuse_cross_owner`) |
 
-RLS: an office reads its own rows and the platform's rows that have a head;
+RLS: an office reads its own rows and, since 0205, a platform row only as below;
 writes are its own rows only (restrictive guards). `scripts/rls-test-db.sh`
 verifies 0202 and its down; `bff/base-knowledge/store/repository.integration.spec.ts`
 proves isolation with a positive control.
+
+## The platform's base knowledge (migration 0205, ADR-0165)
+
+The same records with `organization_id` NULL. `knowledge_records.country_id`
+(platform rows only, ISO 3166-1) is what an office is entitled to;
+`knowledge_revisions.change_request_id` is required on a platform revision and
+refused on an office one; `knowledge_manifestation_revisions.corpus_file` names a
+platform text's base-corpus file. `type` widens to `territory` and `authority`,
+platform only.
+
+| Table | What a row is | Rules the database holds |
+|---|---|---|
+| `knowledge_territory_revisions` | A territory: `kind`, `name`, `parent_ids` (nearest first), `aliases`, `valid_from`/`to` | Append-only; platform only |
+| `knowledge_authority_revisions` | An authority: `name`, `function_codes`, `seat_territory_id`, `competence_territory_ids` (at least one), `identifiers` | Append-only; platform only |
+| `knowledge_change_requests` | One country's proposed change: `status` (`draft` → `submitted` → `approved`/`rejected` → `published` → `rolled_back`), `base_release_seq` | Platform-private (`secure_table(…, 'false')`); a platform revision goes only into a draft (`knowledge_revision_into_draft`) |
+| `knowledge_review_decisions` | A verdict (`accepted`, `edited`, `rejected`) on one claim (`claim_path`) of one revision | Insert-only; names a revision of its own request |
+| `knowledge_approvals` | A person's yes (`role`, `decision_source` `app`/`elicitation`) | Insert-only; only on a submitted request; never by an author of one of its revisions (`knowledge_approval_four_eyes`) |
+| `knowledge_release_moves` | A publish or rollback of one record on `preview` or `stable`, `from`/`to` revision, who, how they said yes | Insert-only; a publish only of an approved request's own revision; a platform head moves only to where the newest stable move points (`knowledge_platform_head_follows_release`), and a platform record is born without a head |
+| `knowledge_index_runs` | The indexing of one published text: `requested`, `queued`, or `failed` with `failure` | Platform-private |
+| `organization_countries` | A country the platform entitled an office to (`entitled_by`, `decision_source`) | The office reads its own rows; only the platform writes (restrictive guards `false`) |
+
+Reads: an office reads a platform record once it has a head and
+`knowledge_country_entitled(country_id)` (its home country or an
+`organization_countries` row), and a platform revision or body once
+`knowledge_revision_released(revision_id)` (ever released to stable) and its
+record is readable. Both are `SECURITY DEFINER`. `scripts/rls-test-db.sh`
+verifies 0205's triggers and its down;
+`bff/base-knowledge/platform/platform.integration.spec.ts` proves entitlement,
+rollback and the guards with positive controls.

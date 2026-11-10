@@ -228,6 +228,7 @@ const BOUNDARY_MIGRATIONS = [
   // body table, layered like 0202's (an office reads its own and platform rows in
   // force, writes only its own), append-only, and the record type CHECK widened.
   '0204_rulesets.sql',
+  '0205_platform_base_knowledge.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

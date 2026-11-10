@@ -44,6 +44,31 @@ const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna
 
 const STICHTAG = 'S11 (ticket 30): edition selection by the project’s reference date'
 
+const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts'
+const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
+const PLATFORM_RELEASE = 'apps/workspace/bff/base-knowledge/platform/release.ts'
+const PLATFORM_READ = 'apps/workspace/bff/base-knowledge/platform/office-read.ts'
+const PLATFORM_INDEXING = 'apps/workspace/bff/base-knowledge/platform/indexing.ts'
+const PLATFORM_ENTITLEMENTS = 'apps/workspace/bff/base-knowledge/platform/entitlements.ts'
+const PLATFORM_VALIDATE = 'apps/workspace/bff/base-knowledge/platform/validate.ts'
+const ROUND_TRIP = { file: PLATFORM_SPEC, name: 'a rollback round trip: each head returns to where it was, and every move is kept' }
+const LISTING = {
+  file: PLATFORM_SPEC,
+  name: 'a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before',
+}
+const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna' }
+const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
+const INDEX_FAILED = { file: PLATFORM_SPEC, name: 'records a corpus that does not know the file as failed, with why' }
+const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
+const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
+const SEAT = {
+  file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts',
+  name: 'names a seat or competence territory that is not imported, and a territory outside the request’s country',
+}
+const TIME = 'S11 (time and editions): a territory valid at the project’s reference date, mergers by successor'
+const SETUP = 'S9 (setup facts): competence by authority function, and authority identifiers (PVOG, Behördenkennzahl)'
+const ADDRESS = 'S12 (address resolution): a territory found by its name, kind or register alias'
+
 export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   // knowledge_records
   { element: 'knowledge_records.id', consumer: STORE, test: ISOLATION },
@@ -117,6 +142,75 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'point.ai_processing_attested', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_the_seams_attestation_and_quote_cap_ride_along' } },
   { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
   { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
+  // Migration 0205 (ADR-0165): the platform's columns and tables.
+  { element: 'knowledge_records.country_id', consumer: PLATFORM_READ, test: LISTING },
+  { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },
+  { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
+  { element: 'knowledge_territory_revisions.name', awaits: ADDRESS },
+  { element: 'knowledge_territory_revisions.aliases', awaits: ADDRESS },
+  { element: 'knowledge_territory_revisions.valid_from', awaits: TIME },
+  { element: 'knowledge_territory_revisions.valid_to', awaits: TIME },
+  { element: 'knowledge_authority_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_authority_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_authority_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_authority_revisions.name', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_authority_revisions.competence_territory_ids', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_authority_revisions.seat_territory_id', consumer: PLATFORM_VALIDATE, test: SEAT },
+  { element: 'knowledge_authority_revisions.function_codes', awaits: SETUP },
+  { element: 'knowledge_authority_revisions.identifiers', awaits: SETUP },
+  { element: 'knowledge_change_requests.id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.title', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.country_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.status', consumer: PLATFORM_RELEASE, test: RACE },
+  { element: 'knowledge_change_requests.base_release_seq', consumer: PLATFORM_RELEASE, test: RACE },
+  { element: 'knowledge_change_requests.created_by', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.created_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.submitted_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.decided_at', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_change_requests.published_at', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.revision_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.claim_path', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.decision', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.note', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.reviewer', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.decided_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_approvals.id', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.change_request_id', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.approver', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.role', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.decision_source', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.decided_at', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_release_moves.seq', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.record_id', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.channel', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.action', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.from_revision_id', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.to_revision_id', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.change_request_id', consumer: PLATFORM_RELEASE, test: RACE },
+  { element: 'knowledge_release_moves.released_by', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.decision_source', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.released_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_release_moves.reason', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
+  { element: 'knowledge_index_runs.id', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.revision_id', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.corpus_file', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.change_request_id', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.state', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.failure', consumer: PLATFORM_INDEXING, test: INDEX_FAILED },
+  { element: 'knowledge_index_runs.requested_at', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'knowledge_index_runs.updated_at', consumer: PLATFORM_INDEXING, test: INDEXED },
+  { element: 'organization_countries.organization_id', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
+  { element: 'organization_countries.country_id', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
+  { element: 'organization_countries.entitled_by', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
+  { element: 'organization_countries.decision_source', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
+  { element: 'organization_countries.entitled_at', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
 ]
 
 /** The elements written before anything reads them, when this ledger was made. Remove a line when its reader lands; never add one. */
@@ -128,4 +222,12 @@ export const AWAITING_BASELINE: readonly string[] = [
   'knowledge_manifestation_revisions.language',
   'knowledge_manifestation_revisions.text_status',
   'knowledge_manifestation_revisions.sha256',
+  // Migration 0205's own, at its landing: the territory and authority fields the slices after S7 read.
+  'knowledge_territory_revisions.kind',
+  'knowledge_territory_revisions.name',
+  'knowledge_territory_revisions.aliases',
+  'knowledge_territory_revisions.valid_from',
+  'knowledge_territory_revisions.valid_to',
+  'knowledge_authority_revisions.function_codes',
+  'knowledge_authority_revisions.identifiers',
 ]

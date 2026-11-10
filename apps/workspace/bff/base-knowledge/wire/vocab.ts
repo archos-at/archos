@@ -1,12 +1,12 @@
 /**
  * Every closed vocabulary of the base knowledge records (migrations 0202 and
- * 0204, ADR-0163 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
+ * 0204 and 0205, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset'] as const
+export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /** The kinds an office can hold today (design §3.5); the platform widens the CHECK later. */
@@ -66,6 +66,40 @@ export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
 export const FACT_TYPES = ['number', 'boolean', 'code', 'codes', 'date'] as const
 export type FactType = (typeof FACT_TYPES)[number]
 
+/** The record types an office may own; territories and authorities are the platform's (migration 0205). */
+export const OFFICE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset'] as const satisfies readonly KnowledgeRecordType[]
+
+/** A territory's level (design §3.2); ids are ISO 3166 (`AT-6`) or `<CC>:<scheme>:<code>`. */
+export const TERRITORY_KINDS = ['union', 'country', 'state', 'district', 'municipality', 'city_district'] as const
+export type TerritoryKind = (typeof TERRITORY_KINDS)[number]
+
+/** Where a platform change request stands (design §4.4). */
+export const CHANGE_REQUEST_STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'published', 'rolled_back'] as const
+export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
+
+/** A reviewer's verdict on one claim. */
+export const REVIEW_DECISIONS = ['accepted', 'edited', 'rejected'] as const
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number]
+
+/** The role an approver approves in. */
+export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'second_reviewer'] as const
+export type ApprovalRole = (typeof APPROVAL_ROLES)[number]
+
+/** How a person said yes: in the app, or answering the door's elicitation. */
+export const DECISION_SOURCES = ['app', 'elicitation'] as const
+export type PersonDecisionSource = (typeof DECISION_SOURCES)[number]
+
+/** A release channel: preview first, then stable, which moves the head offices read. */
+export const RELEASE_CHANNELS = ['preview', 'stable'] as const
+export type ReleaseChannel = (typeof RELEASE_CHANNELS)[number]
+
+export const RELEASE_ACTIONS = ['publish', 'rollback'] as const
+export type ReleaseAction = (typeof RELEASE_ACTIONS)[number]
+
+/** An indexing run of a published platform text: enqueued, accepted by the corpus, or failed with why. */
+export const INDEX_RUN_STATES = ['requested', 'queued', 'failed'] as const
+export type IndexRunState = (typeof INDEX_RUN_STATES)[number]
+
 /** Each vocabulary by the column its CHECK constrains: what the parity spec and the fixture walk. */
 export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_records.type': KNOWLEDGE_RECORD_TYPES,
@@ -77,4 +111,12 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_checks.result': KNOWLEDGE_CHECK_RESULTS,
   'knowledge_ruleset_revisions.purpose': RULESET_PURPOSES,
   'knowledge_ruleset_revisions.payload_schema': RULESET_PAYLOAD_SCHEMAS,
+  'knowledge_territory_revisions.kind': TERRITORY_KINDS,
+  'knowledge_change_requests.status': CHANGE_REQUEST_STATUSES,
+  'knowledge_review_decisions.decision': REVIEW_DECISIONS,
+  'knowledge_approvals.role': APPROVAL_ROLES,
+  'knowledge_approvals.decision_source': DECISION_SOURCES,
+  'knowledge_release_moves.channel': RELEASE_CHANNELS,
+  'knowledge_release_moves.action': RELEASE_ACTIONS,
+  'knowledge_index_runs.state': INDEX_RUN_STATES,
 } as const satisfies Record<string, readonly string[]>
