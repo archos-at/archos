@@ -11,8 +11,9 @@ task verify:fast   # the tiers and UI specs your change reaches, no production b
 task setup         # first-time toolchain install
 ```
 
-Both run `lint:repo` first, then the tiers side by side (`task --parallel
---output=group`), so a tier's output arrives whole when it finishes. They skip
+`verify` runs `lint:repo` first, then the tiers side by side (`task --parallel
+--output=group`), so a tier's output arrives whole when it finishes;
+`verify:fast` runs `lint:repo` beside the tiers. They skip
 the hooks a tier repeats (ruff, the English-names test: `VERIFY_SKIP` in
 `Taskfile.yml`) and run the UI suite without coverage, as CI does.
 
@@ -39,14 +40,20 @@ for a pull request, from the same two definitions:
 - a tier runs when [`.github/filters.yml`](../../.github/filters.yml) names a changed path;
 - the UI tier runs the specs `ci/pr_selection.py` selects (`vitest related`),
   or the whole suite when the change reaches what every spec loads;
-- the backend tier runs whole, without coverage (`be:verify:fast`): the
-  testmon database CI selects from lives in CI's cache;
+- the backend tier runs whole, without coverage (`be:verify:fast`), until you
+  record this checkout's testmon databases once with `task be:test:testmon`.
+  With them, a change testmon can see runs only the tests it reaches
+  (`be:verify:affected`); a lockfile, a conftest or Python outside the tested
+  packages still runs the suites whole, by the rules of `decide_python`. An
+  old recording only widens the selection, since testmon compares each file
+  with what it recorded. The databases CI selects from live in CI's cache and
+  are not fetched;
 - the harness tests (`be:test:harness`) run when the backend tier does not, as
   CI's Repo checks job runs them on every pull request.
 
 It prints the plan first, and names a gate outside `verify` (`db:test:rls`,
 `pkg:test`, `cms:test:db`) when the change touches what that gate guards. A
-one-file UI change is `lint:repo` plus about a minute and a half. A change to
+one-file UI change is about a minute and a half. A change to
 `Taskfile.yml` or `.github/filters.yml` reaches every tier and costs the whole
 run.
 

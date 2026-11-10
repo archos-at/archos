@@ -40,7 +40,7 @@ def test_every_task_it_names_exists(verify_plan) -> None:
     taskfiles = "".join(path.read_text(encoding="utf-8") for path in (ROOT / "taskfiles").glob("*.yml"))
     taskfiles += (ROOT / "Taskfile.yml").read_text(encoding="utf-8")
     named = {task for tasks in verify_plan.TIER_TASKS.values() for task in tasks}
-    named |= {"workspace:test", "workspace:test:related", "be:test:harness"}
+    named |= {"workspace:test", "workspace:test:related", "be:test:harness", "be:verify:affected"}
     named |= {command.removeprefix("task ") for command in verify_plan.ALSO_RUN.values()}
     missing = sorted(task for task in named if f"\n  {task}:\n" not in taskfiles)
     assert not missing
@@ -50,7 +50,9 @@ def test_a_ui_change_runs_the_ui_tier_on_the_specs_it_reaches(verify_plan, filte
     decided = verify_plan.plan(["apps/workspace/ui/features/jobs/components/job-run-history.tsx"], filters, READERS)
     assert decided.tasks == ("workspace:lint", "workspace:types", "workspace:test:related", "be:test:harness")
     assert decided.ui_files == ("tests/english-names.spec.ts", "ui/features/jobs/components/job-run-history.tsx")
-    assert verify_plan.command("task", decided)[-2:] == ["SHARD=1/1", "FILES=" + " ".join(decided.ui_files)]
+    run = verify_plan.command("task", decided)
+    assert run[3] == "lint:repo"
+    assert run[-2:] == ["SHARD=1/1", "FILES=" + " ".join(decided.ui_files)]
 
 
 def test_a_change_every_spec_loads_runs_the_whole_ui_suite(verify_plan, filters) -> None:
@@ -62,6 +64,39 @@ def test_a_change_every_spec_loads_runs_the_whole_ui_suite(verify_plan, filters)
 def test_a_backend_change_runs_the_backend_tier_and_no_ui_suite(verify_plan, filters) -> None:
     decided = verify_plan.plan(["packages/agent/src/agent/common/source_kinds.py"], filters, READERS)
     assert decided.tasks == ("be:verify:fast",)
+
+
+def test_a_backend_change_runs_only_what_it_reaches_once_the_databases_are_recorded(verify_plan, filters) -> None:
+    tests = {"packages/agent/tests/test_prompt.py": "PROMPT = 'agents/piloti/prompts/chat_static.md'"}
+    changed = ["packages/agent/src/agent/common/source_kinds.py"]
+    assert verify_plan.plan(changed, filters, READERS, tests).tasks == ("be:verify:affected",)
+
+
+def test_a_change_testmon_cannot_see_runs_the_python_suites_whole(verify_plan, filters) -> None:
+    decided = verify_plan.plan(["uv.lock"], filters, READERS, {})
+    assert "be:verify:fast" in decided.tasks
+    assert "be:verify:affected" not in decided.tasks
+
+
+def test_test_files_naming_a_changed_input_ride_along(verify_plan, filters) -> None:
+    tests = {"tests/test_config.py": "load('configs/config_oib_openrouter.yml')"}
+    decided = verify_plan.plan(["configs/config_oib_openrouter.yml"], filters, READERS, tests)
+    assert decided.py_extra == ("tests/test_config.py",)
+    assert "EXTRA=tests/test_config.py" in verify_plan.command("task", decided)
+
+
+def test_the_databases_it_looks_for_are_the_ones_the_recording_writes(verify_plan, tmp_path) -> None:
+    backend = (ROOT / "taskfiles" / "backend.yml").read_text(encoding="utf-8")
+    assert "TESTMON_ENV: TESTMON_DATAFILE=.testmondata-" in backend
+    assert not verify_plan.recorded_databases(tmp_path)
+    for name in verify_plan.TESTMON_DATABASES:
+        (tmp_path / name).write_text("")
+    assert verify_plan.recorded_databases(tmp_path)
+
+
+def test_a_filter_line_is_read_as_ci_reads_it(verify_plan) -> None:
+    filters = {"packages": ["packages/*.md"], "backend": ["packages/agent/**"]}
+    assert verify_plan.tiers_for(["packages/agent/README.md"], filters) == {"backend"}
 
 
 def test_a_docs_change_still_runs_the_harness_tests(verify_plan, filters) -> None:

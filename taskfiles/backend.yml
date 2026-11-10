@@ -69,7 +69,9 @@ tasks:
       # test is here because it reads the first-impression docs, and a docs-only
       # change runs no filtered tier. The layout test is here because a new
       # top-level directory can come from any tier's change.
-      - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.HARNESS_TESTS}}'
+      # On workers: 53s serial against 34s on four (2026-11-10), and in a UI
+      # change's verify:fast this run is what the others wait for.
+      - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.XDIST}} {{.HARNESS_TESTS}}'
 
   be:test:sources:
     desc: The Python packages' suites (packages/knowledge-layer, ris-adapter, tavily-web-search)
@@ -372,6 +374,21 @@ tasks:
       - task: be:test
       - task: be:test:api
       - task: be:test:sources
+
+  be:verify:affected:
+    desc: 'The backend tier on the tests a change reaches, from this checkout''s testmon databases (verify:fast runs it; EXTRA="test files")'
+    cmds:
+      # ci/verify_plan.py picks this over be:verify:fast when the databases
+      # `task be:test:testmon` writes exist and ci/pr_selection.py says testmon
+      # can see the change. testmon compares each file with what it recorded,
+      # so an old database only widens the selection. SHARD is emptied: the UI
+      # selection beside it sets one, and this run is not split.
+      - task: be:lint
+      - for: [core, api, sources]
+        task: be:test:affected
+        vars: { SUITE: '{{.ITEM}}', SHARD: '', EXTRA: '' }
+      - cmd: '"{{.PY}}" -X faulthandler -m pytest {{.EXTRA}} -q {{.XDIST}}'
+        if: '[ -n "{{.EXTRA}}" ]'
 
   be:test:postgres:
     desc: >-
