@@ -1075,7 +1075,7 @@
   "deploy/migration/chroma_export.py": 2,
   "deploy/migration/tests/test_chroma_export.py": 1,
   "deploy/postgres/rename-legacy-names.sh": 1,
-  "deploy/posthog/README.md": 11,
+  "deploy/posthog/README.md": 10,
   "deploy/posthog/announcements.md": 2,
   "deploy/posthog/support/claim-update.hog": 1,
   "deploy/posthog/support/reply-poke.hog": 6,
