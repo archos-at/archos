@@ -786,7 +786,7 @@ class TestVerifyCitations:
         report = "Finding one [1]. Missing source [3]. Finding two [2]."
         result = verify_citations(report, registry, reference_sources=registry.all_sources()[:2])
 
-        assert "Missing source ." in result.verified_report
+        assert "Missing source." in result.verified_report
         assert "[3]" not in result.verified_report
         assert "[1] [Web] Article 1: https://valid.com/article1" in result.verified_report
         assert "[2] [Web] Article 2: https://valid.com/article2" in result.verified_report
@@ -944,7 +944,7 @@ class TestVerifyCitations:
         assert len(result.removed_citations) == 1
         assert result.removed_citations[0]["number"] == 2
         assert result.removed_citations[0]["reason"] == "url_not_in_registry"
-        assert "Good finding [1]. Bad finding ." in result.verified_report
+        assert "Good finding [1]. Bad finding." in result.verified_report
         assert "Fake Source" not in result.verified_report
 
     def test_ordered_list_parenthesis_references_are_normalized_and_verified(self, registry):
@@ -992,7 +992,7 @@ class TestVerifyCitations:
         report = "Good finding [1]. Missing reference [3].\n\n## Sources\n[1] Article 1: https://valid.com/article1"
         result = verify_citations(report, registry)
 
-        assert "Missing reference ." in result.verified_report
+        assert "Missing reference." in result.verified_report
         assert "[3]" not in result.verified_report
         assert len(result.valid_citations) == 1
         assert not result.removed_citations
@@ -1006,8 +1006,8 @@ class TestVerifyCitations:
         )
         result = verify_citations(report, registry)
 
-        assert "Bad finding ." in result.verified_report
-        assert "Missing reference ." in result.verified_report
+        assert "Bad finding." in result.verified_report
+        assert "Missing reference." in result.verified_report
         assert "[2]" not in result.verified_report
         assert "[3]" not in result.verified_report
         assert len(result.valid_citations) == 1
@@ -1098,7 +1098,7 @@ class TestVerifyCitations:
         assert len(result.removed_citations) == 1
         assert result.removed_citations[0]["reason"] == "url_not_in_registry"
         assert "https://fake.com/nichts" not in result.verified_report
-        assert "Erfundene Behauptung ." in result.verified_report
+        assert "Erfundene Behauptung." in result.verified_report
 
     @pytest.mark.parametrize(
         "heading",
@@ -2954,45 +2954,6 @@ class TestVerifyQuotedSpans:
             '[1] „ein erfundener langer Titel der nirgends belegt ist": doc1.pdf, p.1'
         )
         assert verify_quoted_spans(answer, reg) == []
-
-    def test_annotation_inserted_after_the_right_span(self):
-        from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
-        from agent.citations.quote_verification import annotate_unverified_quotes
-        from agent.citations.quote_verification import verify_quoted_spans
-
-        reg = self._registry(self.CHUNK)
-        answer = (
-            'Erst „Die lichte Durchgangshoehe von Treppen muss mindestens 2,10 m betragen" '
-            'und dann „ein voellig erfundener Satz ohne jede Deckung in der Quelle" [1].\n\n'
-            "## Sources\n[1] doc1.pdf, p.1"
-        )
-        unverified = verify_quoted_spans(answer, reg)
-        assert len(unverified) == 1
-        annotated = annotate_unverified_quotes(answer, unverified)
-        # Marker sits right after the fabricated span's closing quote…
-        assert 'in der Quelle" ' + UNVERIFIED_QUOTE_MARKER in annotated
-        # …and NOT after the verbatim span.
-        assert "2,10 m betragen" + '" ' + UNVERIFIED_QUOTE_MARKER not in annotated
-        # Fail-open: the original sentences are preserved verbatim.
-        assert "ein voellig erfundener Satz ohne jede Deckung in der Quelle" in annotated
-
-    def test_annotation_idempotent(self):
-        from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
-        from agent.citations.quote_verification import annotate_unverified_quotes
-        from agent.citations.quote_verification import verify_quoted_spans
-
-        reg = self._registry(self.CHUNK)
-        answer = 'Er sagt „ein voellig frei erfundener Satz ohne jeden Beleg hier" [1].'
-        unverified = verify_quoted_spans(answer, reg)
-        once = annotate_unverified_quotes(answer, unverified)
-        twice = annotate_unverified_quotes(once, unverified)
-        assert once.count(UNVERIFIED_QUOTE_MARKER) == 1
-        assert twice.count(UNVERIFIED_QUOTE_MARKER) == 1
-
-    def test_empty_unverified_returns_answer_unchanged(self):
-        from agent.citations.quote_verification import annotate_unverified_quotes
-
-        assert annotate_unverified_quotes("hello world", []) == "hello world"
 
 
 class TestKnowledgeLayerChunkTextCapture:

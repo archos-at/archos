@@ -211,18 +211,12 @@ def normalize_url(url: str) -> str:
     return urlunparse((scheme, netloc, path, "", query_str, ""))
 
 
-# Inline marker appended immediately after a quoted span that could not be
-# verified against any retrieved passage. Fail-open: the sentence is NEVER
-# stripped or altered; only this marker is inserted after the closing quote.
+#: The labels the verifier wrote into an answer's prose before ADR-0125's amendment of 2026-11-10: after
+#: a quoted span no passage held, and where a citation did not resolve. Nothing writes them any more (no
+#: verification marker reaches an answer); they stay named because stored answers carry them and the
+#: BFF translates them for an agent reading one (``bff/agent-asks/answer-text.ts``).
+#: ``tests/common/test_no_verification_marker.py`` holds that no answer gains one.
 UNVERIFIED_QUOTE_MARKER = "[nicht wörtlich in der Quelle belegt]"
-
-
-#: What stands where the answer cited something that did not resolve
-#: (``verify_citations(label_dropped=True)``): no retrieved source behind the
-#: number, or a § / Punkt beside it the cited passage does not hold. The claim
-#: stays, as it always did; what changed is that it no longer reads like every
-#: other unmarked sentence, and the answer check reads the label too
-#: (``common/claim_judge.py``). Reader-facing German, like the quote marker.
 DROPPED_CITATION_MARKER = "[Beleg nicht verifiziert]"
 
 

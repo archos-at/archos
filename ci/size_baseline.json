@@ -272,7 +272,7 @@
     "packages/agent/src/agent/citations/registry.py::SourceRegistry.resolve_url": 74,
     "packages/agent/src/agent/citations/sanitize.py::sanitize_report": 65,
     "packages/agent/src/agent/citations/trailer_values.py::drop_ungrounded_trailer_values": 70,
-    "packages/agent/src/agent/citations/verification.py::verify_citations": 110,
+    "packages/agent/src/agent/citations/verification.py::verify_citations": 109,
     "packages/agent/src/agent/citations/wire.py::source_entry_to_wire": 117,
     "packages/agent/src/agent/common/answer_envelope.py::extract_answer_envelope": 74,
     "packages/agent/src/agent/common/answer_envelope.py::render_envelope_schema": 64,

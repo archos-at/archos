@@ -309,7 +309,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "citations-dropped-labelled",
         "NUMERIC",
-        "Places the answer cited something that did not resolve, labelled in the text instead of removed.",
+        "Citations the answer wrote that did not resolve, removed from the text (named before ADR-0125's amendment).",
         min_value=0,
     ),
     ScoreDefinition(
@@ -479,7 +479,7 @@ def answer_check_scores(level: str | None) -> list[RuntimeScore]:
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:
-    """How many places the final text labels a citation that did not resolve; zero included."""
+    """How many citations the verifier removed because they did not resolve; zero included."""
     return [RuntimeScore("citations-dropped-labelled", float(max(0, dropped)))]
 
 

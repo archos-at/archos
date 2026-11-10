@@ -11,7 +11,6 @@ from langchain_core.tools import tool
 
 from agent.agents.piloti.agent import ChatAgent
 from agent.agents.piloti.models import ResearchAgentState
-from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import EmptySourceRegistryError
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
@@ -1342,7 +1341,8 @@ class TestChatSourceRegistryGating:
         result = await agent.run(state)
 
         assert result.answer_lookup_found_nothing is True
-        assert result.messages[-1].content == f"Hochhäuser regelt die OIB-RL 2.3 {DROPPED_CITATION_MARKER}."
+        # Removed, never labelled (ADR-0125, amended 2026-11-10).
+        assert result.messages[-1].content == "Hochhäuser regelt die OIB-RL 2.3."
         assert result.verified_sources is None
 
     @pytest.mark.asyncio
@@ -1971,7 +1971,7 @@ class TestChatAnswerGrounding:
             result, _ = await _run_with_captured_registry(self._agent(mock_llm_provider, repair_pass=False), state)
 
         answer = next(m for m in reversed(result.messages) if isinstance(m, AIMessage) and not m.tool_calls)
-        assert answer.content == f"The building height limit is 12 m {DROPPED_CITATION_MARKER}."
+        assert answer.content == "The building height limit is 12 m."
         assert "OIB Richtlinie" not in answer.content
         assert result.answer_citation_grounded is False
 
@@ -2261,7 +2261,7 @@ class TestChatQuoteVerification:
         )
 
     @pytest.mark.asyncio
-    async def test_fabricated_quote_annotated_and_flagged(self, mock_llm_provider, mock_llm):
+    async def test_fabricated_quote_kept_unmarked_and_flagged(self, mock_llm_provider, mock_llm):
         final = AIMessage(
             content=(
                 "Die Richtlinie fordert „Treppen muessen mit einer automatischen "
@@ -2275,7 +2275,8 @@ class TestChatQuoteVerification:
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
         output = result.messages[-1].content
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        # No marker in the prose (ADR-0125, amended 2026-11-10); the quote gate holds the signal.
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
         # Fail-open: the fabricated sentence itself is preserved, never stripped.
         assert "automatische" in output.lower()
         assert result.answer_quotes_verified is False
@@ -2393,7 +2394,9 @@ class TestChatRepairPass:
         assert patch_llm.ainvoke.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_a_quote_no_passage_comes_close_to_keeps_its_marker(self, mock_llm_provider, mock_llm, patch_llm):
+    async def test_a_quote_no_passage_comes_close_to_stays_as_written_and_flagged(
+        self, mock_llm_provider, mock_llm, patch_llm
+    ):
         # Invented, not misremembered: "correcting" it would put the passage's
         # different claim in the model's mouth.
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.FABRICATED])
@@ -2404,7 +2407,7 @@ class TestChatRepairPass:
 
         output = result.messages[-1].content
         assert "Loeschanlage" in output
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
         assert result.answer_quotes_verified is False
         assert patch_llm.ainvoke.await_count == 0
 
@@ -2422,7 +2425,8 @@ class TestChatRepairPass:
         output = result.messages[-1].content
         assert "wenigstens 2,10 m" in output
         assert "2,50" not in output
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
+        assert result.answer_quotes_verified is False
 
     @pytest.mark.asyncio
     async def test_a_clean_answer_costs_no_extra_call(self, mock_llm_provider, mock_llm, patch_llm):
@@ -2436,7 +2440,7 @@ class TestChatRepairPass:
         assert patch_llm.ainvoke.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_switched_off_ships_the_marker_as_before(self, mock_llm_provider, mock_llm, patch_llm):
+    async def test_switched_off_ships_the_quote_unpatched_and_flagged(self, mock_llm_provider, mock_llm, patch_llm):
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.MISQUOTED])
         agent = ChatAgent(
             llm_provider=mock_llm_provider, tools=[knowledge_search], repair_pass=False, card_repair_llm=patch_llm
@@ -2445,7 +2449,8 @@ class TestChatRepairPass:
 
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
-        assert "[nicht wörtlich in der Quelle belegt]" in result.messages[-1].content
+        assert "[nicht wörtlich in der Quelle belegt]" not in result.messages[-1].content
+        assert result.answer_quotes_verified is False
         assert patch_llm.ainvoke.await_count == 0
 
     @pytest.mark.asyncio
@@ -2461,7 +2466,8 @@ class TestChatRepairPass:
         with patch("agent.agents.piloti.agent.quote_patcher") as patcher:
             result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
-        assert "[nicht wörtlich in der Quelle belegt]" in result.messages[-1].content
+        assert "[nicht wörtlich in der Quelle belegt]" not in result.messages[-1].content
+        assert result.answer_quotes_verified is False
         assert "wenigstens 2,10 m" in result.messages[-1].content
         patcher.assert_not_called()
         assert mock_llm.ainvoke.await_count == 2

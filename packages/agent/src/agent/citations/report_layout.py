@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import re
 
-from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import LOCUS_MISMATCH_REASON
 from agent.citations.entries import SourceEntry
 from agent.citations.references import CITATION_LINE_RE
@@ -148,39 +147,26 @@ def inline_citation_numbers(text: str) -> set[int]:
     return {int(match.group(1)) for match in INLINE_CITATION_RE.finditer(text)}
 
 
-def _strip_inline_citations_not_in(text: str, valid_numbers: set[int]) -> str:
-    """Remove inline citations whose labels are not in valid_numbers."""
-    return INLINE_CITATION_RE.sub(
-        lambda match: match.group(0) if int(match.group(1)) in valid_numbers else "",
-        text,
-    )
+def drop_inline_citations_not_in(text: str, valid_numbers: set[int]) -> str:
+    """Remove every inline citation outside ``valid_numbers``, with the space before it.
 
-
-def label_inline_citations_not_in(text: str, valid_numbers: set[int]) -> str:
-    """Put :data:`DROPPED_CITATION_MARKER` where each inline citation outside ``valid_numbers`` stood.
-
-    Adjacent dropped markers (``[3][4]``, ``[3], [4]``) become one label: the
-    reader is told once that this claim's pointer did not hold.
+    Removed, never labelled (ADR-0125, amended 2026-11-10): no verification marker reaches an answer's
+    prose. The record of what went is the verification's ``removed_citations``, and the answer check
+    reads the final text, where a claim without its pointer is a claim the evidence has to back.
     """
-    labelled = INLINE_CITATION_RE.sub(
-        lambda match: match.group(0) if int(match.group(1)) in valid_numbers else DROPPED_CITATION_MARKER,
-        text,
+    return _CITATION_WITH_SPACE_RE.sub(
+        lambda match: match.group(0) if int(match.group(1)) in valid_numbers else "", text
     )
-    repeated = re.escape(DROPPED_CITATION_MARKER)
-    return re.sub(rf"{repeated}(?:\s*,?\s*{repeated})+", DROPPED_CITATION_MARKER, labelled)
 
 
-def drop_inline_citations_not_in(text: str, valid_numbers: set[int], *, label: bool) -> str:
-    """Remove (``label=False``) or label (``label=True``) every inline citation outside ``valid_numbers``."""
-    if label:
-        return label_inline_citations_not_in(text, valid_numbers)
-    return _strip_inline_citations_not_in(text, valid_numbers)
+#: An inline citation and the horizontal space before it, so a removal leaves no „2.3 ." behind.
+_CITATION_WITH_SPACE_RE = re.compile(r"[ \t]*" + INLINE_CITATION_RE.pattern)
 
 
-def label_locus_mismatches(
+def drop_locus_mismatches(
     body: str, valid_citations: list[dict], registry: SourceRegistry
 ) -> tuple[str, list[dict], set[int]]:
-    """Label each marker whose § / Punkt the resolved passage does not hold (``common/citation_locus``).
+    """Remove each marker whose § / Punkt the resolved passage does not hold (``common/citation_locus``).
 
     Returns the body, one removal record per labelled occurrence, and the
     numbers that have no occurrence left: those lose their source line too.
@@ -209,7 +195,7 @@ def label_locus_mismatches(
         for miss in mismatches
     ]
     for miss in sorted(mismatches, key=lambda item: item.start, reverse=True):
-        body = body[: miss.start] + DROPPED_CITATION_MARKER + body[miss.end :]
+        body = body[: miss.start].rstrip(" \t") + body[miss.end :]
     left = {int(number) for number in INLINE_CITATION_RE.findall(body)}
     gone = {miss.number for miss in mismatches if miss.number not in left}
     return body, removed, gone

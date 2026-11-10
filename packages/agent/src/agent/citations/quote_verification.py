@@ -11,7 +11,6 @@ from collections.abc import Iterator
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import normalize_url
 from agent.citations.markdown_code import code_spans
@@ -208,7 +207,7 @@ def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str]
 
     Code is not prose and carries nothing to verify (see `code_spans`). It is
     skipped by OFFSET rather than stripped out, so every match still indexes
-    the text `annotate_unverified_quotes` will be handed.
+    the text the quote patch (`quote_patch.splice`) will be handed.
     """
     code = code_spans(body)
     for match in QUOTED_SPAN_RE.finditer(body):
@@ -300,23 +299,3 @@ def verify_quoted_spans(
             )
         )
     return unverified
-
-
-def annotate_unverified_quotes(answer_text: str, unverified: Sequence[UnverifiedQuote]) -> str:
-    """Insert ``UNVERIFIED_QUOTE_MARKER`` immediately after each unverified span.
-
-    Fail-open and non-destructive: the quoted sentence is never stripped or
-    altered — the marker is inserted after the closing quote mark. Offsets come
-    from ``verify_quoted_spans`` on the SAME ``answer_text``; insertions run
-    right-to-left so earlier offsets stay valid. Idempotent: a span already
-    followed by the marker is left untouched.
-    """
-    if not unverified:
-        return answer_text
-    result = answer_text
-    for uq in sorted(unverified, key=lambda item: item.end, reverse=True):
-        insert_at = uq.end
-        if result[insert_at:].lstrip().startswith(UNVERIFIED_QUOTE_MARKER):
-            continue
-        result = f"{result[:insert_at]} {UNVERIFIED_QUOTE_MARKER}{result[insert_at:]}"
-    return result
