@@ -74,7 +74,31 @@ def citation_key(facts: PlaceFacts) -> str:
     return f"{facts.file_name}, p.{facts.page}"
 
 
-def render_place(facts: PlaceFacts, preamble: str, reading_rows: str) -> str:
+def document_licence(collection: str, file_name: str) -> Any:
+    """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
+
+    Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
+    read answers a licensed, unattested copy, so a look at it is refused rather than sent unguarded.
+    """
+    from knowledge_layer.vector_store import get_store
+
+    from agent.common.licensed_text import AI_PROCESSING_KEY
+    from agent.common.licensed_text import EDITION_KEY
+    from agent.common.licensed_text import LICENCE_CLASS_KEY
+    from agent.common.licensed_text import LICENSED
+    from agent.common.licensed_text import QUOTE_MAX_CHARS_KEY
+    from agent.common.licensed_text import LicenceTerms
+    from agent.common.licensed_text import licence_from_metadata
+
+    fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
+    try:
+        records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
+    except Exception:  # noqa: BLE001 - fails closed, see the docstring
+        return LicenceTerms(licence_class=LICENSED)
+    return licence_from_metadata(records[0].payload or {}) if records else None
+
+
+def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: Any = None) -> str:
     """The look's text block as a grounding block: ``preamble`` for the model, one hit holding the reading.
 
     The whole text IS the rendering, so a live turn finds the record under its
@@ -97,6 +121,8 @@ def render_place(facts: PlaceFacts, preamble: str, reading_rows: str) -> str:
         status_note=None,
         body=reading_rows,
         regions=(SourceRegion(box=facts.box),) if facts.box is not None else (),
+        # A licensed page's reading is its text: a reference in the transcript, the text only inside the call.
+        licence=licence,
     )
     block = GroundingBlock(preamble=preamble, degraded_banner="", hits=(hit,), lanes=(), tool=TOOL)
     return render_grounding_block(block)

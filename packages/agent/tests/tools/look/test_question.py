@@ -282,3 +282,50 @@ class TestParsing:
         result = await reading.read_region(b"jpeg", "What?")
 
         assert result.failure == "no vision model is configured"
+
+
+class TestAPageOfALicensedCopy:
+    """ADR-0159: the page of an office's licensed copy reaches the model only inside the call, and only attested."""
+
+    @pytest.fixture
+    def licensed(self, monkeypatch):
+        from agent.common.licensed_text import LicenceTerms
+        from agent.tools.look import register
+
+        terms = {"value": LicenceTerms(licence_class="licensed", ai_processing=True)}
+        monkeypatch.setattr(register, "document_licence", lambda collection, file_name: terms["value"])
+        cred = ResolvedCredential(
+            api_key="sk-vlm", base_url="https://openrouter.ai/api/v1", model="vision-1", source="test"
+        )
+        monkeypatch.setattr(reading, "_vision_settings", lambda _org: cred)
+        return terms
+
+    async def _look(self):
+        from agent.common.grounding_block import begin_grounding_capture
+        from agent.common.grounding_block import end_grounding_capture
+
+        token = begin_grounding_capture(licensed_text=True)
+        try:
+            return await run_look(page=1, region=REGION, question="How long is room 1.04?")
+        finally:
+            end_grounding_capture(token)
+
+    async def test_it_is_read_at_zero_retention_and_returned_as_a_reference_without_the_image(
+        self, sees, model, licensed
+    ) -> None:
+        result = await self._look()
+
+        assert [block["type"] for block in result] == ["text"], "no page image rests in the transcript"
+        text = result[0]["text"]
+        assert "⟦licensed:lp_" in text and "Licence: licensed" in text
+        assert "4,25 m" not in text, "the reading is the page's text: a reference, never the text"
+        assert model["requests"][0]["provider"]["zdr"] is True
+
+    async def test_one_its_office_has_not_attested_is_not_looked_at(self, sees, model, licensed) -> None:
+        from agent.common.licensed_text import LicenceTerms
+
+        licensed["value"] = LicenceTerms(licence_class="licensed")
+        result = await self._look()
+
+        assert isinstance(result, str) and "not looked at" in result
+        assert model["requests"] == []

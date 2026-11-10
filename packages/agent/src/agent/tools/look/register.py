@@ -47,6 +47,7 @@ from ..canvas.presence import show_reading
 from .cards import looked_document
 from .cards import note_look
 from .place import PlaceFacts
+from .place import document_licence
 from .place import place_facts
 from .place import render_place
 from .resolve import Resolved
@@ -120,8 +121,50 @@ def _observe(
     )
 
 
+def refuse_unattested_look(licence: Any) -> None:
+    """Refuse a look at a licensed copy the office has not attested for AI processing: no model may read it."""
+    if licence is not None and licence.licensed and not licence.ai_processing:
+        raise Refused(
+            "This page belongs to the office's licensed copy of a standard, and the office has not confirmed that its "
+            "licence covers processing by AI services: it is not looked at. Name the document, page and clause."
+        )
+
+
+async def _licensed_blocks(
+    view: Any, question: str, place: PlaceFacts | None, licence: Any
+) -> tuple[list[dict], str, str]:
+    """A look at a page of the office's licensed copy (ADR-0159): read inside the licensed scope, sent as a reference.
+
+    The page image and its text layer ARE the licensed text, and a tool result rests in the checkpoint and the
+    next turn's history. So the model gets no image: the region's text and the reading go into one licensed hit,
+    whose body the chat contract expands only inside the call. The reading runs in the document's licensed scope
+    (zero retention, traced as metadata only). The card keeps no reading of it.
+    """
+    from agent.common.licensed_text import licensed_document_scope
+
+    from .reading import DEFAULT_QUESTION
+    from .reading import read_region
+    from .reading import render_readings
+
+    if place is None:
+        return [{"type": "text", "text": "This page belongs to a licensed copy no look may read."}], "", ""
+    with licensed_document_scope(licence):
+        reading = await read_region(view.jpeg, question.strip() or DEFAULT_QUESTION, region=True)
+    body = f"{view.text}\n\n{render_readings(reading, blind=True)}"
+    return (
+        [
+            {
+                "type": "text",
+                "text": render_place(place, "A look at a page of the office's licensed copy.", body, licence),
+            }
+        ],
+        "",
+        "",
+    )
+
+
 async def _blocks_for(
-    view: Any, question: str, sees: bool | None, region: Any, place: PlaceFacts | None = None
+    view: Any, question: str, sees: bool | None, region: Any, place: PlaceFacts | None = None, licence: Any = None
 ) -> tuple[list[dict], str, str]:
     """What the model gets for a rendered look, the reading the card keeps, and everything read.
 
@@ -143,6 +186,8 @@ async def _blocks_for(
     from .reading import render_readings
     from .reading import render_readings_parts
 
+    if licence is not None and licence.licensed:
+        return await _licensed_blocks(view, question, place, licence)
     blind = sees is False
     question = question.strip() or (DEFAULT_QUESTION if blind else "")
     if not question:
@@ -234,7 +279,12 @@ async def _run_look(
                 rendered = await render
             if isinstance(rendered, View):
                 place = place_facts(resolved, page, rendered.region, image_index)
-                result, reading, read = await _blocks_for(rendered, question or "", await turn_sees(), region, place)
+                licence = (
+                    await asyncio.to_thread(document_licence, place.collection, place.file_name) if place else None
+                )
+                refuse_unattested_look(licence)
+                sees = await turn_sees()
+                result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)
                 # The Herleitung row now, the card item once the answer is final (`cards.py`).
                 note_look(
                     resolved,

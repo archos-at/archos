@@ -72,6 +72,7 @@ from agent.common.cost_tracking import BudgetSnapshot
 from agent.common.cost_tracking import record_completion_usage
 from agent.common.cost_tracking import track_llm_costs
 from agent.common.credential_resolution import ResolvedCredential
+from agent.common.licensed_text import licensed_document_scope
 from agent.common.openrouter import limited_async_http_client
 from agent.knowledge import get_available_documents_async
 from agent.knowledge import revision_compare as compare
@@ -197,6 +198,26 @@ async def _pages(
     return older_jpeg, newer_jpeg
 
 
+def _licence_of(collection: str, older: str, newer: str):
+    """The licence the comparison runs under: either file's, the stricter one. Refuses an unattested licensed copy.
+
+    A page of the office's licensed copy reaches a model only when the office attested AI processing
+    (ADR-0159, design 4.7); a comparison of it otherwise answers 403 and reads nothing.
+    """
+    from agent.tools.look.place import document_licence
+
+    terms = [
+        licence for licence in (document_licence(collection, older), document_licence(collection, newer)) if licence
+    ]
+    licensed = [licence for licence in terms if licence.licensed]
+    if any(not licence.ai_processing for licence in licensed):
+        raise HTTPException(
+            status_code=403,
+            detail="A licensed copy whose office has not confirmed AI processing is not compared by a model",
+        )
+    return licensed[0] if licensed else None
+
+
 def _data_url(jpeg: bytes) -> str:
     return f"data:image/jpeg;base64,{base64.b64encode(jpeg).decode('ascii')}"
 
@@ -317,7 +338,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         boxes on the newer page in ``0..1`` page coordinates, at most twelve, and the changes in words.
         """
         await _ingested_or_409(collection_name, request.older, request.newer)
-
+        licence = await asyncio.to_thread(_licence_of, collection_name, request.older, request.newer)
         cred = await asyncio.to_thread(_vision_settings, x_grid_organization_id)
         if not cred.api_key:
             raise HTTPException(status_code=503, detail="No vision model is configured")
@@ -333,7 +354,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         # Booked to the organization and the person (a notice: whoever uploaded the Fassung) the BFF names,
         # so the ledger, the budget gate the notice checks, and the invoice see this call (ADR-0130).
         identity = {"organization_id": x_grid_organization_id, "user_id": x_grid_user_id}
-        with track_llm_costs(identity=identity, budget=BudgetSnapshot()):
+        with track_llm_costs(identity=identity, budget=BudgetSnapshot()), licensed_document_scope(licence):
             reply, trace_id = await _ask_model(cred, older_jpeg, newer_jpeg, request.page, request.purpose)
         result = compare.parse_compare(reply, request.page)
         await asyncio.to_thread(_remember, key, result)

@@ -75,6 +75,14 @@ def _environment(monkeypatch):
     cache.reset_local_store()
 
 
+@pytest.fixture(autouse=True)
+def licence(monkeypatch):
+    """The licence the compared files carry: none unless a test says so (the lookup reads Qdrant and fails closed)."""
+    state = {"value": None}
+    monkeypatch.setattr("agent.tools.look.place.document_licence", lambda collection, name: state["value"])
+    return state
+
+
 @pytest.fixture
 def pages(monkeypatch):
     """Page loader double: distinct bytes per file and page, unless a test makes a page unavailable."""
@@ -510,3 +518,25 @@ class TestWhatIsSent:
         assert base != compare.cache_key("m", "c", 1, b"old2", b"new")
         assert base != compare.cache_key("m", "c", 1, b"old", b"new2")
         assert base != compare.cache_key("m", "c", 1, b"new", b"old")
+
+
+class TestALicensedCopy:
+    """ADR-0159: a page of the office's licensed copy reaches a model only attested, at zero retention."""
+
+    async def test_one_its_office_has_not_attested_is_refused_and_no_model_reads_it(self, pages, ingested, licence):
+        from agent.common.licensed_text import LicenceTerms
+
+        licence["value"] = LicenceTerms(licence_class="licensed")
+        response, post = await _post()
+
+        assert response.status_code == 403
+        post.assert_not_called()
+
+    async def test_an_attested_one_is_compared(self, pages, ingested, licence):
+        from agent.common.licensed_text import LicenceTerms
+
+        licence["value"] = LicenceTerms(licence_class="licensed", ai_processing=True)
+        response, post = await _post()
+
+        assert response.status_code == 200
+        post.assert_awaited_once()
