@@ -20,7 +20,7 @@ import type { IntakeMode } from './types'
 const AT = '2026-11-10T00:00:00.000Z'
 
 /** How a profile is placed: the parity holds for every placement in Austria; the others are listed with their reason. */
-export type Placement = 'austria' | 'unplaced' | 'abroad'
+export type Placement = 'austria' | 'unplaced' | 'abroad' | 'contradictory'
 
 export interface ParityCase {
   name: string
@@ -71,6 +71,8 @@ const project = fc.record({
 
 
 function placementOf(country: string | undefined, federalState: string | undefined): Placement {
+  // Austria, and a Land „außerhalb Österreichs": develop's register read it as abroad, its derivation as Austria.
+  if (country === 'at' && federalState === 'outside_austria') return 'contradictory'
   if (country === 'at') return 'austria'
   if (country !== undefined) return 'abroad'
   if (federalState === 'outside_austria') return 'abroad'

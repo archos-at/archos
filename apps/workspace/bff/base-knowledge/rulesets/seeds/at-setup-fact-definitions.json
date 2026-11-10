@@ -18,7 +18,8 @@
           {
             "token": "vienna",
             "territoryId": "AT-9",
-            "label": "Wien"
+            "label": "Wien",
+            "municipality": "Wien"
           },
           {
             "token": "lower_austria",

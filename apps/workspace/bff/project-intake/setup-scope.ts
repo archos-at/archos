@@ -77,6 +77,8 @@ export function setupScopeOf(
   if (!subdivisions) return { chain: [country], on, records }
   const stated =
     stringOf(profile.facts[subdivisions.factKey]) ?? stringOf(profile.assumptions[subdivisions.factKey]) ?? located
+  // „Außerhalb Österreichs" beside `country=at` contradicts it: the site is in no country the records can name.
+  if (subdivisions.outside && stated === subdivisions.outside.token) return { chain: [], on, records }
   const subdivision = subdivisions.options.find((option) => option.token === stated)
   return { chain: subdivision ? [subdivision.territoryId, country] : [country], on, records }
 }

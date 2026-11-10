@@ -49,8 +49,14 @@ export const factDefinitionSchema = z
   .strict()
 export type FactDefinition = z.infer<typeof factDefinitionSchema>
 
-/** A subdivision a site is placed in, by the token the profile stores and the territory it is. */
-export const subdivisionSchema = z.object({ token, territoryId, label }).strict()
+/**
+ * A subdivision a site is placed in, by the token the profile stores and the
+ * territory it is. A city-state (Wien, Berlin) names itself as its municipality,
+ * so its own law applies without a geocoder saying so.
+ */
+export const subdivisionSchema = z
+  .object({ token, territoryId, label, municipality: label.optional() })
+  .strict()
 export type Subdivision = z.infer<typeof subdivisionSchema>
 
 /**

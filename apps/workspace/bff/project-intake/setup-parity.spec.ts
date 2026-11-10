@@ -13,9 +13,11 @@
  * no country). The list is exact, so a new difference fails here too.
  */
 
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { parityCases, parityRow } from './setup-parity.fixtures'
 
 type Row = ReturnType<typeof parityRow>
@@ -38,10 +40,34 @@ function differences(index: number): string[] {
  */
 const KNOWN_ABROAD_CHANGES = ['needs']
 
-/** The same for a project nothing places. */
-const KNOWN_UNPLACED_CHANGES = ['needs']
+/**
+ * A project nothing places: the same, and its register. Develop listed
+ * Austria's documents for a project in no country; the register now reads the
+ * records of the country the site selects, and an unplaced site selects none,
+ * so it asks for the site and requests no document.
+ */
+const KNOWN_UNPLACED_CHANGES = ['needs', 'register']
+
+/**
+ * `country=at` beside the Land „außerhalb Österreichs": develop's register read
+ * it as abroad and its derivation as Austria. It is now read one way, as in no
+ * country the records name, so no class is derived either (fail closed).
+ */
+const KNOWN_CONTRADICTORY_CHANGES = ['derivations', 'needs']
+
+/**
+ * develop's intake definition, serialised: the wizard's Bundesland options are
+ * now read from Austria's `fact_definitions` record, and every byte of the
+ * definition the wizard and the server read must stay what it was.
+ */
+const DEVELOP_DEFINITION_SHA256 = '2b5ee035811897218af4cfc63d9aff2d36b45456b39183321f34b54bbe69b5fa'
 
 describe('the setup on records, against develop', () => {
+  it('builds the intake definition byte for byte as develop did', () => {
+    const sha = createHash('sha256').update(JSON.stringify(projectIntakeDefinitionV1)).digest('hex')
+    expect(sha).toBe(DEVELOP_DEFINITION_SHA256)
+  })
+
   it('runs on the same 400 profiles develop ran on', () => {
     expect(ROWS.map(({ name, placement }) => ({ name, placement }))).toEqual(
       FIXTURE.map(({ name, placement }) => ({ name, placement }))
@@ -58,6 +84,7 @@ describe('the setup on records, against develop', () => {
   it.each([
     ['unplaced', KNOWN_UNPLACED_CHANGES],
     ['abroad', KNOWN_ABROAD_CHANGES],
+    ['contradictory', KNOWN_CONTRADICTORY_CHANGES],
   ] as const)('changes for a project %s only what is listed, on purpose', (placement, known) => {
     const changed = new Set(ROWS.flatMap((row, index) => (row.placement === placement ? differences(index) : [])))
     expect([...changed].sort()).toEqual(known)

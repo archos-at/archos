@@ -377,7 +377,7 @@
  },
  {
   "name": "case 47",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "419ef5ffaee155ba",
   "derivations": "6f4c7f41070db16d",
   "register": "4279e9fb7c2007b8",
@@ -753,7 +753,7 @@
  },
  {
   "name": "case 94",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "39cdfd050707839d",
   "derivations": "f88ace2b0cb059ca",
   "register": "4279e9fb7c2007b8",
@@ -1049,7 +1049,7 @@
  },
  {
   "name": "case 131",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "9edc7950643abcfe",
   "derivations": "9bd4f2b732ba3e24",
   "register": "4279e9fb7c2007b8",
@@ -1089,7 +1089,7 @@
  },
  {
   "name": "case 136",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "f4b0ac1df6f4087a",
   "derivations": "0f2634fd061f7914",
   "register": "4279e9fb7c2007b8",
@@ -2145,7 +2145,7 @@
  },
  {
   "name": "case 268",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "2bff6b5595c5fa71",
   "derivations": "8c56e31b396baad6",
   "register": "4279e9fb7c2007b8",
@@ -2217,7 +2217,7 @@
  },
  {
   "name": "case 277",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "53084dd45d2a04a3",
   "derivations": "833b843a4c72c4a7",
   "register": "4279e9fb7c2007b8",
@@ -3041,7 +3041,7 @@
  },
  {
   "name": "case 380",
-  "placement": "austria",
+  "placement": "contradictory",
   "needs": "9a80f50e21faf135",
   "derivations": "1d6511c363a6e7c6",
   "register": "4279e9fb7c2007b8",
