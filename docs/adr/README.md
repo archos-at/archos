@@ -222,7 +222,9 @@ Consequences, where a reader looks for them.
 | [0155](0155-the-website-blog-is-edited-in-a-self-hosted-payload.md) | The website's blog is written in a self-hosted Payload and read on request; social posts are drafted there and published through Buffer | Proposed |
 | [0156](0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md) | Release notes have three tiers: the public changelog shows the weekly summaries only, members read every note by week and area in the app, internal notes reach neither | Accepted |
 | [0157](0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md) | Attachments from outside are scanned in the cluster by ClamAV before anyone can file or download them | Proposed |
-| [0159](0159-licensed-text-is-a-reference-outside-the-model-call.md) | Licensed text is a reference everywhere but inside the model call, and leaves it only as capped quotes | Proposed |
+| [0158](0158-a-projects-site-decides-its-law-the-offices-home-its-clock.md) | A project's site decides its law, and the office's home country only its own defaults; no project is placed by default | Accepted |
+| [0159](0159-address-search-is-off-until-a-deployment-opts-in.md) | Address search is off until a deployment opts in; amends 0151 | Accepted |
+| [0164](0164-licensed-text-is-a-reference-outside-the-model-call.md) | Licensed text is a reference everywhere but inside the model call, and leaves it only as capped quotes | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

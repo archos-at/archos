@@ -205,7 +205,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "licensed-quote-capped",
         "NUMERIC",
-        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0159); only on turns that read some.",
+        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0164); only on turns that read some.",
         min_value=0,
     ),
     ScoreDefinition(

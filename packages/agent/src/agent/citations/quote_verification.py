@@ -226,7 +226,7 @@ def _verification_chunks(registry: SourceRegistry) -> list[tuple[str, SourceEntr
     """Every source's text a quote is matched against, normalised, with its source.
 
     A licensed source's stored excerpt stops at its quote cap; the turn holds its passage whole
-    (``SourceRegistry.licensed_text``, ADR-0159), so a correct quote from later in it still verifies.
+    (``SourceRegistry.licensed_text``, ADR-0164), so a correct quote from later in it still verifies.
     """
     licensed = getattr(registry, "licensed_text", {})
     return [

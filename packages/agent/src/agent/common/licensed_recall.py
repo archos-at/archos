@@ -1,4 +1,4 @@
-"""A licensed reference from an earlier turn, read again from its document (ADR-0159).
+"""A licensed reference from an earlier turn, read again from its document (ADR-0164).
 
 Licensed text is never carried between turns: the transcript, the checkpoint and the trace hold only
 the reference, and the turn that read the text dropped it when it ended. A follow-up turn still sees

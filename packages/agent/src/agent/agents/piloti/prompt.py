@@ -41,9 +41,11 @@ from langchain_core.messages import SystemMessage
 from agent.common import load_prompt
 from agent.common import render_prompt_template
 from agent.common.applicability import render_project_block
+from agent.common.country_profile import site_note
 from agent.common.estate_paths import estate_path
 from agent.common.estate_paths import reads_the_estate
 from agent.common.norm_registry import parcel_note
+from agent.common.norm_registry import resolve_country
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
@@ -351,16 +353,19 @@ def trigger_block(state: Any, tool_names: Sequence[str]) -> str | None:
 
 
 def oib_applicability(project_context: str | None) -> str | None:
-    """Which OIB-Richtlinien this project's own facts make applicable, or None.
+    """Which OIB-Richtlinien this project's own facts make applicable, or what is not covered; else None.
 
     The one part of the old ``## Normenregister`` block that survives the cut:
     the catalog itself was a list of RIS addresses ``ris_lookup`` resolves from
     a free-text question (ADR-0060 (d)), while this section is derived from the
     project's `confirmed:` facts and no tool can produce it from the question.
-    Fail-open, because a verdict list is never worth a turn.
+    A project placed outside Austria, or whose site nothing states, gets the
+    jurisdiction note instead (``country_profile.site_note``, design A1): the
+    verdicts are Austrian law. An Austrian project gets no note, and its block
+    renders as before. Fail-open, because a verdict list is never worth a turn.
     """
     try:
-        return render_project_block(project_context or "")
+        return site_note(project_context) or render_project_block(project_context or "")
     except Exception:  # noqa: BLE001 — applicability must never break prompt building
         logger.warning("piloti: OIB applicability block failed — omitted", exc_info=True)
         return None
@@ -496,7 +501,7 @@ def render_turn_context(
         focus_region_block=focus_region_block(state, tool_names),
         trigger_block=trigger_block(state, tool_names),
         oib_applicability=oib_applicability(state.project_context),
-        parcel_note=parcel_note(documents),
+        parcel_note=parcel_note(documents, resolve_country(state.project_context)),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.
         skills_block=state.skills_block,

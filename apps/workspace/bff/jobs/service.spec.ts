@@ -44,6 +44,7 @@ vi.mock('@/lib/model-config/service', () => ({
 vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectPromptView: vi.fn(),
   loadProjectFederalState: vi.fn(),
+  loadProjectSiteCountry: vi.fn(async () => 'at'),
 }))
 
 vi.mock('@/lib/retrieval-scope/collection-scope', () => ({

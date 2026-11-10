@@ -70,6 +70,9 @@ import type { ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findGrantForSubject } from '@/lib/sharing/repository'
 import { exportAnswerDocument } from './service'
+import { renderDocx } from './docx'
+import { IPTC_TRAINED_ALGORITHMIC_MEDIA } from '@/lib/ai-provenance'
+import { readZipEntries } from '@/test-utils/read-zip'
 
 const CONVERSATION_ID = 'conv_1'
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -240,6 +243,25 @@ describe('the exported file', () => {
       (await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes
     )
     expect(without).not.toContain('Begr')
+  })
+
+  /**
+   * Art. 50(2) AI Act: the machine-readable marking is on every answer export,
+   * printed notice or not. The positive control is the writer itself: called
+   * without provenance it writes no custom-properties part, so a service that
+   * stopped passing it would fail here, not pass by accident.
+   */
+  it('marks the file as generated, in the IPTC term, with the run that wrote it', async () => {
+    vi.mocked(listMessagesForConversation).mockResolvedValue([
+      message({ metadata: { trace_id: 'trace_0a1b' } }),
+    ])
+    const parts = readZipEntries((await exportAnswerDocument(session, CONVERSATION_ID, ANSWER_ID)).bytes)
+    const custom = parts.get('docProps/custom.xml') ?? ''
+
+    expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${IPTC_TRAINED_ALGORITHMIC_MEDIA}`)
+    expect(custom).toContain('name="AIGenerated"><vt:bool>true')
+    expect(custom).toContain('name="AIRunId"><vt:lpwstr>trace_0a1b')
+    expect(readZipEntries(renderDocx([])).has('docProps/custom.xml')).toBe(false)
   })
 
   it('leaves the project out when the chat hangs off no project', async () => {

@@ -68,7 +68,7 @@ import { sanitizeFindings } from './message-findings'
  */
 const BACKEND_ANSWER_KEYS = [
   'sources',
-  // The turn read an office's licensed text (ADR-0159): stored as `licensedText`, read by the lessons distiller.
+  // The turn read an office's licensed text (ADR-0164): stored as `licensedText`, read by the lessons distiller.
   'licensed_text',
   // Retrieved-but-uncited document identities (no prose) for the
   // "Gelesen, nicht zitiert" disclosure — same lift as `sources`.
@@ -530,7 +530,7 @@ export function normalizeAgentAnswerMetadata(
 }
 
 /**
- * The answer row's mark of a turn that read an office's licensed text (ADR-0159, design E44), written by the
+ * The answer row's mark of a turn that read an office's licensed text (ADR-0164, design E44), written by the
  * server (`chat_socket.persist_turn_result`) and never by the browser: the lessons distiller takes no vote on
  * such an answer.
  */

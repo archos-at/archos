@@ -202,7 +202,7 @@ def _licence_of(collection: str, older: str, newer: str):
     """The licence the comparison runs under: either file's, the stricter one. Refuses an unattested licensed copy.
 
     A page of the office's licensed copy reaches a model only when the office attested AI processing
-    (ADR-0159, design 4.7); a comparison of it otherwise answers 403 and reads nothing.
+    (ADR-0164, design 4.7); a comparison of it otherwise answers 403 and reads nothing.
     """
     from agent.tools.look.place import document_licence
 

@@ -771,7 +771,8 @@
             "rule": {
               "type": "string",
               "enum": [
-                "building_class"
+                "building_class",
+                "postal_code"
               ]
             },
             "citation": {
@@ -1204,7 +1205,8 @@
                         "rule": {
                           "type": "string",
                           "enum": [
-                            "building_class"
+                            "building_class",
+                            "postal_code"
                           ]
                         },
                         "citation": {
@@ -1395,7 +1397,8 @@
                               "rule": {
                                 "type": "string",
                                 "enum": [
-                                  "building_class"
+                                  "building_class",
+                                  "postal_code"
                                 ]
                               },
                               "citation": {
@@ -1889,7 +1892,8 @@
                               "rule": {
                                 "type": "string",
                                 "enum": [
-                                  "building_class"
+                                  "building_class",
+                                  "postal_code"
                                 ]
                               },
                               "citation": {
@@ -2080,7 +2084,8 @@
                                     "rule": {
                                       "type": "string",
                                       "enum": [
-                                        "building_class"
+                                        "building_class",
+                                        "postal_code"
                                       ]
                                     },
                                     "citation": {
@@ -2219,7 +2224,8 @@
               "rule": {
                 "type": "string",
                 "enum": [
-                  "building_class"
+                  "building_class",
+                  "postal_code"
                 ]
               },
               "citation": {
@@ -2436,7 +2442,8 @@
                                 "rule": {
                                   "type": "string",
                                   "enum": [
-                                    "building_class"
+                                    "building_class",
+                                    "postal_code"
                                   ]
                                 },
                                 "citation": {
@@ -2627,7 +2634,8 @@
                                       "rule": {
                                         "type": "string",
                                         "enum": [
-                                          "building_class"
+                                          "building_class",
+                                          "postal_code"
                                         ]
                                       },
                                       "citation": {

@@ -6,9 +6,15 @@ import { describe, expect, it } from 'vitest'
 import { escapeLevelBand, getApplicableStandards } from './applicable-standards'
 import type { ProjectProfile, ProjectPrimitiveValue } from '@/lib/project-profile/types'
 
-/** Build a minimal, schema-shaped ProjectProfile from a flat map of fact values. */
-function profileWith(facts: Record<string, ProjectPrimitiveValue>): ProjectProfile {
+/**
+ * Build a minimal, schema-shaped ProjectProfile from a flat map of fact values.
+ * It is placed in Austria (`country=at`) unless the facts place it themselves or
+ * `placed` is false: only a project placed in Austria gets OIB verdicts.
+ */
+function profileWith(input: Record<string, ProjectPrimitiveValue>, placed = true): ProjectProfile {
   const now = '2026-07-03T00:00:00.000Z'
+  const placesItself = 'country' in input || 'federal_state' in input
+  const facts = placed && !placesItself ? { country: 'at', ...input } : input
   return {
     facts: Object.fromEntries(
       Object.entries(facts).map(([id, value]) => [
@@ -26,16 +32,36 @@ const codesOf = (standards: ReturnType<typeof getApplicableStandards>): string[]
   standards.map((s) => s.code)
 
 describe('getApplicableStandards', () => {
-  it('returns the six near-universal standards, all required, for a null profile', () => {
-    const result = getApplicableStandards(null)
-
-    expect(codesOf(result)).toEqual(['OIB 1', 'OIB 2', 'OIB 3', 'OIB 4', 'OIB 5', 'OIB 6'])
-    expect(result).toHaveLength(6)
-    expect(result.every((s) => s.status === 'required')).toBe(true)
+  // Defect 2 (design 2.2): the OIB verdicts were shown for every country.
+  it.each(['de', 'ch', 'other'])('lists no OIB-Richtlinie for a project placed in %s', (country) => {
+    expect(getApplicableStandards(profileWith({ country, main_use: 'residential' }))).toEqual([])
   })
 
-  it('returns the six required standards for an empty profile (no facts)', () => {
-    const result = getApplicableStandards(profileWith({}))
+  it('lists none for a project marked outside Austria', () => {
+    expect(getApplicableStandards(profileWith({ federal_state: 'outside_austria' }))).toEqual([])
+  })
+
+  // A project whose site nothing states gets no country's law (design A1), as in the agent's prompt.
+  it('lists none without a profile, or for a project whose site nothing states', () => {
+    expect(getApplicableStandards(null)).toEqual([])
+    expect(getApplicableStandards(profileWith({}, false))).toEqual([])
+    expect(getApplicableStandards(profileWith({ main_use: 'residential', federal_state: 'nowhere' }))).toEqual([])
+  })
+
+  it('returns the six near-universal standards, all required, for an Austrian site with no other facts', () => {
+    const placedByAssumption: ProjectProfile = {
+      ...profileWith({}, false),
+      assumptions: {
+        federal_state: {
+          value: 'vienna',
+          status: 'unconfirmed',
+          reason: 'typed',
+          source: 'onboarding_default',
+          updatedAt: '2026-07-03T00:00:00.000Z',
+        },
+      },
+    }
+    const result = getApplicableStandards(placedByAssumption)
 
     expect(codesOf(result)).toEqual(['OIB 1', 'OIB 2', 'OIB 3', 'OIB 4', 'OIB 5', 'OIB 6'])
     expect(result.every((s) => s.status === 'required')).toBe(true)

@@ -521,7 +521,7 @@ class TestWhatIsSent:
 
 
 class TestALicensedCopy:
-    """ADR-0159: a page of the office's licensed copy reaches a model only attested, at zero retention."""
+    """ADR-0164: a page of the office's licensed copy reaches a model only attested, at zero retention."""
 
     async def test_one_its_office_has_not_attested_is_refused_and_no_model_reads_it(self, pages, ingested, licence):
         from agent.common.licensed_text import LicenceTerms

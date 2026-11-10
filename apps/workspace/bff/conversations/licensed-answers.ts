@@ -4,7 +4,7 @@ import type { CreateMessageInput } from './service'
 import { mergeMessageMetadata } from './repository'
 
 /**
- * The licensed-text mark onto an answer row the asking tab stored first (ADR-0159, design E44). The internal
+ * The licensed-text mark onto an answer row the asking tab stored first (ADR-0164, design E44). The internal
  * persist inserts with no-op on conflict, so when the tab won, the server's row and its mark were dropped. The
  * mark is a server fact the browser never writes, so it is merged in, one key, under the row lock
  * (`mergeMessageMetadata`). `inserted` is what the insert actually wrote.

@@ -128,7 +128,7 @@ RULES: tuple[RuleDefinition, ...] = (
             {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
             {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
             # A turn that read licensed text holds references in its trace, not the text it was grounded in,
-            # so a judge would grade the answer against the wrong evidence (ADR-0159, design 6.1).
+            # so a judge would grade the answer against the wrong evidence (ADR-0164, design 6.1).
             {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
         ],
     ),

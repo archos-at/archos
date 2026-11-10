@@ -703,9 +703,9 @@ services:
       # you accept that: those files are then marked failed (retryable), and
       # .xlsx/.xlsm index without preview or thumbnail.
       - GOTENBERG_URL=${GOTENBERG_URL-http://gotenberg:3000}
-      # Address search in the project dialog (ADR-0151): komoot's public Photon,
-      # no account. Empty switches it off and the address stays a text field.
-      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
+      # Address search in the project dialog (ADR-0151): off unless set (ADR-0159).
+      # komoot's public Photon is https://photon.komoot.io; it receives every keystroke.
+      - GEOCODER_URL=${GEOCODER_URL-}
       # The malware scanner (ADR-0157). Unset, every scan fails `not-configured`
       # and nothing that waits on a clean scan is filed. To scan, start clamd
       # with `--profile malware-scan` and set MALWARE_SCAN_URL=tcp://clamav:3310

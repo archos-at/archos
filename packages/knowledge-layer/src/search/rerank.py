@@ -107,7 +107,7 @@ def _build_user_prompt(query: str, chunks: list[Any], max_doc_chars: int = _CHUN
         content = getattr(chunk, "content", "")
         if len(content) > budget:
             content = content[:budget] + "…"
-        # A licensed excerpt is a reference, expanded only inside a zero-retention call (ADR-0159).
+        # A licensed excerpt is a reference, expanded only inside a zero-retention call (ADR-0164).
         content = licensed_body(content, licence_from_metadata(getattr(chunk, "metadata", None)))
         source = getattr(chunk, "file_name", "")
         lines.append(f"[{index}] {source}{_format_page(chunk)}: {content}")

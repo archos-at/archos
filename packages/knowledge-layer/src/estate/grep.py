@@ -635,7 +635,7 @@ def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: 
             break
         lines = _around(doc, page, query, context) if doc.texts.get(page) else []
         licence = file_licence(doc.file.row) if lines and doc.file is not None else None
-        # A licensed document's lines are its text: a reference, expanded only inside the model call (ADR-0159).
+        # A licensed document's lines are its text: a reference, expanded only inside the model call (ADR-0164).
         out.extend([licensed_body("\n".join(lines), licence)] if licence is not None and licence.licensed else lines)
     if not out:
         return ""

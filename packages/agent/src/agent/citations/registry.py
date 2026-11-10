@@ -62,7 +62,7 @@ class SourceRegistry:
         # document's evidence entirely.
         self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
         self._all: list[SourceEntry] = []
-        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0159). Held in
+        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0164). Held in
         #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
         self.licensed_text: dict[str, str] = {}
 

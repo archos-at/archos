@@ -276,7 +276,7 @@ class TestStandaloneWithoutTheAgent:
 
 
 class TestLicensedTextNeverLeavesAsAQuery:
-    """A query repeating the office's licensed text is refused before Tavily sees it (ADR-0159, design 6.4)."""
+    """A query repeating the office's licensed text is refused before Tavily sees it (ADR-0164, design 6.4)."""
 
     NORM = (
         "Die Mindesthöhe von Absturzsicherungen beträgt bei Absturzhöhen über zwölf Metern einhundertzehn Zentimeter."

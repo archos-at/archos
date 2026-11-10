@@ -126,7 +126,7 @@ async def _licence_of(resolved: Any) -> Any:
 
     The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
     Anything else with no collection to ask fails closed, as a licensed copy nobody attested, so no image of it
-    goes out (ADR-0159); so does an office shelf file with no point at all, since the office layer indexes no
+    goes out (ADR-0164); so does an office shelf file with no point at all, since the office layer indexes no
     unconfirmed or unattested copy. The lookup itself answers a store it cannot read the same way.
     """
     from agent.common.licensed_text import LICENSED
@@ -154,7 +154,7 @@ def refuse_unattested_look(licence: Any) -> None:
 async def _licensed_blocks(
     view: Any, question: str, place: PlaceFacts | None, licence: Any
 ) -> tuple[list[dict], str, str]:
-    """A look at a page of the office's licensed copy (ADR-0159): read inside the licensed scope, sent as a reference.
+    """A look at a page of the office's licensed copy (ADR-0164): read inside the licensed scope, sent as a reference.
 
     The page image and its text layer ARE the licensed text, and a tool result rests in the checkpoint and the
     next turn's history. So the model gets no image: the region's text and the reading go into one licensed hit,

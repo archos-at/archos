@@ -1,4 +1,4 @@
-"""The licence port: what the agent reads of a document's licence, and of a licensed passage's source (ADR-0159).
+"""The licence port: what the agent reads of a document's licence, and of a licensed passage's source (ADR-0164).
 
 Beside ``knowledge.factory``, the one other module that reaches ``knowledge_layer`` for the agent
 (ADR-0072): ``look`` asks a page's licence before it shows the page to a model, and

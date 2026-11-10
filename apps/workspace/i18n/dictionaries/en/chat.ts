@@ -2174,6 +2174,8 @@ export const chat = {
     preview: 'The model sees: “{text}”',
     iban: '{count, plural, one {an IBAN} other {# IBANs}}',
     at_svnr: '{count, plural, one {a social security number} other {# social security numbers}}',
+    de_svnr: '{count, plural, one {a German social insurance number} other {# German social insurance numbers}}',
+    de_tax_id: '{count, plural, one {a tax ID} other {# tax IDs}}',
     credit_card: '{count, plural, one {a card number} other {# card numbers}}',
     term: 'the term “{term}”',
     withSample: '{item} {sample}',

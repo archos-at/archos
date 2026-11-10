@@ -420,7 +420,7 @@ def _byok(monkeypatch) -> None:
 
 
 async def test_licensed_text_never_goes_to_an_org_s_own_reranker(monkeypatch, tracker) -> None:
-    """ADR-0159: licensed text reaches zero-retention endpoints through OpenRouter only. A BYOK reranker is
+    """ADR-0164: licensed text reaches zero-retention endpoints through OpenRouter only. A BYOK reranker is
     outside those terms, so a search holding licensed text keeps its retrieval order and sends nothing."""
     seen = _serve(monkeypatch, _ranked)
     _byok(monkeypatch)

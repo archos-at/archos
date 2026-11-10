@@ -1,4 +1,5 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
+import { loadProjectSiteCountry } from '@/lib/project-profile/prompt-view'
 import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
@@ -293,6 +294,10 @@ export async function buildCollectionScopeFromRequest(
         )
       : []
 
+  // The Austrian corpus is Austria's law: a project placed elsewhere, or not
+  // placed at all, does not search it (ADR-0158). A turn with no project does.
+  const includeBase = !projectId || (await loadProjectSiteCountry(projectId, session?.organizationId)) === 'at'
+
   const shelfByCollection = new Map<string, CollectionShelf>()
   // The base knowledge corpus, and nothing else, is `base`.
   shelfByCollection.set(baseCollection, 'base')
@@ -310,6 +315,7 @@ export async function buildCollectionScopeFromRequest(
     officeShelfCollectionName: officeShelfCollection,
     baseCollection,
     restrictedCollections,
+    includeBase,
   } satisfies ScopeContext)
 
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {

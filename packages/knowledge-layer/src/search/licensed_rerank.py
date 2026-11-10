@@ -1,4 +1,4 @@
-"""What a reranker may read of retrieved chunks that carry an office's licence (ADR-0159).
+"""What a reranker may read of retrieved chunks that carry an office's licence (ADR-0164).
 
 Beside the cross-encoder, which sends every chunk's text to a reranking model: a licensed chunk the office
 has not attested for AI processing reaches no model, and an attested one only OpenRouter's zero-retention
@@ -11,7 +11,7 @@ from typing import Any
 
 
 def rerank_documents(chunks: list[Any], max_chars: int) -> tuple[list[str], bool]:
-    """What the reranker reads of each chunk, and whether any is an office's licensed text (ADR-0159).
+    """What the reranker reads of each chunk, and whether any is an office's licensed text (ADR-0164).
 
     A licensed chunk the office has not attested for AI processing reaches no model: it is sent empty and
     ranks last. An attested one is sent as it is, which the caller allows only to OpenRouter, pinned to zero

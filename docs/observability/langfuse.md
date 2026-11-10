@@ -60,6 +60,7 @@ Trace metadata on the root:
 | `reference_projects_offered`, `precedent_p`, `reference_prefetch` | the turn's start: how many reference projects the catalog listed, the decision's p(precedent), and whether round 0 searched them on its own (`agents/piloti/register.py`) |
 | `skills_offered`, `skills_pinned` | the turn's skills (ADR-0135): how many the catalog listed, and the one the turn-start decision pinned in full, if any (`agents/piloti/register.py`). `skills_activated` above is what reached the model: a `read_file` of a `SKILL.md`, or a pinned body the envelope named |
 | `reference_fit_scored`, `reference_fit_top`, `reference_fit_fitting` | the reference fit (ADR-0064 use 10): how many catalog lines it scored, the best p(fits), how many moved ahead |
+| `site_country`, `site_confirmed` | where the turn's project is (ADR-0158, `country_profile.record_site`): its ISO country, `other`, or `unknown` when nothing places it, and whether a confirmed fact (rather than an assumption) placed it. Filter on it to see what projects abroad or without a site were answered with. No project, no key |
 | `organization_id`, `project_id` | the tenant, only with identity attributes on |
 | `$posthog_session_id` | the asker's PostHog browser session, only with identity attributes on and a UUIDv7 ([PostHog export](#posthog-export)) |
 | `turn_surface` | where the question was asked: `chat`, `review_canvas` (a box drawn on a document, `user_message.focus_region`) or `annotation_thread` (asked in an Anmerkung's thread, `reply_in_thread` with the mark's id). Recorded by the socket for every turn (`record_turn_surface`); both canvas values also carry the tag `surface:review-canvas` |
@@ -259,7 +260,7 @@ length and sha256 (`ingest.measures.file_trace`, `licensed_text.licensed_ingest`
 Text an office marked licensed is a reference token (`⟦licensed:lp_…⟧`) in every
 chat-turn observation: the agent runtime's spans are built from what LangChain
 reports, and the chat-request contract expands the reference only after that
-(ADR-0159). A reply that read licensed text is capped at the passage's
+(ADR-0164). A reply that read licensed text is capped at the passage's
 `quote_max_chars` before any callback sees it, and every direct generation's
 payload passes `licensed_text.trace_payload` in `direct_trace._clip`. The
 generation is never dropped; only its content is. A turn that read licensed text carries the trace tag `licensed-text` on its root observation (`turn_outcome.record_turn_tag`), and the `chat-turn-judges` rule skips it (`none of`): its trace holds references, not the text the answer was grounded in. `test_licensed_seam.py` plants
@@ -292,7 +293,7 @@ a name is written but not declared, or declared but not listed here.
 | `confidence-capped` | categorical | agent | which guard lowered it, or `none` |
 | `quotes-verbatim-rate` | numeric 0–1 | agent | checked quote lines held verbatim |
 | `quotes-patched` | numeric | agent | misremembered quotes the repair corrected (ADR-0067) |
-| `licensed-quote-capped` | numeric | agent | on a turn that read licensed text, the quotes of it a reply had cut at the licence's quote cap; absent when no licensed text was read (ADR-0159) |
+| `licensed-quote-capped` | numeric | agent | on a turn that read licensed text, the quotes of it a reply had cut at the licence's quote cap; absent when no licensed text was read (ADR-0164) |
 | `dialect-repairs` | numeric | agent | answer-dialect blocks repaired; 0 is a measurement |
 | `sketch-drawn` | categorical | agent | one per ```` ```excalidraw ```` fence in an answer (ADR-0146): `drawn`, or `refused` by the fence check (`common/sketch_fence.py`) and stored as `excalidraw-refused`, which the reader sees as one quiet line, never its JSON. The comment names the refusal (`malformed-json`, `too-many-elements`, …); metadata `elements` and `dimension_labels`, the labels that read like a measurement. The turn's trace metadata `answer_dialect.sketches` sums them per answer. The share `refused` is how well the `excalidraw-sketch` skill teaches the format; `dimension_labels` above 0 is a sketch claiming what only a document or the model view may |
 | `card-validity` | categorical | agent | per envelope card that missed its schema: `repaired`, `dropped`; or `stripped`, a calculation or formula that stated what the card computes (a `result`, a formula's `limits`), with `fields` in metadata |

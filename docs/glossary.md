@@ -191,7 +191,7 @@ replaced `agent_capability_missing`.
 | WorkOS, AuthKit | The identity provider. Hosted AuthKit handles login; WorkOS organizations and roles are authoritative, with no local copy (ADR-0002, ADR-0007) | [`docs/architecture/multitenancy-and-auth-spec.md`](architecture/multitenancy-and-auth-spec.md) |
 | Dragonfly | The Redis-protocol shared cache across BFF replicas, which also holds each conversation's frame stream (ADR-0020) | [`docs/adr/0020-dragonfly-shared-cache.md`](adr/0020-dragonfly-shared-cache.md) |
 | SeaweedFS | The object store for document bytes, one bucket per organization (ADR-0043) | [`docs/adr/0043-seaweedfs-split-topology-and-per-tenant-buckets.md`](adr/0043-seaweedfs-split-topology-and-per-tenant-buckets.md) |
-| Licensed seam, `licence_class` | Text an office marked `licensed` (its own ÖNORM copy, a paid commentary) is a reference token in every transcript, trace and cache, expanded whole only inside a zero-retention model call; each quote of it in a reply is capped at its `quote_max_chars`. Only a copy whose office attested AI processing (`ai_processing_attested`) is read at all. Flag `licensed-seam`; off lists the passage without text (ADR-0159) | [`packages/agent/src/agent/common/licensed_text.py`](../packages/agent/src/agent/common/licensed_text.py) |
+| Licensed seam, `licence_class` | Text an office marked `licensed` (its own ÖNORM copy, a paid commentary) is a reference token in every transcript, trace and cache, expanded whole only inside a zero-retention model call; each quote of it in a reply is capped at its `quote_max_chars`. Only a copy whose office attested AI processing (`ai_processing_attested`) is read at all. Flag `licensed-seam`; off lists the passage without text (ADR-0164) | [`packages/agent/src/agent/common/licensed_text.py`](../packages/agent/src/agent/common/licensed_text.py) |
 | Langfuse | The LLM trace store, and where the platform prompt is managed (ADR-0044) | [`docs/adr/0044-langfuse-durable-llm-observability.md`](adr/0044-langfuse-durable-llm-observability.md) |
 | err2issue | The retired path that turned ERROR-level logs into deduplicated GitHub issues (ADR-0031); PostHog error tracking replaces it | [`docs/adr/0031-err2issue-errors-to-github-issues.md`](adr/0031-err2issue-errors-to-github-issues.md) |
 
@@ -209,7 +209,7 @@ replaced `agent_capability_missing`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | `task` | go-task, the runner every repo command goes through; `task --list` is the live list | [`Taskfile.yml`](../Taskfile.yml) |
-| `task verify` | The local merge gate; `verify:fast` skips the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
+| `task verify` | The local merge gate; `verify:fast` runs the tiers and UI specs the diff reaches, without the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
 | Definition of done | The bar for calling work done: observed evidence, summed up in a closing checklist in the PR | [`docs/contributing/definition-of-done.md`](contributing/definition-of-done.md) |
 | Correction ratchet | After a correction, close the layer that let the error through, so a second occurrence is caught by machinery | [`docs/contributing/correction-ratchet.md`](contributing/correction-ratchet.md) |
 | Gotchas register | Known failures indexed by the symptom you arrive with | [`docs/contributing/gotchas.md`](contributing/gotchas.md) |

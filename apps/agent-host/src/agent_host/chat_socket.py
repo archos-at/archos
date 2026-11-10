@@ -494,7 +494,7 @@ async def persist_turn_result(
     metadata = turn_row_metadata(finished)
     if metadata is None:
         return False
-    if turn_tagged(LICENSED_TRACE_TAG):  # read licensed text: the distiller takes no vote on it (E44, ADR-0159)
+    if turn_tagged(LICENSED_TRACE_TAG):  # read licensed text: the distiller takes no vote on it (E44, ADR-0164)
         metadata["licensed_text"] = True
     try:
         check_write(guard)

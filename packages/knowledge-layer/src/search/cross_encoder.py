@@ -305,7 +305,7 @@ def _pinned_body(body: dict[str, Any], base_url: str, *, licensed: bool = False)
     The reranker is the platform's choice, so an OpenRouter rerank is always pinned (``openrouter.PLATFORM_FIXED``,
     ADR-0074) and its model must have a ZDR endpoint. Imported here because this package imports without
     ``agent``; without the seam the rerank is skipped rather than sent unpinned. A ``licensed`` body goes to
-    OpenRouter or nowhere (ADR-0159): an org's own reranker is outside the zero-retention terms.
+    OpenRouter or nowhere (ADR-0164): an org's own reranker is outside the zero-retention terms.
     """
     try:
         from agent.common.openrouter import PLATFORM_FIXED
