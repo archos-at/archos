@@ -1013,7 +1013,7 @@ and `passage-similar-search` keep a licensed copy's hit and page and replace its
 repeated queries cannot collect the norm a snippet at a time. A licence that cannot be read is refused
 (`LICENSED_COPY_UNKNOWN`) or, for a snippet, withheld. The door has no session id, so the person and the
 day are its session. The person's own text pane and viewer read the copy whole.
-`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`. A held mail attachment kept past its erasure for a legal hold (`erasureDeferredAt`) is read by a person
+`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`. The backend read tools the door forwards (`knowledge-search`, `passage-read`, `document-look`) run without a turn capture, so a licensed passage reaches an outside agent listed only (document, page, clause, a note) and a licensed page goes to no model and sends no image; `apps/agent-host/tests/test_internal_tools_licensed.py` drives the door route with the real renderers to hold it. A held mail attachment kept past its erasure for a legal hold (`erasureDeferredAt`) is read by a person
 only: `inbound-mail-part-content-get` refuses it to an agent (`legal_hold`).
 
 A JSON or text answer is streamed with a cap too, `MAX_TEXT_BYTES` (5 MiB): past it nothing more
