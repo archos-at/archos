@@ -24,6 +24,8 @@ import {
   knowledgeWorkRevisions,
   type KnowledgeCheckResult,
   type KnowledgeProvenance,
+  type KnowledgeTerms,
+  type LicenceClass,
   type KnowledgeRecordType,
 } from '@/lib/db/schema/knowledge-records'
 import type { EntryCheck, EntryValues } from '../wire'
@@ -46,6 +48,8 @@ export interface StoredEntry extends EntryRecordIds {
   confirmed: boolean
   values: EntryValues
   provenance: KnowledgeProvenance
+  /** The copy's licence statements, who made them and when. */
+  terms: KnowledgeTerms
   lastCheck: EntryCheck | null
   createdAt: Date
 }
@@ -88,7 +92,11 @@ type WorkBody = Omit<typeof knowledgeWorkRevisions.$inferInsert, 'revisionId' | 
 type EditionBody = Omit<typeof knowledgeEditionRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 type CopyBody = Omit<typeof knowledgeManifestationRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 
-function bodiesOf(values: EntryValues, ids: EntryRecordIds): { work: WorkBody; edition: EditionBody; copy: CopyBody } {
+function bodiesOf(
+  values: EntryValues,
+  ids: EntryRecordIds,
+  terms: KnowledgeTerms
+): { work: WorkBody; edition: EditionBody; copy: CopyBody } {
   return {
     work: {
       kind: values.kind,
@@ -99,7 +107,7 @@ function bodiesOf(values: EntryValues, ids: EntryRecordIds): { work: WorkBody; e
       addressees: values.addressees,
     },
     edition: { workId: ids.workId, label: values.editionLabel, issuedOn: values.issuedOn },
-    copy: { editionId: ids.editionId, licenceClass: values.licenceClass },
+    copy: { editionId: ids.editionId, licenceClass: values.licenceClass, terms },
   }
 }
 
@@ -107,11 +115,13 @@ interface WriteContext {
   organizationId: string
   createdBy: string
   provenance: KnowledgeProvenance
+  /** What the office's licence allows, as the copy's revision records it. */
+  terms: KnowledgeTerms
 }
 
 /** Append one revision to each of the three records; returns the revision ids. */
 async function appendEntryRevisions(tx: Tx, ids: EntryRecordIds, values: EntryValues, context: WriteContext) {
-  const bodies = bodiesOf(values, ids)
+  const bodies = bodiesOf(values, ids, context.terms)
   const common = { organizationId: context.organizationId, createdBy: context.createdBy, provenance: context.provenance }
   return {
     work: await appendRevision(tx, { ...common, recordId: ids.workId, type: 'work' }, bodies.work),
@@ -337,6 +347,7 @@ function assembleEntries(
         licenceClass: copyBody.licenceClass,
       },
       provenance: bodies.provenance.get(workBody.revisionId) ?? {},
+      terms: copyBody.terms,
       lastCheck: checks.get(manifestation.id) ?? null,
       createdAt: new Date(work.createdAt),
     })
@@ -356,20 +367,32 @@ export async function documentHasEntry(organizationId: string, documentId: strin
   return rows.length > 0
 }
 
+/** The copy a document is, as its newest revision states it (a confirmed head, or a proposal). */
+export interface DocumentCopy {
+  licenceClass: LicenceClass
+  editionId: string
+  terms: KnowledgeTerms
+  confirmed: boolean
+}
+
 /**
- * The licence class and edition of the confirmed copy a document is, for the
- * ingest job to stamp on every point it writes; null when the document is no
- * confirmed base knowledge.
+ * The copy a document is, or null when it is no base knowledge: what the ingest
+ * dispatch asks before it indexes the document (a licensed copy without the AI
+ * statement is not indexed) and what it stamps on the points it writes. The
+ * newest revision is the head once confirmed, since every write moves the head.
  */
-export async function copyMarkForDocument(
-  organizationId: string,
-  documentId: string
-): Promise<{ licenceClass: string; editionId: string } | null> {
+export async function copyForDocument(organizationId: string, documentId: string): Promise<DocumentCopy | null> {
   const [row] = await withTenant({ organizationId }, () =>
     getDb()
-      .select({ licenceClass: knowledgeManifestationRevisions.licenceClass, editionId: knowledgeManifestationRevisions.editionId })
+      .select({
+        licenceClass: knowledgeManifestationRevisions.licenceClass,
+        editionId: knowledgeManifestationRevisions.editionId,
+        terms: knowledgeManifestationRevisions.terms,
+        head: knowledgeRecords.headRevisionId,
+      })
       .from(knowledgeRecords)
-      .innerJoin(knowledgeManifestationRevisions, eq(knowledgeManifestationRevisions.revisionId, knowledgeRecords.headRevisionId))
+      .innerJoin(knowledgeManifestationRevisions, eq(knowledgeManifestationRevisions.recordId, knowledgeRecords.id))
+      .innerJoin(knowledgeRevisions, eq(knowledgeRevisions.revisionId, knowledgeManifestationRevisions.revisionId))
       .where(
         and(
           eq(knowledgeRecords.organizationId, organizationId),
@@ -377,7 +400,9 @@ export async function copyMarkForDocument(
           eq(knowledgeRecords.type, 'manifestation')
         )
       )
+      .orderBy(desc(knowledgeRevisions.createdAt))
       .limit(1)
   )
-  return row ?? null
+  if (!row) return null
+  return { licenceClass: row.licenceClass, editionId: row.editionId, terms: row.terms, confirmed: row.head !== null }
 }

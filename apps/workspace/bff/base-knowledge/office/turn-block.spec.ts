@@ -12,6 +12,8 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
     fileName: 'ÖNORM B 1600.pdf',
     status: 'confirmed',
     proposedBy: 'person',
+    textUse: 'used',
+    aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T00:00:00.000Z',
     values: {
       kind: 'technical_standard',
@@ -75,6 +77,14 @@ describe('the base knowledge a turn carries', () => {
     expect(renderBaseKnowledgeBlock([directive], VIENNA)).toContain('not verified')
     expect(renderBaseKnowledgeBlock([directive], GRAZ)).toContain('does NOT apply to this project (project in AT-6)')
     expect(renderBaseKnowledgeBlock([directive], UNKNOWN)).toContain('authority unknown for this project')
+  })
+
+  it('names a metadata-only copy as held, with no file to search and no text to quote', () => {
+    const block = renderBaseKnowledgeBlock([entry({}, { textUse: 'metadata_only', aiProcessingAttestedAt: null })], VIENNA)
+    expect(block).toContain('ÖNORM B 1600:2017')
+    expect(block).toContain('TEXT NOT USED')
+    expect(block).not.toContain('file „ÖNORM B 1600.pdf“')
+    expect(block).not.toContain('licensed copy')
   })
 
   it('carries confirmed entries only, and nothing when there are none', () => {

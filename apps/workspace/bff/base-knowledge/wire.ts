@@ -38,7 +38,7 @@ export const addresseeSchema = z.object({
 const entryFields = {
   kind: z
     .enum(KNOWLEDGE_WORK_KINDS)
-    .describe('commentary only interprets; authority_directive binds where its authority decides.'),
+    .describe('A commentary only interprets.'),
   title: z.string().trim().min(1).max(300).describe('The title as the document prints it.'),
   designation: z
     .string()
@@ -46,7 +46,7 @@ const entryFields = {
     .min(1)
     .max(120)
     .nullable()
-    .describe('The standard designation with its year, e.g. "ÖNORM B 1600:2017"; null when none.'),
+    .describe('e.g. "ÖNORM B 1600:2017".'),
   editionLabel: z.string().trim().min(1).max(120).describe('The edition as the masthead prints it, e.g. "2017-04-01".'),
   issuedOn: isoDate.nullable(),
   territoryIds: z.array(territoryId).max(20).describe('Where it applies; empty for a standard.'),
@@ -72,7 +72,11 @@ export const confirmEntryBodySchema = entryValuesSchema
     licenceAttested: z
       .boolean()
       .optional()
-      .describe('Required true for a licensed copy: its licence covers everyone in the office.'),
+      .describe('Needed for a licensed copy: the licence covers the whole office.'),
+    aiProcessingAttested: z
+      .boolean()
+      .optional()
+      .describe('The licence covers hosted AI processing; else a licensed copy is metadata-only.'),
   })
   .strict()
 export type ConfirmEntryBody = z.infer<typeof confirmEntryBodySchema>
@@ -128,6 +132,14 @@ export interface BaseKnowledgeEntry {
   /** `proposed` until a person confirms the values; only confirmed entries reach answers. */
   status: 'proposed' | 'confirmed'
   values: EntryValues
+  /**
+   * `metadata_only` for a licensed copy until the office states that its licence
+   * covers processing by the hosted AI services: its text is not indexed, read
+   * or quoted, and answers say the office holds it but its text is not used.
+   */
+  textUse: 'used' | 'metadata_only'
+  /** When the office stated that, or null. */
+  aiProcessingAttestedAt: string | null
   /** Who suggested the values in force: the masthead reading, an agent or a person. */
   proposedBy: 'reading' | 'agent' | 'person'
   freshness: Freshness

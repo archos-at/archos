@@ -56,6 +56,7 @@ vi.mock('./repository', () => ({
 // The organization's upload-screening policy (ADR-0086) is read through its
 // settings row; each test states the row it means.
 vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
+vi.mock('@/lib/base-knowledge/text-guard', () => ({ isMetadataOnlyCopy: vi.fn(async () => false), copyMarkForIngest: vi.fn(async () => null) }))
 
 // The converter is `rendition.spec.ts`'s subject; here it is a switch and an
 // outcome, so what is under test is what dispatch does with each.
@@ -67,6 +68,7 @@ vi.mock('./rendition', async (importOriginal) => {
 import { runBimExtraction } from '@/lib/bim/service'
 import { invalidateCached } from '@/lib/cache'
 import { getOrgSettings } from '@/lib/organizations/service'
+import { isMetadataOnlyCopy } from '@/lib/base-knowledge/text-guard'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { findOpenJobId } from '@/lib/jobs-queue/repository'
 import {
@@ -217,6 +219,24 @@ describe('dispatchDocument', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(runBimExtraction).not.toHaveBeenCalled()
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A licensed base-knowledge copy the office has not confirmed for AI
+   * processing is metadata-only (ADR-0158): a re-read keeps it out of the index.
+   */
+  it('reads nothing for a metadata-only office shelf copy, and asks only for office shelf rows', async () => {
+    vi.mocked(isMetadataOnlyCopy).mockResolvedValueOnce(true)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user', scope: 'office_shelf' }))
+    await expect(dispatchDocument(input('ÖNORM B 1600.pdf'))).resolves.toEqual({ jobId: null, status: 'stored' })
+    expect(isMetadataOnlyCopy).toHaveBeenCalledWith('org-1', 'doc-1')
+    expect(markDocumentNotIndexed).toHaveBeenCalledWith('doc-1', 'org-1')
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    vi.mocked(isMetadataOnlyCopy).mockClear()
+    vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user', scope: 'project' }))
+    await dispatchDocument(input('report.pdf'))
+    expect(isMetadataOnlyCopy).not.toHaveBeenCalled()
   })
 
   /**

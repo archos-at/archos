@@ -38,6 +38,16 @@ export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBo
     'confirm base knowledge',
   )
 
+export const updateBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
+  json(
+    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+    'update base knowledge',
+  )
+
 export const recordBaseKnowledgeCheck = async (entryId: string, body: RecordCheckBody): Promise<BaseKnowledgeEntry> =>
   json(
     await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/checks`, {

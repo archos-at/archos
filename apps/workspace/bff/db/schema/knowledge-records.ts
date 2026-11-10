@@ -40,11 +40,18 @@ export interface KnowledgeIdentifiers {
   [scheme: string]: string | undefined
 }
 
+/**
+ * What the office's licence allows, with who stated it and when. Office-wide
+ * use and processing by the hosted AI services are separate statements: a
+ * licensed copy without the second stays metadata-only (design §4.7).
+ */
 export interface KnowledgeTerms {
   quoteMaxChars?: number
   validTo?: string
   attestedBy?: string
   attestedAt?: string
+  aiProcessingAttestedBy?: string
+  aiProcessingAttestedAt?: string
 }
 
 export interface KnowledgeProvenance {

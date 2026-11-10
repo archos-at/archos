@@ -73,6 +73,19 @@ platform layer, as additions).
   scopes cannot be built without the office it reads as (`ScopeRead`), and points
   of those scopes are filtered by `office_id`; a test proves the leak with the
   condition dropped.
+- **Licensed text needs a second statement.** An office licence for office-wide
+  use does not by itself allow AI processing. A licensed copy is metadata-only
+  (kind, designation, edition, validity) until the office states, at
+  confirmation or later, that its licence covers processing by the hosted AI
+  services; the statement is kept with who and when in the copy's `terms`
+  (`aiProcessingAttestedBy`, `aiProcessingAttestedAt`), separate from the
+  office-wide one. A proposal of a licensed copy takes the passages the upload
+  indexed out of the index and sets the row `stored`; the ingest dispatch
+  refuses to index a metadata-only office shelf copy on any later re-read
+  (`base-knowledge/text-guard.ts`); the statement given later reads the file
+  again; withdrawing it takes the text out again. The turn names a
+  metadata-only copy as held, with no file to search and an instruction not to
+  quote or paraphrase it.
 - **The licence mark.** A confirmed copy's points carry `licence_class` and
   `knowledge_edition_id` (set by the internal `knowledge-mark` route, kept by a
   re-ingest through the job's fields). S2 enforces the seam on it.
@@ -96,6 +109,9 @@ platform layer, as additions).
   until the platform listing gives them one edition to attach to.
 - Bad: the directive's authority comes from the project's Land, not a confirmed
   site; Vienna is both Land and authority, elsewhere the answer says it is not verified.
+- Bad: the upload that precedes a proposal still indexes the file and reads it
+  once (the shelf's pipeline), until the proposal takes the passages out. An
+  upload path that stores a licensed copy without reading it closes that window.
 - Neutral: points written before enrichment carry no `office_id` and pass the
   office filter; a backfill closes that gap.
 

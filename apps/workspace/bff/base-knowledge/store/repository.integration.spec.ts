@@ -25,6 +25,13 @@ const url = process.env.TEST_DATABASE_URL
 const ORG = `org_bk_${Date.now()}`
 const OTHER_ORG = `${ORG}_other`
 
+const AI_ALLOWED = {
+  attestedBy: 'user_bk',
+  attestedAt: '2026-11-10T08:00:00.000Z',
+  aiProcessingAttestedBy: 'user_bk',
+  aiProcessingAttestedAt: '2026-11-10T08:00:00.000Z',
+}
+
 const VALUES = {
   kind: 'technical_standard' as const,
   title: 'Barrierefreies Bauen',
@@ -86,6 +93,7 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
       organizationId,
       createdBy: 'user_bk',
       provenance: { proposedBy: 'reading' },
+      terms: {},
     })
     return { documentId, ids }
   }
@@ -103,18 +111,35 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     expect(leaked).toHaveLength(0)
   })
 
+  it('states a proposed copy’s licence before any confirmation, so its text can be held back', async () => {
+    const { documentId, ids } = await propose()
+    expect(await repo.copyForDocument(ORG, documentId)).toEqual({
+      licenceClass: 'licensed',
+      editionId: ids.editionId,
+      terms: {},
+      confirmed: false,
+    })
+    expect(await repo.copyForDocument(OTHER_ORG, documentId)).toBeNull()
+  })
+
   it('moves the heads on confirmation, records the first check, and keeps the proposal in the history', async () => {
     const { documentId, ids } = await propose()
     await repo.writeConfirmedValues(ids, { ...VALUES, editionLabel: '2017-05-01' }, {
       organizationId: ORG,
       createdBy: 'user_bk',
       provenance: { proposedBy: 'person' },
+      terms: AI_ALLOWED,
       firstCheck: true,
     })
     const [entry] = await repo.readOfficeEntries(ORG, [documentId])
     expect(entry).toMatchObject({ confirmed: true, values: { editionLabel: '2017-05-01' }, lastCheck: { result: 'current' } })
     expect(await count('knowledge_revisions', 'record_id', ids.workId)).toBe(2)
-    expect(await repo.copyMarkForDocument(ORG, documentId)).toEqual({ licenceClass: 'licensed', editionId: ids.editionId })
+    expect(await repo.copyForDocument(ORG, documentId)).toEqual({
+      licenceClass: 'licensed',
+      editionId: ids.editionId,
+      terms: AI_ALLOWED,
+      confirmed: true,
+    })
   })
 
   it('refuses to update or delete a revision, a body or a check on its own', async () => {
@@ -185,6 +210,7 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
       organizationId: ORG,
       createdBy: 'user_bk',
       provenance: { proposedBy: 'person' },
+      terms: AI_ALLOWED,
       firstCheck: true,
     })
     await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'newer_known', note: null })

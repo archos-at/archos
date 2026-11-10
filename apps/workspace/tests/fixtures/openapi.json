@@ -20971,7 +20971,7 @@
                       "authority_directive",
                       "statute"
                     ],
-                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                    "description": "A commentary only interprets."
                   },
                   "title": {
                     "type": "string",
@@ -20990,7 +20990,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                    "description": "e.g. \"ÖNORM B 1600:2017\"."
                   },
                   "editionLabel": {
                     "type": "string",
@@ -21066,7 +21066,11 @@
                     "description": "licensed for a purchased copy."
                   },
                   "licenceAttested": {
-                    "description": "Required true for a licensed copy: its licence covers everyone in the office.",
+                    "description": "Needed for a licensed copy: the licence covers the whole office.",
+                    "type": "boolean"
+                  },
+                  "aiProcessingAttested": {
+                    "description": "The licence covers hosted AI processing; else a licensed copy is metadata-only.",
                     "type": "boolean"
                   }
                 },
@@ -21113,7 +21117,7 @@
       "get": {
         "operationId": "base-knowledge-get",
         "summary": "Read one base-knowledge entry",
-        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -21255,7 +21259,7 @@
                       "authority_directive",
                       "statute"
                     ],
-                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                    "description": "A commentary only interprets."
                   },
                   "title": {
                     "type": "string",
@@ -21274,7 +21278,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                    "description": "e.g. \"ÖNORM B 1600:2017\"."
                   },
                   "editionLabel": {
                     "type": "string",
@@ -21350,7 +21354,11 @@
                     "description": "licensed for a purchased copy."
                   },
                   "licenceAttested": {
-                    "description": "Required true for a licensed copy: its licence covers everyone in the office.",
+                    "description": "Needed for a licensed copy: the licence covers the whole office.",
+                    "type": "boolean"
+                  },
+                  "aiProcessingAttested": {
+                    "description": "The licence covers hosted AI processing; else a licensed copy is metadata-only.",
                     "type": "boolean"
                   }
                 },
@@ -21397,7 +21405,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -21507,7 +21515,7 @@
                       "authority_directive",
                       "statute"
                     ],
-                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                    "description": "A commentary only interprets."
                   },
                   "title": {
                     "type": "string",
@@ -21526,7 +21534,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                    "description": "e.g. \"ÖNORM B 1600:2017\"."
                   },
                   "editionLabel": {
                     "type": "string",

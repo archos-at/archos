@@ -10,7 +10,9 @@
  * - a commentary is interpretation, never the source of a requirement;
  * - a directive applies only when its authority decides for the project's
  *   territory, and an unknown authority is said, not guessed;
- * - every line carries its last check, and an overdue one says so.
+ * - every line carries its last check, and an overdue one says so;
+ * - a licensed copy the office has not confirmed for AI processing is named as
+ *   held, and its text is not used (design §4.7).
  */
 
 import type { BaseKnowledgeEntry } from '../wire'
@@ -28,7 +30,8 @@ export const BASE_KNOWLEDGE_HEADER =
   'checked; when the check is overdue, say so in the answer. The role decides what a passage can carry: ' +
   '"requirement source" may ground a requirement; "interpretation only" may explain a provision but never be cited ' +
   'as the source of a requirement; "authority practice" counts only where it says it applies, and when the authority ' +
-  'is unknown, say that you could not tell whether the directive applies.'
+  'is unknown, say that you could not tell whether the directive applies. An entry marked TEXT NOT USED has no ' +
+  'passages to find: say the office holds that edition, and answer the rest from other sources.'
 
 const KIND_WORDS: Record<BaseKnowledgeEntry['values']['kind'], string> = {
   technical_standard: 'technical standard',
@@ -69,8 +72,10 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
   const parts = [
     `${name}: ${KIND_WORDS[values.kind]}, edition ${values.editionLabel}`,
     `role: ${role(entry, project)}`,
-    `file „${entry.fileName}“`,
-    values.licenceClass === 'licensed' ? 'licensed copy' : null,
+    entry.textUse === 'metadata_only'
+      ? 'TEXT NOT USED: the office holds this edition, but its licence is not confirmed for AI processing; say so, and do not quote or paraphrase it'
+      : `file „${entry.fileName}“`,
+    entry.textUse === 'used' && values.licenceClass === 'licensed' ? 'licensed copy' : null,
     checkWords(entry),
   ].filter(Boolean)
   const text = `- ${parts.join('; ')}`

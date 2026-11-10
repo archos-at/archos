@@ -64,7 +64,11 @@ commentaries and authority directives your office owns (an ÖNORM you bought, a
 commentary on the Bauordnung, an MA 37 Weisung). Choose a document from the
 Büroablage; the agent proposes its kind, designation, edition, where it applies and,
 for a directive, the authority, and you correct and **Bestätigen** it. For a
-licensed copy you confirm that your licence covers everyone in the office. From
+licensed copy you confirm that your licence covers everyone in the office, and,
+separately, whether it also covers processing by the hosted AI services
+(indexing, reading, quoting). Without that second confirmation the copy stays
+„Nur Metadaten“: answers name the standard and its edition and say its text is
+not used; **Lizenz deckt KI-Verarbeitung** gives the confirmation later. From
 then on answers in your office draw on it, name its edition and last check, treat
 a commentary as interpretation only and apply a directive only where its
 authority decides. **Als aktuell geprüft** records a check; after a year (half a

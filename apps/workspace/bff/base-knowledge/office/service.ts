@@ -53,6 +53,8 @@ import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
 import { readDocumentReading, visibleOfficeDocuments, type EntryDocument } from './repository'
+import { releaseText, withholdText } from './text-effects'
+import { termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
 
 /** Thrown when the organization does not have base knowledge switched on. */
@@ -83,6 +85,8 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseK
     status: stored.confirmed ? 'confirmed' : 'proposed',
     values: stored.values,
     proposedBy: stored.provenance.proposedBy ?? 'reading',
+    textUse: textUseOf(stored.values.licenceClass, stored.terms),
+    aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
     createdAt: stored.createdAt.toISOString(),
   }
@@ -173,7 +177,11 @@ export async function proposeBaseKnowledge(
     organizationId: session.organizationId,
     createdBy: session.userId,
     provenance: { proposedBy: source },
+    terms: {},
   })
+  // A licensed copy is metadata-only until the office states its licence covers
+  // AI processing: the passages the upload indexed leave the index now.
+  if (textUseOf(values.licenceClass, {}) === 'metadata_only') await withholdText(session, body.documentId)
   return (await findEntry(session, ids.workId)).entry
 }
 
@@ -185,19 +193,31 @@ function requireAttestation(values: EntryValues, body: ConfirmEntryBody): void {
   }
 }
 
+/**
+ * A person's values as new revisions with the heads moved, then what the copy's
+ * text use changed: withheld text leaves the index, allowed text is read again
+ * (and marked by its job), text in use keeps its points' mark current.
+ */
 async function writeValues(
   session: AuthorizedSession,
   { stored, document }: { stored: StoredEntry; document: EntryDocument },
   values: EntryValues,
+  body: ConfirmEntryBody,
   firstCheck: boolean
 ): Promise<void> {
+  const terms = termsAfter(stored.terms, body, session.userId, new Date())
   await writeConfirmedValues(stored, values, {
     organizationId: session.organizationId,
     createdBy: session.userId,
     provenance: { proposedBy: 'person' },
+    terms,
     firstCheck,
   })
-  await markCopyPoints(document, stored.editionId, values.licenceClass)
+  const before = textUseOf(stored.values.licenceClass, stored.terms)
+  const after = textUseOf(values.licenceClass, terms)
+  if (after === 'metadata_only') await withholdText(session, stored.documentId)
+  else if (before === 'metadata_only') await releaseText(session, stored.documentId)
+  else await markCopyPoints(document, stored.editionId, values.licenceClass)
 }
 
 /** Confirm a proposed entry, with any corrections; it reaches answers from now on. */
@@ -211,7 +231,7 @@ export async function confirmBaseKnowledge(
   if (found.stored.confirmed) throw new ConflictError('This entry is already confirmed; edit it instead.')
   const values = merged(found.stored.values, valuesOf(body))
   requireAttestation(values, body)
-  await writeValues(session, found, values, true)
+  await writeValues(session, found, values, body, true)
   return (await findEntry(session, entryId)).entry
 }
 
@@ -226,7 +246,7 @@ export async function updateBaseKnowledge(
   if (!found.stored.confirmed) throw new ConflictError('This entry is still a proposal; confirm it instead.')
   const values = merged(found.stored.values, valuesOf(body))
   if (values.licenceClass === 'licensed' && found.stored.values.licenceClass !== 'licensed') requireAttestation(values, body)
-  await writeValues(session, found, values, false)
+  await writeValues(session, found, values, body, false)
   return (await findEntry(session, entryId)).entry
 }
 

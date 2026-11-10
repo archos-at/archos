@@ -18,7 +18,7 @@ import { announceIngestStarted } from '@/lib/analytics/ingest-events'
 import { filingChoiceRecord } from './filing-choice'
 import type { DocumentTypeTag } from './tag-vocabulary'
 import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
-import { copyMarkForDocument } from '@/lib/base-knowledge/store/repository'
+import { copyMarkForIngest } from '@/lib/base-knowledge/text-guard'
 
 /**
  * Bound every server-side call to the Python backend: an unreachable backend
@@ -233,7 +233,7 @@ export interface AgentDocumentProvenance {
  * the dispatch; the next confirm or edit marks the points again.
  */
 async function knowledgeMarkForIngest(organizationId: string, documentId: string): Promise<Record<string, string>> {
-  const mark = await copyMarkForDocument(organizationId, documentId).catch(() => null)
+  const mark = await copyMarkForIngest(organizationId, documentId).catch(() => null)
   return mark ? { licence_class: mark.licenceClass, knowledge_edition_id: mark.editionId } : {}
 }
 

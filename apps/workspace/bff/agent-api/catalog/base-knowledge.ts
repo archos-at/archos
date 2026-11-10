@@ -21,8 +21,8 @@ import {
 import type { AgentOperation } from '../operation'
 
 const ENTRY =
-  'An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, ' +
-  'a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue).'
+  'An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), ' +
+  '`textUse` and `freshness`.'
 
 export const baseKnowledgeOperations = [
   {

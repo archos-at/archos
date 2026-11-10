@@ -20,6 +20,7 @@ vi.mock('./repository', () => ({
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
+vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
 vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(async () => true) }))
@@ -42,7 +43,9 @@ import {
   writeConfirmedValues,
   type StoredEntry,
 } from '../store/repository'
+import { markCopyPoints } from './mark'
 import { readDocumentReading, visibleOfficeDocuments } from './repository'
+import { releaseText, withholdText } from './text-effects'
 import {
   BaseKnowledgeDisabledError,
   baseKnowledgeForTurn,
@@ -76,6 +79,7 @@ function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
     documentId: 'doc-1',
     confirmed: false,
     provenance: { proposedBy: 'reading' },
+    terms: {},
     lastCheck: null,
     createdAt: new Date('2026-11-01T00:00:00Z'),
     values: {
@@ -131,6 +135,18 @@ describe('proposing', () => {
     )
   })
 
+  it('takes a licensed copy’s passages out of the index at once: metadata-only until the AI statement', async () => {
+    vi.mocked(readDocumentReading).mockResolvedValue({ fileName: 'ÖNORM B 1600.pdf', document: DOCUMENT })
+    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1', licenceClass: 'licensed' })
+    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+  })
+
+  it('leaves a public directive’s passages where they are', async () => {
+    vi.mocked(readDocumentReading).mockResolvedValue({ fileName: 'MA37_Weisung.pdf', document: DOCUMENT })
+    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1' })
+    expect(withholdText).not.toHaveBeenCalled()
+  })
+
   it('refuses a second entry for one document', async () => {
     vi.mocked(readDocumentReading).mockResolvedValue({ fileName: 'scan.pdf', document: DOCUMENT })
     vi.mocked(documentHasEntry).mockResolvedValue(true)
@@ -144,13 +160,38 @@ describe('confirming', () => {
     expect(writeConfirmedValues).not.toHaveBeenCalled()
   })
 
-  it('moves the heads with the corrections, counts as the first check and marks the points', async () => {
+  it('moves the heads with the corrections, and counts as the first check', async () => {
     await confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true, editionLabel: '2017-05-01' })
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.objectContaining({ workId: 'work_1' }),
       expect.objectContaining({ editionLabel: '2017-05-01' }),
       expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'person' } }),
     )
+  })
+
+  it('keeps a licensed copy metadata-only when only office-wide use is stated', async () => {
+    await confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ terms: expect.objectContaining({ attestedBy: 'user-1' }) }),
+    )
+    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(releaseText).not.toHaveBeenCalled()
+  })
+
+  it('reads the text again once the office states its licence covers AI processing, and says who and when', async () => {
+    await confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true, aiProcessingAttested: true })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        terms: expect.objectContaining({ aiProcessingAttestedBy: 'user-1', aiProcessingAttestedAt: expect.any(String) }),
+      }),
+    )
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(withholdText).not.toHaveBeenCalled()
+    expect(markCopyPoints).not.toHaveBeenCalled()
   })
 
   it('refuses to confirm twice', async () => {

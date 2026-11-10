@@ -22,6 +22,7 @@ import {
   proposeBaseKnowledge,
   recordBaseKnowledgeCheck,
   removeBaseKnowledge,
+  updateBaseKnowledge,
   type BaseKnowledgeEntry,
   type BaseKnowledgeList,
   type ShelfCandidate,
@@ -69,10 +70,11 @@ interface RowProps {
   canManage: boolean
   busy: boolean
   onCheck: (entry: BaseKnowledgeEntry) => void
+  onAllowAi: (entry: BaseKnowledgeEntry) => void
   onRemove: (entry: BaseKnowledgeEntry) => void
 }
 
-const ConfirmedRow: FC<RowProps> = ({ entry, canManage, busy, onCheck, onRemove }) => {
+const ConfirmedRow: FC<RowProps> = ({ entry, canManage, busy, onCheck, onAllowAi, onRemove }) => {
   const t = useTranslations(organizationCopy)
   const { values } = entry
   return (
@@ -84,9 +86,18 @@ const ConfirmedRow: FC<RowProps> = ({ entry, canManage, busy, onCheck, onRemove 
         </p>
         <p className="text-xs text-muted-foreground">{entryFacts(t, values)}</p>
         <Freshness entry={entry} />
+        {entry.textUse === 'metadata_only' && (
+          <p className="text-xs text-muted-foreground">{t('baseKnowledge.metadataOnlyHint')}</p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {values.licenceClass === 'licensed' && <Badge variant="info">{t('baseKnowledge.licensed')}</Badge>}
+        {entry.textUse === 'metadata_only' && <Badge variant="secondary">{t('baseKnowledge.metadataOnly')}</Badge>}
+        {canManage && entry.textUse === 'metadata_only' && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => onAllowAi(entry)}>
+            {t('baseKnowledge.allowAi')}
+          </Button>
+        )}
         {canManage && (
           <>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => onCheck(entry)}>
@@ -106,7 +117,7 @@ interface ProposalProps {
   entry: BaseKnowledgeEntry
   canManage: boolean
   busy: boolean
-  onConfirm: (entry: BaseKnowledgeEntry, values: EntryValues, attested: boolean) => void
+  onConfirm: (entry: BaseKnowledgeEntry, values: EntryValues, attested: { licence: boolean; ai: boolean }) => void
   onRemove: (entry: BaseKnowledgeEntry) => void
 }
 
@@ -114,6 +125,7 @@ const ProposalRow: FC<ProposalProps> = ({ entry, canManage, busy, onConfirm, onR
   const t = useTranslations(organizationCopy)
   const [values, setValues] = useState<EntryValues>(entry.values)
   const [attested, setAttested] = useState(false)
+  const [aiAttested, setAiAttested] = useState(false)
   const set = <K extends keyof EntryValues>(key: K, value: EntryValues[K]) => setValues((v) => ({ ...v, [key]: value }))
   const authority = values.addressees[0]?.name ?? ''
   const needsAttestation = values.licenceClass === 'licensed'
@@ -206,10 +218,16 @@ const ProposalRow: FC<ProposalProps> = ({ entry, canManage, busy, onConfirm, onR
       {canManage && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {needsAttestation ? (
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={attested} onCheckedChange={(checked) => setAttested(checked === true)} />
-              {t('baseKnowledge.attest')}
-            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={attested} onCheckedChange={(checked) => setAttested(checked === true)} />
+                {t('baseKnowledge.attest')}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={aiAttested} onCheckedChange={(checked) => setAiAttested(checked === true)} />
+                {t('baseKnowledge.attestAi')}
+              </label>
+            </div>
           ) : (
             <span />
           )}
@@ -217,7 +235,7 @@ const ProposalRow: FC<ProposalProps> = ({ entry, canManage, busy, onConfirm, onR
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRemove(entry)}>
               {t('baseKnowledge.remove')}
             </Button>
-            <Button size="sm" disabled={busy || (needsAttestation && !attested)} onClick={() => onConfirm(entry, values, attested)}>
+            <Button size="sm" disabled={busy || (needsAttestation && !attested)} onClick={() => onConfirm(entry, values, { licence: attested, ai: aiAttested })}>
               {t('baseKnowledge.confirm')}
             </Button>
           </div>
@@ -320,7 +338,11 @@ export const BaseKnowledgeCard: FC = () => {
                 entry={entry}
                 canManage={list.canManage}
                 busy={busy}
-                onConfirm={(e, values, attested) => void act(() => confirmBaseKnowledge(e.id, { ...values, licenceAttested: attested }))}
+                onConfirm={(e, values, attested) =>
+                  void act(() =>
+                    confirmBaseKnowledge(e.id, { ...values, licenceAttested: attested.licence, aiProcessingAttested: attested.ai }),
+                  )
+                }
                 onRemove={(e) => window.confirm(t('baseKnowledge.removeConfirm')) && void act(() => removeBaseKnowledge(e.id))}
               />
             ) : (
@@ -330,6 +352,7 @@ export const BaseKnowledgeCard: FC = () => {
                 canManage={list.canManage}
                 busy={busy}
                 onCheck={(e) => void act(() => recordBaseKnowledgeCheck(e.id, { result: 'current' }))}
+                onAllowAi={(e) => void act(() => updateBaseKnowledge(e.id, { aiProcessingAttested: true }))}
                 onRemove={(e) => window.confirm(t('baseKnowledge.removeConfirm')) && void act(() => removeBaseKnowledge(e.id))}
               />
             ),

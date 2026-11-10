@@ -25,6 +25,8 @@ function entry(id: string, values: Partial<BaseKnowledgeEntry['values']>, rest: 
     fileName: `${id}.pdf`,
     status: 'confirmed',
     proposedBy: 'person',
+    textUse: 'used',
+    aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T08:00:00.000Z',
     values: {
       kind: 'technical_standard',
@@ -54,6 +56,11 @@ const LIST: BaseKnowledgeList = {
       { status: 'proposed', proposedBy: 'reading', fileName: 'OENORM_B_1300_2018-11-01.pdf', freshness: { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true } },
     ),
     entry('oenorm-b-1600', {}),
+    entry(
+      'oenorm-b-5371',
+      { designation: 'ÖNORM B 5371:2021', title: 'Treppen, Geländer und Brüstungen', editionLabel: '2021-01-15' },
+      { textUse: 'metadata_only', aiProcessingAttestedAt: null },
+    ),
     entry(
       'ma37',
       {
