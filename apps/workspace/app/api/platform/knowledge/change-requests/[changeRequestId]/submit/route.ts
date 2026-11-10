@@ -12,5 +12,5 @@ import { submitPlatformChangeRequest } from '@/lib/base-knowledge/platform/servi
 type Params = { changeRequestId: string }
 
 export const POST = platformApiRoute<Params>(async ({ session, params }) => asProblem(async () => submitPlatformChangeRequest(session, params.changeRequestId)), {
-  permission: PLATFORM_PERMISSIONS.settingsManage,
+  permission: PLATFORM_PERMISSIONS.knowledgeWrite,
 })

@@ -54,7 +54,7 @@ function released(counts: Record<string, number>, t: Translator): string {
 
 export function CountryKnowledge(): JSX.Element {
   const t = useTranslations(platformCopy)
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeReview)
   const { locale } = useLocale()
   const [overview, setOverview] = useState<Load<PlatformKnowledgeOverview>>({ state: 'loading' })
   const [openId, setOpenId] = useState<string | null>(null)

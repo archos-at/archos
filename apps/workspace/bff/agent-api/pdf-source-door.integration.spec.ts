@@ -117,7 +117,7 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
 
   const session = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
-  const author = platformOperator(session(`user_pdf_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage']))
+  const author = platformOperator(session(`user_pdf_author_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review']))
   const { door, ok } = doorScript(() => handler)
 
   /** What the api tier was asked, so a test can say what left this tier. */

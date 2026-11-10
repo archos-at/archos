@@ -161,7 +161,7 @@ describe("an approval's role", () => {
   })
 
   it('is recorded for a role the approver holds (positive control)', async () => {
-    held.permissions = new Set([PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel])
+    held.permissions = new Set([PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel])
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'counsel' })).resolves.toEqual({
       status: 'approved',
       awaiting: [],
@@ -173,7 +173,7 @@ describe("an approval's role", () => {
   })
 
   it('leaves a request submitted while a role it needs has not said yes (ADR-0174)', async () => {
-    held.permissions = new Set([PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
+    held.permissions = new Set([PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
     writes.awaiting.mockResolvedValueOnce(['counsel'])
     writes.status.mockClear()
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })).resolves.toEqual({
@@ -229,5 +229,21 @@ describe('an approval alone (ADR-0176)', () => {
   it('is refused on a reject: an override is for approving', async () => {
     await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, { ...ALONE, decision: 'reject' })).rejects.toMatchObject({ status: 422 })
     expect(anyWrite()).toBe(false)
+  })
+})
+
+describe('who works on platform knowledge (architecture review, item 6)', () => {
+  it('is no longer whoever manages platform settings: settings:manage alone reaches no change request', async () => {
+    held.permissions = new Set([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
+    await expect(service.createPlatformChangeRequest(EXPERT, { title: 'x', countryId: 'AT' })).rejects.toMatchObject({ status: 403 })
+    await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
+    expect(anyWrite()).toBe(false)
+  })
+
+  it('splits drafting from reviewing: write drafts, review decides', async () => {
+    held.permissions = new Set([PLATFORM_PERMISSIONS.knowledgeWrite, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
+    await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
+    held.permissions = new Set([PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
+    await expect(service.createPlatformChangeRequest(EXPERT, { title: 'x', countryId: 'AT' })).rejects.toMatchObject({ status: 403 })
   })
 })
