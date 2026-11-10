@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { jsonSchemaDocument } from '@/lib/api/zod-json-schema'
 import { graphFromProposals } from '../chain/from-proposals'
-import { proposeRecordsBodySchema } from '../platform/wire'
+import { MAX_PROPOSED_RECORDS, proposeRecordsBodySchema } from '../platform/wire'
 import { resolveKnowledgeContext } from './resolve'
 import { knowledgeContextSchema } from './wire'
 
@@ -31,10 +31,13 @@ const SCHEMA = join(process.cwd(), 'tests', 'fixtures', 'knowledge-context.schem
 const DATE = '2026-11-10'
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9'] as const
 
-const pack = (name: string) =>
-  proposeRecordsBodySchema.parse({
-    records: (JSON.parse(readFileSync(join(ROOT, 'configs', 'knowledge-packs', name), 'utf8')) as { records: unknown[] }).records,
-  }).records
+/** A pack's records, parsed in batches as records-propose takes them: a pack may hold more than one batch carries. */
+const pack = (name: string) => {
+  const raw = (JSON.parse(readFileSync(join(ROOT, 'configs', 'knowledge-packs', name), 'utf8')) as { records: unknown[] }).records
+  const batches: unknown[][] = []
+  for (let start = 0; start < raw.length; start += MAX_PROPOSED_RECORDS) batches.push(raw.slice(start, start + MAX_PROPOSED_RECORDS))
+  return batches.flatMap((records) => proposeRecordsBodySchema.parse({ records }).records)
+}
 const graph = graphFromProposals([...pack('eu.json'), ...pack('at.json')])
 
 const contextAt = (territoryId: string) =>
