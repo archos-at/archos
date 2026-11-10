@@ -162,7 +162,7 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
 
     // The older release cannot be undone under a newer one.
     await expect(release.rollbackChangeRequest(first, 'wrong order', ACTOR)).rejects.toThrow(/released again/)
-    expect(await release.rollbackChangeRequest(second, 'title was right', ACTOR)).toEqual({ restored: 1 })
+    expect(await release.rollbackChangeRequest(second, 'title was right', ACTOR)).toEqual({ restored: 1, unreleasedFiles: [] })
     expect(await head(workId)).toBe(firstHead)
     // The rolled-back revision stays readable to whoever may read the record: an old citation resolves.
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.isReleased(ORG, secondHead!)).toBe(true)
@@ -258,6 +258,8 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     // The listing now says the platform holds the text.
     const listed = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])
     expect(listed).toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4', hasText: true }))
+    // Rolled back, no release names the file any more: it is de-indexed (ADR-0173).
+    expect(await release.rollbackChangeRequest(id, 'spec: the text goes', ACTOR)).toMatchObject({ unreleasedFiles: [file] })
   })
 
   it('records a corpus that does not know the file as failed, with why', async () => {
