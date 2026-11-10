@@ -50,8 +50,8 @@ const PROCEDURE_IDS = ['p1'] as const
  * (docs/observability/metrics.md). A no-op meter where nothing exports.
  */
 const unavailableTurns = metrics
-  .getMeter('grid.base-knowledge')
-  .createCounter('grid.knowledge_context.unavailable', { description: 'Turns whose knowledge context could not be read' })
+  .getMeter('base-knowledge')
+  .createCounter('knowledge_context.unavailable', { description: 'Turns whose knowledge context could not be read' })
 
 const untimed: PhaseTimer = (_name, load) => load()
 

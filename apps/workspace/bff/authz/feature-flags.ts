@@ -401,17 +401,7 @@ export const FEATURE_FLAGS = {
    * turn is offered `as_of`; the door's schema still hides it.
    */
   timeEditions: 'time-editions',
-  /**
-   * The knowledge context of a turn (ADR-0173, design §5.5): the gate
-   * (`organization_unplaced`, `site_unknown`, `not_entitled`, coverage `none`
-   * to `full`), each edition's role with its coverage qualifier and freshness,
-   * and the countries the turn may retrieve from, in the turn context as
-   * `knowledgeContext` (`bff/base-knowledge/context/`).
-   *
-   * A rollout, off in both environments until the country-neutral prompt reads
-   * it. With it off the turn context carries no `knowledgeContext` key at all,
-   * so the agent's request and prompt are byte for byte what they were.
-   */
+  /** A turn's knowledge context (ADR-0173, `bff/base-knowledge/context/`); a rollout, off: no turn-context key. */
   knowledgeContext: 'knowledge-context',
 } as const
 

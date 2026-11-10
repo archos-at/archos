@@ -9,7 +9,6 @@ import tempfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -27,9 +26,9 @@ from agent.knowledge.document_classification import canonical_doc_class
 from agent.oib_status import OibKnowledgeStatus
 
 from ..jobs.ingest_dispatch import enqueue_only
+from ..models.knowledge_mark import OibReingestRequest
 from ..models.requests import OibDocumentDeleteResponse
 from ..models.requests import OibDocumentUploadResponse
-from ..models.requests import OibReingestRequest
 from ..models.requests import OibReingestResponse
 from ..models.requests import OibSyncResponse
 from ..models.requests import OibUploadedMember
@@ -217,23 +216,16 @@ def _extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tup
     return accepted, rejected
 
 
-def _queue_reingest(names: list[str], marks: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
-    """``(queued, unknown)``: each known name made to need ingestion again, with a job queued for it.
-
-    A mark the platform sent (country and edition, ADR-0173) is recorded first, so the job carries it.
-    """
-    from agent import corpus_store
+def _queue_reingest(names: list[str], marks: dict | None = None) -> tuple[list[str], list[str]]:
+    """``(queued, unknown)``: each known name made to need ingestion again (with its mark), and a job queued for it."""
     from agent import oib_sync
 
     queued: list[str] = []
     unknown: list[str] = []
     for name in names:
-        if not oib_sync.mark_for_reingest(name):
+        if not oib_sync.mark_for_reingest(name, (marks or {}).get(name)):
             unknown.append(name)
             continue
-        mark = (marks or {}).get(name)
-        if mark is not None:
-            corpus_store.set_mark(name, corpus_store.FileMark(country_id=mark.country_id, edition_id=mark.edition_id))
         oib_sync.request_ingestion(name, enqueue=enqueue_only)
         queued.append(name)
     return queued, unknown
@@ -493,7 +485,7 @@ async def reingest_oib_documents(
     names = list(dict.fromkeys(request.file_names))
     try:
         queued, unknown = await asyncio.get_event_loop().run_in_executor(
-            _ADMIN_EXECUTOR, _queue_reingest, names, request.marks
+            _ADMIN_EXECUTOR, _queue_reingest, names, request.file_marks()
         )
     except Exception as e:
         logger.exception("OIB re-ingest could not be queued")

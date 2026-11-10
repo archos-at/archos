@@ -54,8 +54,7 @@ import { isShared, requireResourceAccess } from '@/lib/sharing/access'
 import { countGrantsForResource } from '@/lib/sharing/repository'
 import { resolveParticipants } from '@/lib/sharing/service'
 import { normalizeAgentAnswerMetadata } from './agent-answer-metadata'
-import { markLicensedAnswers } from './licensed-answers'
-import { recordEditionUses } from '@/lib/base-knowledge/context/edition-uses'
+import { recordPersistedAnswers } from './answer-records'
 import {
   resolveEngagement,
   resolveEngagementFor,
@@ -1493,9 +1492,7 @@ export async function persistInternalConversationMessages(
     )
   )
 
-  await markLicensedAnswers(conversationId, inputs, rows)
-  // Which edition each answer used, at which pack sequences (ADR-0173, E25): from the BFF's own context, advisory.
-  await recordEditionUses(organizationId, conversation.projectId ?? null, inputs)
+  await recordPersistedAnswers(organizationId, conversation.projectId ?? null, conversationId, inputs, rows)
   await fanOutMessageActivity({
     organizationId,
     conversationId,

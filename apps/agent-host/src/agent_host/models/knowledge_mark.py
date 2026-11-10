@@ -71,3 +71,26 @@ class KnowledgeMarkResult(BaseModel):
     licence_class: LicenceClass | None
     edition_id: str | None
     chunks: int
+
+
+class OibCorpusMark(BaseModel):
+    """The platform record a base-corpus file is the text of: its country's pack and its edition (ADR-0173)."""
+
+    country_id: str | None = Field(None, pattern=r"^[A-Z]{2}$", description="ISO 3166-1 alpha-2 of the pack")
+    edition_id: str | None = Field(None, min_length=1, max_length=200, description="The knowledge edition's record id")
+
+
+class OibReingestRequest(BaseModel):
+    """Which base-corpus documents to re-index, by basename, with the mark the platform recorded for each."""
+
+    file_names: list[str] = Field(..., description="Base-corpus PDF basenames to re-ingest.", min_length=1)
+    marks: dict[str, OibCorpusMark] = Field(
+        default_factory=dict,
+        description="Per basename, the country and edition it is the text of (ADR-0173): {country_id, edition_id}.",
+    )
+
+    def file_marks(self) -> dict[str, Any]:
+        """The marks as the corpus stores them (``agent.corpus_store.FileMark``)."""
+        from agent.corpus_store import FileMark
+
+        return {name: FileMark(**mark.model_dump()) for name, mark in self.marks.items()}

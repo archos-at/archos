@@ -92,7 +92,6 @@ describe('base-knowledge-report', () => {
 
   it('opens a draft change request in an entitled country, titled with what is wrong', async () => {
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    vi.spyOn(console, 'info').mockImplementation(() => {})
     const result = await reportBaseKnowledge(SESSION, { countryId: 'AT', workId: 'work:bo-wien', note: 'Novelle 2026 fehlt' })
     expect(result.status).toBe('draft')
     expect(insertChangeRequest).toHaveBeenCalledWith({ title: 'Report on work:bo-wien: Novelle 2026 fehlt', countryId: 'AT', createdBy: 'user_1' })

@@ -86,14 +86,9 @@ export async function reportBaseKnowledge(session: AuthorizedSession, body: Base
   if (!entitled.some((entry) => entry.countryId === body.countryId)) {
     throw new UnprocessableError(`The office is not entitled to ${body.countryId}; a report needs a country whose base knowledge it reads.`)
   }
-  const subject = [body.workId, body.editionId].filter(Boolean).join(' ')
+  const subject = [body.workId, body.editionId, body.messageId ? `(answer ${body.messageId})` : null].filter(Boolean).join(' ')
   const title = `Report${subject ? ` on ${subject}` : ''}: ${body.note}`.slice(0, 200)
   const id = await insertChangeRequest({ title, countryId: body.countryId, createdBy: session.userId })
-  console.info('[base-knowledge] wrong-law report opened a draft change request', {
-    changeRequestId: id,
-    organizationId: session.organizationId,
-    messageId: body.messageId ?? null,
-  })
   return { changeRequestId: id, status: 'draft' }
 }
 
@@ -161,4 +156,3 @@ export async function confirmProjectBase(
   if (!row) throw new ConflictError('The confirmation was not stored; try again.')
   return { id: row.id, confirmedAt: row.confirmedAt.toISOString() }
 }
-

@@ -11,10 +11,10 @@ from unittest.mock import patch
 
 import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
-from knowledge_layer.search import scope as search_scope
+from knowledge_layer.search import base_collection_filters
 from knowledge_layer.search import scoped_collections_for_site
-from knowledge_layer.vector_store import scope as vector_scope
-from knowledge_layer.vector_store.writes import licence_mark
+from knowledge_layer.vector_store import enrichment
+from knowledge_layer.vector_store import translate
 from qdrant_client import models
 
 from agent.common.knowledge_context import KnowledgeContext
@@ -53,21 +53,19 @@ def _scope(context: str | None) -> list[str]:
 
 
 def test_without_a_context_the_filter_is_what_it_was():
-    assert search_scope.base_collection_filters(_config(), None) == NO_PAGE_CHUNKS
+    assert base_collection_filters(_config(), None) == NO_PAGE_CHUNKS
 
 
 def test_an_austrian_turn_reads_austria_and_the_points_written_before_the_country():
     _bind("AT", "EU")
-    assert search_scope.base_collection_filters(_config(), None) == {
+    assert base_collection_filters(_config(), None) == {
         "$and": [NO_PAGE_CHUNKS, {"$or": [{"country_id": {"$in": ["AT", "EU"]}}, {"country_id": {"$exists": False}}]}]
     }
 
 
 def test_a_turn_not_entitled_to_austria_reads_none_of_the_older_points():
     _bind("DE")
-    assert search_scope.base_collection_filters(_config(), None) == {
-        "$and": [NO_PAGE_CHUNKS, {"country_id": {"$in": ["DE"]}}]
-    }
+    assert base_collection_filters(_config(), None) == {"$and": [NO_PAGE_CHUNKS, {"country_id": {"$in": ["DE"]}}]}
 
 
 def test_a_gate_that_reads_no_country_drops_the_base_corpus_even_for_an_austrian_site():
@@ -81,18 +79,17 @@ def test_a_gate_that_reads_a_country_keeps_the_base_corpus_for_its_filter():
 
 
 def test_exists_translates_to_qdrant_is_empty():
-    missing = vector_scope.translate({"country_id": {"$exists": False}})
-    present = vector_scope.translate({"country_id": {"$exists": True}})
+    missing = translate({"country_id": {"$exists": False}})
+    present = translate({"country_id": {"$exists": True}})
     empty = models.IsEmptyCondition(is_empty=models.PayloadField(key="country_id"))
     assert missing == models.Filter(must=[empty])
     assert present == models.Filter(must_not=[empty])
     with pytest.raises(ValueError):
-        vector_scope.translate({"country_id": {"$exists": "no"}})
+        translate({"country_id": {"$exists": "no"}})
 
 
 def test_an_ingest_job_stamps_its_country_and_refuses_a_malformed_one():
-    assert licence_mark("oib_knowledge", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"}) == {
-        "country_id": "DE",
-        "knowledge_edition_id": "edition:baybo-2025",
-    }
-    assert licence_mark("oib_knowledge", {"country_id": "Germany"}) == {}
+    stamped = enrichment("oib_knowledge", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"})
+    assert stamped["country_id"] == "DE"
+    assert stamped["knowledge_edition_id"] == "edition:baybo-2025"
+    assert "country_id" not in enrichment("oib_knowledge", {"country_id": "Germany"})

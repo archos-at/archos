@@ -20,7 +20,7 @@ import { citedFiles, editionUsesOf, recordEditionUses } from './edition-uses'
 import { packsUpdatedSince } from './last-answer'
 import type { KnowledgeContext } from './wire'
 
-const use = (workId: string, editionId: string | null, corpusFiles: string[]): KnowledgeContext['uses'][number] => ({
+const editionUse = (workId: string, editionId: string | null, corpusFiles: string[]): KnowledgeContext['uses'][number] => ({
   workId,
   editionId,
   role: 'binding',
@@ -43,7 +43,10 @@ const CONTEXT: KnowledgeContext = {
   chains: {},
   date: '2026-12-14',
   procedures: [],
-  uses: [use('work:oib-rl-2', 'edition:oib-rl-2-2019', ['OIB-RL2-2019.pdf']), use('work:oib-rl-6', 'edition:oib-rl-6-2025', ['OIB-RL6-2025.pdf'])],
+  uses: [
+    editionUse('work:oib-rl-2', 'edition:oib-rl-2-2019', ['OIB-RL2-2019.pdf']),
+    editionUse('work:oib-rl-6', 'edition:oib-rl-6-2025', ['OIB-RL6-2025.pdf']),
+  ],
   retrieval: { countries: ['AT', 'EU'] },
 }
 

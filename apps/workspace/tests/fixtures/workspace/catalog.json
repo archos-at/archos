@@ -12,6 +12,15 @@
    "describe": "{\"name\":\"classification-evaluate\",\"domain\":\"projects\",\"summary\":\"Evaluate a building’s class under its site’s rules\",\"description\":\"One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.\",\"annotations\":{\"title\":\"Evaluate a building’s class under its site’s rules\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"buildingId\":{\"default\":\"bldg1\",\"type\":\"string\",\"maxLength\":12},\"planned\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"existing\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"on\":{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"}},\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
+   "name": "project-base-get",
+   "domain": "projects",
+   "summary": "Read a project’s base knowledge: gate, chain, editions and their roles",
+   "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation. Needs project:view.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"project-base-get\",\"domain\":\"projects\",\"summary\":\"Read a project’s base knowledge: gate, chain, editions and their roles\",\"description\":\"What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation. Needs project:view.\",\"annotations\":{\"title\":\"Read a project’s base knowledge: gate, chain, editions and their roles\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
    "name": "project-cleanup-confirm",
    "domain": "projects",
    "summary": "Move the chosen documents to the bin",
@@ -1830,6 +1839,15 @@
    "describe": "{\"name\":\"base-knowledge-remove\",\"domain\":\"knowledge\",\"summary\":\"Remove a base-knowledge entry and its document\",\"description\":\"Deletes the entry’s document and with it the entry, its history, its checks and its passages in search. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Remove a base-knowledge entry and its document\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "base-knowledge-report",
+   "domain": "knowledge",
+   "summary": "Report wrong law in the base knowledge to the platform",
+   "description": "Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, and what is wrong in one sentence. Only for a country the office is entitled to. Changes nothing an answer reads.",
+   "readOnly": false,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-report\",\"domain\":\"knowledge\",\"summary\":\"Report wrong law in the base knowledge to the platform\",\"description\":\"Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, and what is wrong in one sentence. Only for a country the office is entitled to. Changes nothing an answer reads.\",\"annotations\":{\"title\":\"Report wrong law in the base knowledge to the platform\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"countryId\":{\"type\":\"string\",\"pattern\":\"^[A-Z]{2}$\"},\"workId\":{\"description\":\"The work the report is about, e.g. work:baybo.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":200},\"editionId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":200},\"messageId\":{\"description\":\"The answer that showed the wrong law, from the conversation.\",\"type\":\"string\",\"format\":\"uuid\"},\"note\":{\"type\":\"string\",\"minLength\":3,\"maxLength\":150,\"description\":\"What is wrong, in a sentence: the platform reads it on the draft change request.\"}},\"required\":[\"countryId\",\"note\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
    "name": "base-knowledge-update",
    "domain": "knowledge",
    "summary": "Change a confirmed base-knowledge entry",
@@ -1846,6 +1864,15 @@
    "readOnly": false,
    "destructive": false,
    "describe": "{\"name\":\"base-knowledge-upload\",\"domain\":\"knowledge\",\"summary\":\"Upload a standard, commentary or directive as base knowledge\",\"description\":\"Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Upload a standard, commentary or directive as base knowledge\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"files\":{\"minItems\":1,\"maxItems\":1,\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":255,\"description\":\"The file name, with its extension, e.g. \\\"Grundriss EG.pdf\\\".\"},\"mimeType\":{\"description\":\"The media type, e.g. \\\"application/pdf\\\". Defaults to application/octet-stream.\",\"type\":\"string\",\"maxLength\":255},\"contentBase64\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":44739244,\"pattern\":\"^[A-Za-z0-9+/]*={0,2}$\",\"description\":\"The file's bytes as standard base64 (RFC 4648, with padding), at most 33554432 bytes decoded.\"}},\"required\":[\"name\",\"contentBase64\"]},\"description\":\"The file to upload. Exactly one file.\"},\"fields\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"description\":\"From office-shelf-folder-list; omit for the root.\",\"type\":\"string\"}},\"additionalProperties\":false,\"description\":\"The route’s text fields, sent beside the file as form parts.\"}},\"required\":[\"files\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+  },
+  {
+   "name": "coverage-get",
+   "domain": "knowledge",
+   "summary": "Read how far the base knowledge goes in each country the office is entitled to",
+   "description": "Per entitled country its coverage level (none, open, core, full) and every territory that states its own. `open` is official sources nobody curated; `core` reviewed codes; `full` adds classification and reference dates. Any member may read.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"coverage-get\",\"domain\":\"knowledge\",\"summary\":\"Read how far the base knowledge goes in each country the office is entitled to\",\"description\":\"Per entitled country its coverage level (none, open, core, full) and every territory that states its own. `open` is official sources nobody curated; `core` reviewed codes; `full` adds classification and reference dates. Any member may read.\",\"annotations\":{\"title\":\"Read how far the base knowledge goes in each country the office is entitled to\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"countryId\":{\"description\":\"One country, e.g. DE; omitted, every country the office is entitled to.\",\"type\":\"string\",\"pattern\":\"^[A-Z]{2}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
   },
   {
    "name": "knowledge-base-get",
@@ -2288,7 +2315,7 @@
    "release-note-list",
    "conversation-awaiting-get",
    "document-quarantine-get",
-   "assignment-remove"
+   "base-knowledge-report"
   ],
   "Freigabe anfordern": [
    "document-version-approve",
@@ -2311,8 +2338,8 @@
    "organization-memory-delete",
    "organization-memory-update",
    "project-intake-start",
-   "project-create",
-   "project-delete"
+   "project-base-get",
+   "project-create"
   ],
   "Projektgedächtnis merken": [
    "project-memory-list",
@@ -2324,7 +2351,7 @@
    "project-experience-extract",
    "project-intake-start",
    "conversation-message-update",
-   "project-create"
+   "project-base-get"
   ],
   "list proposals": [
    "proposal-list",
@@ -2413,6 +2440,7 @@
   ],
   "": [
    "classification-evaluate",
+   "project-base-get",
    "project-cleanup-confirm",
    "project-cleanup-propose",
    "project-consistency-check",
@@ -2420,8 +2448,7 @@
    "project-delete",
    "project-experience-extract",
    "project-get",
-   "project-intake-complete",
-   "project-intake-decide"
+   "project-intake-complete"
   ],
   "a project list": [
    "project-list",

@@ -384,13 +384,14 @@ def remove_document(name: str) -> bool:
     return True
 
 
-def mark_for_reingest(name: str) -> bool:
+def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> bool:
     """Make ``name`` need a new job: forget what the index was built from and what failed. False if not in the corpus.
 
     The file then reads as PENDING in ``oib_status``, which is the state the admin UI already
     polls on, and :func:`request_ingestion` queues a fresh job. The job for these bytes has the
     same id as before, so a finished or failed one is dropped first (its status and queue row);
     one still waiting or running is left alone, since it will do the work this asks for.
+    A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
     """
     if not corpus_store.is_valid_name(name):
         return False
@@ -399,6 +400,8 @@ def mark_for_reingest(name: str) -> bool:
         return False
     if progress_of(row) not in (JobProgress.WAITING, JobProgress.RUNNING):
         _drop_job(row)
+    if mark is not None:
+        corpus_store.set_mark(name, mark)
     corpus_store.forget_ingested(name)
     return True
 

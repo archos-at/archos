@@ -8,15 +8,13 @@
  */
 
 import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 import type { EditionRole, PersonDecisionSource } from '@/lib/base-knowledge/wire/vocab'
-
-const currentOrganization = sql`nullif(current_setting('grid.organization_id', true), '')`
 
 export const messageEditionUses = pgTable('message_edition_uses', {
   id: uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull(),
-  organizationId: text('organization_id').notNull().default(currentOrganization),
+  // The tenant's own id, always written by the caller (the column also defaults to the request's tenant in SQL).
+  organizationId: text('organization_id').notNull(),
   projectId: uuid('project_id'),
   workId: text('work_id').notNull(),
   editionId: text('edition_id'),
@@ -28,7 +26,7 @@ export const messageEditionUses = pgTable('message_edition_uses', {
 
 export const projectBaseConfirmations = pgTable('project_base_confirmations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: text('organization_id').notNull().default(currentOrganization),
+  organizationId: text('organization_id').notNull(),
   projectId: uuid('project_id').notNull(),
   confirmedBy: text('confirmed_by').notNull(),
   decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
