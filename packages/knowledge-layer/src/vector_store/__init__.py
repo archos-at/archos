@@ -107,6 +107,7 @@ _LAZY: dict[str, str] = {
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
 
 __all__ = [
+    "AI_PROCESSING_FIELD",
     "Boost",
     "CHUNK_ID_FIELD",
     "CHUNK_ORDINAL_FIELD",
@@ -121,8 +122,6 @@ __all__ = [
     "INDEXED_FIELDS",
     "InvalidExport",
     "KNOWLEDGE_EDITION_FIELD",
-    "AI_PROCESSING_FIELD",
-    "QUOTE_MAX_CHARS_FIELD",
     "LEXICAL",
     "LICENCE_CLASSES",
     "LICENCE_CLASS_FIELD",
@@ -134,6 +133,7 @@ __all__ = [
     "PayloadRewrite",
     "Physical",
     "Pushdown",
+    "QUOTE_MAX_CHARS_FIELD",
     "QdrantStore",
     "RANKING",
     "Ranking",
