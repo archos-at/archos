@@ -76,6 +76,10 @@ describe('the Austria and EU packs', () => {
     expect(bindingEditions(leaf, '2026-11-10', '6'), 'RL 6').toEqual(expected.rl6 ? [expected.rl6] : [])
   })
 
+  it('resolves every Land within the bound, so no cited edition loses its role', () => {
+    for (const leaf of Object.keys(BINDING_ON_2026_11_10)) expect(resolveChain(graph, leaf, '2026-11-10').truncated, leaf).toBe(false)
+  })
+
   it('binds the 2019 edition in Wien before 2024-02-23 and the 2023 edition from that day', () => {
     expect(bindingEditions('AT-9', '2024-02-22', '2')).toEqual(['2019'])
     expect(bindingEditions('AT-9', '2024-02-23', '2')).toEqual(['2023'])

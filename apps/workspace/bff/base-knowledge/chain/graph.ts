@@ -115,4 +115,6 @@ export interface ResolvedChain {
   /** The site's leaf first, then every territory it lies in at the date. */
   chain: readonly string[]
   uses: readonly EditionUse[]
+  /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
+  truncated: boolean
 }

@@ -201,6 +201,21 @@ describe('deviations, precedence and packs', () => {
     expect(use?.route.at(-1)?.relationId).toBe('relation:platform-din')
   })
 
+  it('keeps an office route that a platform relation from another Land or to another edition does not claim', () => {
+    const din = parse([
+      work('din-4109-1', 'technical_standard'),
+      edition('din-4109-1-2018', 'din-4109-1', '2018-01-01'),
+      edition('din-4109-1-2020', 'din-4109-1', '2020-01-01'),
+    ])
+    const office = graphFromProposals(parse([binds('office-din', 'work:wbtv', 'edition:din-4109-1-2018')]), 'office')
+    const styrianPlatform = graphFromProposals(parse([binds('stmk-din', 'work:stbtv', 'edition:din-4109-1-2020')]))
+    const resolved = resolveChain(mergeGraphs(graph, graphFromProposals(din), office, styrianPlatform), 'AT-9', '2026-11-10')
+    expect(resolved.uses.find((use) => use.editionId === 'edition:din-4109-1-2018')).toMatchObject({
+      role: 'binding',
+      qualifier: 'office_maintained',
+    })
+  })
+
   it('li-sia500: Liechtenstein law reaches SIA and VKF works in another pack through relations', () => {
     const swissBodies = graphFromProposals(
       parse([
@@ -235,6 +250,34 @@ describe('deviations, precedence and packs', () => {
     expect(roleOf(resolveChain(europe, 'AT-9', '2026-11-10'), 'edition:cpr-305-2011')).toBe('binding')
     expect(roleOf(resolveChain(europe, 'GB', '2020-06-01'), 'edition:cpr-305-2011')).toBe('binding')
     expect(roleOf(resolveChain(europe, 'GB', '2021-06-01'), 'edition:cpr-305-2011')).toBeNull()
+  })
+
+  it('fails closed on an undated edition: a dynamic reference to it binds nothing, and it never guides', () => {
+    const undated = graphFromProposals(
+      parse([
+        ...AUSTRIA,
+        work('vague', 'technical_standard', ['AT']),
+        edition('vague-a', 'vague', null),
+        edition('vague-b', 'vague', null),
+        binds('wien-vague', 'work:wbtv', 'work:vague', { mode: 'dynamic_reference' }),
+      ]),
+    )
+    const uses = usesOf(resolveChain(undated, 'AT-9', '2026-11-10'), 'work:vague')
+    expect(uses.map((use) => use.role)).toEqual(['information', 'information'])
+  })
+
+  it('lets no edition that starts after the date guide', () => {
+    const future = graphFromProposals(parse([...AUSTRIA, edition('oib-rl-2-2027', 'oib-rl-2', null, { inForceFrom: '2027-06-01' })]))
+    expect(roleOf(resolveChain(future, 'AT-6', '2026-11-10'), 'edition:oib-rl-2-2027')).toBe('information')
+    expect(roleOf(resolveChain(future, 'AT-6', '2026-11-10'), 'edition:oib-rl-2-2023')).toBe('guidance')
+  })
+
+  it('says when it left uses out, so a caller fails closed', () => {
+    const many: unknown[] = [territory('AT', 'country'), work('law', 'statute', ['AT'])]
+    for (let index = 0; index < 45; index++) many.push(work(`std-${index}`, 'technical_standard', ['AT']), edition(`std-${index}-e`, `std-${index}`, '2020-01-01'))
+    const resolved = resolveChain(graphFromProposals(parse(many)), 'AT', '2026-11-10')
+    expect(resolved.truncated).toBe(true)
+    expect(resolveChain(graph, 'AT-9', '2026-11-10').truncated).toBe(false)
   })
 
   it('stops a cycle and follows a route no deeper than its limit', () => {
@@ -320,6 +363,19 @@ describe('every kind', () => {
     expect(usesOf(graz, 'work:ma37')).toEqual([])
     expect(usesOf(graz, 'work:law')).toEqual([])
     expect(usesOf(graz, 'work:commentary')).toEqual([])
+  })
+
+  it('scopes a commentary by every work it interprets', () => {
+    const two = graphFromProposals(
+      parse([
+        ...kinds.filter((record) => !(record.type === 'relation' && record.key === 'commentary-on-law')),
+        work('graz-law', 'statute', ['AT-6']),
+        { type: 'relation', key: 'on-graz', relationType: 'interprets', from: { type: 'work', key: 'commentary' }, to: { type: 'work', key: 'graz-law' } },
+        { type: 'relation', key: 'on-vienna', relationType: 'interprets', from: { type: 'work', key: 'commentary' }, to: { type: 'work', key: 'law' } },
+      ]),
+    )
+    expect(usesOf(resolveChain(two, 'AT-9', '2026-11-10'), 'work:commentary').map((use) => use.role)).toEqual(['interpretation'])
+    expect(usesOf(resolveChain(two, 'AT-6', '2026-11-10'), 'work:commentary').map((use) => use.role)).toEqual(['interpretation'])
   })
 
   it('a commentary says which edition it interprets', () => {

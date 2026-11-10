@@ -19,13 +19,28 @@ import { projectTerritory } from '../office/authority'
 import { loadGraph } from './load'
 import { buildingLawTurn, type BuildingLawTurn } from './wire'
 
-export async function buildingLawForTurn(organizationId: string, projectId: string | null): Promise<BuildingLawTurn | null> {
+/** Times one phase of the turn context's load (`TurnContextTiming.time`); the identity when nobody measures. */
+export type PhaseTimer = <T>(name: string, load: () => Promise<T>) => Promise<T>
+
+const untimed: PhaseTimer = (_name, load) => load()
+
+/**
+ * The turn's building law, or null. The phase is timed only once the flag is
+ * on, so a turn with it off records no new phase: its trace stays what it was.
+ */
+export async function buildingLawForTurn(
+  organizationId: string,
+  projectId: string | null,
+  time: PhaseTimer = untimed,
+): Promise<BuildingLawTurn | null> {
   if (!projectId || !(await isOrgFeatureEnabled(FEATURE_FLAGS.buildingLawChain, organizationId))) return null
-  const profile = await findProjectProfileInOrg(projectId, organizationId)
-  const facts = profile?.profile?.facts ?? {}
-  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
-  if (!territory.territoryId) return null
-  const [{ graph, truncated }, zone] = await Promise.all([loadGraph(organizationId, territory.territoryId), officeTimeZone(organizationId)])
-  if (truncated) return null
-  return buildingLawTurn(graph, territory.territoryId, calendarDayIn(zone), territory.label ?? territory.territoryId)
+  return time('building-law', async () => {
+    const profile = await findProjectProfileInOrg(projectId, organizationId)
+    const facts = profile?.profile?.facts ?? {}
+    const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
+    if (!territory.territoryId) return null
+    const [{ graph, truncated }, zone] = await Promise.all([loadGraph(organizationId, territory.territoryId), officeTimeZone(organizationId)])
+    if (truncated) return null
+    return buildingLawTurn(graph, territory.territoryId, calendarDayIn(zone), territory.label ?? territory.territoryId)
+  })
 }

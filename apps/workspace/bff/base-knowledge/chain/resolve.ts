@@ -99,18 +99,22 @@ function editionsOf(graph: KnowledgeGraph, workId: string): GraphEdition[] {
   return [...graph.editions.values()].filter((edition) => edition.workId === workId)
 }
 
-/** The edition in force at `date`: the latest whose interval holds it, an edition with no dates counting from its issue. */
+/**
+ * The edition in force at `date`: the latest whose interval holds it, an
+ * edition with no in-force date counting from its issue. An edition with
+ * neither date is in force on no date: unknown fails closed.
+ */
 export function editionInForce(graph: KnowledgeGraph, workId: string, date: string): GraphEdition | null {
-  const candidates = editionsOf(graph, workId).filter((edition) =>
-    inInterval(date, edition.inForceFrom ?? edition.issuedOn, edition.inForceTo),
+  const candidates = editionsOf(graph, workId).filter(
+    (edition) => editionDate(edition) !== '' && inInterval(date, edition.inForceFrom ?? edition.issuedOn, edition.inForceTo),
   )
   return candidates.sort((a, b) => editionDate(b).localeCompare(editionDate(a)) || b.id.localeCompare(a.id))[0] ?? null
 }
 
-/** The newest edition by its dates, then its id; issued after `date` does not count. */
+/** The newest edition by its dates, then its id; one that starts after `date`, or has no date at all, does not count. */
 function newestEdition(editions: readonly GraphEdition[], date: string): GraphEdition | null {
   return [...editions]
-    .filter((edition) => !edition.issuedOn || edition.issuedOn <= date)
+    .filter((edition) => editionDate(edition) !== '' && editionDate(edition) <= date)
     .sort((a, b) => editionDate(b).localeCompare(editionDate(a)) || b.id.localeCompare(a.id))[0] ?? null
 }
 
@@ -122,19 +126,19 @@ function endWork(graph: KnowledgeGraph, id: string, type: 'work' | 'edition'): s
   return type === 'work' ? (graph.works.has(id) ? id : null) : (graph.editions.get(id)?.workId ?? null)
 }
 
-/** Relations in force at `date`, an office's left out where the platform relates the same target the same way. */
+/** What makes two relations the same claim: type, from-instrument, the exact target and its anchors. */
+const claimKey = (relation: GraphRelation) =>
+  `${relation.relationType}|${relation.fromId}|${relation.toId}|${anchorsKey(relation)}`
+
+/**
+ * Relations in force at `date`, an office's left out where a platform relation
+ * makes the same claim (design §5.5). Only the same claim: a platform route
+ * from another Land, or to another edition, leaves the office's route alone.
+ */
 export function effectiveRelations(graph: KnowledgeGraph, date: string): GraphRelation[] {
   const inForce = graph.relations.filter((relation) => inInterval(date, relation.validFrom, relation.validTo))
-  const platformKeys = new Set(
-    inForce
-      .filter((relation) => relation.owner === 'platform')
-      .map((relation) => `${relation.relationType}|${endWork(graph, relation.toId, relation.toType)}|${anchorsKey(relation)}`),
-  )
-  return inForce.filter(
-    (relation) =>
-      relation.owner === 'platform' ||
-      !platformKeys.has(`${relation.relationType}|${endWork(graph, relation.toId, relation.toType)}|${anchorsKey(relation)}`),
-  )
+  const platformClaims = new Set(inForce.filter((relation) => relation.owner === 'platform').map(claimKey))
+  return inForce.filter((relation) => relation.owner === 'platform' || !platformClaims.has(claimKey(relation)))
 }
 
 interface Binding {
@@ -231,7 +235,7 @@ function displacements(graph: KnowledgeGraph, bindings: readonly Binding[], rela
 const qualifierOf = (route: readonly RouteStep[]): EditionUse['qualifier'] =>
   route.some((step) => step.owner === 'office') ? 'office_maintained' : null
 
-function use(
+function editionUse(
   workId: string,
   editionId: string | null,
   role: EditionRole,
@@ -250,39 +254,52 @@ function inScope(work: GraphWork, chain: readonly string[], interpretsInScope: b
   return work.territoryIds.some((id) => chain.includes(id)) || interpretsInScope
 }
 
-/** What a commentary interprets, by an `interprets` relation in force from it or its editions: the work, and the edition when one is named or in force. */
+/**
+ * What a commentary interprets, by the `interprets` relations in force from it
+ * or its editions: the works, and the edition the first one names or holds in force.
+ */
 function interpreted(
   graph: KnowledgeGraph,
   work: GraphWork,
   relations: readonly GraphRelation[],
   date: string,
-): { work: GraphWork | null; editionId: string | null } {
+): { works: GraphWork[]; editionId: string | null } {
   const own = new Set([work.id, ...editionsOf(graph, work.id).map((edition) => edition.id)])
-  const relation = relations.find((candidate) => candidate.relationType === 'interprets' && own.has(candidate.fromId))
-  if (!relation) return { work: null, editionId: null }
-  const targetWorkId = endWork(graph, relation.toId, relation.toType)
-  return { work: targetWorkId ? (graph.works.get(targetWorkId) ?? null) : null, editionId: targetEdition(graph, relation, date)?.id ?? null }
+  const found = relations.filter((candidate) => candidate.relationType === 'interprets' && own.has(candidate.fromId))
+  const works = found
+    .map((relation) => endWork(graph, relation.toId, relation.toType))
+    .flatMap((id) => (id && graph.works.get(id) ? [graph.works.get(id) as GraphWork] : []))
+  return { works, editionId: found[0] ? (targetEdition(graph, found[0], date)?.id ?? null) : null }
 }
 
 /** The uses of a work no route reaches, or of its editions no route reaches. */
 function unroutedUses(
   graph: KnowledgeGraph,
   work: GraphWork,
-  context: { chain: readonly string[]; date: string; relations: readonly GraphRelation[]; boundEditions: readonly string[] },
+  context: {
+    chain: readonly string[]
+    date: string
+    relations: readonly GraphRelation[]
+    boundEditions: readonly string[]
+    boundWorks: readonly string[]
+  },
 ): EditionUse[] {
   const editions = editionsOf(graph, work.id)
   const bound = editions.filter((edition) => context.boundEditions.includes(edition.id))
   const rest = editions.filter((edition) => !context.boundEditions.includes(edition.id))
   if (work.kind === 'commentary') {
     const target = interpreted(graph, work, context.relations, context.date)
-    if (!inScope(work, context.chain, target.work ? inScope(target.work, context.chain, false) : false)) return []
+    const interpretsHere = target.works.some(
+      (interpretedWork) => inScope(interpretedWork, context.chain, false) || context.boundWorks.includes(interpretedWork.id),
+    )
+    if (!inScope(work, context.chain, interpretsHere)) return []
     const newest = newestEdition(editions, context.date)
-    return newest ? [use(work.id, newest.id, 'interpretation', [], [], target.editionId)] : []
+    return newest ? [editionUse(work.id, newest.id, 'interpretation', [], [], target.editionId)] : []
   }
   if (bound.length === 0 && !inScope(work, context.chain, false)) return []
   if (work.kind === 'authority_directive') {
     const newest = newestEdition(editions, context.date)
-    return newest ? [use(work.id, newest.id, 'authority_practice', [])] : []
+    return newest ? [editionUse(work.id, newest.id, 'authority_practice', [])] : []
   }
   if (NORM_KINDS.has(work.kind)) {
     const newest = newestEdition(rest, context.date)
@@ -290,12 +307,12 @@ function unroutedUses(
     // The newest edition guides only when it is newer than what binds; anything older is information.
     const guides = newest && (!bound[0] || editionDate(newest) > editionDate(bound[0])) ? newest : null
     return rest.map((edition) =>
-      use(work.id, edition.id, edition.id === guides?.id ? 'guidance' : 'information', [], [], bindingEdition),
+      editionUse(work.id, edition.id, edition.id === guides?.id ? 'guidance' : 'information', [], [], bindingEdition),
     )
   }
   if (INFORMATION_KINDS.has(work.kind) && bound.length === 0) {
     const newest = newestEdition(editions, context.date)
-    return newest ? [use(work.id, newest.id, 'information', [])] : []
+    return newest ? [editionUse(work.id, newest.id, 'information', [])] : []
   }
   return []
 }
@@ -310,7 +327,7 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
   const bindings = followRoutes(graph, lawSeeds(graph, chain, date, superseded), relations, date)
   const displaced = displacements(graph, bindings, relations)
   const uses: EditionUse[] = bindings.map((binding) =>
-    use(binding.workId, binding.editionId, 'binding', binding.route, [
+    editionUse(binding.workId, binding.editionId, 'binding', binding.route, [
       ...(displaced.get(binding.workId) ?? []),
       ...(binding.editionId ? (displaced.get(binding.editionId) ?? []) : []),
     ]),
@@ -319,7 +336,7 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
   const boundWorks = new Set(bindings.map((binding) => binding.workId))
   for (const work of graph.works.values()) {
     if (LAW_KINDS.has(work.kind) && boundWorks.has(work.id)) continue
-    uses.push(...unroutedUses(graph, work, { chain, date, relations, boundEditions }))
+    uses.push(...unroutedUses(graph, work, { chain, date, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
   uses.sort(
@@ -329,5 +346,5 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: uses.slice(0, MAX_USES) }
+  return { date, chain, uses: uses.slice(0, MAX_USES), truncated: uses.length > MAX_USES }
 }

@@ -162,7 +162,8 @@ export async function loadTurnContext(
     // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
     timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
     // Which edition binds at the project's site, and why, from the platform's records (ADR-0168).
-    timed('building-law', () => advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null))),
+    // Timed inside, once its flag is on: a turn without it records no new phase.
+    advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null, timed)),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)

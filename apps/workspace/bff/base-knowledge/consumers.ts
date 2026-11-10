@@ -42,7 +42,6 @@ const PROPOSAL = { file: SERVICE_SPEC, name: 'takes what the caller read over wh
 const NAMED = { file: TURN_SPEC, name: 'names the standard, its edition, its file and its last check' }
 const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna, not in Graz, and says when the authority is unknown' }
 
-const STICHTAG = 'S11 (ticket 30): edition selection by the project’s reference date'
 
 const CHAIN_RESOLVE = 'apps/workspace/bff/base-knowledge/chain/resolve.ts'
 const CHAIN_TEXT = 'apps/workspace/bff/base-knowledge/chain/text.ts'

@@ -37,6 +37,7 @@ const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
 const AUSTRIAN = `org_chain_${RUN}_at`
 const GERMAN = `org_chain_${RUN}_de`
+const SECOND_AUSTRIAN = `org_chain_${RUN}_at2`
 const AUTHOR = 'user_chain_author'
 const EXPERT = 'user_chain_expert'
 const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
@@ -104,6 +105,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     for (const [organizationId, home] of [
       [AUSTRIAN, 'AT'],
       [GERMAN, 'DE'],
+      [SECOND_AUSTRIAN, 'AT'],
     ] as const) {
       await withTenant({ organizationId }, () =>
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
@@ -117,7 +119,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   afterAll(async () => {
     await withPlatformAccess('chain spec cleanup', async () => {
-      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN})`)
+      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN}, ${SECOND_AUSTRIAN})`)
     })
   })
 
@@ -180,15 +182,40 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(await visible()).toEqual([])
   })
 
+  it('reads an office relation for its own office only, as a route the office maintains', async () => {
+    const relationId = `relation:office-${RUN}`
+    const revisionId = crypto.randomUUID()
+    await withTenant({ organizationId: AUSTRIAN }, async () => {
+      await db.execute(sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${relationId}, ${AUSTRIAN}, 'relation', ${AUTHOR})`)
+      await db.execute(sql`INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+        VALUES (${revisionId}, ${relationId}, 'relation', ${AUSTRIAN}, ${AUTHOR})`)
+      await db.execute(sql`INSERT INTO knowledge_relation_revisions
+        (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
+        VALUES (${revisionId}, ${relationId}, ${AUSTRIAN}, 'makes_binding', 'declared', 'work:wbtv', 'work', 'edition:oib-rl-6-2019', 'edition')`)
+      await db.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${relationId}`)
+    })
+    const own = await load.loadGraph(AUSTRIAN, 'AT-9')
+    expect(own.graph.relations.find((relation) => relation.id === relationId)?.owner).toBe('office')
+    const rl6 = resolve
+      .resolveChain(own.graph, 'AT-9', '2026-11-10')
+      .uses.find((use) => use.editionId === 'edition:oib-rl-6-2019')
+    expect(rl6).toMatchObject({ role: 'binding', qualifier: 'office_maintained' })
+    // Another office entitled to the same country reads the platform's relations and not this one.
+    const other = await load.loadGraph(SECOND_AUSTRIAN, 'AT-9')
+    expect(other.graph.relations.length).toBeGreaterThan(0)
+    expect(other.graph.relations.some((relation) => relation.id === relationId)).toBe(false)
+  })
+
   it('keeps a relation append-only, and refuses a platform relation to an office record', async () => {
     const [row] = await withPlatformAccess('chain spec relation', () =>
       db.execute<{ revision_id: string }>(sql`SELECT revision_id FROM knowledge_relation_revisions LIMIT 1`),
     )
+    // The runtime roles hold no UPDATE on a body (0206 revokes it); the append-only trigger stands behind that for the owner.
     await expect(
       withPlatformAccess('chain spec update', () =>
         db.execute(sql`UPDATE knowledge_relation_revisions SET provision = 'x' WHERE revision_id = ${row.revision_id}`),
       ),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringMatching(/permission denied/) }) })
     const officeWork = `work:office-${RUN}`
     await withTenant({ organizationId: AUSTRIAN }, () =>
       db.execute(sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${officeWork}, ${AUSTRIAN}, 'work', ${AUTHOR})`),
