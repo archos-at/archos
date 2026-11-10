@@ -61,12 +61,13 @@ export function withXmpMetadata(pdf: Uint8Array, xmp: string): Uint8Array {
   if (trailerAt === -1) throw new PdfMetadataError('no trailer after the cross-reference table')
   const trailer = dictionaryAt(text, text.indexOf('<<', trailerAt))
   if (/\/Encrypt\b/.test(trailer)) throw new PdfMetadataError('the file is encrypted')
-  const root = refIn(trailer, 'Root')
+  const root = rootOf(trailer)
   const size = /\/Size\s+(\d+)/.exec(trailer)
   if (!root || !size) throw new PdfMetadataError('the trailer names no /Root or /Size')
 
   const catalogAt = offsetOf(text, previousXref, root)
-  if (!new RegExp(`^${root.number}\\s+${root.generation}\\s+obj\\b`).test(text.slice(catalogAt))) {
+  const header = /^(\d+)\s+(\d+)\s+obj\b/.exec(text.slice(catalogAt, catalogAt + 32))
+  if (!header || Number(header[1]) !== root.number || Number(header[2]) !== root.generation) {
     throw new PdfMetadataError('the cross-reference does not point at the catalog')
   }
   const catalog = dictionaryAt(text, text.indexOf('<<', catalogAt))
@@ -119,8 +120,9 @@ export const withAiProvenanceXmp = (pdf: Uint8Array, marking: AiProvenanceMarkin
 const xrefEntry = (offset: number, generation: number): string =>
   `${String(offset).padStart(10, '0')} ${String(generation).padStart(5, '0')} n \n`
 
-function refIn(dictionary: string, key: string): ObjectRef | null {
-  const match = new RegExp(`/${key}\\s+(\\d+)\\s+(\\d+)\\s+R`).exec(dictionary)
+/** The trailer's `/Root` reference. A literal pattern: nothing here builds a regex from data. */
+function rootOf(trailer: string): ObjectRef | null {
+  const match = /\/Root\s+(\d+)\s+(\d+)\s+R/.exec(trailer)
   return match ? { number: Number(match[1]), generation: Number(match[2]) } : null
 }
 
