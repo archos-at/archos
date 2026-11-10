@@ -224,7 +224,7 @@ const BOUNDARY_MIGRATIONS = [
   // Adds rulesets as a fourth base knowledge record type (ADR-0166): the ruleset
   // body table, layered like 0202's (an office reads its own and platform rows in
   // force, writes only its own), append-only, and the record type CHECK widened.
-  '0204_rulesets.sql',
+  '0203_rulesets.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

@@ -1,6 +1,6 @@
 /**
  * Every closed vocabulary of the base knowledge records (migrations 0202 and
- * 0204, ADR-0163 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
+ * 0203, ADR-0163 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.

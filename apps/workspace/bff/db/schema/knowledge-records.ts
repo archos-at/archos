@@ -1,5 +1,5 @@
 /**
- * Base knowledge records (migrations 0202 and 0204, ADR-0163 and ADR-0166): one set of tables for the
+ * Base knowledge records (migrations 0202 and 0203, ADR-0163 and ADR-0166): one set of tables for the
  * platform (`organization_id` NULL) and every office. A work is the instrument
  * (ÖNORM B 1600), an edition its Ausgabe, a manifestation a held copy. Each is a
  * header row here and an append-only history of revisions with a typed body per
@@ -134,7 +134,7 @@ export const knowledgeChecks = pgTable('knowledge_checks', {
 })
 
 /**
- * A ruleset's body (migration 0204, ADR-0166): what it decides, where and when,
+ * A ruleset's body (migration 0203, ADR-0166): what it decides, where and when,
  * and its decision table or `inherits: 'parent'`. The payload is the wire's
  * `decisionTableSchema`, parsed again on every read: a row the evaluator cannot
  * read is refused, never half-run.
