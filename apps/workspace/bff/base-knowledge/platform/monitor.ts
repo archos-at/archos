@@ -38,7 +38,15 @@ import { CaptureFetchError } from './capture-fetch'
 import { insertCapture } from './captures'
 import { configuredSource } from './onboarding'
 import { lagDays, type ProbeAnswer, probeSource } from './source-service'
-import { activeSources, MONITOR_REQUEST_OPEN_STATUSES, type MonitorState, monitorStates, type RegisteredSource, writeMonitorState } from './sources'
+import {
+  activeSources,
+  MONITOR_REQUEST_OPEN_STATUSES,
+  type MonitorState,
+  monitorStates,
+  type RegisteredSource,
+  touchMonitorState,
+  writeMonitorState,
+} from './sources'
 import { platformTransaction } from './store'
 import type { Tx } from '../store/repository'
 
@@ -163,11 +171,6 @@ async function openRequest(
 
 type Baseline = Pick<MonitorState, 'etag' | 'sha256' | 'version' | 'termsSha256'>
 
-/** The state as it stands: what the next check compares against. */
-function baselineOf(state: MonitorState | undefined): Baseline {
-  return { etag: state?.etag ?? null, sha256: state?.sha256 ?? null, version: state?.version ?? null, termsSha256: state?.termsSha256 ?? null }
-}
-
 /** The page just seen, as the new state. */
 function stateOf(seen: ProbeAnswer, state: MonitorState | undefined): Baseline {
   const hex = /^[0-9a-f]{64}$/
@@ -210,17 +213,9 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
     seen = await deps.probe(configured, state ?? {})
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
+    // The failure and the clock only: the baseline is the row's, whatever another run wrote since this one began.
     await platformTransaction((tx) =>
-      writeMonitorState(tx, {
-        recordId: source.recordId,
-        checkedAt: now,
-        okAt: state?.okAt ?? null,
-        failure: error.message.slice(0, 500),
-        etag: state?.etag ?? null,
-        sha256: state?.sha256 ?? null,
-        version: state?.version ?? null,
-        termsSha256: state?.termsSha256 ?? null,
-      }),
+      touchMonitorState(tx, { recordId: source.recordId, checkedAt: now, okAt: state?.okAt ?? null, failure: error.message.slice(0, 500) }),
     )
     return { recordId: source.recordId, lagSince: state?.okAt ?? null, failed: true, changed: false, opened: null }
   }
@@ -230,13 +225,9 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
     const id = changed && !underReview ? await openRequest(tx, source, state, seen, now) : null
     // A change that opened no request (one is open, or another run opened it a moment ago) is not reviewed yet.
     const keep = underReview || (changed && id === null)
-    await writeMonitorState(tx, {
-      recordId: source.recordId,
-      checkedAt: now,
-      okAt: now,
-      failure: null,
-      ...(keep ? baselineOf(state) : stateOf(seen, state)),
-    })
+    const checked = { recordId: source.recordId, checkedAt: now, okAt: now, failure: null }
+    // Kept: the row's own baseline stays, never this run's snapshot of it (an overlapping run may have moved it).
+    await (keep ? touchMonitorState(tx, checked) : writeMonitorState(tx, { ...checked, ...stateOf(seen, state) }))
     return id
   })
   return { recordId: source.recordId, lagSince: now, failed: false, changed, opened }
