@@ -23,15 +23,13 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { unzipSync } from 'fflate'
 import postgres from 'postgres'
-import { bevAttribution, bevEntry, bevLookups, csvRecords, type RegisterEntry } from '../bff/site-resolution/bev'
+import { bevAttribution } from '../bff/site-resolution/bev'
+import { readBevArchive } from '../bff/site-resolution/bev-archive'
 import { DEFAULT_MAX_SHRINK, importRelease, type WithPlatform } from '../bff/site-resolution/import'
 import { BEV_ADDRESS_REGISTER } from '../bff/site-resolution/registers'
 // CommonJS, shared with the purger and the scheduler: the one place the step-up is spelled.
 import platformScope from '../workers/platform-scope.js'
-
-const TABLES = ['GEMEINDE.csv', 'ORTSCHAFT.csv', 'STRASSE.csv', 'ADRESSE.csv', 'Aktualitaetsstand.txt'] as const
 
 function argument(name: string): string | null {
   const index = process.argv.indexOf(name)
@@ -43,71 +41,33 @@ function fail(message: string): never {
   process.exit(2)
 }
 
-/** The lines of a UTF-8 file, decoded a megabyte at a time: ADRESSE.csv is a third of a gigabyte. */
-function* linesOf(bytes: Uint8Array): Generator<string> {
-  const decoder = new TextDecoder('utf-8')
-  let rest = ''
-  for (let offset = 0; offset < bytes.length; offset += 1 << 20) {
-    const chunk = rest + decoder.decode(bytes.subarray(offset, offset + (1 << 20)), { stream: true })
-    const lines = chunk.split('\n')
-    rest = lines.pop() ?? ''
-    yield* lines
-  }
-  rest += decoder.decode()
-  if (rest) yield rest
-}
-
-/** "Aktualitätsstand (Stichtag) der enthaltenen Daten: 01.10.2025" → 2025-10-01. Latin-1, as the BEV writes it. */
-function referenceDateOf(file: Uint8Array | undefined): string | null {
-  if (!file) return null
-  const match = /(\d{2})\.(\d{2})\.(\d{4})/.exec(new TextDecoder('latin1').decode(file))
-  return match ? `${match[3]}-${match[2]}-${match[1]}` : null
-}
-
-async function archive(stated: string | null): Promise<{ files: Record<string, Uint8Array>; sourceUrl: string | null }> {
+async function archiveBytes(stated: string | null): Promise<{ bytes: Uint8Array; sourceUrl: string | null }> {
   const zip = argument('--zip')
-  if (zip) return { files: unzipSync(readFileSync(zip), { filter: (file) => TABLES.some((name) => file.name.endsWith(name)) }), sourceUrl: null }
+  if (zip) return { bytes: readFileSync(zip), sourceUrl: null }
   if (!process.argv.includes('--download') || !stated) fail('Give --zip <file>, or --download with --reference-date YYYY-MM-DD.')
   const url = BEV_ADDRESS_REGISTER.downloadUrl(stated)
   console.log(`Downloading ${url}`)
   const response = await fetch(url)
   if (!response.ok) fail(`The BEV answered ${response.status} for ${url}.`)
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  return { files: unzipSync(bytes, { filter: (file) => TABLES.some((name) => file.name.endsWith(name)) }), sourceUrl: url }
-}
-
-function table(files: Record<string, Uint8Array>, name: string): Uint8Array {
-  const found = Object.entries(files).find(([path]) => path.endsWith(name))
-  if (!found) fail(`The archive has no ${name}.`)
-  return found[1]
+  return { bytes: new Uint8Array(await response.arrayBuffer()), sourceUrl: url }
 }
 
 async function main(): Promise<void> {
   const stated = argument('--reference-date')
   if (stated && !/^\d{4}-\d{2}-\d{2}$/.test(stated)) fail('--reference-date is YYYY-MM-DD.')
-  const { files, sourceUrl } = await archive(stated)
-  const inArchive = referenceDateOf(Object.entries(files).find(([path]) => path.endsWith('Aktualitaetsstand.txt'))?.[1])
-  if (stated && inArchive && stated !== inArchive) fail(`--reference-date ${stated}, but the archive says ${inArchive}.`)
-  const referenceDate = stated ?? inArchive ?? fail('The archive names no reference date; give --reference-date.')
-
-  const lookups = bevLookups({
-    gemeinde: csvRecords(linesOf(table(files, 'GEMEINDE.csv'))),
-    ortschaft: csvRecords(linesOf(table(files, 'ORTSCHAFT.csv'))),
-    strasse: csvRecords(linesOf(table(files, 'STRASSE.csv'))),
-  })
-  let skipped = 0
-  function* entries(): Generator<RegisterEntry> {
-    for (const row of csvRecords(linesOf(table(files, 'ADRESSE.csv')))) {
-      const entry = bevEntry(row, lookups)
-      if (entry) yield entry
-      else skipped += 1
-    }
-  }
+  const { bytes, sourceUrl } = await archiveBytes(stated)
+  const archive = readBevArchive(bytes)
+  if (stated && archive.referenceDate && stated !== archive.referenceDate)
+    fail(`--reference-date ${stated}, but the archive says ${archive.referenceDate}.`)
+  const referenceDate = stated ?? archive.referenceDate ?? fail('The archive names no reference date; give --reference-date.')
 
   if (!process.argv.includes('--apply')) {
     let count = 0
-    for (const _ of entries()) count += 1
-    console.log(`${BEV_ADDRESS_REGISTER.id} ${referenceDate}: ${count} addresses, ${skipped} rows skipped, ${lookups.municipalities.size} municipalities. Nothing written (--apply writes).`)
+    for (const _ of archive.entries()) count += 1
+    console.log(
+      `${BEV_ADDRESS_REGISTER.id} ${referenceDate}: ${count} addresses, ${archive.skipped()} rows skipped, ` +
+        `${archive.lookups.municipalities.size} municipalities. Nothing written (--apply writes).`
+    )
     return
   }
   const url = process.env.APP_DATABASE_URL ?? fail('APP_DATABASE_URL is required with --apply.')
@@ -124,10 +84,13 @@ async function main(): Promise<void> {
       referenceDate,
       attribution: bevAttribution(referenceDate),
       sourceUrl,
-      entries: entries(),
+      entries: archive.entries(),
       maxShrink,
     })
-    console.log(`${BEV_ADDRESS_REGISTER.id} ${referenceDate}: release ${result.releaseId} active with ${result.entryCount} addresses (${skipped} rows skipped); retired ${result.retiredReleaseIds.length}.`)
+    console.log(
+      `${BEV_ADDRESS_REGISTER.id} ${referenceDate}: release ${result.releaseId} active with ${result.entryCount} addresses ` +
+        `(${archive.skipped()} rows skipped); retired ${result.retiredReleaseIds.length}.`
+    )
   } finally {
     await sql.end()
   }

@@ -19,6 +19,7 @@ import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import { bevAttribution, bevEntry, bevLookups, csvRecords, splitCsvLine, type RegisterEntry } from './bev'
 import { authorityOf, siteFacts } from './competence'
+import { IMPORT_BATCH_SIZE, columnsOf } from './import'
 import { houseKeysOf, narrow, outcomeOf } from './match'
 import { streetKey } from './normalize'
 import { parseAddress } from './parse'
@@ -72,6 +73,10 @@ describe('the BEV archive', () => {
   it('skips a row it cannot key rather than guess', () => {
     expect(bevEntry({ ADRCD: '1', GKZ: '99999', PLZ: '1010', SKZ: '901940', HNR_ADR_ZUSAMMEN: '1' }, LOOKUPS)).toBeNull()
     expect(bevEntry({ ADRCD: '1', GKZ: '90001', PLZ: '', SKZ: '901940', HNR_ADR_ZUSAMMEN: '1' }, LOOKUPS)).toBeNull()
+  })
+
+  it('writes a batch within the bind parameters one Postgres statement takes', () => {
+    expect(IMPORT_BATCH_SIZE * Object.keys(columnsOf('release', ENTRIES[0])).length).toBeLessThanOrEqual(65_535)
   })
 
   it('says the attribution the licence asks for', () => {

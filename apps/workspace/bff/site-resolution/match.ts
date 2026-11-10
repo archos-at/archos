@@ -28,12 +28,17 @@ export function houseKeysOf(parsed: ParsedAddress): string[] {
   return [...new Set(keys)]
 }
 
+/** The line's postcode when it has the register country's shape, else null: then it is no filter. */
+export function usablePostcode(parsed: ParsedAddress, postcodeShape: RegExp): string | null {
+  return parsed.postcode && postcodeShape.test(parsed.postcode) ? parsed.postcode : null
+}
+
 /** The rows a parsed line names, narrowed by postcode and place. */
 export function narrow(parsed: ParsedAddress, rows: readonly RegisterRow[], postcodeShape: RegExp): RegisterRow[] {
   const typedKey = houseKey(parsed.houseNumber)
   const exact = rows.filter((row) => row.houseKey === typedKey)
   let candidates = exact.length > 0 ? exact : [...rows]
-  const postcode = parsed.postcode && postcodeShape.test(parsed.postcode) ? parsed.postcode : null
+  const postcode = usablePostcode(parsed, postcodeShape)
   if (postcode) candidates = candidates.filter((row) => row.postcode === postcode)
   if (parsed.place) {
     const key = placeKey(parsed.place)

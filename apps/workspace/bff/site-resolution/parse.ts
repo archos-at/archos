@@ -35,8 +35,15 @@ function countryOf(word: string): string | null {
   return COUNTRY_WORDS[word.trim().toLowerCase().replace(/\.$/, '')] ?? null
 }
 
-/** "Herrengasse 16" → street and number; null without a number at its end. */
+/**
+ * "Herrengasse 16" → street and number; null without a number at its end. A
+ * lot number (`Dallein GNR 310/4`, `GNR .87`) is the house number, as the
+ * register writes it: where a place has no house numbers, the BEV numbers by
+ * Grundstück.
+ */
 function streetAndNumber(segment: string): StreetPart | null {
+  const lot = /^(.*?\p{L}.*?)\s+(GNR\s*\.?\s*\d+(?:\s*\/\s*\d+)?)$/iu.exec(segment.trim())
+  if (lot) return { street: lot[1].trim(), houseNumber: lot[2].replace(/\s+/g, ' ').trim() }
   const match = /^(.*?\p{L}.*?)\s+(\d+\s*[a-z]?(?:\s*[-/]\s*\d+\s*[a-z]?)*)$/iu.exec(segment.trim())
   if (!match) return null
   return { street: match[1].trim().replace(/[,.]$/, ''), houseNumber: match[2].replace(/\s+/g, ' ').trim() }
@@ -94,7 +101,7 @@ export function parseAddress(line: string): ParsedAddress | null {
     else loose.push(segment)
   }
   if (!street) return null
-  const slash = street.houseNumber.indexOf('/')
+  const slash = /^GNR/i.test(street.houseNumber) ? -1 : street.houseNumber.indexOf('/')
   return {
     street: street.street,
     houseNumber: street.houseNumber,

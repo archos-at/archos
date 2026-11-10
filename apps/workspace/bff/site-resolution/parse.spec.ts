@@ -56,6 +56,12 @@ describe('parseAddress', () => {
     expect(parseAddress('Straße des 1. Mai 3, 4600 Wels')).toMatchObject({ street: 'Straße des 1. Mai', houseNumber: '3' })
   })
 
+  it('reads a lot number (GNR) as the house number, as the register writes it', () => {
+    expect(parseAddress('Dallein GNR 310/4, 3753 Geras')).toMatchObject({ street: 'Dallein', houseNumber: 'GNR 310/4', doorless: null })
+    expect(parseAddress('Kellergasse Stiefern GNR .87, 3562 Schönberg am Kamp')).toMatchObject({ street: 'Kellergasse Stiefern', houseNumber: 'GNR .87' })
+    expect(houseKey('GNR .87')).toBe('gnr.87')
+  })
+
   it('answers null for a line with nothing to look up', () => {
     expect(parseAddress('Graz')).toBeNull()
     expect(parseAddress('8010 Graz')).toBeNull()

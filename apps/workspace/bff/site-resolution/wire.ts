@@ -76,7 +76,8 @@ export type RegisterSite = z.infer<typeof registerSiteSchema>
 
 /**
  * Why a typed address stays unverified:
- * - `incomplete`: the line names no street and house number to look up;
+ * - `incomplete`: the line names no street and house number, or neither a postcode nor a
+ *   place: a street and number alone could be in a country this cell has no register for;
  * - `no_register`: the cell hosts no register for the stated country, or none is imported yet;
  * - `no_register_hit`: the register holds no such address;
  * - `ambiguous`: several addresses of one municipality match;

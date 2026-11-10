@@ -232,6 +232,7 @@ Consequences, where a reader looks for them.
 | [0165](0165-platform-knowledge-changes-through-reviewed-change-requests.md) | The platform's own base knowledge lives in the office layer's records and changes only through a reviewed change request | Proposed |
 | [0166](0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md) | Country rules are rulesets, decision tables in the base knowledge records, run by one three-valued evaluator | Proposed |
 | [0167](0167-residency-is-decided-at-the-model-seam-per-cell.md) | Residency is decided at the model seam, per cell, and every generation records where it ran | Proposed |
+| [0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md) | A site address resolves against official registers hosted in the cell, and stays unverified without a register hit; amends 0122, 0151 and 0159 | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

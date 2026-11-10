@@ -16,9 +16,9 @@ import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
 import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
 import { competentAuthorities } from './competence'
-import { houseKeysOf, narrow, outcomeOf } from './match'
+import { houseKeysOf, narrow, outcomeOf, usablePostcode } from './match'
 import { parseAddress, type ParsedAddress } from './parse'
-import { streetKey } from './normalize'
+import { placeKey, streetKey } from './normalize'
 import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor, territoryChain } from './registers'
 import { siteProfileOperations } from './profile'
 import { activeReleases, findByAddressId, findByKeys, type RegisterRow } from './store'
@@ -80,15 +80,24 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
   if (!parsed) return unverified('incomplete')
   const releases = await activeReleases(session.organizationId, registersFor(parsed))
   if (releases.length === 0) return unverified('no_register')
-  const rows = await findByKeys(session.organizationId, {
-    registers: releases.map((release) => release.register),
-    streetKey: streetKey(parsed.street),
-    houseKeys: houseKeysOf(parsed),
-  })
-  const byRegister = new Map<string, RegisterRow[]>()
-  for (const row of rows) byRegister.set(row.release.register, [...(byRegister.get(row.release.register) ?? []), row])
-  const narrowed = [...byRegister].flatMap(([register, found]) => narrow(parsed, found, ADDRESS_REGISTERS[register].postcodeShape))
+  const narrowed: RegisterRow[] = []
+  for (const release of releases) {
+    const register = ADDRESS_REGISTERS[release.register]
+    const postcode = usablePostcode(parsed, register.postcodeShape)
+    const found = await findByKeys(session.organizationId, {
+      registers: [register.id],
+      streetKey: streetKey(parsed.street),
+      houseKeys: houseKeysOf(parsed),
+      postcode,
+      placeKey: !postcode && parsed.place ? placeKey(parsed.place) : null,
+    })
+    narrowed.push(...narrow(parsed, found, register.postcodeShape))
+  }
   const outcome = outcomeOf(narrowed)
+  // A street and number alone place nothing, even when the register holds one such address:
+  // the line could be in a country this cell has no register for (invariant A1). Its candidates are offered.
+  if (!parsed.postcode && !parsed.place)
+    return unverified(outcome.status === 'one' ? 'incomplete' : outcome.reason, await withAuthorities(session, outcome.status === 'one' ? [outcome.row] : outcome.rows, now))
   if (outcome.status === 'one') {
     const [site] = await withAuthorities(session, [outcome.row], now)
     return { status: 'verified', typed, site }

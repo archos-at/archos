@@ -21,7 +21,8 @@ import type { TransactionSql } from 'postgres'
 import type { RegisterEntry } from './bev'
 import type { AddressRegister } from './registers'
 
-export const IMPORT_BATCH_SIZE = 5_000
+/** Rows per INSERT: 14 columns each, under Postgres's 65,535 bind parameters a statement. */
+export const IMPORT_BATCH_SIZE = 4_000
 /** The share of the active release a new one may lose before it is refused. */
 export const DEFAULT_MAX_SHRINK = 0.05
 
@@ -47,7 +48,8 @@ export class ReleaseRefusedError extends Error {
   override name = 'ReleaseRefusedError'
 }
 
-function columnsOf(releaseId: string, entry: RegisterEntry) {
+/** An entry as the columns of its row. */
+export function columnsOf(releaseId: string, entry: RegisterEntry) {
   return {
     release_id: releaseId,
     address_id: entry.addressId,

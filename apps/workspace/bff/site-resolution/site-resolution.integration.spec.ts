@@ -67,14 +67,32 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     return [...bev.csvRecords(lines('ADRESSE.csv'))].flatMap((row) => bev.bevEntry(row, lookups) ?? []).slice(0, keep)
   }
 
-  const importFixture = (referenceDate: string, keep?: number) =>
+  const importFixture = (referenceDate: string, keep?: number, extra: import('./bev').RegisterEntry[] = []) =>
     importer.importRelease(withPlatform, {
       register: registers.BEV_ADDRESS_REGISTER,
       referenceDate,
       attribution: bev.bevAttribution(referenceDate),
       sourceUrl: null,
-      entries: fixtureEntries(keep),
+      entries: [...fixtureEntries(keep), ...extra],
     })
+
+  /** A `Hauptplatz 1` in each of `count` synthetic Gemeinden of Lower Austria, all sorting before Styria's. */
+  const commonStreet = (count: number): import('./bev').RegisterEntry[] =>
+    Array.from({ length: count }, (_, index) => ({
+      addressId: `synthetic-${index}`,
+      municipalityCode: String(30101 + index),
+      municipalityName: `Synthetic ${index}`,
+      localityName: null,
+      postcode: String(2000 + index),
+      streetName: 'Hauptplatz',
+      houseNumber: '1',
+      streetKey: 'hauptplatz',
+      houseKey: '1',
+      placeKeys: [`synthetic${index}`],
+      easting: null,
+      northing: null,
+      crs: null,
+    }))
 
   /** Austria's territories and Graz's building authority, through a change request, as every platform row is. */
   async function publishGrazAuthority(): Promise<void> {
@@ -278,6 +296,21 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       LEFT JOIN address_register_entries e ON e.release_id = r.id
       WHERE r.register = 'at-bev' GROUP BY r.id, r.status ORDER BY r.status`)
     expect(releases).toEqual([{ status: 'active', n: 20 }, { status: 'retired', n: 0 }])
+  })
+
+  it('finds a street and number common to more Gemeinden than one lookup reads, by its postcode or place', async () => {
+    await importFixture('2027-04-01', undefined, commonStreet(60))
+    expect(await service.resolveSite(session, 'Hauptplatz 1, 8700 Leoben', now)).toMatchObject({ status: 'verified', site: { municipality: { name: 'Leoben' } } })
+    expect(await service.resolveSite(session, 'Hauptplatz 1, Knittelfeld', now)).toMatchObject({ status: 'verified', site: { municipality: { name: 'Knittelfeld' } } })
+    const bare = await service.resolveSite(session, 'Hauptplatz 1', now)
+    expect(bare).toMatchObject({ status: 'unverified', reason: 'multi_leaf' })
+    expect(bare.status === 'unverified' && bare.candidates).toHaveLength(8)
+  })
+
+  it('places nothing from a street and number alone, even one the register holds once (invariant A1)', async () => {
+    const alone = await service.resolveSite(session, 'Walserstraße 54', now)
+    expect(alone).toMatchObject({ status: 'unverified', reason: 'incomplete' })
+    expect(alone.status === 'unverified' && alone.candidates.map((candidate) => candidate.addressId)).toEqual(['at-bev:7370068'])
   })
 
   it('lets a tenant read the register but not write it', async () => {
