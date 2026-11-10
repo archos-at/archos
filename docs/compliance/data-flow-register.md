@@ -1,6 +1,6 @@
 # The data-flow register
 
-Decision: [ADR-0158](../adr/0158-every-outbound-flow-is-a-row-in-one-data-flow-register.md).
+Decision: [ADR-0161](../adr/0161-every-outbound-flow-is-a-row-in-one-data-flow-register.md).
 
 Every place data leaves our cluster is one row in `configs/subprocessors/`: which
 processor, which data, for what purpose, where it is processed, on which transfer
