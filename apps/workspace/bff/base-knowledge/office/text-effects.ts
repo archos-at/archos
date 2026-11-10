@@ -1,9 +1,10 @@
 /**
  * What a copy's text use changes outside the records (ADR-0158, design §4.7):
- * a metadata-only copy's passages leave the index and its row reads `stored`
- * (bytes kept, nothing reads them), and a copy whose text the office allowed
- * is read again. The dispatch guard (`documents/document-dispatch.ts`) keeps a
- * metadata-only copy out of every later re-read.
+ * a held copy's passages and its search row (summary, facets) go and its row
+ * reads `stored` (bytes kept, nothing reads them), and a copy whose text the
+ * person released is read again. The guards (`base-knowledge/text-guard.ts`,
+ * asked by the dispatch and the search projection) keep a held copy out of
+ * every later re-read.
  */
 
 import 'server-only'
@@ -15,6 +16,7 @@ import { resolveDocumentFolderPath } from '@/lib/documents/folder-path'
 import { BACKEND_FETCH_TIMEOUT_MS } from '@/lib/documents/ingest-dispatch'
 import { markDocumentNotIndexed } from '@/lib/documents/repository'
 import { findOfficeShelfDocument } from '@/lib/office-shelf/repository'
+import { deleteSearchFacets } from '@/lib/search/facets-repository'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 
 async function shelfDocument(session: AuthorizedSession, documentId: string) {
@@ -22,11 +24,12 @@ async function shelfDocument(session: AuthorizedSession, documentId: string) {
   return findOfficeShelfDocument(documentId, session.organizationId, reader)
 }
 
-/** Take a metadata-only copy's text out of the index; the row keeps its bytes and reads `stored`. */
+/** Take a held copy's text out of the index and the search rows; the row keeps its bytes and reads `stored`. */
 export async function withholdText(session: AuthorizedSession, documentId: string): Promise<boolean> {
   const doc = await shelfDocument(session, documentId)
   if (!doc) return false
   await markDocumentNotIndexed(doc.id, session.organizationId)
+  await deleteSearchFacets(session.organizationId, doc.id)
   const ref = collectionFileRef(doc)
   return ref ? purgeIngestedChunks(getBackendUrl(), ref, BACKEND_FETCH_TIMEOUT_MS) : true
 }

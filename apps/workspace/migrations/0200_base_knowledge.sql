@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS "knowledge_records" (
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "knowledge_records_org_type_idx" ON "knowledge_records" ("organization_id", "type");
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "knowledge_records_document_idx" ON "knowledge_records" ("document_id") WHERE "document_id" IS NOT NULL;
+-- One entry per document: a work, an edition and a copy, each once. A second
+-- proposal that loses the race to the first is refused here (409 in the service).
+CREATE UNIQUE INDEX IF NOT EXISTS "knowledge_records_document_type_key" ON "knowledge_records" ("document_id", "type") WHERE "document_id" IS NOT NULL;
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "knowledge_revisions" (
   "revision_id" uuid PRIMARY KEY NOT NULL,

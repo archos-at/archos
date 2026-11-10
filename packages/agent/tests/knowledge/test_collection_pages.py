@@ -15,11 +15,15 @@ from __future__ import annotations
 
 import pytest
 from knowledge_layer_testing import vector_store as qt
+from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 
 from agent.knowledge.collection_pages import read_chunks
 from agent.knowledge.collection_pages import read_pages
 from agent.knowledge.revision_diff import chunk_from_store
 from agent.knowledge.revision_diff import diff_revisions
+
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 LINES = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i in range(12)]
 

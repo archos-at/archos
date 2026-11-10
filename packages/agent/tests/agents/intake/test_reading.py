@@ -9,6 +9,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 from langchain_core.messages import ToolMessage
 
 from agent.agents.intake import reading
@@ -21,6 +22,9 @@ from agent.common.grounding_block import end_grounding_capture
 from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.knowledge.schema import AvailableDocument
+
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
 async def _read(**arguments) -> str:

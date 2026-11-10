@@ -33,7 +33,8 @@ export const POST = apiRoute(
       const body = await parseJsonBody(request, proposeEntryBodySchema)
       const proposedBy = actingReaderIsAgent() ? 'agent' : 'person'
       const operation = 'base-knowledge-propose'
-      return onceForKey({ request, organizationId: session.organizationId, operation, body }, () =>
+      const subject = body.documentId
+      return onceForKey({ request, organizationId: session.organizationId, subject, operation, body }, () =>
         proposeBaseKnowledge(session, body, proposedBy),
       )
     }),

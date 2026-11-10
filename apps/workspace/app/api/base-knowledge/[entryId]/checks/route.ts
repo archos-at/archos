@@ -16,8 +16,8 @@ export const POST = apiRoute<Params>(
   async ({ session, params, request }) =>
     asProblem(async () => {
       const body = await parseJsonBody(request, recordCheckBodySchema)
-      const operation = `base-knowledge-check-record:${params.entryId}`
-      return onceForKey({ request, organizationId: session.organizationId, operation, body }, () =>
+      const operation = 'base-knowledge-check-record'
+      return onceForKey({ request, organizationId: session.organizationId, subject: params.entryId, operation, body }, () =>
         recordBaseKnowledgeCheck(session, params.entryId, body),
       )
     }),

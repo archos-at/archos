@@ -81,11 +81,17 @@ platform layer, as additions).
   confirmation or later, that its licence covers processing by the hosted AI
   services; the statement is kept with who and when in the copy's `terms`
   (`aiProcessingAttestedBy`, `aiProcessingAttestedAt`), separate from the
-  office-wide one. A proposal of a licensed copy takes the passages the upload
-  indexed out of the index and sets the row `stored`; the ingest dispatch
-  refuses to index a metadata-only office shelf copy on any later re-read
-  (`base-knowledge/text-guard.ts`); the statement given later reads the file
-  again; withdrawing it takes the text out again. The turn names a
+  office-wide one. **A copy's text is held until a person confirms it**, whatever
+  its class: nothing reads a licensed copy before anyone knew it was one. The
+  base-knowledge upload (`base-knowledge-upload`) records the proposal before
+  the dispatch (`ShelfUploadInput.beforeDispatch`), so the file is stored and
+  never embedded, summarised or faceted; a proposal of a document already on the
+  shelf takes its passages and its search row out and sets the row `stored`. The
+  proposal reads the file name only. Two guards in `base-knowledge/text-guard.ts`
+  keep a held copy out: the ingest dispatch (`isTextHeld`, on every later
+  re-read) and the search projection (`heldAmong`, so no summary or facet is
+  written). Confirming a public copy, or a licensed one with the AI statement,
+  reads the file; withdrawing the statement takes the text out again. The turn names a
   metadata-only copy as held, with no file to search and an instruction not to
   quote or paraphrase it.
 - **The licence mark.** A confirmed copy's points carry `licence_class`,
@@ -102,8 +108,11 @@ platform layer, as additions).
   overdue after 365 days (180 for a directive). The agent finds the text in the
   office shelf, as before.
 - **Operations.** `base-knowledge-list`, `-get`, `-propose`, `-confirm`
-  (`personDecides`; the agent proposes, the person confirms), `-update`,
-  `-check-record`, `-remove`. Upload and search are the office shelf's.
+  (`personDecides`; the agent proposes, the person confirms), `-update`
+  (descriptive values only), `-licence-set` (the licence class and both
+  statements; `personDecides` and offered to no agent of the office, since it
+  decides whether licensed text reaches a model), `-check-record`, `-remove`.
+  Upload and search are the office shelf's.
 - **Problems and repeats.** Every base-knowledge route answers a refusal as an
   RFC 9457 problem (`application/problem+json`: `type`, `title`, `status`,
   `detail`, plus `code` and `error` as the rest of the app answers), and the
@@ -122,9 +131,12 @@ platform layer, as additions).
   until the platform listing gives them one edition to attach to.
 - Bad: the directive's authority comes from the project's Land, not a confirmed
   site; Vienna is both Land and authority, elsewhere the answer says it is not verified.
-- Bad: the upload that precedes a proposal still indexes the file and reads it
-  once (the shelf's pipeline), until the proposal takes the passages out. An
-  upload path that stores a licensed copy without reading it closes that window.
+- Bad: a file uploaded through the office shelf's own upload and recorded later
+  was read once by that upload. The base-knowledge upload reads nothing; the
+  proposal of an existing document takes out what the earlier read left.
+- Bad: the proposal reads the file name only, so most values are the person's to
+  fill. A masthead read through the licensed seam's zero-retention call would
+  propose more without keeping the text.
 - Neutral: points written before enrichment carry no `office_id` and pass the
   office filter; a backfill closes that gap.
 

@@ -256,7 +256,12 @@ from the scope list (`vector_store/scope.py`, `scope_filter`). Every search
 read (`search.hybrid_search`, `search.grouped_search`, `similar.find_similar`,
 `retrieval.search`, `retrieval.search_grouped`, `retrieval.find_text`,
 `retrieval.candidate_counts`) takes a keyword-only `office_id` with no default
-and builds a `ScopeRead(scopes, office_id)`; constructing one over a tenant scope
+and builds a `ScopeRead(scopes, office_id)`. The structural reads that return
+text by filter (`reads.fetch` and `reads.fetch_from`, which read_passage uses;
+the folder cards; the visual details) ask
+`vector_store.reading_office.office_read(scope)` themselves, so they refuse an
+office scope too. The ingest's own file listing (`_indexed_files`, names and
+pages, no text) does not, since it lists a collection for the BFF's status read; constructing one over a tenant scope
 (`schema.TENANT_PREFIXES`: the office shelf, `proj_`, `s_`) with no office raises
 `ValueError`. `scope.office_condition` is ANDed into the filter: a point passes
 when its scope is none of the read's tenant scopes, or its `office_id` is the
@@ -272,9 +277,16 @@ routes `/v1/collections/search`, `/v1/collections/{c}/search` and
 `/v1/collections/similar` set from the signed envelope's `organizationId`,
 `document_search.request_office`), else the request context's organization
 (chat turns, background runs, the internal tool door), else the organization an
-office-shelf scope name holds. Writes, deletes, facets, folder-card reads and
-the structural fetch (`reads.py`) still use `scope_filter` alone, and the BM25
-IDF corpus is still counted over the scopes without the office.
+office-shelf scope name holds. The structural fetch (`reads.py`), the
+folder-card search and the visual details carry the office condition too
+(`vector_store.office_read`). The plain `agent_host` routes that reach them
+(visual details, revision pages, project experience) read inside
+`reading_as(internal_office(request))`: the signed envelope's organization, or
+with the internal token the `x-grid-organization-id` the BFF sends. The summary
+reconciliation, the platform's own sweep over every office's collections, reads
+under `reading_for_maintenance` and names none. Writes, deletes, facets and the
+ingest's file listing still use `scope_filter` alone, and the BM25 IDF corpus is
+still counted over the scopes without the office.
 `packages/knowledge-layer/tests/test_vector_store_office_filter.py` holds the
 positive control: each leak test also runs with the condition dropped and must
 then leak.

@@ -9,11 +9,9 @@ import 'server-only'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
-import { documentSearchFacets } from '@/lib/db/schema/document-search'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
-import type { DocumentReading } from './reading'
 
 export interface EntryDocument {
   id: string
@@ -56,12 +54,16 @@ export async function visibleOfficeDocuments(
   )
 }
 
-/** What the ingest read of one Archiv document (its search projection), or only its name before that. */
-export async function readDocumentReading(
+/**
+ * One Archiv document as an entry names it, or null when the reader may not see
+ * it. Its name only: a proposal reads nothing the ingest wrote about the text
+ * (ADR-0158), since the copy may turn out to be licensed.
+ */
+export async function readShelfDocument(
   organizationId: string,
   documentId: string,
   reader: DocumentReader
-): Promise<(DocumentReading & { document: EntryDocument }) | null> {
+): Promise<EntryDocument | null> {
   const [row] = await withTenant({ organizationId }, () =>
     getDb()
       .select({
@@ -69,13 +71,8 @@ export async function readDocumentReading(
         filename: documents.filename,
         displayName: documents.displayName,
         collectionName: documents.collectionName,
-        title: documentSearchFacets.title,
-        summary: documentSearchFacets.summary,
-        documentType: documentSearchFacets.documentType,
-        federalState: documentSearchFacets.federalState,
       })
       .from(documents)
-      .leftJoin(documentSearchFacets, eq(documentSearchFacets.documentId, documents.id))
       .where(
         and(
           eq(documents.id, documentId),
@@ -87,13 +84,5 @@ export async function readDocumentReading(
       .limit(1)
   )
   if (!row) return null
-  const fileName = row.displayName ?? row.filename
-  return {
-    fileName,
-    title: row.title,
-    summary: row.summary,
-    documentType: row.documentType,
-    federalState: row.federalState,
-    document: { id: row.id, fileName, collectionName: row.collectionName, storedName: row.filename },
-  }
+  return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename }
 }

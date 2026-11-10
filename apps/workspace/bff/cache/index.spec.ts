@@ -141,8 +141,8 @@ describe('fail-open: a store that throws on every operation', () => {
     expect(warn.mock.calls[0]?.[0]).toContain('[cache] invalidate failed for modelconfig:org_1')
   })
 
-  it('invalidateCachedPrefix resolves and warns once', async () => {
-    await expect(invalidateCachedPrefix('budgetlimits:')).resolves.toBeUndefined()
+  it('invalidateCachedPrefix resolves false and warns once', async () => {
+    await expect(invalidateCachedPrefix('budgetlimits:')).resolves.toBe(false)
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]?.[0]).toContain('[cache] prefix invalidate failed for budgetlimits:')

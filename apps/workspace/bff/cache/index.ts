@@ -279,12 +279,17 @@ export async function invalidateCached(key: string): Promise<void> {
   }
 }
 
-/** Drop every entry under a key prefix (e.g. all budget policies of an org). */
-export async function invalidateCachedPrefix(prefix: string): Promise<void> {
+/**
+ * Drop every entry under a key prefix (e.g. all budget policies of an org).
+ * Fails open like every cache call; the answer says whether the store confirmed it.
+ */
+export async function invalidateCachedPrefix(prefix: string): Promise<boolean> {
   try {
     await store.deletePrefix(prefix)
+    return true
   } catch (error) {
     counters.errors += 1
     console.warn(`[cache] prefix invalidate failed for ${prefix}:`, error)
+    return false
   }
 }

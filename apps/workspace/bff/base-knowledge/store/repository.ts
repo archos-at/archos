@@ -15,6 +15,8 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
+import { isUniqueViolation } from '@/lib/db/errors'
+import { ConflictError } from '@/lib/api/errors'
 import {
   knowledgeChecks,
   knowledgeEditionRevisions,
@@ -158,6 +160,8 @@ export async function insertProposedEntry(
   await withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
       const header = { organizationId: context.organizationId, documentId, createdBy: context.createdBy }
+      // `knowledge_records_document_type_key` keeps one entry per document; a
+      // proposal that loses the race to another is refused as a conflict below.
       await tx.insert(knowledgeRecords).values([
         { ...header, id: ids.workId, type: 'work' },
         { ...header, id: ids.editionId, type: 'edition' },
@@ -165,7 +169,10 @@ export async function insertProposedEntry(
       ])
       await appendEntryRevisions(tx, ids, values, context)
     })
-  )
+  ).catch((error: unknown) => {
+    if (isUniqueViolation(error)) throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
+    throw error
+  })
   return ids
 }
 
@@ -365,6 +372,17 @@ export async function documentHasEntry(organizationId: string, documentId: strin
       .limit(1)
   )
   return rows.length > 0
+}
+
+/** Which of `documentIds` are base-knowledge copies: one query for a batch, so the search projection pays one read. */
+export async function documentsWithEntries(organizationId: string, documentIds: readonly string[]): Promise<string[]> {
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .selectDistinct({ documentId: knowledgeRecords.documentId })
+      .from(knowledgeRecords)
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds])))
+  )
+  return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
 }
 
 /** The copy a document is, as its newest revision states it (a confirmed head, or a proposal). */
