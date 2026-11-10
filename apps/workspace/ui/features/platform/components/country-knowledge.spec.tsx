@@ -46,7 +46,7 @@ const REQUEST = {
 const fetchMock = vi.fn()
 
 /** The routes as a stateful stand-in: a verdict the review route takes is on the request read next. */
-function serve(overviewStatus = 200) {
+function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unknown[] } = REQUEST) {
   let decision: string | null = null
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === '/api/platform/knowledge') {
@@ -57,8 +57,8 @@ function serve(overviewStatus = 200) {
       return Response.json({ recorded: 1 })
     }
     if (init?.method === 'POST') return Response.json({ status: 'approved' })
-    const [revision] = REQUEST.revisions
-    return Response.json({ ...REQUEST, revisions: [{ ...revision, claims: revision.claims.map((claim) => ({ ...claim, decision })) }] })
+    const [revision] = request.revisions
+    return Response.json({ ...request, revisions: [{ ...revision, claims: revision.claims.map((claim) => ({ ...claim, decision })) }] })
   })
 }
 
@@ -142,5 +142,29 @@ describe('CountryKnowledge', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Correct' })).not.toBeInTheDocument()
     expect(screen.getByText('not checked')).toBeInTheDocument()
+  })
+
+  test('shows the quote taken from a pasted page, and accepting it records that the source was checked', async () => {
+    const pasted = {
+      ...REQUEST,
+      captures: [{ captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'operator_supplied', sourceId: null, url: 'https://www.wien.gv.at/ma37', finalUrl: null, contentType: 'text/plain', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }],
+      revisions: [{ ...REQUEST.revisions[0], citations: [{ captureId: 'cap-1', quote: 'Magistratsabteilung 37' }] }],
+    }
+    serve(200, pasted as unknown as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const record = await screen.findByTestId('change-request-record')
+    expect(within(record).getByText('Magistratsabteilung 37')).toBeInTheDocument()
+    expect(within(record).getByText('pasted, not fetched')).toBeInTheDocument()
+    await user.click(within(record).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/review',
+        expect.objectContaining({
+          body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'competenceTerritoryIds', decision: 'accepted', sourceChecked: true }] }),
+        }),
+      ),
+    )
   })
 })

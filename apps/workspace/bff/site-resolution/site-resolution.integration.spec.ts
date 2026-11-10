@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  *
- * Site resolution against a REAL Postgres (migration 0209, ADR-0172): the
+ * Site resolution against a REAL Postgres (migration 0210, ADR-0172): the
  * importer writes the BEV fixture as a release, and the resolver reads it as
  * the restricted runtime role, under row-level security, as the route does.
  *

@@ -12,7 +12,7 @@
  * release, revisions only into a draft); this file only declares columns.
  */
 
-import { bigint, date, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
   ChangeRequestStatus,
@@ -72,6 +72,27 @@ export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   /** NULL only on verdicts written before migration 0208. */
   decisionSource: text('decision_source').$type<ReviewDecisionSource>(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+  /** The reviewer checked the cited capture against its source (0209); required for an operator-supplied one. */
+  sourceChecked: boolean('source_checked').notNull().default(false),
+})
+
+/** A page as the product captured it for a citation (0209, ADR-0170): what KC-6 checks a quote against. */
+export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', {
+  id: uuid('id').primaryKey(),
+  changeRequestId: uuid('change_request_id').notNull(),
+  basis: text('basis').$type<'fetched' | 'operator_supplied'>().notNull(),
+  sourceId: text('source_id'),
+  url: text('url').notNull(),
+  finalUrl: text('final_url'),
+  contentType: text('content_type'),
+  sha256: text('sha256').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  text: text('text'),
+  note: text('note'),
+  retrievedAt: timestamp('retrieved_at', { withTimezone: true }).notNull(),
+  createdBy: text('created_by').notNull(),
+  viaClient: text('via_client'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const knowledgeApprovals = pgTable('knowledge_approvals', {

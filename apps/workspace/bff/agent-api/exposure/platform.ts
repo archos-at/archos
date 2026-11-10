@@ -110,10 +110,6 @@ export const PLATFORM_EXPOSURE = {
   'platform-skill-category-delete': PLATFORM_PUBLIC,
   'platform-skill-category-list': PLATFORM_PUBLIC,
   'platform-skill-category-update': PLATFORM_PUBLIC,
-  'platform-skill-create': PLATFORM_PUBLIC,
-  'platform-skill-delete': PLATFORM_PUBLIC,
-  'platform-skill-list': PLATFORM_PUBLIC,
-  'platform-skill-update': PLATFORM_PUBLIC,
   'platform-storage-overview': PLATFORM_PUBLIC,
   'platform-vectors-reconcile': tenantContent('deletes chunks from offices’ own search collections, and its failures can name what they held'),
 } as const satisfies Record<PlatformOperationName, PlatformExposure>

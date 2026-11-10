@@ -28756,7 +28756,7 @@
         "x-mcp-annotations": {
           "title": "Approve or reject a submitted change request",
           "readOnlyHint": false,
-          "destructiveHint": false,
+          "destructiveHint": true,
           "idempotentHint": false,
           "openWorldHint": false
         }
@@ -28821,7 +28821,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a submitted change request",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.",
         "tags": [
           "platform"
         ],
@@ -28873,6 +28873,11 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 2000
+                        },
+                        "sourceChecked": {
+                          "default": false,
+                          "description": "You checked the cited capture against its source; required before approving a record that cites an operator-supplied capture.",
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -28928,7 +28933,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-submit",
         "summary": "Submit a draft change request for review",
-        "description": "No more records go into it after this. 409 unless it is a draft; 422 when it holds no records.",
+        "description": "No more records go into it after this. 409 unless it is a draft; 422 when it holds no records or fails platform-knowledge-validate, with the problems.",
         "tags": [
           "platform"
         ],
@@ -28972,6 +28977,130 @@
         },
         "x-mcp-annotations": {
           "title": "Submit a draft change request for review",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/captures": {
+      "post": {
+        "operationId": "platform-knowledge-citation-capture",
+        "summary": "Capture a page that platform records will cite",
+        "description": "Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "basis": {
+                        "const": "fetched"
+                      },
+                      "sourceId": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}-[a-z0-9-]{1,60}$",
+                        "description": "The configured public source whose hosts the page is on, e.g. \"at-ris\"."
+                      },
+                      "url": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "format": "uri",
+                        "description": "The page to capture; fetched through the public-source fetcher, GET only."
+                      }
+                    },
+                    "required": [
+                      "basis",
+                      "sourceId",
+                      "url"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "basis": {
+                        "const": "operator_supplied"
+                      },
+                      "url": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "format": "uri",
+                        "description": "Where the text was taken from, for the reviewer to check it against."
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000000,
+                        "description": "The page’s text as you copied it from the source."
+                      },
+                      "note": {
+                        "description": "Why it was not fetched, e.g. the portal needs a browser.",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "basis",
+                      "url",
+                      "text"
+                    ]
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "basis"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Capture a page that platform records will cite",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -29353,7 +29482,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation. Run it with `dryRun: true` first: it answers the validation problems and writes nothing. A batch with problems is refused (422). The same key again in the same draft adds a revision to the same record.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
         "tags": [
           "platform"
         ],
@@ -29494,7 +29623,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -29844,7 +29985,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -29920,7 +30073,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -30023,7 +30188,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -30101,7 +30278,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -30996,7 +31185,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"
@@ -31064,7 +31265,7 @@
           "title": "Propose up to 200 cited records into a draft change request",
           "readOnlyHint": false,
           "destructiveHint": false,
-          "idempotentHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -31208,6 +31409,68 @@
         }
       }
     },
+    "/api/platform/knowledge/schemas": {
+      "get": {
+        "operationId": "platform-knowledge-schema-get",
+        "summary": "Read the JSON Schema of each platform record type",
+        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "One record type; all of them when absent.",
+              "type": "string",
+              "enum": [
+                "territory",
+                "authority",
+                "work",
+                "edition",
+                "manifestation",
+                "ruleset"
+              ]
+            },
+            "description": "One record type; all of them when absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the JSON Schema of each platform record type",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/sync": {
       "post": {
         "operationId": "platform-knowledge-sync",
@@ -31317,6 +31580,61 @@
         "x-mcp-annotations": {
           "title": "Rename a base-corpus document’s display title",
           "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/validation": {
+      "get": {
+        "operationId": "platform-knowledge-validate",
+        "summary": "Run the validation kit on a whole change request",
+        "description": "The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with its record, code (KC-1 references, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. Repair with platform-knowledge-records-propose, then submit once it is valid.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Run the validation kit on a whole change request",
+          "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false
@@ -33672,8 +33990,8 @@
     "/api/platform/skills": {
       "post": {
         "operationId": "platform-skill-create",
-        "summary": "Create a platform skill",
-        "description": "Adds a skill (name, description, body) to the platform catalog, a draft unless `published` is true. Published skills are offered to every organization, which may take or leave them. Category ids come from platform-skill-category-list.",
+        "summary": "Draft a platform skill",
+        "description": "Adds a skill (name, description, body) to the platform catalog as a draft, which no office sees. Publishing offers it to every organization, so it is the person’s own decision: call platform-skill-update with `published: true`, which asks them. `published: true` here is refused unless the person said yes in the app. Category ids come from platform-skill-category-list.",
         "tags": [
           "platform"
         ],
@@ -33755,7 +34073,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Create a platform skill",
+          "title": "Draft a platform skill",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -33807,7 +34125,7 @@
       "delete": {
         "operationId": "platform-skill-delete",
         "summary": "Delete a platform skill",
-        "description": "Removes a skill from the platform catalog for every organization. Skill ids come from platform-skill-list. Prefer platform-skill-update with `published: false` to withdraw it reversibly.",
+        "description": "Removes a skill from the platform catalog for every organization; the person decides it. Skill ids come from platform-skill-list. Prefer platform-skill-update with `published: false` to withdraw it reversibly.",
         "tags": [
           "platform"
         ],
@@ -33859,7 +34177,7 @@
       "patch": {
         "operationId": "platform-skill-update",
         "summary": "Edit or publish a platform skill",
-        "description": "Changes any field of a platform skill, including `published` and `categoryId` (null removes the category). Send only the fields to change. Skill ids come from platform-skill-list.",
+        "description": "Changes any field of a platform skill, including `published` and `categoryId` (null removes the category). Send only the fields to change. An edit reaches every office running the skill at once, so the person decides it: the door asks them. Skill ids come from platform-skill-list.",
         "tags": [
           "platform"
         ],
@@ -33957,7 +34275,7 @@
         "x-mcp-annotations": {
           "title": "Edit or publish a platform skill",
           "readOnlyHint": false,
-          "destructiveHint": false,
+          "destructiveHint": true,
           "idempotentHint": true,
           "openWorldHint": false
         }
@@ -34009,7 +34327,7 @@
       "post": {
         "operationId": "platform-territory-import",
         "summary": "Import ISO 3166 territories into a draft change request",
-        "description": "A bulk file of ISO 3166 rows (`code`, `name`, optional `parent`) becomes territory records: a code without a subdivision is a country, `AT-6` a state of AT. Validated and reviewed like any proposal.",
+        "description": "A bulk file of ISO 3166 rows (`code`, `name`, optional `parent`) becomes territory records: a code without a subdivision is a country, `AT-6` a state of AT. `captureId` is the capture of the list; each name is checked against it. Validated (`dryRun` first) and reviewed like any proposal; the same rows again change nothing.",
         "tags": [
           "platform"
         ],
@@ -34040,6 +34358,11 @@
                     ],
                     "description": "A bulk file of ISO 3166 rows."
                   },
+                  "captureId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The capture of the list the rows come from; each row’s name is checked against it (KC-6)."
+                  },
                   "rows": {
                     "minItems": 1,
                     "maxItems": 200,
@@ -34059,6 +34382,12 @@
                         "parent": {
                           "type": "string",
                           "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                        },
+                        "quote": {
+                          "description": "Words of the captured list that name this row, at least three; \"<code> <name>\" when absent.",
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2000
                         }
                       },
                       "required": [
@@ -34066,10 +34395,16 @@
                         "name"
                       ]
                     }
+                  },
+                  "dryRun": {
+                    "default": false,
+                    "description": "Validate only; nothing is written.",
+                    "type": "boolean"
                   }
                 },
                 "required": [
                   "format",
+                  "captureId",
                   "rows"
                 ]
               }
@@ -34105,7 +34440,7 @@
           "title": "Import ISO 3166 territories into a draft change request",
           "readOnlyHint": false,
           "destructiveHint": false,
-          "idempotentHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }

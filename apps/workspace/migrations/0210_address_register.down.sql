@@ -1,4 +1,4 @@
--- Down of 0209: the register tables go, with every imported release.
+-- Down of 0210: the register tables go, with every imported release.
 -- Nothing else reads them; a project's site keeps its stored facts and evidence.
 
 DROP TABLE IF EXISTS address_register_entries;

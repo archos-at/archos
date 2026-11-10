@@ -242,6 +242,14 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 
+# The onboarding door (ADR-0170): a scripted client takes AT-9 through the
+# platform door to a stable release. Alone and after the platform suite, since
+# both release Austria's territories and a release over one moved since a
+# request was opened is a 409 by design.
+echo "==> running the onboarding door suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
+
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
 # one its restore. The job-queue suites claim from the whole table and expect
@@ -3566,31 +3574,75 @@ check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0208 review four eyes and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0209: the official address registers in the cell (ADR-0172).
+# Migration 0209: citation captures and the reviewer's source check (ADR-0170).
 #
-# On a database of its own, migrated through 0209: an active release needs its
+# On a database of its own, migrated through 0209: a capture goes only into a
+# draft and is never rewritten, a fetched capture names its source, and an
+# approval waits until a verdict says an operator-supplied capture's source
+# was checked, by someone other than the revision's author (0208's four-eyes
+# trigger refuses an author's verdict outright). The down drops both, and 0209
+# applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0209 citation captures and their down migration on cc_0209"
+migrate_until cc_0209 0209_knowledge_citation_captures
+CR="c0000000-0000-4000-8000-000000000209"
+RV="e0000000-0000-4000-8000-000000000209"
+CAP="a0000000-0000-4000-8000-000000000209"
+SHA="0000000000000000000000000000000000000000000000000000000000000209"
+sql_in cc_0209 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT-9', 'AT', 'user_author');
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, text, retrieved_at, created_by)
+  VALUES ('$CAP', '$CR', 'operator_supplied', 'https://www.wien.gv.at/ma37', '$SHA', 4, 'Wien', now(), 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-9', NULL, 'territory', 'AT', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance)
+  VALUES ('$RV', 'AT-9', 'territory', NULL, 'user_author', '$CR', '{"citations": [{"captureId": "$CAP", "quote": "Wien"}]}');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
+  VALUES ('$RV', 'AT-9', NULL, 'state', 'Wien', '{AT}');
+SQL
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'fetched', 'https://www.ris.bka.gv.at/x', '$SHA', 1, now(), 'user_author')" "knowledge_citation_captures_fetched_has_source" "a fetched capture without its source"
+refused_in cc_0209 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
+sql_in cc_0209 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
+sql_in cc_0209 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'app');"
+refused_in cc_0209 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
+sql_in cc_0209 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true, 'app');
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
+SQL
+check_in cc_0209 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0209: the approval counts once the source was checked"
+apply_in cc_0209 0209_knowledge_citation_captures.down.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_citation_captures'" "0" "0209 down drops the captures"
+apply_in cc_0209 0209_knowledge_citation_captures.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'source_checked'" "1" "0209 applies again after its down"
+echo "==> 0209 citation captures and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0210: the official address registers in the cell (ADR-0172).
+#
+# On a database of its own, migrated through 0210: an active release needs its
 # rows counted and a time, a register has one active release at a time, an
 # entry needs both keys, a release's entries go with it, and the down drops
-# both tables so 0209 applies again.
+# both tables so 0210 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0209 address register and its down migration on addr_0209"
-migrate_until addr_0209 0209_address_register
-REL="a0000000-0000-4000-8000-000000000209"
-sql_in addr_0209 <<SQL
+echo "==> verifying the 0210 address register and its down migration on addr_0210"
+migrate_until addr_0210 0210_address_register
+REL="a0000000-0000-4000-8000-000000000210"
+sql_in addr_0210 <<SQL
 INSERT INTO address_register_releases (id, register, country_id, reference_date, attribution) VALUES ('$REL', 'at-bev', 'AT', '2025-10-01', 'BEV');
 INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key, place_keys)
   VALUES ('$REL', '5734380', '60101', 'Graz', '8010', 'Herrengasse', '16', 'herrengasse', '16', '{graz}');
 SQL
-refused_in addr_0209 "UPDATE address_register_releases SET status = 'active' WHERE id = '$REL'" "address_register_releases_active_has_rows" "a release active with no rows counted"
-sql_in addr_0209 <<<"UPDATE address_register_releases SET status = 'active', entry_count = 1, activated_at = now() WHERE id = '$REL';"
-refused_in addr_0209 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution, status, entry_count, activated_at) VALUES ('at-bev', 'AT', '2026-04-01', 'BEV', 'active', 1, now())" "address_register_releases_one_active" "a second active release of one register"
-refused_in addr_0209 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution) VALUES ('BEV', 'AT', '2026-04-01', 'BEV')" "address_register_releases_register_shape" "a register id of the wrong shape"
-refused_in addr_0209 "INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key) VALUES ('$REL', 'x', '60101', 'Graz', '8010', 'Herrengasse', '16', '', '16')" "address_register_entries_keys_present" "an entry without a street key"
-sql_in addr_0209 <<<"DELETE FROM address_register_releases WHERE id = '$REL';"
-check_in addr_0209 "SELECT count(*) FROM address_register_entries" "0" "0209: a release's entries go with it"
-check_in addr_0209 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('address_register_entries', 'address_register_releases')" "address_register_entries:true,address_register_releases:true" "0209: both tables are under row-level security"
-apply_in addr_0209 0209_address_register.down.sql
-check_in addr_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "0" "0209 down drops both tables"
-apply_in addr_0209 0209_address_register.sql
-check_in addr_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0209 applies again after its down"
-echo "==> 0209 address register and its down migration verified"
+refused_in addr_0210 "UPDATE address_register_releases SET status = 'active' WHERE id = '$REL'" "address_register_releases_active_has_rows" "a release active with no rows counted"
+sql_in addr_0210 <<<"UPDATE address_register_releases SET status = 'active', entry_count = 1, activated_at = now() WHERE id = '$REL';"
+refused_in addr_0210 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution, status, entry_count, activated_at) VALUES ('at-bev', 'AT', '2026-04-01', 'BEV', 'active', 1, now())" "address_register_releases_one_active" "a second active release of one register"
+refused_in addr_0210 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution) VALUES ('BEV', 'AT', '2026-04-01', 'BEV')" "address_register_releases_register_shape" "a register id of the wrong shape"
+refused_in addr_0210 "INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key) VALUES ('$REL', 'x', '60101', 'Graz', '8010', 'Herrengasse', '16', '', '16')" "address_register_entries_keys_present" "an entry without a street key"
+sql_in addr_0210 <<<"DELETE FROM address_register_releases WHERE id = '$REL';"
+check_in addr_0210 "SELECT count(*) FROM address_register_entries" "0" "0210: a release's entries go with it"
+check_in addr_0210 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('address_register_entries', 'address_register_releases')" "address_register_entries:true,address_register_releases:true" "0210: both tables are under row-level security"
+apply_in addr_0210 0210_address_register.down.sql
+check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "0" "0210 down drops both tables"
+apply_in addr_0210 0210_address_register.sql
+check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0210 applies again after its down"
+echo "==> 0210 address register and its down migration verified"
