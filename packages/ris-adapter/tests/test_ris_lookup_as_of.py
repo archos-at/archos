@@ -220,3 +220,15 @@ async def test_a_flag_lookup_that_fails_refuses_as_of(lookup, monkeypatch):
 
     assert output == AS_OF_REFUSED
     assert lookup.client.search_calls == [] and lookup.client.fetch_calls == []
+
+
+def test_the_process_override_decides_the_offer_as_it_decides_the_call(monkeypatch):
+    """The answer suite runs without a BFF: ``TIME_EDITIONS=on`` must offer what it allows."""
+    from ris_adapter.lookup.as_of import as_of_offered
+
+    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
+    assert (as_of_offered(True), as_of_offered(False)) == (True, False)
+    monkeypatch.setenv(ENV_OVERRIDE, "on")
+    assert as_of_offered(False) is True
+    monkeypatch.setenv(ENV_OVERRIDE, "off")
+    assert as_of_offered(True) is False

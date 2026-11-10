@@ -53,7 +53,9 @@ def tools_for_flags(tools: list[Any], time_editions_allowed: bool) -> list[Any]:
     flag the registered tool is bound as it is, so the payload is the one before
     the flag existed; with it, an org gets one more cache shard, not one per turn.
     """
-    if not time_editions_allowed:
+    from ris_adapter.lookup.as_of import as_of_offered
+
+    if not as_of_offered(time_editions_allowed):
         return tools
     from ris_adapter.lookup.tool import offer_as_of
 
