@@ -788,6 +788,10 @@
     "de": "Ein in Kleinbuchstaben eingegebener Norm- oder Produktcode findet jetzt auch Dokumente, in denen er in Großbuchstaben geschrieben ist. Fragen zu einem bestimmten Code liefern daher unabhängig von der Schreibweise dieselben Quellen."
   },
   {
+    "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+    "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
+  },
+  {
     "en": "A subfolder can only narrow what its parent allows, and someone who may only read a folder sees it marked „Nur lesen“, without upload, rename, move or delete. Only a project admin who may edit a folder can change who may read or edit it.",
     "de": "Ein Unterordner kann nur einschränken, was sein übergeordneter Ordner erlaubt, und wer einen Ordner nur lesen darf, sieht ihn als „Nur lesen“ markiert, ohne Hochladen, Umbenennen, Verschieben oder Löschen. Nur ein Projekt-Admin, der einen Ordner bearbeiten darf, kann ändern, wer ihn lesen oder bearbeiten darf."
   },
@@ -1146,6 +1150,10 @@
   {
     "en": "Answers are easier to scan: the first line gives the value in bold, checks by building class appear as tables with references, procedures as numbered steps, and open items as a task list.",
     "de": "Antworten lassen sich schneller überfliegen: Die erste Zeile nennt den Wert fett, Prüfungen je Gebäudeklasse stehen in Tabellen mit Verweisen, Abläufe als nummerierte Schritte und offene Punkte als Aufgabenliste."
+  },
+  {
+    "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
+    "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
   },
   {
     "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
@@ -1864,6 +1872,10 @@
     "de": "Jede fertige Antwort lässt sich jetzt kopieren. Bisher bot eine Antwort ohne Quelle, etwa eine Rückfrage oder ein kurzer Gesprächsbeitrag, nur den Word-Download an, sodass Sie keinen Satz daraus in eine E-Mail übernehmen konnten."
   },
   {
+    "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+    "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+  },
+  {
     "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
     "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
   },
@@ -1970,6 +1982,10 @@
   {
     "en": "Findings from a report now carry on in the project. An open finding can become its own task with Klären, and a finished report can be updated with Bericht fortschreiben, which marks each finding as new, changed or dropped.",
     "de": "Befunde aus einem Bericht bleiben im Projekt erhalten. Ein offener Befund wird mit „Klären“ zu einer eigenen Aufgabe, und ein fertiger Bericht lässt sich mit „Bericht fortschreiben“ aktualisieren, wobei jeder Befund als neu, geändert oder entfallen markiert wird."
+  },
+  {
+    "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+    "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
   },
   {
     "en": "Findings of the skill check now appear under the field they concern. „Erneut prüfen“ checks the revised text, and a finding on text that has since changed is marked as outdated.",
@@ -2374,6 +2390,10 @@
   {
     "en": "Long deep research runs no longer leave stray or duplicate messages in the chat, even when they time out in the background.",
     "de": "Lange Tiefenrecherchen hinterlassen im Chat keine überzähligen oder doppelten Nachrichten mehr, auch wenn sie im Hintergrund an ihr Zeitlimit stoßen."
+  },
+  {
+    "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+    "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
   },
   {
     "en": "Long text documents now scroll correctly in the side preview.",
@@ -3800,6 +3820,10 @@
     "de": "Die erste Frage in einem neuen Chat geht nicht mehr verloren, wenn Sie sie direkt aus einem Vorschlag senden, ohne etwas einzutippen."
   },
   {
+    "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+    "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+  },
+  {
     "en": "The first time something waits on you, Piloti offers once to notify you on this device, also if you never open the Postfach.",
     "de": "Wenn zum ersten Mal etwas auf Sie wartet, bietet Piloti Ihnen einmalig an, Sie auf diesem Gerät zu benachrichtigen – auch wenn Sie das Postfach nie öffnen."
   },
@@ -4048,6 +4072,10 @@
     "de": "Die Suche findet jetzt dieselben Dokumente, egal ob Sie Flächenwidmung oder Flaechenwidmung eingeben, und die Einstellung „nur aktuelle“ berücksichtigt alle passenden Dokumente, statt ältere Uploads auszuschließen."
   },
   {
+    "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+    "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+  },
+  {
     "en": "The settings overview of a project whose intake was never completed no longer shows an error. Its similar closed projects load again.",
     "de": "Die Einstellungsübersicht eines Projekts, dessen Erfassung nie abgeschlossen wurde, zeigt keinen Fehler mehr. Ähnliche abgeschlossene Projekte werden wieder geladen."
   },
@@ -4122,6 +4150,10 @@
   {
     "en": "The upload history in the project settings now reaches back to the project's first upload. With „Ältere Uploads laden“, you see the next older ones.",
     "de": "Der Upload-Verlauf in den Projekteinstellungen reicht jetzt bis zum ersten Upload des Projekts zurück. Mit „Ältere Uploads laden“ sehen Sie die nächstälteren Uploads."
+  },
+  {
+    "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+    "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
   },
   {
     "en": "The upload panel and the chat now show a file the content check held back as held for review, with what was found, instead of as failed, and no longer offer to retry it. A file that was kept but not read is shown as filed rather than citable.",

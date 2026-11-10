@@ -554,6 +554,18 @@ functions:
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
       - aenderungen_oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf
       - oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf
+      # The diffs oib.or.at publishes beside the 2019 and 2025 Richtlinien (agent/common/oib_file_names.py)
+      - oib-rl-1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.1-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.2-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-2.3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-3-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-4-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-5-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2015.pdf
+      - oib-rl-6-aenderungen-gegenueber-version-2011.pdf
+      - aenderungen_oib-rl_6_september_2025.pdf
     generate_summary: true
     summary_model: summary_llm
     summary_db: ${SUMMARY_DB:-sqlite+aiosqlite:///./summaries.db}
