@@ -21,7 +21,14 @@ export const FileListLayoutContext = createContext<FileListLayout>({
   actions: true,
 })
 
+/**
+ * The reference columns step in by the list's width: the head, Größe from 36rem and Hinzugefügt from 42rem, so a
+ * laptop beside the rail keeps both (at 1024px they were gone with their head, review of 2026-11-10, finding 14).
+ * Below, a row says them on its second line (`FILE_LIST_META_LINE`).
+ */
+export const FILE_LIST_META_LINE = 'text-meta text-muted-foreground block truncate font-normal tabular-nums @xl/filelist:hidden'
+
 /** The date column's cells: dates left-align, as their head does; numbers right-align. */
-export const FILE_LIST_DATE_CELL = 'hidden whitespace-nowrap text-left text-xs text-muted-foreground tabular-nums @4xl/filelist:table-cell'
+export const FILE_LIST_DATE_CELL = 'hidden whitespace-nowrap text-left text-xs text-muted-foreground tabular-nums @2xl/filelist:table-cell'
 /** The size column's cells, which a folder fills with what it holds. */
-export const FILE_LIST_SIZE_CELL = 'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell'
+export const FILE_LIST_SIZE_CELL = 'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @xl/filelist:table-cell'

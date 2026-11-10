@@ -22,8 +22,10 @@ import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { SectionLevelTools, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { cn } from '@/lib/utils'
 import type { FileView } from '../hooks/use-view-preference'
 import { FileSearchField } from './file-search-bar'
 
@@ -84,9 +86,48 @@ export function FilesHeaderControls({
   advancedEntries,
 }: FilesHeaderControlsProps): JSX.Element {
   const t = useTranslations(filesCopy)
+  const tier = useSectionToolTier()
   const choose = (value: string): void => {
     if (value === 'cards' || value === 'list') onViewChange(value)
   }
+  const viewChoice: ActionMenuEntry = {
+    type: 'radio-group',
+    value: view,
+    onValueChange: choose,
+    items: [
+      { value: 'cards', label: t('workspace.view.cards'), testId: 'files-view-cards' },
+      { value: 'list', label: t('workspace.view.list'), testId: 'files-view-list' },
+    ],
+  }
+  const viewToggle = (
+    <ToggleGroup
+      type="single"
+      value={view}
+      onValueChange={choose}
+      segmented
+      size="icon-sm" /* 28px squares on the track's 2px: 32px, the search field's and Hochladen's height */
+      aria-label={t('workspace.view.label')}
+    >
+      <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
+        <LayoutGrid />
+      </ToggleGroupItem>
+      <ToggleGroupItem value="list" aria-label={t('workspace.view.list')} title={t('workspace.view.list')}>
+        <List />
+      </ToggleGroupItem>
+    </ToggleGroup>
+  )
+  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string): JSX.Element => (
+    <ActionMenu
+      mode="dropdown"
+      entries={[...entries]}
+      trigger={
+        // Tonal: it opens a menu of actions, and a bare glyph beside the tonal filter read as a label.
+        <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid={testId}>
+          <MoreHorizontal aria-hidden />
+        </Button>
+      }
+    />
+  )
   // As tall as its neighbours: the wide row's buttons are `sm`, the phone's filter and ⋯ are `icon` (the default height).
   const searchField = (className: string): JSX.Element => (
     <FileSearchField
@@ -105,15 +146,7 @@ export function FilesHeaderControls({
   if (phone) {
     const entries: ActionMenuEntry[] = [
       ...(levelEntries && levelEntries.length > 0 ? [...levelEntries, { type: 'separator' as const }] : []),
-      {
-        type: 'radio-group',
-        value: view,
-        onValueChange: choose,
-        items: [
-          { value: 'cards', label: t('workspace.view.cards'), testId: 'files-view-cards' },
-          { value: 'list', label: t('workspace.view.list'), testId: 'files-view-list' },
-        ],
-      },
+      viewChoice,
       ...(openPointsHref
         ? [
             { type: 'separator' as const },
@@ -161,16 +194,30 @@ export function FilesHeaderControls({
       <div className="flex min-w-0 items-center gap-2" data-testid="files-controls">
         {searchField('flex-1')}
         {renderFilter(true)}
-        <ActionMenu
-          mode="dropdown"
-          entries={entries}
-          trigger={
-            // Tonal: it opens a menu of actions, and a bare glyph beside the tonal filter read as a label.
-            <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
-              <MoreHorizontal aria-hidden />
-            </Button>
-          }
-        />
+        {moreMenu(entries, 'files-more')}
+      </div>
+    )
+  }
+
+  // In the section's frame: one row on the title's left edge that never wraps. What finds (the search, flexing, the
+  // filter, the view) on the left; what acts on the level (Auswählen, Ordner anlegen, Hochladen, ⋯) on the right. A
+  // tier gives way in steps (`SectionToolTier`): „Ordner anlegen“ into Hochladen's menu, then the view into the ⋯.
+  if (tier !== null) {
+    const narrow = tier === 'narrow'
+    const more: ActionMenuEntry[] = [
+      ...(narrow ? [viewChoice] : []),
+      ...(advancedEntries && advancedEntries.length > 0 ? [...(narrow ? [{ type: 'separator' as const }] : []), ...advancedEntries] : []),
+    ]
+    return (
+      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
+        {searchField('min-w-40 max-w-[28rem] flex-1')}
+        {renderFilter(narrow)}
+        {!narrow && viewToggle}
+        <div className={cn('ml-auto flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
+          <SectionLevelTools />
+          {upload}
+          {more.length > 0 && moreMenu(more, 'files-advanced')}
+        </div>
       </div>
     )
   }
@@ -178,21 +225,7 @@ export function FilesHeaderControls({
   return (
     // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
     <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
-      <ToggleGroup
-        type="single"
-        value={view}
-        onValueChange={choose}
-        segmented
-        size="icon-sm" /* 28px squares on the track's 2px: 32px, the search field's and Hochladen's height */
-        aria-label={t('workspace.view.label')}
-      >
-        <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
-          <LayoutGrid />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label={t('workspace.view.list')} title={t('workspace.view.list')}>
-          <List />
-        </ToggleGroupItem>
-      </ToggleGroup>
+      {viewToggle}
       {/* The open Anmerkungen of every document, for the Jour fixe: a page of its own, as the Papierkorb is. */}
       {openPointsHref && (
         <Button asChild variant="ghost" size="sm">
@@ -233,17 +266,7 @@ export function FilesHeaderControls({
       {renderFilter(false)}
       {searchField('w-full sm:w-64 lg:w-72')}
       {upload}
-      {advancedEntries && advancedEntries.length > 0 && (
-        <ActionMenu
-          mode="dropdown"
-          entries={advancedEntries}
-          trigger={
-            <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid="files-advanced">
-              <MoreHorizontal aria-hidden />
-            </Button>
-          }
-        />
-      )}
+      {advancedEntries && advancedEntries.length > 0 && moreMenu(advancedEntries, 'files-advanced')}
     </div>
   )
 }

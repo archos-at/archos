@@ -27,7 +27,7 @@ English copy calls the place „Project mail“.
 ## Where it is entered
 
 - Dateien's places, as tabs in the section header (`ProjectSectionFrame`,
-  the shared `SectionNav`): Alle Dateien · E-Mail-Eingang with a **muted**
+  the shared `SectionNav`): Ordner · E-Mail-Eingang with a **muted**
   count · Offene Punkte · Papierkorb. The E-Mail-Eingang tab only for whoever
   may decide the project's mail (`requireMailReviewer`, asked once by the
   project layout); its count is the rail's own (`useInboundMailWaitingShown`).

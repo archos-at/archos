@@ -54,20 +54,35 @@ from dataclasses import dataclass
 MAX_PDF_PAGES = 300
 #: How long one parse may take before its process is killed; the BFF waits 120 s for a whole capture.
 PARSE_TIMEOUT_SECONDS = 45.0
-#: The address space the parsing process may map.
-MEMORY_LIMIT_BYTES = 2 * 1024**3
+#: The address space the parsing process may map; the fetcher pod's limit holds two of them (2.5 GiB).
+MEMORY_LIMIT_BYTES = 1024**3
+#: How long a caller waits for the fetcher's ``/v1/extract``: the parse's deadline, and the hop.
+EXTRACT_TIMEOUT_SECONDS = PARSE_TIMEOUT_SECONDS + 5
 #: The most text a read answers; the BFF's capture column holds the same (0209).
 MAX_TEXT_CHARS = 2_000_000
 #: How many PDFs one process reads at once; a further read waits for one to finish.
 MAX_PDF_READERS = 2
 #: What the child's environment holds: what Python needs, and the one setting of the text pass.
 CHILD_ENV_KEYS = ("PATH", "LANG", "LC_ALL", "PDF_PAGE_MAX_OBJECTS")
+#: Where the fetcher is (``public_sources.routing.ENV_FETCHER_URL``), named here to keep this module import-light.
+ENV_FETCHER_URL = "PUBLIC_SOURCE_FETCHER_URL"
 #: What joins two pages' text, and what a page is counted by.
 PAGE_BREAK = "\f"
 
 PDF_CONTENT_TYPE = "application/pdf"
 
 _READERS = threading.BoundedSemaphore(MAX_PDF_READERS)
+
+#: Whether :func:`read_pdf` may parse in this process when no fetcher is set. Code turns it on, never
+#: configuration, and only in a process that is no backend role: the fixture runner
+#: (``python -m public_sources test``) and the test suites (:func:`allow_parsing_here`).
+_parse_here = False
+
+
+def allow_parsing_here() -> None:
+    """Let :func:`read_pdf` parse in this process without a fetcher: for the fixture runner and tests only."""
+    global _parse_here
+    _parse_here = True
 
 
 class PdfError(ValueError):
@@ -138,7 +153,54 @@ def _stopped(done: subprocess.CompletedProcess) -> PdfError:
     )
 
 
-def read_pdf(
+def read_pdf(content: bytes, *, max_pages: int = MAX_PDF_PAGES) -> PdfText:
+    """The text of ``content``: read by the public-source fetcher, never in a pod that reaches the cluster.
+
+    With ``PUBLIC_SOURCE_FETCHER_URL`` set (every backend role, Compose
+    included) the bytes go to the fetcher's ``/v1/extract``, which runs
+    :func:`parse_pdf` in its sandbox: no secrets, no service-account token,
+    public egress only. Without it the read is refused (``pdf_reader_failed``),
+    unless the process said in code that it may parse here
+    (:func:`allow_parsing_here`: the fixture runner, a test). The fetcher
+    itself calls :func:`parse_pdf`. Raises :class:`PdfError`. Blocking: an
+    async caller runs it with ``asyncio.to_thread``.
+    """
+    fetcher_url = os.environ.get(ENV_FETCHER_URL, "").strip()
+    if fetcher_url:
+        return _extracted_by(fetcher_url, content, max_pages)
+    if _parse_here:
+        return parse_pdf(content, max_pages=max_pages)
+    raise PdfError(
+        "pdf_reader_failed",
+        f"no public-source fetcher is configured ({ENV_FETCHER_URL}): a public PDF is parsed only there",
+    )
+
+
+def _extracted_by(fetcher_url: str, content: bytes, max_pages: int) -> PdfText:
+    """POST the bytes to the fetcher's ``/v1/extract``; its refusal keeps its code."""
+    import httpx
+
+    endpoint = fetcher_url.rstrip("/") + "/v1/extract"
+    try:
+        with httpx.Client(timeout=EXTRACT_TIMEOUT_SECONDS, trust_env=False) as client:
+            answer = client.post(endpoint, content=content, params={"max_pages": max_pages})
+    except httpx.TimeoutException as exc:
+        raise PdfError(
+            "pdf_parse_timeout", f"the PDF reader did not answer within {EXTRACT_TIMEOUT_SECONDS:g} seconds"
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise PdfError(
+            "pdf_reader_failed", f"the PDF reader (the public-source fetcher) is not reachable: {exc}"
+        ) from exc
+    body = answer.json() if answer.headers.get("content-type", "").startswith("application/json") else {}
+    if answer.status_code == 200 and isinstance(body, dict) and "pages" in body:
+        return PdfText(pages=tuple(body["pages"]), page_count=int(body["page_count"]), title=str(body["title"]))
+    if isinstance(body, dict) and body.get("code"):
+        raise PdfError(str(body["code"]), str(body.get("message", "")))
+    raise PdfError("pdf_reader_failed", f"the PDF reader answered HTTP {answer.status_code}")
+
+
+def parse_pdf(
     content: bytes,
     *,
     max_pages: int = MAX_PDF_PAGES,
@@ -146,9 +208,10 @@ def read_pdf(
     memory_limit: int = MEMORY_LIMIT_BYTES,
     max_chars: int = MAX_TEXT_CHARS,
 ) -> PdfText:
-    """The text of ``content``, read in a child process killed after ``timeout`` seconds. Raises :class:`PdfError`.
+    """Parse ``content`` here, in a child process killed after ``timeout`` seconds. Raises :class:`PdfError`.
 
-    Blocking: an async caller runs it with ``asyncio.to_thread``.
+    Only the fetcher's ``/v1/extract`` (and a test) calls this; every other
+    caller uses :func:`read_pdf`. Blocking.
     """
     if not _READERS.acquire(timeout=timeout):
         raise PdfError("pdf_parse_timeout", f"{MAX_PDF_READERS} PDFs were being read for {timeout:g} seconds")

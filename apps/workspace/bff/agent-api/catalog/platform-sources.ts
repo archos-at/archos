@@ -5,7 +5,7 @@
  * a change request; these test it, read its state, and set its key.
  *
  * The status takes `platform:settings:view`; a test (it may fetch live) and the key
- * `platform:settings:manage`; the key is the person's own yes. A monitor's
+ * `platform:knowledge:write`; the key is the person's own yes. A monitor's
  * work is found with `platform-knowledge-change-request-list {origin: monitor}`.
  */
 

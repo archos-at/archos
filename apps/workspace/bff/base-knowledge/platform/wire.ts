@@ -114,7 +114,7 @@ const editionRecord = z.object({
   label: z.string().trim().min(1).max(120).describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
   issuedOn: isoDate.nullable().default(null),
   inForceFrom: isoDate.nullable().default(null),
-  inForceTo: isoDate.nullable().default(null).describe('The last day in force, inclusive; null while in force.'),
+  inForceTo: isoDate.nullable().default(null).describe('The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.'),
   transition: transitionTableSchema
     .nullable()
     .default(null)
@@ -382,7 +382,11 @@ export const reviewBodySchema = z.object({
       }),
     )
     .min(1)
-    .max(500),
+    .max(500)
+    // Two verdicts on one claim in one body would leave which one stands to insertion order.
+    .refine((decisions) => new Set(decisions.map((d) => `${d.revisionId}|${d.claimPath}`)).size === decisions.length, {
+      message: 'Each claim (revisionId, claimPath) takes one decision per review.',
+    }),
 })
 
 /** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
@@ -468,6 +472,8 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   revisions: RevisionView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
+  /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */
+  sourcesUnchecked: boolean
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]
   /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */

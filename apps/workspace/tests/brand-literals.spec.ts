@@ -462,6 +462,9 @@ const WORD_GHOSTS_ALLOWED: Record<string, string> = {
   'ui/features/documents/components/file-filter-menu.tsx#file-filter-direction': 'a menu row: it flips the order the row above chose',
   'ui/features/inbound-mail/components/mail-text.tsx#text.showLess': 'disclosure: it shows the rest of the mail already there',
   'ui/features/inbound-mail/components/mail-text.tsx#text.hideQuoted': 'disclosure: it shows the quoted mail already there',
+  // Review of 2026-11-10, findings 18 and 20: beside a bar's one action, a press of its weight read as a second action.
+  'ui/features/documents/components/selection-bar.tsx#selection-all': 'it refines the pick beside the bar’s one action, the move',
+  'ui/features/documents/components/upload-tray.tsx#uploads.actions.cancelAll': 'the tray’s way out, on the headline’s row: as a press it took a row of its own on a phone',
 }
 
 describe('a press looks pressable', () => {
@@ -617,8 +620,9 @@ describe('a folder row in the table’s columns', () => {
   it('every row is 40px: a chip in a name line is 20px, the actions cell holds its 32px trigger in 40', () => {
     const list = read('file-list-view')
     expect(list).toMatch(/<DocumentStatusBadge [^>]*className="h-5 /)
-    expect(list).toMatch(/className="w-10 px-1 py-1 text-right"/)
-    expect(read('folder-table-row')).toMatch(/className="w-10 px-1 py-1 text-right"/)
+    // Under a finger the cell is the trigger's 44px, flush: in 40 with its padding the ⋯ ran 8px past a phone's table.
+    expect(list).toMatch(/className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0"/)
+    expect(read('folder-table-row')).toMatch(/className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0"/)
   })
 })
 
@@ -663,15 +667,29 @@ describe('press, thumb and sheet', () => {
   })
   it('the thumb is white with the 1px shadow, and only ever on a track', () => {
     const group = source('ui/components/ui/toggle-group.tsx')
-    expect(group).toMatch(/default: 'bg-sheet shadow-xs'/)
+    expect(group).toMatch(/default: 'bg-sheet shadow-thumb'/)
     // The pill is mounted for the active item of a segmented group only, whose root draws the track.
     expect(group).toMatch(/const isActive =\s*context\.segmented &&/)
-    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/onTrack \? 'bg-sheet shadow-xs' : 'bg-selected'/)
+    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/onTrack \? 'bg-sheet shadow-thumb' : 'bg-selected'/)
+  })
+  it('the thumb has an edge at 3:1 against its track in dark, where its fill stands only 1.2:1 above it', () => {
+    // Finding 25 (2026-11-10): the open tab and the chosen view were barely lighter than the track.
+    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+    const dark = tokens.slice(tokens.lastIndexOf('.dark {'))
+    expect(dark).toMatch(/--elevation-thumb: 0 0 0 1px var\(--field-border\)/)
+    const hex = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6});`).exec(dark)?.[1] ?? '#000000'
+    const luminance = (value: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    expect((luminance(hex('field-border')) + 0.05) / (luminance(hex('desk')) + 0.05)).toBeGreaterThanOrEqual(3)
   })
   it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
     expect(source('ui/features/documents/components/folder-card-frame.tsx')).toMatch(/FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'/)
     const tile = source('ui/features/documents/components/folder-navigation.tsx')
-    expect(tile).toMatch(/<FileTileBody className="flex min-h-14 /)
+    // 56px at every width, its name on one line: a three-line name made its row 138px beside rows of 82 (finding 6).
+    expect(tile).toMatch(/<FileTileBody className="flex h-14 /)
+    expect(tile).toMatch(/<FolderName text=\{folder\.name\}/)
     expect(tile).toMatch(/<ChevronRight[^>]*data-slot="folder-opens"/)
   })
   it('Dateien draws neither look itself: no shadow-xs or shadow-press outside the kit, no fill over a press', () => {
@@ -787,10 +805,12 @@ describe('rows, weights and the phone', () => {
     expect(tokens).toMatch(/--field-border: #8a8784;/)
     expect(source('ui/features/documents/components/file-search-bar.tsx')).toMatch(/inputClassName="[^"]*border-field-border bg-sheet /)
   })
-  it('on a phone a folder is a 48px sheet in two columns, and Hochladen a 56px glyph', () => {
+  it('on a phone a folder is a 56px sheet in two columns with its ⋯, and Hochladen a 56px glyph', () => {
     const tile = source('ui/features/documents/components/folder-navigation.tsx')
     expect(tile).not.toMatch(/FOLDER_ROWS_ON_PHONE/)
-    expect(tile).toMatch(/phone:min-h-12 phone:gap-2\.5 phone:py-1\.5/)
+    // Its ⋯ at the sheet's end, always under a finger: the long press alone hid every folder's menu (finding 19).
+    expect(tile).toMatch(/phone:gap-2\.5 phone:pr-10/)
+    expect(tile).toMatch(/absolute right-8 top-1\/2 z-\[1\] -translate-y-1\/2 phone:right-1\.5 pointer-coarse:opacity-100/)
     expect(source('ui/features/documents/components/upload-fab.tsx')).toMatch(/\[&_button\]:size-14 \[&_button\]:rounded-full/)
     expect(source('ui/features/documents/components/file-workspace.tsx')).toMatch(/glyphOnly: true/)
   })
@@ -802,7 +822,7 @@ describe('rows, weights and the phone', () => {
   })
   it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
     // At 12px (8px on a phone) „Alle Dateien“, „E-Mail-Eingang“… hung on the title above them (pilot feedback, 2026-11-10).
-    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/'-mb-2 mt-6 flex items-start justify-between gap-4 phone:mt-4'/)
+    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/'-mb-2 mt-6 min-w-0 phone:mt-4'/)
   })
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/track\s+compactOnPhone/)
@@ -853,5 +873,80 @@ describe('the row ⋯ hides nothing', () => {
     const menu = withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components/document-actions/document-object-menu.tsx'), 'utf8'))
     expect(menu).toContain("className: 'size-8 shrink-0 rounded-full',")
     expect(menu).not.toMatch(/bg-background\/\d+ backdrop-blur/)
+  })
+})
+
+describe('Dateien in a real project (round 6)', () => {
+  // The previews drew a project of seven loose files and four folders; dev's first real project (2026-11-10) showed
+  // what they hid. Each line below holds one thing that went wrong there.
+  const doc = (component: string): string => source(`ui/features/documents/components/${component}.tsx`)
+
+  it('draws no upload tile among the files: Hochladen and the whole page take files, its menu says so', () => {
+    expect(doc('file-browser-pane')).not.toMatch(/uploadCard/)
+    expect(doc('project-uppy-upload')).not.toMatch(/dropcard/)
+    expect(doc('project-uppy-upload')).toMatch(/data-testid="project-upload-limits"/)
+  })
+
+  it('lays the upload tray on the listing’s column as a sheet, not a band across the page', () => {
+    expect(doc('file-workspace')).toMatch(/<div className="listing-container shrink-0 px-4 md:px-8">\s*<UploadTray[\s\S]*?className=\{UPLOAD_TRAY_SHEET\}/)
+    expect(readFileSync(join(ROOT, 'ui/features/documents/components/upload-tray-sheet.ts'), 'utf8')).toMatch(/UPLOAD_TRAY_SHEET = '[^']*\bbg-sheet shadow-sm\b/)
+  })
+
+  it('never cuts the selection’s count, and lets the brief’s line wrap rather than cut', () => {
+    const bar = doc('selection-bar')
+    expect(bar).toMatch(/className="whitespace-nowrap text-sm font-medium tabular-nums"/)
+    // The move keeps its word on a phone and „Alle auswählen“ is a text press, not a second press of its weight
+    // (review of 2026-11-10, finding 18).
+    expect(bar).not.toMatch(/phone:sr-only/)
+    expect(bar).toMatch(/variant="link"[\s\S]{0,400}data-testid="selection-all"/)
+    expect(bar).not.toMatch(/selection-count[\s\S]{0,40}truncate|truncate[^"]*"\s*role="status"/)
+    expect(doc('folder-brief')).not.toMatch(/folder-brief-toggle[\s\S]{0,900}?\btruncate\b/)
+  })
+
+  it('lets the upload tray’s summary wrap rather than cut', () => {
+    expect(doc('upload-tray')).toMatch(/aria-live="polite" className="text-pretty text-sm font-medium/)
+  })
+
+  it('floats the selection’s bar on the column’s edges, centred only where the column is', () => {
+    // Centred always, it stood 74px right of the tiles at 1700px, where the column keeps the rail's edge.
+    expect(doc('selection-bar')).toMatch(/md:mx-8 md:max-w-\[1216px\] @min-\[90rem\]\/section:mx-auto!/)
+  })
+
+  it('gives the places their room on a narrow section: every place keeps its name, a narrow one gives up its glyph', () => {
+    const nav = source('ui/components/shell/section-nav.tsx')
+    // Glyphs alone beside the rail were four boxes to guess (finding 2); a strip that scrolled cut „Papierkorb“ off.
+    expect(nav).toMatch(/compactOnPhone && !active && 'phone:sr-only'\)/)
+    expect(nav).toMatch(/onTrack && 'md:@max-\[44rem\]\/section:hidden'/)
+  })
+})
+
+describe('Dateien after the review of 2026-11-10 (round 7)', () => {
+  const doc = (component: string): string => source(`ui/features/documents/components/${component}.tsx`)
+
+  it('stands every meta line of a row on one baseline: the tiles stretch and the meta line keeps the foot', () => {
+    // Finding 7: a PDF's meta line stood 34px under its neighbour's, under an empty row and a two-line name.
+    const card = doc('file-card')
+    expect(card).not.toMatch(/group\/foot mt-0/)
+    expect(source('ui/features/documents/components/file-tile.tsx')).toMatch(/text-muted-foreground mt-auto flex w-full/)
+    expect(card).toMatch(/documentBadgeState\(\{ versionState: file\.versionState/)
+  })
+
+  it('gives the brief’s read line 24px over it and 32px under it, and the upload sheet 24px over it', () => {
+    // Finding 11: 24px over the first label, it read as the folders' caption.
+    expect(doc('file-browser-pane')).toMatch(/className=\{`\$\{CONTENT_MAX\} px-4 pb-4 pt-6`\}/)
+    expect(readFileSync(join(ROOT, 'ui/features/documents/components/upload-tray-sheet.ts'), 'utf8')).toMatch(/UPLOAD_TRAY_SHEET = 'mt-2 mb-4 /)
+  })
+
+  it('draws a request that asks the reader as an edged ink chip, never in a verdict’s colour', () => {
+    // Finding 12, and „Asks you“ in the design language.
+    const chip = source('ui/components/ui/asks-you-chip.tsx')
+    expect(chip).toMatch(/'bg-sheet shadow-press text-foreground [^']*h-7 [^']*rounded-full/)
+    expect(chip).not.toMatch(/ochre|warning|destructive|signal/)
+    expect(doc('folder-brief')).toMatch(/<AsksYouChip onPress=\{\(\) => onCollapsedChange\(false\)\}/)
+  })
+
+  it('keeps „Alle abbrechen“ on the upload tray’s headline row while it sends', () => {
+    // Finding 20: on its own row it left a 60px empty band on a phone.
+    expect(doc('upload-tray')).toMatch(/summary\.isSettled \? 'order-3 basis-full sm:order-2 sm:basis-auto' : 'order-2'/)
   })
 })

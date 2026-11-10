@@ -75,6 +75,7 @@ const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integ
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
 const PLATFORM_RELEASE = 'apps/workspace/bff/base-knowledge/platform/release.ts'
 const PLATFORM_READ = 'apps/workspace/bff/base-knowledge/platform/office-read.ts'
+const RECORD_VISIBILITY = 'apps/workspace/bff/base-knowledge/store/visibility.ts'
 const PLATFORM_INDEXING = 'apps/workspace/bff/base-knowledge/platform/indexing.ts'
 const PLATFORM_ENTITLEMENTS = 'apps/workspace/bff/base-knowledge/platform/entitlements.ts'
 const PLATFORM_VALIDATE = 'apps/workspace/bff/base-knowledge/platform/validate.ts'
@@ -211,7 +212,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
   { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
   // Migration 0205 (ADR-0165): the platform's columns and tables.
-  { element: 'knowledge_records.country_id', consumer: PLATFORM_READ, test: LISTING },
+  { element: 'knowledge_records.country_id', consumer: RECORD_VISIBILITY, test: LISTING },
   { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },

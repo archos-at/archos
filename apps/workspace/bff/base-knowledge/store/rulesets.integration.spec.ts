@@ -20,6 +20,7 @@
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { approveSeededRequest } from '../platform/testing/lifecycle'
 import type { RulesetValuesInput } from '../wire/ruleset'
 
 vi.mock('server-only', () => ({}))
@@ -171,7 +172,8 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
-        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`)
+        // Through the lifecycle the status trigger holds (migration 0218), never straight to approved.
+        await approveSeededRequest(tx, requestId, [revisionId], 'reviewer')
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
         await tx.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`)

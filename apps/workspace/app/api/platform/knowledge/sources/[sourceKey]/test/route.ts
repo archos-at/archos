@@ -23,5 +23,5 @@ export const POST = platformApiRoute<Params>(
       const { sourceKey } = parsed.data
       return testPlatformSource(session, sourceKey, await parseJsonBody(request, sourceTestBodySchema))
     }),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite },
 )

@@ -230,7 +230,7 @@ export const SECOND_REVIEW_DECISIONS = ['confirmed', 'disputed'] as const
 export type SecondReviewDecision = (typeof SECOND_REVIEW_DECISIONS)[number]
 
 /** The role an approver approves in. */
-export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer'] as const
+export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'privacy_reviewer'] as const
 export type ApprovalRole = (typeof APPROVAL_ROLES)[number]
 
 /** How a person said yes: in the app, or answering the door's elicitation. */

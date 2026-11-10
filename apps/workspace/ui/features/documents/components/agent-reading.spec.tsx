@@ -90,8 +90,8 @@ describe('AgentReading', () => {
         <AgentReading file={fileFixture({ tags: ['Grundriss', 'Brandschutz'] })} canManage />
       )
 
-      expect(screen.getByTestId('agent-reading-type')).toHaveTextContent('Grundriss')
-      expect(screen.getByText('Brandschutz')).not.toHaveAttribute('data-testid')
+      expect(screen.getByTestId('agent-reading-type')).toHaveTextContent('Floor plan')
+      expect(screen.getByText('Fire safety')).not.toHaveAttribute('data-testid')
     })
 
     it('names a type stored as a token by its label', () => {
@@ -144,7 +144,7 @@ describe('AgentReading', () => {
     it('shows no Correct or Assign to a viewer who cannot manage the document', () => {
       render(<AgentReading file={fileFixture({ tags: ['Grundriss'] })} canManage={false} />)
 
-      expect(screen.getByText('Grundriss')).toBeInTheDocument()
+      expect(screen.getByText('Floor plan')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull()
       expect(screen.queryByRole('button', { name: 'Assign' })).toBeNull()
       expect(screen.queryByTestId('agent-reading-editor')).toBeNull()

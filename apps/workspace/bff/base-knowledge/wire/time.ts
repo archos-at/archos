@@ -73,7 +73,7 @@ export const transitionTableSchema = decisionTableSchema.superRefine((table, con
 })
 export type TransitionTable = z.infer<typeof transitionTableSchema>
 
-/** An edition as the resolver reads it. `inForceTo` is the last day in force, inclusive (the RIS reading). */
+/** An edition as the resolver reads it. `inForceTo` is the first day no longer in force: the interval is half-open. */
 export interface DatedEdition {
   id: string
   label: string
@@ -87,6 +87,7 @@ export interface EditionRef {
   id: string
   label: string
   inForceFrom: string | null
+  /** The first day no longer in force (exclusive), not the last day in force; null while in force. */
   inForceTo: string | null
 }
 

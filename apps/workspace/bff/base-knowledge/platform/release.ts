@@ -148,8 +148,11 @@ export const DISPUTED_NOT_PUBLISHED =
 
 /**
  * Withdraw the preview of a disputed request before it is rejected (ADR-0176):
- * each record's preview back to where it was before this request, as appended
- * inverse moves. Stable is untouched; nothing of an approved request is there.
+ * each record whose preview still shows this request's revision goes back to
+ * where it stood before this request, as appended inverse moves. A record
+ * whose preview shows another request's revision is left alone: withdrawing
+ * past it would drop that request's revision.
+ * Stable is untouched; nothing of an approved request is there.
  */
 export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseActor, reason: string): Promise<number> {
   const previews = await tx
@@ -157,25 +160,27 @@ export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseAc
     .from(knowledgeReleaseMoves)
     .where(and(eq(knowledgeReleaseMoves.changeRequestId, requestId), eq(knowledgeReleaseMoves.channel, 'preview')))
     .orderBy(knowledgeReleaseMoves.seq)
-  // The first publish of each record names where its preview stood before this request; a rollback already retracted it.
-  const first = new Map<string, (typeof previews)[number]>()
-  for (const move of previews) if (!first.has(move.recordId)) first.set(move.recordId, move)
-  const retracted = new Set(previews.filter((move) => move.action === 'rollback').map((move) => move.recordId))
-  const open = [...first.values()].filter((move) => move.action === 'publish' && !retracted.has(move.recordId))
-  for (const move of open) {
+  let withdrawn = 0
+  for (const recordId of new Set(previews.map((move) => move.recordId))) {
+    const own = previews.filter((move) => move.recordId === recordId)
+    const [first, last] = [own[0], own[own.length - 1]]
+    // Still this request's preview: the record's preview shows the revision this request published, whichever
+    // request's move put it back there (another disputed request withdrawn over it restores it).
+    if (!first || !last || last.action !== 'publish' || (await newestPreview(tx, recordId)) !== last.toRevisionId) continue
     await tx.insert(knowledgeReleaseMoves).values({
-      recordId: move.recordId,
+      recordId,
       channel: 'preview',
       action: 'rollback',
-      fromRevisionId: await newestPreview(tx, move.recordId),
-      toRevisionId: move.fromRevisionId,
+      fromRevisionId: last.toRevisionId,
+      toRevisionId: first.fromRevisionId,
       changeRequestId: requestId,
       releasedBy: actor.by,
       decisionSource: actor.decisionSource,
       reason,
     })
+    withdrawn += 1
   }
-  return open.length
+  return withdrawn
 }
 
 export interface RollbackOutcome {

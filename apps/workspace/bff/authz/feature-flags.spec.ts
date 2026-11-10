@@ -64,8 +64,6 @@ describe('the registry', () => {
         'skills',
         // Not a cost or a widening: a sweep that fetches public sources and opens review work (ADR-0174).
         'source-monitors',
-        // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0162).
-        'source-routing',
         'task-automation',
       ].sort()
     )
