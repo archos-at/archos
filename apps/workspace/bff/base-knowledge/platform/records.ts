@@ -45,6 +45,8 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
   }
 }
 
+const isSiteOnly = (factors: readonly string[]): boolean => factors.length === 1 && factors[0] === 'site'
+
 /** The typed body columns of the revision a proposal becomes. */
 export function bodyOf(record: ProposedRecord): Record<string, unknown> {
   switch (record.type) {
@@ -61,6 +63,8 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
           ...(authorityKey ? { authorityId: `authority:${authorityKey}` } : {}),
         })),
         historyAvailableFrom: record.historyAvailableFrom,
+        // The site alone is the default column value, and no claim of its own (0212).
+        ...(isSiteOnly(record.connectsBy) ? {} : { connectsBy: record.connectsBy }),
       }
     case 'edition':
       return {
@@ -88,6 +92,9 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         aliases: record.aliases,
         validFrom: record.validFrom,
         validTo: record.validTo,
+        // Only a stated coverage is a claim a reviewer decides; unstated inherits (0212).
+        ...(record.coverageLevel === null ? {} : { coverageLevel: record.coverageLevel }),
+        ...(record.municipalLaw === null ? {} : { municipalLaw: record.municipalLaw }),
       }
     case 'relation':
       return {
@@ -118,9 +125,17 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
 const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus'])
 
+/** A column 0212 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
+function unstated(path: string, value: unknown): boolean {
+  if (path === 'coverageLevel' || path === 'municipalLaw') return value === null || value === undefined
+  if (path === 'connectsBy') return Array.isArray(value) && isSiteOnly(value as string[])
+  return false
+}
+
 /** The claims of a stored body: every column a reviewer accepts, edits or rejects. */
 export function claimsOf(body: Record<string, unknown>): { path: string; value: unknown }[] {
   return Object.entries(body)
     .filter(([path]) => !NOT_CLAIMS.has(path))
+    .filter(([path, value]) => !unstated(path, value))
     .map(([path, value]) => ({ path, value }))
 }

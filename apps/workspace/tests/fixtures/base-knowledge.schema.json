@@ -102,6 +102,15 @@
         "city_district"
       ]
     },
+    "knowledge_territory_revisions.coverage_level": {
+      "type": "string",
+      "enum": [
+        "none",
+        "open",
+        "core",
+        "full"
+      ]
+    },
     "knowledge_change_requests.status": {
       "type": "string",
       "enum": [

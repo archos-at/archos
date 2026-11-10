@@ -1,0 +1,15 @@
+---
+# area: office-knowledge
+features:
+  - >
+    Answers now say how far the base knowledge goes where a project stands:
+    not set up for that country, read from the official source without review,
+    or overdue for a check. Your documents and your office's own copies still
+    answer, and the HOAI is shown as depending on the office's seat.
+operators:
+  - >
+    Off until the knowledge-context flag is set for an organization. Migration
+    0212 adds coverage on territory records, a work's connecting factor, the
+    record of which edition each answer used, and confirmed project
+    Steckbriefe. Coverage is set by publishing a reviewed change request; a
+    territory without one reads as having no base knowledge.

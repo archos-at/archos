@@ -134,6 +134,24 @@ export const OFFICE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset
 export const TERRITORY_KINDS = ['union', 'country', 'state', 'district', 'municipality', 'city_district'] as const
 export type TerritoryKind = (typeof TERRITORY_KINDS)[number]
 
+/**
+ * How far the platform's records go in a territory (design §4.6, migration
+ * 0212): `none` holds territories only, `open` live official sources nobody
+ * curated, `core` reviewed codes and the relations that make them binding,
+ * `full` competence, classification, Stichtag rules and fact sources too.
+ * Ordered weakest first: a site's gate is its weakest leaf.
+ */
+export const COVERAGE_LEVELS = ['none', 'open', 'core', 'full'] as const
+export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
+
+/**
+ * What a work attaches to (migration 0212, design §3.1): the site, the office's
+ * seat (HOAI), or the client (VgV for a public one). A work that attaches to
+ * anything but the site is never binding by the site's chain alone (E40).
+ */
+export const CONNECTING_FACTORS = ['site', 'office_seat', 'client'] as const
+export type ConnectingFactor = (typeof CONNECTING_FACTORS)[number]
+
 /** Where a platform change request stands (design §4.4). */
 export const CHANGE_REQUEST_STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'published', 'rolled_back'] as const
 export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
@@ -177,6 +195,7 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_ruleset_revisions.purpose': RULESET_PURPOSES,
   'knowledge_ruleset_revisions.payload_schema': RULESET_PAYLOAD_SCHEMAS,
   'knowledge_territory_revisions.kind': TERRITORY_KINDS,
+  'knowledge_territory_revisions.coverage_level': COVERAGE_LEVELS,
   'knowledge_change_requests.status': CHANGE_REQUEST_STATUSES,
   'knowledge_review_decisions.decision': REVIEW_DECISIONS,
   'knowledge_approvals.role': APPROVAL_ROLES,

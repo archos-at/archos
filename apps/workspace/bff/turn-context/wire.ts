@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { buildingLawTurnSchema } from '@/lib/base-knowledge/chain/wire'
+import { knowledgeContextSchema } from '@/lib/base-knowledge/context/wire'
 
 export const turnContextRequestSchema = z.object({
   query: z.string().trim().max(2000).optional(),
@@ -52,6 +53,15 @@ export const turnContextResponseSchema = z.object({
    * agent ignores it.
    */
   buildingLaw: buildingLawTurnSchema.nullable(),
+  /**
+   * The turn's knowledge context (`lib/base-knowledge/context/`, ADR-0173):
+   * the gate, the chain, each edition's role with its coverage qualifier and
+   * freshness, the packs and their release sequence, and the countries the
+   * turn may retrieve from. Absent, not null, when the `knowledge-context` flag
+   * is off, so the response is byte for byte what it was; an older agent
+   * ignores it.
+   */
+  knowledgeContext: knowledgeContextSchema.optional(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

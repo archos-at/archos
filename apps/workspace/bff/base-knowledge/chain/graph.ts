@@ -5,7 +5,7 @@
  * by hand ("paper" fixtures).
  */
 
-import type { BindingMode, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
 export type GraphOwner = 'platform' | 'office'
@@ -20,6 +20,10 @@ export interface GraphTerritory {
   datedParents: readonly { id: string; validFrom?: string | null; validTo?: string | null }[]
   validFrom: string | null
   validTo: string | null
+  /** How far the records go here (0212); absent or null inherits from the parent. */
+  coverageLevel?: CoverageLevel | null
+  /** Whether the node's own municipal law is held (0212); stated with its coverage. */
+  municipalLaw?: boolean | null
 }
 
 export interface GraphWork {
@@ -32,6 +36,8 @@ export interface GraphWork {
   territoryIds: readonly string[]
   /** A directive's addressees, by the territory each decides for. */
   addresseeTerritoryIds: readonly string[]
+  /** What it attaches to (0212); absent reads as the site. */
+  connectsBy?: readonly ConnectingFactor[]
 }
 
 export interface GraphEdition {
@@ -44,6 +50,8 @@ export interface GraphEdition {
   inForceTo: string | null
   /** The base-corpus files that hold its text: how a retrieved passage finds its edition. */
   corpusFiles: readonly string[]
+  /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
+  lastCheck?: { checkedAt: string; result: string } | null
 }
 
 export interface RelationAnchorPair {

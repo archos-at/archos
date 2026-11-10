@@ -238,6 +238,10 @@ const BOUNDARY_MIGRATIONS = [
   // table, layered like 0202's and append-only; and re-secures knowledge_records,
   // whose platform read now also follows a released relation across packs.
   '0211_country_pack.sql',
+  // Adds message_edition_uses (the editions an answer used, E25) and
+  // project_base_confirmations (a confirmed Steckbrief), both keyed by their
+  // organization (ADR-0173).
+  '0212_knowledge_context.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

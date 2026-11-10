@@ -15,6 +15,7 @@
 import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
+  CoverageLevel,
   ChangeRequestStatus,
   IndexRunState,
   PersonDecisionSource,
@@ -52,6 +53,10 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
   validFrom: date('valid_from'),
   validTo: date('valid_to'),
+  /** How far the platform's records go in this node (0212, design §4.6); NULL inherits from the parent. */
+  coverageLevel: text('coverage_level').$type<CoverageLevel>(),
+  /** Whether the node's own municipal law is held (0212). */
+  municipalLaw: boolean('municipal_law'),
 })
 
 /** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */

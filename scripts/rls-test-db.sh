@@ -3677,3 +3677,24 @@ check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t02
 apply_in cp_0211 0211_country_pack.sql
 check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0211 applies again after its down"
 echo "==> 0211 country pack and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0212: the knowledge context (ADR-0173): coverage on a territory revision and
+# a work's connecting factor are closed vocabularies; an edition use and a
+# confirmed Steckbrief are tenant tables under row-level security; the down
+# drops both tables and both columns, and 0212 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0212 knowledge context and its down migration on kc_0212"
+migrate_until kc_0212 0212_knowledge_context
+refused_in kc_0212 "INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, coverage_level) VALUES (gen_random_uuid(), 'DE', NULL, 'country', 'Deutschland', 'partial')" "knowledge_territory_revisions_coverage_known" "a coverage level nobody defined"
+refused_in kc_0212 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{nationality}')" "knowledge_work_revisions_connects_by_known" "a connecting factor nobody defined"
+refused_in kc_0212 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{}')" "knowledge_work_revisions_connects_by_known" "a work that attaches to nothing"
+refused_in kc_0212 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0212', 'work:x', 'binding')" "message_edition_uses_message_id_fkey" "an edition use of a message that does not exist"
+refused_in kc_0212 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0212', 'work:x', 'decisive')" "message_edition_uses_role_known" "a role nobody defined"
+check_in kc_0212 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('message_edition_uses', 'project_base_confirmations')" "message_edition_uses:true,project_base_confirmations:true" "0212: both tables are under row-level security"
+apply_in kc_0212 0212_knowledge_context.down.sql
+check_in kc_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "0" "0212 down drops both tables"
+check_in kc_0212 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'coverage_level'" "0" "0212 down drops the coverage column"
+apply_in kc_0212 0212_knowledge_context.sql
+check_in kc_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0212 applies again after its down"
+echo "==> 0212 knowledge context and its down migration verified"
