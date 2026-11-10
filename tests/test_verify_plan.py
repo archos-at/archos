@@ -116,3 +116,20 @@ def test_a_change_to_a_gate_outside_verify_names_that_gate(verify_plan, filters)
 def test_no_base_runs_everything(verify_plan, monkeypatch) -> None:
     monkeypatch.setattr(verify_plan, "_git", lambda *args: None)
     assert verify_plan.changed_paths("origin/develop") is None
+
+
+@pytest.mark.parametrize(("recorded", "backend"), [(True, "be:verify:affected"), (False, "be:verify:fast")])
+def test_the_entrypoint_selects_python_tests_only_from_recorded_databases(
+    verify_plan, monkeypatch, capsys, recorded, backend
+) -> None:
+    monkeypatch.setattr(verify_plan, "changed_paths", lambda base: ["packages/agent/src/agent/common/source_kinds.py"])
+    monkeypatch.setattr(verify_plan, "recorded_databases", lambda: recorded)
+    assert verify_plan.main(["verify_plan.py", "--dry-run"]) == 0
+    assert capsys.readouterr().out.strip().endswith(f"task --parallel --output=group lint:repo {backend}")
+
+
+def test_all_runs_what_be_test_and_the_harness_list_cover(verify_plan) -> None:
+    backend = (ROOT / "taskfiles" / "backend.yml").read_text(encoding="utf-8")
+    fast = backend.split("  be:verify:fast:\n", 1)[1].split("\n\n", 1)[0]
+    assert "- task: be:test\n" in fast
+    assert "be:test:harness" not in verify_plan.full_plan("x").tasks

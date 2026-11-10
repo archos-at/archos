@@ -93,6 +93,7 @@ class Plan:
 
 
 def load_filters(path: Path = FILTERS) -> dict[str, list[str]]:
+    """The tiers of `.github/filters.yml`, each with its path globs."""
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
@@ -104,6 +105,7 @@ def tiers_for(changed: list[str], filters: dict[str, list[str]]) -> set[str]:
 
 
 def recorded_databases(root: Path = ROOT) -> bool:
+    """Whether `task be:test:testmon` has recorded all three suites in this checkout."""
     return all((root / name).is_file() for name in TESTMON_DATABASES)
 
 
@@ -122,6 +124,7 @@ def _backend_tasks(changed: list[str], test_files: dict[str, str] | None) -> tup
 
 
 def _ui_tasks(changed: list[str], disk_readers: pr_selection.DiskReaders) -> tuple[list[str], list[str], str]:
+    """`(tasks, paths for vitest related, note)` for the UI suite, by `decide_ui`."""
     mode, files, reason = pr_selection.decide_ui(changed, disk_readers)
     if mode == "full":
         return ["workspace:test"], [], f"UI suite: whole ({reason})"
@@ -131,6 +134,7 @@ def _ui_tasks(changed: list[str], disk_readers: pr_selection.DiskReaders) -> tup
 
 
 def full_plan(reason: str) -> Plan:
+    """Every tier whole. The harness tests are not named: `be:verify:fast` runs `be:test`, which keeps them."""
     tasks = [task for tier in TIER_TASKS for task in TIER_TASKS[tier]]
     return Plan(tasks=(*tasks, "workspace:test"), notes=(f"every tier, whole: {reason}",))
 
@@ -168,6 +172,7 @@ def plan(
 
 
 def _git(*args: str) -> str | None:
+    """A git command's output, or None when it fails (no such ref, not a repository)."""
     done = subprocess.run(["git", *args], cwd=ROOT, check=False, capture_output=True, text=True)
     return done.stdout if done.returncode == 0 else None
 
@@ -195,6 +200,7 @@ def command(task_exe: str, decided: Plan) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    """Print the plan, then run it unless `--dry-run`; the exit status is the run's."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--all", action="store_true", help="run every tier whole")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and stop")
