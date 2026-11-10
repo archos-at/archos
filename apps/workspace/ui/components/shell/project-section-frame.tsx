@@ -303,7 +303,7 @@ export function ProjectSectionFrame({
           )}
           {segment === 'files' && phone && actions && !actionsOnTitle && <div className="mt-4 min-w-0">{actions}</div>}
         </div>
-        <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>
+        <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
     </TabActionsContext.Provider>
     </ActionsContext.Provider>

@@ -825,3 +825,11 @@ describe('a sheet keeps its edge', () => {
     expect(card).toMatch(/<FileTileBody className=\{cn\('overflow-visible p-0'/)
   })
 })
+
+describe('a sheet keeps its edge on a filled section', () => {
+  // The mail reader's sheet starts at the top of a `fill` section, whose clip cut its ring (2026-11-10).
+  it('the fill frame leaves 1px above its content for a sheet ring', () => {
+    const frame = withoutComments(readFileSync(join(ROOT, 'ui/components/shell/project-section-frame.tsx'), 'utf8'))
+    expect(frame).toContain("fill ? 'overflow-hidden pt-px'")
+  })
+})
