@@ -72,7 +72,6 @@ answer and latency, per arm and per row.
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
 import os
 import re
@@ -87,6 +86,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
@@ -238,8 +238,8 @@ def set_questions(name: str | None) -> list[dict]:
     """Every row of a set, whatever its ``suite``: a fixture set's from its own module, a norm set's from its file."""
     if name == "precedent":
         return load_precedent_questions()
-    if module := _SET_MODULES.get(str(name)):
-        return importlib.import_module(module).load_questions()
+    if module := _set_module(name):
+        return module.load_questions()
     return load_questions(path=NORM_QUESTIONS.get(str(name), QUESTIONS), core_only=False)[0]
 
 
@@ -737,8 +737,8 @@ def render(
         "",
         *(failing or ["None."]),
     ]
-    if module := _SET_MODULES.get(str(meta.get("set"))):
-        lines += ["", *importlib.import_module(module).report_lines(runs, meta)]
+    if module := _set_module(meta.get("set")):
+        lines += ["", *module.report_lines(runs, meta)]
     if skipped:
         lines += ["", f"Skipped, need a project: {', '.join(skipped)}."]
     if not_in_corpus:
@@ -746,14 +746,16 @@ def render(
     return "\n".join(lines) + "\n"
 
 
-#: A set's own module: its ``load_questions()`` and the ``report_lines(runs, meta)`` it adds to the report.
-_SET_MODULES = {
-    "workspace": "workspace_eval",
-    "files": "files_eval",
-    "visual": "visual_eval",
-    "north-star": "north_star_eval",
-    "editions": "edition_eval",
-}
+def _set_module(name: str | None) -> ModuleType | None:
+    """A set's own module: its ``load_questions()``, and the ``report_lines(runs, meta)`` it adds to the report."""
+    import edition_eval
+    import files_eval
+    import north_star_eval
+    import visual_eval
+    import workspace_eval
+
+    modules = {"workspace": workspace_eval, "files": files_eval, "visual": visual_eval, "editions": edition_eval}
+    return {**modules, "north-star": north_star_eval}.get(str(name))
 
 
 def split_lines(runs: list[Run]) -> list[str]:
