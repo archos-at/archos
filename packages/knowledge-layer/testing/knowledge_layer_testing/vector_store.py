@@ -211,12 +211,13 @@ def fresh_qdrant_store(monkeypatch) -> Iterator[store_module.QdrantStore]:
 
 
 #: The payload indexes a test of a collection's copy and length tuning filters on.
-FEW_INDEXES = frozenset({"scope", "kind", "file_name", "chunk_id", schema.TEXT_FIELD})
+#: ``office_id`` is among them because every search over an office's scope filters on it (``scope.office_condition``).
+FEW_INDEXES = frozenset({"scope", "kind", "file_name", "chunk_id", schema.OFFICE_FIELD, schema.TEXT_FIELD})
 
 
 @pytest.fixture
 def few_payload_indexes(monkeypatch) -> None:
-    """Collections made with :data:`FEW_INDEXES` instead of all 62: each index is
+    """Collections made with :data:`FEW_INDEXES` instead of every indexed field: each index is
     made on the server, about 70 ms, and a rebuild test makes a pair or more. The
     index set itself is the store's tests' to pin (``test_qdrant_store.py``)."""
     monkeypatch.setattr(schema, "INDEXED_FIELDS", FEW_INDEXES)
@@ -241,3 +242,20 @@ def capture_indexed_documents(monkeypatch, into: list[list[Any]] | None = None) 
 
     monkeypatch.setattr(LlamaIndexIngestor, "_embedded_records", recording)
     return calls
+
+
+#: The office a store-backed test reads its project and session scopes as.
+TEST_OFFICE = "org_test"
+
+
+@pytest.fixture
+def reads_as_an_office() -> Iterator[None]:
+    """Searches read as :data:`TEST_OFFICE`, as every request names its office (``vector_store.ScopeRead``, ADR-0158).
+
+    A search over a tenant scope that names no office is refused; a test of the
+    search itself, not of that refusal, reads as one the way a turn does.
+    """
+    from knowledge_layer.search import reading_as
+
+    with reading_as(TEST_OFFICE):
+        yield

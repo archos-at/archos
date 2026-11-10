@@ -26,6 +26,9 @@ from knowledge_layer_testing.vector_store import vector as _vector
 
 from agent import project_context
 
+# A search over a project or session scope reads as an office, as every request does (ADR-0158).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 #: The real reader, before ``retriever`` stubs it for the tests that need no metadata store.
 FACTS_BY_FILE = writes.facts_by_file
 
