@@ -41,4 +41,3 @@ export function requirePersonDecision(what: string): PersonDecisionSource {
   if (acting.decisionSource === 'elicitation' || acting.decisionSource === 'app') return acting.decisionSource
   throw new PersonDecisionRequiredError(what)
 }
-
