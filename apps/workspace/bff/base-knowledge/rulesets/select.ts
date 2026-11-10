@@ -21,7 +21,7 @@
 import type { DecisionTable, RulesetValues } from '@/lib/base-knowledge/wire/ruleset'
 import type { RulesetPurpose } from '@/lib/base-knowledge/wire/vocab'
 import { evaluateDecisionTable, type TableResult } from './decision-table'
-import type { Facts } from './expression'
+import { RulesetEvaluationError, type Facts } from './expression'
 
 export interface StoredRuleset {
   id: string
@@ -77,6 +77,9 @@ function atNode(
 }
 
 export function selectRuleset(rulesets: readonly StoredRuleset[], query: RulesetQuery): Selection {
+  // Validity compares ISO dates as text, which is only right for an ISO date.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(query.on))
+    throw new RulesetEvaluationError(`on is an ISO date, found ${query.on}`)
   const inheritance = INHERITANCE_BY_PURPOSE[query.purpose]
   for (const territoryId of query.chain) {
     const found = atNode(rulesets, query, territoryId)

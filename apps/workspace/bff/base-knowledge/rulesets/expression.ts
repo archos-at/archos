@@ -97,50 +97,144 @@ function operation(expression: unknown): { op: string; args: unknown[] } | null 
 }
 
 /**
- * What is wrong with a condition, as messages; empty when it is in the subset
- * and every `var` names a declared input (or the element, inside a list operator).
+ * The static type of an expression: what the subset lets each operator take.
+ * `scalar` is a list element, which `===` and `in` compare and nothing else reads.
+ */
+type StaticType = 'boolean' | 'number' | 'string' | 'list' | 'scalar'
+
+const STATIC_TYPE_OF_FACT: Record<FactType, StaticType> = {
+  number: 'number',
+  boolean: 'boolean',
+  code: 'string',
+  date: 'string',
+  codes: 'list',
+}
+
+interface Checked {
+  type: StaticType | null
+  problems: string[]
+}
+
+const problem = (message: string): Checked => ({ type: null, problems: [message] })
+
+/**
+ * What is wrong with a condition, as messages; empty when it is in the subset,
+ * every `var` names a declared input (or the element, inside a list operator),
+ * every operator gets operands of the types it takes, and the whole is a
+ * boolean. Checked when a table is written, so a mistyped condition is refused
+ * then, not first noticed on the day its facts are answered.
  */
 export function checkExpression(
   expression: unknown,
-  declared: ReadonlyMap<string, FactType>,
-  inList = false
+  declared: ReadonlyMap<string, FactType>
 ): string[] {
-  if (isScalar(expression)) return []
+  const checked = typeOf(expression, declared, null)
+  if (checked.problems.length > 0) return checked.problems
+  return checked.type === 'boolean' ? [] : [`a condition is a boolean, found ${checked.type}`]
+}
+
+function typeOf(
+  expression: unknown,
+  declared: ReadonlyMap<string, FactType>,
+  element: StaticType | null
+): Checked {
+  if (typeof expression === 'boolean') return { type: 'boolean', problems: [] }
+  if (typeof expression === 'string') return { type: 'string', problems: [] }
+  if (typeof expression === 'number')
+    return Number.isFinite(expression)
+      ? { type: 'number', problems: [] }
+      : problem('a number is finite')
   if (Array.isArray(expression)) {
     return expression.every(isScalar)
-      ? []
-      : ['a list literal holds numbers, strings or booleans only']
+      ? { type: 'list', problems: [] }
+      : problem('a list literal holds numbers, strings or booleans only')
   }
   let node: ReturnType<typeof operation>
   try {
     node = operation(expression)
   } catch (error) {
-    return [(error as Error).message]
+    return problem((error as Error).message)
   }
-  if (!node) return [`${JSON.stringify(expression)} is not in the subset`]
+  if (!node) return problem(`${JSON.stringify(expression)} is not in the subset`)
   const { op, args } = node
-  if (!isOperator(op)) return [`operator ${op} is not in the subset`]
+  if (!isOperator(op)) return problem(`operator ${op} is not in the subset`)
   const [min, max] = OPERATORS[op]
   if (args.length < min || args.length > max)
-    return [`${op} takes ${min} to ${max} arguments, found ${args.length}`]
-  if (op === 'var') return checkVar(args[0], declared, inList)
+    return problem(`${op} takes ${min} to ${max} arguments, found ${args.length}`)
+  if (op === 'var') return typeOfVar(args[0], declared, element)
   if (op === 'all' || op === 'some' || op === 'none') {
-    return [
-      ...checkExpression(args[0], declared, inList),
-      ...checkExpression(args[1], declared, true),
-    ]
+    const list = typeOf(args[0], declared, element)
+    const predicate = typeOf(args[1], declared, 'scalar')
+    return expecting(op, [list, predicate], ['list', 'boolean'], 'boolean')
   }
-  return args.flatMap((arg) => checkExpression(arg, declared, inList))
+  const operands = args.map((arg) => typeOf(arg, declared, element))
+  return typeOfOperation(op, operands)
 }
 
-function checkVar(
+function typeOfVar(
   name: unknown,
   declared: ReadonlyMap<string, FactType>,
-  inList: boolean
-): string[] {
-  if (typeof name !== 'string') return ['var names one fact, with no default']
-  if (name === ELEMENT) return inList ? [] : ['var "" is only the element inside all, some or none']
-  return declared.has(name) ? [] : [`var ${name} is not a declared input`]
+  element: StaticType | null
+): Checked {
+  if (typeof name !== 'string') return problem('var names one fact, with no default')
+  if (name === ELEMENT)
+    return element
+      ? { type: element, problems: [] }
+      : problem('var "" is only the element inside all, some or none')
+  // As in JsonLogic, a predicate's data is the element: the table's facts are out of its reach.
+  if (element) return problem(`inside all, some or none only the element is read, not ${name}`)
+  const type = declared.get(name)
+  return type
+    ? { type: STATIC_TYPE_OF_FACT[type], problems: [] }
+    : problem(`var ${name} is not a declared input`)
+}
+
+/** Each operand must have its expected type (`scalar` accepts any of number, string, boolean or element). */
+function expecting(
+  op: string,
+  operands: readonly Checked[],
+  expected: readonly StaticType[],
+  result: StaticType
+): Checked {
+  const problems = operands.flatMap((operand) => operand.problems)
+  if (problems.length > 0) return { type: null, problems }
+  const fits = (actual: StaticType | null, wanted: StaticType) =>
+    actual === wanted ||
+    (wanted === 'scalar' &&
+      (actual === 'number' || actual === 'string' || actual === 'boolean' || actual === 'scalar'))
+  const wrong = operands.findIndex((operand, index) => !fits(operand.type, expected[index]))
+  if (wrong >= 0)
+    return problem(
+      `${op} takes ${expected[wrong]} as operand ${wrong + 1}, found ${operands[wrong].type}`
+    )
+  return { type: result, problems: [] }
+}
+
+function typeOfOperation(
+  op: Exclude<Operator, 'var' | 'all' | 'some' | 'none'>,
+  operands: readonly Checked[]
+): Checked {
+  const all = (type: StaticType) => operands.map(() => type)
+  switch (op) {
+    case 'and':
+    case 'or':
+    case '!':
+      return expecting(op, operands, all('boolean'), 'boolean')
+    case '===':
+    case '!==':
+      return expecting(op, operands, all('scalar'), 'boolean')
+    case 'in':
+      return expecting(op, operands, ['scalar', 'list'], 'boolean')
+    case '<':
+    case '<=':
+    case '>':
+    case '>=': {
+      const first = operands[0]?.type
+      return expecting(op, operands, all(first === 'string' ? 'string' : 'number'), 'boolean')
+    }
+    default:
+      return expecting(op, operands, all('number'), 'number')
+  }
 }
 
 /** A fact as the evaluator reads it: its value, unknown, or a refusal when its type is not the declared one. */
@@ -168,7 +262,14 @@ export function scopeOf(
   facts: Facts
 ): ReadonlyMap<string, Kleene> {
   return new Map(
-    inputs.map((input) => [input.key, readFact(input.key, input.type, facts[input.key])])
+    inputs.map((input) => [
+      input.key,
+      readFact(
+        input.key,
+        input.type,
+        Object.hasOwn(facts, input.key) ? facts[input.key] : undefined
+      ),
+    ])
   )
 }
 

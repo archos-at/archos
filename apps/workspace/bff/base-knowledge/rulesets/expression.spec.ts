@@ -128,6 +128,34 @@ describe('closed and typed: what it refuses rather than reads as false', () => {
     expect(checkExpression(expression, DECLARED)).toContain(message)
   })
 
+  it.each([
+    [{ '!': { var: 'n1' } }, '! takes boolean as operand 1, found number'],
+    [{ in: [1, 'abc'] }, 'in takes list as operand 2, found string'],
+    [{ '<': [1, 'a'] }, '< takes number as operand 2, found string'],
+    [{ '+': [{ var: 'n1' }, 'x'] }, '+ takes number as operand 2, found string'],
+    [{ '===': [{ var: 'n1' }, [1]] }, '=== takes scalar as operand 2, found list'],
+    [{ all: [{ var: 'n1' }, true] }, 'all takes list as operand 1, found number'],
+    [{ '!': [[true]] }, '! takes boolean as operand 1, found list'],
+    [{ or: [true, { var: 'n1' }] }, 'or takes boolean as operand 2, found number'],
+    [{ '+': [1, 2] }, 'a condition is a boolean, found number'],
+    [
+      { some: [{ var: 'l1' }, { '===': [{ var: 'c1' }, 'a'] }] },
+      'inside all, some or none only the element is read, not c1',
+    ],
+  ])(
+    'refuses the mistyped %j when the table is written, whatever is known',
+    (expression, message) => {
+      expect(checkExpression(expression, DECLARED)).toEqual([message])
+    }
+  )
+
+  it('reads a fact named like an Object prototype key as unknown, not as the prototype', () => {
+    expect(scopeOf([{ key: 'constructor', type: 'code' }], {}).get('constructor')).toEqual({
+      known: false,
+      waitsFor: new Set(['constructor']),
+    })
+  })
+
   it('throws on a fact of another type than its input declares', () => {
     expect(() => scopeOf(INPUTS, { n1: '3' })).toThrow(RulesetEvaluationError)
     expect(() => scopeOf(INPUTS, { b1: 'yes' })).toThrow(RulesetEvaluationError)

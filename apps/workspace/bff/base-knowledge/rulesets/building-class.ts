@@ -36,10 +36,19 @@ function tableOf(values: RulesetValues): DecisionTable {
   return values.body.payload
 }
 
-/** D0's uses as the list the table reads; none given is unknown, as in the derivation. */
+/**
+ * D0's uses as the list the table reads; none given is unknown, as in the
+ * derivation. A list holding anything but tokens is unreadable, so unknown:
+ * the profile's type allows only strings, and a guess here would be a class.
+ */
 function readUses(raw: ProjectPrimitiveValue | undefined): string[] | null {
-  const uses = Array.isArray(raw) ? raw : typeof raw === 'string' && raw !== '' ? [raw] : []
-  return uses.length === 0 ? null : uses.map(String)
+  const uses: unknown[] = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string' && raw !== ''
+      ? [raw]
+      : []
+  if (uses.length === 0 || !uses.every((use): use is string => typeof use === 'string')) return null
+  return uses
 }
 
 /** A Building's stored answers as the table's facts: `null` where the profile holds no readable answer. */

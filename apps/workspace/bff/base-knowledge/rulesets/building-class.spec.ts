@@ -103,6 +103,22 @@ describe('the OIB 2023 building class ruleset', () => {
     )
   })
 
+  it('reads a list of uses holding anything but tokens as unknown, never as rein Wohnen', () => {
+    // Outside the profile's type (a string list); the derivation reads it as not residential.
+    const odd = {
+      ...singleFamilyHouse,
+      gfa_above_ground: 600,
+      use_units: 3,
+      uses: [['residential']],
+    }
+    expect(buildingClassFromRuleset(odd as unknown as Inputs)).toEqual({
+      value: null,
+      hochhaus: false,
+      applicable: true,
+      missing: ['uses'],
+    })
+  })
+
   it('lists the missing inputs in the derivation’s order', () => {
     expect(buildingClassFromRuleset({}).missing).toEqual([...BUILDING_CLASS_INPUTS])
   })

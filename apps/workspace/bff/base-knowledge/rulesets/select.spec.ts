@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { rulesetValuesSchema, type RulesetValuesInput } from '@/lib/base-knowledge/wire/ruleset'
+import { RulesetEvaluationError } from './expression'
 import { decide, selectRuleset, type StoredRuleset } from './select'
 
 const ruleset = (id: string, values: RulesetValuesInput): StoredRuleset => ({
@@ -197,6 +198,12 @@ describe('selecting the ruleset', () => {
       territoryId: 'DE',
       rulesetIds: ['a', 'b'],
     })
+  })
+
+  it('refuses a date that is not ISO rather than compare it as text', () => {
+    expect(() =>
+      selectRuleset(RULESETS, { purpose: 'competence', chain: ['DE-BE'], on: '10.11.2026' })
+    ).toThrow(RulesetEvaluationError)
   })
 
   it('refuses a table for a purpose that has no decision table schema', () => {

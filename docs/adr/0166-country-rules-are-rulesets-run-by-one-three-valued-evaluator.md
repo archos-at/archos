@@ -67,9 +67,12 @@ Chosen option 3.
   runs the examples (`writableRuleset`).
 - **Conditions.** JsonLogic restricted to `var` (no default), `and`, `or`, `!`,
   `===`, `!==`, `<`, `<=` (two or three arguments), `>`, `>=`, `in` over a list,
-  `+ - * /`, `min`, `max`, and `all`, `some`, `none` over a `codes` fact. Typed:
-  connectives take booleans, comparisons two numbers or two ISO dates, so the
-  subset and JsonLogic agree wherever both answer
+  `+ - * /`, `min`, `max`, and `all`, `some`, `none` over a list, whose
+  predicate reads only the element (`var ""`), as JsonLogic scopes it. Typed,
+  and checked when the table is written: connectives take booleans,
+  comparisons two numbers or two ISO dates, arithmetic numbers, and a condition
+  is a boolean. A mistyped condition is refused then, not on the day its facts
+  are answered, and the subset and JsonLogic agree wherever both answer
   (`bff/base-knowledge/rulesets/expression.ts`).
 - **Semantics.** Kleene's strong logic: an unknown fact makes an expression
   unknown unless the known part decides it, and an unknown value carries the
