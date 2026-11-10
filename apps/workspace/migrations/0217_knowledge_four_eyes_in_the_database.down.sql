@@ -18,6 +18,24 @@ CREATE OR REPLACE FUNCTION knowledge_required_approval_roles(request uuid) RETUR
       WHERE r.change_request_id = request AND s.data_flow = 'site_keyed') THEN 'privacy_reviewer' END
   ], NULL)
 $$;
+-- 0214's source check: every revision of the request, superseded ones included.
+CREATE OR REPLACE FUNCTION knowledge_sources_unchecked(request uuid) RETURNS boolean
+  LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM knowledge_revisions r
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(r.provenance -> 'citations') = 'array' THEN r.provenance -> 'citations' ELSE '[]'::jsonb END
+    ) AS c(citation)
+    JOIN knowledge_citation_captures k ON k.id::text = c.citation ->> 'captureId'
+    WHERE r.change_request_id = request
+      AND k.basis = 'operator_supplied'
+      AND NOT EXISTS (
+        SELECT 1 FROM knowledge_review_decisions d
+        WHERE d.revision_id = r.revision_id AND d.source_checked AND d.reviewer <> r.created_by
+      )
+  )
+$$;
 CREATE OR REPLACE FUNCTION knowledge_approval_sources_checked() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.override_reason IS NULL AND knowledge_sources_unchecked(NEW.change_request_id) THEN

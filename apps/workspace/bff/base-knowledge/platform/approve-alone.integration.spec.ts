@@ -455,6 +455,28 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(await approvalRows(id)).toHaveLength(0)
   })
 
+  it('reads the source check off the revisions a request releases: a re-proposal that drops a pasted page clears it', async () => {
+    const id = await store.insertChangeRequest({ title: 'repaired', countryId: 'AT', createdBy: AUTHOR })
+    const capture = await onboarding.capturePlatformCitation(owner, id, {
+      basis: 'operator_supplied',
+      url: 'https://www.example.org/leitfaden-repariert',
+      text: 'Leitfaden Barrierefreiheit, Ausgabe 2027, des Landes',
+    })
+    const work = (citations: { captureId: string; quote: string }[]) =>
+      wire.proposedRecordSchema.parse({ type: 'work', key: `repaired-${RUN}`, kind: 'guideline', title: 'Leitfaden Barrierefreiheit', citations })
+    const propose = (records: ReturnType<typeof work>[], submit: boolean) =>
+      store.platformTransaction(async (tx) => {
+        const request = await store.lockChangeRequest(tx, id)
+        await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
+        if (submit) await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
+      })
+    await propose([work([{ captureId: capture.captureId, quote: 'Leitfaden Barrierefreiheit, Ausgabe 2027' }])], false)
+    // Resent after a repair, in a later call, without the pasted page: the record's newest revision is what the request releases.
+    await propose([work([])], true)
+    expect((await service.getPlatformChangeRequest(owner, id)).sourcesUnchecked).toBe(false)
+    await expect(service.decidePlatformChangeRequest(owner, id, alone)).resolves.toMatchObject({ status: 'approved' })
+  })
+
   describe('the lifecycle the database holds (migration 0217)', () => {
     const STATUSES = ['draft', 'submitted', 'approved', 'published', 'rejected', 'rolled_back'] as const
     type Status = (typeof STATUSES)[number]

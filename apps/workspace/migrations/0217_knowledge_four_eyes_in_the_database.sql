@@ -100,6 +100,31 @@ $$;
 CREATE TRIGGER knowledge_change_requests_status_moves BEFORE INSERT OR UPDATE OF "status" ON "knowledge_change_requests"
   FOR EACH ROW EXECUTE FUNCTION knowledge_change_request_status_moves();
 --> statement-breakpoint
+-- The source check reads the revisions a request releases, each record's newest
+-- (as `knowledge_claims_open` and the release do): a revision a re-proposal
+-- superseded is never released or shown for review, so its citations hold
+-- nothing up.
+CREATE OR REPLACE FUNCTION knowledge_sources_unchecked(request uuid) RETURNS boolean
+  LANGUAGE sql STABLE AS $$
+  WITH released AS (
+    SELECT DISTINCT ON (record_id) revision_id, created_by, provenance FROM knowledge_revisions
+    WHERE change_request_id = request ORDER BY record_id, created_at DESC, revision_id DESC
+  )
+  SELECT EXISTS (
+    SELECT 1
+    FROM released r
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(r.provenance -> 'citations') = 'array' THEN r.provenance -> 'citations' ELSE '[]'::jsonb END
+    ) AS c(citation)
+    JOIN knowledge_citation_captures k ON k.id::text = c.citation ->> 'captureId'
+    WHERE k.basis = 'operator_supplied'
+      AND NOT EXISTS (
+        SELECT 1 FROM knowledge_review_decisions d
+        WHERE d.revision_id = r.revision_id AND d.source_checked AND d.reviewer <> r.created_by
+      )
+  )
+$$;
+--> statement-breakpoint
 -- What nobody fetched, a person checked: for every approval, alone or not (0209 as it was).
 CREATE OR REPLACE FUNCTION knowledge_approval_sources_checked() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
