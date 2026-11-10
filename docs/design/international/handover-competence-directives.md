@@ -29,16 +29,20 @@ No PR yet: work stopped at the session deadline (2026-11-10). Merge develop
 ## Next
 
 1. Merge develop; re-run both gates.
-2. The office half, which needs the coordinator's call (option A recommended):
-   the reading proposes office addressees from the platform authority records
-   the office reads, replacing `KNOWN_AUTHORITIES` (MA 19/21/37/64) in
-   `office/reading.ts`; a confirmed addressee carries `authorityId`, and
-   `office/authority.ts` `directiveApplicability` (a prefix match) gives way
-   to `directiveVerdict`. An unlinked addressee then reads `authority_unknown`.
-   Option B keeps a chain-based (`chainAt`) fallback for unlinked addressees.
-   Callers: `office/answer-label.ts`, `office/turn-block.ts`, `chain/turn.ts`,
-   `office/service.ts`.
-3. `knowledge_authority_revisions.competence_territory_ids` has no SQL reader
+2. The office half, decided 2026-11-10 by the coordinator: **option A**.
+   Competence is the one rule, with no prefix fallback. The reading proposes
+   office addressees from the platform authority records the office reads,
+   replacing `KNOWN_AUTHORITIES` (MA 19/21/37/64) in `office/reading.ts`; a
+   confirmed addressee carries `authorityId`, and `office/authority.ts`
+   `directiveApplicability` (a prefix match) gives way to `directiveVerdict`.
+   An unlinked addressee answers `authority_unknown` ("Zuständigkeit nicht
+   geprüft"). Required: a spec per case (unlinked → `authority_unknown`;
+   linked and competent → applies; linked, other body competent → excluded)
+   and a release-note line that a guessed verdict now reads "Zuständigkeit
+   nicht geprüft". Callers: `office/answer-label.ts`, `office/turn-block.ts`,
+   `chain/turn.ts`, `office/service.ts`. Start after #1584 lands.
+3. Approved in two steps, with no `migration:contract` label now.
+   `knowledge_authority_revisions.competence_territory_ids` has no SQL reader
    (competence comes from rulesets). Expand step: the door stops taking it,
    `platform/records.ts` stops writing it, the column gets a default and loses
    NOT NULL and its cardinality CHECK; reviewer UI, i18n labels,
