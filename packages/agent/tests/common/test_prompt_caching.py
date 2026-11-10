@@ -302,6 +302,15 @@ class TestAOneShotCallWritesNothing:
         assert payload["extra_body"]["prompt_cache_options"] == {"mode": "explicit"}
         assert "cache_control" not in json.dumps(payload)
 
+    def test_only_models_that_write_unasked_get_the_switch(self):
+        from agent.common.prompt_caching import writes_automatically
+
+        for model in ("openai/gpt-5.6", "openai/gpt-6-luna", "openai/gpt-6.1-terra", "~openai/gpt-7"):
+            assert writes_automatically(model), model
+        for model in ("openai/gpt-5.5", "openai/gpt-4o", "openai/o3", "anthropic/claude-haiku-5.5", None):
+            assert not writes_automatically(model), model
+        assert "prompt_cache_options" not in json.dumps(self._payload("openai/gpt-4o"))
+
     def test_claude_is_not_asked_to_cache(self):
         payload = self._payload("anthropic/claude-haiku-5.5")
         assert "cache_control" not in json.dumps(payload)

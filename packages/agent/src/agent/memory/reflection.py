@@ -370,7 +370,16 @@ async def structured_reply(llm: Any, messages: list[Any], schema: type[BaseModel
     model the same way.
     """
     # Each caller's evidence is its own: an entry written here would never be read.
-    with one_shot_calls():
+    try:
+        with one_shot_calls():
+            response = await _ask_for_json(llm, messages, schema)
+    except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting a parameter
+        if not _rejects_response_format(exc):
+            raise
+        # Asked again without the cache switch, which a provider may not know.
+        logger.warning(
+            "%s call rejected even without response_format (%s); retrying with caching as usual", schema.__name__, exc
+        )
         response = await _ask_for_json(llm, messages, schema)
     return content_to_text(getattr(response, "content", response))
 

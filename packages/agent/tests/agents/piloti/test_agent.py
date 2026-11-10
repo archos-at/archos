@@ -593,6 +593,24 @@ class TestChatAgent:
         assert result.answer_confidence_marker == "medium"
 
     @pytest.mark.asyncio
+    async def test_a_malformed_tool_call_at_synthesis_is_not_taken_for_the_answer(
+        self, mock_llm_provider, mock_llm, real_tool
+    ):
+        bound = self._bindable(mock_llm, "")
+        malformed = AIMessage(
+            content="",
+            invalid_tool_calls=[{"name": "knowledge_search", "args": "{", "id": "c1", "error": "bad json"}],
+        )
+        bound.ainvoke = AsyncMock(side_effect=[malformed, AIMessage(content=self._envelope_reply(fenced=False))])
+        agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
+
+        result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
+
+        kinds = [next(iter(call.kwargs)) for call in mock_llm.bind.call_args_list]
+        assert kinds == ["tool_choice", "response_format"]
+        assert result.answer_confidence_marker == "medium"
+
+    @pytest.mark.asyncio
     async def test_a_provider_that_rejects_tool_choice_gets_the_tool_free_call(
         self, mock_llm_provider, mock_llm, real_tool
     ):

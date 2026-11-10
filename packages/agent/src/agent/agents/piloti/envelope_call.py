@@ -120,7 +120,8 @@ async def ainvoke_synthesis(binding: Any, messages: list[Any], live: Any, json_m
             raise
         logger.warning("Forced synthesis: tool_choice=none rejected (%s); answering tool-free", exc)
         response = None
-    calls = getattr(response, "tool_calls", None) or []
+    # A call the provider sent malformed is still a call, not an answer.
+    calls = [*(getattr(response, "tool_calls", None) or []), *(getattr(response, "invalid_tool_calls", None) or [])]
     if response is not None and not calls:
         return response
     if calls:

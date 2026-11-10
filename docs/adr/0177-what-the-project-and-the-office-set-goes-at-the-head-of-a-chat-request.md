@@ -88,7 +88,7 @@ kept turn, against 33 % with the history edited on every turn.
 per-turn values out of the head, and checks the head is the same bytes for
 another turn and another asker. `test_cross_turn_prefix.py` holds the two
 measures above. In production `chat_cross_turn_cache_carry` (PostHog) is the
-measure, and the ledger's `cache_write_tokens` (migration 0214) says what each
+measure, and the ledger's `cache_write_tokens` (migration 0217) says what each
 first call wrote. `CHAT_CONTEXT_LAYOUT=turn` is the rollback to the layout before.
 `test_history.py::TestTheWindowMovesInSteps` and
 `test_cross_turn_prefix.py::test_history_edited_in_batches_carries_most_follow_ups`

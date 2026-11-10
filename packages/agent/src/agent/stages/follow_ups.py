@@ -549,13 +549,14 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
         HumanMessage(content=build_user_prompt(facts)),
     ]
     # The facts are this answer's own: an entry written here would never be read.
-    with one_shot_calls():
-        try:
+    try:
+        with one_shot_calls():
             structured_llm = ctx.llm.bind(response_format=strict_json_response_format(FollowUpsDraft))
             response = await structured_llm.ainvoke(messages)
-        except Exception as exc:  # noqa: BLE001 - a binding quirk must not drop the stage
-            logger.warning("Follow-ups structured-output request failed (%s); retrying without response_format", exc)
-            response = await ctx.llm.ainvoke(messages)
+    except Exception as exc:  # noqa: BLE001 - a binding quirk must not drop the stage
+        # Outside the switch too: a provider may refuse the cache option, not only the format.
+        logger.warning("Follow-ups structured-output request failed (%s); retrying plain", exc)
+        response = await ctx.llm.ainvoke(messages)
 
     parsed = extract_json(response_text(response))
     raw = parsed.get("items") if isinstance(parsed, dict) else None

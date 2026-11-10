@@ -204,7 +204,7 @@ def name_lines(text: str) -> str:
 
 
 #: The module path of a Python import into the chat agent's package: an identifier, not copy.
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?:\.\w+)*", re.M)
+IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
 
 
 def scrub(text: str) -> str:

@@ -140,6 +140,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
@@ -168,8 +169,11 @@ CACHE_CONTROL_FIELD = "cache_control"
 PROMPT_CACHE_OPTIONS_FIELD = "prompt_cache_options"
 _NO_CACHE_WRITES = {"mode": "explicit"}
 
-#: Families that cache, and bill the write, without being asked.
+#: Families that cache, and bill the write, without being asked: OpenAI's GPT
+#: from 5.6 on (OpenRouter prompt caching guide, on or after 2026-10-07).
 AUTOMATIC_WRITE_FAMILIES = ("openai",)
+_AUTOMATIC_WRITES_FROM = (5, 6)
+_GPT_VERSION = re.compile(r"gpt-(\d+)(?:\.(\d+))?")
 
 #: The default five-minute entry: a turn's calls are seconds apart. The one-hour
 #: TTL costs 2x on every write, which a turn's repeats would not pay back.
@@ -219,9 +223,22 @@ def one_shot_calls() -> Iterator[None]:
 def _without_cache_writes(extra_body: Any, model: str | None) -> dict[str, Any] | None:
     """The ``extra_body`` of a one-shot call: caching off where it is on by default, no marker anywhere."""
     merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, Mapping) else {}
-    if _family(model) in AUTOMATIC_WRITE_FAMILIES:
+    if writes_automatically(model):
         merged.setdefault(PROMPT_CACHE_OPTIONS_FIELD, dict(_NO_CACHE_WRITES))
     return merged or None
+
+
+def writes_automatically(model: str | None) -> bool:
+    """Whether ``model`` writes, and bills, cache entries unasked: GPT-5.6 and later. Pure.
+
+    Only these get ``prompt_cache_options``: an older model or another family
+    writes nothing a one-shot call has to switch off, and has no reason to see
+    a field it may not know.
+    """
+    if _family(model) not in AUTOMATIC_WRITE_FAMILIES:
+        return False
+    match = _GPT_VERSION.search(model or "")
+    return bool(match) and (int(match.group(1)), int(match.group(2) or 0)) >= _AUTOMATIC_WRITES_FROM
 
 
 def begin_stable_prefix(prefix: str | None) -> Token[str | None]:

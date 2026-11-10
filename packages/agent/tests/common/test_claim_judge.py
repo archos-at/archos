@@ -203,3 +203,23 @@ def test_every_stored_answer_reaches_the_check_whole(answer):
         p.text for p in sorted(evidence.passages, key=lambda p: not p.cited)
     ]
     assert answer["content"] in build_messages(evidence)[1].content
+
+
+async def test_a_provider_that_refuses_the_cache_switch_still_gets_judged():
+    """A 400 on every call made inside ``one_shot_calls`` is answered by a call outside it."""
+    from agent.common import prompt_caching
+
+    class _RefusesTheSwitch(_Model):
+        async def ainvoke(self, messages):
+            if prompt_caching._ONE_SHOT.get():
+                refused = RuntimeError("unknown field prompt_cache_options")
+                refused.status_code = 400
+                raise refused
+            return await super().ainvoke(messages)
+
+    model = _RefusesTheSwitch()
+
+    check = await llm_judge(model)(_evidence())
+
+    assert check is not None and check.level == "high"
+    assert model.one_shot is False

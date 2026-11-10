@@ -190,7 +190,7 @@ def branded_tokens(text: str) -> list[str]:
 
 
 #: The module path of a Python import into the chat agent's package (see "What is not a hit").
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?:\.\w+)*", re.M)
+IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
 
 
 def _without_exempt_names(text: str) -> str:
