@@ -110,7 +110,9 @@ class _TemporaryFileResponse(FileResponse):
 def _run_ingestion():
     from agent.oib_sync import sync
 
-    return sync(enqueue=enqueue_only)
+    from ..jobs.corpus_payloads import mark_corpus_chunks
+
+    return sync(enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
 
 
 def _compute_status():

@@ -149,24 +149,32 @@ def get_turn_knowledge_context() -> KnowledgeContext | None:
     return _turn_knowledge_context.get()
 
 
-#: The country every base-corpus point written before ``country_id`` existed belongs to: the corpus was Austria's alone.
-LEGACY_CORPUS_COUNTRY = "AT"
+#: The country no office is entitled to (ISO 3166-1 user-assigned): a base-corpus chunk whose text no
+#: release names, or whose ingest job named no country, carries it and is read by nobody (fail closed).
+UNRELEASED_COUNTRY = "ZZ"
 
 
-def base_corpus_country_filter() -> dict[str, object] | None:
-    """The base-corpus filter the turn's gate sets: only the countries it may read; None when no context is bound.
+def corpus_countries() -> frozenset[str] | None:
+    """The countries whose base-corpus chunks this read may see; None when nothing says (``knowledge-context`` off).
 
-    A point without ``country_id`` predates it and is Austrian, so it is read only while Austria is.
-    An empty list reads nothing: the caller drops the base corpus instead of searching it.
+    The turn's own gate when its context is bound (the site's countries, ADR-0173); otherwise the
+    office's entitled countries the BFF signed onto the base corpus's entry of the collection scope,
+    which every run, job and door call carries too. ``vector_store.scope.scope_filter`` asks this on
+    every read, so no path to the base corpus goes around it.
     """
     context = _turn_knowledge_context.get()
-    if context is None:
+    if context is not None:
+        return context.retrieval_countries
+    from agent.project_context import RequestContext
+
+    try:
+        entries = RequestContext.from_context().collection_scope_entries or []
+    except Exception:  # noqa: BLE001 - no request context (a script, a test): nothing to filter by
         return None
-    countries = sorted(context.retrieval_countries)
-    allowed: dict[str, object] = {"country_id": {"$in": countries}}
-    if LEGACY_CORPUS_COUNTRY in context.retrieval_countries:
-        return {"$or": [allowed, {"country_id": {"$exists": False}}]}
-    return allowed
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("shelf") == "base" and isinstance(entry.get("countries"), list):
+            return frozenset(country for country in entry["countries"] if isinstance(country, str))
+    return None
 
 
 def base_corpus_readable() -> bool | None:

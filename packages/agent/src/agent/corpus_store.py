@@ -297,6 +297,34 @@ def set_mark(name: str, mark: FileMark) -> None:
         )
 
 
+#: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
+LEGACY_CORPUS_COUNTRY = "AT"
+#: The row that records the one-time backfill ran; a name no PDF can have.
+_BACKFILL_DONE = "__legacy_country_backfill_done__"
+
+
+def legacy_unmarked() -> list[str]:
+    """Files without a mark, until the one-time backfill has run; then nothing, ever."""
+    with _transaction() as conn:
+        if conn.execute(select(_marks.c.file_name).where(_marks.c.file_name == _BACKFILL_DONE)).first():
+            return []
+        rows = conn.execute(
+            select(_files.c.file_name)
+            .outerjoin(_marks, _marks.c.file_name == _files.c.file_name)
+            .where(_marks.c.file_name.is_(None))
+        )
+        return sorted(row.file_name for row in rows)
+
+
+def record_legacy_backfill() -> None:
+    """Record that the one-time backfill ran: a file uploaded from now on carries its release's mark, or none."""
+    with _transaction() as conn:
+        insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
+        conn.execute(
+            insert(_marks).values(file_name=_BACKFILL_DONE).on_conflict_do_nothing(index_elements=[_marks.c.file_name])
+        )
+
+
 def get_mark(name: str) -> FileMark | None:
     with _transaction() as conn:
         record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()

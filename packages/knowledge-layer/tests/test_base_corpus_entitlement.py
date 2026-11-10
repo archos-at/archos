@@ -14,6 +14,7 @@ from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.search import base_collection_filters
 from knowledge_layer.search import scoped_collections_for_site
 from knowledge_layer.vector_store import enrichment
+from knowledge_layer.vector_store import scope_filter
 from knowledge_layer.vector_store import translate
 from qdrant_client import models
 
@@ -52,20 +53,48 @@ def _scope(context: str | None) -> list[str]:
         return [entry.collection for entry in scoped_collections_for_site(_config(), "s_1")]
 
 
-def test_without_a_context_the_filter_is_what_it_was():
+def _country(filter_: models.Filter) -> models.Filter | None:
+    """The country clause :func:`scope_filter` ANDed in, or None."""
+    return next((part for part in filter_.must if isinstance(part, models.Filter) and part.should), None)
+
+
+def test_without_a_context_no_read_is_narrowed():
+    assert _country(scope_filter(["oib_knowledge"])) is None
     assert base_collection_filters(_config(), None) == NO_PAGE_CHUNKS
 
 
-def test_an_austrian_turn_reads_austria_and_the_points_written_before_the_country():
+def test_a_turn_reads_only_the_countries_its_gate_names_and_no_unmarked_chunk():
     _bind("AT", "EU")
-    assert base_collection_filters(_config(), None) == {
-        "$and": [NO_PAGE_CHUNKS, {"$or": [{"country_id": {"$in": ["AT", "EU"]}}, {"country_id": {"$exists": False}}]}]
-    }
+    country = _country(scope_filter(["oib_knowledge"]))
+    assert country == models.Filter(
+        should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["AT", "EU"]))]
+    )
 
 
-def test_a_turn_not_entitled_to_austria_reads_none_of_the_older_points():
+def test_an_office_scope_beside_the_corpus_is_never_narrowed():
     _bind("DE")
-    assert base_collection_filters(_config(), None) == {"$and": [NO_PAGE_CHUNKS, {"country_id": {"$in": ["DE"]}}]}
+    country = _country(scope_filter(["oib_knowledge", "proj_1"]))
+    assert country is not None and len(country.should) == 2
+    assert _country(scope_filter(["proj_1"])) is None
+
+
+def test_a_gate_that_reads_no_country_reads_no_corpus_chunk():
+    set_turn_knowledge_context(KnowledgeContext(gate="not_entitled"))
+    country = _country(scope_filter(["oib_knowledge"]))
+    assert country == models.Filter(
+        should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["__none__"]))]
+    )
+
+
+def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(monkeypatch):
+    from agent.project_context import RequestContext
+
+    signed = RequestContext(
+        collection_scope_entries=[{"collection": "oib_knowledge", "shelf": "base", "countries": ["AT"]}]
+    )
+    monkeypatch.setattr(RequestContext, "from_context", classmethod(lambda cls: signed))
+    country = _country(scope_filter(["oib_knowledge"]))
+    assert country == models.Filter(should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["AT"]))])
 
 
 def test_a_gate_that_reads_no_country_drops_the_base_corpus_even_for_an_austrian_site():
@@ -88,8 +117,10 @@ def test_exists_translates_to_qdrant_is_empty():
         translate({"country_id": {"$exists": "no"}})
 
 
-def test_an_ingest_job_stamps_its_country_and_refuses_a_malformed_one():
+def test_an_ingest_job_stamps_its_country_and_an_unmarked_corpus_text_is_nobodys():
     stamped = enrichment("oib_knowledge", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"})
     assert stamped["country_id"] == "DE"
     assert stamped["knowledge_edition_id"] == "edition:baybo-2025"
-    assert "country_id" not in enrichment("oib_knowledge", {"country_id": "Germany"})
+    assert enrichment("oib_knowledge", {"country_id": "Germany"})["country_id"] == "ZZ"
+    assert enrichment("oib_knowledge", {})["country_id"] == "ZZ"
+    assert "country_id" not in enrichment("proj_1", {"organization_id": "org_1"})

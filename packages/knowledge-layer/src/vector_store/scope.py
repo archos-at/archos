@@ -56,6 +56,7 @@ from qdrant_client import models
 from agent.profile_names import legacy_profile_token
 
 from .payload import coerce_field
+from .schema import COUNTRY_FIELD
 from .schema import DATETIME_FIELDS
 from .schema import FOLDER_KIND
 from .schema import INDEXED_FIELDS
@@ -235,12 +236,40 @@ def scope_filter(
     if kind not in ("chunk", "folder", "any"):
         raise ValueError(f"Unknown point kind {kind!r}")
     must: list[Any] = [scope_condition(scopes)]
+    country = corpus_country_condition(scopes)
+    if country is not None:
+        must.append(country)
     if filters:
         must.append(translate(filters))
     must.extend(extra)
     if kind == "folder":
         must.append(_is_folder())
     return models.Filter(must=must, must_not=[_is_folder()] if kind == "chunk" else None)
+
+
+def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
+    """The base corpus read only for the countries this request may see (ADR-0173); None when nothing says.
+
+    The one place every vector read passes (:func:`scope_filter`): a chat turn, a run, a door tool,
+    ``read_passage``, the estate's file reads. A point passes when it is in one of the read's tenant
+    scopes, or its ``country_id`` is one the request may read. A point without ``country_id`` passes
+    nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field is
+    marked Austrian by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``).
+    """
+    if all(is_tenant_scope(scope) for scope in scopes):
+        return None
+    from agent.common.knowledge_context import corpus_countries
+
+    countries = corpus_countries()
+    if countries is None:
+        return None
+    # An empty list matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
+    allowed = sorted(countries) or ["__none__"]
+    should: list[Any] = [models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))]
+    tenant = [scope for scope in scopes if is_tenant_scope(scope)]
+    if tenant:
+        should.append(scope_condition(tenant))
+    return models.Filter(should=should)
 
 
 def is_tenant_scope(scope: str) -> bool:

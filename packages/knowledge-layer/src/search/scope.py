@@ -248,23 +248,16 @@ _NON_EVIDENCE_CHUNKING = "page"
 def base_collection_filters(config: KnowledgeRetrievalConfig, caller_filters: dict | None) -> dict:
     """Base-collection metadata filter: the page-chunk exclusion, file exclusions, caller filters.
 
-    Four clauses, AND-ed, applied to the base collection only (session/project
+    Three clauses, AND-ed, applied to the base collection only (session/project
     collections are user content and are never filtered):
 
     1. ``chunking != "page"``, always. See :data:`_NON_EVIDENCE_CHUNKING`.
     2. ``exclude_file_names`` as a ``file_name NOT IN [...]`` clause, when configured.
     3. the caller's optional ``filters`` dict, when given.
-    4. the countries the turn's knowledge context lets it read (ADR-0173), when one is bound.
 
     Never returns None: clause 1 holds for every base-corpus search.
     """
-    from agent.common.knowledge_context import base_corpus_country_filter
-
     clauses: list[dict] = [{"chunking": {"$ne": _NON_EVIDENCE_CHUNKING}}]
-    # 4. the countries the turn's gate lets it read (ADR-0173), when its knowledge context is bound.
-    countries = base_corpus_country_filter()
-    if countries is not None:
-        clauses.append(countries)
     excluded = sorted(set(config.exclude_file_names))
     if excluded:
         clauses.append({"file_name": {"$nin": excluded}})
