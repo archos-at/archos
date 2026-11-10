@@ -53,7 +53,6 @@ def _build_run_agent_payload(
     documents=None,
     request_envelope=None,
     knowledge_context=None,
-    building_law=None,
 ) -> dict:
     """Build the JSON-serializable ``run_agent_job`` kwargs a research worker replays.
 
@@ -105,7 +104,6 @@ def _build_run_agent_payload(
         # (ADR-0108, ``jobs/run_envelope.py``). ``None`` when none verified.
         "request_envelope": request_envelope,
         "knowledge_context": knowledge_context,  # without it the run fails closed (ADR-0175)
-        "building_law": building_law,
     }
 
 
@@ -436,7 +434,6 @@ async def submit_agent_job(
     priority: str | None = None,
     request_envelope: dict[str, str] | None = None,
     knowledge_context: dict | None = None,
-    building_law: dict | None = None,
 ) -> str:
     """
     Submit an agent job as a ``research-run`` on Hatchet (ADR-0021, ADR-0150).
@@ -488,8 +485,7 @@ async def submit_agent_job(
             kept it from the submit. Never captured here: only a route that
             verified it for the run's requester may pass one (ADR-0108).
         knowledge_context: The turn context's ``knowledgeContext`` the BFF resolved for
-            the run's project (ADR-0173). Absent, the run fails closed (ADR-0175).
-        building_law: The turn context's ``buildingLaw``: chain text and edition roles.
+            the run's project (ADR-0173): gate, chain text, edition roles. Absent, the run fails closed (ADR-0175).
 
     Returns:
         The job ID.
@@ -578,7 +574,6 @@ async def submit_agent_job(
             documents=documents,
             request_envelope=request_envelope,
             knowledge_context=knowledge_context,
-            building_law=building_law,
         )
         await job_store._create_job(
             config_file=config_path or None,

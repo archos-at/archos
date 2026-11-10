@@ -18,7 +18,6 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
 import fixture_law  # noqa: E402
 
-from agent.citations.roles import parse_building_law  # noqa: E402
 from agent.common.knowledge_context import parse_knowledge_context  # noqa: E402
 
 
@@ -28,11 +27,11 @@ def test_every_land_reads_as_core_austria_with_its_chain(state: str) -> None:
     data = fixture_law.with_law({"data": {"projectContext": None}}, {"facts": {"federal_state": state}})["data"]
 
     context = parse_knowledge_context(data["knowledgeContext"])
-    law = parse_building_law(data["buildingLaw"])
 
     assert context.gate == "core" and not context.withholds_law
     assert "AT" in context.retrieval_countries
-    assert law is not None and law.chain[0] == territory
+    assert next(iter(context.chains.values()))[0] == territory
+    assert context.text and "Building law at this site" in context.text
     assert data["projectContext"] is None
 
 

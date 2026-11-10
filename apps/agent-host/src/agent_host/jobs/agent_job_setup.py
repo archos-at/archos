@@ -225,18 +225,16 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
 
 
 def bind_knowledge(request: JobRequest) -> None:
-    """Bind the run's knowledge context and building law, as a chat turn binds its own (ADR-0175).
+    """Bind the run's knowledge context, as a chat turn binds its own (ADR-0175).
 
-    A run carries no turn context, so the payload is the only place they come from. Absent reads as
-    ``knowledge_unavailable`` (``parse_knowledge_context``): the run fails closed, never as Austria.
+    A run carries no turn context, so the payload is the only place it comes from: its gate, its chain
+    text and every edition's role. Absent reads as ``knowledge_unavailable`` (``parse_knowledge_context``):
+    the run fails closed, never as Austria.
     """
-    from agent.citations.roles import parse_building_law
-    from agent.citations.roles import set_turn_building_law
     from agent.common.knowledge_context import parse_knowledge_context
     from agent.common.knowledge_context import set_turn_knowledge_context
 
     set_turn_knowledge_context(parse_knowledge_context(request.knowledge_context))
-    set_turn_building_law(parse_building_law(request.building_law))
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:

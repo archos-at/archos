@@ -6,6 +6,11 @@ guesses a country from the project's text. Absent, or not the shape the BFF send
 ``knowledge_unavailable``, never as "everything applies": a context we cannot read withholds law lookup,
 verdicts and every edition's binding role (fail closed), and the turn says so (:func:`gate_note`).
 
+It is also the turn's one answer to which law applies: the chain text (``text``, the turn context's
+``<building_law>`` block) and every edition's role (``uses``), with the open-coverage, freshness and
+connecting-factor corrections already applied by the BFF. A citation's binding status reads these roles
+(``citations/roles.py``), so it can never say more than the gate.
+
 Bound per turn in a ``ContextVar`` (the per-turn state rule of this package),
 so the retrieval scope, the RIS tools and the round-0 prefetch ask
 :func:`corpus_country_allowed` instead of re-deriving the site.
@@ -34,6 +39,44 @@ MAX_LEAVES = 8
 MAX_PACKS = 16
 MAX_USES = 40
 
+#: Longest chain text kept; the BFF's text is far shorter, this only bounds a broken one.
+MAX_TEXT_CHARS = 12_000
+
+#: The roles an edition can have (design §3.5); the TypeScript source is
+#: ``EDITION_ROLES`` in ``apps/workspace/bff/base-knowledge/wire/vocab.ts``.
+EDITION_ROLES: tuple[str, ...] = ("binding", "guidance", "interpretation", "authority_practice", "information")
+
+#: How a role arose: law in its territory, a relation's route, or nothing (a norm no route reaches).
+ROUTE_VIAS: tuple[str, ...] = ("territory", "relation", "none")
+
+#: What qualifies a role: law nobody curated (open coverage), or an edition the office keeps itself.
+QUALIFIERS: tuple[str, ...] = ("uncurated", "office_maintained")
+
+
+@dataclass(frozen=True)
+class SourceRef:
+    """One identity of an edition in a legal database, from its manifestation records: ``ris_gesetzesnummer``
+    (``20000006``), ``ris_dokumentnummer``, ``eli`` (``https://…``). How each is matched: ``citations/roles.py``."""
+
+    scheme: str
+    value: str
+
+
+@dataclass(frozen=True)
+class EditionUse:
+    """One edition's role at the turn's site, as the knowledge context resolved it."""
+
+    work_id: str
+    edition_id: str | None
+    role: str
+    via: str
+    qualifier: str | None = None
+    corpus_files: tuple[str, ...] = ()
+    designation: str | None = None
+    edition_label: str | None = None
+    #: The edition's identities in a legal database: what a RIS passage is matched by (``citations/roles.py``).
+    source_refs: tuple[SourceRef, ...] = ()
+
 
 @dataclass(frozen=True)
 class KnowledgeContext:
@@ -50,7 +93,9 @@ class KnowledgeContext:
     retrieval_countries: frozenset[str] = frozenset()
     #: Per procedure, per node: the reference day's basis (``undetermined`` until a reviewed rule names it).
     reference_dates: dict[str, dict[str, str]] = field(default_factory=dict)
-    uses: tuple[dict[str, object], ...] = ()
+    uses: tuple[EditionUse, ...] = ()
+    #: The chain text the BFF rendered for the site: the turn's ``<building_law>`` block. None when nothing binds.
+    text: str | None = None
     date: str | None = None
     #: The packs released since this conversation's last answer (E42): the answer says the base was updated.
     updated_since_last_answer: tuple[str, ...] = ()
@@ -66,6 +111,41 @@ UNAVAILABLE = KnowledgeContext(gate="knowledge_unavailable")
 
 def _strings(value: object) -> tuple[str, ...]:
     return tuple(item for item in value if isinstance(item, str)) if isinstance(value, list) else ()
+
+
+def _text(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _source_refs(raw: object) -> tuple[SourceRef, ...]:
+    """``sourceRefs`` as ``{scheme, value}`` items; an item of any other shape is dropped. Pure."""
+    items = raw if isinstance(raw, list) else []
+    return tuple(
+        SourceRef(scheme=item["scheme"], value=item["value"].strip())
+        for item in items
+        if isinstance(item, dict) and _text(item.get("scheme")) and _text(item.get("value"))
+    )
+
+
+def _use(raw: object) -> EditionUse | None:
+    """One ``uses`` item; None when it is not the shape the BFF sends (dropped, never guessed). Pure."""
+    if not isinstance(raw, dict):
+        return None
+    work_id, role, via = _text(raw.get("workId")), raw.get("role"), raw.get("via")
+    if work_id is None or role not in EDITION_ROLES or via not in ROUTE_VIAS:
+        return None
+    qualifier = raw.get("qualifier")
+    return EditionUse(
+        work_id=work_id,
+        edition_id=_text(raw.get("editionId")),
+        role=str(role),
+        via=str(via),
+        qualifier=qualifier if qualifier in QUALIFIERS else None,
+        corpus_files=_strings(raw.get("corpusFiles")),
+        designation=_text(raw.get("designation")),
+        edition_label=_text(raw.get("editionLabel")),
+        source_refs=_source_refs(raw.get("sourceRefs")),
+    )
 
 
 def _reference_dates(procedures: object) -> dict[str, dict[str, str]]:
@@ -105,7 +185,9 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         for pack in (raw.get("packs") or [])[:MAX_PACKS]
         if isinstance(pack, dict) and isinstance(pack.get("packId"), str) and isinstance(pack.get("seq"), int)
     }
-    uses = tuple(use for use in (raw.get("uses") or [])[:MAX_USES] if isinstance(use, dict))
+    raw_uses = raw.get("uses")
+    uses = tuple(use for use in map(_use, raw_uses[:MAX_USES] if isinstance(raw_uses, list) else []) if use)
+    text = _text(raw.get("text"))
     return KnowledgeContext(
         gate=str(gate["state"]),
         reason=gate.get("reason") if isinstance(gate.get("reason"), str) else None,
@@ -116,6 +198,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         retrieval_countries=frozenset(countries),
         reference_dates=_reference_dates(raw.get("procedures")),
         uses=uses,
+        text=text[:MAX_TEXT_CHARS] if text else None,
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
     )
@@ -134,6 +217,7 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
             for node, day in sorted(days.items())
         ),
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),
+        "building_law_uses": len(context.uses),
     }
 
 

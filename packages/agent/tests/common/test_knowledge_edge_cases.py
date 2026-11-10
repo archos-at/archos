@@ -15,8 +15,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from agent.citations.roles import BuildingLaw
-from agent.citations.roles import set_turn_building_law
 from agent.common.knowledge_context import corpus_country_allowed
 from agent.common.knowledge_context import parse_knowledge_context
 from agent.common.knowledge_context import set_turn_knowledge_context
@@ -60,7 +58,6 @@ def _wire(case: dict) -> dict:
 def _reset():
     yield
     set_turn_knowledge_context(None)
-    set_turn_building_law(None)
 
 
 def test_every_case_the_agent_answers_is_in_the_file():
@@ -70,9 +67,8 @@ def test_every_case_the_agent_answers_is_in_the_file():
 @pytest.mark.parametrize("case_id", sorted(AGENT))
 def test_the_agent_follows_the_context_alone(case_id: str):
     shows_chain, heading, ris_runs, reads_austria = AGENT[case_id]
-    set_turn_knowledge_context(parse_knowledge_context(_wire(CASES[case_id])))
     # The BFF sends a chain only where records resolved the site; a withholding gate shows none even so.
-    set_turn_building_law(BuildingLaw(text=CHAIN, chain=("X",), date="2026-11-10", uses=()))
+    set_turn_knowledge_context(parse_knowledge_context({**_wire(CASES[case_id]), "text": CHAIN}))
     note = jurisdiction_note()
 
     assert (turn_building_law_block() == f"<building_law>\n{CHAIN}\n</building_law>") is shows_chain

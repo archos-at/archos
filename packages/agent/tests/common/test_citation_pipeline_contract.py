@@ -39,9 +39,6 @@ from ris_adapter.lookup.render import format_passages
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result
 from agent.citations.registry import SourceRegistry
-from agent.citations.roles import BuildingLaw
-from agent.citations.roles import EditionUse
-from agent.citations.roles import set_turn_building_law
 from agent.citations.sanitize import sanitize_report
 from agent.citations.source_identity import document_key
 from agent.citations.source_identity import source_lane
@@ -49,6 +46,9 @@ from agent.citations.verification import verify_citations
 from agent.citations.wire import source_entry_to_wire
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
+from agent.common.knowledge_context import EditionUse
+from agent.common.knowledge_context import KnowledgeContext
+from agent.common.knowledge_context import set_turn_knowledge_context
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "citation_pipeline"
@@ -348,9 +348,12 @@ GOLDEN_ANSWER = (
 )
 
 
-GOLDEN_BUILDING_LAW = BuildingLaw(
+GOLDEN_KNOWLEDGE_CONTEXT = KnowledgeContext(
+    gate="core",
+    coverage="core",
+    site_country="AT",
+    retrieval_countries=frozenset({"AT"}),
     text="Building law at this site, Wien (AT-9, AT, EU).",
-    chain=("AT-9", "AT", "EU"),
     date="2026-11-10",
     uses=(
         EditionUse(
@@ -386,9 +389,9 @@ def run_golden_path():
     verification = verify_citations(GOLDEN_ANSWER, registry, reference_sources=registry.all_sources())
     sanitization = sanitize_report(verification.verified_report)
 
-    # The turn's edition roles (ADR-0168): the only source of a binding status (ADR-0175). The
-    # OIB-RL 2:2023 the answer cites is declared binding at the site by the Land's ordinance.
-    set_turn_building_law(GOLDEN_BUILDING_LAW)
+    # The turn's edition roles, from its knowledge context (ADR-0168): the only source of a binding status
+    # (ADR-0175). The OIB-RL 2:2023 the answer cites is declared binding at the site by the Land's ordinance.
+    set_turn_knowledge_context(GOLDEN_KNOWLEDGE_CONTEXT)
     try:
         wire = []
         for citation in verification.valid_citations:
@@ -396,7 +399,7 @@ def run_golden_path():
             number = sanitization.renumber_map.get(citation["number"], citation["number"])
             wire.append(source_entry_to_wire(entry, number=number))
     finally:
-        set_turn_building_law(None)
+        set_turn_knowledge_context(None)
     return tool_output, verification, sanitization, wire
 
 

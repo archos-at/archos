@@ -17,7 +17,7 @@ context and chain text from them (ADR-0173), and the agent reads nothing else.
 | What | From | Where in the agent |
 |---|---|---|
 | Which countries a turn may retrieve, the gate, coverage | `knowledgeContext` in the turn context, or `knowledge_context` in a research run's payload | `common/knowledge_context.py` |
-| Which edition binds at the site, and every edition's role | `buildingLaw` (turn context) or `building_law` (run payload): the chain text and the uses | `citations/roles.py`, `common/law_gate.turn_building_law_block` |
+| Which edition binds at the site, and every edition's role | the same `knowledgeContext`: its `text` (the chain) and its `uses` (role, qualifier, `sourceRefs` as `{scheme, value}`), corrected for coverage, freshness and connecting factor. There is no second answer: `buildingLaw` is gone | `citations/roles.py`, `common/law_gate.turn_building_law_block` |
 | Whether a legal-database adapter may run | the gate, and the adapter's own country (`law_gate.LAW_SOURCE_COUNTRIES`: `ris` is `AT`) | `common/law_gate.law_sources_withheld` |
 | How to reason about building law anywhere | constant: `<legal_method>` in `chat_static.md`, `law_gate.LEGAL_METHOD` for deep research | |
 

@@ -331,9 +331,7 @@ CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the
 
 @pytest.fixture
 def bound():
-    """Bind a knowledge context and a chain for one test; both reset after it."""
-    from agent.citations.roles import BuildingLaw
-    from agent.citations.roles import set_turn_building_law
+    """Bind a knowledge context with a chain text for one test; reset after it."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import set_turn_knowledge_context
 
@@ -342,16 +340,16 @@ def bound():
             None
             if gate is None
             else KnowledgeContext(
-                gate=gate, site_country=country, retrieval_countries=frozenset({country} if country else ())
+                gate=gate,
+                site_country=country,
+                retrieval_countries=frozenset({country} if country else ()),
+                text=chain,
             )
         )
         set_turn_knowledge_context(context)
-        law = BuildingLaw(text=chain, chain=("AT-9", "AT", "EU"), date="2026-11-10", uses=()) if chain else None
-        set_turn_building_law(law)
 
     yield bind
     set_turn_knowledge_context(None)
-    set_turn_building_law(None)
 
 
 def _context(project_context: str = VIENNA_TEXT) -> str:

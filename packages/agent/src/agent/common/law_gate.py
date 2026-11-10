@@ -98,11 +98,8 @@ def building_law_block(chain_text: str | None) -> str | None:
 
 
 def turn_building_law_block() -> str | None:
-    """This turn's ``<building_law>`` block, from the chain text bound for it (``citations/roles.py``)."""
-    from agent.citations.roles import get_turn_building_law
-
-    law = get_turn_building_law()
-    return building_law_block(law.text if law else None)
+    """This turn's ``<building_law>`` block, from its knowledge context's chain text."""
+    return building_law_block(turn_knowledge_context().text)
 
 
 #: How to reason about building law in any country, injected into the research prompts as

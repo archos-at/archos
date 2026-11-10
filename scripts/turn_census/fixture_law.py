@@ -1,9 +1,9 @@
 """The law a suite turn reads about its site: what an entitled Austrian office's turn carries.
 
 Since ADR-0175 the agent reads which law applies from the turn context's ``knowledgeContext`` and
-``buildingLaw`` and nothing else; a turn without them reads no law at all. Every fixture BFF answer to
-``POST /api/internal/turn-context`` therefore carries them, for the Land of the turn's project, as the
-production resolvers wrote them from the Austria and EU packs
+nothing else (its chain text and every edition's role); a turn without it reads no law at all. Every
+fixture BFF answer to ``POST /api/internal/turn-context`` therefore carries it, for the Land of the
+turn's project, as the production resolvers wrote it from the Austria and EU packs
 (``tests/fixtures/base-knowledge/turn_law_austria.json``, from
 ``apps/workspace/bff/base-knowledge/context/suite-turn-law.fixture.spec.ts``).
 """
@@ -46,7 +46,7 @@ def territory_of(federal_state: str | None) -> str:
 
 
 def with_law(answer: dict[str, Any], project: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A turn-context answer with the ``knowledgeContext`` and ``buildingLaw`` of ``project``'s Land in its data."""
+    """A turn-context answer with the ``knowledgeContext`` of ``project``'s Land in its data."""
     territory = territory_of(((project or {}).get("facts") or {}).get("federal_state"))
     data = {**answer.get("data", {}), **_law()[territory]}
     return {**answer, "data": data}

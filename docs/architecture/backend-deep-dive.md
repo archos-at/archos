@@ -1472,8 +1472,8 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   resolves a catalog pointer out of the question itself (ADR-0060 amendment).
 - **Which law applies** — the turn's knowledge context alone (ADR-0173,
    ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
-   and puts it in every research run's payload (`knowledge_context`, beside
-   `building_law`; `agent_host/jobs/agent_job_setup.bind_knowledge`). Nothing
+   and puts it in every research run's payload (`knowledge_context`;
+   `agent_host/jobs/agent_job_setup.bind_knowledge`). Nothing
    reads the project's text for a country or a Land, and nothing defaults to
    one: absent or malformed, the context is `knowledge_unavailable`, which
    withholds the legal-database tools (`law_gate.law_sources_withheld`), the
@@ -1487,9 +1487,12 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
 - **OIB edition per Land** — relation records of the Austria pack
    (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over
    (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
-   and the turn context carries `buildingLaw`: the chain text and each
-   edition's role. The agent binds it per turn (`citations/roles.py`, beside
-   `set_turn_documents`); the chain text is the turn context's
+   and the knowledge context carries the chain text (`text`) and each
+   edition's role (`uses`), with the open-coverage, freshness and
+   connecting-factor corrections applied. It is the turn's one answer to which
+   law applies: the citation chip reads the same roles the gate does
+   (`citations/roles.py`), so a citation never says binding where the gate says
+   information. The chain text is the turn context's
    `<building_law>` block (`law_gate.turn_building_law_block`), the only
    building-law text a turn reads, and a gate that withholds law shows the
    note instead. A cited base-corpus passage maps to its edition by its

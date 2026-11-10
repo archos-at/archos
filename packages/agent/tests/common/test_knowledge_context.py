@@ -45,7 +45,8 @@ WIRE = {
             "referenceDates": {"DE-NW": {"date": None, "basis": "undetermined"}},
         }
     ],
-    "uses": [{"workId": "work:bauo-nrw", "role": "binding", "qualifier": "uncurated"}],
+    "uses": [{"workId": "work:bauo-nrw", "role": "binding", "via": "territory", "qualifier": "uncurated"}],
+    "text": "Building law at this site, Düsseldorf (DE-NW, DE, EU) …",
     "retrieval": {"countries": ["DE", "EU"]},
     "updatedSinceLastAnswer": ["DE"],
 }
@@ -68,7 +69,6 @@ def _blocks(extra: dict[str, object]) -> dict[str, object]:
         "workspace": None,
         "baseKnowledge": None,
         "baseKnowledgeLabels": [],
-        "buildingLaw": None,
     }
     return {"data": {**data, **extra}}
 
@@ -106,6 +106,7 @@ def test_trace_metadata_names_chains_gate_coverage_packs_and_reference_dates():
         "pack_seqs": "DE:12,EU:3",
         "reference_dates": "p1@DE-NW=undetermined",
         "base_updated_since_last_answer": "DE",
+        "building_law_uses": 1,
     }
 
 
@@ -227,20 +228,12 @@ def test_core_coverage_has_no_note_and_says_when_the_base_moved():
 
 
 def test_the_research_doctrine_is_the_method_then_the_note_or_the_chain():
-    from agent.citations.roles import BuildingLaw
-    from agent.citations.roles import set_turn_building_law
-
-    set_turn_building_law(
-        BuildingLaw(text="Building law at this site, Wien", chain=("AT-9",), date="2026-11-10", uses=())
-    )
-    try:
-        set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT"))
-        assert research_doctrine().endswith("<building_law>\nBuilding law at this site, Wien\n</building_law>")
-        set_turn_knowledge_context(KnowledgeContext(gate="not_entitled", site_country="AT"))
-        doctrine = research_doctrine()
-        assert "## Building law: AT, not included" in doctrine and "<building_law>" not in doctrine
-    finally:
-        set_turn_building_law(None)
+    chain = "Building law at this site, Wien"
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", text=chain))
+    assert research_doctrine().endswith(f"<building_law>\n{chain}\n</building_law>")
+    set_turn_knowledge_context(KnowledgeContext(gate="not_entitled", site_country="AT", text=chain))
+    doctrine = research_doctrine()
+    assert "## Building law: AT, not included" in doctrine and "<building_law>" not in doctrine
 
 
 def test_the_research_doctrine_names_no_country():

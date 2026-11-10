@@ -197,10 +197,6 @@ class SkillSubmitPayload(BaseModel):
             "`knowledge_unavailable`: no edition named binding, no legal-database lookup."
         ),
     )
-    building_law: dict | None = Field(
-        None,
-        description="The chain text and edition roles at the site, the turn context's `buildingLaw` (ADR-0168).",
-    )
     priority: Literal["interactive", "bulk"] = Field(
         "interactive",
         description=(
@@ -356,7 +352,6 @@ async def _submit_skill_run(
             clarifier_result=body.clarifier_result,
             documents=body.documents,
             knowledge_context=body.knowledge_context,
-            building_law=body.building_law,
             priority=body.priority,
             request_envelope=request_envelope,
         )
