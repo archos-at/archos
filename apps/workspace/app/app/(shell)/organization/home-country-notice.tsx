@@ -52,7 +52,7 @@ export function HomeCountryNotice(): JSX.Element {
         <span>{t('overview.homeCountryMissing.description')}</span>
         <span className="flex flex-wrap items-center gap-2">
           <Select value={country} onValueChange={(next) => setCountry(next as HomeCountry)} disabled={saving}>
-            <SelectTrigger className="w-56" aria-label={t('overview.homeCountry')}>
+            <SelectTrigger className="w-56 [&>span]:truncate" aria-label={t('overview.homeCountry')}>
               <SelectValue placeholder={t('overview.homeCountryMissing.placeholder')} />
             </SelectTrigger>
             <SelectContent>
