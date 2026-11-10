@@ -67,7 +67,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         [
           "PostHog, Inc.",
           "Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Betriebsprotokolle (ab Warnstufe), Umfragen, Support",
-          "Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und Browserangaben, Fehlerberichte und Betriebsprotokolle, maskierte Sitzungsaufzeichnungen, Umfrageantworten und Support-Nachrichten (Text maskiert durch die Inhaltsprüfung Ihrer Organisation); KI-Metadaten und Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name",
+          "Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und Browserangaben, Fehlerberichte und Betriebsprotokolle (ohne deren Text), maskierte Sitzungsaufzeichnungen, Umfrageantworten und Support-Nachrichten (Text maskiert durch die Inhaltsprüfung Ihrer Organisation); KI-Metadaten und Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name",
           "EU (Frankfurt); Konzern mit Sitz in den USA",
           "Speicherung in der EU; Zugriff aus den USA auf Grundlage des EU-US Data Privacy Framework und von Standardvertragsklauseln",
           "Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen"
@@ -242,7 +242,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         [
           "PostHog, Inc.",
           "Product analytics, session replay, error tracking, operational logs (warning level and above), surveys, support",
-          "User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser details, error reports and operational logs, masked session recordings, survey answers and support messages (text masked by your organization's content screening); AI metadata and answer ratings from Langfuse. No email address, no name",
+          "User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser details, error reports and operational logs (without their text), masked session recordings, survey answers and support messages (text masked by your organization's content screening); AI metadata and answer ratings from Langfuse. No email address, no name",
           "EU (Frankfurt); group headquartered in the USA",
           "Stored in the EU; access from the USA under the EU-US Data Privacy Framework and standard contractual clauses",
           "Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings"

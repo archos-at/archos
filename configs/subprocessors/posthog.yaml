@@ -55,12 +55,12 @@ copy:
   data:
     de: >-
       Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und
-      Browserangaben, Fehlerberichte und Betriebsprotokolle, maskierte Sitzungsaufzeichnungen, Umfrageantworten und
+      Browserangaben, Fehlerberichte und Betriebsprotokolle (ohne deren Text), maskierte Sitzungsaufzeichnungen, Umfrageantworten und
       Support-Nachrichten (Text maskiert durch die Inhaltsprüfung Ihrer Organisation); KI-Metadaten und
       Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name
     en: >-
       User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser
-      details, error reports and operational logs, masked session recordings, survey answers and support messages (text
+      details, error reports and operational logs (without their text), masked session recordings, survey answers and support messages (text
       masked by your organization's content screening); AI metadata and answer ratings from Langfuse. No email address,
       no name
   location:
@@ -77,7 +77,7 @@ flows:
     purposes: [product_improvement]
     processing_location: [DE]
   - id: operational-logs
-    what: {de: 'Protokolle ab Warnstufe, Spans und Metriken über den OTel-Collector', en: 'Warning-level logs, spans and metrics through the OTel collector'}
+    what: {de: 'Protokolle ab Warnstufe ohne ihren Text, Spans und Metriken über den OTel-Collector', en: 'Warning-level logs without their text, spans and metrics through the OTel collector'}
     data_classes: [operational_log]
     purposes: [operations]
     processing_location: [DE]

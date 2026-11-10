@@ -43,7 +43,7 @@ Where one recipient serves several purposes, each flow with the place it is proc
 | OpenRouter, Inc. | Re-ranking of search hits | model_io | dpv:ServiceProvision | US |
 | OpenRouter, Inc. | Quality evaluation of a sample of answers | model_io | dpv:ImproveExistingProductsAndServices | per_model |
 | PostHog, Inc. | Events, masked session recordings, errors, surveys | telemetry | dpv:ImproveExistingProductsAndServices | DE |
-| PostHog, Inc. | Warning-level logs, spans and metrics through the OTel collector | operational_log | dpv:ServiceOptimisation | DE |
+| PostHog, Inc. | Warning-level logs without their text, spans and metrics through the OTel collector | operational_log | dpv:ServiceOptimisation | DE |
 | PostHog, Inc. | Support tickets with a report's masked text | support_text | dpv:CustomerCare | DE |
 | PostHog, Inc. | AI metadata and answer ratings from Langfuse | trace_metadata | dpv:ImproveExistingProductsAndServices | DE |
 

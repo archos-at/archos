@@ -97,7 +97,8 @@ person's review, with a release note.
 
 - No run deletes an organization as a whole. The annex's last section lists each
   store that keeps an office's text after its contract ends (design §6.6).
-- The OTel collector's `logs/posthog` pipeline exports WARN-and-above logs with no
-  redaction processor, so a log line that names a document reaches PostHog.
+- Error tracking (the PostHog SDKs) and the BFF's request spans are not redacted
+  like the logs are: an exception message that names a document reaches PostHog
+  and, as an issue title, the error-tracking alert in Slack (`slack.yaml`).
 - `contract` is `unknown` for every processor we have a contract with: the
   register does not yet record which DPAs are signed.
