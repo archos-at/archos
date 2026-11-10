@@ -42,6 +42,8 @@ const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
 const ORG = `org_pbk_${RUN}`
 const SECOND_ORG = `org_pbk_${RUN}_second`
+const GRAZ = `AT:testgraz:${RUN}`
+const VIENNA = `AT:testwien:${RUN}`
 const AUTHOR = 'user_pbk_author'
 const EXPERT = 'user_pbk_expert'
 const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
@@ -135,7 +137,10 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
       { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
       { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
-      { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parents: [{ id: 'AT-6' }] },
+      // Run-scoped places, so the competence rules below decide for this run's places only and never for a
+      // real Gemeinde another suite in the same database resolves (site-resolution's Graz).
+      { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parents: [{ id: 'AT-6' }] },
+      { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parents: [{ id: 'AT-9' }] },
     ])
   })
 
@@ -222,24 +227,24 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
         key: key('competence-at'),
         values: {
           purpose: 'competence',
-          territoryIds: ['AT-6', 'AT-9'],
+          territoryIds: [GRAZ, VIENNA],
           validFrom: '2000-01-01',
           body: {
             kind: 'table',
             payloadSchema: 'decision_table.v1',
             payload: {
-              inputs: [{ key: 'state', type: 'code' }],
+              inputs: [{ key: 'municipality', type: 'code' }],
               output: { type: 'bodies' },
               rows: [
                 {
                   id: 'vienna',
-                  when: { '===': [{ var: 'state' }, 'AT-9'] },
+                  when: { '===': [{ var: 'municipality' }, VIENNA] },
                   then: { bodies: [{ authorityId: `authority:${key('at-wien-ma37')}`, role: 'decides' }] },
                   provision: { citation: 'fixture: § 132 BO für Wien' },
                 },
                 {
                   id: 'styria',
-                  when: { '===': [{ var: 'state' }, 'AT-6'] },
+                  when: { '===': [{ var: 'municipality' }, GRAZ] },
                   then: { bodies: [{ authorityId: `authority:${key('at-graz-bba')}`, role: 'decides' }] },
                   provision: { citation: 'fixture: § 95 Stmk. BauG' },
                 },
@@ -252,10 +257,9 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     ])
     const titles = async (territoryId: string | null) =>
       (await officeRead.PLATFORM_RECORDS_KNOWLEDGE.directivesFor(ORG, territoryId)).map((directive) => [directive.title, directive.verdict.verdict])
-    expect(await titles('AT-6')).not.toContainEqual(['Weisung Stellplätze', expect.anything()])
-    expect(await titles('AT:gkz:60101')).not.toContainEqual(['Weisung Stellplätze', expect.anything()])
+    expect(await titles(GRAZ)).not.toContainEqual(['Weisung Stellplätze', expect.anything()])
     // Positive control: in Vienna it applies.
-    expect(await titles('AT-9')).toContainEqual(['Weisung Stellplätze', 'applies'])
+    expect(await titles(VIENNA)).toContainEqual(['Weisung Stellplätze', 'applies'])
     // Unknown territory: said, not guessed.
     expect(await titles(null)).toContainEqual(['Weisung Stellplätze', 'authority_unknown'])
   })
