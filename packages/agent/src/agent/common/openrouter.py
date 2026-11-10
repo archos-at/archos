@@ -71,6 +71,7 @@ import httpx
 
 from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common import residency
 from agent.common.licensed_text import licensed_scope_active
 from agent.common.licensed_text import refuse_unattested_model_read
 
@@ -220,11 +221,16 @@ def data_policy_for(organization_id: str | None) -> DataPolicy:
     pins it: see the module docstring.
     """
     if not organization_id:
-        return NO_RETENTION_LIMITS
+        return ZERO_DATA_RETENTION if residency.active_cell() is not None else NO_RETENTION_LIMITS
     try:
+        from agent.common.model_overrides import resolve_org_processing_policy
         from agent.common.model_overrides import resolve_org_zdr_only
 
+        if residency.active_cell() is not None:  # an organization this cell may not serve gets no policy at all
+            residency.check_organization(resolve_org_processing_policy(organization_id) or residency.UNREADABLE_POLICY)
         return ZERO_DATA_RETENTION if resolve_org_zdr_only(organization_id) else NO_RETENTION_LIMITS
+    except residency.ResidencyViolation:
+        raise
     except Exception:  # noqa: BLE001 - fails closed, and says so
         logger.error("ZDR policy lookup failed for org %s; pinning ZDR routing", organization_id, exc_info=True)
         return ZERO_DATA_RETENTION
@@ -292,6 +298,7 @@ def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request
     Inside a licensed document's scope (``licensed_text.licensed_document_scope``) the policy is zero retention
     whatever the caller passed, and a request it may not send (an unattested copy, a BYOK endpoint) is refused.
     """
+    request = _routed_request(request)
     on_openrouter = targets_openrouter(str(request.url))
     refuse_unattested_model_read(str(request.url.host), openrouter=on_openrouter)
     if licensed_scope_active():
@@ -314,6 +321,19 @@ def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request
         content=json.dumps(policy.apply(body)).encode("utf-8"),
         extensions=request.extensions,
     )
+
+
+def _routed_request(request: httpx.Request) -> httpx.Request:
+    """``request`` sent into the deployment's residency zone, or refused outside it (``common/residency``)."""
+    target, _route = residency.enforce(str(request.url))
+    if target == str(request.url):
+        return request
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+    try:  # a JSON body is read already; a multipart upload (dictation) still streams, and must not be read here
+        body: dict[str, Any] = {"content": request.content}
+    except httpx.RequestNotRead:
+        body = {"stream": request.stream}
+    return httpx.Request(request.method, target, headers=headers, extensions=request.extensions, **body)
 
 
 _MODEL_FIELD = re.compile(rb'"model"\s*:\s*"([^"]{1,120})"')
@@ -440,6 +460,7 @@ class _PinningTransport(httpx.BaseTransport):
         self._inner = inner or httpx.HTTPTransport()
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        residency.check_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return self._inner.handle_request(request)
@@ -485,6 +506,7 @@ class _AsyncPinningTransport(httpx.AsyncBaseTransport):
         self._inner = inner or httpx.AsyncHTTPTransport()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        await residency.acheck_current_organization()
         request = _pinned_request(request, self._policy)
         if not _takes_slot(request):
             return await self._inner.handle_async_request(request)

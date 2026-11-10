@@ -93,6 +93,22 @@ Every generation's cost is metered into the `llm_usage_events` ledger and
 bounded by per-org/member/project budgets — see
 [`usage-budgets.md`](usage-budgets.md) (ADR-0015).
 
+## Where a call is processed (ADR-0167)
+
+Every model call is routed and recorded by `common/residency.py`, called from both seams: the httpx
+transport in `common/openrouter.py` (embeddings, vision, reranking, summaries, titles, decisions, the
+distiller, dictation) and the chat-request contract in `common/llm_factory.py` (every chat model).
+The data-flow register places each host (`endpoints` in `configs/subprocessors/openrouter.yaml`:
+`eu.openrouter.ai` in `EU`, `openrouter.ai` in `US`), and every generation carries
+`processing_location`, `subprocessor` and `processing_location_compliant` as observation metadata.
+
+With `RESIDENCY_CELL` unset (the default) nothing is rewritten or refused. With a cell
+(`configs/residency/cells.yaml`) the transport rewrites `openrouter.ai` to `eu.openrouter.ai`, refuses
+any host outside the zone before sending, and zero data retention cannot be switched off. The chat
+models cannot be rewritten per call (their client is built at boot), so a cell sets
+`OPENROUTER_BASE_URL=https://eu.openrouter.ai/api/v1`, which every `llms` entry of
+`configs/config_oib_openrouter.yml` reads; the boot check refuses a cell without it.
+
 ## Caveats
 
 - Prompts are tuned against the reference model; very different models may need

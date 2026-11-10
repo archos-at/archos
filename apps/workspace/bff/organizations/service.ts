@@ -13,7 +13,8 @@ import { getWorkOS } from '@/lib/workos/client'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { invalidateBackendModelConfig } from '@/lib/model-config/backend-key'
 import { DEDICATED_ROUTE_SETTINGS, PLATFORM_OWNED_SETTINGS, type Organization } from '@/lib/db/schema/organizations'
-import { BadRequestError, ForbiddenError } from '@/lib/api/errors'
+import { BadRequestError, ConflictError, ForbiddenError } from '@/lib/api/errors'
+import { residencyCell } from '@/lib/residency/cell'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { requirePlatformPermission } from '@/lib/authz/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
@@ -427,7 +428,7 @@ const zdrOnlyCacheKey = (organizationId: string): string => `zdronly:v2:${organi
  * invalidated by `setOrgZdrOnly`.
  */
 export async function isZdrOnlyForOrg(organizationId: string | null | undefined): Promise<boolean> {
-  if (!organizationId) return true
+  if (!organizationId || residencyCell() !== null) return true
   return getCached(zdrOnlyCacheKey(organizationId), ZDR_ONLY_CACHE_TTL_MS, async () => {
     const { settings } = await getOrgSettings(organizationId)
     return isZdrOnlySetting(settings.zdrOnly)
@@ -445,12 +446,19 @@ export function isZdrOnlySetting(value: unknown): boolean {
  * settings save refuses the key (`DEDICATED_ROUTE_SETTINGS`), so the gate at
  * the dedicated route (`org:models:manage` + the model-configuration flag) is
  * the gate. Writes past `updateOrgSettings` for exactly that reason.
+ *
+ * Inside a residency cell (`RESIDENCY_CELL`, ADR-0167) zero retention is the
+ * cell's promise, not the org's choice: switching it off is refused, and the
+ * backend pins every request whatever is stored.
  */
 export async function setOrgZdrOnly(
   session: AuthorizedSession,
   enabled: boolean,
   request: Request
 ): Promise<{ zdrOnly: boolean; previous: boolean }> {
+  if (!enabled && residencyCell() !== null) {
+    throw new ConflictError('Zero data retention is required in this residency cell and cannot be switched off.')
+  }
   const before = await getOrgSettings(session.organizationId)
   const previous = isZdrOnlySetting(before.settings.zdrOnly)
   await writeOrgSettings(session.organizationId, { settings: { zdrOnly: enabled } })

@@ -52,6 +52,7 @@ from contextlib import nullcontext
 from typing import Any
 
 from agent.common import provider_limiter
+from agent.common import residency
 from agent.common.licensed_reply import ChunkCap
 from agent.common.licensed_reply import capped_result
 from agent.common.licensed_text import expand_messages
@@ -315,6 +316,16 @@ def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any
     return expand_messages(messages, zero_retention=pinned)
 
 
+def _route(llm: Any) -> residency.Route:
+    """Where a chat call to ``llm`` is processed; refused outside the cell's zone (``common/residency``).
+
+    A chat model's client is bound to its base URL at construction, so nothing is rewritten here: a cell's
+    chat models are built on the zone's endpoint (``OPENROUTER_BASE_URL``, held by the boot check). The
+    organization's placement is checked by the caller: blocking in ``_generate``, off the loop in ``_agenerate``.
+    """
+    return residency.enforce(_llm_base_url(llm), rewrite=False)[1]
+
+
 def _capped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
     """``chunk`` as the stream may yield it: unchanged without a cap, else capped and then reported."""
     if cap is None:
@@ -357,17 +368,20 @@ def _contract_generate(base: type) -> Any:
     """The contract's ``_generate``, over ``base``'s."""
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
+        route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         with _provider_slot(self):
             try:
                 result = base._generate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
-                return capped_result(result, cap)
+                return residency.stamp_result(capped_result(result, cap), route)
             except Exception as exc:
                 if not _needs_reasoning_floor(self, target, exc):
                     raise
             floored = _with_reasoning_floor(self)
-            return capped_result(base._generate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs), cap)
+            result = base._generate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs)
+            return residency.stamp_result(capped_result(result, cap), route)
 
     return _generate
 
@@ -376,18 +390,20 @@ def _contract_agenerate(base: type) -> Any:
     """The contract's ``_agenerate``, over ``base``'s."""
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
+        route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         async with _provider_slot_async(self):
             try:
                 result = await base._agenerate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
-                return capped_result(result, cap)
+                return residency.stamp_result(capped_result(result, cap), route)
             except Exception as exc:
                 if not _needs_reasoning_floor(self, target, exc):
                     raise
             floored = _with_reasoning_floor(self)
             result = await base._agenerate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs)
-            return capped_result(result, cap)
+            return residency.stamp_result(capped_result(result, cap), route)
 
     return _agenerate
 
@@ -396,6 +412,8 @@ def _contract_stream(base: type) -> Any:
     """The contract's ``_stream``, over ``base``'s."""
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
+        route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         inner_manager = None if cap is not None else run_manager
@@ -403,15 +421,16 @@ def _contract_stream(base: type) -> Any:
             started = False
             try:
                 for chunk in base._stream(target, prepared, stop=stop, run_manager=inner_manager, **kwargs):
-                    started = True
-                    yield _capped_chunk(chunk, cap, run_manager)
+                    first, started = not started, True
+                    yield residency.stamp_chunk(_capped_chunk(chunk, cap, run_manager), route if first else None)
                 return
             except Exception as exc:
                 if started or not _needs_reasoning_floor(self, target, exc):
                     raise
             floored = _with_reasoning_floor(self)
             for chunk in base._stream(floored, prepared, stop=stop, run_manager=inner_manager, **kwargs):
-                yield _capped_chunk(chunk, cap, run_manager)
+                yield residency.stamp_chunk(_capped_chunk(chunk, cap, run_manager), route)
+                route = None
 
     return _stream
 
@@ -420,6 +439,8 @@ def _contract_astream(base: type) -> Any:
     """The contract's ``_astream``, over ``base``'s."""
 
     async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
+        route = _route(self)
         prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         inner_manager = None if cap is not None else run_manager
@@ -427,15 +448,17 @@ def _contract_astream(base: type) -> Any:
             started = False
             try:
                 async for chunk in base._astream(target, prepared, stop=stop, run_manager=inner_manager, **kwargs):
-                    started = True
-                    yield await _acapped_chunk(chunk, cap, run_manager)
+                    first, started = not started, True
+                    capped = await _acapped_chunk(chunk, cap, run_manager)
+                    yield residency.stamp_chunk(capped, route if first else None)
                 return
             except Exception as exc:
                 if started or not _needs_reasoning_floor(self, target, exc):
                     raise
             floored = _with_reasoning_floor(self)
             async for chunk in base._astream(floored, prepared, stop=stop, run_manager=inner_manager, **kwargs):
-                yield await _acapped_chunk(chunk, cap, run_manager)
+                yield residency.stamp_chunk(await _acapped_chunk(chunk, cap, run_manager), route)
+                route = None
 
     return _astream
 

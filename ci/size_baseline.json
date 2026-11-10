@@ -297,7 +297,7 @@
     "packages/agent/src/agent/memory/register.py::project_memory_remember": 74,
     "packages/agent/src/agent/memory/register.py::project_memory_remember._remember": 69,
     "packages/agent/src/agent/memory/restriction.py::restriction_evidence": 61,
-    "packages/agent/src/agent/observability/otel_header_redaction_exporter.py::otelcollector_redaction_telemetry_exporter": 145,
+    "packages/agent/src/agent/observability/otel_header_redaction_exporter.py::otelcollector_redaction_telemetry_exporter": 128,
     "packages/agent/src/agent/observability/retrieval_trace.py::emit_step_span": 65,
     "packages/agent/src/agent/project_context.py::RequestContext.from_envelope": 82,
     "packages/agent/src/agent/project_context.py::RequestContext.from_headers": 67,
