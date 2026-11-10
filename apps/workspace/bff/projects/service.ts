@@ -7,6 +7,7 @@
  * typed errors from `@/lib/api/errors`.
  */
 
+import { officeMonth } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { getWorkOS } from '@/lib/workos/client'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -36,7 +37,7 @@ import {
   openToOrganizationWhenClosed,
   type ProjectOutcome,
 } from './project-status'
-import { currentMonth, dateToMonth, isMonth, monthToDate, type Month } from './month'
+import { dateToMonth, isMonth, monthToDate, type Month } from './month'
 import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
@@ -303,7 +304,7 @@ export async function createProject(
   request?: Request,
   now: Date = new Date()
 ): Promise<Project> {
-  const closing = input.closing ? closingOrRefuse(input.closing, currentMonth(now)) : undefined
+  const closing = input.closing ? closingOrRefuse(input.closing, await officeMonth(session.organizationId, now)) : undefined
   const piloti = input.setup === 'piloti'
   // A closing Piloti sets up is carried out when the review is finished.
   const closeNow = closing && !piloti ? closing : undefined
@@ -525,7 +526,7 @@ export async function setProjectStatus(
           at: now,
           closedBy: session.userId,
           outcome: change.outcome,
-          endedOn: monthToDate(endedOnOrRefuse(change.endedOn, dateToMonth(current.startedOn), currentMonth(now))),
+          endedOn: monthToDate(endedOnOrRefuse(change.endedOn, dateToMonth(current.startedOn), await officeMonth(session.organizationId, now))),
         }
       : change.status === 'paused'
         ? { status: 'paused', at: now }

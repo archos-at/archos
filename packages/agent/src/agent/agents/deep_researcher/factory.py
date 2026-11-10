@@ -30,6 +30,7 @@ from agent.common.country_profile import JURISDICTION_GROUNDING
 from agent.common.norm_registry import doctrine_for
 from agent.common.norm_registry import parcel_note
 from agent.common.norm_registry import render_block_for_prompt
+from agent.common.norm_registry import resolve_country
 from agent.skills import OFFICE_SOURCE
 from agent.skills import SKILLS_ROOT
 from agent.skills import SkillRuntime
@@ -167,7 +168,7 @@ class DeepResearchGraphContext:
             ris_catalog=self.ris_catalog,
             norm_doctrine=doctrine_for(self.project_context),
             jurisdiction_grounding=JURISDICTION_GROUNDING,
-            parcel_note=parcel_note(self.available_documents),
+            parcel_note=parcel_note(self.available_documents, resolve_country(self.project_context)),
             basis=self.basis,
             excluded=self.excluded,
             **values,

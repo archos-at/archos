@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { organizations, type Organization } from '@/lib/db/schema/organizations'
-import type { HomeCountry } from './home-country'
+import { HOME_COUNTRY_TIME_ZONES, type HomeCountry } from './home-country'
 
 /** The stored settings row for an organization, or null before its first write. */
 export async function findOrganization(organizationId: string): Promise<Organization | null> {
@@ -103,8 +103,8 @@ export async function upsertOrganization(values: {
 }
 
 /**
- * Create the row of a new organization with its home country, or set the home
- * country on a row a settings write already made. Only the creation route
+ * Create the row of a new organization with its home country and the clock
+ * that country starts with, or set both on a row a settings write already made. Only the creation route
  * calls it: the office states its seat once, when it creates the organization.
  */
 export async function placeOrganization(organizationId: string, homeCountry: HomeCountry): Promise<void> {
@@ -112,10 +112,10 @@ export async function placeOrganization(organizationId: string, homeCountry: Hom
   await withTenant({ organizationId }, () =>
     db
       .insert(organizations)
-      .values({ workosOrganizationId: organizationId, homeCountry })
+      .values({ workosOrganizationId: organizationId, homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry] })
       .onConflictDoUpdate({
         target: organizations.workosOrganizationId,
-        set: { homeCountry, updatedAt: new Date() },
+        set: { homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry], updatedAt: new Date() },
       }),
   )
 }

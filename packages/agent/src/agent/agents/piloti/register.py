@@ -37,6 +37,7 @@ from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.client_tools import KNOWN_CLIENT_TOOLS
 from agent.common.client_tools import client_tool_declared
+from agent.common.country_profile import record_site
 from agent.common.data_source_registry import get_all_sources
 from agent.common.decisions import SKIPPED_TOO_SHORT
 from agent.common.decisions import record_skipped
@@ -570,9 +571,9 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # The provider reads (four cache-first BFF lookups) run beside them too:
     # nothing here depends on another, so the turn pays the slowest of the
     # three, not their sum.
-    # The question's embedding is warmed beside them (see _warm_question), so
-    # the round-0 search it prefetches does not pay that round trip after.
-    # The facts only feed the decision, so a config without it builds none.
+    # The question's embedding is warmed beside them (see _warm_question), so the round-0 search
+    # it prefetches does not pay that round trip after. The facts only feed the decision.
+    record_site(state.project_context)
     facts = _turn_facts(state, runtime) if config.turn_decisions else None
     _warm_question(facts)
     draft_tools, decisions, llm_provider, fit = await asyncio.gather(

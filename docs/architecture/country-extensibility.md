@@ -88,3 +88,26 @@ mechanisms confirmed country-agnostic by inventory: collection layering &
 merging, scoping headers, the request-envelope machinery, the classification
 and compliance pipelines (mechanism, not vocabulary), "answer in the user's
 language" prompt rules.
+
+## OIB editions per Land
+
+Which edition of the OIB-Richtlinien each Land has declared binding, checked
+on 2026-11-06 against the OIB's own table of in-force dates
+(<https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten>). The
+corpus holds the 2023 edition only, and nothing in the prompt says which
+edition binds where yet: the adoption relations per Land are the country-pack
+work (build split S8, defect 7 of `docs/design/international/design.md` 2.2),
+and this table is their seed. The LGBl. numbers come from RIS and secondary
+consolidations (RIS was down that day): re-check each on RIS before quoting it.
+
+| Land | Binding edition | In force since | Instrument |
+|---|---|---|---|
+| Wien | RL 1–5: 2023, RL 6: 2025 | 2024-02-23; RL 6 2026-07-15 | WBTV 2023 (LGBl. 14/2024), RL 6 by LGBl. 26/2026 |
+| Niederösterreich | RL 1–6: 2023 | 2025-03 | NÖ BTV 2014 as amended by LGBl. 41/2025 |
+| Oberösterreich | RL 1–5: 2023, RL 6: 2019 | 2025-10-01; RL 6 2020-09-01 | Oö. BauTV-Novelle 2025 (LGBl. 70/2025) |
+| Steiermark | RL 1–6: 2019 | 2020-09-01 | StBTV 2020 |
+| Kärnten | RL 1–6: 2023 | 2024-12-31 | K-BTV 2024 (LGBl. 105/2024) |
+| Salzburg | RL 1–5: 2023; RL 6: no adoption listed | 2026 (OIB: 2026-08-06; RIS: 2026-09-01) | Bautechnikverordnung LGBl. 83/2026 |
+| Tirol | RL 1–5: 2023, RL 6: 2025 without Pkt 2.2 and 2.3.1 | 2026-07-16 | TBV 2026 § 43 (LGBl. 59/2026) |
+| Vorarlberg | RL 1–6: 2019 | 2022-01-01 | BTV as amended by LGBl. 67/2021 |
+| Burgenland | RL 1–6: 2019 | 2021-04-10 | Bgld. BauVO 2008 as amended by LGBl. 22/2021 |

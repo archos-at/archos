@@ -5,8 +5,7 @@ fixes:
     For a project outside Austria, or one whose site is not yet stated, the
     assistant no longer presents Austrian law, OIB guidelines or building
     classes as applying, and says plainly what it does not cover yet. Within
-    Austria it names the OIB edition your Land has adopted and no longer cites
-    Vienna's laws for projects in other Länder.
+    Austria it no longer cites Vienna's laws for projects in other Länder.
   - >
     An address typed when creating a project, rather than chosen from the
     search, now waits for your confirmation instead of counting as confirmed.
@@ -17,7 +16,12 @@ features:
     tax IDs.
 operators:
   - >
-    Migration 0200 gives every organization row a home country (AT for every
-    existing organization) and creates rows for organizations that had none.
-    The country-neutral static prompt change waits for a person to publish it
-    with the prompt push task.
+    Migration 0200 gives every organization row a home country and a time
+    zone (AT and Europe/Vienna for every existing organization) and creates
+    rows for organizations that had none; check the WorkOS roster for a
+    non-Austrian office first.
+  - >
+    Address search is off by default (ADR-0159): a stack that wants komoot's
+    public geocoder sets geocoderUrl, or GEOCODER_URL in Compose. The
+    country-neutral static prompt waits for the country-pack renderer before
+    it is published.

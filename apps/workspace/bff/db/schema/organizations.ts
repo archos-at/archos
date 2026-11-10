@@ -36,6 +36,12 @@ export const organizations = pgTable('organizations', {
    * a project with no site gets none. NULL: nobody has said where the office is.
    */
   homeCountry: char('home_country', { length: 2 }),
+  /**
+   * The office's clock, an IANA zone (migration 0200), set from the home country
+   * at creation. NULL reads as Europe/Vienna (`officeTimeZone`). The office's own
+   * clock, never a project site's.
+   */
+  timeZone: text('time_zone'),
   /** Flexible bag for additional org-scoped settings. */
   settings: jsonb('settings').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -256,3 +256,34 @@ class TestDoctrineAbroad:
 
     def test_the_doctrine_names_no_viennese_portal_for_every_land(self):
         assert "(in Wien:\nwien.gv.at/flaechenwidmung/public)" in nr.NORM_DOCTRINE
+
+
+class TestRecordSite:
+    @pytest.mark.parametrize(
+        ("profile", "expected"),
+        [
+            (_profile("- country=de"), {"site_country": "de", "site_confirmed": True}),
+            (_profile(assumptions="- federal_state=tyrol"), {"site_country": "at", "site_confirmed": False}),
+            (_profile("- main_use=residential"), {"site_country": "unknown"}),
+        ],
+    )
+    def test_the_turn_trace_says_where_the_project_is(self, profile, expected):
+        from agent.observability import langfuse_trace_attributes as lta
+
+        token = lta.begin_trace_contributions()
+        try:
+            cp.record_site(profile)
+            metadata = (lta.snapshot_contributions() or {}).get("metadata", {})
+        finally:
+            lta.end_trace_contributions(token)
+        assert {k: v for k, v in metadata.items() if k.startswith("site_")} == expected
+
+    def test_no_project_records_nothing(self):
+        from agent.observability import langfuse_trace_attributes as lta
+
+        token = lta.begin_trace_contributions()
+        try:
+            cp.record_site(None)
+            assert not (lta.snapshot_contributions() or {}).get("metadata")
+        finally:
+            lta.end_trace_contributions(token)

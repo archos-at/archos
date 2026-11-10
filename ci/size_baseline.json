@@ -167,7 +167,7 @@
     "packages/agent/src/agent/common/content_screen.py": 949,
     "packages/agent/src/agent/common/cost_tracking.py": 941,
     "packages/agent/src/agent/common/decisions.py": 676,
-    "packages/agent/src/agent/common/norm_registry.py": 1171,
+    "packages/agent/src/agent/common/norm_registry.py": 1169,
     "packages/agent/src/agent/common/provider_limiter.py": 876,
     "packages/agent/src/agent/common/wire_v2.py": 1403,
     "packages/agent/src/agent/knowledge/base.py": 738,

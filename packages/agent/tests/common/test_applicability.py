@@ -253,14 +253,6 @@ class TestRenderProjectBlock:
         assert block is not None
         assert "OIB 1 — required —" in block
 
-    def test_the_binding_edition_of_the_land_is_named(self):
-        """Defect 7: OIB-RL 2023 counted as binding in every Land; Steiermark binds 2019."""
-        context = "PROJECT_CONTEXT v1\nconfirmed:\n- federal_state=styria\n- main_use=residential\n"
-        block = render_project_block(context)
-        assert block is not None
-        assert "OIB edition binding in Steiermark: RL 1–6: 2019" in block
-        assert "holds the 2023 edition" in block
-
     def test_no_trigger_lines_when_no_triggers(self):
         context = "PROJECT_CONTEXT v1\nconfirmed:\n- country=at\n- hauptnutzung=wohnen\n"
         block = render_project_block(context)

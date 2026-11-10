@@ -38,6 +38,14 @@
 -- therefore stays nullable until that operation exists.
 
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS home_country char(2);
+-- The office's clock (IANA zone), replacing the one constant OFFICE_TIME_ZONE
+-- where an organization is in scope. Set from the home country when the
+-- organization is created; NULL reads as Europe/Vienna, the clock every office
+-- had before, until the platform sets it.
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS time_zone text;
+ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_time_zone_shape;
+ALTER TABLE organizations ADD CONSTRAINT organizations_time_zone_shape
+  CHECK (time_zone IS NULL OR time_zone ~ '^[A-Za-z]+(/[A-Za-z0-9_+-]+)+$');
 
 ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_home_country_iso;
 ALTER TABLE organizations ADD CONSTRAINT organizations_home_country_iso
@@ -70,3 +78,4 @@ END
 $$;
 
 UPDATE organizations SET home_country = 'AT' WHERE home_country IS NULL;
+UPDATE organizations SET time_zone = 'Europe/Vienna' WHERE time_zone IS NULL;

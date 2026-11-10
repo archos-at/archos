@@ -358,7 +358,6 @@ def test_an_unplaced_project_gets_no_verdicts_and_is_asked_for_its_site():
 def test_an_austrian_project_keeps_its_block_and_reads_no_note():
     context = _jurisdiction_context("- federal_state=tyrol\n")
     assert "OIB 1 — required —" in context
-    assert "OIB edition binding in Tirol" in context
     assert "Jurisdiction:" not in context
     # Tirol is not Wien: no Viennese law.
     assert "Wiener" not in context

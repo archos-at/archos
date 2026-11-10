@@ -592,9 +592,8 @@ _BLOCK_HEADER = (
 OIB_CORPUS_NOTE = (
     "OIB corpus (already in the knowledge base, no RIS query needed): OIB guidelines 1–6\n"
     "with guides, explanatory notes, definitions and cited norms, edition May 2023.\n"
-    'Cite as "OIB-RL <N>, Pkt <x>, Ausgabe Mai 2023". That edition binds only where the Land\n'
-    "adopted it; the project block names the edition binding in the project's Land.\n"
-    "Requirements only from the guideline itself — guide/explanatory note are aids to interpretation."
+    'Cite as "OIB-RL <N>, Pkt <x>, Ausgabe Mai 2023". Requirements only from the guideline\n'
+    "itself — guide/explanatory note are aids to interpretation."
 )
 
 
@@ -747,9 +746,8 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
                 by_tag.setdefault(tag, []).append(name)
     if not by_tag:
         return None
-    lines = [
-        "## Parcel sources of this project (authoritative for zoning, building class, building height, building lines)"
-    ]
+    klass = "building class, " if country == "at" else ""  # the Bauklasse is an Austrian zoning class
+    lines = [f"## Parcel sources of this project (authoritative for zoning, {klass}building height, building lines)"]
     for tag in parcel_tags:
         if tag in by_tag:
             files = ", ".join(sorted(by_tag[tag]))

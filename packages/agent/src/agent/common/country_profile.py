@@ -304,6 +304,22 @@ def resolve_site(project_context: str | None) -> Site:
     return SITE_UNKNOWN
 
 
+def record_site(project_context: str | None) -> None:
+    """Put where this turn's project is on its trace: ``site_country`` and ``site_confirmed``.
+
+    ``site_country`` is the ISO code, ``other``, or ``unknown`` for a project nothing
+    places; no project context records nothing. Best-effort, like all trace metadata.
+    """
+    if not project_context or not project_context.strip():
+        return
+    from agent.observability.langfuse_trace_attributes import record_trace_metadata
+
+    site = resolve_site(project_context)
+    record_trace_metadata(
+        site_country=site.country or "unknown", site_confirmed=site.confirmed if site.country else None
+    )
+
+
 def country_name(country: str | None) -> str:
     """The country's English name for a note the model reads."""
     if not country:

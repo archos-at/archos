@@ -45,6 +45,7 @@ from agent.common.country_profile import site_note
 from agent.common.estate_paths import estate_path
 from agent.common.estate_paths import reads_the_estate
 from agent.common.norm_registry import parcel_note
+from agent.common.norm_registry import resolve_country
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
@@ -500,7 +501,7 @@ def render_turn_context(
         focus_region_block=focus_region_block(state, tool_names),
         trigger_block=trigger_block(state, tool_names),
         oib_applicability=oib_applicability(state.project_context),
-        parcel_note=parcel_note(documents),
+        parcel_note=parcel_note(documents, resolve_country(state.project_context)),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.
         skills_block=state.skills_block,

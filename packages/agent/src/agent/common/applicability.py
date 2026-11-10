@@ -498,9 +498,7 @@ def render_project_block(project_context: str) -> str | None:
     facts = facts_from_project_context(project_context)
     if not facts:
         return None
-    from agent.common.oib_adoption import adoption_line
-
-    lines = ["### Likely relevant for this project", "", adoption_line(site.federal_state)]
+    lines = ["### Likely relevant for this project", ""]
     for verdict in resolve_oib_applicability(facts):
         label = _VERDICT_LABELS.get(verdict.verdict, verdict.verdict)
         lines.append(f"- {verdict.code} — {label} — {verdict.reason_en}")

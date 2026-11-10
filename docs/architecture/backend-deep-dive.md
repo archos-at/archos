@@ -1491,11 +1491,11 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    (`siteCountry`, `placedOutsideAustria`), read by the OIB list and the
    building-class derivation. Deep research's **Jurisdiction & Country
    Handling** block (`country_profile.JURISDICTION_GROUNDING`) states the same.
-- **OIB edition per Land** — `common/oib_adoption.py` holds the edition each
-   Land declared binding per Richtlinie (2019, 2023, 2025), dated and sourced
-   from the OIB's in-force table. The applicability section names the binding
-   edition for the project's Land, and says the corpus holds 2023 where they
-   differ. Re-check it when a Land adopts a new edition.
+- **OIB edition per Land** — not modelled yet: the corpus holds the 2023
+   edition and the prompt does not say which edition a Land binds. The
+   adoption per Land, as checked on 2026-11-06, is in
+   [`country-extensibility.md`](country-extensibility.md#oib-editions-per-land);
+   the adoption relations that replace it are the country-pack work (S8).
 - **Bundesland** — `resolve_federal_state`: the validated envelope token wins
    (`ausserhalb_oesterreichs` → None is final), then the structured
    `federal_state=<token>` prompt fact, then free-text state-name probing.

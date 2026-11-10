@@ -9,6 +9,7 @@
  * reach: the shelf, the lifecycle, the hidden folders, `documentVisibleTo`.
  */
 
+import { OFFICE_TIME_ZONE } from '@/lib/format'
 import 'server-only'
 import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -136,7 +137,7 @@ function targetsWhere(targets: ReferenceTargets): SQL {
 }
 
 /** What the filters ask of the reading and the row. Within a list any of; across fields all of. */
-export function filtersWhere(filters: DocumentFilters): SQL[] {
+export function filtersWhere(filters: DocumentFilters, timeZone: string = OFFICE_TIME_ZONE): SQL[] {
   const where: SQL[] = []
   const anyOf = (parts: SQL[]): void => {
     if (parts.length > 0) where.push(or(...parts) as SQL)
@@ -159,8 +160,8 @@ export function filtersWhere(filters: DocumentFilters): SQL[] {
   for (const fact of filters.facts ?? []) where.push(factWhere(fact))
   for (const entry of filters.cites ?? []) where.push(citesWhere(entry))
   where.push(...between(sql`${f.documentDate}`, filters.documentDate))
-  where.push(...between(sql`(${documents.createdAt} AT TIME ZONE 'Europe/Vienna')::date`, filters.uploaded))
-  where.push(...between(sql`(${f.capturedAt} AT TIME ZONE 'Europe/Vienna')::date`, filters.photographed))
+  where.push(...between(sql`(${documents.createdAt} AT TIME ZONE ${timeZone})::date`, filters.uploaded))
+  where.push(...between(sql`(${f.capturedAt} AT TIME ZONE ${timeZone})::date`, filters.photographed))
   if (filters.uploadedBy?.length) where.push(inArray(documents.createdBy, filters.uploadedBy))
   const family = readFamilyWhere(filters.states)
   if (family) where.push(family)
@@ -201,7 +202,7 @@ export function documentSearchWhere(reach: SearchReach, query: DocumentQuery): S
   return and(
     reachWhere(reach, query.filters.includeArchived === true),
     ne(documents.scope, 'session'),
-    ...filtersWhere(query.filters),
+    ...filtersWhere(query.filters, reach.timeZone),
     query.text ? textWhere(query.text) : undefined,
     query.citedBy ? targetsWhere(query.citedBy) : undefined,
     query.citing ? sql`EXISTS (SELECT 1 FROM unnest(${f.referenceTokens}) AS token WHERE
