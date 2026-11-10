@@ -116,27 +116,38 @@ JUDGES: tuple[JudgeDefinition, ...] = (
     ),
 )
 
-RULES: tuple[RuleDefinition, ...] = (
-    RuleDefinition(
-        name="chat-turn-judges",
-        judge_names=tuple(judge.name for judge in JUDGES),
-        # One turn in five: enough to chart, a fifth of the cost.
-        sampling=0.2,
-        # The root observation of an answered chat turn: the one whose input
-        # is the question and whose output is the answer.
-        filter=[
-            {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
-            {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
-            {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
-            # A turn that read licensed text holds references in its trace, not the text it was grounded in,
-            # so a judge would grade the answer against the wrong evidence (ADR-0164, design 6.1).
-            {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
-            # Include-only (ADR-0167): a judge runs only where the organization allows quality evaluation, and
-            # a trace without the tag (a policy that could not be read) is never judged.
-            {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": [QUALITY_EVALUATION_TAG]},
-        ],
-    ),
-)
+
+def judge_rules(residency_on: bool) -> tuple[RuleDefinition, ...]:
+    """The judge rules, for a deployment with a residency cell switched on or not (ADR-0167).
+
+    Inside a cell a judge runs only where the organization allows quality evaluation: include-only, so a trace
+    without the ``purpose_ok:quality_evaluation`` tag (a policy that could not be read) is never judged. Without
+    a cell the rule is what it was before the policy existed, because only a chat turn carries the tag.
+    """
+    conditions: list[dict[str, Any]] = [
+        {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
+        {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
+        {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
+        # A turn that read licensed text holds references in its trace, not the text it was grounded in,
+        # so a judge would grade the answer against the wrong evidence (ADR-0164, design 6.1).
+        {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
+    ]
+    if residency_on:
+        conditions.append(
+            {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": [QUALITY_EVALUATION_TAG]}
+        )
+    return (
+        RuleDefinition(
+            name="chat-turn-judges",
+            judge_names=tuple(judge.name for judge in JUDGES),
+            # One turn in five: enough to chart, a fifth of the cost.
+            sampling=0.2,
+            # The root observation of an answered chat turn: the one whose input
+            # is the question and whose output is the answer.
+            filter=conditions,
+        ),
+    )
+
 
 GOLDEN_DATASET_NAME = "golden-questions"
 GOLDEN_QUESTIONS_PATH = Path("tests/fixtures/derivation/loop_eval_questions.yaml")

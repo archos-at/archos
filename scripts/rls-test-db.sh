@@ -3531,6 +3531,43 @@ check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0206 editions in time and its down migration verified"
 
 # ---------------------------------------------------------------------------
+# 0208: four eyes on the claim review, and a verdict says how it was given.
+#
+# On a database migrated through 0207, a verdict written before 0208 has no
+# source and keeps it (verdicts are append-only); after 0208 an author's verdict
+# is refused, a new verdict without a source is refused, and another person's
+# lands. The down restores 0205's trigger and drops the column; 0208 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0208 review four eyes and its down migration on rv_0208"
+migrate_before rv_0208 0208_review_four_eyes
+CR="c0000000-0000-4000-8000-000000000208"
+RV="e0000000-0000-4000-8000-000000000208"
+sql_in rv_0208 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT territories', 'AT', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-6', NULL, 'territory', 'AT', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'AT-6', 'territory', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
+  VALUES ('$RV', 'AT-6', NULL, 'state', 'Steiermark', '{AT}');
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author');
+SQL
+apply_in rv_0208 0208_review_four_eyes.sql
+check_in rv_0208 "SELECT count(*) FROM knowledge_review_decisions WHERE decision_source IS NULL" "1" "0208 keeps a verdict written before it, without a source"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author', 'agent')" "revision they wrote" "an author reviewing their own request"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert')" "knowledge_review_decisions_source_given" "a new verdict without a source"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'model')" "knowledge_review_decisions_source_known" "a source nobody defined"
+sql_in rv_0208 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'agent');"
+check_in rv_0208 "SELECT decision_source FROM knowledge_review_decisions WHERE reviewer = 'user_expert'" "agent" "0208: another person's verdict lands with its source"
+apply_in rv_0208 0208_review_four_eyes.down.sql
+check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'decision_source'" "0" "0208 down drops the source"
+sql_in rv_0208 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author');"
+apply_in rv_0208 0208_review_four_eyes.sql
+check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'decision_source'" "1" "0208 applies again after its down"
+echo "==> 0208 review four eyes and its down migration verified"
+
+# ---------------------------------------------------------------------------
 # 0209: relations are records (ADR-0168): a relation names two records of its
 # owner, a mode only for makes_binding; the down removes relations and their
 # records and the record type, and 0209 applies again.

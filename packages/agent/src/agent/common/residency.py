@@ -298,11 +298,37 @@ def _current_organization() -> str | None:
         return None
 
 
+def _runs_for_a_tenant() -> bool:
+    """Whether the current request acts for a person or a project, the marks of tenant work."""
+    try:
+        from agent.project_context import RequestContext
+
+        context = RequestContext.from_context()
+    except Exception:  # noqa: BLE001 - no request context: platform work
+        return False
+    return bool(context.user_id or context.project_id or context.conversation_id)
+
+
+def _organization_to_place(cell: Cell) -> str | None:
+    """The organization the current request runs for, or None for platform work, which has none to place.
+
+    Tenant work (a person, a project or a conversation in the context) that names no organization cannot be
+    placed, so the cell refuses it rather than serve it unplaced.
+    """
+    organization_id = _current_organization()
+    if organization_id:
+        return organization_id
+    if _runs_for_a_tenant():
+        raise ResidencyViolation(f"tenant work names no organization to place; cell {cell.id} refuses (ADR-0167)")
+    return None
+
+
 def check_current_organization() -> None:
     """:func:`check_organization` for the organization the current request runs for. Blocking on a cache miss."""
-    if active_cell() is None:
+    cell = active_cell()
+    if cell is None:
         return
-    organization_id = _current_organization()
+    organization_id = _organization_to_place(cell)
     if not organization_id:
         return
     from agent.common.model_overrides import resolve_org_processing_policy
@@ -312,9 +338,10 @@ def check_current_organization() -> None:
 
 async def acheck_current_organization() -> None:
     """:func:`check_current_organization` off the event loop: the cached policy, else a worker thread."""
-    if active_cell() is None:
+    cell = active_cell()
+    if cell is None:
         return
-    organization_id = _current_organization()
+    organization_id = _organization_to_place(cell)
     if not organization_id:
         return
     import asyncio

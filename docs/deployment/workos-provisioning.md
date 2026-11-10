@@ -217,6 +217,7 @@ through `org:projects:administer`, not through this tier.
 | `platform:organizations:manage` | Administer any org (reserved, unused in v1) |
 | `platform:usage:view` | Cross-org LLM usage/spend |
 | `platform:settings:manage` | Platform-wide settings (reserved) |
+| `platform:knowledge:approve_as_domain_expert`, `…_as_counsel`, `…_as_second_reviewer` | Approve a platform knowledge change request in that role (ADR-0165); `org-platform-owner` holds all three, a narrower role may hold one |
 
 They live on the Organization resource type because WorkOS permissions attach to
 resource types and Organization is the immutable topology root (§0). They are

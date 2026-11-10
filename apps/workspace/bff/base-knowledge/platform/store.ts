@@ -31,7 +31,7 @@ import {
   knowledgeReviewDecisions,
   knowledgeTerritoryRevisions,
 } from '@/lib/db/schema/knowledge-platform'
-import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision } from '@/lib/base-knowledge/wire/vocab'
+import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision, ReviewDecisionSource } from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, type Tx } from '../store/repository'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
@@ -331,20 +331,33 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
 export async function insertReviewDecisions(
   tx: Tx,
   requestId: string,
-  reviewer: string,
+  reviewer: { by: string; decisionSource: ReviewDecisionSource },
   decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string }[],
 ): Promise<void> {
-  await tx.insert(knowledgeReviewDecisions).values(
-    decisions.map((decision) => ({
-      id: randomUUID(),
-      changeRequestId: requestId,
-      revisionId: decision.revisionId,
-      claimPath: decision.claimPath,
-      decision: decision.decision,
-      note: decision.note ?? null,
-      reviewer,
-    })),
-  )
+  try {
+    await tx.insert(knowledgeReviewDecisions).values(
+      decisions.map((decision) => ({
+        id: randomUUID(),
+        changeRequestId: requestId,
+        revisionId: decision.revisionId,
+        claimPath: decision.claimPath,
+        decision: decision.decision,
+        note: decision.note ?? null,
+        reviewer: reviewer.by,
+        decisionSource: reviewer.decisionSource,
+      })),
+    )
+  } catch (error) {
+    // The four-eyes trigger (migration 0208): an author reviews nothing in their own request.
+    if (/revision they wrote/.test(errorText(error))) {
+      throw new ConflictError('You wrote a revision in this change request, so another person reviews its claims (four eyes).')
+    }
+    throw error
+  }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : ''
 }
 
 export async function insertApproval(
@@ -355,7 +368,7 @@ export async function insertApproval(
     await tx.insert(knowledgeApprovals).values({ id: randomUUID(), ...input })
   } catch (error) {
     // The four-eyes trigger and the once-per-role key: a person's own request, or a second yes.
-    const message = error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : ''
+    const message = errorText(error)
     if (/revision they wrote/.test(message)) {
       throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
     }

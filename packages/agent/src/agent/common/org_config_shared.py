@@ -53,8 +53,15 @@ def read_shared(organization_id: str) -> tuple[dict[str, str], bool, ProcessingP
 
 
 def write_shared(org_id: str, overrides: dict[str, str], zdr_only: bool, processing: ProcessingPolicy) -> None:
+    """Share the org's config with every replica; never an unreadable policy.
+
+    An unreadable placement is a failure, not an answer: ``policy_to_json`` keeps no ``known`` bit, so another
+    replica would read it back as a known, unplaced organization and serve it inside a cell (ADR-0167).
+    """
     from agent.common import cache as shared_cache
 
+    if not processing.known:
+        return
     try:
         shared_cache.set_json(
             shared_model_config_key(org_id),

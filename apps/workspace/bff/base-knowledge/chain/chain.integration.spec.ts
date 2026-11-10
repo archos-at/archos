@@ -69,7 +69,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       await store.insertReviewDecisions(
         tx,
         id,
-        EXPERT,
+        { by: EXPERT, decisionSource: 'app' },
         view!.revisions.flatMap((revision) =>
           revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
         ),

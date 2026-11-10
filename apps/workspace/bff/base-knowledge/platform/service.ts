@@ -23,9 +23,9 @@ import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { PLATFORM_PERMISSIONS, type PlatformPermission } from '@/lib/authz/permissions'
 import { getPlatformOrganizationId, requirePlatformPermission } from '@/lib/authz/platform'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
-import { requirePersonDecision } from '@/lib/agent-api/person-decision'
+import { callDecisionSource, requirePersonDecision } from '@/lib/agent-api/person-decision'
 import { homeCountrySchema } from '@/lib/organizations/home-country'
-import type { ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
+import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
 import { enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
@@ -60,6 +60,13 @@ import {
   type ReleaseChannelBody,
   type ReviewDecisionBody,
 } from './wire'
+
+/** The permission an approver holds to approve in a role: a role is held in WorkOS, never claimed in a body. */
+const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermission>> = {
+  domain_expert: PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert,
+  counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
+  second_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer,
+}
 
 /** The platform organization has not switched platform knowledge on. */
 export class PlatformKnowledgeDisabledError extends ForbiddenError {
@@ -186,7 +193,12 @@ export async function submitPlatformChangeRequest(session: UserSession | null, r
   return { status: 'submitted' }
 }
 
-/** Record verdicts on claims. A review is no approval: it needs no yes of its own, and it changes nothing offices read. */
+/**
+ * Record verdicts on claims. A review is no approval: it needs no yes of its
+ * own, and it changes nothing offices read. Each verdict records how it was
+ * given (the person's yes, or `agent`), and none comes from an author of the
+ * request (four eyes, held again by migration 0208's trigger).
+ */
 export async function reviewPlatformChangeRequest(
   session: UserSession | null,
   requestId: string,
@@ -204,7 +216,7 @@ export async function reviewPlatformChangeRequest(
     if (unknown.length > 0) {
       throw new UnprocessableError(`${unknown.length} decision(s) name no claim of this request; read the request for its claims.`)
     }
-    await insertReviewDecisions(tx, requestId, person.userId, decisions)
+    await insertReviewDecisions(tx, requestId, { by: person.userId, decisionSource: callDecisionSource() }, decisions)
   })
   return { recorded: decisions.length }
 }
@@ -219,6 +231,8 @@ export async function decidePlatformChangeRequest(
   body: { decision: 'approve' | 'reject'; role: 'domain_expert' | 'counsel' | 'second_reviewer' },
 ): Promise<{ status: ChangeRequestStatus }> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  // The role is the approver's, not the client's word: WorkOS says who holds it.
+  if (body.decision === 'approve') await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[body.role])
   const decisionSource = requirePersonDecision(`${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`)
   const status = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
