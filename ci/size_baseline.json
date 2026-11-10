@@ -195,7 +195,7 @@
     "packages/knowledge-layer/src/search/requery.py": 719,
     "packages/knowledge-layer/src/vector_store/store.py": 616,
     "packages/knowledge-layer/src/view_image.py": 861,
-    "packages/ris-adapter/src/register.py": 942,
+    "packages/ris-adapter/src/register.py": 940,
     "scripts/loop_eval.py": 969,
     "scripts/turn_census/fixture_bff.py": 657,
     "scripts/turn_census/suite.py": 1464

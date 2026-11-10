@@ -6,6 +6,8 @@ endpoint that cached it) and different the moment the prefix changes (so a miss
 is never pinned to a warm shard).
 """
 
+import json
+
 from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
@@ -17,6 +19,7 @@ from agent.common.prompt_caching import begin_stable_prefix
 from agent.common.prompt_caching import cached_system_message
 from agent.common.prompt_caching import end_stable_prefix
 from agent.common.prompt_caching import needs_cache_marker
+from agent.common.prompt_caching import one_shot_calls
 from agent.common.prompt_caching import prompt_cache_extra_body
 from agent.common.prompt_caching import prompt_cache_key
 from agent.common.prompt_caching import strip_block_breakpoints
@@ -276,3 +279,35 @@ def test_the_chat_role_runs_on_chat_completions():
     root = Path(__file__).resolve().parents[4]
     config = yaml.safe_load((root / "configs" / "config_oib_openrouter.yml").read_text())
     assert config["llms"]["research_llm"].get("api_type", "chat_completion") == "chat_completion"
+
+
+class TestAOneShotCallWritesNothing:
+    """A call whose tail is its own writes an entry nobody reads, at 1.25x: inside ``one_shot_calls`` it writes none."""
+
+    MESSAGES = [SystemMessage(content="Judge the answer."), HumanMessage(content="the evidence of one answer")]
+
+    def _payload(self, model: str) -> dict:
+        from langchain_openai import ChatOpenAI
+
+        from agent.common.llm_factory import prepare_request
+
+        llm = ChatOpenAI(model=model, api_key="test", base_url="https://openrouter.ai/api/v1")
+        kwargs: dict = {}
+        with one_shot_calls():
+            messages = prepare_request(llm, self.MESSAGES, kwargs)
+        return llm._get_request_payload(messages, **kwargs)
+
+    def test_the_openai_family_turns_its_automatic_caching_off(self):
+        payload = self._payload("openai/gpt-6.1-terra")
+        assert payload["extra_body"]["prompt_cache_options"] == {"mode": "explicit"}
+        assert "cache_control" not in json.dumps(payload)
+
+    def test_claude_is_not_asked_to_cache(self):
+        payload = self._payload("anthropic/claude-haiku-5.5")
+        assert "cache_control" not in json.dumps(payload)
+        assert "prompt_cache_options" not in json.dumps(payload)
+
+    def test_outside_it_a_call_caches_as_before(self):
+        body = prompt_cache_extra_body(self.MESSAGES, {}, model="anthropic/claude-haiku-5.5")
+        assert body[CACHE_CONTROL_FIELD] == {"type": "ephemeral"}
+        assert "prompt_cache_options" not in body
