@@ -44,6 +44,9 @@
  * project's name, search), a content stand-in, and the bottom tab bar, lit for
  * Dateien. Two more states for the phone: `?open=more`, „Mehr" with the project
  * selector as its first row, and `?open=switcher`, the project list it opens.
+ *
+ * The reader's last chats stand under „Chat“ (`?active=chat` opens one of them, the current place);
+ * `?chats=empty` is a project with no chats yet, where the rail lists none.
  */
 
 import type { JSX } from 'react'
@@ -56,6 +59,7 @@ import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
+import { DevRailChats } from '../_fixtures/rail-chats'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar.width'
@@ -130,6 +134,7 @@ export default function AppRailPreview(): JSX.Element {
   }, [open, setSheetOpen])
 
   return (
+    <DevRailChats pathname={previewPath} empty={params?.get('chats') === 'empty'}>
     <div
       className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row"
       data-testid="app-rail-preview"
@@ -190,5 +195,6 @@ export default function AppRailPreview(): JSX.Element {
         canManagePlatform={false}
       />
     </div>
+    </DevRailChats>
   )
 }

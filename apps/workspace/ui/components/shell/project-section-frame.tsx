@@ -335,6 +335,7 @@ export function ProjectSectionFrame({
             subtitle={sectionSubtitle}
             // One way back, on the title's line and its arrow on the title's edge: a page under the Übersicht goes
             // back to it, an opened mail to its list (`ProjectSectionBack`).
+            titleStartClassName={pageBack ? 'hidden phone:flex' : 'md:hidden'}
             titleStart={
               back && (
                 <Link

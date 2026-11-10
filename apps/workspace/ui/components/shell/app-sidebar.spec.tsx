@@ -6,6 +6,7 @@ import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
+import { RailChatsSource, type RailChats } from './rail-chats'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -430,5 +431,95 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
     expect(officeShelf.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
     // The project's own sections are still offered — the project did not go away.
     expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+  })
+})
+
+// None of the pilot offices found the chat history (2026-11-10): its one door was a glyph in the chat's toolbar.
+// The project's last chats stand under „Chat“ in the rail, the open one as the current place.
+describe('AppSidebar - the project’s last chats under „Chat“', () => {
+  const chats = (over: Partial<RailChats> = {}): RailChats => ({
+    items: [
+      { id: 'c1', title: 'Rettungswege Bürogebäude GK4 Wien', href: '/app/projects/p1/chat?session=c1', current: false },
+      { id: 'c2', title: 'Fluchtweglänge im Erdgeschoss', href: '/app/projects/p1/chat?session=c2', current: true },
+    ],
+    allHref: '/app/projects/p1/chat',
+    onOpen: vi.fn(),
+    onOpenAll: vi.fn(),
+    ...over,
+  })
+  const renderWith = (value: RailChats | null, props: Partial<typeof baseProps> & { pathname?: string } = {}) =>
+    render(
+      <RailChatsSource value={value}>
+        <AppSidebar {...baseProps} {...props} />
+      </RailChatsSource>
+    )
+
+  test('lists them right under „Chat“, newest first, and „All chats“ last', () => {
+    renderWith(chats())
+    const list = screen.getByRole('list', { name: 'Recent chats' })
+    const links = within(list).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
+    expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
+    expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
+    // In the sections' list, between „Chat“ and „Files“.
+    const sections = within(screen.getByLabelText('Project sections')).getAllByRole('link').map((link) => link.textContent)
+    expect(sections.indexOf('Chat')).toBeLessThan(sections.indexOf('Rettungswege Bürogebäude GK4 Wien'))
+    expect(sections.indexOf('All chats')).toBeLessThan(sections.indexOf('Files'))
+  })
+
+  test('a title stays on one line, whole in its tooltip', () => {
+    renderWith(chats())
+    const row = screen.getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' })
+    expect(row).toHaveAttribute('title', 'Rettungswege Bürogebäude GK4 Wien')
+    expect(row.querySelector('span')).toHaveClass('truncate')
+  })
+
+  test('the open chat is the current place: the one sheet, and „Chat“ its ancestor in ink', () => {
+    const { container } = renderWith(chats())
+    const open = screen.getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })
+    expect(open).toHaveAttribute('aria-current', 'page')
+    const pills = Array.from(container.querySelectorAll('[data-slot="rail-active-pill"]'))
+    expect(pills).toHaveLength(1)
+    expect(pills[0]!.closest('a')).toBe(open)
+    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    expect(chat).not.toHaveAttribute('aria-current')
+    expect(chat).toHaveClass('font-semibold')
+  })
+
+  test('with no chat open, „Chat“ stays the current place', () => {
+    renderWith(chats({ items: chats().items.map((item) => ({ ...item, current: false })) }))
+    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    expect(chat).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('a row and „All chats“ tell the chat’s side before the link is followed', async () => {
+    const user = userEvent.setup()
+    const value = chats()
+    renderWith(value)
+    await user.click(screen.getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' }))
+    expect(value.onOpen).toHaveBeenCalledWith('c1')
+    await user.click(screen.getByRole('link', { name: 'All chats' }))
+    expect(value.onOpenAll).toHaveBeenCalledOnce()
+  })
+
+  test('a project with no chats shows nothing under „Chat“: no empty list, no „All chats“', () => {
+    renderWith(chats({ items: [] }))
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+    expect(screen.queryByText('All chats')).not.toBeInTheDocument()
+  })
+
+  test('without a source (a preview, a spec) the rail is as it was', () => {
+    renderWith(null)
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+  })
+
+  test('the icon rail has no room for titles: „Chat“ is its glyph, and the list is gone', async () => {
+    const user = userEvent.setup()
+    renderWith(chats())
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+    // With the open chat's row gone, „Chat“ is the current place again: the sheet must not vanish with the list.
+    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')?.getAttribute('href')).toMatch(/^\/app\/projects\/p1\/chat/)
   })
 })

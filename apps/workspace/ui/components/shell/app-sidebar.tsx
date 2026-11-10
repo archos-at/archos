@@ -71,6 +71,7 @@ import { phoneBackTarget } from './phone-tabs'
 import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
+import { RailChatList, useRailChats } from './rail-chats'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
@@ -168,6 +169,8 @@ interface RailItemModel {
   icon: ProjectSection['icon']
   label: string
   active: boolean
+  /** The current place is one of this entry's rows (an open chat under „Chat“): ink and 600, the sheet on the row. */
+  within?: boolean
   badgeCount: number
   /** The Postfach's: it may open beside the page instead of following `href`. */
   door?: StartDockDoor
@@ -223,6 +226,8 @@ function AppSidebarFrame({
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
   const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
+  // The project's last chats under „Chat“ (`rail-chats.tsx`); the open one is the current place, „Chat“ its ancestor.
+  const railChats = useRailChats()
 
   const base = `/app/projects/${projectId}`
 
@@ -230,6 +235,8 @@ function AppSidebarFrame({
   // redundant there — hide it and let the chat toolbar host the nav opener.
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile
+  // The icon rail lists no chats, so there „Chat“ itself stays the current place.
+  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
   const back = phoneBackTarget(pathname, projectId)
   const pageHasHeader = framesProjectPage(pathname, projectId)
 
@@ -249,7 +256,8 @@ function AppSidebarFrame({
         href: sectionLinkHref(item, base),
         icon: item.icon,
         label: sectionLabel(item, t, tCollaboration),
-        active: pathname.startsWith(sectionHref(item, base)),
+        active: pathname.startsWith(sectionHref(item, base)) && !(item.key === 'chat' && chatOpen),
+        within: item.key === 'chat' && chatOpen,
         badgeCount: item.key === 'inbox' ? inboxPending : 0,
         door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
@@ -289,6 +297,7 @@ function AppSidebarFrame({
       icon={item.icon}
       href={item.href}
       active={item.active}
+      within={item.within}
       label={item.label}
       badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
@@ -389,7 +398,12 @@ function AppSidebarFrame({
           )}
         >
           <nav aria-label={t('projectSections')}>
-            <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">
+              {projectItems.flatMap((item) =>
+                // The icon rail has no room for a title: there „Chat“ is its glyph, and the chat's toolbar names its door.
+                item.key === 'chat' && railChats && !iconRail ? [railItem(item), <RailChatList key="chats" chats={railChats} pillId={activePillId} />] : [railItem(item)]
+              )}
+            </SidebarMenu>
           </nav>
         </SidebarContent>
 
@@ -464,6 +478,7 @@ function RailNavItem({
   icon: Icon,
   href,
   active,
+  within = false,
   label,
   badgeCount,
   waitingCount = null,
@@ -476,6 +491,7 @@ function RailNavItem({
   icon: ProjectSection['icon']
   href: string
   active: boolean
+  within?: boolean
   label: string
   badgeCount: number
   /** The muted count (mail waiting in Dateien); shown only where no ink pill is. */
@@ -521,7 +537,7 @@ function RailNavItem({
                 'bg-selected hover:bg-selected'
               : // The pointer's fill is one step down from the plane it lies
                 // on (the picked grey on the desk), the press one more.
-                'hover:bg-selected active:bg-pressed'
+                cn('hover:bg-selected active:bg-pressed', within && 'font-semibold')
         )}
       >
         <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
@@ -564,7 +580,7 @@ function RailNavItem({
             // through to behind the rail's own background (`sidebar-container`
             // is the nearest stacking context, and a non-positioned block's
             // background paints ABOVE negative-z children inside it).
-            className={cn('relative size-4 shrink-0', !active && 'text-muted-foreground')}
+            className={cn('relative size-4 shrink-0', !active && !within && 'text-muted-foreground')}
           />
           {/* `data-slot`, because the label is no longer the only <span> inside
               this anchor — the active pill is one too. A test (or a stylesheet)

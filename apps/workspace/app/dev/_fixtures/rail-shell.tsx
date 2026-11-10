@@ -15,6 +15,7 @@ import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installConnectionHealthFake } from './connection-health'
 import { installInboxBadgeFake } from './inbox-badge'
+import { DevRailChats } from './rail-chats'
 
 // A count on the Postfach and a healthy connection, so a shot does not depend on load time.
 installInboxBadgeFake(3)
@@ -44,6 +45,7 @@ export function DevRailShell({
 }): JSX.Element {
   const projects = [{ id: projectId, name: projectName }, ...OTHER_PROJECTS]
   return (
+    <DevRailChats pathname={pathname}>
     <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row">
       <AppSidebar
         projectId={projectId}
@@ -77,5 +79,6 @@ export function DevRailShell({
         showSkills
       />
     </div>
+    </DevRailChats>
   )
 }

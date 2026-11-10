@@ -143,6 +143,7 @@ describe('ProjectSectionFrame', () => {
       expect(back).toHaveAttribute('href', '/app/projects/p1/settings')
       expect(back).toHaveAccessibleName('Back to Overview')
       expect(back).toHaveClass('size-11', 'md:hidden')
+      expect(titleLine().firstElementChild).toHaveClass('md:hidden')
     })
 
     test('Dateien’s places are tabs and have no way back; an opened mail hands the header its own, the one arrow', () => {
@@ -157,6 +158,8 @@ describe('ProjectSectionFrame', () => {
       expect(back).toHaveAccessibleName('Back to Project mail')
       // The page's own link shows from the widths where the frame's arrow does not: a phone gets the header's.
       expect(back).toHaveClass('hidden', 'phone:flex')
+      // Its slot hides with it: an empty slot kept the line's 8px gap and moved „E-Mail-Eingang“ off the crumb's edge.
+      expect(titleLine().firstElementChild).toHaveClass('hidden', 'phone:flex')
     })
   })
 })

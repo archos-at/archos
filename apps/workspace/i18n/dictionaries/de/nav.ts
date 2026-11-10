@@ -4,6 +4,9 @@ import type { en } from '../en'
 export const nav: typeof en.nav = {
   projectNavigation: 'Projektnavigation',
   projectSections: 'Projektbereiche',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Letzte Chats',
+  allChats: 'Alle Chats',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',

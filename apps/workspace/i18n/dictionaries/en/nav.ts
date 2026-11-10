@@ -2,6 +2,9 @@
 export const nav = {
   projectNavigation: 'Project navigation',
   projectSections: 'Project sections',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Recent chats',
+  allChats: 'All chats',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',

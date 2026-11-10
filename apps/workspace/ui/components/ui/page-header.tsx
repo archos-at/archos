@@ -30,6 +30,8 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   crumbClassName?: string
   /** What starts the title's line, before the title: a way back (a phone's ←), on the title's edge. */
   titleStart?: React.ReactNode
+  /** Where `titleStart` is shown (`md:hidden`): an empty slot still took the line's gap and moved the title 8px in. */
+  titleStartClassName?: string
   /**
    * What ends the title's line, at every width: a glyph that belongs to the header (the phone's search, a page's
    * one ⋯). A 44px target hangs into the line's height, so it costs the header none.
@@ -93,6 +95,7 @@ export function PageHeader({
   crumb,
   crumbClassName,
   titleStart,
+  titleStartClassName,
   titleEnd,
   actionInline = false,
   className,
@@ -113,7 +116,7 @@ export function PageHeader({
         {titleStart || titleEnd ? (
           <div className="flex min-w-0 items-center gap-2" data-slot="page-header-title-line">
             {/* -10px each side: a 44px target on the title's 24px line. */}
-            {titleStart && <div className="-my-2.5 flex shrink-0 items-center">{titleStart}</div>}
+            {titleStart && <div className={cn('-my-2.5 flex shrink-0 items-center', titleStartClassName)}>{titleStart}</div>}
             <h1 className="min-w-0 flex-1 text-balance text-page-title phone:text-section">{title}</h1>
             {titleEnd && <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>}
           </div>

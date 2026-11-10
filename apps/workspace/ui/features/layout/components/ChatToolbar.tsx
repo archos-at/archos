@@ -325,29 +325,27 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
             'border border-base bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/50'
         )}
       >
-        {/* Sessions / history overlay — the one clear door to past sessions
-            (the rail keeps its routed History; this doesn't duplicate it). */}
+        {/* The door to the project's past chats, with its word at every width: as a lone glyph beside the
+            title it read as the title's icon, and none of the pilot offices found it (2026-11-10). The rail
+            lists the last chats under „Chat“ and leads here too („Alle Chats“). `ChatToolbar.spec.tsx` („the
+            history door is never a glyph alone“) holds it. */}
         <Button
           variant="ghost"
-          size={isChatStarted ? 'icon' : 'default'}
           className={cn(
-            'shrink-0 rounded-control sm:size-7',
-            // On a chat that has not started there is no title beside the icon,
-            // and a lone glyph under the project pill is a mystery: it says what
-            // it opens, on a phone, where there is no hover to say it. The default
-            // size, because `icon`'s square width cannot be overridden by a class.
-            isChatStarted ? 'size-11' : 'h-11 gap-1.5 px-3 sm:px-0 sm:py-0'
+            'h-11 shrink-0 gap-1.5 rounded-control px-3 text-sm font-medium sm:h-7 sm:px-2 sm:text-xs',
+            // On a phone beside a title, the word goes under the glyph (12px, as the tab bar's): inline it took
+            // the title's room down to a word and a half.
+            isChatStarted && 'max-sm:w-12 max-sm:flex-col max-sm:gap-0 max-sm:px-0 max-sm:text-meta'
           )}
           onClick={handleMenuClick}
           disabled={!isAuthenticated}
-          aria-label={t('chatToolbar.toggleSessions')}
           title={!isAuthenticated ? t('chatToolbar.signInToView') : t('chatToolbar.toggleSessions')}
+          data-testid="chat-history-door"
         >
           <MessageSquareText className="size-4" aria-hidden="true" />
-          {!isChatStarted && (
-            <span className="text-sm font-medium sm:hidden">{t('chatToolbar.toggleSessions')}</span>
-          )}
+          <span data-slot="history-door-label">{t('chatToolbar.historyDoor')}</span>
         </Button>
+        {isChatStarted && (sessionTitle || hasStatus) && <div aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />}
 
         {/* The session title (click-to-rename) — shown once a chat has started
             so the current thread is identifiable. On a fresh, empty chat there
