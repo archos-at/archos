@@ -44,6 +44,29 @@ export async function projectNoticeState(projectId: string): Promise<ProjectNoti
 }
 
 /**
+ * How many mails wait for a person in each of these projects, by the rule of
+ * {@link projectNoticeState}: a mail with a part still waiting. What a
+ * project's `inbound_mail.waiting` row says when it is read
+ * (`lib/inbox/live-counts.ts`), so the row and the E-Mail-Eingang never give
+ * two numbers. One grouped read; a project with none is absent.
+ */
+export async function waitingMailCounts(projectIds: readonly string[]): Promise<Map<string, number>> {
+  if (projectIds.length === 0) return new Map()
+  const rows = await getDb()
+    .select({ projectId: inboundMails.projectId, count: sql<number>`count(*)::int` })
+    .from(inboundMails)
+    .where(
+      and(
+        inArray(inboundMails.projectId, [...projectIds]),
+        eq(inboundMails.status, 'waiting'),
+        sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.state = 'waiting')`,
+      ),
+    )
+    .groupBy(inboundMails.projectId)
+  return new Map(rows.map((row) => [row.projectId, Number(row.count)]))
+}
+
+/**
  * The folders the filed parts of a mail went to, as their documents stand now
  * and as `reader` may read them (`null` is the project's root): a document
  * deleted since, or held from the reader by its screening, is not counted.
