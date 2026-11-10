@@ -229,6 +229,7 @@ const BOUNDARY_MIGRATIONS = [
   // force, writes only its own), append-only, and the record type CHECK widened.
   '0204_rulesets.sql',
   '0205_platform_base_knowledge.sql',
+  '0206_knowledge_citation_captures.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

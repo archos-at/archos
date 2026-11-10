@@ -1,0 +1,76 @@
+{
+  "$comment": "The AT-9 (Vienna) onboarding case (ADR-0170): the pages an operator's agent captures and the records it proposes, first with the two mistakes an agent makes (a quote the page does not hold, a bare link instead of a capture), then repaired. A record's citation names its capture by `capture`; the client puts the captureId there. Keys get the run's suffix. Read by bff/agent-api/onboarding-door.integration.spec.ts.",
+  "countryId": "AT",
+  "title": "Wien (AT-9): Bauordnung and the building authority",
+  "pages": {
+    "ris-bo": {
+      "basis": "fetched",
+      "sourceId": "at-ris",
+      "url": "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+      "html": "<html><head><title>RIS - Bauordnung für Wien</title></head><body><h1>Gesamte Rechtsvorschrift für Bauordnung für Wien, Fassung vom 10.11.2026</h1><h2>Langtitel</h2><p>Bauordnung für Wien – BO für Wien</p><p>Stammfassung: LGBl. Nr. 11/1930</p></body></html>",
+      "text": "Gesamte Rechtsvorschrift für Bauordnung für Wien, Fassung vom 10.11.2026\nLangtitel\nBauordnung für Wien – BO für Wien\nStammfassung: LGBl. Nr. 11/1930"
+    },
+    "iso-at": {
+      "basis": "operator_supplied",
+      "url": "https://www.iso.org/obp/ui/#iso:code:3166:AT",
+      "text": "Austria (AT). Subdivisions: AT-1 Burgenland, AT-2 Kärnten, AT-3 Niederösterreich, AT-4 Oberösterreich, AT-5 Salzburg, AT-6 Steiermark, AT-7 Tirol, AT-8 Vorarlberg, AT-9 Wien. Local short name: Österreich.",
+      "note": "The ISO Online Browsing Platform renders in a browser only."
+    },
+    "ma37": {
+      "basis": "operator_supplied",
+      "url": "https://www.wien.gv.at/kontakte/ma37/index.html",
+      "text": "MA 37 – Baupolizei. Die Magistratsabteilung 37 ist die Baubehörde für ganz Wien.",
+      "note": "wien.gv.at is no configured source yet."
+    }
+  },
+  "territories": {
+    "capture": "iso-at",
+    "rows": [
+      { "code": "AT", "name": "Österreich" },
+      { "code": "AT-9", "name": "Wien" }
+    ]
+  },
+  "draft": [
+    {
+      "type": "authority",
+      "key": "at-wien-ma37",
+      "name": "MA 37 – Baupolizei",
+      "functionCodes": ["building_permit"],
+      "seatTerritoryId": "AT-9",
+      "competenceTerritoryIds": ["AT-9"],
+      "citations": [{ "capture": "ma37", "quote": "Magistratsabteilung 37" }]
+    },
+    {
+      "type": "work",
+      "key": "at-9-bauordnung",
+      "kind": "statute",
+      "title": "Bauordnung für Wien",
+      "territoryIds": ["AT-9"],
+      "citations": [{ "url": "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006" }]
+    },
+    {
+      "type": "edition",
+      "key": "at-9-bauordnung-2026",
+      "workKey": "at-9-bauordnung",
+      "label": "2026-11-10",
+      "citations": [{ "capture": "ris-bo", "quote": "Fassung vom 01.01.2025" }]
+    },
+    {
+      "type": "manifestation",
+      "key": "at-9-bauordnung-2026-ris",
+      "editionKey": "at-9-bauordnung-2026",
+      "form": "link",
+      "licenceClass": "public_open",
+      "citations": [{ "capture": "ris-bo", "quote": "Bauordnung für Wien – BO für Wien" }]
+    }
+  ],
+  "repairs": {
+    "at-9-bauordnung": [{ "capture": "ris-bo", "quote": "Bauordnung für Wien" }],
+    "at-9-bauordnung-2026": [{ "capture": "ris-bo", "quote": "Fassung vom 10.11.2026" }]
+  },
+  "expectedDraftProblems": [
+    { "key": "at-9-bauordnung", "code": "KC-6", "pointer": "/citations" },
+    { "key": "at-9-bauordnung", "code": "KC-6", "pointer": "/citations/0/url" },
+    { "key": "at-9-bauordnung-2026", "code": "KC-6", "pointer": "/citations/0/quote" }
+  ]
+}

@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/knowledge-layer/src/vector_store/scope.py, ../../packages/knowledge-layer/src/vector_store/writes.py, ../../packages/knowledge-layer/tests/test_vector_store_office_filter.py, ../agent-host/src/agent_host/routes/knowledge_mark.py, ../agent-host/tests/test_knowledge_mark_route.py, bff/base-knowledge/office/freshness.spec.ts, bff/base-knowledge/office/freshness.ts, bff/base-knowledge/office/service.spec.ts, bff/base-knowledge/office/service.ts, bff/base-knowledge/office/text-use.spec.ts, bff/base-knowledge/office/text-use.ts, bff/base-knowledge/office/turn-block.spec.ts, bff/base-knowledge/office/turn-block.ts, bff/base-knowledge/platform/entitlements.ts, bff/base-knowledge/platform/indexing.ts, bff/base-knowledge/platform/office-read.ts, bff/base-knowledge/platform/platform.integration.spec.ts, bff/base-knowledge/platform/release.ts, bff/base-knowledge/platform/store.ts, bff/base-knowledge/platform/validate.spec.ts, bff/base-knowledge/platform/validate.ts, bff/base-knowledge/store/repository.integration.spec.ts, bff/base-knowledge/store/repository.ts
+// @disk-inputs: ../../packages/knowledge-layer/src/vector_store/scope.py, ../../packages/knowledge-layer/src/vector_store/writes.py, ../../packages/knowledge-layer/tests/test_vector_store_office_filter.py, ../agent-host/src/agent_host/routes/knowledge_mark.py, ../agent-host/tests/test_knowledge_mark_route.py, bff/agent-api/onboarding-door.integration.spec.ts, bff/base-knowledge/office/freshness.spec.ts, bff/base-knowledge/office/freshness.ts, bff/base-knowledge/office/service.spec.ts, bff/base-knowledge/office/service.ts, bff/base-knowledge/office/text-use.spec.ts, bff/base-knowledge/office/text-use.ts, bff/base-knowledge/office/turn-block.spec.ts, bff/base-knowledge/office/turn-block.ts, bff/base-knowledge/platform/captures.ts, bff/base-knowledge/platform/entitlements.ts, bff/base-knowledge/platform/indexing.ts, bff/base-knowledge/platform/office-read.ts, bff/base-knowledge/platform/platform.integration.spec.ts, bff/base-knowledge/platform/release.ts, bff/base-knowledge/platform/store.ts, bff/base-knowledge/platform/validate.spec.ts, bff/base-knowledge/platform/validate.ts, bff/base-knowledge/store/repository.integration.spec.ts, bff/base-knowledge/store/repository.ts
 /**
  * @vitest-environment node
  *
@@ -24,6 +24,7 @@ import {
   knowledgeApprovals,
   knowledgeAuthorityRevisions,
   knowledgeChangeRequests,
+  knowledgeCitationCaptures,
   knowledgeIndexRuns,
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
@@ -48,6 +49,7 @@ const TABLES: Table[] = [
   knowledgeApprovals,
   knowledgeReleaseMoves,
   knowledgeIndexRuns,
+  knowledgeCitationCaptures,
   organizationCountries,
 ]
 

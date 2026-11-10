@@ -63,7 +63,18 @@ const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the reque
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
 const SEAT = {
   file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts',
-  name: 'names a seat or competence territory that is not imported, and a territory outside the request’s country',
+  name: 'names a seat territory that is not imported, and a territory outside the request’s country, by pointer',
+}
+const ONBOARDING_SPEC = 'apps/workspace/bff/agent-api/onboarding-door.integration.spec.ts'
+const PLATFORM_CAPTURES = 'apps/workspace/bff/base-knowledge/platform/captures.ts'
+const CAPTURED = {
+  file: ONBOARDING_SPEC,
+  name: 'captures the pages: fetched through the source reader, or supplied by the operator, and refuses a host off the source',
+}
+const QUOTES_CHECKED = { file: ONBOARDING_SPEC, name: 'names every mistake of the draft by record, check and JSON Pointer, and writes nothing of a refused batch' }
+const SOURCES_CHECKED = {
+  file: ONBOARDING_SPEC,
+  name: 'approves only on the person’s yes, never the author’s, and only once the operator-supplied sources were checked',
 }
 const TIME = 'S11 (time and editions): a territory valid at the project’s reference date, mergers by successor'
 const SETUP = 'S9 (setup facts): competence by authority function, and authority identifiers (PVOG, Behördenkennzahl)'
@@ -181,6 +192,22 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_review_decisions.note', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_review_decisions.reviewer', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_review_decisions.decided_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.source_checked', consumer: PLATFORM_STORE, test: SOURCES_CHECKED },
+  { element: 'knowledge_citation_captures.id', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.change_request_id', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.basis', consumer: PLATFORM_CAPTURES, test: SOURCES_CHECKED },
+  { element: 'knowledge_citation_captures.source_id', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.url', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.final_url', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.content_type', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.sha256', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.byte_size', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.text', consumer: PLATFORM_CAPTURES, test: QUOTES_CHECKED },
+  { element: 'knowledge_citation_captures.note', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.retrieved_at', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.created_by', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.via_client', consumer: PLATFORM_CAPTURES, test: CAPTURED },
+  { element: 'knowledge_citation_captures.created_at', consumer: PLATFORM_CAPTURES, test: CAPTURED },
   { element: 'knowledge_approvals.id', consumer: PLATFORM_STORE, test: FOUR_EYES },
   { element: 'knowledge_approvals.change_request_id', consumer: PLATFORM_STORE, test: FOUR_EYES },
   { element: 'knowledge_approvals.approver', consumer: PLATFORM_STORE, test: FOUR_EYES },

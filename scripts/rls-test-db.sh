@@ -240,6 +240,14 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts
 
+# The onboarding door (ADR-0170): a scripted client takes AT-9 through the
+# platform door to a stable release. Alone and after the platform suite, since
+# both release Austria's territories and a release over one moved since a
+# request was opened is a 409 by design.
+echo "==> running the onboarding door suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
+
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
 # one its restore. The job-queue suites claim from the whole table and expect
@@ -3510,3 +3518,45 @@ check_in pbk_0205 "SELECT count(*) FROM knowledge_records" "0" "0205 down remove
 apply_in pbk_0205 0205_platform_base_knowledge.sql
 check_in pbk_0205 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_release_moves'" "1" "0205 applies again after its down"
 echo "==> 0205 platform base knowledge and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0206: citation captures and the reviewer's source check (ADR-0170).
+#
+# On a database of its own, migrated through 0206: a capture goes only into a
+# draft and is never rewritten, a fetched capture names its source, and an
+# approval waits until a verdict says an operator-supplied capture's source
+# was checked. The down drops both, and 0206 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0206 citation captures and their down migration on cc_0206"
+migrate_until cc_0206 0206_knowledge_citation_captures
+CR="c0000000-0000-4000-8000-000000000206"
+RV="e0000000-0000-4000-8000-000000000206"
+CAP="a0000000-0000-4000-8000-000000000206"
+SHA="0000000000000000000000000000000000000000000000000000000000000206"
+sql_in cc_0206 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT-9', 'AT', 'user_author');
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, text, retrieved_at, created_by)
+  VALUES ('$CAP', '$CR', 'operator_supplied', 'https://www.wien.gv.at/ma37', '$SHA', 4, 'Wien', now(), 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-9', NULL, 'territory', 'AT', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance)
+  VALUES ('$RV', 'AT-9', 'territory', NULL, 'user_author', '$CR', '{"citations": [{"captureId": "$CAP", "quote": "Wien"}]}');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
+  VALUES ('$RV', 'AT-9', NULL, 'state', 'Wien', '{AT}');
+SQL
+refused_in cc_0206 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'fetched', 'https://www.ris.bka.gv.at/x', '$SHA', 1, now(), 'user_author')" "knowledge_citation_captures_fetched_has_source" "a fetched capture without its source"
+refused_in cc_0206 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
+sql_in cc_0206 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
+refused_in cc_0206 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
+sql_in cc_0206 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert');"
+refused_in cc_0206 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
+sql_in cc_0206 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true);
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
+SQL
+check_in cc_0206 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0206: the approval counts once the source was checked"
+apply_in cc_0206 0206_knowledge_citation_captures.down.sql
+check_in cc_0206 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_citation_captures'" "0" "0206 down drops the captures"
+apply_in cc_0206 0206_knowledge_citation_captures.sql
+check_in cc_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'source_checked'" "1" "0206 applies again after its down"
+echo "==> 0206 citation captures and their down migration verified"

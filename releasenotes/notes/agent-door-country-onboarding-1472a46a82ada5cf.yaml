@@ -1,0 +1,9 @@
+---
+# area: agents
+operators:
+  - >
+    An operator's own agent can now bring a country's knowledge in through the
+    platform door alone: it reads an onboarding guide, captures each source page,
+    dry-runs and validates its records, and every quote is checked against the
+    captured page. Approve, publish, rollback, entitlement and publishing a
+    platform skill now wait for the person's yes; migration 0206 adds the captures.

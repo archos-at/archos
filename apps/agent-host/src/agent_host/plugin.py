@@ -101,6 +101,7 @@ from .routes.note_embeddings import add_note_embedding_routes
 from .routes.oib import add_oib_routes
 from .routes.project_experience import add_project_experience_routes
 from .routes.project_facts import add_project_facts_routes
+from .routes.public_source_capture import add_public_source_capture_routes
 from .routes.revision_compare import add_revision_compare_routes
 from .routes.ris import add_ris_routes
 from .routes.similar_passages import add_similar_passages_routes
@@ -337,6 +338,8 @@ _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_mail_archive_routes,
     add_mail_routes,
     add_drawing_rendition_routes,
+    # A public source's page captured for a citation (ADR-0170): only the backend roles reach the fetcher.
+    add_public_source_capture_routes,
 )
 
 

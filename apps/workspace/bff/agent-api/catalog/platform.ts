@@ -37,9 +37,7 @@ import {
 } from '@/lib/product-feedback/types'
 import {
   createCategorySchema,
-  createPlatformSkillSchema,
   patchCategorySchema,
-  patchPlatformSkillSchema,
 } from '@/lib/skills/types'
 import { storageQuotaPutSchema, uploadLimitPutSchema } from '@/lib/storage/contract'
 import type { AgentOperation } from '../operation'
@@ -53,9 +51,6 @@ const lessonParams = z.object({
 })
 const reportParams = z.object({
   reportId: z.string().describe('The product-feedback report id (a uuid), from platform-feedback-list.'),
-})
-const skillParams = z.object({
-  skillId: z.string().describe('The platform skill id, from platform-skill-list.'),
 })
 const categoryParams = z.object({
   categoryId: z.string().describe('The platform skill category id, from platform-skill-category-list.'),
@@ -367,57 +362,7 @@ export const platformOperations = [
     load: () => import('@/app/api/platform/norms/verify/route'),
   },
 
-  // Platform skills
-  {
-    name: 'platform-skill-list',
-    domain: 'platform',
-    summary: 'List the platform skills',
-    description:
-      'Every skill the platform offers to organizations, published or draft, with ids. Skill ids feed ' +
-      'platform-skill-update and platform-skill-delete.',
-    method: 'GET',
-    path: '/api/platform/skills',
-    load: () => import('@/app/api/platform/skills/route'),
-  },
-  {
-    name: 'platform-skill-create',
-    domain: 'platform',
-    summary: 'Create a platform skill',
-    description:
-      'Adds a skill (name, description, body) to the platform catalog, a draft unless `published` is true. Published skills ' +
-      'are offered to every organization, which may take or leave them. Category ids come from platform-skill-category-list.',
-    method: 'POST',
-    path: '/api/platform/skills',
-    body: createPlatformSkillSchema,
-    load: () => import('@/app/api/platform/skills/route'),
-  },
-  {
-    name: 'platform-skill-update',
-    domain: 'platform',
-    summary: 'Edit or publish a platform skill',
-    description:
-      'Changes any field of a platform skill, including `published` and `categoryId` (null removes the category). ' +
-      'Send only the fields to change. Skill ids come from platform-skill-list.',
-    method: 'PATCH',
-    path: '/api/platform/skills/[skillId]',
-    params: skillParams,
-    body: patchPlatformSkillSchema,
-    idempotent: true,
-    load: () => import('@/app/api/platform/skills/[skillId]/route'),
-  },
-  {
-    name: 'platform-skill-delete',
-    domain: 'platform',
-    summary: 'Delete a platform skill',
-    description:
-      'Removes a skill from the platform catalog for every organization. Skill ids come from platform-skill-list. ' +
-      'Prefer platform-skill-update with `published: false` to withdraw it reversibly.',
-    method: 'DELETE',
-    path: '/api/platform/skills/[skillId]',
-    params: skillParams,
-    destructive: true,
-    load: () => import('@/app/api/platform/skills/[skillId]/route'),
-  },
+  // Platform skills: catalog/platform-skills.ts (each publish reaches every office, so the person decides).
   {
     name: 'platform-skill-category-list',
     domain: 'platform',

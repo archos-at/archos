@@ -16,38 +16,35 @@
  */
 
 import 'server-only'
-import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { recordAuditEvent } from '@/lib/audit/service'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
-import { PLATFORM_PERMISSIONS, type PlatformPermission } from '@/lib/authz/permissions'
-import { getPlatformOrganizationId, requirePlatformPermission } from '@/lib/authz/platform'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
+import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
+import { getPlatformOrganizationId } from '@/lib/authz/platform'
+import { actingClientId } from '@/lib/agent-api/acting-session'
 import { requirePersonDecision } from '@/lib/agent-api/person-decision'
 import { homeCountrySchema } from '@/lib/organizations/home-country'
 import type { ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
 import { enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
-import { referencesOf } from './records'
+import { runKit, validateRequest } from './onboarding'
+import { requirePlatform } from './service-gate'
+import { proposalKey as keyOf, recordIdOf } from './records'
 import { publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
 import {
   findChangeRequest,
-  idsOfBatch,
   insertApproval,
   insertChangeRequest,
   insertProposedRecords,
   insertReviewDecisions,
-  knownPlatformRecords,
   listChangeRequests,
   lockChangeRequest,
   platformTransaction,
   readChangeRequest,
   reviewedRevisions,
   setChangeRequestStatus,
-  type ProposedRevision,
 } from './store'
-import { namedTerritories, validateProposal, type Problem } from './validate'
 import {
   CHANGE_REQUEST_PAGE,
   type ChangeRequestSummary,
@@ -55,27 +52,12 @@ import {
   type IndexStatusView,
   type OrganizationCountriesView,
   type PlatformKnowledgeOverview,
+  type ProposalRecordResult,
+  type ProposalView,
   type ProposedRecord,
   type ReleaseChannelBody,
   type ReviewDecisionBody,
 } from './wire'
-
-/** The platform organization has not switched platform knowledge on. */
-export class PlatformKnowledgeDisabledError extends ForbiddenError {
-  constructor() {
-    super('Platform base knowledge is not enabled for the platform organization.')
-  }
-}
-
-/** The platform permission, then the flag. Unknown platform organization: off (fail closed). */
-async function requirePlatform(session: UserSession | null, permission: PlatformPermission): Promise<UserSession> {
-  await requirePlatformPermission(session, permission)
-  const platformOrganizationId = await getPlatformOrganizationId()
-  if (!platformOrganizationId || !(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, platformOrganizationId))) {
-    throw new PlatformKnowledgeDisabledError()
-  }
-  return session as UserSession
-}
 
 type KnowledgeAuditAction =
   | 'platform.knowledge.change_request_approved'
@@ -138,36 +120,41 @@ export async function createPlatformChangeRequest(
   return { id: await insertChangeRequest({ ...body, createdBy: person.userId }) }
 }
 
-export interface ProposalOutcome {
-  dryRun: boolean
-  problems: Problem[]
-  written: ProposedRevision[]
-}
+export { PlatformKnowledgeDisabledError } from './service-gate'
 
-/** Validate a batch and, unless it is a dry run or a check failed, write it into the draft. */
+/**
+ * Validate a batch and, unless it is a dry run or a check failed, write it into
+ * the draft. Each record gets its result; a batch with a problem is refused
+ * whole (422) with every record's problems, and nothing of it is written.
+ */
 export async function proposePlatformRecords(
   session: UserSession | null,
   requestId: string,
   body: { records: ProposedRecord[]; dryRun: boolean },
   proposedBy: 'person' | 'agent' = 'person',
-): Promise<ProposalOutcome> {
+): Promise<ProposalView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'draft') throw new ConflictError(`The change request is ${request.status}; records go into a draft.`)
-    const named = (record: ProposedRecord) => [
-      ...referencesOf(record).map((reference) => reference.id),
-      ...namedTerritories(record),
-    ]
-    const known = await knownPlatformRecords(tx, idsOfBatch(body.records, named))
-    const problems = validateProposal(body.records, request.countryId, known)
-    if (body.dryRun) return { dryRun: true, problems, written: [] }
+    const problems = await runKit(tx, request, body.records)
+    const results = body.records.map((record, index): ProposalRecordResult => {
+      const own = problems.filter((problem) => problem.index === index)
+      const status = own.length > 0 ? 'invalid' : 'valid'
+      return { index, key: own[0]?.key ?? keyOf(record), recordId: recordIdOf(record), status, revisionId: null, problems: own }
+    })
+    if (body.dryRun) return { dryRun: true, valid: problems.length === 0, results }
     if (problems.length > 0) {
-      throw new UnprocessableError(`The proposal failed ${problems.length} check(s); run it with dryRun to see them.`, { problems })
+      throw new UnprocessableError(`The proposal failed ${problems.length} check(s) on ${results.filter((r) => r.status === 'invalid').length} record(s); nothing was written.`, { results })
     }
-    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy })
-    return { dryRun: false, problems: [], written }
+    const viaClient = actingClientId()
+    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy, ...(viaClient ? { viaClient } : {}) })
+    return {
+      dryRun: false,
+      valid: true,
+      results: results.map((result, index) => ({ ...result, status: written[index]?.status ?? 'written', revisionId: written[index]?.revisionId ?? null })),
+    }
   })
 }
 
@@ -178,6 +165,10 @@ export async function submitPlatformChangeRequest(session: UserSession | null, r
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'draft') throw new ConflictError(`The change request is ${request.status}; only a draft is submitted.`)
     if ((await reviewedRevisions(tx, requestId)).length === 0) throw new UnprocessableError('The change request holds no records yet.')
+    const validation = await validateRequest(tx, request)
+    if (!validation.valid) {
+      throw new UnprocessableError(`The change request fails ${validation.problems.length} check(s); run platform-knowledge-validate and repair them.`, { problems: validation.problems })
+    }
     await setChangeRequestStatus(tx, requestId, 'submitted', 'submittedAt')
   })
   return { status: 'submitted' }

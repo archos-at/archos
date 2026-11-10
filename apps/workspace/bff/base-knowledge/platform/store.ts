@@ -32,6 +32,7 @@ import {
 } from '@/lib/db/schema/knowledge-platform'
 import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision } from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, type Tx } from '../store/repository'
+import { captureViews } from './captures'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView } from './wire'
@@ -128,18 +129,33 @@ export interface ProposedRevision {
   key: string
   recordId: string
   revisionId: string
+  /** `unchanged`: the request's newest revision of the record is this same proposal, so nothing was written. */
+  status: 'written' | 'unchanged'
+}
+
+/**
+ * A proposal as compared: its keys sorted at every level, because jsonb keeps
+ * its own key order and the parsed record the schema's.
+ */
+function proposalText(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(proposalText).join(',')}]`
+  if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null)
+  const entries = Object.entries(value as Record<string, unknown>).filter(([, member]) => member !== undefined)
+  return `{${entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, member]) => `${JSON.stringify(name)}:${proposalText(member)}`).join(',')}}`
 }
 
 /**
  * Write a batch into a draft: each record's header once (its country fixed at
  * creation), then one revision per record in the request. Headers first, so an
- * edition can name a work proposed in the same batch.
+ * edition can name a work proposed in the same batch. A record whose newest
+ * revision in this request is the same proposal gets no new revision: a
+ * repeated batch changes nothing (ADR-0170).
  */
 export async function insertProposedRecords(
   tx: Tx,
   request: ChangeRequestRow,
   records: readonly ProposedRecord[],
-  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy'] },
+  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy']; viaClient?: string },
 ): Promise<ProposedRevision[]> {
   await tx
     .insert(knowledgeRecords)
@@ -153,9 +169,15 @@ export async function insertProposedRecords(
       })),
     )
     .onConflictDoNothing({ target: knowledgeRecords.id })
+  const newest = new Map(newestPerRecord(await requestRevisions(tx, request.id)).map((revision) => [revision.recordId, revision]))
   const written: ProposedRevision[] = []
   for (const record of records) {
     const recordId = recordIdOf(record)
+    const current = newest.get(recordId)
+    if (current && proposalText(current.provenance.proposal) === proposalText(record)) {
+      written.push({ key: proposalKey(record), recordId, revisionId: current.revisionId, status: 'unchanged' })
+      continue
+    }
     const revisionId = await appendRevision(
       tx,
       {
@@ -163,12 +185,17 @@ export async function insertProposedRecords(
         recordId,
         type: record.type,
         createdBy: context.createdBy,
-        provenance: { proposedBy: context.proposedBy, citations: record.citations },
+        provenance: {
+          proposedBy: context.proposedBy,
+          citations: record.citations,
+          proposal: record as unknown as Record<string, unknown>,
+          ...(context.viaClient ? { viaClient: context.viaClient } : {}),
+        },
         changeRequestId: request.id,
       },
       bodyOf(record),
     )
-    written.push({ key: proposalKey(record), recordId, revisionId })
+    written.push({ key: proposalKey(record), recordId, revisionId, status: 'written' })
   }
   return written
 }
@@ -262,7 +289,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases] = await Promise.all([
+    const [revisions, approvals, releases, captures] = await Promise.all([
       reviewedRevisions(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
@@ -271,6 +298,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         .where(eq(knowledgeReleaseMoves.changeRequestId, id))
         .orderBy(knowledgeReleaseMoves.seq)
         .limit(2000),
+      captureViews(tx, id),
     ])
     return {
       id: request.id,
@@ -282,6 +310,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       submittedAt: request.submittedAt?.toISOString() ?? null,
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
+      captures,
       approvals: approvals.map((approval) => ({
         approver: approval.approver,
         role: approval.role,
@@ -304,7 +333,7 @@ export async function insertReviewDecisions(
   tx: Tx,
   requestId: string,
   reviewer: string,
-  decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string }[],
+  decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string; sourceChecked?: boolean }[],
 ): Promise<void> {
   await tx.insert(knowledgeReviewDecisions).values(
     decisions.map((decision) => ({
@@ -314,6 +343,7 @@ export async function insertReviewDecisions(
       claimPath: decision.claimPath,
       decision: decision.decision,
       note: decision.note ?? null,
+      sourceChecked: decision.sourceChecked ?? false,
       reviewer,
     })),
   )
@@ -332,6 +362,9 @@ export async function insertApproval(
       throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
     }
     if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
+    if (/no reviewer checked/.test(message)) {
+      throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
+    }
     throw error
   }
 }

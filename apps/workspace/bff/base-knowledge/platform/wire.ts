@@ -41,11 +41,27 @@ const keySchema = z
 
 const isoDate = z.iso.date()
 
-/** Where a value was taken from: what a reviewer checks the claim against. */
-const citationSchema = z.object({
-  url: z.url().max(2000).optional(),
+/** A capture's id, from platform-knowledge-citation-capture. */
+const captureIdSchema = z.uuid()
+
+/**
+ * Where a value was taken from: what a reviewer checks the claim against. A
+ * platform record cites at least one capture of its change request, with the
+ * words that support it (KC-6, ADR-0170); a bare `url` is no citation.
+ */
+export const citationSchema = z.object({
+  captureId: captureIdSchema.optional().describe('A capture of this change request, from platform-knowledge-citation-capture.'),
+  quote: z
+    .string()
+    .trim()
+    .min(2)
+    .max(2000)
+    .optional()
+    .describe('Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).'),
+  url: z.url().max(2000).optional().describe('The page, for a person to open; the capture is what is checked.'),
   note: z.string().trim().min(1).max(500).optional(),
 })
+export type Citation = z.infer<typeof citationSchema>
 
 const common = { citations: z.array(citationSchema).max(10).default([]) }
 
@@ -144,8 +160,91 @@ export const proposeRecordsBodySchema = z.object({
   dryRun: z.boolean().default(false).describe('Validate only; nothing is written.'),
 })
 
+/** One record of a proposal: what became of it, and its problems (RFC 9457 members with a JSON Pointer into it). */
+export interface ProposalRecordResult {
+  index: number
+  key: string
+  recordId: string
+  /** valid (dry run, no problems), invalid, written (a new revision), unchanged (the same proposal is already the request's newest). */
+  status: 'valid' | 'invalid' | 'written' | 'unchanged'
+  revisionId: string | null
+  problems: KitProblemView[]
+}
+
+/** A problem of the validation kit as the wire carries it (`validate.ts`). */
+export interface KitProblemView {
+  type: string
+  code: string
+  key: string
+  recordId: string
+  pointer: string
+  detail: string
+  hint: string
+  index?: number
+}
+
+export interface ProposalView {
+  dryRun: boolean
+  /** No record has a problem. A batch with one is refused (422) unless it is a dry run, and nothing of it is written. */
+  valid: boolean
+  results: ProposalRecordResult[]
+}
+
+export interface ValidationView {
+  changeRequestId: string
+  /** Every record the request holds passes the kit: it may be submitted. */
+  valid: boolean
+  records: number
+  checks: readonly string[]
+  problems: KitProblemView[]
+}
+
+/** The most text a capture keeps: the Bauordnung für Wien is 760k characters, the ABGB 970k. */
+export const MAX_CAPTURE_TEXT_CHARS = 2_000_000
+
+/** A configured public source's id (`configs/sources/<country>/<name>`): `at-ris`, `ch-fedlex`. */
+export const sourceIdSchema = z.string().trim().regex(/^[a-z]{2}-[a-z0-9-]{1,60}$/, 'a configured source id such as at-ris')
+
+export const captureBodySchema = z.discriminatedUnion('basis', [
+  z.object({
+    basis: z.literal('fetched'),
+    sourceId: sourceIdSchema.describe('The configured public source whose hosts the page is on, e.g. "at-ris".'),
+    url: z.url().max(2000).describe('The page to capture; fetched through the public-source fetcher, GET only.'),
+  }),
+  z.object({
+    basis: z.literal('operator_supplied'),
+    url: z.url().max(2000).describe('Where the text was taken from, for the reviewer to check it against.'),
+    text: z.string().min(1).max(MAX_CAPTURE_TEXT_CHARS).describe('The page’s text as you copied it from the source.'),
+    note: z.string().trim().min(1).max(500).optional().describe('Why it was not fetched, e.g. the portal needs a browser.'),
+  }),
+])
+export type CaptureBody = z.infer<typeof captureBodySchema>
+
+export interface CaptureView {
+  captureId: string
+  changeRequestId: string
+  basis: 'fetched' | 'operator_supplied'
+  sourceId: string | null
+  url: string
+  finalUrl: string | null
+  contentType: string | null
+  sha256: string
+  bytes: number
+  /** Characters of text kept for the quote check; 0 when the capture holds none. */
+  textChars: number
+  retrievedAt: string
+}
+
+/** The record types `platform-knowledge-schema-get` describes. */
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation'] as const
+
+export const schemaQuerySchema = z.object({
+  type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
+})
+
 export const territoryImportBodySchema = z.object({
   format: z.enum(['iso3166']).describe('A bulk file of ISO 3166 rows.'),
+  captureId: captureIdSchema.describe('The capture of the list the rows come from; each row’s name is checked against it (KC-6).'),
   rows: z
     .array(
       z.object({
@@ -156,6 +255,7 @@ export const territoryImportBodySchema = z.object({
     )
     .min(1)
     .max(MAX_PROPOSED_RECORDS),
+  dryRun: z.boolean().default(false).describe('Validate only; nothing is written.'),
 })
 
 export const reviewBodySchema = z.object({
@@ -166,6 +266,10 @@ export const reviewBodySchema = z.object({
         claimPath: z.string().trim().min(1).max(120),
         decision: z.enum(REVIEW_DECISIONS),
         note: z.string().trim().min(1).max(2000).optional(),
+        sourceChecked: z
+          .boolean()
+          .default(false)
+          .describe('You checked the cited capture against its source; required before approving a record that cites an operator-supplied capture.'),
       }),
     )
     .min(1)
@@ -217,7 +321,7 @@ export interface RevisionView {
   recordId: string
   type: KnowledgeRecordType
   createdBy: string
-  citations: z.infer<typeof citationSchema>[]
+  citations: Citation[]
   claims: ClaimView[]
 }
 
@@ -231,6 +335,8 @@ export interface ChangeRequestView {
   submittedAt: string | null
   publishedAt: string | null
   revisions: RevisionView[]
+  /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
+  captures: CaptureView[]
   approvals: { approver: string; role: string; decisionSource: string; decidedAt: string }[]
   releases: { seq: number; recordId: string; channel: string; action: string; toRevisionId: string | null; releasedAt: string }[]
 }

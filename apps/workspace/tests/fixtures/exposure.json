@@ -3579,6 +3579,16 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-citation-capture": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-doc-class-update": {
    "kind": "catalog",
    "domain": "platform",
@@ -3669,6 +3679,16 @@
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
+  "platform-knowledge-schema-get": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
   "platform-knowledge-sync": {
    "kind": "catalog",
    "domain": "platform",
@@ -3680,6 +3700,16 @@
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
   },
   "platform-knowledge-title-update": {
+   "kind": "catalog",
+   "domain": "platform",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": true,
+   "withheld": null,
+   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+  },
+  "platform-knowledge-validate": {
    "kind": "catalog",
    "domain": "platform",
    "sensitivity": null,
