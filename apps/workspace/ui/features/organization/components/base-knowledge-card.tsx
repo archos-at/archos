@@ -78,8 +78,8 @@ const ConfirmedRow: FC<RowProps> = ({ entry, canManage, busy, onCheck, onAllowAi
   const t = useTranslations(organizationCopy)
   const { values } = entry
   return (
-    <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:gap-4" data-testid="base-knowledge-entry">
-      <div className="min-w-0 flex-1 space-y-1">
+    <li className="flex flex-col gap-2 py-3" data-testid="base-knowledge-entry">
+      <div className="min-w-0 space-y-1">
         <p className="text-sm font-medium">
           {values.designation ?? values.title}
           {values.designation && <span className="font-normal text-muted-foreground"> · {values.title}</span>}
