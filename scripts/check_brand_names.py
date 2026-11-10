@@ -183,12 +183,28 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
+def _without_exempt_names(text: str) -> str:
+    """``text`` with URLs, the repository's own name and the pending infra names blanked.
+
+    Each substitution runs only where a plain substring says it can match: the
+    three regexes over every file were half of this check (2.7s of 5.3,
+    2026-11-10), REPOSITORY alone 1.8s, and most files hold none of them.
+    """
+    if "://" in text or "git@" in text:
+        text = URL.sub(" ", text)
+    lowered = text.lower()
+    if "grid-" in lowered or "archos-at" in lowered:
+        text = REPOSITORY.sub(" ", text)
+    if "aiq-a" in text:
+        text = PENDING_INFRA_NAMES.sub(" ", text)
+    return text
+
+
 def count_text(text: str) -> int:
     """The brand hits in ``text``, URLs and the repository's own name left out."""
     if not BRAND.search(text):
         return 0
-    text = PENDING_INFRA_NAMES.sub(" ", REPOSITORY.sub(" ", URL.sub(" ", text)))
-    return sum(len(brand_words(token)) for token in branded_tokens(text))
+    return sum(len(brand_words(token)) for token in branded_tokens(_without_exempt_names(text)))
 
 
 def is_content(path: str) -> bool:

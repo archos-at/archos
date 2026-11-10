@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import json
 import re
 import subprocess
@@ -105,6 +106,12 @@ def tracked_sources(root: Path) -> list[str]:
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
+@functools.lru_cache(maxsize=1)
+def _parsed(source: str) -> ast.Module:
+    """One parse per file: its import lines and its function lengths are read from the same tree."""
+    return ast.parse(source)
+
+
 def function_lengths(source: str) -> dict[str, int]:
     """Each function's span in lines, keyed by its qualified name (`Class.method`, `outer.inner`).
 
@@ -127,7 +134,7 @@ def function_lengths(source: str) -> dict[str, int]:
                 lengths[name] = (child.end_lineno or child.lineno) - child.lineno + 1
             visit(child, f"{name}.")
 
-    visit(ast.parse(source), "")
+    visit(_parsed(source), "")
     return lengths
 
 
@@ -149,7 +156,7 @@ def import_lines(path: str, source: str) -> set[int]:
     """The 1-based lines of ``source`` its import statements occupy."""
     if path.endswith(".py"):
         try:
-            tree = ast.parse(source)
+            tree = _parsed(source)
         except SyntaxError:
             return set()
         return {
