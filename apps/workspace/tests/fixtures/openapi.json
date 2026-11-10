@@ -31145,7 +31145,19 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
                                   "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
                                     "type": "string",
                                     "maxLength": 2000,
                                     "format": "uri"

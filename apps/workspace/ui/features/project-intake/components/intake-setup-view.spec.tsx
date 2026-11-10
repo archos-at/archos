@@ -272,9 +272,7 @@ describe('IntakeSetupView', () => {
 
         await userEvent.click(screen.getByRole('button', { name: 'stub next' }))
         expect(shown()).toBe('profile')
-        // The scroll runs in a passive effect, which may run after the click
-        // resolves on a loaded runner, so wait for it.
-        await vi.waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: 0 }))
+        expect(scroll).toHaveBeenCalledWith({ top: 0 })
       } finally {
         Element.prototype.scrollTo = before
       }
