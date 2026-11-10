@@ -610,6 +610,13 @@ its passage; this asks what the reader waited for and what they got.
   question (default 2), `--workers N` how many run at once (default 3). `--override KEY VALUE` sets a config value for every
   run, in the dot notation `nat run` takes, and repeats. `--all`, `--baseline`,
   `--report` and `--ingest` are described above and below.
+- **The site's law:** every run reads the knowledge context and chain an
+  entitled Austrian office's turn carries once the packs are published
+  (ADR-0175): the default set as a Vienna project, a fixture office's project
+  in its own Land. A fixture BFF serves them (`scripts/turn_census/fixture_law.py`)
+  from `tests/fixtures/base-knowledge/turn_law_austria.json`, which
+  `suite-turn-law.fixture.spec.ts` writes from the packs with the production
+  resolvers (`UPDATE_FIXTURES=1`). A run without them would read no law at all.
 - **No stack needed:** `--ingest --corpus data/oib` takes the base corpus
   from that directory's PDFs instead of the object store, so the suite runs
   on a machine with no BFF and no SeaweedFS. The table, the ingest queue and

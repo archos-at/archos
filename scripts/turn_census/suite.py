@@ -90,6 +90,7 @@ QUESTIONS = ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.ya
 PRECEDENT_QUESTIONS = ROOT / "tests" / "fixtures" / "precedent" / "precedent_questions.yaml"
 sys.path.insert(0, str(HERE))
 
+import fixture_law  # noqa: E402
 import turn_input  # noqa: E402
 from census import ensure_key  # noqa: E402  (a sibling script, not a package)
 from census import kind as call_kind  # noqa: E402
@@ -1377,9 +1378,9 @@ def run_set(questions: list[dict], args: argparse.Namespace, stamp: str, meta: d
         if args.set == "files"
         else start_visual_bff(args.out, args.look == "on")
         if args.set == "visual"
-        else (None, None)
+        else fixture_law.start_law_bff(args.out, precedent_envelope)
     )
-    if bff is not None and args.set not in ("files", "visual"):
+    if bff is not None and args.set not in ("files", "visual", "loop"):
         # A run ranked by tokens alone measures a kinder search than production's: the report says which it was.
         meta["fixture_search"] = "embeddings" if bff.embed is not None else "tokens only (no embedding key)"
     try:
