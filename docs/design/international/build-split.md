@@ -215,6 +215,14 @@ The user delegated the Wave 1 merge (2026-11-10): the orchestrator merges the wh
 5. **Stacked follow-ups** merge right after the PRs they sit on. Wave 1 has one: `claude/intl-licensed-door-cut` (S2's cut on the door's `document-text-get`, using S1's `licenceOfDocument`), based on S1's branch, merged after #1547 and #1551 and before `officeGrundlagen` or `licensedSeam` is turned on anywhere.
 6. **Watch the dev deploy** of the last merge: the migrate Job completes, and nothing ask-first ran (the static prompt push, the authz catalog apply and Langfuse provisioning stay with the user).
 
+### What the Wave 1 merge taught (2026-11-10)
+- **Reserve numbers in the brief.** "Next free number" made six PRs claim migration 0200 and ADR-0158, and renumbering by hand cost an hour. From Wave 2 on, each brief names its migration and ADR numbers (Wave 2: S7 0203/0165, S13 0204/0166, S14 0205/0167).
+- **The ADR index collides even with distinct numbers** when two PRs insert rows at the same spot, so the second needs develop merged in again and another CI run. Merge PRs whose rows are far apart back to back; serialise the rest.
+- **Merging PRs one by one without the integration build broke develop.** #1545 made `OrgSettings.homeCountry` required and #1555 added a mock without it; each was green alone. Run the combined type check (`bun check`) on develop plus every PR about to merge before the first merge.
+- **A PR stacked on a squash-merged branch** conflicts on every file the parent touched. Do not rebase or force-push: build develop plus the child's own diff (from its merge base with the parent) and record it as a merge commit on the child (#1554, `e8ccc1213`).
+- **Develop's CI is cancelled by every following merge** (and by the release-notes commit each merge triggers), so the dev deploy and its migrate Job wait until merges pause.
+- **Merging needs no approval from another person:** develop's ruleset asks for one approving review, which the owner's merge bypasses; CI OK is the gate, and branches need not be up to date.
+
 ## Human steps on the critical path
 1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S2 and S5 before S14; S7 and S13 before Wave 3; S8, S9, S11 and S12 before S15; S6, S7, S10 and S13 before S16. S14a merges whenever it is green. Wave 1 is merged by the orchestrator (above).
 2. Approve the ask-first steps each session prepares.
