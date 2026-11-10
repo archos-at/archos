@@ -27,10 +27,28 @@ describe('/api/internal/stages features.folderCards', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('is the folder-cards flag of the organization asked about', async () => {
-    vi.mocked(isOrgFeatureEnabled).mockImplementation(async (flag, org) => flag === 'folder-cards' && org === 'org_on')
+    vi.mocked(isOrgFeatureEnabled).mockImplementation(
+      async (flag, org) => flag === 'folder-cards' && org === 'org_on'
+    )
 
     expect(await call('org_on')).toMatchObject({ features: { folderCards: true } })
     expect(await call('org_off')).toMatchObject({ features: { folderCards: false } })
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('folder-cards', 'org_off')
+  })
+})
+
+describe('/api/internal/stages features.sourceRouting', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('is the source-routing flag of the organization asked about, and off unless WorkOS says yes', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockImplementation(
+      async (flag, org) => flag === 'source-routing' && org === 'org_on'
+    )
+
+    expect(await call('org_on')).toMatchObject({
+      features: { sourceRouting: true, folderCards: false },
+    })
+    expect(await call('org_off')).toMatchObject({ features: { sourceRouting: false } })
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('source-routing', 'org_off')
   })
 })

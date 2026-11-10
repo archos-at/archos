@@ -8,6 +8,7 @@ testpaths = [
     "evals",
     "packages/agent/tests",
     "packages/knowledge-layer/tests",
+    "packages/public-sources/tests",
     "packages/ris-adapter/tests",
     "packages/tavily-web-search/tests",
 ]
@@ -35,7 +36,7 @@ addopts = "--import-mode=importlib -m 'not live'"
 # The test-support packages come last: `<distribution>_testing`, one per suite
 # family, so a suite imports its helpers by a name that no directory move changes
 # (ADR-0145 row 5; tests/test_test_imports.py holds it).
-pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/agent/tests/testing"]
+pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/public-sources/testing", "packages/agent/tests/testing"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
@@ -239,6 +240,7 @@ dev = [
     "agent",
     "tavily-web-search",
     "ris-adapter",
+    "public-sources",
     "knowledge-layer[all]",
     "agent-host",
     # The eval harness (evals/), so its tests and `task be:eval:*` import it
@@ -286,6 +288,7 @@ members = [
     # pytest's testpaths and the Taskfile's PY_PACKAGES to one another.
     "packages/agent",
     "packages/knowledge-layer",
+    "packages/public-sources",
     "packages/ris-adapter",
     "packages/tavily-web-search",
     "apps/agent-host",
@@ -295,6 +298,7 @@ members = [
 agent = { workspace = true }
 tavily-web-search = { workspace = true }
 ris-adapter = { workspace = true }
+public-sources = { workspace = true }
 knowledge-layer = { workspace = true }
 agent-host = { workspace = true }
 oib-retrieval = { path = "evals/oib-retrieval", editable = true }

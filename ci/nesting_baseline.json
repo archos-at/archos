@@ -199,7 +199,8 @@
   "packages/knowledge-layer/src/vector_store/similar.py": 1,
   "packages/knowledge-layer/src/vector_store/store.py": 3,
   "packages/knowledge-layer/src/view_image.py": 2,
-  "packages/ris-adapter/src/client.py": 6,
+  "packages/public-sources/src/engines/ris_xml.py": 4,
+  "packages/ris-adapter/src/client.py": 2,
   "packages/ris-adapter/src/register.py": 6,
   "packages/tavily-web-search/src/register.py": 11
 }
