@@ -813,3 +813,15 @@ describe('rows, weights and the phone', () => {
     expect(withoutComments(globals)).toMatch(/\.card-eyebrow \{\s*font-size: 12px;\s*line-height: 16px;\s*font-weight: 500;/)
   })
 })
+
+describe('a sheet keeps its edge', () => {
+  // The edge is a ring drawn 1px outside the sheet (`--elevation-1`). A clip on anything around the
+  // tile's thumbnail cut it to the four corners, which then stood out as peaks (owner, 2026-11-10).
+  it('nothing between the file card and its thumbnail sheet clips', () => {
+    const card = withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components/file-card.tsx'), 'utf8'))
+    const button = card.match(/className=\{cn\("group relative flex w-full min-w-0 flex-col[^"]*"/)?.[0] ?? ''
+    expect(button, 'the card button').toContain('overflow-visible')
+    expect(button).not.toContain('overflow-hidden')
+    expect(card).toMatch(/<FileTileBody className=\{cn\('overflow-visible p-0'/)
+  })
+})

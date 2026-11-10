@@ -388,13 +388,14 @@ export const FileCard = memo(function FileCard({
         aria-label={ariaLabel}
         aria-busy={isBusy}
         data-testid={testId}
-        className={cn("group relative flex w-full min-w-0 flex-col overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
+        className={cn("group relative flex w-full min-w-0 flex-col overflow-visible text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
       >
         {/* The tile is on the page, no white block: a row's leftover height goes
             BELOW the meta line (the footer grows), so every meta line of a row
             shares one baseline whatever each card carries above it. Without a
             footer the body takes it. */}
-        <FileTileBody className={cn('p-0', hideFooter && 'flex-1 rounded-none')}>
+        {/* Nothing above the sheet clips: its edge is a ring drawn 1px outside it, and a clip cut it to the corners. */}
+        <FileTileBody className={cn('overflow-visible p-0', hideFooter && 'flex-1 rounded-none')}>
           {/* Under the hover, the open and the picked tile's fill the sheet takes that fill: the one grey on the state grey was grey on grey. */}
           <FileTileMedia
             ref={mediaRef}
