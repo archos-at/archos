@@ -468,7 +468,9 @@ def _site_blocks(
         "focus_file_path": focus_file_path(state, tool_names),
         "focus_region_block": focus_region_block(state, tool_names),
         "trigger_block": trigger_block(state, tool_names),
-        "building_law": building_law_block(static_text, state.project_context, law.text if law else None),
+        "building_law": building_law_block(
+            static_text, state.project_context, law.text if law else None, law.chain if law else ()
+        ),
         "oib_applicability": oib_applicability(state.project_context),
         "parcel_note": parcel_note(documents, resolve_country(state.project_context)),
     }

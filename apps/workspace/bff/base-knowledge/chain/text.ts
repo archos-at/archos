@@ -96,7 +96,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
 }
 
 function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
-  const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : '; no edition of it binds here'
+  const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : "; the records name no binding edition here; check the Land's ordinance"
   return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
 }
 

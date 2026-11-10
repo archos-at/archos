@@ -158,6 +158,9 @@ CREATE OR REPLACE FUNCTION knowledge_country_entitled(country text) RETURNS bool
       JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
       WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.id = r.country_id
         AND t.dated_parents @> '[{"id": "EU"}]'::jsonb
+        -- A membership that has ended (half-open, ISO dates compare as text) entitles nothing.
+        AND EXISTS (SELECT 1 FROM jsonb_array_elements(t.dated_parents) p
+          WHERE p->>'id' = 'EU' AND (p->>'validTo' IS NULL OR p->>'validTo' > to_char(current_date, 'YYYY-MM-DD')))
         AND (EXISTS (SELECT 1 FROM organizations o WHERE o.workos_organization_id = current_org() AND o.home_country = r.country_id)
           OR EXISTS (SELECT 1 FROM organization_countries c WHERE c.organization_id = current_org() AND c.country_id = r.country_id)))))
 $$;

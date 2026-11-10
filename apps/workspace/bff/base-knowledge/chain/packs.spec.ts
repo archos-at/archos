@@ -103,7 +103,7 @@ describe('the Austria and EU packs', () => {
       'oib-rl_1_ausgabe_mai_2023.pdf': 'edition:oib-rl-1-2023',
       'oib-rl_2_ausgabe_mai_2023.pdf': 'edition:oib-rl-2-2023',
       'oib-rl_2.1_ausgabe_mai_2023.pdf': 'edition:oib-rl-2-1-2023',
-      'oib-rl_2.2_ausgabe_mai_2023.pdf': 'edition:oib-rl-2-2-2023',
+      'oib-richtlinie_2.2_ausgabe_mai_2023.pdf': 'edition:oib-rl-2-2-2023',
       'oib-rl_2.3_ausgabe_mai_2023.pdf': 'edition:oib-rl-2-3-2023',
       'oib-rl_3_ausgabe_mai_2023.pdf': 'edition:oib-rl-3-2023',
       'oib-rl_4_ausgabe_mai_2023.pdf': 'edition:oib-rl-4-2023',

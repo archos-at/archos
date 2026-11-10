@@ -38,6 +38,7 @@ const RUN = Date.now().toString(36)
 const AUSTRIAN = `org_chain_${RUN}_at`
 const GERMAN = `org_chain_${RUN}_de`
 const SECOND_AUSTRIAN = `org_chain_${RUN}_at2`
+const BRITISH = `org_chain_${RUN}_gb`
 const AUTHOR = 'user_chain_author'
 const EXPERT = 'user_chain_expert'
 const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
@@ -106,6 +107,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       [AUSTRIAN, 'AT'],
       [GERMAN, 'DE'],
       [SECOND_AUSTRIAN, 'AT'],
+      [BRITISH, 'GB'],
     ] as const) {
       await withTenant({ organizationId }, () =>
         db.execute(sql`INSERT INTO organizations (workos_organization_id, home_country) VALUES (${organizationId}, ${home})`),
@@ -119,7 +121,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   afterAll(async () => {
     await withPlatformAccess('chain spec cleanup', async () => {
-      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN}, ${SECOND_AUSTRIAN})`)
+      await db.execute(sql`DELETE FROM organizations WHERE workos_organization_id IN (${AUSTRIAN}, ${GERMAN}, ${SECOND_AUSTRIAN}, ${BRITISH})`)
     })
   })
 
@@ -146,6 +148,22 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
       db.execute(sql`SELECT id FROM knowledge_records WHERE organization_id IS NULL AND (country_id = 'EU' OR country_id = 'AT')`),
     )
     expect(raw).toHaveLength(0)
+  })
+
+  it('reads no EU record through a membership that has ended', async () => {
+    const euRecords = async (organizationId: string) =>
+      withTenant({ organizationId }, () => db.execute(sql`SELECT id FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'EU'`))
+    expect((await euRecords(AUSTRIAN)).length).toBeGreaterThan(0)
+    await published('GB', `United Kingdom ${RUN}`, [
+      {
+        type: 'territory',
+        id: 'GB',
+        kind: 'country',
+        name: 'United Kingdom',
+        datedParents: [{ id: 'EU', validFrom: '1973-01-01', validTo: '2020-02-01' }],
+      },
+    ])
+    expect(await euRecords(BRITISH)).toHaveLength(0)
   })
 
   it('reads a record of another pack only where a released relation reaches it, and not after its rollback', async () => {

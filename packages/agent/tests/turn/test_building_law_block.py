@@ -20,11 +20,12 @@ MUNICH = "PROJECT_CONTEXT v1\n\nconfirmed:\n- country=de\n"
 UNPLACED = "PROJECT_CONTEXT v1\n\nconfirmed:\n- main_use=residential\n"
 WITH_BLOCK = f"<role>…</role>\n\n{BUILDING_LAW_TAG}\n…\n</building_law>"
 NEUTRAL = "<role>a static prompt without the block</role>"
+STYRIA = ("AT-6", "AT", "EU")
 CHAIN = "Building law at this site, Steiermark (AT-6, AT, EU), on 2026-11-10, from the platform's reviewed records."
 
 
 def test_nothing_is_added_while_the_static_prompt_holds_the_block():
-    assert building_law_block(WITH_BLOCK, VIENNA, CHAIN) is None
+    assert building_law_block(WITH_BLOCK, VIENNA, CHAIN, STYRIA) is None
     assert building_law_block(WITH_BLOCK, MUNICH, None) is None
 
 
@@ -39,7 +40,7 @@ def test_defect_6_a_german_site_an_unplaced_project_or_no_project_reads_no_block
 
 
 def test_the_records_chain_replaces_the_opening_paragraph_and_keeps_the_doctrine():
-    block = building_law_block(NEUTRAL, VIENNA, CHAIN)
+    block = building_law_block(NEUTRAL, VIENNA, CHAIN, STYRIA)
     assert block is not None
     bundled = bundled_building_law()
     assert block.startswith(f"{BUILDING_LAW_TAG}\n{CHAIN}\n- The edition and the Land decide the number.")
@@ -50,4 +51,13 @@ def test_the_records_chain_replaces_the_opening_paragraph_and_keeps_the_doctrine
 
 def test_the_records_chain_applies_to_a_site_the_records_resolved_whatever_the_profile_says():
     # The BFF resolved the chain from the project's own Land; the block follows it.
-    assert building_law_block(NEUTRAL, MUNICH, CHAIN) == with_chain(bundled_building_law(), CHAIN)
+    assert building_law_block(NEUTRAL, MUNICH, CHAIN, STYRIA) == with_chain(bundled_building_law(), CHAIN)
+
+
+def test_austria_s_doctrine_follows_only_a_chain_through_austria():
+    bavaria = "Building law at this site, Bayern (DE-BY, DE, EU), on 2026-11-10, from the platform's reviewed records."
+    block = building_law_block(NEUTRAL, MUNICH, bavaria, ("DE-BY", "DE", "EU"))
+    assert block == f"{BUILDING_LAW_TAG}\n{bavaria}\n</building_law>"
+    assert "ÖNORM" not in block and "OIB" not in block
+    # Positive control: the same chain text through AT keeps the doctrine.
+    assert "ÖNORM" in (building_law_block(NEUTRAL, MUNICH, bavaria, STYRIA) or "")

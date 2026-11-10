@@ -7,6 +7,7 @@ source keeps exactly the status ``citations/binding.py`` gave it.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -118,3 +119,34 @@ def test_a_malformed_building_law_or_use_is_dropped_never_guessed():
     law = parse_building_law({**STYRIA, "uses": [{**STYRIA["uses"][1], "role": "verbindlich"}, "x", STYRIA["uses"][0]]})
     assert law is not None
     assert [use.edition_id for use in law.uses] == ["edition:oib-rl-2-2019"]
+
+
+#: The nine 2023 file names as oib.or.at publishes them; RL 2.2 alone is spelt ``oib-richtlinie_``.
+PUBLISHED_2023 = [
+    "oib-rl_1_ausgabe_mai_2023.pdf",
+    "oib-rl_2_ausgabe_mai_2023.pdf",
+    "oib-rl_2.1_ausgabe_mai_2023.pdf",
+    "oib-richtlinie_2.2_ausgabe_mai_2023.pdf",
+    "oib-rl_2.3_ausgabe_mai_2023.pdf",
+    "oib-rl_3_ausgabe_mai_2023.pdf",
+    "oib-rl_4_ausgabe_mai_2023.pdf",
+    "oib-rl_5_ausgabe_mai_2023.pdf",
+    "oib-rl_6_ausgabe_mai_2023.pdf",
+]
+
+
+def test_the_austrian_pack_names_every_2023_text_by_its_published_file_name():
+    pack = json.loads((REPO / "configs/knowledge-packs/at.json").read_text(encoding="utf-8"))
+    names = sorted(str(record["corpusFile"]) for record in pack["records"] if "2023" in str(record.get("corpusFile")))
+    assert names == sorted(PUBLISHED_2023)
+
+
+@pytest.mark.parametrize("published", ["oib-richtlinie_2.2_ausgabe_mai_2023.pdf", "OIB-RL_2.2_Ausgabe_Mai_2023.pdf"])
+def test_a_published_spelling_finds_its_edition_on_either_side(published):
+    use = {**STYRIA["uses"][1], "editionId": "edition:oib-rl-2-2-2023", "corpusFiles": [published]}
+    set_turn_building_law(parse_building_law({**STYRIA, "uses": [use]}))
+    for key in ("oib-richtlinie_2.2_ausgabe_mai_2023.pdf", "oib-rl_2.2_ausgabe_mai_2023.pdf"):
+        entry = SourceEntry(citation_key=f"{key}, p.3", source_type="knowledge_layer", shelf="base")
+        found = use_for_entry(entry)
+        assert found is not None and found.edition_id == "edition:oib-rl-2-2-2023"
+        assert source_entry_to_wire(entry)["binding_status"] == "interpretive"

@@ -91,7 +91,7 @@ describe('the chain text', () => {
   })
 
   it('a Land without any route reads the model code as guidance with no binding edition', () => {
-    expect(text('AT-7')).toContain('edition Ausgabe Mai 2023: guidance only; no edition of it binds here')
+    expect(text('AT-7')).toContain("edition Ausgabe Mai 2023: guidance only; the records name no binding edition here; check the Land's ordinance")
   })
 
   it('keeps a planted instruction in a record name from becoming markup or a second line', () => {

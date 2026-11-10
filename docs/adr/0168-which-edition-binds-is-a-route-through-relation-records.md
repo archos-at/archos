@@ -73,7 +73,8 @@ both owners: a route through an office relation is `office_maintained`, and a
 platform relation on the same target and anchors displaces it.
 
 **Reads.** The `EU` pack follows any entitled member (a released territory
-record naming `EU` as a dated parent). A record of another pack is readable
+record naming `EU` as a dated parent whose interval has not ended today: a
+membership with a `validTo` in the past entitles nothing). A record of another pack is readable
 where a released platform relation reaches it from one the office may read
 (`knowledge_reached_by_relation`, SECURITY DEFINER, walking backwards from the
 record so the row policy stays cheap); a rollback of the relation withdraws it.

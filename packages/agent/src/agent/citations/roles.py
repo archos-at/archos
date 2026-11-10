@@ -35,6 +35,7 @@ from agent.citations.binding import BindingClassification
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
+from agent.common.norm_registry import canonical_oib_file_name
 from agent.common.source_kinds import Shelf
 
 #: The roles an edition can have (design §3.5); the TypeScript source is
@@ -134,10 +135,12 @@ def use_for_entry(entry: SourceEntry) -> EditionUse | None:
     if law is None or not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
         return None
     file_name, _page = parse_citation_key(entry.citation_key)
-    base_name = file_name.rsplit("/", 1)[-1].lower()
+    base_name = canonical_oib_file_name(file_name.rsplit("/", 1)[-1])
     if not base_name:
         return None
-    return next((use for use in law.uses if base_name in (name.lower() for name in use.corpus_files)), None)
+    return next(
+        (use for use in law.uses if base_name in (canonical_oib_file_name(name) for name in use.corpus_files)), None
+    )
 
 
 def binding_status_for(use: EditionUse) -> str:

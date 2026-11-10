@@ -10,8 +10,9 @@ platform's records resolved one:
   it was. The country-neutral static push (S3) is what switches this on.
 - **The records resolved the site** (the `building-law-chain` flag,
   ``citations/roles.py``): the block opens with the chain text the BFF
-  rendered from kinds and relations, then the doctrine that holds for any
-  chain.
+  rendered from kinds and relations. The bundled doctrine is Austria's (OIB,
+  ÖNORM, the Länder), so it follows only a chain through ``AT``; any other
+  chain stands alone in the block.
 - **No records, an Austrian site:** the bundled block, unchanged
   (``turn/building_law.md``), so an Austrian project reads after the push
   exactly what it read before it.
@@ -24,6 +25,7 @@ Pure, and read from disk once per process.
 from __future__ import annotations
 
 import functools
+from collections.abc import Sequence
 from pathlib import Path
 
 from agent.common import load_prompt
@@ -36,6 +38,8 @@ PROMPTS_DIR = Path(__file__).parent
 BUILDING_LAW_FILE = "building_law.md"
 #: What marks the block, in the static prompt and in the turn context.
 BUILDING_LAW_TAG = "<building_law>"
+#: The territory whose doctrine the bundled block holds.
+AUSTRIA = "AT"
 #: Where the doctrine starts: every line after the opening paragraph is a bullet.
 _DOCTRINE = "\n- "
 
@@ -46,6 +50,11 @@ def bundled_building_law() -> str:
     return load_prompt(PROMPTS_DIR, BUILDING_LAW_FILE).rstrip("\n")
 
 
+def chain_only(chain: str) -> str:
+    """The block for a chain outside Austria: the chain text alone, without Austria's doctrine. Pure."""
+    return f"{BUILDING_LAW_TAG}\n{chain.strip()}\n</building_law>"
+
+
 def with_chain(block: str, chain: str) -> str:
     """The block with its opening paragraph replaced by ``chain``. Pure."""
     head, _, doctrine = block.partition(_DOCTRINE)
@@ -53,12 +62,14 @@ def with_chain(block: str, chain: str) -> str:
     return f"{opening}\n{chain.strip()}{_DOCTRINE}{doctrine}"
 
 
-def building_law_block(static_text: str, project_context: str | None, chain: str | None) -> str | None:
-    """The block this turn reads, or None (module docstring)."""
+def building_law_block(
+    static_text: str, project_context: str | None, chain: str | None, territories: Sequence[str] = ()
+) -> str | None:
+    """The block this turn reads, or None (module docstring). ``territories`` is the chain's: leaf first."""
     if BUILDING_LAW_TAG in static_text:
         return None
     if chain:
-        return with_chain(bundled_building_law(), chain)
+        return with_chain(bundled_building_law(), chain) if AUSTRIA in territories else chain_only(chain)
     if project_context and project_context.strip() and resolve_site(project_context).covered:
         return bundled_building_law()
     return None
