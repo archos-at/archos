@@ -1504,7 +1504,14 @@
       "idx": 214,
       "version": "7",
       "when": 1793090000000,
-      "tag": "0214_manifestation_identifiers",
+      "tag": "0214_knowledge_approve_alone",
+      "breakpoints": true
+    },
+    {
+      "idx": 215,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0215_pdf_document_sources",
       "breakpoints": true
     }
   ]

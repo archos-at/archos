@@ -246,6 +246,9 @@ const BOUNDARY_MIGRATIONS = [
   // project_base_confirmations (a confirmed Steckbrief), both keyed by their
   // organization (ADR-0173).
   '0213_knowledge_context.sql',
+  // Adds knowledge_second_reviews, one second review per role approved alone
+  // (ADR-0176), platform-private like the change-request tables.
+  '0214_knowledge_approve_alone.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

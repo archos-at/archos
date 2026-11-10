@@ -209,6 +209,20 @@ Waves 1 to 4 built every new path beside the old one, behind a switch whose off 
 
 Kept as switches, because they gate data or a contract that does not exist yet rather than an old path: `site-resolution` (the BEV import), `source-monitors`, the residency switches (the EU contract). `office-base-knowledge`, `licensed-seam`, `source-routing` and `platform-base-knowledge` are rollout switches for capabilities with no old twin; R2 lists each with a keep-or-remove reason in ADR-0175.
 
+### After Wave 5: sessions
+
+Sessions that started during Wave 5 or after it. Each takes the next free migration and ADR number when it merges.
+
+- **S17**: a PDF as a public source (#1580), and the guarded RIS client (#1583). Next: PDFs parsed in the fetcher pod, one list of source formats, one source registry, OIB as a fetched source, and the monitor fixes.
+- **S18**: approve-alone (#1579) and the org-countries list (#1585). Next: four eyes held by the database, the source check on overrides, approve-alone simplified, preview deleted, knowledge permissions, and the home country in one store.
+- **R1 / R2**: the Wave 5 cut-over (#1582, #1578, #1584). They also take the contract findings from the architecture review (one turn payload, identifiers on the work, structured `sourceRefs`, schema parity) and building applicability (#1589).
+- **Q1 / Q2**: slices Q1 (prefix caching) and Q2 (the Austrian golden set, #1588) of [`quality-and-cost.md`](quality-and-cost.md).
+- **M1**: one law model. That covers in-force resolution and the reference date, site placement, limits, visibility, territory parents, competence, and country tables as data.
+
+**Architecture review after Wave 5:** the ranked findings and who owns each are in [`architecture-review-2026-11.md`](architecture-review-2026-11.md).
+
+**After Wave 5:** answer quality and cost, measured against the market and current vendor guidance, continue in [`quality-and-cost.md`](quality-and-cost.md) (slices Q1–Q4).
+
 ### S16 Onboarding tooling
 - **Scope (2026-11-10):** country onboarding itself, Germany first, is run elsewhere. S16 builds only the country-neutral tooling it needs.
 - **Design suggests:** the advice-policy and terminology ruleset *types* with hedge templates and the `advice_policy_held` score (the content of a country's policy is that country's onboarding); the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points.

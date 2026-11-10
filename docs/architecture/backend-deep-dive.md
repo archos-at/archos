@@ -835,7 +835,10 @@ document summary:
 
 **Phase 1 — extraction (no VLM):**
 
-1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page. Licence/watermark
+1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page, in
+   `knowledge_layer/ingest/pdf_text.py`; `pdf_page_texts(bytes)` is the same pass
+   for a PDF held in memory, and a public source's capture and `pdf_document`
+   pages read through it (`packages/public-sources/src/pdf.py`). Licence/watermark
    boilerplate lines (e.g. `VECTORWORKS EDUCATIONAL VERSION`) are removed by
    `_strip_watermark_lines` **before** indexing and before the visual-page
    heuristic, so a drawing that is pure linework plus a stamped watermark does

@@ -90,6 +90,14 @@ const LISTING = {
 const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
 const INDEX_FAILED = { file: PLATFORM_SPEC, name: 'records a corpus that does not know the file as failed, with why' }
+const ALONE_SPEC = 'apps/workspace/bff/base-knowledge/platform/approve-alone.integration.spec.ts'
+const PLATFORM_SERVICE = 'apps/workspace/bff/base-knowledge/platform/service.ts'
+const APPROVED_ALONE = {
+  file: ALONE_SPEC,
+  name: 'approves alone with the permission and a reason: audited, marked on the request and its releases, a second review due',
+}
+const EVERY_ROLE = { file: ALONE_SPEC, name: 'owes a second review in every role approved alone, each from somebody holding that role' }
+const SECOND_REVIEW_KEPT = { file: ALONE_SPEC, name: 'keeps the author from giving the second review themselves' }
 const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
 const COMPETENCE_IDS = { file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts', name: 'names a competence territory that is not imported, by pointer' }
@@ -285,6 +293,18 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_approvals.role', consumer: PLATFORM_STORE, test: FOUR_EYES },
   { element: 'knowledge_approvals.decision_source', consumer: PLATFORM_STORE, test: FOUR_EYES },
   { element: 'knowledge_approvals.decided_at', consumer: PLATFORM_STORE, test: FOUR_EYES },
+  { element: 'knowledge_approvals.override_reason', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_change_requests.approval', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_change_requests.second_review', consumer: PLATFORM_SERVICE, test: APPROVED_ALONE },
+  { element: 'knowledge_change_requests.second_review_by', consumer: PLATFORM_STORE, test: SECOND_REVIEW_KEPT },
+  { element: 'knowledge_change_requests.second_review_at', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_second_reviews.id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.change_request_id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.role', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decision', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.reviewer', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decision_source', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decided_at', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_release_moves.seq', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
   { element: 'knowledge_release_moves.record_id', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
   { element: 'knowledge_release_moves.channel', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
