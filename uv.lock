@@ -7,6 +7,7 @@ members = [
     "agent",
     "agent-host",
     "knowledge-layer",
+    "public-sources",
     "ris-adapter",
     "tavily-web-search",
 ]
@@ -38,6 +39,7 @@ dev = [
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "oib-retrieval", editable = "evals/oib-retrieval" },
     { name = "pre-commit", specifier = ">=3.5.0" },
+    { name = "public-sources", editable = "packages/public-sources" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=0.21.0" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
@@ -45,6 +47,7 @@ dev = [
     { name = "pytest-split", specifier = ">=0.11.0" },
     { name = "pytest-testmon", specifier = ">=2.2.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "python-stdnum", specifier = ">=1.20" },
     { name = "ris-adapter", editable = "packages/ris-adapter" },
     { name = "ruff", specifier = "~=0.17.2" },
     { name = "tavily-web-search", editable = "packages/tavily-web-search" },
@@ -3775,6 +3778,33 @@ wheels = [
 ]
 
 [[package]]
+name = "public-sources"
+version = "0.1.0"
+source = { editable = "packages/public-sources" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "lxml" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "beautifulsoup4", specifier = ">=4.12.0" },
+    { name = "httpcore", specifier = ">=1.0.0" },
+    { name = "httpx", specifier = ">=0.24.0" },
+    { name = "lxml", specifier = ">=6.1.0" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "starlette", specifier = ">=0.40.0" },
+    { name = "uvicorn", specifier = ">=0.30.0" },
+]
+
+[[package]]
 name = "py3langid"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4161,6 +4191,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-stdnum"
+version = "2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/7f/96c2b9de6024353177dc6139c33730d5ac25877bc33215515d6b95b84555/python_stdnum-2.2.tar.gz", hash = "sha256:e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9", size = 1311813, upload-time = "2026-01-04T19:36:16.753Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/61/aa32d9c79f83a2fae033cd6496fb2a24aba918d31c73704271dfcfb48375/python_stdnum-2.2-py3-none-any.whl", hash = "sha256:bdf98fd117a0ca152e4047aa8ad254bae63853d4e915ddd4e0effb33ba0e9260", size = 1193213, upload-time = "2026-01-04T19:36:14.812Z" },
+]
+
+[[package]]
 name = "pytz"
 version = "2026.5"
 source = { registry = "https://pypi.org/simple" }
@@ -4332,6 +4371,7 @@ source = { editable = "packages/ris-adapter" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "httpx" },
+    { name = "public-sources" },
     { name = "pydantic" },
 ]
 
@@ -4339,6 +4379,7 @@ dependencies = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "httpx", specifier = ">=0.24.0" },
+    { name = "public-sources", editable = "packages/public-sources" },
     { name = "pydantic", specifier = ">=2.0.0" },
 ]
 

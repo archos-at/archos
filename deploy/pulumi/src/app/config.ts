@@ -10,6 +10,7 @@ import { inboundMailAppEnv } from "../config/inbound-mail";
 import { API_TIER, CHAT_TIER } from "./tier-names";
 import { posthogEnv } from "./posthog-env";
 import { hatchetEnv } from "./hatchet-env";
+import { publicSourceFetcherEnv } from "./public-source-fetcher";
 import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
 import type { ModelWorkload } from "../config/app-services";
 import { heavyFileBytesEnv } from "../config/workers";
@@ -267,6 +268,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     // How long a terminating replica waits for its turns; the pod's grace period
     // is this plus the endpoint drain and slack (`backendRollout`).
     { name: "CHAT_DRAIN_SECONDS", value: String(cfg.backend.drainSeconds) },
+    ...publicSourceFetcherEnv(cfg),
     // Project-memory write path (backend → frontend BFF).
     { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
     sref("INTERNAL_API_TOKEN"),
@@ -279,11 +281,10 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
     { name: "WORKOS_CLIENT_ID", value: cfg.auth.workosClientId },
     // OTLP tracing via the cluster collector (ADR-0029 amendment). Producers
-    // send plain OTLP in-cluster — the collector alone holds the Langfuse
-    // key. HTTP/protobuf to :4318 — the full /v1/traces path is required: the
-    // The agent-runtime exporter posts to the endpoint as-is (path appending only happens
-    // for SDK env-var defaults, not for an endpoint the config passes
-    // explicitly). OTEL_SERVICE_NAME becomes service.name on the spans so
+    // send plain OTLP in-cluster — the collector alone holds the Langfuse key.
+    // HTTP/protobuf to :4318 with the full /v1/traces path: the agent-runtime exporter posts
+    // to the endpoint as-is (only SDK env-var defaults get the path appended).
+    // OTEL_SERVICE_NAME becomes service.name on the spans so
     // chat tier and worker tier are distinct resources in Langfuse.
     // Injected only when the observability tier is deployed — otherwise every
     // span export would retry against a Service that doesn't exist.

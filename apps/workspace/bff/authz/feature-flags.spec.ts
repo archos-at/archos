@@ -53,6 +53,7 @@ describe('the registry', () => {
         'folder-cards',
         'inbound-mail',
         'mail-import',
+        'office-base-knowledge',
         'office-conventions',
         'piloti-acts',
         'piloti-ask',
@@ -61,6 +62,8 @@ describe('the registry', () => {
         'platform-agent-mcp',
         'runtime-model-config',
         'skills',
+        // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0162).
+        'source-routing',
         'task-automation',
       ].sort()
     )

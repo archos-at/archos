@@ -3414,50 +3414,48 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         afterwards; it takes them back out itself once it has indexed, when
         the BFF answers that the document is gone
         (``document_presence``, ``_deleted_while_indexing``).
+
+        Raises when the status store or Qdrant fails: a failure must never read
+        as "nothing was there" (``delete_files`` reports it under ``failed``).
         """
-        try:
-            file_name = self._file_name_of(file_id, collection_name)
-            # First, and raising: a delete that cannot reach the status store
-            # fails whole, before it has removed anything it could not retry.
-            forgotten = ingest_status_store.forget_file(collection_name, file_name)
+        file_name = self._file_name_of(file_id, collection_name)
+        # First, and raising: a delete that cannot reach the status store
+        # fails whole, before it has removed anything it could not retry.
+        forgotten = ingest_status_store.forget_file(collection_name, file_name)
 
-            # Every stored spelling the delete's rule accepts: the exact name,
-            # a tmp-prefixed upload, a percent-encoded presigned-URL path.
-            spellings = [
-                stored
-                for stored in self._store().file_counts(collection_name)
-                if stored == file_name or _stored_name_matches(file_name, stored)
-            ]
-            # By the ids the store holds now, never by name: what an ingest
-            # still running under the same name adds is left alone (the
-            # docstring above).
-            chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
+        # Every stored spelling the delete's rule accepts: the exact name,
+        # a tmp-prefixed upload, a percent-encoded presigned-URL path.
+        spellings = [
+            stored
+            for stored in self._store().file_counts(collection_name)
+            if stored == file_name or _stored_name_matches(file_name, stored)
+        ]
+        # By the ids the store holds now, never by name: what an ingest
+        # still running under the same name adds is left alone (the
+        # docstring above).
+        chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
 
-            from agent.knowledge import unregister_summary
+        from agent.knowledge import unregister_summary
 
-            if not chunk_ids:
-                # No chunks. Whatever else the document left behind — the job
-                # record of a FAILED file, the summary row the inventory is
-                # built from — is forgotten regardless: a delete that returned
-                # early here left a file with no chunks in the agent's
-                # inventory for good, and every later delete took the same exit.
-                if forgotten:
-                    logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
-                else:
-                    logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
-                unregister_summary(collection_name, file_name, permanent=permanent)
-                # True only when something of the file was actually removed.
-                return forgotten > 0
-
-            self._store().delete_chunks(collection_name, chunk_ids)
-            bump_collection_version(collection_name)
-            logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
+        if not chunk_ids:
+            # No chunks. Whatever else the document left behind — the job
+            # record of a FAILED file, the summary row the inventory is
+            # built from — is forgotten regardless: a delete that returned
+            # early here left a file with no chunks in the agent's
+            # inventory for good, and every later delete took the same exit.
+            if forgotten:
+                logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
+            else:
+                logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
             unregister_summary(collection_name, file_name, permanent=permanent)
-            return True
+            # True only when something of the file was actually removed.
+            return forgotten > 0
 
-        except Exception as e:
-            logger.error(f"Failed to delete file {file_id}: {e}")
-            return False
+        self._store().delete_chunks(collection_name, chunk_ids)
+        bump_collection_version(collection_name)
+        logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
+        unregister_summary(collection_name, file_name, permanent=permanent)
+        return True
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
         """``file_name -> FileInfo`` for each file the collection holds chunks of: the store says what is indexed."""
@@ -3506,24 +3504,21 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def get_document_text_sample(self, collection_name: str, file_name: str, max_chars: int = 4000) -> str | None:
         """Return representative text for an already-indexed file (fail-open).
 
-        Used exclusively by the reconciliation backfill (see
-        ``agent.knowledge.factory.reconcile_collection_summaries``) to derive
-        a deterministic fallback summary for a document that is present in the
-        vector index but missing from the summaries table. Reads the file's
-        first chunks in reading order (a structural fetch: no embedding) and
-        concatenates their text, capped at ``max_chars``.
-
-        Not part of the ``BaseIngestor`` interface: the reconciliation driver in
-        the factory duck-types this method (``getattr(..., None)``) so other
-        backends can opt in without a forced interface change. Returns ``None``
-        on any lookup failure or when the file has no indexed text chunks.
+        Only the reconciliation backfill (``factory.reconcile_collection_summaries``,
+        which duck-types it) uses it: a fallback summary for an indexed file the
+        summaries table lacks, from its first chunks in reading order (no
+        embedding), capped at ``max_chars``. ``None`` on any failure or no text.
+        It is the platform's own sweep over every office's collections, so it
+        reads under ``reading_for_maintenance`` and names no office (ADR-0163).
         """
+        from knowledge_layer.vector_store import reading_for_maintenance
         from knowledge_layer.vector_store import reads as qdrant_reads
 
         from agent.knowledge.base import READING_ORDER
 
         try:
-            hits = qdrant_reads.fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
+            with reading_for_maintenance():
+                hits = qdrant_reads.fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
         except Exception as e:
             logger.warning("Reconciliation: failed to fetch chunks for %s in %s: %s", file_name, collection_name, e)
             return None
@@ -3551,11 +3546,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         for v1 chunks and non-drawings). Sorted by page, then content type,
         then segment.
         """
-        from knowledge_layer.vector_store import TEXT_FIELD
+        from knowledge_layer import vector_store
 
         visual = {"file_name": file_name, "content_type": {"$in": ["drawing", "image", "chart"]}}
         try:
-            records = list(self._store().scroll(collection_name, visual))
+            records = list(self._store().scroll(collection_name, visual, *vector_store.office_read(collection_name)))
         except Exception as e:
             logger.warning("Visual details lookup failed for %s in %s: %s", file_name, collection_name, e)
             return []
@@ -3563,7 +3558,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         items: list[dict[str, Any]] = []
         for record in records:
             meta = record.payload or {}
-            text = meta.get(TEXT_FIELD) or ""
+            text = meta.get(vector_store.TEXT_FIELD) or ""
             content_type = meta.get("content_type")
             if not text:
                 continue

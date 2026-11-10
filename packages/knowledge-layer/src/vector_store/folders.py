@@ -35,12 +35,14 @@ from qdrant_client import models
 from .prefilter import FOLDER_FIELD
 from .prefilter import folder_ancestors
 from .prefilter import folder_key
+from .reading_office import office_for
 from .schema import DENSE
 from .schema import FOLDER_KIND
 from .schema import KIND_FIELD
 from .schema import SCOPE_FIELD
 from .schema import Physical
 from .schema import physical_for_scope
+from .scope import ScopeRead
 from .scope import scope_filter
 from .store import QdrantStore
 from .store import with_retry
@@ -203,7 +205,7 @@ def search_folders(
         store.alias(office[0]),
         query=list(vector),
         using=DENSE,
-        query_filter=scope_filter(office, None, *extra, kind="folder"),
+        query_filter=ScopeRead(tuple(office), office_for(office)).filter(None, *extra, kind="folder"),
         limit=limit + (1 if key else 0),
         with_payload=[SCOPE_FIELD, *_HIT_FIELDS],
     )

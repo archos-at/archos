@@ -69,7 +69,7 @@ vi.mock('@/lib/authz/project-membership', async (importOriginal) => ({
 const searchHit = vi.hoisted(() => ({ collection: '', fileName: '' }))
 vi.mock('@/lib/documents/semantic-search', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/semantic-search')>()),
-  fetchGroupedSemanticHits: vi.fn(async (collections: readonly string[]) =>
+  fetchGroupedSemanticHits: vi.fn(async (_organizationId: string, collections: readonly string[]) =>
     collections.includes(searchHit.collection)
       ? [{ file_name: searchHit.fileName, score: 0.9, snippet: 'Brandabschnitt', page_number: 1, collection: searchHit.collection, rank: 0 }]
       : []

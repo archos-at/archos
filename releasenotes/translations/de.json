@@ -480,6 +480,10 @@
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
   },
   {
+    "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
+    "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
+  },
+  {
     "en": "A new project can now be created as already closed, so a past project can join the office as a reference in one step. The dialog for creating a project was redesigned: it asks whether the project is still running or already finished, and for a finished one how it ended and when.",
     "de": "Ein neues Projekt kann jetzt bereits als abgeschlossen angelegt werden, sodass ein früheres Projekt in einem Schritt als Referenz ins Büro aufgenommen werden kann. Der Dialog zur Projekterstellung wurde überarbeitet: Er fragt, ob das Projekt noch läuft oder bereits abgeschlossen ist und bei abgeschlossenen Projekten, wie und wann es beendet wurde."
   },
@@ -916,6 +920,10 @@
     "de": "Ein Outlook-Archivimport endet mit derselben Zusammenfassung, sobald alles gelesen ist, was er abgelegt hat."
   },
   {
+    "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
+    "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+  },
+  {
     "en": "An agent connected to Piloti, such as Claude or Cursor, now learns when a project it has open changes: a new name, status, profile or document. It hears only about projects the signed-in person may open.",
     "de": "Ein mit Piloti verbundener Agent wie Claude oder Cursor wird jetzt informiert, wenn sich ein geöffnetes Projekt ändert – etwa Name, Status, Profil oder Dokument. Er erhält nur Informationen zu Projekten, die die angemeldete Person öffnen darf."
   },
@@ -1102,6 +1110,10 @@
   {
     "en": "Answers are easier to scan: the first line gives the value in bold, checks by building class appear as tables with references, procedures as numbered steps, and open items as a task list.",
     "de": "Antworten lassen sich schneller überfliegen: Die erste Zeile nennt den Wert fett, Prüfungen je Gebäudeklasse stehen in Tabellen mit Verweisen, Abläufe als nummerierte Schritte und offene Punkte als Aufgabenliste."
+  },
+  {
+    "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
+    "de": "In Word exportierte Antworten sowie Berichte und Diagramme, die der Agent als PDF ablegt, weisen jetzt in ihren Dateieigenschaften mit standardisierten Begriffen, die Archivierungs- und Compliance-Tools erkennen, darauf hin, dass sie von einer KI erstellt wurden. Jedes vom Agenten verfasste Dokument, auch ein Schreiben an eine Behörde, beginnt jetzt mit einer Zeile, die angibt, dass es von einem KI-System erstellt wurde und für welches Büro."
   },
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
@@ -1938,6 +1950,10 @@
   {
     "en": "Footnotes in an answer follow your language and their jump links work again.",
     "de": "Fußnoten in einer Antwort folgen Ihrer Sprache, und ihre Sprungmarken funktionieren wieder."
+  },
+  {
+    "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
+    "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
   },
   {
     "en": "For a question an earlier project may already have answered, Piloti now searches the closed projects most like yours from the start, and finds them by construction method too.",
@@ -4428,6 +4444,10 @@
     "de": "Wenn Sie Claude, Cursor oder einen anderen Agenten mit Piloti verbinden, kann dieser jetzt einen kurzen Leitfaden zu Ihrem Arbeitsbereich, ein Glossar der bürointernen Begriffe und eine Liste der erlaubten Aktionen lesen. Außerdem stellt er fertige Workflows (Projektbriefing, baurechtliche Prüfung, Ihre anstehenden Aufgaben) sowie die Skills Ihres Büros unter ihren jeweiligen Namen bereit."
   },
   {
+    "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
+    "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
+  },
+  {
     "en": "When you draw a box and ask Piloti about it, Piloti answers about that box again, and an @Piloti question in an Anmerkung is answered in its thread. Everyone sees in the thread when Piloti is working on it, also after reloading, and the thread says why when Piloti could not answer.",
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
   },
@@ -4682,6 +4702,10 @@
   {
     "en": "Your office can now build its own roles in Piloti, under Organisation → Personen & Zugriff → Eigene Rollen, and decide per project folder which roles may read it and which may edit it. A role not on a folder's list does not see the folder, its files or what Piloti finds in them, and organization admins may read and edit everything.",
     "de": "Ihr Büro kann jetzt unter Organisation → Personen & Zugriff → Eigene Rollen eigene Rollen in Piloti anlegen und je Projektordner festlegen, welche Rollen ihn lesen und welche ihn bearbeiten dürfen. Eine Rolle, die nicht auf der Liste eines Ordners steht, sieht weder den Ordner noch seine Dateien noch das, was Piloti darin findet, und Organisations-Admins dürfen alles lesen und bearbeiten."
+  },
+  {
+    "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
+    "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
   },
   {
     "en": "Your office decides whether Piloti may change annotations when you ask it to. Until it is switched on for your organization, Piloti only proposes: an annotation you ask for arrives as a suggestion you take over, and a change or deletion is left for you to make in the document.",

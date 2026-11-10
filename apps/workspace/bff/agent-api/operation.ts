@@ -14,6 +14,7 @@
  * that say whether a call reads, writes or destroys.
  */
 
+import type { GeneratedContent } from './ai-generated-meta'
 import type { z } from 'zod'
 import type { OperationInput } from './dispatch'
 
@@ -174,6 +175,16 @@ export interface AgentOperation {
    * row one level in (`links.ts`), where the deployment pins its origin.
    */
   readonly links?: LinkKind
+  /**
+   * How much of the answer a model wrote for this call (`generatedAt('answer')`
+   * for an ask, `generatedRows` for a list of messages). When it says some,
+   * the tool result carries `_meta.aiGenerated: true` and the IPTC
+   * `digitalSourceType` (`ai-generated-meta.ts`): Art. 50(2) AI Act asks for
+   * generated text to be marked machine-readably, and a client that files or
+   * forwards the answer reads the mark there. A stored document read back is
+   * not this: it carries its own marking.
+   */
+  readonly generatedContent?: GeneratedContent
 }
 
 /** What a door answer may link to: the objects with a page of their own in the app. */

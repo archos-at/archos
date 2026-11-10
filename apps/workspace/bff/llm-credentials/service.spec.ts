@@ -23,7 +23,7 @@ vi.mock('./secret-store', () => ({
 }))
 
 vi.mock('@/lib/organizations/service', () => ({
-  getOrgSettings: vi.fn().mockResolvedValue({ displayName: null, defaultLocale: 'en', settings: {} }),
+  getOrgSettings: vi.fn().mockResolvedValue({ displayName: null, defaultLocale: 'en', homeCountry: null, settings: {} }),
   updateOrgSettings: vi.fn(),
 }))
 
@@ -57,7 +57,7 @@ const ROW = {
 describe('resolveActiveCredentialForBackend', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'en', settings: {} })
+    vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'en', homeCountry: null, settings: {} })
     vi.mocked(revealSecret).mockResolvedValue('sk-tenant')
   })
 
@@ -77,6 +77,7 @@ describe('resolveActiveCredentialForBackend', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'en',
+      homeCountry: null,
       settings: { llmProviderMode: 'platform' },
     })
     expect(await resolveActiveCredentialForBackend('org-1')).toBeNull()
@@ -108,7 +109,7 @@ describe('resolveActiveCredentialForBackend', () => {
 describe('getActiveCredentialProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'en', settings: {} })
+    vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'en', homeCountry: null, settings: {} })
   })
 
   it('names the BYOK provider without revealing the key or marking it used', async () => {
@@ -125,6 +126,7 @@ describe('getActiveCredentialProvider', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'en',
+      homeCountry: null,
       settings: { llmProviderMode: 'platform' },
     })
     expect(await getActiveCredentialProvider('org-1')).toBeNull()

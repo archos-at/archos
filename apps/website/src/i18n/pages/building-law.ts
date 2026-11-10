@@ -6,7 +6,7 @@
  * Evidence for each claim (Belegpflicht):
  * - corpus: OIB-Richtlinien, Austrian law via RIS, a curated norm register, norms an office
  *   uploads itself, cited at the passage: VISION.md ("Building law and norms"); the nine states:
- *   packages/ris-adapter/src/register.py (Landesrecht filter);
+ *   configs/sources/at/ris/source.yml (the Landesrecht filter, table federal_state);
  * - one click opens the passage: owner decision D16;
  * - the project's facts (Bundesland, Gebäudeklasse, uses) asked at setup, OIB-Richtlinien derived:
  *   VISION.md ("Starting a project");

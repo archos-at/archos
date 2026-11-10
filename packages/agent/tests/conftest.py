@@ -7,10 +7,11 @@ import pytest
 from agent.common.llm_provider import LLMProvider
 
 # This suite sits outside `tests/`, so `tests/conftest.py` does not apply to it:
-# its shared fixtures (the cache reset and the live-decision stub, both autouse)
+# its shared fixtures (the cache reset, the live-decision stub and the retrieval-round reset, all autouse)
 # are registered here by name.
 from tests.conftest import _isolate_shared_cache  # noqa: F401
 from tests.conftest import _no_live_decisions  # noqa: F401
+from tests.conftest import _no_retrieval_round_from_another_test  # noqa: F401
 from tests.conftest import emitted  # noqa: F401
 from tests.conftest import fresh_qdrant_store  # noqa: F401
 from tests.conftest import qdrant_store  # noqa: F401

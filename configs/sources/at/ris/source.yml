@@ -1,0 +1,238 @@
+# Austria's Rechtsinformationssystem (RIS), read through the OGD-RIS API v2.6.
+#
+# One configured `rest` + `ris_xml` source (ADR-0162). Every Austrian value the
+# RIS adapter used to hold in code is here: the API and document hosts, the
+# application -> controller map, the document path segments, the nine
+# Bundesland search parameters and which date parameter each application takes.
+# packages/ris-adapter reads them from this file; its tests hold that the
+# requests it builds are byte-identical to the ones the code built before.
+#
+# Check a change with: .venv/bin/python -m public_sources test at-ris
+id: at-ris
+title: RIS – Rechtsinformationssystem des Bundes (OGD-RIS API v2.6)
+territory: AT
+protocol: rest
+format: ris_xml
+hosts:
+  - data.bka.gv.at
+  - www.ris.bka.gv.at
+  - ris.bka.gv.at
+data_flow: public_only
+terms:
+  url: https://www.ris.bka.gv.at/RisInfo/OGD-FAQ.pdf
+  licence: public_open
+  attribution: "Quelle: RIS, www.ris.bka.gv.at (CC BY 4.0)"
+  checked: 2026-11-06
+monitor:
+  # RIS states no version validator on document pages; the bytes are the signal.
+  # Its change feed is SOAP only (research, country-base-knowledge.md row "Law").
+  kind: sha256
+  interval_hours: 24
+
+access:
+  base_url: https://data.bka.gv.at/ris/api/v2.6
+  operations:
+    # A search. `paging` is what RisClient.search adds; `terms` is what the
+    # tools build from the model's arguments (ris_adapter.register._build_search_params).
+    search:
+      path: "{controller[application]}"
+      params:
+        - {name: Applikation, value: "{application}", group: paging}
+        - {name: DokumenteProSeite, value: "{page_size[page_size]}", group: paging}
+        - {name: Seitennummer, value: "{page}", group: paging}
+        - {name: Suchworte, value: "{query}", group: terms}
+        - {name: Titel, value: "{title}", group: terms}
+        - name: "{federal_state[federal_state]}"
+          value: "true"
+          group: terms
+          when: {application: [LrKons, Lgbl, LgblAuth, Vbl]}
+        - {name: "{date_from_param[application]}", value: "{date_from}", group: terms}
+        - {name: "{date_to_param[application]}", value: "{date_to}", group: terms}
+    # A document of the citizen application, from its number.
+    document:
+      base_url: https://www.ris.bka.gv.at
+      path: "Dokumente/{segment}/{reference}/{reference}.html"
+  tables:
+    controller:
+      values:
+        # Bundesrecht
+        BrKons: Bundesrecht
+        BgblAuth: Bundesrecht
+        BgblPdf: Bundesrecht
+        BgblAlt: Bundesrecht
+        Begut: Bundesrecht
+        RegV: Bundesrecht
+        Erv: Bundesrecht
+        # Landesrecht
+        LrKons: Landesrecht
+        LgblAuth: Landesrecht
+        Lgbl: Landesrecht
+        LgblNO: Landesrecht
+        Vbl: Landesrecht
+        # Judikatur
+        Vfgh: Judikatur
+        Vwgh: Judikatur
+        Normenliste: Judikatur
+        Justiz: Judikatur
+        Bvwg: Judikatur
+        AsylGH: Judikatur
+        Lvwg: Judikatur
+        Dsk: Judikatur
+        Verg: Judikatur
+        Dok: Judikatur
+        Pvak: Judikatur
+        Gbk: Judikatur
+        Uvs: Judikatur
+        Ubas: Judikatur
+        Umse: Judikatur
+        Bks: Judikatur
+        # Bezirke, Gemeinden
+        Bvb: Bezirke
+        Gr: Gemeinden
+        GrA: Gemeinden
+        # Sonstige Kundmachungen, Erlässe
+        PruefGewO: Sonstige
+        Avsv: Sonstige
+        Spg: Sonstige
+        Avn: Sonstige
+        KmGer: Sonstige
+        Upts: Sonstige
+        Mrp: Sonstige
+        Erlaesse: Sonstige
+    page_size:
+      values: {"10": Ten, "20": Twenty, "50": Fifty, "100": OneHundred}
+    # The Landesrecht filter, one parameter per Bundesland. `fold` finds
+    # "Niederösterreich", "Nieder-Österreich" and "niederoesterreich" alike.
+    federal_state:
+      normalize: fold
+      values:
+        burgenland: Bundesland.SucheInBurgenland
+        kaernten: Bundesland.SucheInKaernten
+        niederoesterreich: Bundesland.SucheInNiederoesterreich
+        oberoesterreich: Bundesland.SucheInOberoesterreich
+        salzburg: Bundesland.SucheInSalzburg
+        steiermark: Bundesland.SucheInSteiermark
+        tirol: Bundesland.SucheInTirol
+        vorarlberg: Bundesland.SucheInVorarlberg
+        wien: Bundesland.SucheInWien
+    # Which parameter a `date_from` becomes: the decision date for case law,
+    # the promulgation date for the authentic federal gazette, and for
+    # consolidated federal law the version in force on that day (point in time).
+    # Consolidated Land law (LrKons) has no such parameter here [verify the OGD API].
+    date_from_param:
+      values:
+        Vfgh: EntscheidungsdatumVon
+        Vwgh: EntscheidungsdatumVon
+        Normenliste: EntscheidungsdatumVon
+        Justiz: EntscheidungsdatumVon
+        Bvwg: EntscheidungsdatumVon
+        AsylGH: EntscheidungsdatumVon
+        Lvwg: EntscheidungsdatumVon
+        Dsk: EntscheidungsdatumVon
+        Verg: EntscheidungsdatumVon
+        Dok: EntscheidungsdatumVon
+        Pvak: EntscheidungsdatumVon
+        Gbk: EntscheidungsdatumVon
+        Uvs: EntscheidungsdatumVon
+        Ubas: EntscheidungsdatumVon
+        Umse: EntscheidungsdatumVon
+        Bks: EntscheidungsdatumVon
+        BgblAuth: Kundmachung.Von
+        BrKons: Fassung.FassungVom
+    date_to_param:
+      values:
+        Vfgh: EntscheidungsdatumBis
+        Vwgh: EntscheidungsdatumBis
+        Normenliste: EntscheidungsdatumBis
+        Justiz: EntscheidungsdatumBis
+        Bvwg: EntscheidungsdatumBis
+        AsylGH: EntscheidungsdatumBis
+        Lvwg: EntscheidungsdatumBis
+        Dsk: EntscheidungsdatumBis
+        Verg: EntscheidungsdatumBis
+        Dok: EntscheidungsdatumBis
+        Pvak: EntscheidungsdatumBis
+        Gbk: EntscheidungsdatumBis
+        Uvs: EntscheidungsdatumBis
+        Ubas: EntscheidungsdatumBis
+        Umse: EntscheidungsdatumBis
+        Bks: EntscheidungsdatumBis
+        BgblAuth: Kundmachung.Bis
+    # Citizen-application path segment of a document URL, by application.
+    document_segment:
+      values:
+        BrKons: Bundesnormen
+        LrKons: Landesnormen
+        BgblAuth: BgblAuth
+        Begut: Begut
+        RegV: RegV
+        Erv: Erv
+        Vfgh: Vfgh
+        Vwgh: Vwgh
+        Justiz: Justiz
+        Bvwg: Bvwg
+        Lvwg: Lvwg
+        AsylGH: AsylGH
+        Dsk: Dsk
+        Gbk: Gbk
+        Erlaesse: Erlaesse
+    # The same segment, inferred from a bare document number's prefix.
+    # Checked in this order, so a longer prefix sharing a start goes first.
+    document_prefix:
+      values:
+        NOR: Bundesnormen
+        JFT: Vfgh
+        JFR: Vfgh
+        JWT: Vwgh
+        JWR: Vwgh
+        JJT: Justiz
+        JJR: Justiz
+        BVWG: Bvwg
+        LVWG: Lvwg
+        ASYLGH: AsylGH
+        DSB: Dsk
+        ERL: Erlaesse
+
+engine:
+  content_selector: "#content"
+  drop_selectors: [".sr-only"]
+  # OGD-RIS states this host since 2026-09; it 301s to the public one and is on no allow-list.
+  host_rewrites:
+    - ["https://ogd.ris.bka.gv.at/", "https://www.ris.bka.gv.at/"]
+
+fixtures:
+  - name: Landesrecht search for the Bauordnung in Wien (recorded 2026-11-06)
+    operation: search
+    args:
+      application: LrKons
+      page: "1"
+      page_size: "10"
+      query: Bauordnung
+      federal_state: Wien
+    responses:
+      "https://data.bka.gv.at/ris/api/v2.6/Landesrecht?Applikation=LrKons&DokumenteProSeite=Ten&Seitennummer=1&Suchworte=Bauordnung&Bundesland.SucheInWien=true": search_lrkons_wien.json
+    expect:
+      kind: search
+      min_hits: 10
+      first:
+        document_number: LWI40000225
+        application: LrKons
+        title: Bauordnung für Wien
+        citation_url: https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/P0/LWI40000225
+  - name: A Landesnormen document page (shape of the RIS page, abridged)
+    operation: document
+    args:
+      segment: Landesnormen
+      reference: LWI40000066
+    responses:
+      "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.html": document_lwi40000066.html
+    expect:
+      kind: document
+      title: RIS Dokument
+      min_passages: 1
+      contains:
+        - "Art. 3"
+        - "Bauordnung für Wien"
+      excludes:
+        - "Zum Inhalt"
+        - "Litera a"

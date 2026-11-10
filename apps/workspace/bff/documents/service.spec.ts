@@ -116,6 +116,12 @@ vi.mock('@/lib/storage/admission', () => ({
   admitReplacementOrDiscard: vi.fn().mockResolvedValue(undefined),
 }))
 
+// The office shelf's base-knowledge guard reads its own tables; this spec has no
+// database, and the guard fails closed (ADR-0163), so it answers for itself here.
+vi.mock('@/lib/base-knowledge/text-guard', () => ({
+  isTextHeld: vi.fn(async () => false),
+  copyMarkForIngest: vi.fn(async () => null),
+}))
 vi.mock('./repository', () => ({
   setDocumentIngestJob: vi.fn().mockResolvedValue(undefined),
   markDocumentIngestFailed: vi.fn().mockResolvedValue(undefined),
@@ -1181,7 +1187,7 @@ describe('fetchGroupedSemanticHits (one ranking across collections, ADR-0116)', 
   it('asks once for every collection, signed for exactly those, and numbers the ranking it gets back', async () => {
     mockFetch.mockResolvedValueOnce(ok([backendHit('proj_b', 'b.pdf', 0.4), backendHit('proj_a', 'a.pdf', 0.9)]))
 
-    const hits = await fetchGroupedSemanticHits(['proj_a', 'proj_b', 'proj_a'], 'Fluchttreppe', 3, 900)
+    const hits = await fetchGroupedSemanticHits('org-1', ['proj_a', 'proj_b', 'proj_a'], 'Fluchttreppe', 3, 900)
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const [url, init] = mockFetch.mock.calls[0]
@@ -1201,27 +1207,27 @@ describe('fetchGroupedSemanticHits (one ranking across collections, ADR-0116)', 
 
   it('drops a hit from a collection it did not ask for', async () => {
     mockFetch.mockResolvedValueOnce(ok([backendHit('proj_other', 'x.pdf', 0.9), backendHit('proj_a', 'a.pdf', 0.5)]))
-    const hits = await fetchGroupedSemanticHits(['proj_a'], 'q', 3)
+    const hits = await fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 3)
     expect(hits?.map((hit) => hit.collection)).toEqual(['proj_a'])
   })
 
   it('throws an upstream error, never "nothing found", when the backend refuses, fails or answers garbage', async () => {
     mockFetch.mockResolvedValueOnce(new Response('{"detail":"grouped document search failed"}', { status: 500 }))
-    await expect(fetchGroupedSemanticHits(['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
+    await expect(fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
     mockFetch.mockRejectedValueOnce(new Error('down'))
-    await expect(fetchGroupedSemanticHits(['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
+    await expect(fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
     mockFetch.mockResolvedValueOnce(new Response('{"nothits":1}', { status: 200 }))
-    await expect(fetchGroupedSemanticHits(['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
+    await expect(fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 3)).rejects.toBeInstanceOf(UpstreamError)
   })
 
   it('sends the pre-filters and the boost in the one request, and nothing when there are none', async () => {
     const boost = { facts: { federal_state: 'vienna', building_class: [4], construction_method: [], uses: [], work_type: [] }, weights: { federal_state: 4 } }
     mockFetch.mockResolvedValueOnce(ok([]))
-    await fetchGroupedSemanticHits(['proj_a'], 'q', 10, 900, { filters: { document_types: ['Bescheid'] }, boost })
+    await fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 10, 900, { filters: { document_types: ['Bescheid'] }, boost })
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchObject({ filters: { document_types: ['Bescheid'] }, boost })
 
     mockFetch.mockResolvedValueOnce(ok([]))
-    await fetchGroupedSemanticHits(['proj_a'], 'q', 10)
+    await fetchGroupedSemanticHits('org-1', ['proj_a'], 'q', 10)
     const plain = JSON.parse(mockFetch.mock.calls[1][1].body)
     expect('filters' in plain || 'boost' in plain).toBe(false)
   })
@@ -1788,6 +1794,7 @@ describe('deleteDocument', () => {
     const order: string[] = []
     vi.mocked(eraseDocumentObjectsOrKeepRow).mockImplementationOnce(async () => {
       order.push('objects')
+      return { versionsLeft: 0 }
     })
     vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
       order.push('row')
@@ -1840,6 +1847,7 @@ describe('deleteDocument', () => {
     })
     vi.mocked(eraseDocumentObjectsOrKeepRow).mockImplementationOnce(async () => {
       order.push('objects')
+      return { versionsLeft: 0 }
     })
     vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
       order.push('row')
@@ -2252,6 +2260,15 @@ describe('the authorship gate on the (collection, filename) join', () => {
   })
 
   describe('getDocumentVisualDetails', () => {
+    // The backend reads the collection as the office the BFF names (ADR-0163),
+    // so the call carries the internal token, which an internal-looking backend gets.
+    beforeEach(() => {
+      vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    })
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
     it('returns no page text for a machine-authored row, and asks for none', async () => {
       vi.mocked(findDocumentInOrg).mockResolvedValue(agentDoc)
 

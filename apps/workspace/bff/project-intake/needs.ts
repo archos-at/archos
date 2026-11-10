@@ -16,6 +16,7 @@
  * already opens the building questions the reading should look for.
  */
 
+import { siteCountry } from '@/lib/project-profile/site'
 import { answerKeyFor, isBuildingId, modeKeyFor, type BuildingInstance } from '@/lib/project-profile/intake-building-keys'
 import { evaluateIntakeCondition } from '@/lib/project-profile/intake-conditions'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
@@ -253,6 +254,24 @@ function decisiveKeysFor(
   return decisive
 }
 
+/**
+ * What is decisive depends on where the project is (ADR-0158): in Austria, what
+ * could change a building's class; for a project nothing places, the site
+ * itself, since no law is known until it is; abroad, nothing the intake knows.
+ */
+function decisiveFor(
+  profile: ProjectProfile,
+  definition: ProjectIntakeDefinition,
+  answers: Answers,
+  buildings: BuildingInstance[]
+): Set<string> {
+  const country = siteCountry(profile)
+  if (country === 'at') return decisiveKeysFor(definition, answers, buildings)
+  return country === null ? new Set(SITE_KEYS) : new Set<string>()
+}
+
+const SITE_KEYS = ['country', 'federal_state'] as const
+
 const BUILDING_CLASS_INPUTS: readonly string[] = BUILDING_CLASS_DERIVATION.inputs
 
 /**
@@ -261,8 +280,8 @@ const BUILDING_CLASS_INPUTS: readonly string[] = BUILDING_CLASS_DERIVATION.input
  * and minus confirmed keys, except a confirmed building class input: that one
  * stays as `confirmed`, never decisive, so a reading can corroborate it or
  * contradict it from a newer Stand. A key with only a suggestion stays, as
- * `suggested`. Decisive needs first (filling one could change a building's
- * building class; none in `closing` mode), then the wizard's order, the
+ * `suggested`. Decisive needs first ({@link decisiveFor}; none in `closing`
+ * mode), then the wizard's order, the
  * confirmed ones last; at most {@link MAX_INTAKE_NEEDS}.
  */
 export function computeNeeds(
@@ -273,7 +292,7 @@ export function computeNeeds(
   const { answers, buildings } = answersFromProfile(knownProfile(profile), definition)
   const unknown = new Set(options.unknownKeys ?? profile.unknowns)
   const decisive =
-    options.mode === 'closing' ? new Set<string>() : decisiveKeysFor(definition, answers, buildings)
+    options.mode === 'closing' ? new Set<string>() : decisiveFor(profile, definition, answers, buildings)
   const needs = candidatesFor(definition, answers, buildings)
     .filter((candidate) => !(candidate.key in profile.goals))
     .filter(

@@ -64,6 +64,22 @@ def strict_provider_llm():
 
 
 @pytest.fixture(autouse=True)
+def _no_retrieval_round_from_another_test():
+    """Start every test outside a retrieval round.
+
+    ``turn_status.stamp_retrieval_round`` sets a context variable "with no
+    reset", which is right inside a turn and wrong between tests: synchronous
+    tests on one xdist worker share a context, so a test that stamps a round
+    leaves it for whichever test the worker runs next, and a step that test
+    builds carries ``round: 1``. ``test_visibility.py`` failed that way once in
+    five full runs (2026-11-10), depending on how xdist dealt the tests.
+    """
+    from agent.common import turn_status
+
+    turn_status._retrieval_round.set(None)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_decisions(monkeypatch):
     """The decision model (ADR-0064) is off unless a test turns it on.
 

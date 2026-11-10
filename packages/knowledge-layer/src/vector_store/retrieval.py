@@ -22,6 +22,7 @@ from .boost import parse_boost
 from .payload import project_payload
 from .schema import TEXT_FIELD
 from .schema import TEXT_STEM_FIELD
+from .scope import ScopeRead
 from .scope import scope_filter
 from .search import Hit
 from .search import _alias as search_alias
@@ -72,6 +73,7 @@ def bm25_candidates(query: str, extra_terms: Sequence[str] = ()) -> list[str]:
 def search(
     scope: str,
     *,
+    office_id: str | None,
     vector: Sequence[float],
     lexical_text: str,
     top_k: int,
@@ -79,12 +81,13 @@ def search(
     exact_terms: Sequence[str],
     identity: Mapping[str, str],
 ) -> list[Hit]:
-    """The fused hybrid ranking over one logical collection; refuses a foreign embedder."""
+    """The fused hybrid ranking over one logical collection, read as ``office_id``; refuses a foreign embedder."""
     store = get_store(identity)
     store.check_identity(scope)
     return hybrid_search(
         store,
         [scope],
+        office_id=office_id,
         vector=vector,
         lexical_text=lexical_text,
         limit=top_k,
@@ -97,6 +100,7 @@ def search(
 def search_grouped(
     scopes: Sequence[str],
     *,
+    office_id: str | None,
     vector: Sequence[float],
     lexical_text: str,
     groups: int,
@@ -118,6 +122,7 @@ def search_grouped(
     return grouped_search(
         store,
         scopes,
+        office_id=office_id,
         vector=vector,
         lexical_text=lexical_text,
         group_by="scope",
@@ -457,10 +462,12 @@ def stem_condition(phrases: Sequence[str]) -> models.Filter:
     return models.Filter(should=conditions)
 
 
-def _stemmed_hits(scope: str, phrases: Sequence[str], filters: dict[str, Any] | None, limit: int) -> list[Hit]:
+def _stemmed_hits(
+    scope: str, phrases: Sequence[str], filters: dict[str, Any] | None, limit: int, office: list[models.Filter]
+) -> list[Hit]:
     """Every chunk of ``scope`` the stemmed index says holds an inflected form of ``phrases``, up to ``limit``."""
     hits: list[Hit] = []
-    for record in get_store().scroll(scope, filters, stem_condition(phrases)):
+    for record in get_store().scroll(scope, filters, stem_condition(phrases), *office):
         payload = dict(record.payload or {})
         hits.append(Hit(str(payload.get("chunk_id") or record.id), str(payload.get("text") or ""), payload, 0.0, 1.0))
         if len(hits) >= limit:
@@ -474,6 +481,7 @@ def find_text(
     filters: dict[str, Any] | None,
     limit: int,
     *,
+    office_id: str | None,
     user_regex: bool = False,
     stem_phrases: Sequence[str] | None = None,
 ) -> list[Hit]:
@@ -496,19 +504,18 @@ def find_text(
     German-stemmed index says holds an inflected form of a phrase
     (:func:`stem_condition`) ahead of the regex's matches: the stemmed result
     is the literal one and more, and a chunk written before the stemmed field
-    existed is still found literally.
+    existed is still found literally. ``office_id`` is the office the read is made as (``scope.ScopeRead``).
     """
+    office = ScopeRead((scope,), office_id).office()
     if stem_phrases:
-        stemmed = _stemmed_hits(scope, stem_phrases, filters, limit)
+        stemmed = _stemmed_hits(scope, stem_phrases, filters, limit, office)
         seen = {hit.chunk_id for hit in stemmed}
-        literal = [
-            hit for hit in find_text(scope, pattern, filters, limit, user_regex=user_regex) if hit.chunk_id not in seen
-        ]
-        return (stemmed + literal)[:limit]
+        literal = find_text(scope, pattern, filters, limit, office_id=office_id, user_regex=user_regex)
+        return (stemmed + [hit for hit in literal if hit.chunk_id not in seen])[:limit]
     compiled = compile_user_regex(pattern) if user_regex else re.compile(pattern)
     hits: list[Hit] = []
     deadline = time.monotonic() + USER_REGEX_SCAN_SECONDS
-    records = get_store().scroll(scope, filters, *_text_prefilter(scope, pattern, user_regex=user_regex))
+    records = get_store().scroll(scope, filters, *_text_prefilter(scope, pattern, user_regex=user_regex), *office)
     for scanned, record in enumerate(records, start=1):
         payload = dict(record.payload or {})
         text = str(payload.get("text") or "")
@@ -539,7 +546,7 @@ def _user_search(compiled: Any, text: str, pattern: str, scope: str, deadline: f
 
 
 def candidate_counts(
-    scope: str, pattern: str, filters: dict[str, Any] | None, *, user_regex: bool = False
+    scope: str, pattern: str, filters: dict[str, Any] | None, *, office_id: str | None, user_regex: bool = False
 ) -> dict[str, int] | None:
     """``file_name -> chunks that hold the pattern's words``, one facet; None when the pattern names no word.
 
@@ -547,11 +554,12 @@ def candidate_counts(
     that holds the words may still not match the regex, so each count is an upper bound for that
     file, and the matches the scroll did count are the lower one.
     """
+    office = ScopeRead((scope,), office_id).office()
     tokens = user_literal_tokens(pattern) if user_regex else literal_tokens(pattern)
     prefilter = _text_prefilter(scope, pattern, user_regex=user_regex)
     if not tokens or not prefilter:
         return None
-    return get_store().facet_counts(scope, "file_name", filters, *prefilter)
+    return get_store().facet_counts(scope, "file_name", filters, *prefilter, *office)
 
 
 def healthy() -> bool:
