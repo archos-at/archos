@@ -64,8 +64,12 @@ export interface KnowledgeTerms {
 export interface KnowledgeProvenance {
   proposedBy?: 'reading' | 'person' | 'agent'
   note?: string
-  /** Where a platform revision's values were taken from, for the reviewer (0205). */
-  citations?: { url?: string; note?: string }[]
+  /** Where a platform revision's values were taken from, for the reviewer (0205); a capture and its quote (0209). */
+  citations?: { captureId?: string; quote?: string; url?: string; note?: string }[]
+  /** The platform proposal as given, which `platform-knowledge-validate` re-runs the kit on (ADR-0170). */
+  proposal?: Record<string, unknown>
+  /** The OAuth client of the door call that proposed it; absent for a person in the app (ADR-0170). */
+  viaClient?: string
 }
 
 export const knowledgeRecords = pgTable('knowledge_records', {

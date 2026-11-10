@@ -212,7 +212,10 @@ describe('what tools mode costs a client', () => {
   // the exporter drops the keywords that only restate an absence (`lib/api/zod-json-schema.ts`).
   // Raised to 1,060 on 2026-11-04 for `dxf-measure` (ADR-0153): about 3,000 characters, its eight operations and the
   // setbacks and limits `buildable` takes; one tool for a site's geometry, not ballast. Measured 1,055 with it.
-  const MAX_AVERAGE_CHARS = 1_060
+  // Raised to 1,080 on 2026-11-10 for `idempotencyKey` on every write (ADR-0170): a bare `{ type: 'string' }`, its
+  // description given once in the server's instructions instead of on each tool. A real input the agent needs to
+  // retry a write safely, not ballast. Measured 1,075 with it.
+  const MAX_AVERAGE_CHARS = 1_080
   const MAX_OPERATION_CHARS = 9_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {

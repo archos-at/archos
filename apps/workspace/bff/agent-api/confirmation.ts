@@ -67,6 +67,7 @@ import { callDecision, findVisibleOperation } from './policy'
 import type { AgentPrincipal } from './principal'
 import { type McpCallContext, recordOperationCalled } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { problemOf } from './door-problem'
 
 /** The key of the one input request: the person's yes or no. */
 export const CONFIRM_INPUT = 'confirm'
@@ -155,7 +156,7 @@ export function declaresFormElicitation(req: ServerContext): boolean {
 function operationToConfirm(principal: AgentPrincipal, call: PendingCall): AgentOperation | null {
   const op = findVisibleOperation(principal, call.operation)
   if (!op || callDecision(principal, op) !== 'run') return null
-  if (op.requiresPersonConfirmation || op.personDecides) return op
+  if (op.requiresPersonConfirmation || op.personDecides || op.personDecidesWhen?.(call.input)) return op
   const annotations = annotationsOf(op)
   return !annotations.readOnlyHint && annotations.destructiveHint ? op : null
 }
@@ -180,7 +181,13 @@ export function personRequiredResult(op: string, url: string | null): CallToolRe
           `so nothing was changed.${where} Do not call it again unless they ask you to.`,
       },
     ],
-    structuredContent: { decision: 'person_required', operation: op, changed: false, url },
+    structuredContent: {
+      decision: 'person_required',
+      operation: op,
+      changed: false,
+      url,
+      problem: problemOf(403, { error: `${op} runs only on the person's own yes.`, code: 'PERSON_DECISION_REQUIRED' }),
+    },
   }
 }
 

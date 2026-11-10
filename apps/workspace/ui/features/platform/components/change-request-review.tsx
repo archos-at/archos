@@ -28,7 +28,7 @@ import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
-import type { ChangeRequestView, RevisionView } from '@/lib/base-knowledge/platform/wire'
+import type { CaptureView, ChangeRequestView, RevisionView } from '@/lib/base-knowledge/platform/wire'
 import { cn } from '@/lib/utils'
 import {
   byReadingOrder,
@@ -99,18 +99,43 @@ function Value({ shown }: { shown: ShownValue }): JSX.Element {
 
 interface RecordProps {
   revision: RevisionView
+  /** The request's captures by id: what each citation's quote is checked against. */
+  captures: ReadonlyMap<string, CaptureView>
   canDecide: boolean
   busy: boolean
-  onDecide: (claims: { path: string; decision: Verdict }[]) => void
+  /** `sourceChecked`: the reviewer compared a pasted (operator-supplied) page with its source. */
+  onDecide: (claims: { path: string; decision: Verdict }[], sourceChecked?: boolean) => void
 }
 
-function RecordCard({ revision, canDecide, busy, onDecide }: RecordProps): JSX.Element {
+/** One citation as the reviewer checks it: the page, the quote taken from it, and whether nobody fetched it. */
+function Source({ citation, capture }: { citation: RevisionView['citations'][number]; capture: CaptureView | undefined }): JSX.Element {
+  const t = useTranslations(platformCopy)
+  const href = citation.url ?? capture?.url
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
+          {citation.note ?? new URL(href).hostname}
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+      ) : (
+        <span className="text-foreground">{citation.note}</span>
+      )}
+      {citation.quote ? <q className="text-foreground">{citation.quote}</q> : null}
+      {capture?.basis === 'operator_supplied' ? <Badge variant="outline">{t('countryKnowledge.operatorSupplied')}</Badge> : null}
+    </span>
+  )
+}
+
+function RecordCard({ revision, captures, canDecide, busy, onDecide }: RecordProps): JSX.Element {
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   const wording = useMemo(() => wordingFor(t, locale), [t, locale])
   const claims = byReadingOrder(revision.claims)
   const open = claims.filter((claim) => claim.decision !== 'accepted')
-  const sources = revision.citations.filter((citation) => citation.url || citation.note)
+  const sources = revision.citations.filter((citation) => citation.url || citation.note || citation.captureId)
+  // A page nobody fetched: accepting the record says the reviewer compared it with its source.
+  const pasted = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.basis === 'operator_supplied')
   return (
     <section className="flex flex-col gap-3 border-b pb-6 last:border-b-0" data-testid="change-request-record">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -123,38 +148,24 @@ function RecordCard({ revision, canDecide, busy, onDecide }: RecordProps): JSX.E
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => onDecide(open.map((claim) => ({ path: claim.path, decision: 'accepted' })))}
+            onClick={() => onDecide(open.map((claim) => ({ path: claim.path, decision: 'accepted' })), pasted)}
           >
             <Check aria-hidden />
-            {t('countryKnowledge.acceptAll')}
+            {pasted ? t('countryKnowledge.acceptChecked') : t('countryKnowledge.acceptAll')}
           </Button>
         ) : null}
       </div>
       {sources.length > 0 ? (
         <p className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span>{t('countryKnowledge.checkAgainst')}</span>
-          {sources.map((citation, index) =>
-            citation.url ? (
-              <a
-                key={index}
-                href={citation.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-foreground inline-flex items-center gap-1 underline underline-offset-2"
-              >
-                {citation.note ?? new URL(citation.url).hostname}
-                <ExternalLink className="size-3.5" aria-hidden />
-              </a>
-            ) : (
-              <span key={index} className="text-foreground">
-                {citation.note}
-              </span>
-            ),
-          )}
+          {sources.map((citation, index) => (
+            <Source key={index} citation={citation} capture={citation.captureId ? captures.get(citation.captureId) : undefined} />
+          ))}
         </p>
       ) : (
         <p className="text-muted-foreground text-sm">{t('countryKnowledge.noSource')}</p>
       )}
+      {pasted && canDecide ? <p className="text-muted-foreground text-sm">{t('countryKnowledge.pastedHint')}</p> : null}
       <dl className="flex flex-col">
         {claims.map((claim) => (
           <div
@@ -176,7 +187,7 @@ function RecordCard({ revision, canDecide, busy, onDecide }: RecordProps): JSX.E
                     variant={claim.decision === decision ? (decision === 'accepted' ? 'default' : 'destructive') : 'ghost'}
                     aria-pressed={claim.decision === decision}
                     disabled={busy}
-                    onClick={() => onDecide([{ path: claim.path, decision }])}
+                    onClick={() => onDecide([{ path: claim.path, decision }], pasted && decision === 'accepted')}
                   >
                     {decision === 'accepted' ? <Check aria-hidden /> : <X aria-hidden />}
                     {t(`countryKnowledge.verdicts.${decision}`)}
@@ -255,8 +266,13 @@ export function ChangeRequestReview({
   const open = claims.length - checked - wrong
   const stage = stageOf(view, open, wrong)
   const canDecide = canManage && view.status === 'submitted'
-  const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[]) =>
-    void post('review', { decisions: entries.map((entry) => ({ revisionId, claimPath: entry.path, decision: entry.decision })) }, null)
+  const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[], sourceChecked = false) =>
+    void post(
+      'review',
+      { decisions: entries.map((entry) => ({ revisionId, claimPath: entry.path, decision: entry.decision, sourceChecked })) },
+      null,
+    )
+  const captures = new Map((view.captures ?? []).map((capture) => [capture.captureId, capture]))
 
   const steps = (['check', 'approve', 'preview', 'stable'] as const).map((key) => ({
     key,
@@ -323,6 +339,7 @@ export function ChangeRequestReview({
           <RecordCard
             key={revision.revisionId}
             revision={revision}
+            captures={captures}
             canDecide={canDecide}
             busy={busy}
             onDecide={decide(revision.revisionId)}

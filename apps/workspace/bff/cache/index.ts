@@ -298,3 +298,42 @@ export async function invalidateCachedPrefix(prefix: string): Promise<boolean> {
     return false
   }
 }
+
+/** The store could not be read, so a caller that must not guess (an idempotent replay) refuses instead of running. */
+export class CacheUnavailableError extends Error {
+  constructor(key: string, cause: unknown) {
+    super(`the shared cache could not be read for ${key}`, { cause })
+    this.name = 'CacheUnavailableError'
+  }
+}
+
+/**
+ * Read-through like {@link getCached}, but it fails closed: a store that cannot
+ * be read throws {@link CacheUnavailableError} before the loader runs, so a
+ * write that must happen once is never run a second time on an outage. `keep`
+ * says whether the loader's value is stored (a server error is not an answer to
+ * repeat). A failed write after the loader ran is logged: the effect happened.
+ */
+export async function getCachedOrRefuse<T>(key: string, ttlMs: number, loader: () => Promise<T>, keep: (value: T) => boolean = () => true): Promise<T> {
+  let hit: string | null
+  try {
+    hit = await store.get(key)
+  } catch (error) {
+    counters.errors += 1
+    throw new CacheUnavailableError(key, error)
+  }
+  if (hit !== null) {
+    counters.hits += 1
+    return JSON.parse(hit) as T
+  }
+  counters.misses += 1
+  const value = await loader()
+  if (!keep(value)) return value
+  try {
+    await store.set(key, JSON.stringify(value ?? null), ttlMs)
+  } catch (error) {
+    counters.errors += 1
+    console.warn(`[cache] write failed for ${key}:`, error)
+  }
+  return value
+}
