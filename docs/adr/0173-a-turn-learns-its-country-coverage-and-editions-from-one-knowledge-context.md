@@ -106,14 +106,17 @@ Chosen option 3.
   digest, with a stamp of the office's newest record revision and the
   platform's newest edition check, since neither moves a pack sequence; the
   resolved context is cached under
-  `knowledge-context:<org>:<project>:<digest>`, so a publish or a moved site
+  `knowledge-context-v3:<org>:<project>:<digest>` (the version moves with the cached shape), so a publish or a moved site
   is read on the next turn, and two offices with equal digests get two keys
   (`context/service.spec.ts`).
 - **Failure.** A read that throws gives `knowledge_unavailable`: retrieval,
   law lookup and classification are withheld, documents still answer, and the
   BFF logs `knowledge_context_available=false`, the line the alert reads.
-  Only a chat turn's failed read counts toward `knowledge_context.unavailable`;
-  an operation's (`project-base-get`, `-confirm`) is in its own response.
+  Only a chat turn's failed read counts toward `knowledge_context.unavailable`
+  and logs that line; an operation's (`project-base-get`, `-confirm`) and a
+  page's (the Steckbrief) answer `knowledge_unavailable` and log
+  `knowledge_context_page_read=false` instead (amended by ADR-0175), so a page
+  polling an outage does not fire the alert.
 - **Server-side record.** `message_edition_uses` holds which edition an answer
   used, in which role and at which pack sequences, keyed by its organization,
   append-only and gone only with its message (E25); `project_base_confirmations`

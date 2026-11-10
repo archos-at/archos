@@ -192,6 +192,19 @@ export const COVERAGE_LEVELS = ['none', 'open', 'core', 'full'] as const
  */
 export const GATE_STATES = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', ...COVERAGE_LEVELS] as const
 export type GateState = (typeof GATE_STATES)[number]
+
+/** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
+export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
+
+/**
+ * The schemes a work's identifiers are read in, so a passage the agent reads
+ * live at its source finds its work (ADR-0175): RIS's Gesetzesnummer (the
+ * `Gesetzesnummer` query parameter of a consolidated text), RIS's
+ * Dokumentnummer (one paragraph's document, a whole token), and an ELI (a URL
+ * prefix). A scheme added here is matched by the agent only once it learns it.
+ */
+export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'ris_dokumentnummer', 'eli'] as const
+export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
 /**
@@ -209,6 +222,21 @@ export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
 /** A reviewer's verdict on one claim. */
 export const REVIEW_DECISIONS = ['accepted', 'edited', 'rejected'] as const
 export type ReviewDecision = (typeof REVIEW_DECISIONS)[number]
+
+/** How a change request was approved: by a second person, or by its author alone through the override (ADR-0176). */
+export const CHANGE_REQUEST_APPROVALS = ['four_eyes', 'single'] as const
+export type ChangeRequestApproval = (typeof CHANGE_REQUEST_APPROVALS)[number]
+
+/**
+ * The review a single approval owes (ADR-0176): due until another person confirms every role approved alone or
+ * disputes one; void when the request was rejected before it was approved, so nothing of it reached an office.
+ */
+export const SECOND_REVIEW_STATES = ['due', 'confirmed', 'disputed', 'void'] as const
+export type SecondReviewState = (typeof SECOND_REVIEW_STATES)[number]
+
+/** One role's second review: confirmed, or disputed (ADR-0176). */
+export const SECOND_REVIEW_DECISIONS = ['confirmed', 'disputed'] as const
+export type SecondReviewDecision = (typeof SECOND_REVIEW_DECISIONS)[number]
 
 /** The role an approver approves in. */
 export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer'] as const
@@ -242,7 +270,7 @@ export const SOURCE_PROTOCOLS = ['rest', 'http_eli', 'web_document', 'ogc'] as c
 export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
 
 /** The format engines a source record may name (`packages/public-sources/src/engines`). */
-export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson'] as const
+export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson', 'pdf_document'] as const
 export type SourceFormat = (typeof SOURCE_FORMATS)[number]
 
 /** What may leave towards a source: nothing about a tenant, or a site point too (privacy review, design §6.4). */
@@ -278,6 +306,11 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_relation_revisions.from_type': RELATION_END_TYPES,
   'knowledge_relation_revisions.to_type': RELATION_END_TYPES,
   'knowledge_change_requests.origin': CHANGE_REQUEST_ORIGINS,
+  'knowledge_change_requests.approval': CHANGE_REQUEST_APPROVALS,
+  'knowledge_change_requests.second_review': SECOND_REVIEW_STATES,
+  'knowledge_second_reviews.role': APPROVAL_ROLES,
+  'knowledge_second_reviews.decision': SECOND_REVIEW_DECISIONS,
+  'knowledge_second_reviews.decision_source': DECISION_SOURCES,
   'knowledge_source_revisions.protocol': SOURCE_PROTOCOLS,
   'knowledge_source_revisions.format': SOURCE_FORMATS,
   'knowledge_source_revisions.data_flow': SOURCE_DATA_FLOWS,

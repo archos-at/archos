@@ -62,7 +62,7 @@
       "post": {
         "operationId": "classification-evaluate",
         "summary": "Evaluate a building’s class under its site’s rules",
-        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Where the project’s knowledge context withholds law, `undetermined` with its `gate`. Needs project:view.",
         "tags": [
           "projects"
         ],
@@ -28877,6 +28877,22 @@
             }
           },
           {
+            "name": "secondReview",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "due: the requests approved alone whose second review nobody has given yet (ADR-0176).",
+              "type": "string",
+              "enum": [
+                "due",
+                "confirmed",
+                "disputed",
+                "void"
+              ]
+            },
+            "description": "due: the requests approved alone whose second review nobody has given yet (ADR-0176)."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -28925,8 +28941,8 @@
     "/api/platform/knowledge/change-requests/{changeRequestId}/decision": {
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
-        "summary": "Approve or reject a submitted change request",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.",
+        "summary": "Approve or reject a submitted change request, or give the second review of one approved alone",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
         "tags": [
           "platform"
         ],
@@ -28955,7 +28971,8 @@
                     "enum": [
                       "approve",
                       "reject"
-                    ]
+                    ],
+                    "description": "On a request whose second review is due (secondReview.state due, past submitted): approve confirms it, reject disputes it."
                   },
                   "role": {
                     "default": "domain_expert",
@@ -28965,6 +28982,21 @@
                       "counsel",
                       "second_reviewer",
                       "privacy_reviewer"
+                    ]
+                  },
+                  "override": {
+                    "description": "Approve a request you wrote without a second person (needs platform:knowledge:approve_alone and the person's own yes). Never implicit: the request is marked approval single and a second review stays due until another person gives it.",
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 20,
+                        "maxLength": 500,
+                        "description": "Why nobody else can approve now; kept on the approval and in the audit trail."
+                      }
+                    },
+                    "required": [
+                      "reason"
                     ]
                   }
                 },
@@ -29001,7 +29033,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Approve or reject a submitted change request",
+          "title": "Approve or reject a submitted change request, or give the second review of one approved alone",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
@@ -29013,7 +29045,7 @@
       "get": {
         "operationId": "platform-knowledge-change-request-get",
         "summary": "Read a change request with its claims, verdicts, approvals and releases",
-        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals, and the release moves.",
+        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.",
         "tags": [
           "platform"
         ],
@@ -29067,8 +29099,8 @@
     "/api/platform/knowledge/change-requests/{changeRequestId}/review": {
       "post": {
         "operationId": "platform-knowledge-change-request-review",
-        "summary": "Record verdicts on the claims of a submitted change request",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.",
+        "summary": "Record verdicts on the claims of a change request under review",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
         "tags": [
           "platform"
         ],
@@ -29168,7 +29200,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Record verdicts on the claims of a submitted change request",
+          "title": "Record verdicts on the claims of a change request under review",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -29609,7 +29641,7 @@
       "get": {
         "operationId": "platform-knowledge-overview-get",
         "summary": "Read the platform’s base knowledge by country, and the review queue",
-        "description": "Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, entitled offices and editions past their check target; and the submitted change requests awaiting review.",
+        "description": "Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, entitled offices and editions past their check target; and the queue: the submitted change requests awaiting review, and every request approved alone (`approval: single`) whose second review is still due.",
         "tags": [
           "platform"
         ],
@@ -29729,7 +29761,7 @@
       "post": {
         "operationId": "platform-knowledge-records-propose",
         "summary": "Propose up to 200 cited records into a draft change request",
-        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation, relation, ruleset, source; shapes from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a problem is refused whole (422). The same key again adds a revision to the same record; the same proposal again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.",
         "tags": [
           "platform"
         ],
@@ -29884,6 +29916,30 @@
                                   "client"
                                 ]
                               }
+                            },
+                            "identifiers": {
+                              "default": {},
+                              "description": "The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.",
+                              "type": "object",
+                              "properties": {
+                                "ris_gesetzesnummer": {
+                                  "description": "RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. \"20000006\".",
+                                  "type": "string",
+                                  "pattern": "^\\d{1,12}$"
+                                },
+                                "ris_dokumentnummer": {
+                                  "description": "RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.",
+                                  "type": "string",
+                                  "pattern": "^[A-Z0-9_]{4,60}$"
+                                },
+                                "eli": {
+                                  "description": "The European Legislation Identifier of the work, as a URL; a passage under it is this work.",
+                                  "type": "string",
+                                  "maxLength": 300,
+                                  "format": "uri"
+                                }
+                              },
+                              "additionalProperties": false
                             },
                             "citations": {
                               "default": [],
@@ -31878,7 +31934,8 @@
                                 "ris_xml",
                                 "akn",
                                 "html_statute",
-                                "geojson"
+                                "geojson",
+                                "pdf_document"
                               ]
                             },
                             "hosts": {
@@ -32063,12 +32120,21 @@
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 120,
-                                          "description": "e.g. text/html; charset=utf-8 or application/geo+json."
+                                          "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
                                         },
                                         "body": {
                                           "type": "string",
                                           "maxLength": 500000,
-                                          "description": "The body as the source served it (text formats only)."
+                                          "description": "The body as the source served it: the text itself, or base64 for a binary body."
+                                        },
+                                        "encoding": {
+                                          "default": "utf-8",
+                                          "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
+                                          "type": "string",
+                                          "enum": [
+                                            "utf-8",
+                                            "base64"
+                                          ]
                                         }
                                       },
                                       "required": [
@@ -32341,7 +32407,7 @@
       "get": {
         "operationId": "platform-knowledge-schema-get",
         "summary": "Read the JSON Schema of each platform record type",
-        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
+        "description": "What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, manifestation, relation, ruleset, source; `type` for one), the citation every record carries, the batch limit and the checks of the validation kit with what to do about each. Read it before the first proposal.",
         "tags": [
           "platform"
         ],
@@ -32359,6 +32425,7 @@
                 "work",
                 "edition",
                 "manifestation",
+                "relation",
                 "ruleset",
                 "source"
               ]

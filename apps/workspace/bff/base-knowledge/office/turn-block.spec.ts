@@ -12,6 +12,7 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
     fileName: 'ÖNORM B 1600.pdf',
     status: 'confirmed',
     proposedBy: 'person',
+    confirmedBy: 'user_1',
     textUse: 'used',
     aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T00:00:00.000Z',
@@ -79,16 +80,21 @@ describe('the base knowledge a turn carries', () => {
     expect(renderBaseKnowledgeBlock([directive], UNKNOWN)).toContain('authority unknown for this project')
   })
 
-  it('names a metadata-only copy as held, with no file to search and no text to quote', () => {
+  it('names an unattested licensed copy by its file as held, listed only and not read (A7, ADR-0164)', () => {
     const block = renderBaseKnowledgeBlock([entry({}, { textUse: 'metadata_only', aiProcessingAttestedAt: null })], VIENNA)
-    expect(block).toContain('ÖNORM B 1600:2017')
-    expect(block).toContain('TEXT NOT USED')
-    expect(block).not.toContain('file „ÖNORM B 1600.pdf“')
-    expect(block).not.toContain('licensed copy')
+    const line = block?.split('\n').find((text) => text.includes('ÖNORM B 1600:2017')) ?? ''
+    expect(line).toContain('file „ÖNORM B 1600.pdf“')
+    expect(line).toContain('LISTED ONLY, NOT READ')
+    expect(line).not.toContain('licensed copy;')
   })
 
-  it('carries confirmed entries only, and nothing when there are none', () => {
-    expect(renderBaseKnowledgeBlock([entry({}, { status: 'proposed' })], VIENNA)).toBeNull()
+  it('names a licensed copy still a proposal the same way, so the answer can say the office holds it', () => {
+    const block = renderBaseKnowledgeBlock([entry({}, { status: 'proposed', textUse: 'metadata_only', aiProcessingAttestedAt: null })], VIENNA)
+    expect(block).toContain('ÖNORM B 1600:2017 „Barrierefreies Bauen“: technical standard, edition 2017-04-01; file „ÖNORM B 1600.pdf“; licensed copy, not yet confirmed; LISTED ONLY, NOT READ')
+  })
+
+  it('carries no other proposal, and nothing when there is nothing', () => {
+    expect(renderBaseKnowledgeBlock([entry({ licenceClass: 'public_open' }, { status: 'proposed' })], VIENNA)).toBeNull()
     expect(renderBaseKnowledgeBlock([], VIENNA)).toBeNull()
   })
 

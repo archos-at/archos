@@ -25,6 +25,7 @@ import {
   entitleBodySchema,
   homeCountryBodySchema,
   listChangeRequestsQuerySchema,
+  PROPOSED_RECORD_TYPES,
   proposeRecordsBodySchema,
   publishBodySchema,
   reviewBodySchema,
@@ -56,7 +57,8 @@ export const platformKnowledgeOperations = [
     summary: 'Read the platform’s base knowledge by country, and the review queue',
     description:
       'Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, ' +
-      'entitled offices and editions past their check target; and the submitted change requests awaiting review.',
+      'entitled offices and editions past their check target; and the queue: the submitted change requests awaiting review, ' +
+      'and every request approved alone (`approval: single`) whose second review is still due.',
     method: 'GET',
     path: '/api/platform/knowledge',
     load: () => import('@/app/api/platform/knowledge/route'),
@@ -90,7 +92,8 @@ export const platformKnowledgeOperations = [
     summary: 'Read a change request with its claims, verdicts, approvals and releases',
     description:
       'Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the ' +
-      'approvals, and the release moves.',
+      'approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its ' +
+      'author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]',
     params: requestParams,
@@ -101,8 +104,8 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Read the JSON Schema of each platform record type',
     description:
-      'What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, ' +
-      'manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the ' +
+      `What platform-knowledge-records-propose takes, per record type (${PROPOSED_RECORD_TYPES.join(', ')}; \`type\` for one), ` +
+      'the citation every record carries, the batch limit and the checks of the ' +
       'validation kit with what to do about each. Read it before the first proposal.',
     method: 'GET',
     path: '/api/platform/knowledge/schemas',
@@ -135,7 +138,7 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Propose up to 200 cited records into a draft change request',
     description:
-      'Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes ' +
+      `Records of any type by key (a territory by its id): ${PROPOSED_RECORD_TYPES.join(', ')}; shapes ` +
       'from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every ' +
       'record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a ' +
       'problem is refused whole (422). The same key again adds a revision to the same record; the same proposal ' +
@@ -207,13 +210,14 @@ export const platformKnowledgeOperations = [
   {
     name: 'platform-knowledge-change-request-review',
     domain: 'platform',
-    summary: 'Record verdicts on the claims of a submitted change request',
+    summary: 'Record verdicts on the claims of a change request under review',
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
       'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
       'capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is ' +
       'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
-      'request; a verdict sent without the person’s confirmation is recorded as the agent’s.',
+      'request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone ' +
+      'stays reviewable until its second review is given.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
@@ -226,12 +230,19 @@ export const platformKnowledgeOperations = [
   {
     name: 'platform-knowledge-change-request-decide',
     domain: 'platform',
-    summary: 'Approve or reject a submitted change request',
+    summary: 'Approve or reject a submitted change request, or give the second review of one approved alone',
     description:
       'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
       'who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an ' +
       'advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays ' +
-      'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.',
+      'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. ' +
+      '`override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone ' +
+      '(403 without), is never implied, and marks the request `approval: single` with a second review due; propose it ' +
+      'and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
+      'approved request whose second review is due, another person gives it in each role approved alone they hold ' +
+      '(`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed ' +
+      'request is not published further; rejecting it again withdraws its preview, and a published one is rolled back ' +
+      '(platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/decision',
     params: requestParams,

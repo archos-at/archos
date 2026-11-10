@@ -835,7 +835,10 @@ document summary:
 
 **Phase 1 — extraction (no VLM):**
 
-1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page. Licence/watermark
+1. **Text** — `_extract_text_from_pdf` (pdfplumber), per page, in
+   `knowledge_layer/ingest/pdf_text.py`; `pdf_page_texts(bytes)` is the same pass
+   for a PDF held in memory, and a public source's capture and `pdf_document`
+   pages read through it (`packages/public-sources/src/pdf.py`). Licence/watermark
    boilerplate lines (e.g. `VECTORWORKS EDUCATIONAL VERSION`) are removed by
    `_strip_watermark_lines` **before** indexing and before the visual-page
    heuristic, so a drawing that is pure linework plus a stamped watermark does
@@ -1498,11 +1501,14 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
 - **OIB edition per Land** — relation records of the Austria pack
    (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over (ADR-0175) the BFF resolves the project's Land against the
    platform's records (`bff/base-knowledge/chain/`) and the turn context
-   carries `buildingLaw`: the chain text and each edition's role. The agent
-   binds it per turn (`citations/roles.py`, beside `set_turn_documents`); a
+   carries it inside `knowledgeContext`: the chain text (`text`) and each
+   use with its role, qualifier, designation, edition label and the work's
+   identifiers at its source (`sourceRefs`, `{scheme, value}`), one payload
+   whose contract is `apps/workspace/tests/fixtures/knowledge-context.schema.json`.
+   The agent binds it per turn (`citations/roles.py`, beside `set_turn_documents`); a
    cited base-corpus passage maps to its edition by its corpus file, and its
    role decides the chip's `binding_status` (OIB-RL 2:2023 is `interpretive`
-   in Steiermark). Without the flag `citations/binding.py` decides as before.
+   in Steiermark).
    The `<building_law>` block moves into the turn context only once the static
    prompt drops it (`turn/building_law.py`): an Austrian site then reads the
    records' chain or the bundled block, any other site none. The summary per

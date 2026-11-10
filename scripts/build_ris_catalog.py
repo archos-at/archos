@@ -24,12 +24,16 @@ Run (no project env needed):
 
     uv run --no-project --with httpx --with pydantic --with beautifulsoup4 \
         --with pyyaml python scripts/build_ris_catalog.py
+
+Behind a proxy, add ``--proxy-from-env``: the client ignores ``$HTTPS_PROXY``
+unless asked, because a proxy would take a request past the egress guard.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -40,6 +44,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import importlib.util  # noqa: E402
 
+import httpx  # noqa: E402
 import yaml  # noqa: E402
 from ris_adapter.client import RisClient  # noqa: E402
 from ris_adapter.client import federal_state_param  # noqa: E402
@@ -192,11 +197,28 @@ async def _process_registry(client: RisClient, registry_path: Path, *, dry_run: 
     return verified_count
 
 
-async def _main(norms_root: Path, *, dry_run: bool) -> None:
+def _client(proxy_from_env: bool) -> RisClient:
+    """The RIS client; through ``$HTTPS_PROXY`` only when asked.
+
+    The client ignores environment proxies (``trust_env=False``): a proxy would
+    take a request past the egress guard. A developer behind one passes
+    ``--proxy-from-env``, which hands the client a transport through that proxy
+    instead of the guard. This script runs on a developer's machine, never in
+    the cluster.
+    """
+    if not proxy_from_env:
+        return RisClient()
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    if not proxy:
+        raise SystemExit("ERROR: --proxy-from-env, but HTTPS_PROXY is not set")
+    return RisClient(transport=httpx.AsyncHTTPTransport(proxy=proxy))
+
+
+async def _main(norms_root: Path, *, dry_run: bool, proxy_from_env: bool = False) -> None:
     registry_files = sorted(norms_root.glob("*/registry.yml"))
     if not registry_files:
         raise SystemExit(f"ERROR: no registry files under {norms_root}/*/registry.yml")
-    client = RisClient()
+    client = _client(proxy_from_env)
     try:
         total = 0
         for registry_path in registry_files:
@@ -225,9 +247,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Verify against the live API but do not write the registry files.",
     )
+    parser.add_argument(
+        "--proxy-from-env",
+        action="store_true",
+        help="Reach RIS through $HTTPS_PROXY (the client ignores environment proxies otherwise).",
+    )
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    asyncio.run(_main(args.norms_dir, dry_run=args.dry_run))
+    asyncio.run(_main(args.norms_dir, dry_run=args.dry_run, proxy_from_env=args.proxy_from_env))

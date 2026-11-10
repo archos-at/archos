@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import { ProjectPrimitiveValueSchema, type ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import { factSourceCitationSchema } from '@/lib/base-knowledge/wire/setup-facts'
+import { GATE_STATES, SITE_UNKNOWN_REASONS } from '@/lib/base-knowledge/wire/vocab'
 
 const factKey = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
 // Keys are checked by what the table reads: a key no input names is never read. Each value is a profile
@@ -47,8 +48,13 @@ const outcomeSchema = z.object({
 export type ClassificationOutcome = z.infer<typeof outcomeSchema>
 
 export const classificationEvaluationSchema = z.object({
-  /** `site_unknown`: nothing places the project; `no_classification`: its country has no classification record. */
-  status: z.enum(['evaluated', 'site_unknown', 'no_classification']),
+  /**
+   * `site_unknown`: nothing places the project; `no_classification`: its country has no classification record;
+   * `undetermined`: the project's knowledge context withholds law (`gate` says why), so no class is named.
+   */
+  status: z.enum(['evaluated', 'site_unknown', 'no_classification', 'undetermined']),
+  /** The knowledge context's gate when it withholds law (ADR-0173), else null: the same gate the turn reads. */
+  gate: z.object({ state: z.enum(GATE_STATES), reason: z.enum(SITE_UNKNOWN_REASONS).nullable() }).nullable(),
   site: z.object({ chain: z.array(z.string()) }),
   classification: z
     .object({ rulesetId: z.string(), territoryId: z.string(), rule: z.string(), citation: z.string() })

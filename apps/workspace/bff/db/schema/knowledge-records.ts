@@ -64,6 +64,8 @@ export interface KnowledgeTerms {
 
 export interface KnowledgeProvenance {
   proposedBy?: 'reading' | 'person' | 'agent'
+  /** The person whose write put an office entry's values in force; `proposedBy` keeps who suggested them. */
+  confirmedBy?: string
   note?: string
   /** Where a platform revision's values were taken from, for the reviewer (0205); a capture and its quote (0209). */
   citations?: { captureId?: string; quote?: string; url?: string; note?: string }[]

@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    The platform owner can now approve a country knowledge change request they wrote, with a reason, when nobody else can review it. The request and its releases are marked as approved without a second review, and it stays in the review queue until another person confirms or disputes it.

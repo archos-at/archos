@@ -32,6 +32,8 @@ import httpx
 from public_sources import access_for
 from public_sources import engine_for
 from public_sources import get_source
+from public_sources.egress import EgressRefused
+from public_sources.egress import GuardedTransport
 
 # The format is the ``ris_xml`` engine's; its names are re-exported here, where
 # the tools, the routes and the tests have always imported them from.
@@ -174,29 +176,34 @@ class RisClient:
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
     def _http_client(self) -> httpx.AsyncClient:
+        """The client of a turn without ``sourceRouting``: the guard runs here, in process.
+
+        :class:`public_sources.egress.GuardedTransport` dials only an address it
+        resolved itself and found public, at every hop, so a RIS name that
+        answers a cluster address (DNS rebinding) reaches nothing; the hop hook
+        below checks the host. A transport handed in (tests) stands in for the
+        network.
+        """
         if self._client is None or self._client.is_closed:
-            self._client = self._new_client(self._transport)
+            self._client = self._new_client(self._transport or GuardedTransport())
         return self._client
 
     def _routed_client(self) -> httpx.AsyncClient:
-        """The client whose requests go through the fetcher (or the guard here, without one).
-
-        ``trust_env=False``: an environment proxy would otherwise take the
-        request past the transport that routes it.
-        """
+        """The client whose requests go through the fetcher (or the guard here, without one)."""
         if self._routed is None or self._routed.is_closed:
-            self._routed = self._new_client(source_transport(RIS_SOURCE_ID, inner=self._transport), trust_env=False)
+            self._routed = self._new_client(source_transport(RIS_SOURCE_ID, inner=self._transport))
         return self._routed
 
     async def _client_for_turn(self) -> httpx.AsyncClient:
         return self._routed_client() if await routing_enabled() else self._http_client()
 
-    def _new_client(self, transport: httpx.AsyncBaseTransport | None, *, trust_env: bool = True) -> httpx.AsyncClient:
+    def _new_client(self, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+        """``trust_env=False`` always: an environment proxy would take a request past the guard."""
         return httpx.AsyncClient(
             timeout=self.timeout,
             follow_redirects=True,
             transport=transport,
-            trust_env=trust_env,
+            trust_env=False,
             # EVERY HOP IS CHECKED, NOT THE FIRST ONE.
             #
             # `fetch_document_text` validates the URL it is given and then
@@ -261,6 +268,8 @@ class RisClient:
                     return response
             except RisError:
                 raise
+            except EgressRefused as exc:  # deterministic: a retry would be refused the same way
+                raise RisError(f"OGD-RIS request refused: {exc}") from exc
             except httpx.HTTPStatusError as exc:
                 raise RisError(f"OGD-RIS request failed with HTTP {exc.response.status_code}: {url}") from exc
             except httpx.HTTPError as exc:
