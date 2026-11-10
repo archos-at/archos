@@ -50,12 +50,7 @@ export async function visibleOfficeDocuments(
   return new Map(
     rows.map((row) => [
       row.id,
-      {
-        id: row.id,
-        fileName: row.displayName ?? row.filename,
-        collectionName: row.collectionName,
-        storedName: row.filename,
-      },
+      { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename },
     ])
   )
 }
@@ -90,12 +85,7 @@ export async function readShelfDocument(
       .limit(1)
   )
   if (!row) return null
-  return {
-    id: row.id,
-    fileName: row.displayName ?? row.filename,
-    collectionName: row.collectionName,
-    storedName: row.filename,
-  }
+  return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename }
 }
 
 /**
@@ -104,11 +94,7 @@ export async function readShelfDocument(
  * any bytes, since an upload under an existing name replaces that document's
  * file in place.
  */
-export async function shelfNameHasEntry(
-  organizationId: string,
-  filename: string,
-  reader: DocumentReader
-): Promise<boolean> {
+export async function shelfNameHasEntry(organizationId: string, filename: string, reader: DocumentReader): Promise<boolean> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .select({ id: documents.id })

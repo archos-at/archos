@@ -47,10 +47,7 @@ export function toProblem(error: ApiError): Problem {
 }
 
 export function problemResponse(error: ApiError): Response {
-  return NextResponse.json(toProblem(error), {
-    status: error.status,
-    headers: { 'Content-Type': PROBLEM_CONTENT_TYPE },
-  })
+  return NextResponse.json(toProblem(error), { status: error.status, headers: { 'Content-Type': PROBLEM_CONTENT_TYPE } })
 }
 
 /**

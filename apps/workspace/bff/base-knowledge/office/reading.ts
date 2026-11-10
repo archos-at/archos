@@ -61,11 +61,7 @@ const ISSUERS: readonly [RegExp, string][] = [
 ]
 
 function haystack(reading: DocumentReading): string {
-  return [
-    reading.title,
-    reading.fileName.replace(/[_]+/g, ' ').replace(/\.[a-z0-9]{2,5}$/i, ''),
-    reading.summary,
-  ]
+  return [reading.title, reading.fileName.replace(/[_]+/g, ' ').replace(/\.[a-z0-9]{2,5}$/i, ''), reading.summary]
     .filter(Boolean)
     .join('\n')
 }
@@ -96,17 +92,11 @@ export function readDesignation(text: string): Designation | null {
 export function readKind(text: string, designation: Designation | null): KnowledgeWorkKind {
   if (/\bWeisung|Erlass|Rundschreiben|Dienstanweisung/i.test(text)) return 'authority_directive'
   if (/\bKommentar|Kommentierung|Erläuterungen\s+zu|commentary/i.test(text)) return 'commentary'
-  if (
-    designation?.prefix === 'OIB-Richtlinie' ||
-    /\bLeitfaden|Richtlinie|Merkblatt|guideline/i.test(text)
-  ) {
-    return designation && designation.prefix !== 'OIB-Richtlinie'
-      ? 'technical_standard'
-      : 'guideline'
+  if (designation?.prefix === 'OIB-Richtlinie' || /\bLeitfaden|Richtlinie|Merkblatt|guideline/i.test(text)) {
+    return designation && designation.prefix !== 'OIB-Richtlinie' ? 'technical_standard' : 'guideline'
   }
   if (designation) return 'technical_standard'
-  if (/\b(Bauordnung|Gesetz|Verordnung|Bautechnikverordnung|BauO|LGBl|BGBl)\b/i.test(text))
-    return 'statute'
+  if (/\b(Bauordnung|Gesetz|Verordnung|Bautechnikverordnung|BauO|LGBl|BGBl)\b/i.test(text)) return 'statute'
   return 'technical_standard'
 }
 
@@ -115,13 +105,9 @@ export function defaultLicence(kind: KnowledgeWorkKind): LicenceClass {
   return kind === 'authority_directive' || kind === 'statute' ? 'public_open' : 'licensed'
 }
 
-function readEdition(
-  text: string,
-  designation: Designation | null
-): { label: string | null; issuedOn: string | null } {
+function readEdition(text: string, designation: Designation | null): { label: string | null; issuedOn: string | null } {
   const date = ISO_DATE.exec(text)?.[0] ?? null
-  if (designation?.edition && designation.edition.length === 10)
-    return { label: designation.edition, issuedOn: designation.edition }
+  if (designation?.edition && designation.edition.length === 10) return { label: designation.edition, issuedOn: designation.edition }
   if (designation?.edition) return { label: designation.edition, issuedOn: date }
   if (date) return { label: date, issuedOn: date }
   const year = YEAR.exec(text)?.[0] ?? null
@@ -129,21 +115,13 @@ function readEdition(
 }
 
 function readAddressees(text: string): Addressee[] {
-  return KNOWN_AUTHORITIES.filter(({ pattern }) => pattern.test(text)).map(
-    ({ addressee }) => addressee
-  )
+  return KNOWN_AUTHORITIES.filter(({ pattern }) => pattern.test(text)).map(({ addressee }) => addressee)
 }
 
-function readTerritories(
-  kind: KnowledgeWorkKind,
-  reading: DocumentReading,
-  addressees: Addressee[]
-): string[] {
+function readTerritories(kind: KnowledgeWorkKind, reading: DocumentReading, addressees: Addressee[]): string[] {
   if (kind === 'technical_standard' || kind === 'commentary') return []
   const fromAuthorities = addressees.map((addressee) => addressee.territoryId)
-  const fromReading = reading.federalState
-    ? FEDERAL_STATE_TERRITORIES[reading.federalState]
-    : undefined
+  const fromReading = reading.federalState ? FEDERAL_STATE_TERRITORIES[reading.federalState] : undefined
   return [...new Set([...fromAuthorities, ...(fromReading ? [fromReading] : [])])]
 }
 
@@ -159,10 +137,7 @@ export function proposeFromReading(reading: DocumentReading): EntryValues {
   const kind = readKind(text, designation)
   const addressees = kind === 'authority_directive' ? readAddressees(text) : []
   const edition = readEdition(text, designation)
-  const title = (reading.title?.trim() || reading.fileName.replace(/\.[a-z0-9]{2,5}$/i, '')).slice(
-    0,
-    300
-  )
+  const title = (reading.title?.trim() || reading.fileName.replace(/\.[a-z0-9]{2,5}$/i, '')).slice(0, 300)
   return {
     kind,
     title,

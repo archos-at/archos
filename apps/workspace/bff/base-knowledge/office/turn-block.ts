@@ -85,14 +85,10 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
 
 /** A norm the platform lists that the office holds no copy of: named, never quoted. */
 function listedLine(listed: ListedEdition): string {
-  const text = listed.hasText
-    ? 'the platform holds its text'
-    : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
+  const text = listed.hasText ? 'the platform holds its text' : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
   const name = `${listed.designation} „${listed.title}“`
   const result = `- ${name}: listed by the platform, edition ${listed.editionLabel}; ${text}`
-  return result.length > MAX_TURN_LINE_CHARS
-    ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…`
-    : result
+  return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
 /**
@@ -101,19 +97,15 @@ function listedLine(listed: ListedEdition): string {
  * (`platform/applicability.ts`): MA 37's directives stay out of a Graz turn.
  */
 function directiveLine(directive: PlatformDirective): string {
-  const name = directive.designation
-    ? `${directive.designation} „${directive.title}“`
-    : `„${directive.title}“`
+  const name = directive.designation ? `${directive.designation} „${directive.title}“` : `„${directive.title}“`
   const of = directive.authorities.join(', ') || 'no authority recorded'
   const edition = directive.editionLabel ? `, edition ${directive.editionLabel}` : ''
   const role =
     directive.verdict.verdict === 'applies'
       ? `applies to this project (${directive.verdict.authority} is competent for ${directive.verdict.territoryId}, from the project's details, not verified)`
-      : 'authority unknown for this project (its Land is not recorded), so do not apply it as settled'
+      : "authority unknown for this project (its Land is not recorded), so do not apply it as settled"
   const result = `- ${name}: authority practice of ${of}, published by the platform${edition}; ${role}`
-  return result.length > MAX_TURN_LINE_CHARS
-    ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…`
-    : result
+  return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
 /** The block, or null when the office holds no confirmed entry and the platform has nothing for the turn. */
@@ -121,7 +113,7 @@ export function renderBaseKnowledgeBlock(
   entries: readonly BaseKnowledgeEntry[],
   project: ProjectTerritory,
   listed: readonly ListedEdition[] = [],
-  directives: readonly PlatformDirective[] = []
+  directives: readonly PlatformDirective[] = [],
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
   if (confirmed.length === 0 && listed.length === 0 && directives.length === 0) return null

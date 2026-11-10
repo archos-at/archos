@@ -33,19 +33,13 @@ export const countryIdSchema = z
 export const territoryIdSchema = z
   .string()
   .trim()
-  .regex(
-    /^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$/,
-    'an ISO 3166 code such as AT-6, or CC:scheme:code'
-  )
+  .regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$/, 'an ISO 3166 code such as AT-6, or CC:scheme:code')
 
 /** A record's key within the platform: lower-case words, dots and dashes. */
 const keySchema = z
   .string()
   .trim()
-  .regex(
-    /^[a-z0-9][a-z0-9._-]{0,99}$/,
-    'lower-case letters, digits, dots and dashes, e.g. "at-wien-ma37"'
-  )
+  .regex(/^[a-z0-9][a-z0-9._-]{0,99}$/, 'lower-case letters, digits, dots and dashes, e.g. "at-wien-ma37"')
 
 const isoDate = z.iso.date()
 
@@ -62,36 +56,20 @@ const workRecord = z.object({
   key: keySchema,
   kind: z.enum(KNOWLEDGE_WORK_KINDS),
   title: z.string().trim().min(1).max(300),
-  designation: z
-    .string()
-    .trim()
-    .min(1)
-    .max(120)
-    .nullable()
-    .default(null)
-    .describe('e.g. "ÖNORM B 1600".'),
-  territoryIds: z
-    .array(territoryIdSchema)
-    .max(20)
-    .default([])
-    .describe('Where it applies; empty for a standard.'),
+  designation: z.string().trim().min(1).max(120).nullable().default(null).describe('e.g. "ÖNORM B 1600".'),
+  territoryIds: z.array(territoryIdSchema).max(20).default([]).describe('Where it applies; empty for a standard.'),
   issuer: z.string().trim().min(1).max(200).nullable().default(null),
   addressees: z
     .array(
       z.object({
         name: z.string().trim().min(1).max(120),
         territoryId: territoryIdSchema,
-        authorityKey: keySchema
-          .optional()
-          .describe('The authority record it names, e.g. "at-wien-ma37".'),
-      })
+        authorityKey: keySchema.optional().describe('The authority record it names, e.g. "at-wien-ma37".'),
+      }),
     )
     .max(10)
     .default([]),
-  historyAvailableFrom: isoDate
-    .nullable()
-    .default(null)
-    .describe('The first day whose edition is held.'),
+  historyAvailableFrom: isoDate.nullable().default(null).describe('The first day whose edition is held.'),
   ...common,
 })
 
@@ -99,24 +77,14 @@ const editionRecord = z.object({
   type: z.literal('edition'),
   key: keySchema,
   workKey: keySchema.describe('The work it is an edition of, proposed here or already published.'),
-  label: z
-    .string()
-    .trim()
-    .min(1)
-    .max(120)
-    .describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
+  label: z.string().trim().min(1).max(120).describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
   issuedOn: isoDate.nullable().default(null),
   inForceFrom: isoDate.nullable().default(null),
-  inForceTo: isoDate
-    .nullable()
-    .default(null)
-    .describe('The last day in force, inclusive; null while in force.'),
+  inForceTo: isoDate.nullable().default(null).describe('The last day in force, inclusive; null while in force.'),
   transition: transitionTableSchema
     .nullable()
     .default(null)
-    .describe(
-      'Its transitional rule: a decision table over the procedure and boundary_from giving old_law, new_law or choice.'
-    ),
+    .describe('Its transitional rule: a decision table over the procedure and boundary_from giving old_law, new_law or choice.'),
   ...common,
 })
 
@@ -143,11 +111,7 @@ const territoryRecord = z.object({
   id: territoryIdSchema,
   kind: z.enum(TERRITORY_KINDS),
   name: z.string().trim().min(1).max(200),
-  parentIds: z
-    .array(territoryIdSchema)
-    .max(10)
-    .default([])
-    .describe('Nearest first, e.g. ["AT"] for AT-6.'),
+  parentIds: z.array(territoryIdSchema).max(10).default([]).describe('Nearest first, e.g. ["AT"] for AT-6.'),
   aliases: z.record(z.string().regex(/^[a-z]{2,8}$/), z.string().min(1).max(40)).default({}),
   validFrom: isoDate.nullable().default(null),
   validTo: isoDate.nullable().default(null),
@@ -158,10 +122,7 @@ const authorityRecord = z.object({
   type: z.literal('authority'),
   key: keySchema,
   name: z.string().trim().min(1).max(200),
-  functionCodes: z
-    .array(z.string().regex(/^[a-z_]{2,40}$/))
-    .max(20)
-    .default([]),
+  functionCodes: z.array(z.string().regex(/^[a-z_]{2,40}$/)).max(20).default([]),
   seatTerritoryId: territoryIdSchema,
   competenceTerritoryIds: z.array(territoryIdSchema).min(1).max(50),
   identifiers: z.record(z.string().regex(/^[a-z_]{2,20}$/), z.string().min(1).max(80)).default({}),
@@ -171,9 +132,7 @@ const authorityRecord = z.object({
 const rulesetRecord = z.object({
   type: z.literal('ruleset'),
   key: keySchema,
-  values: rulesetValuesSchema.describe(
-    'A ruleset (ADR-0166); workIds are record ids such as work:at-wien-bo.'
-  ),
+  values: rulesetValuesSchema.describe('A ruleset (ADR-0166); workIds are record ids such as work:at-wien-bo.'),
   ...common,
 })
 
@@ -192,9 +151,7 @@ export const MAX_PROPOSED_RECORDS = 200
 
 export const createChangeRequestBodySchema = z.object({
   title: z.string().trim().min(1).max(200),
-  countryId: countryIdSchema.describe(
-    'The country whose knowledge it changes; what offices are entitled to.'
-  ),
+  countryId: countryIdSchema.describe('The country whose knowledge it changes; what offices are entitled to.'),
 })
 
 export const proposeRecordsBodySchema = z.object({
@@ -210,7 +167,7 @@ export const territoryImportBodySchema = z.object({
         code: territoryIdSchema,
         name: z.string().trim().min(1).max(200),
         parent: territoryIdSchema.optional(),
-      })
+      }),
     )
     .min(1)
     .max(MAX_PROPOSED_RECORDS),
@@ -224,7 +181,7 @@ export const reviewBodySchema = z.object({
         claimPath: z.string().trim().min(1).max(120),
         decision: z.enum(REVIEW_DECISIONS),
         note: z.string().trim().min(1).max(2000).optional(),
-      })
+      }),
     )
     .min(1)
     .max(500),
@@ -253,11 +210,7 @@ export const MAX_CHANGE_REQUEST_PAGE = 200
 export const listChangeRequestsQuerySchema = z.object({
   status: z.enum(CHANGE_REQUEST_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_CHANGE_REQUEST_PAGE).optional(),
-  cursor: z
-    .string()
-    .regex(/^\d{1,6}$/)
-    .optional()
-    .describe('nextCursor of the previous page.'),
+  cursor: z.string().regex(/^\d{1,6}$/).optional().describe('nextCursor of the previous page.'),
 })
 
 export const entitleBodySchema = z.object({
@@ -294,14 +247,7 @@ export interface ChangeRequestView {
   publishedAt: string | null
   revisions: RevisionView[]
   approvals: { approver: string; role: string; decisionSource: string; decidedAt: string }[]
-  releases: {
-    seq: number
-    recordId: string
-    channel: string
-    action: string
-    toRevisionId: string | null
-    releasedAt: string
-  }[]
+  releases: { seq: number; recordId: string; channel: string; action: string; toRevisionId: string | null; releasedAt: string }[]
 }
 
 export interface ChangeRequestSummary {
@@ -331,12 +277,7 @@ export interface PlatformKnowledgeOverview {
 
 export interface IndexStatusView {
   changeRequestId: string
-  texts: {
-    revisionId: string
-    corpusFile: string
-    state: 'requested' | 'queued' | 'failed' | 'indexed'
-    failure: string | null
-  }[]
+  texts: { revisionId: string; corpusFile: string; state: 'requested' | 'queued' | 'failed' | 'indexed'; failure: string | null }[]
 }
 
 export interface OrganizationCountriesView {

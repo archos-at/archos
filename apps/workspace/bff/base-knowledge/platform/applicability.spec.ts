@@ -8,11 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { platformDirectiveApplies, territoryChain, type PlatformAuthority } from './applicability'
 
-const MA37: PlatformAuthority = {
-  id: 'authority:at-wien-ma37',
-  name: 'MA 37 Baupolizei',
-  competenceTerritoryIds: ['AT-9'],
-}
+const MA37: PlatformAuthority = { id: 'authority:at-wien-ma37', name: 'MA 37 Baupolizei', competenceTerritoryIds: ['AT-9'] }
 const AUTHORITIES = new Map([[MA37.id, MA37]])
 const PARENTS = new Map<string, string[]>([
   ['AT:gkz:60101', ['AT-6']],
@@ -29,45 +25,27 @@ describe('platformDirectiveApplies', () => {
       authority: 'MA 37 Baupolizei',
       territoryId: 'AT-9',
     })
-    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT:gkz:90101').verdict).toBe(
-      'applies'
-    )
+    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT:gkz:90101').verdict).toBe('applies')
   })
 
   it('excludes it in Graz, by state and by municipality', () => {
-    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT-6')).toEqual({
-      verdict: 'excluded',
-    })
-    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT:gkz:60101')).toEqual({
-      verdict: 'excluded',
-    })
+    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT-6')).toEqual({ verdict: 'excluded' })
+    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, 'AT:gkz:60101')).toEqual({ verdict: 'excluded' })
   })
 
   it('says the authority is unknown when the project’s territory is, rather than guessing', () => {
-    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, null)).toEqual({
-      verdict: 'authority_unknown',
-    })
+    expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, null)).toEqual({ verdict: 'authority_unknown' })
   })
 
   it('reads an addressee without a readable authority record by the territory it names', () => {
     const named = [{ name: 'MA 37', territoryId: 'AT-9' }]
-    expect(platformDirectiveApplies(named, new Map(), PARENTS, 'AT-6')).toEqual({
-      verdict: 'excluded',
-    })
+    expect(platformDirectiveApplies(named, new Map(), PARENTS, 'AT-6')).toEqual({ verdict: 'excluded' })
   })
 })
 
 describe('territoryChain', () => {
   it('walks the parents, then the ISO country, and stops on a cycle', () => {
     expect(territoryChain('AT:gkz:60101', PARENTS)).toEqual(['AT:gkz:60101', 'AT-6', 'AT'])
-    expect(
-      territoryChain(
-        'X',
-        new Map([
-          ['X', ['Y']],
-          ['Y', ['X']],
-        ])
-      )
-    ).toEqual(['X', 'Y'])
+    expect(territoryChain('X', new Map([['X', ['Y']], ['Y', ['X']]]))).toEqual(['X', 'Y'])
   })
 })

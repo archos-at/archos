@@ -32,18 +32,14 @@ interface Stored<T> {
   result: T
 }
 
-const fingerprintOf = (body: unknown): string =>
-  createHash('sha256')
-    .update(JSON.stringify(body ?? null))
-    .digest('hex')
+const fingerprintOf = (body: unknown): string => createHash('sha256').update(JSON.stringify(body ?? null)).digest('hex')
 
 /** The request's key, or null without one; a malformed key is refused. */
 export function idempotencyKeyOf(request: Request): string | null {
   const raw = request.headers.get(IDEMPOTENCY_HEADER)
   if (raw === null) return null
   const key = raw.trim().replace(/^"(.*)"$/, '$1')
-  if (!KEY_PATTERN.test(key))
-    throw new BadRequestError(`${IDEMPOTENCY_HEADER} must be 1 to 255 visible ASCII characters.`)
+  if (!KEY_PATTERN.test(key)) throw new BadRequestError(`${IDEMPOTENCY_HEADER} must be 1 to 255 visible ASCII characters.`)
   return key
 }
 
@@ -52,14 +48,8 @@ const subjectPrefix = (organizationId: string, subject: string): string =>
 
 /** Run a write once per key: the first answer is kept and repeated for the same key and body. */
 export async function onceForKey<T>(
-  input: {
-    request: Request
-    organizationId: string
-    subject: string
-    operation: string
-    body: unknown
-  },
-  run: () => Promise<T>
+  input: { request: Request; organizationId: string; subject: string; operation: string; body: unknown },
+  run: () => Promise<T>,
 ): Promise<T> {
   const key = idempotencyKeyOf(input.request)
   if (key === null) return run()
@@ -67,23 +57,16 @@ export async function onceForKey<T>(
   const stored = await getCached<Stored<T>>(
     `${subjectPrefix(input.organizationId, input.subject)}${input.operation}:${key}`,
     IDEMPOTENCY_TTL_MS,
-    async () => ({ fingerprint, result: await run() })
+    async () => ({ fingerprint, result: await run() }),
   )
   if (stored.fingerprint !== fingerprint) {
-    throw new UnprocessableError(
-      `This ${IDEMPOTENCY_HEADER} was used for a different request; use a new key.`
-    )
+    throw new UnprocessableError(`This ${IDEMPOTENCY_HEADER} was used for a different request; use a new key.`)
   }
   return stored.result
 }
 
 /** Drop every kept answer about these subjects (an entry's id, its document's id); whether the cache confirmed it. */
-export async function forgetKeysFor(
-  organizationId: string,
-  subjects: readonly string[]
-): Promise<boolean> {
-  const dropped = await Promise.all(
-    subjects.map((subject) => invalidateCachedPrefix(subjectPrefix(organizationId, subject)))
-  )
+export async function forgetKeysFor(organizationId: string, subjects: readonly string[]): Promise<boolean> {
+  const dropped = await Promise.all(subjects.map((subject) => invalidateCachedPrefix(subjectPrefix(organizationId, subject))))
   return dropped.every(Boolean)
 }

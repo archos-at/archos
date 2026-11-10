@@ -6,9 +6,7 @@
 
 import type { ProposedRecord } from './wire'
 
-export function territoriesFromIso(
-  rows: readonly { code: string; name: string; parent?: string }[]
-): ProposedRecord[] {
+export function territoriesFromIso(rows: readonly { code: string; name: string; parent?: string }[]): ProposedRecord[] {
   return rows.map((row) => {
     const subdivision = row.code.includes('-')
     const parent = row.parent ?? (subdivision ? row.code.slice(0, 2) : undefined)

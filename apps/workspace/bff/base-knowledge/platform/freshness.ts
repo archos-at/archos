@@ -23,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export function platformEditionOverdue(
   kind: KnowledgeWorkKind,
   lastCheck: { checkedAt: Date; result: string } | null,
-  now: Date
+  now: Date,
 ): boolean {
   if (!lastCheck || lastCheck.result !== 'current') return true
   return now.getTime() - lastCheck.checkedAt.getTime() >= PLATFORM_FRESHNESS_DAYS[kind] * DAY_MS

@@ -18,10 +18,7 @@ export { licenceMarkFields } from './office/text-use'
  * releases the text, so nothing reads a licensed copy before anyone knew it was one.
  */
 export function textHeldFor(copy: DocumentCopy | null): boolean {
-  return (
-    copy !== null &&
-    (!copy.confirmed || textUseOf(copy.licenceClass, copy.terms) === 'metadata_only')
-  )
+  return copy !== null && (!copy.confirmed || textUseOf(copy.licenceClass, copy.terms) === 'metadata_only')
 }
 
 /**
@@ -42,16 +39,11 @@ export async function isTextHeld(organizationId: string, documentId: string): Pr
  * so no summary or facet of a held copy is written. A failed read holds them all;
  * the next refresh writes the rest.
  */
-export async function heldAmong(
-  organizationId: string,
-  documentIds: readonly string[]
-): Promise<Set<string>> {
+export async function heldAmong(organizationId: string, documentIds: readonly string[]): Promise<Set<string>> {
   if (documentIds.length === 0) return new Set()
   try {
     const copies = await documentsWithEntries(organizationId, documentIds)
-    const held = await Promise.all(
-      copies.map(async (id) => ((await isTextHeld(organizationId, id)) ? [id] : []))
-    )
+    const held = await Promise.all(copies.map(async (id) => ((await isTextHeld(organizationId, id)) ? [id] : [])))
     return new Set(held.flat())
   } catch {
     return new Set(documentIds)
@@ -64,9 +56,7 @@ export async function copyMarkForIngest(
   documentId: string
 ): Promise<(LicenceMark & { editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
-  return copy?.confirmed
-    ? { ...licenceMarkOf(copy.licenceClass, copy.terms), editionId: copy.editionId }
-    : null
+  return copy?.confirmed ? { ...licenceMarkOf(copy.licenceClass, copy.terms), editionId: copy.editionId } : null
 }
 
 /**
@@ -78,9 +68,7 @@ export async function copyMarkForIngest(
 export async function licenceOfDocument(
   organizationId: string,
   documentId: string
-): Promise<
-  (LicenceMark & { licensed: boolean; confirmed: boolean; held: boolean; editionId: string }) | null
-> {
+): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean; held: boolean; editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
   if (!copy) return null
   return {

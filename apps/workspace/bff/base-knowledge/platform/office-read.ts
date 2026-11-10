@@ -15,22 +15,14 @@ import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import type { ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
 import { readTerritoryParents } from './territories'
-import {
-  platformDirectiveApplies,
-  type PlatformAddressee,
-  type PlatformAuthority,
-} from './applicability'
+import { platformDirectiveApplies, type PlatformAddressee, type PlatformAuthority } from './applicability'
 
 /** Most listings or directives one turn reads. */
 const MAX_READ = 200
 
 /** `ÖNORM B 1600:2017` and `önorm  b 1600` name the same work: case, spacing and the edition suffix aside. */
 export function designationKey(designation: string): string {
-  return designation
-    .toLocaleLowerCase('de')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
+  return designation.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
 }
 
 interface ListingRow extends Record<string, unknown> {
@@ -57,7 +49,7 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
         AND er.organization_id IS NULL
         AND w.identifiers ->> 'designation' IS NOT NULL
       ORDER BY designation
-      LIMIT ${MAX_READ}`)
+      LIMIT ${MAX_READ}`),
   )
   return rows.map((row) => ({
     designation: String(row.designation),
@@ -80,10 +72,7 @@ interface AuthorityRow extends Record<string, unknown> {
   competence_territory_ids: string[]
 }
 
-async function directivesFor(
-  organizationId: string,
-  territoryId: string | null
-): Promise<PlatformDirective[]> {
+async function directivesFor(organizationId: string, territoryId: string | null): Promise<PlatformDirective[]> {
   return withTenant({ organizationId }, async () => {
     const db = getDb()
     const directives = await db.execute<DirectiveRow>(sql`
@@ -105,15 +94,10 @@ async function directivesFor(
         FROM knowledge_records r JOIN knowledge_authority_revisions a ON a.revision_id = r.head_revision_id
         WHERE r.organization_id IS NULL AND r.type = 'authority' AND knowledge_country_entitled(r.country_id)
         LIMIT ${MAX_READ}`),
-      territoryId
-        ? readTerritoryParents(db, territoryId)
-        : Promise.resolve(new Map<string, string[]>()),
+      territoryId ? readTerritoryParents(db, territoryId) : Promise.resolve(new Map<string, string[]>()),
     ])
     const authorityById = new Map<string, PlatformAuthority>(
-      authorities.map((row) => [
-        row.id,
-        { id: row.id, name: row.name, competenceTerritoryIds: row.competence_territory_ids },
-      ])
+      authorities.map((row) => [row.id, { id: row.id, name: row.name, competenceTerritoryIds: row.competence_territory_ids }]),
     )
     return directives.flatMap((row) => {
       const verdict = platformDirectiveApplies(row.addressees, authorityById, parents, territoryId)
@@ -123,9 +107,7 @@ async function directivesFor(
           title: row.title,
           designation: row.designation,
           editionLabel: row.edition_label,
-          authorities: row.addressees.map(
-            (addressee) => authorityById.get(addressee.authorityId ?? '')?.name ?? addressee.name
-          ),
+          authorities: row.addressees.map((addressee) => authorityById.get(addressee.authorityId ?? '')?.name ?? addressee.name),
           verdict,
         },
       ]
@@ -138,18 +120,15 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
     if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return []
     const holds = new Set(held.map(designationKey))
-    return (await listedFor(organizationId)).filter(
-      (listed) => !holds.has(designationKey(listed.designation))
-    )
+    return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
   },
   async isReleased(organizationId, revisionId) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId)))
-      return false
+    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return false
     const rows = await withTenant({ organizationId }, () =>
       getDb().execute(sql`
         SELECT 1 FROM knowledge_revisions
         WHERE revision_id = ${revisionId} AND organization_id IS NULL AND knowledge_revision_released(revision_id)
-          AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id AND knowledge_country_entitled(r.country_id))`)
+          AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id AND knowledge_country_entitled(r.country_id))`),
     )
     return rows.length > 0
   },

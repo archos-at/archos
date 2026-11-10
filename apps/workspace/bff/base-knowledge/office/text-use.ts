@@ -36,17 +36,11 @@ export interface Attestations {
  * recorded with who and when; `aiProcessingAttested: false` withdraws that one
  * (the copy goes back to metadata-only); anything not given is kept.
  */
-export function termsAfter(
-  previous: KnowledgeTerms,
-  given: Attestations,
-  userId: string,
-  now: Date
-): KnowledgeTerms {
+export function termsAfter(previous: KnowledgeTerms, given: Attestations, userId: string, now: Date): KnowledgeTerms {
   const at = now.toISOString()
   const terms: KnowledgeTerms = { ...previous }
   if (given.licenceAttested === true) Object.assign(terms, { attestedBy: userId, attestedAt: at })
-  if (given.aiProcessingAttested === true)
-    Object.assign(terms, { aiProcessingAttestedBy: userId, aiProcessingAttestedAt: at })
+  if (given.aiProcessingAttested === true) Object.assign(terms, { aiProcessingAttestedBy: userId, aiProcessingAttestedAt: at })
   if (given.aiProcessingAttested === false) {
     delete terms.aiProcessingAttestedBy
     delete terms.aiProcessingAttestedAt
@@ -73,20 +67,11 @@ export function licenceMarkOf(licenceClass: LicenceClass, terms: KnowledgeTerms)
   return {
     licenceClass,
     aiProcessingAttested: Boolean(terms.aiProcessingAttestedAt),
-    quoteMaxChars:
-      typeof cap === 'number' && Number.isInteger(cap) && cap > 0 ? cap : DEFAULT_QUOTE_MAX_CHARS,
+    quoteMaxChars: typeof cap === 'number' && Number.isInteger(cap) && cap > 0 ? cap : DEFAULT_QUOTE_MAX_CHARS,
   }
 }
 
 /** The mark in the payload's own spelling (`licence_class`, `ai_processing_attested`, `quote_max_chars`). */
-export function licenceMarkFields(mark: LicenceMark): {
-  licence_class: LicenceClass
-  ai_processing_attested: boolean
-  quote_max_chars: number
-} {
-  return {
-    licence_class: mark.licenceClass,
-    ai_processing_attested: mark.aiProcessingAttested,
-    quote_max_chars: mark.quoteMaxChars,
-  }
+export function licenceMarkFields(mark: LicenceMark): { licence_class: LicenceClass; ai_processing_attested: boolean; quote_max_chars: number } {
+  return { licence_class: mark.licenceClass, ai_processing_attested: mark.aiProcessingAttested, quote_max_chars: mark.quoteMaxChars }
 }

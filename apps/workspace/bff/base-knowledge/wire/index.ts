@@ -36,22 +36,22 @@ export const addresseeSchema = z.object({
 
 /** The values a person confirms; every field optional on a proposal, where the reading fills the rest. */
 const entryFields = {
-  kind: z.enum(KNOWLEDGE_WORK_KINDS).describe('A commentary only interprets.'),
+  kind: z
+    .enum(KNOWLEDGE_WORK_KINDS)
+    .describe('A commentary only interprets.'),
   title: z.string().trim().min(1).max(300).describe('The title as the document prints it.'),
-  designation: z.string().trim().min(1).max(120).nullable().describe('e.g. "ÖNORM B 1600:2017".'),
-  editionLabel: z
+  designation: z
     .string()
     .trim()
     .min(1)
     .max(120)
-    .describe('The edition as the masthead prints it, e.g. "2017-04-01".'),
+    .nullable()
+    .describe('e.g. "ÖNORM B 1600:2017".'),
+  editionLabel: z.string().trim().min(1).max(120).describe('The edition as the masthead prints it, e.g. "2017-04-01".'),
   issuedOn: isoDate.nullable(),
   territoryIds: z.array(territoryId).max(20).describe('Where it applies; empty for a standard.'),
   issuer: z.string().trim().min(1).max(200).nullable(),
-  addressees: z
-    .array(addresseeSchema)
-    .max(10)
-    .describe('A directive’s authorities; empty otherwise.'),
+  addressees: z.array(addresseeSchema).max(10).describe('A directive’s authorities; empty otherwise.'),
   licenceClass: z.enum(LICENCE_CLASSES).describe('licensed for a purchased copy.'),
 }
 
@@ -87,10 +87,7 @@ export type ConfirmEntryBody = z.infer<typeof confirmEntryBodySchema>
  * a model, so they change only through `licenceEntryBodySchema`, the person's
  * own call (ADR-0163).
  */
-export const updateEntryBodySchema = entryValuesSchema
-  .omit({ licenceClass: true })
-  .partial()
-  .strict()
+export const updateEntryBodySchema = entryValuesSchema.omit({ licenceClass: true }).partial().strict()
 export type UpdateEntryBody = z.infer<typeof updateEntryBodySchema>
 
 /** A change to a confirmed copy's licence: its class, and the office's statements on it. */
@@ -110,25 +107,9 @@ export type RecordCheckBody = z.infer<typeof recordCheckBodySchema>
 export const listEntriesQuerySchema = z
   .object({
     status: z.enum(['proposed', 'confirmed']).optional(),
-    designation: z
-      .string()
-      .trim()
-      .min(1)
-      .max(120)
-      .optional()
-      .describe('Part of a designation or title.'),
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(MAX_ENTRY_PAGE)
-      .default(ENTRY_PAGE)
-      .describe(`Default ${ENTRY_PAGE}, max ${MAX_ENTRY_PAGE}.`),
-    cursor: z
-      .string()
-      .regex(/^\d{1,4}$/)
-      .optional()
-      .describe('The previous page’s `nextCursor`.'),
+    designation: z.string().trim().min(1).max(120).optional().describe('Part of a designation or title.'),
+    limit: z.coerce.number().int().min(1).max(MAX_ENTRY_PAGE).default(ENTRY_PAGE).describe(`Default ${ENTRY_PAGE}, max ${MAX_ENTRY_PAGE}.`),
+    cursor: z.string().regex(/^\d{1,4}$/).optional().describe('The previous page’s `nextCursor`.'),
   })
   .strict()
 export type ListEntriesQuery = z.infer<typeof listEntriesQuerySchema>

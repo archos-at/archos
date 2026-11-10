@@ -17,11 +17,7 @@ import type { EntryDocument } from './repository'
 
 const MARK_TIMEOUT_MS = 5_000
 
-export async function markCopyPoints(
-  document: EntryDocument,
-  editionId: string,
-  mark: LicenceMark
-): Promise<boolean> {
+export async function markCopyPoints(document: EntryDocument, editionId: string, mark: LicenceMark): Promise<boolean> {
   const row = { collectionName: document.collectionName, filename: document.storedName }
   try {
     const backendUrl = getBackendUrl()
@@ -30,18 +26,11 @@ export async function markCopyPoints(
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-        body: JSON.stringify({
-          file_name: row.filename,
-          ...licenceMarkFields(mark),
-          edition_id: editionId,
-        }),
+        body: JSON.stringify({ file_name: row.filename, ...licenceMarkFields(mark), edition_id: editionId }),
         signal: AbortSignal.timeout(MARK_TIMEOUT_MS),
       }
     )
-    if (!response.ok)
-      console.warn(
-        `[base-knowledge] mark refused for ${row.collectionName}: HTTP ${response.status}`
-      )
+    if (!response.ok) console.warn(`[base-knowledge] mark refused for ${row.collectionName}: HTTP ${response.status}`)
     return response.ok
   } catch (error) {
     console.warn(`[base-knowledge] mark failed for ${row.collectionName}`, error)

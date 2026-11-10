@@ -11,11 +11,7 @@ vi.mock('server-only', () => ({}))
 vi.mock('../store/repository', () => ({
   documentHasEntry: vi.fn(async () => false),
   insertCopyCheck: vi.fn(),
-  insertProposedEntry: vi.fn(async () => ({
-    workId: 'work_1',
-    editionId: 'edition_1',
-    copyId: 'manifestation_1',
-  })),
+  insertProposedEntry: vi.fn(async () => ({ workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' })),
   readOfficeEntries: vi.fn(async () => []),
   writeConfirmedValues: vi.fn(),
 }))
@@ -27,21 +23,13 @@ vi.mock('./repository', () => ({
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
 vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn(async () => true) }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
-vi.mock('@/lib/office-shelf/service', () => ({
-  deleteOfficeShelfDocument: vi.fn(),
-  uploadOfficeShelfDocument: vi.fn(),
-}))
-vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
-  shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })),
-}))
+vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(), uploadOfficeShelfDocument: vi.fn() }))
+vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn(async () => null) }))
 vi.mock('@/lib/authz/feature-flags', async (original) => ({
   ...(await original<typeof import('@/lib/authz/feature-flags')>()),
-  isFeatureEnabled: vi.fn(
-    (session: { featureFlags: string[] | null }, flag: string) =>
-      session.featureFlags?.includes(flag) ?? false
-  ),
+  isFeatureEnabled: vi.fn((session: { featureFlags: string[] | null }, flag: string) => session.featureFlags?.includes(flag) ?? false),
 }))
 
 import { ConflictError, ForbiddenError, UnprocessableError } from '@/lib/api/errors'
@@ -91,12 +79,7 @@ const MANAGER: AuthorizedSession = {
 const MEMBER: AuthorizedSession = { ...MANAGER, permissions: [] }
 const FLAG_OFF: AuthorizedSession = { ...MANAGER, featureFlags: [] }
 
-const DOCUMENT = {
-  id: 'doc-1',
-  fileName: 'ÖNORM B 1600.pdf',
-  collectionName: 'archiv_org-1',
-  storedName: 'ÖNORM B 1600.pdf',
-}
+const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf' }
 
 function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
   return {
@@ -136,15 +119,8 @@ beforeEach(() => {
 
 describe('who may do what', () => {
   it('lists nothing and refuses every write while the flag is off', async () => {
-    expect(await listBaseKnowledge(FLAG_OFF)).toEqual({
-      enabled: false,
-      canManage: false,
-      entries: [],
-      nextCursor: null,
-    })
-    await expect(proposeBaseKnowledge(FLAG_OFF, { documentId: 'doc-1' })).rejects.toBeInstanceOf(
-      BaseKnowledgeDisabledError
-    )
+    expect(await listBaseKnowledge(FLAG_OFF)).toEqual({ enabled: false, canManage: false, entries: [], nextCursor: null })
+    await expect(proposeBaseKnowledge(FLAG_OFF, { documentId: 'doc-1' })).rejects.toBeInstanceOf(BaseKnowledgeDisabledError)
   })
 
   it('lets any member read and only a shelf manager write', async () => {
@@ -163,19 +139,11 @@ describe('who may do what', () => {
 describe('proposing', () => {
   it('takes what the caller read over what the reading guessed, and says whose values they are', async () => {
     vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'scan.pdf' })
-    await proposeBaseKnowledge(
-      MANAGER,
-      { documentId: 'doc-1', designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01' },
-      'agent'
-    )
+    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1', designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01' }, 'agent')
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
-      expect.objectContaining({
-        designation: 'ÖNORM B 1600:2017',
-        editionLabel: '2017-04-01',
-        title: 'scan',
-      }),
-      expect.objectContaining({ organizationId: 'org-1', provenance: { proposedBy: 'agent' } })
+      expect.objectContaining({ designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01', title: 'scan' }),
+      expect.objectContaining({ organizationId: 'org-1', provenance: { proposedBy: 'agent' } }),
     )
   })
 
@@ -192,16 +160,14 @@ describe('proposing', () => {
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ designation: null, kind: 'authority_directive' }),
-      expect.anything()
+      expect.anything(),
     )
   })
 
   it('refuses a second entry for one document', async () => {
     vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'scan.pdf' })
     vi.mocked(documentHasEntry).mockResolvedValue(true)
-    await expect(proposeBaseKnowledge(MANAGER, { documentId: 'doc-1' })).rejects.toBeInstanceOf(
-      ConflictError
-    )
+    await expect(proposeBaseKnowledge(MANAGER, { documentId: 'doc-1' })).rejects.toBeInstanceOf(ConflictError)
   })
 })
 
@@ -212,34 +178,24 @@ describe('uploading as base knowledge', () => {
       order.push('proposal')
       return { workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' }
     })
-    vi.mocked(uploadOfficeShelfDocument).mockImplementation(
-      async (_session, _file, _request, input) => {
-        await input?.beforeDispatch?.('doc-1')
-        order.push('dispatch')
-        return { documentId: 'doc-1', jobId: null, status: 'stored', filename: 'ÖNORM B 1600.pdf' }
-      }
-    )
+    vi.mocked(uploadOfficeShelfDocument).mockImplementation(async (_session, _file, _request, input) => {
+      await input?.beforeDispatch?.('doc-1')
+      order.push('dispatch')
+      return { documentId: 'doc-1', jobId: null, status: 'stored', filename: 'ÖNORM B 1600.pdf' }
+    })
     const file = new File(['%PDF'], 'ÖNORM B 1600.pdf', { type: 'application/pdf' })
-    await uploadBaseKnowledge(
-      MANAGER,
-      file,
-      new Request('http://localhost/api/base-knowledge/upload')
-    )
+    await uploadBaseKnowledge(MANAGER, file, new Request('http://localhost/api/base-knowledge/upload'))
     expect(order).toEqual(['proposal', 'dispatch'])
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ designation: 'ÖNORM B 1600', kind: 'technical_standard' }),
-      expect.objectContaining({ provenance: { proposedBy: 'reading' } })
+      expect.objectContaining({ provenance: { proposedBy: 'reading' } }),
     )
   })
 
   it('refuses a name a recorded copy already holds before writing any bytes', async () => {
     vi.mocked(shelfNameHasEntry).mockResolvedValueOnce(true)
-    const upload = uploadBaseKnowledge(
-      MANAGER,
-      new File(['%PDF'], 'ÖNORM B 1600.pdf'),
-      new Request('http://localhost/x')
-    )
+    const upload = uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'ÖNORM B 1600.pdf'), new Request('http://localhost/x'))
     await expect(upload).rejects.toBeInstanceOf(ConflictError)
     expect(uploadOfficeShelfDocument).not.toHaveBeenCalled()
   })
@@ -253,11 +209,7 @@ describe('uploading as base knowledge', () => {
       unchanged: true,
     })
     vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'ÖNORM B 1600.pdf' })
-    await uploadBaseKnowledge(
-      MANAGER,
-      new File(['%PDF'], 'ÖNORM B 1600.pdf'),
-      new Request('http://localhost/x')
-    )
+    await uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'ÖNORM B 1600.pdf'), new Request('http://localhost/x'))
     expect(insertProposedEntry).toHaveBeenCalled()
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
   })
@@ -265,21 +217,16 @@ describe('uploading as base knowledge', () => {
 
 describe('confirming', () => {
   it('needs the licence attestation for a licensed copy', async () => {
-    await expect(confirmBaseKnowledge(MANAGER, 'work_1', {})).rejects.toBeInstanceOf(
-      UnprocessableError
-    )
+    await expect(confirmBaseKnowledge(MANAGER, 'work_1', {})).rejects.toBeInstanceOf(UnprocessableError)
     expect(writeConfirmedValues).not.toHaveBeenCalled()
   })
 
   it('moves the heads with the corrections, and counts as the first check', async () => {
-    await confirmBaseKnowledge(MANAGER, 'work_1', {
-      licenceAttested: true,
-      editionLabel: '2017-05-01',
-    })
+    await confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true, editionLabel: '2017-05-01' })
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.objectContaining({ workId: 'work_1' }),
       expect.objectContaining({ editionLabel: '2017-05-01' }),
-      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'person' } })
+      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'person' } }),
     )
   })
 
@@ -288,26 +235,20 @@ describe('confirming', () => {
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({ terms: expect.objectContaining({ attestedBy: 'user-1' }) })
+      expect.objectContaining({ terms: expect.objectContaining({ attestedBy: 'user-1' }) }),
     )
     expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
     expect(releaseText).not.toHaveBeenCalled()
   })
 
   it('reads the text again once the office states its licence covers AI processing, and says who and when', async () => {
-    await confirmBaseKnowledge(MANAGER, 'work_1', {
-      licenceAttested: true,
-      aiProcessingAttested: true,
-    })
+    await confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true, aiProcessingAttested: true })
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
       expect.objectContaining({
-        terms: expect.objectContaining({
-          aiProcessingAttestedBy: 'user-1',
-          aiProcessingAttestedAt: expect.any(String),
-        }),
-      })
+        terms: expect.objectContaining({ aiProcessingAttestedBy: 'user-1', aiProcessingAttestedAt: expect.any(String) }),
+      }),
     )
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
     expect(withholdText).not.toHaveBeenCalled()
@@ -315,9 +256,7 @@ describe('confirming', () => {
   })
 
   it('releases a public copy’s text once a person confirms it', async () => {
-    vi.mocked(readOfficeEntries).mockResolvedValue([
-      stored({ values: { ...stored().values, licenceClass: 'public_open' } }),
-    ])
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ values: { ...stored().values, licenceClass: 'public_open' } })])
     await confirmBaseKnowledge(MANAGER, 'work_1', {})
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
     expect(withholdText).not.toHaveBeenCalled()
@@ -325,9 +264,7 @@ describe('confirming', () => {
 
   it('refuses to confirm twice', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
-    await expect(
-      confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true })
-    ).rejects.toBeInstanceOf(ConflictError)
+    await expect(confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true })).rejects.toBeInstanceOf(ConflictError)
   })
 })
 
@@ -344,7 +281,7 @@ describe('the licence, the person’s call alone', () => {
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ editionLabel: '2017-05-01', licenceClass: 'licensed' }),
-      expect.objectContaining({ terms: {} })
+      expect.objectContaining({ terms: {} }),
     )
     expect(releaseText).not.toHaveBeenCalled()
   })
@@ -355,18 +292,14 @@ describe('the licence, the person’s call alone', () => {
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.objectContaining({
-        terms: expect.objectContaining({ aiProcessingAttestedBy: 'user-1' }),
-      })
+      expect.objectContaining({ terms: expect.objectContaining({ aiProcessingAttestedBy: 'user-1' }) }),
     )
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
   })
 
   it('is a decision only the person makes through the door', () => {
     for (const name of ['base-knowledge-licence-set', 'base-knowledge-confirm'] as const) {
-      expect(baseKnowledgeOperations.find((op) => op.name === name)).toMatchObject({
-        personDecides: true,
-      })
+      expect(baseKnowledgeOperations.find((op) => op.name === name)).toMatchObject({ personDecides: true })
       expect(BASE_KNOWLEDGE_EXPOSURE[name]).toMatchObject({ external: true, agent: false })
     }
   })
@@ -376,42 +309,24 @@ describe('removing', () => {
   const request = new Request('http://localhost/api/base-knowledge/work_1', { method: 'DELETE' })
 
   it('runs the office shelf’s own delete, which takes the records with it, and forgets the kept answers', async () => {
-    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({
-      database: 'removed',
-      search: 'removed',
-      objects: 'removed',
-    })
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'removed', objects: 'removed' })
     expect(await removeBaseKnowledge(MANAGER, 'work_1', request)).toEqual({
       removed: true,
-      stores: {
-        database: 'removed',
-        search: 'removed',
-        objects: 'removed',
-        records: 'removed',
-        caches: 'removed',
-      },
+      stores: { database: 'removed', search: 'removed', objects: 'removed', records: 'removed', caches: 'removed' },
     })
     expect(deleteOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, 'doc-1', request)
     expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['work_1', 'doc-1'])
   })
 
   it('does not say removed when the kept answers could not be dropped', async () => {
-    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({
-      database: 'removed',
-      search: 'removed',
-      objects: 'removed',
-    })
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'removed', objects: 'removed' })
     vi.mocked(forgetKeysFor).mockResolvedValueOnce(false)
     const receipt = await removeBaseKnowledge(MANAGER, 'work_1', request)
     expect(receipt).toMatchObject({ removed: false, stores: { caches: 'failed' } })
   })
 
   it('does not say removed when the search purge was not confirmed', async () => {
-    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({
-      database: 'removed',
-      search: 'failed',
-      objects: 'removed',
-    })
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'failed', objects: 'removed' })
     const receipt = await removeBaseKnowledge(MANAGER, 'work_1', request)
     expect(receipt.removed).toBe(false)
     expect(receipt.stores.search).toBe('failed')
@@ -437,12 +352,7 @@ describe('the turn', () => {
     expect(turn?.block?.split('\n')).toHaveLength(2)
     expect(turn?.block).toContain('ÖNORM B 1600:2017')
     expect(turn?.labels).toEqual([
-      expect.objectContaining({
-        documentId: 'doc-1',
-        holder: 'office',
-        role: 'requirement_source',
-        editionLabel: '2017-04-01',
-      }),
+      expect.objectContaining({ documentId: 'doc-1', holder: 'office', role: 'requirement_source', editionLabel: '2017-04-01' }),
     ])
   })
 
@@ -452,14 +362,7 @@ describe('the turn', () => {
       listedNotHeld: async (_organizationId, held) =>
         held.includes('ÖNORM B 5371:2021')
           ? []
-          : [
-              {
-                designation: 'ÖNORM B 5371:2021',
-                title: 'Treppen',
-                editionLabel: '2021-01-15',
-                hasText: false,
-              },
-            ],
+          : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15', hasText: false }],
     })
     try {
       vi.mocked(readOfficeEntries).mockResolvedValue([])
@@ -486,11 +389,7 @@ describe('the platform directives in a turn', () => {
             designation: null,
             editionLabel: '2024',
             authorities: ['Bau- und Anlagenbehörde Graz'],
-            verdict: {
-              verdict: 'applies',
-              authority: 'Bau- und Anlagenbehörde Graz',
-              territoryId: 'AT-6',
-            },
+            verdict: { verdict: 'applies', authority: 'Bau- und Anlagenbehörde Graz', territoryId: 'AT-6' },
           },
         ]
       },
@@ -502,9 +401,7 @@ describe('the platform directives in a turn', () => {
       } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
       const turn = await baseKnowledgeForTurn('org-2', 'project-graz')
       expect(seen).toEqual(['AT-6'])
-      expect(turn?.block).toContain(
-        '„Stellplatzregulativ“: authority practice of Bau- und Anlagenbehörde Graz, published by the platform'
-      )
+      expect(turn?.block).toContain('„Stellplatzregulativ“: authority practice of Bau- und Anlagenbehörde Graz, published by the platform')
       expect(turn?.block).toContain('applies to this project')
     } finally {
       usePlatformKnowledge(previous)

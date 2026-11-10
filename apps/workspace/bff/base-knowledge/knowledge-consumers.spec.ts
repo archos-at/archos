@@ -52,20 +52,13 @@ const TABLES: Table[] = [
 ]
 
 /** The vocabularies whose values behave differently, so each value needs its own reader. */
-const BEHAVIOURAL = [
-  'knowledge_work_revisions.kind',
-  'knowledge_manifestation_revisions.licence_class',
-] as const
+const BEHAVIOURAL = ['knowledge_work_revisions.kind', 'knowledge_manifestation_revisions.licence_class'] as const
 
 const columns = (): string[] =>
-  TABLES.flatMap((table) =>
-    Object.values(getTableColumns(table)).map((column) => `${getTableName(table)}.${column.name}`)
-  )
+  TABLES.flatMap((table) => Object.values(getTableColumns(table)).map((column) => `${getTableName(table)}.${column.name}`))
 
 const values = (): string[] =>
-  BEHAVIOURAL.flatMap((qualified) =>
-    KNOWLEDGE_VOCABULARIES[qualified].map((value) => `${qualified}=${value}`)
-  )
+  BEHAVIOURAL.flatMap((qualified) => KNOWLEDGE_VOCABULARIES[qualified].map((value) => `${qualified}=${value}`))
 
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 
@@ -88,33 +81,22 @@ describe('the base knowledge element ledger', () => {
     expect(elements.filter((element, index) => elements.indexOf(element) !== index)).toEqual([])
   })
 
-  it.each(
-    KNOWLEDGE_CONSUMERS.filter((entry) => 'consumer' in entry).map((entry) => [
-      entry.element,
-      entry,
-    ])
-  )('%s is read where the ledger says, and tested', (element, entry) => {
-    if (!('consumer' in entry)) return
-    expect(existsSync(join(ROOT, entry.consumer)), entry.consumer).toBe(true)
-    const consumer = read(entry.consumer).toLowerCase()
-    expect(
-      spellings(element).some((spelling) => consumer.includes(spelling.toLowerCase())),
-      `${entry.consumer} names ${element}`
-    ).toBe(true)
-    expect(existsSync(join(ROOT, entry.test.file)), entry.test.file).toBe(true)
-    expect(read(entry.test.file), `${entry.test.file} has the test`).toContain(entry.test.name)
-  })
+  it.each(KNOWLEDGE_CONSUMERS.filter((entry) => 'consumer' in entry).map((entry) => [entry.element, entry]))(
+    '%s is read where the ledger says, and tested',
+    (element, entry) => {
+      if (!('consumer' in entry)) return
+      expect(existsSync(join(ROOT, entry.consumer)), entry.consumer).toBe(true)
+      const consumer = read(entry.consumer).toLowerCase()
+      expect(spellings(element).some((spelling) => consumer.includes(spelling.toLowerCase())), `${entry.consumer} names ${element}`).toBe(true)
+      expect(existsSync(join(ROOT, entry.test.file)), entry.test.file).toBe(true)
+      expect(read(entry.test.file), `${entry.test.file} has the test`).toContain(entry.test.name)
+    },
+  )
 
   it('only shrinks the elements nothing reads yet, each with the part that will', () => {
     const awaiting = KNOWLEDGE_CONSUMERS.flatMap((entry) => ('awaits' in entry ? [entry] : []))
     for (const entry of awaiting) expect(entry.awaits.length, entry.element).toBeGreaterThan(10)
-    expect(
-      awaiting
-        .map((entry) => entry.element)
-        .filter((element) => !AWAITING_BASELINE.includes(element))
-    ).toEqual([])
-    expect(
-      AWAITING_BASELINE.filter((element) => !awaiting.some((entry) => entry.element === element))
-    ).toEqual([])
+    expect(awaiting.map((entry) => entry.element).filter((element) => !AWAITING_BASELINE.includes(element))).toEqual([])
+    expect(AWAITING_BASELINE.filter((element) => !awaiting.some((entry) => entry.element === element))).toEqual([])
   })
 })

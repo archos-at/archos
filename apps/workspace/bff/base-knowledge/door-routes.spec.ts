@@ -32,12 +32,7 @@ vi.mock('@/lib/cache', async (importOriginal) => ({
 }))
 vi.mock('@/lib/documents/document-delivery', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/document-delivery')>()),
-  getDocumentTextPreview: vi.fn(async () => ({
-    text: NORM,
-    truncated: false,
-    contentType: 'text/markdown',
-    filename: 'n.md',
-  })),
+  getDocumentTextPreview: vi.fn(async () => ({ text: NORM, truncated: false, contentType: 'text/markdown', filename: 'n.md' })),
   streamDocumentFile: vi.fn(async () => new Response(NORM)),
   getDocumentPreview: vi.fn(async () => ({ url: 'https://store/norm.pdf' })),
   getDocumentThumbnail: vi.fn(async () => new Response('png')),
@@ -55,28 +50,14 @@ vi.mock('@/lib/documents/lifecycle', async (importOriginal) => ({
 vi.mock('@/lib/search/document-search', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/search/document-search')>()),
   runTimedSearch: vi.fn(async () => ({
-    response: {
-      sections: {
-        document: {
-          hits: [{ kind: 'document', id: 'doc1', passage: { text: NORM.slice(0, 300), page: 4 } }],
-        },
-      },
-    },
+    response: { sections: { document: { hits: [{ kind: 'document', id: 'doc1', passage: { text: NORM.slice(0, 300), page: 4 } }] } } },
     timing: {},
   })),
   serverTimingHeader: () => 'total;dur=1',
 }))
 vi.mock('@/lib/similar-passages/service', () => ({
   findSimilarPassages: vi.fn(async () => ({
-    groups: [
-      {
-        kind: 'office_shelf',
-        project: null,
-        documents: [
-          { documentId: 'doc1', passages: [{ page: 4, snippet: NORM.slice(0, 300), score: 0.9 }] },
-        ],
-      },
-    ],
+    groups: [{ kind: 'office_shelf', project: null, documents: [{ documentId: 'doc1', passages: [{ page: 4, snippet: NORM.slice(0, 300), score: 0.9 }] }] }],
     projectsSearched: 0,
     origin: 'embedded',
   })),
@@ -140,9 +121,7 @@ describe('an agent at the door, through the routes', () => {
     const first = await call('document-text-get', DOC)
     expect(first.status).toBe(200)
     expect((first.body as { text: string }).text).toHaveLength(DOOR_QUOTE_FACTOR * 100)
-    expect(JSON.stringify((await call('document-text-get', DOC)).body)).toContain(
-      'LICENSED_QUOTE_CAP_REACHED'
-    )
+    expect(JSON.stringify((await call('document-text-get', DOC)).body)).toContain('LICENSED_QUOTE_CAP_REACHED')
   })
 
   it('gets the note for a licensed copy’s snippet from workspace-search and passage-similar-search', async () => {
@@ -150,42 +129,23 @@ describe('an agent at the door, through the routes', () => {
     expect(JSON.stringify(searched.body)).toContain(LICENSED_SNIPPET_NOTE)
     expect(JSON.stringify(searched.body)).not.toContain('Absturzhöhe')
     const similar = await call('passage-similar-search', {
-      body: {
-        document: { kind: 'stored', documentId: 'doc2' },
-        passage: { text: NORM.slice(0, 120), cited: false },
-      },
+      body: { document: { kind: 'stored', documentId: 'doc2' }, passage: { text: NORM.slice(0, 120), cited: false } },
     })
     expect(JSON.stringify(similar.body)).toContain(LICENSED_SNIPPET_NOTE)
   })
 
   it('gets nothing of a held copy of any class on any route, under one code', async () => {
-    licence.value = {
-      licenceClass: 'public_open',
-      licensed: false,
-      confirmed: false,
-      held: true,
-      quoteMaxChars: 500,
-    }
-    for (const [name, input] of [
-      ...WHOLE,
-      ['document-text-get', DOC] as [string, OperationInput],
-    ]) {
+    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
+    for (const [name, input] of [...WHOLE, ['document-text-get', DOC] as [string, OperationInput]]) {
       expect(JSON.stringify((await call(name, input)).body), name).toContain('BASE_COPY_HELD')
     }
-    expect(
-      JSON.stringify((await call('workspace-search', { body: { text: 'Mindesthöhe' } })).body)
-    ).toContain(LICENSED_SNIPPET_NOTE)
+    expect(JSON.stringify((await call('workspace-search', { body: { text: 'Mindesthöhe' } })).body)).toContain(LICENSED_SNIPPET_NOTE)
   })
 
   it('is refused every licensed route when the copy’s licence cannot be read (fail closed)', async () => {
     licence.fails = true
-    for (const [name, input] of [
-      ...WHOLE,
-      ['document-text-get', DOC] as [string, OperationInput],
-    ]) {
-      expect(JSON.stringify((await call(name, input)).body), name).toContain(
-        'LICENSED_COPY_UNKNOWN'
-      )
+    for (const [name, input] of [...WHOLE, ['document-text-get', DOC] as [string, OperationInput]]) {
+      expect(JSON.stringify((await call(name, input)).body), name).toContain('LICENSED_COPY_UNKNOWN')
     }
   })
 })
@@ -195,10 +155,6 @@ describe('the person, through the same routes', () => {
     const text = await call('document-text-get', DOC, 'person')
     expect((text.body as { text: string }).text).toBe(NORM)
     expect((await call('document-file-get', DOC, 'person')).status).toBe(200)
-    expect(
-      JSON.stringify(
-        (await call('workspace-search', { body: { text: 'Mindesthöhe' } }, 'person')).body
-      )
-    ).toContain('Absturzhöhe')
+    expect(JSON.stringify((await call('workspace-search', { body: { text: 'Mindesthöhe' } }, 'person')).body)).toContain('Absturzhöhe')
   })
 })

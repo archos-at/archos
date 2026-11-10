@@ -20,9 +20,7 @@ describe('what the reading proposes for a base-knowledge document', () => {
   })
 
   it('reads an MA 37 Weisung as a directive addressed to Vienna, public by default', () => {
-    const values = proposeFromReading({
-      fileName: 'MA37_Weisung_Dachgeschossausbau_2021-03-15.pdf',
-    })
+    const values = proposeFromReading({ fileName: 'MA37_Weisung_Dachgeschossausbau_2021-03-15.pdf' })
     expect(values).toMatchObject({
       kind: 'authority_directive',
       addressees: [{ name: 'MA 37', territoryId: 'AT-9' }],
@@ -33,16 +31,8 @@ describe('what the reading proposes for a base-knowledge document', () => {
   })
 
   it('reads a commentary as a commentary, licensed, applying nowhere by itself', () => {
-    const values = proposeFromReading({
-      fileName: 'Moritz_BauO_Wien_Kommentar_2019.pdf',
-      federalState: 'vienna',
-    })
-    expect(values).toMatchObject({
-      kind: 'commentary',
-      licenceClass: 'licensed',
-      territoryIds: [],
-      editionLabel: '2019',
-    })
+    const values = proposeFromReading({ fileName: 'Moritz_BauO_Wien_Kommentar_2019.pdf', federalState: 'vienna' })
+    expect(values).toMatchObject({ kind: 'commentary', licenceClass: 'licensed', territoryIds: [], editionLabel: '2019' })
   })
 
   it('keeps a document it cannot place a proposal, never a failure', () => {
