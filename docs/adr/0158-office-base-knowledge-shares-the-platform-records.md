@@ -8,6 +8,8 @@ informed: everyone who builds the platform's base knowledge on these tables (S2,
 
 # An office's own standards, commentaries and directives are base knowledge records with an owner, the same records the platform will hold
 
+Corrects ADR-0116 where it says every filter carries `office_id`: until this record, none did.
+
 ## Context and Problem Statement
 
 feld72's first real test failed on three ÖNORMs the office owns. The platform
@@ -98,6 +100,13 @@ platform layer, as additions).
 - **Operations.** `base-knowledge-list`, `-get`, `-propose`, `-confirm`
   (`personDecides`; the agent proposes, the person confirms), `-update`,
   `-check-record`, `-remove`. Upload and search are the office shelf's.
+- **Problems and repeats.** Every base-knowledge route answers a refusal as an
+  RFC 9457 problem (`application/problem+json`: `type`, `title`, `status`,
+  `detail`, plus `code` and `error` as the rest of the app answers), and the
+  writes take an `Idempotency-Key`: the same key and body answer the first
+  result again, another body with that key is a 422
+  (`bff/base-knowledge/http/`). The door forwarding the header to every
+  operation comes with the agent-grade door.
 - **Flag** `office-base-knowledge`, an entitlement, default off.
 
 ### Consequences

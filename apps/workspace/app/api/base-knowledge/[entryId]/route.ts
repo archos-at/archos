@@ -16,22 +16,25 @@ import {
   updateBaseKnowledge,
 } from '@/lib/base-knowledge/office/service'
 import { updateEntryBodySchema } from '@/lib/base-knowledge/wire'
+import { asProblem } from '@/lib/base-knowledge/http/problem'
 
 type Params = { entryId: string }
 
-export const GET = apiRoute<Params>(async ({ session, params }) => getBaseKnowledgeEntry(session, params.entryId), {
+export const GET = apiRoute<Params>(async ({ session, params }) => asProblem(() => getBaseKnowledgeEntry(session, params.entryId)), {
   authz: { sessionOnly: true, why: 'any member reads the Archiv; keyed by session.organizationId and filtered by the Archiv reader' },
 })
 
 export const PATCH = apiRoute<Params>(
-  async ({ session, params, request }) => updateBaseKnowledge(session, params.entryId, await parseJsonBody(request, updateEntryBodySchema)),
+  async ({ session, params, request }) =>
+    asProblem(async () => updateBaseKnowledge(session, params.entryId, await parseJsonBody(request, updateEntryBodySchema))),
   { authz: { enforcedBy: 'updateBaseKnowledge (canManageOfficeShelf)' } }
 )
 
 export const DELETE = apiRoute<Params>(
-  async ({ session, params, request }) => {
-    await removeBaseKnowledge(session, params.entryId, request)
-    return { removed: true }
-  },
+  async ({ session, params, request }) =>
+    asProblem(async () => {
+      await removeBaseKnowledge(session, params.entryId, request)
+      return { removed: true }
+    }),
   { authz: { enforcedBy: 'removeBaseKnowledge (canManageOfficeShelf)' } }
 )
