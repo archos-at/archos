@@ -38,8 +38,13 @@ export const PUBLIC_SOURCE_FETCHER = {
     "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
     "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
   ],
-  /** ULA, link-local, loopback, NAT64 (a gateway to IPv4, private ranges included) and IPv4-mapped. */
-  privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96", "::ffff:0:0/96"],
+  /**
+   * ULA, link-local, loopback and NAT64 (a gateway to IPv4, private ranges included). Not IPv4-mapped
+   * (`::ffff:0:0/96`): the API server parses it as IPv4 and refuses it as no subset of `::/0`, which failed
+   * every dev deploy after #1592. A mapped address leaves as IPv4, where `privateV4` holds it, and the
+   * fetcher's own guard refuses one before connecting (`test_egress.py`, `v4_mapped_private`).
+   */
+  privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96"],
   /**
    * It also parses the PDFs it fetches (`POST /v1/extract`): at most two readers at once, each a child process
    * held to 1 GiB of address space (`public_sources/pdf.py`), beside the server itself (about 65 MiB idle,

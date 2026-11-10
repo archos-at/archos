@@ -115,5 +115,7 @@ describe("public-source-fetcher", () => {
     }
     const v6 = web.to.find((t: any) => t.ipBlock.cidr === "::/0").ipBlock.except;
     expect(v6).toEqual(expect.arrayContaining(["fc00::/7", "fe80::/10"]));
+    // The API server reads an IPv4-mapped block as IPv4 and refuses it under `::/0` (#1592 broke every dev deploy).
+    expect(v6.filter((range: string) => range.toLowerCase().startsWith("::ffff:"))).toEqual([]);
   });
 });
