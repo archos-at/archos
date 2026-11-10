@@ -16,14 +16,6 @@ export const withheldAs = (category: WithheldCategory, reason: string) =>
 /** Offered to an outside agent and to the agent. */
 export const OFFERED = { external: true, agent: true } as const satisfies Exposure
 
-/** The operator console: the platform door only (ADR-0126). */
-export const PLATFORM = {
-  external: false,
-  agent: false,
-  platform: true,
-  reason: 'the operator console is the platform operator’s, not an office’s: every write there reaches every tenant',
-} as const satisfies Exposure
-
 export const SENSITIVE = externalOnly(
   'its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under ' +
     'the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs',
