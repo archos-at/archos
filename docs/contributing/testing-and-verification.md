@@ -53,7 +53,7 @@ run.
 ```bash
 task verify:fast -- --dry-run   # the plan, nothing run
 task verify:fast -- --all       # every tier whole, as before 2026-11
-VERIFY_BASE=origin/release task verify:fast   # another base
+task verify:fast -- --base origin/release   # another base
 ```
 
 Without a merge base (no `origin/develop` fetched) it runs every tier. What it

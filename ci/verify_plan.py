@@ -10,7 +10,7 @@ This script makes the same two decisions for the working tree, from the same
 two definitions, so the local gate before a push costs what the change costs.
 
 What changed: everything since the merge base with the default branch
-(`origin/develop`, or `VERIFY_BASE`), committed or not, plus untracked files.
+(`origin/develop`, or `--base REF`), committed or not, plus untracked files.
 
 What runs, after `lint:repo` (which the Taskfile runs first, always):
 
@@ -27,13 +27,12 @@ CI selects from is recorded on `develop` and lives in CI's cache.
 `--all` runs every tier whole. So does a missing base, since a selection from
 an unknown diff is a guess.
 
-Usage: verify_plan.py [--all] [--dry-run] [--task TASK_EXE]
+Usage: verify_plan.py [--all] [--dry-run] [--base REF] [--task TASK_EXE]
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import shlex
 import subprocess
 import sys
@@ -150,15 +149,17 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--all", action="store_true", help="run every tier whole")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and stop")
+    # A flag, not an environment variable: Semgrep's tainted-env-args rule
+    # blocks a subprocess whose arguments descend from os.environ.
+    parser.add_argument("--base", default=DEFAULT_BASE, help="the ref to diff against (its merge base with HEAD)")
     parser.add_argument("--task", default="task", help="the go-task executable")
     args = parser.parse_args(argv[1:])
 
-    base = os.environ.get("VERIFY_BASE", DEFAULT_BASE)
-    changed = None if args.all else changed_paths(base)
+    changed = None if args.all else changed_paths(args.base)
     if args.all:
         decided = full_plan("--all")
     elif changed is None:
-        decided = full_plan(f"no merge base with {base} (git fetch origin develop, or set VERIFY_BASE)")
+        decided = full_plan(f"no merge base with {args.base} (git fetch origin develop, or pass --base)")
     else:
         decided = plan(changed, load_filters(), pr_selection._disk_readers())
 
