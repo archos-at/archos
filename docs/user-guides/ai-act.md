@@ -96,6 +96,11 @@ Who downloaded or opened which file is in [the download log](download-log.md).
   `AIHumanReviewed`: see [Reports ARCHOS writes](agent-authored-reports.md). A
   report or diagram ARCHOS files also prints a visible notice; an exported
   answer prints one when you ask for it.
+- **In an Anmerkungen-Protokoll.** A Protokoll (PDF or Word) that holds
+  ARCHOS's marks, replies or proposals is marked
+  `compositeWithTrainedAlgorithmicMedia`: a document your office wrote with
+  ARCHOS's text in it. A Protokoll of your office's own marks alone is not
+  marked, because nothing in it was generated.
 - **In documents ARCHOS drafts.** Every document ARCHOS writes into a project,
   a letter to an authority included, opens with „Verfasst von ARCHOS, einem
   KI-System, für <Ihr Büro>." (Article 50(1) of the AI Act). Your office can

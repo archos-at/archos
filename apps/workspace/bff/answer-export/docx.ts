@@ -46,7 +46,7 @@ import { createZip, type ZipEntry } from '@/lib/bim/zip'
 import {
   AI_GENERATOR_NAME,
   AI_PROVENANCE_PROPERTIES,
-  IPTC_TRAINED_ALGORITHMIC_MEDIA,
+  digitalSourceTypeOf,
   type AiProvenance,
 } from '@/lib/ai-provenance'
 import type { DocBlock, DocRun } from './blocks'
@@ -259,7 +259,7 @@ const customProperties = (provenance: DocxProvenance): string => {
     // OOXML has no XMP slot, so it is a custom property under the IPTC name.
     {
       name: AI_PROVENANCE_PROPERTIES.digitalSourceType,
-      value: `<vt:lpwstr>${IPTC_TRAINED_ALGORITHMIC_MEDIA}</vt:lpwstr>`,
+      value: `<vt:lpwstr>${digitalSourceTypeOf(provenance)}</vt:lpwstr>`,
     },
   ]
   if (provenance.runId) {

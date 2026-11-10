@@ -590,6 +590,12 @@ digitally signed and time-stamped (Sub-measure 1.1.1) and that text carry an
 imperceptible watermark (1.1.2); the signature needs a key service, and the
 watermark is the model provider's layer.
 
+A file a person made with a model's part in it is marked IPTC
+`compositeWithTrainedAlgorithmicMedia` instead (`AiProvenance.composite`): the
+Anmerkungen-Protokoll (`bff/annotations/export.ts`, `holdsAgentText`) when it
+holds Piloti's marks, replies or proposals, and nothing when it holds only the
+office's own.
+
 Every agent-written document also opens with the Art. 50(1) disclosure,
 `branding.aiDisclosure` from `answerExport.aiDisclosure.*`, under the header
 line: a letter to a Behörde is one of these documents.

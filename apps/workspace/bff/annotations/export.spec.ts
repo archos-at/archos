@@ -380,6 +380,44 @@ describe('exportAnnotationProtocol', () => {
     expect(pdf.text).toContain('Fassung 3 von 5')
   })
 
+  /**
+   * Art. 50(2) AI Act: Piloti's marks and replies are in this file, so it is
+   * marked, as a person's document with a model's part in it. The control is
+   * the same export of the office's own marks alone, which carries no marking
+   * at all: nothing in it was generated.
+   */
+  describe('the AI marking', () => {
+    const COMPOSITE = 'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'
+    const officeOnly = () =>
+      vi.mocked(listAnnotations).mockResolvedValue({
+        annotations: [mark({ number: 1 }), mark({ number: 2, replies: [reply()] })],
+        canAnnotate: true,
+        pilotiWakes: false,
+      })
+
+    it('marks a PDF holding Piloti’s text composite, in XMP and in Keywords', async () => {
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(COMPOSITE)
+      expect(String(pdf.info.Keywords)).toContain(`DigitalSourceType=${COMPOSITE}`)
+    })
+
+    it('marks a Word file holding Piloti’s text composite', async () => {
+      const file = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      const custom = readZipEntries(file.bytes).get('docProps/custom.xml') ?? ''
+      expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${COMPOSITE}`)
+    })
+
+    it('leaves the office’s own marks unmarked, in both formats', async () => {
+      officeOnly()
+      const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBeUndefined()
+      expect(pdf.info.Keywords).toBeUndefined()
+      officeOnly()
+      const docx = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
+      expect(readZipEntries(docx.bytes).has('docProps/custom.xml')).toBe(false)
+    })
+  })
+
   it('refuses a PDF too long to lay out, and points at the formats that have no such limit', async () => {
     const long = Array.from({ length: 300 }, (_, index) => mark({ number: index + 1, body: 'x'.repeat(2000) }))
     vi.mocked(listAnnotations).mockResolvedValue({ annotations: long, canAnnotate: true, pilotiWakes: false })

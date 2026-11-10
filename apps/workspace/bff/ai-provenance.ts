@@ -79,6 +79,19 @@ export const AI_PROVENANCE_PROPERTIES = {
 export const IPTC_TRAINED_ALGORITHMIC_MEDIA =
   'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'
 
+/**
+ * IPTC's term for a file that a person made and a model wrote PART of: an
+ * Anmerkungen-Protokoll holds the office's own marks beside Piloti's marks and
+ * replies. Calling that whole file `trainedAlgorithmicMedia` would say a model
+ * wrote the office's words; saying nothing would hide the part it did write.
+ */
+export const IPTC_COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA =
+  'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'
+
+/** The IPTC term for a provenance: wholly a model's, or a person's with a model's part in it. */
+export const digitalSourceTypeOf = (provenance: AiProvenance): string =>
+  provenance.composite ? IPTC_COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA : IPTC_TRAINED_ALGORITHMIC_MEDIA
+
 const XML_ESCAPES: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -99,6 +112,11 @@ const XML_ESCAPES: Record<string, string> = {
 export function aiProvenanceXmp(marking: AiProvenanceMarking): string {
   const escape = (value: string) => value.replace(/[&<>"]/g, (char) => XML_ESCAPES[char])
   const { digitalSourceType } = AI_PROVENANCE_PROPERTIES
+  // Read back from the marking, which this module wrote and which states the
+  // term in full: the packet and the string cannot then disagree.
+  const sourceType = marking.includes(IPTC_COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA)
+    ? IPTC_COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA
+    : IPTC_TRAINED_ALGORITHMIC_MEDIA
   return (
     '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n' +
     '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n' +
@@ -107,7 +125,7 @@ export function aiProvenanceXmp(marking: AiProvenanceMarking): string {
     ' xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"\n' +
     ' xmlns:xmp="http://ns.adobe.com/xap/1.0/"\n' +
     ' xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n' +
-    `<Iptc4xmpExt:${digitalSourceType}>${IPTC_TRAINED_ALGORITHMIC_MEDIA}</Iptc4xmpExt:${digitalSourceType}>\n` +
+    `<Iptc4xmpExt:${digitalSourceType}>${sourceType}</Iptc4xmpExt:${digitalSourceType}>\n` +
     `<xmp:CreatorTool>${escape(AI_GENERATOR_NAME)}</xmp:CreatorTool>\n` +
     `<pdf:Keywords>${escape(marking)}</pdf:Keywords>\n` +
     '</rdf:Description>\n' +
@@ -125,6 +143,11 @@ export interface AiProvenance {
    * than no run id, because it reads like an audit trail.
    */
   runId?: string
+  /**
+   * A person's document with a model's text in it, rather than a model's
+   * document: marked `compositeWithTrainedAlgorithmicMedia`.
+   */
+  composite?: boolean
 }
 
 /**
@@ -183,7 +206,7 @@ export function aiProvenanceMarking(provenance: AiProvenance): AiProvenanceMarki
     // The standard's term in the string too, so a carrier that has only this
     // string (Markdown's fenced block, an SVG's <desc>, a PDF's Keywords) still
     // says `trainedAlgorithmicMedia` to a detector not built for this product.
-    `${AI_PROVENANCE_PROPERTIES.digitalSourceType}=${IPTC_TRAINED_ALGORITHMIC_MEDIA}`,
+    `${AI_PROVENANCE_PROPERTIES.digitalSourceType}=${digitalSourceTypeOf(provenance)}`,
   ]
   if (provenance.runId) parts.push(`${AI_PROVENANCE_PROPERTIES.runId}=${provenance.runId}`)
   // The one place the brand is minted. Everything downstream that holds an
