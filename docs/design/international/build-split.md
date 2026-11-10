@@ -2,7 +2,7 @@
 
 Source: design v7 (`docs/design/international/design.md` on branch `claude/intl-design`, Part I) plus the v7 review findings. Updated 2026-11-06 against `develop` at `cae35262`.
 
-**What changed since the design was checked (`4fb7b836`):** 39 commits. Migrations now run to 0199 and ADRs to 0157, so no numbers are reserved here: each session takes the next free number and the orchestrator renumbers at merge. ADR-0154 put platform staff's MCP traffic through agentgateway, and #1518 admits platform staff whatever organization they signed in with; the cross-office conversation and feedback operations are still on the platform door (`exposure.config.ts:443-472`), so S4 matters more, and must cover the gateway. Project mail landed (inbound mail, in-cluster ClamAV, ADR-0157): a new flow for S5. Ticket 32 is still "Neu". feld72 already uses Claude over MCP to sort its office knowledge, which supports "Claude is the onboarding agent".
+**What changed since the design was checked (`4fb7b836`):** 39 commits. Migrations now run to 0199 and ADRs to 0157, so no numbers are reserved here: each session takes the next free number and the orchestrator renumbers at merge. ADR-0154 put platform staff's MCP traffic through agentgateway, and #1518 admits platform staff whatever organization they signed in with; the cross-office conversation and feedback operations are still on the platform door (the `conversations` block of `exposure.config.ts`), so S4 matters more, and must cover the gateway. Project mail landed (inbound mail, in-cluster ClamAV, ADR-0157): a new flow for S5. Ticket 32 is still "Neu". feld72 already uses Claude over MCP to sort its office knowledge, which supports "Claude is the onboarding agent".
 
 ## Intent over instructions
 
@@ -32,20 +32,38 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 |---|---|---|---|
 | 0 | the orchestrator alone: the design on `claude/intl-design` | now | minutes |
 | 1 | S1 Office layer · S2 Licensed seam · S3 Correctness · S4 Door split · S5 Data-flow register · S6 Connector types | design branch pushed | 3 – 5 h |
-| 2 | S7 Platform records and review · S8 Austria as pack 1 · S9 Setup facts as data | S1 merged | 4 – 6 h |
-| 3 | S10 Agent-grade door · S11 Time and editions · S12 Address resolution | S7 merged | 3 – 5 h |
-| then | Germany at L0: an operator's Claude session onboards it **through the door**, no code | S10 merged, counsel sign-off | review time |
+| 2 | S7 Platform records, review, entitlements · S13 Rulesets and the evaluator · S14 Residency and AI Act | S7 and S13 when S1 is merged; S14 when S5 is merged (AI Act marking is due 2026-12-02) | 4 – 6 h |
+| 3 | S8 Austria as pack 1 · S9 Setup facts · S10 Agent-grade door · S11 Time and editions · S12 Address resolution | S7 merged; S9 and S11 also need S13 | 4 – 6 h |
+| 4 | S15 Turn context and gate · S16 Germany readiness | S15 when S8 and S11 are merged; S16 when S6 and S13 are | 3 – 5 h |
+| then | Germany at L0: an operator's Claude session onboards it **through the door**, no code | S10, S15 and S16 merged, counsel sign-off | review time |
 
-About 1 – 2 days of wall clock for the code if PRs are merged as they turn green. Your review and merge sit on the critical path, not the writing.
+About 2 – 3 days of wall clock for the code if PRs are merged as they turn green. Your review and merge sit on the critical path, not the writing. The dated edge cases and the week table in `design.md` were written before this split; the waves replace them, and no date there is a commitment.
 
 ```
-W0 contract ─┬─ S1 office layer ─┬─ S7 platform records + review ─┬─ S10 agent-grade door ── Germany L0 (operation run)
-             ├─ S2 licensed seam │                                ├─ S11 time and editions
-             ├─ S3 correctness   ├─ S8 Austria as pack 1           └─ S12 address resolution
-             ├─ S4 door split    └─ S9 setup facts as data
-             ├─ S5 data-flow register
-             └─ S6 connector types
+Wave 1                 Wave 2                     Wave 3                   Wave 4
+S1 office layer ──┬──> S7 platform records ──┬──> S8 Austria pack ──┐
+S2 licensed seam  │                          ├──> S10 agent door ───┼────────────────────────┐
+S3 correctness    ├──> S13 rulesets ─────────┼──> S9 setup facts    │                        ├──> Germany L0
+S4 door split     │                          ├──> S11 time+editions ┴──> S15 turn context ───┤
+S5 register ──────┴──> S14 residency+AI Act  └──> S12 addresses                              │
+S6 connectors ──────────────────────────────────────────────────────> S16 Germany readiness ─┘
 ```
+
+## Coverage
+
+On 2026-11-10 an independent reviewer mapped every buildable item of `design.md` (304: records, operations, flags, tests, scores, guards, edge cases E01–E48, test rows T30–T32, ADRs, tickets) and the `codebase-map.md` defects to this split. The first version left 91 items with no home, chiefly the evaluator and rulesets (3.7), the turn context and gate (4.6, 5.5), and residency B3 with the AI Act deadline (6.4–6.7), so Germany L0 could not have run on it. This revision gives every one of them a home: a session below, the Germany L0 operation, or "Not in this build" with the trigger that brings it back. S8 and S9 moved to Wave 3 because they need S7's records and S13's evaluator.
+
+**Every session also:** writes the ADR the design's ADR table assigns to its part (next free number); declares the Langfuse scores its part produces in `SCORE_DEFINITIONS`; adds its consumers to `consumers.ts` (S1 creates it) so the anti-relapse spec grows with each part.
+
+**Ownership where two sessions touch one thing:**
+- The geocoder: S3 switches komoot off by default; S5 registers it.
+- Defects 6 and 7 (Vienna laws everywhere, OIB classes for every project) are S8's, through chain text and adoption relations; defect 5 and `bim/rules.ts` are S9's.
+- `personDecides`: S7 builds the primitive for approve, publish, rollback and entitlement; S10 reuses it on the door.
+- Idempotency keys and RFC 9457 problems: S1 builds the shared helper for office operations; S10 extends it to every door operation.
+- Licensed ingest: S1 marks it metadata-only in the pipeline; S2 owns `vision_calls.py`.
+- The office answer label ("Büroexemplar … zuletzt geprüft"): S1 supplies the data, S2 renders it.
+- `exposure.config.ts`: S4 may edit it to classify every platform operation; everyone else adds operations in new files.
+- Platform-dependent parts of S1 (the text-less listing a second office sees, release moves) are stubs behind one interface until S7 replaces them. S6 keeps source configuration in files until S7's records exist.
 
 ## Wave 0: the shared points (text, not code)
 
@@ -83,7 +101,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S4 Door split (security)
 - **Design suggests:** a separate knowledge door (`/api/platform/knowledge/mcp`), or a server-side tool allowlist per OAuth client; every platform operation classified `platform_public` or `tenant_content`; tenant-content operations withheld from any external agent client.
-- **Why:** the platform door today also serves cross-office conversation search and feedback (`exposure.config.ts:651-690`), and WorkOS cannot narrow a token. Claude onboarding a country must never see tenant text.
+- **Why:** the platform door today also serves cross-office conversation search and feedback (the `conversations` block of `exposure.config.ts`), and WorkOS cannot narrow a token. Claude onboarding a country must never see tenant text.
 - **Fixed, ownership:** `agent-api/door/`, `door-principal.ts`, the MCP server routing, a new exposure test.
 - **Outcome, measured by:** a test proves no `tenant_content` operation is reachable from the knowledge door or an external agent client.
 
@@ -98,25 +116,50 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Fixed, ownership:** `packages/public-sources/` (new), `packages/ris-adapter/`, the fetcher Pulumi resource.
 - **Outcome, measured by:** the Austrian answer suite unchanged with `sourceRouting` on; `task pkg:test` green.
 
-## Wave 2 (after S1 is merged)
+### Wave 1 additions (sent to the running sessions on 2026-11-10)
+- **S1:** the stubs above; `consumers.ts` with `knowledge-consumers.spec.ts`, and `wire/vocab.ts` with its generator, so record words have one source.
+- **S2:** render the office answer label; the door's cumulative quote cap per document and session (E19); refuse a web search that shares a shingle with licensed text; the multilingual quoting rule; no groundedness judge on licensed turns; the lessons distiller refuses turns that used office or licensed text (E44).
+- **S3:** komoot off by default; the remaining Austria-only prompts and derivations (`parcel_note` without a country, project-experience prompts "in Austria", the deep-research opener "Austrian office", `prompt-view.ts` deriving `country=at`); `time_zone` replacing `OFFICE_TIME_ZONE`. Prepare the neutral static prompt push, and gate it on S8's renderer being deployed.
+- **S4:** the right to edit `exposure.config.ts`; correct `docs/architecture/agent-surface.md` where it describes the platform door.
+- **S5:** the DPA annex generated from the register; the corrected "excerpt" copy on the legal page.
+- **S6:** the AKN `eId` anchor fixture test.
+
+## Wave 2
+
 
 ### S7 Platform records, review, publish
 - **Design suggests:** v7 4.4. Change requests, per-claim review, approvals with the person's yes, preview and stable channels, golden runs, rollback, the validation kit; territory import; AT authorities; the text-less `std-asi` listing of the ÖNORMs OIB cites; the platform view (countries, coverage, queue).
 - **Fixed, ownership:** `bff/base-knowledge/platform/`, `catalog/platform-knowledge.ts`, the platform UI area, a migration (next free number).
-- **Outcome, measured by:** a rollback round trip; MA 37 excluded for a project in Graz.
+- **Also (coverage):** `organization_countries` and the entitlements view with `platform-org-country-entitle`, `organization-countries-get`, `platform-organization-home-country-set`; indexing on publish (a Hatchet job per manifestation), `index-status`, re-ingest rebinding; platform freshness targets (14, 30, 90 days); `platform-norm-registry-update` answering 409; the reusable `personDecides` primitive.
+- **Outcome, measured by:** a rollback round trip; MA 37 excluded for a project in Graz; a published platform text is searchable within the indexing job's run.
+
+### S13 Rulesets and the one evaluator
+- **Design suggests:** v7 3.7. A ruleset record type; `decision_table.v1` as Zod; one JsonLogic evaluator with a library oracle and property tests; competence rulesets with the open-node rule.
+- **Why:** setup facts (S9), reference dates (S11), competence and the German advice policy (S16) are all rulesets. Without one evaluator each becomes code per country again.
+- **Fixed, ownership:** the evaluator package, the ruleset tables (a migration, next free number), its ADR.
+- **Outcome, measured by:** Austrian competence and OIB classification expressed as rulesets reproduce today's results on the fixtures; E32 (Berlin-Mitte, Hamburg-Altona → Bezirksamt) from a synthetic ruleset.
+
+### S14 Residency and AI Act
+- **Design suggests:** v7 6.4 – 6.7 (B3). The per-role processing table; EU routing; `processing_location` and `subprocessor` on every generation; the ZDR org switch that today turns off; BYOK held to the EU; `organization_processing_policies` with `purpose_ok` and the include-only judge filter; WorkOS audit events with salted hashes instead of filenames; staff break-glass; the `residency_cell` boot check.
+- **Fixed, deadline:** AI Act Art. 50 marking of generated content and the disclosure on letters to authorities, live by 2026-12-02.
+- **Outcome, measured by:** `processing_location_compliant` on every generation; a planted non-EU route fails the boot check; marking present on generated documents.
+
+
+## Wave 3
 
 ### S8 Austria as pack 1
 - **Design suggests:** OIB adoption per Land as relations; roles replace `citations/binding.py`; chain text replaces the static `<building_law>` block; Qdrant payload gains `edition_id`, `work_id`, `territory_ids`.
 - **Outcome, measured by:** v7 8.3. Byte-identical prompt blocks where nothing should change, identical top-k through an id map, paired answer-suite runs with an allowlist.
 - **Fixed, ownership:** `citations/binding.py`, prompt rendering of the chain, the knowledge-layer payload, a migration (next free number).
+- **Also (coverage):** defects 6 and 7; relation records with `deviates_from` substitution and the precedence merge; every kind in the CHECK with fixtures; cross-pack resolution; the `eu` pack with dated union parents (E38, E39). Unblocks S3's static prompt push.
 
 ### S9 Setup facts as data
 - **Design suggests:** `fact_definitions` and `fact_sources` per country as records; the intake stages read them instead of TypeScript options; a parity harness for `location-register.ts` and `derivations.ts`.
 - **Why:** this is the last per-country code (review finding); setup is going agentic (ticket 31).
-- **Fixed, ownership:** `bff/project-profile/intake-stages/`, `location-register.ts`, `derivations.ts`, a migration (next free number).
+- **Fixed, ownership:** `bff/project-profile/intake-stages/`, `location-register.ts`, `derivations.ts`, `bim/rules.ts`, a migration (next free number).
+- **Also (coverage):** defect 5 (`withDerivedClass`); `classification-evaluate` on S13's evaluator with the existing-versus-planned delta (E34); the stale ticket-26 references.
 - **Outcome, measured by:** zero diffs on Austrian profiles and fixtures; DE and CH fixtures with distinct synthetic setup records show that each project receives only its own country's options.
 
-## Wave 3 (after S7 is merged)
 
 ### S10 Agent-grade door
 - **Design suggests:** v7 4.3. The onboarding guide resource, `schema-get`, idempotency keys, batches of 200, `dryRun`, RFC 9457 problems, citation capture, the quote-span check for every proposer, `personDecides` on approve, publish, rollback and entitlement; `onboarding-door.spec.ts`, a scripted client with no model.
@@ -124,14 +167,32 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S11 Time and editions (ticket 30)
 - **Design suggests:** procedures, per-jurisdiction reference-date rules, transitions, `asOf` on search and `law-lookup`.
+- **Also (coverage):** reference-date rules run on S13's evaluator; consolidated versions by `FassungVom`; edition minting with `historyAvailableFrom`.
 - **Outcome, measured by:** "what applied at submission" answered with the edition named, on a fixed as-of set.
 
 ### S12 Address resolution
 - **Design suggests:** `site-resolve` and `project-site-set` over official registers hosted in the cell (BEV first), replacing the withheld `address-search`.
 - **Outcome, measured by:** a typed address resolves as `unverified`; a register hit gives country, Land, Gemeinde and the authority.
 
+## Wave 4
+
+### S15 Turn context and gate
+- **Design suggests:** v7 4.6 and 5.5. `/api/internal/turn-context` with the full `KnowledgeContext`; `RequestContext` gains jurisdiction, procedures and gate; the gate (`organization_unplaced`, `not_entitled`, coverage levels L0 – L2); coverage labels and freshness degradation; `site_unknown`; pinned pack sequences for a running research turn (E42); `message_edition_uses` (E25); the `knowledge_unavailable` alert; `coverage-get`, `base-knowledge-report`, `project-base-get` and `-confirm`; the intake's backend tools; the FAQ generated from coverage, checked by `check_coverage_copy.py`. Flag `knowledgeContext`.
+- **Why:** this is where an answer learns which country, edition and coverage apply. Without it the records exist and the agent does not read them.
+- **Outcome, measured by:** E01, E02, E04, E28, E40 on fixtures; the `knowledge` phase within its p95 budget; a test that plants two organizations with equal digests and gets two cache keys.
+
+### S16 Germany readiness
+- **Design suggests:** the advice-policy and terminology rulesets with hedge templates and the `advice_policy_held` score (counsel signs the policy); competence for German Länder on S13; the 16-portal classification with the terms check; the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points; a German address register for E31.
+- **Outcome, measured by:** a dry run of the Germany L0 operation on preview reaches a green validation with the advice policy held on every golden case.
+
 ## Not in this build
-Default-deny egress for every workload, the privacy inventory and erasure across all stores, office region packs, location lookups, and the contract step that drops `norm_registry` and `oib_knowledge`. Each is its own later session.
+Each returns when its trigger arrives, as its own session.
+- Default-deny egress for every workload, the data-class inventory, and export, erasure, backups and retention across all stores.
+- Office region packs; office records proposed to or contributed into the platform (E43, E45); `arcgis_rest`; `location-lookup`.
+- The contract step that drops `norm_registry` and `oib_knowledge` (after S8 has run in production).
+- `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, Steckbrief, agentic intake). Trigger: the agentic project-setup track.
+- The alias map (E29). Trigger: a source changes its format.
+- Switzerland's LexFind connector; DPIA and TIA templates (documents, not code).
 
 ## Merging a wave
 
@@ -144,7 +205,7 @@ The user delegated the Wave 1 merge (2026-11-10): the orchestrator merges the wh
 5. **Watch the dev deploy** of the last merge: the migrate Job completes, and nothing ask-first ran (the static prompt push, the authz catalog apply and Langfuse provisioning stay with the user).
 
 ## Human steps on the critical path
-1. Merge order: contract, then Wave 1 in any order, then S1 before Wave 2, then S7 before Wave 3. Wave 1 is merged by the orchestrator (above).
+1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S5 before S14; S7 and S13 before Wave 3; S8 and S11 before S15, S6 and S13 before S16. Wave 1 is merged by the orchestrator (above).
 2. Approve the ask-first steps each session prepares.
 3. Counsel for the German advice policy; an expert for anything past L0.
 
