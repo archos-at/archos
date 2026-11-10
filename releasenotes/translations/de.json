@@ -3696,6 +3696,10 @@
     "de": "Der Modellbereich ist jetzt auch aus dem Büroarchiv erreichbar, mit Struktur, Mengen und Revisionen. Das Prüfbuch braucht weiterhin ein Projekt, weil es gegen Gebäudeklasse und Hauptnutzung prüft."
   },
   {
+    "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
+    "de": "Die Modellprüfung ordnet ein Projekt – wie die Projekteinstellung – dem Bundesland zu, das die Adresssuche ermittelt hat: Bei einem österreichischen Projekt, dessen Bundesland nie manuell eingetragen wurde, werden nicht mehr alle OIB-Richtlinien als offen angezeigt."
+  },
+  {
     "en": "The model picker shows roughly how many points a typical question costs on each model, so a cheap model can be told from an expensive one at a glance.",
     "de": "Die Modellauswahl zeigt neben jedem Modell, was eine typische Anfrage ungefähr an Punkten kostet, damit sich ein günstiges von einem teuren Modell auf einen Blick unterscheiden lässt."
   },
