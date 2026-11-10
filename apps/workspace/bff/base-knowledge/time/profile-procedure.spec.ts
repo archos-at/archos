@@ -29,6 +29,11 @@ describe('procedureFromProfile', () => {
     expect(procedureFromProfile(facts, 'p1')).toMatchObject({ filedOn: null, decidedOn: null })
   })
 
+  it('a date off the calendar is unknown for that fact alone, never for the whole procedure', () => {
+    const facts = { 'filed_on@p1': fact('2023-06-01'), 'works_started_on@p1': fact('2023-02-30'), 'decided_on@p1': fact('2024-02-29') }
+    expect(procedureFromProfile(facts, 'p1')).toMatchObject({ filedOn: '2023-06-01', decidedOn: '2024-02-29', worksStartedOn: null })
+  })
+
   it('knows whether the profile names the procedure', () => {
     expect(profileHasProcedure({ 'filed_on@p1': fact('2023-06-01') }, 'p1')).toBe(true)
     expect(profileHasProcedure({ 'filed_on@p1': fact('2023-06-01') }, 'p2')).toBe(false)

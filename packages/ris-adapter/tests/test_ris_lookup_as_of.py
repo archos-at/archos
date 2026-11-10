@@ -132,3 +132,11 @@ def test_the_lookup_span_records_the_day_asked_for_and_the_versions_left_unread(
 
     assert context["as_of"] == "2019-06-01" and context["versions_dropped"] == 2
     assert "as_of" not in _span_context("Was sagt § 3?", parse_address("Was sagt § 3?", "", ""), LookupTrace(), [])
+
+
+def test_a_date_with_trailing_text_is_no_date_but_a_timestamp_is_its_day():
+    assert parse_day("2015-01-01 (provisional)") is None
+    assert parse_day("2015-01-01garbage") is None
+    assert parse_day("2015-01-01T00:00:00") == date(2015, 1, 1)
+    assert parse_day("2015-01-01T00:00:00+01:00") == date(2015, 1, 1)
+    assert in_force_on({"In Kraft seit": "2015-01-01 (provisional)"}, date(2020, 1, 1)) is False

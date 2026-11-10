@@ -8,11 +8,14 @@
  * an unknown date is asked for, and a wrong one would decide.
  */
 
+import { z } from 'zod'
 import { procedureSchema, type Procedure } from '@/lib/base-knowledge/wire/time'
 
 type ProfileFacts = Readonly<Record<string, { value?: unknown } | undefined>>
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+/** A calendar day (`2024-02-29` yes, `2023-02-30` no), checked per fact so one wrong date leaves the others. */
+const calendarDay = z.iso.date()
+const isDay = (value: unknown): value is string => calendarDay.safeParse(value).success
 
 function read(facts: ProfileFacts, key: string, procedureId: string): unknown {
   return facts[`${key}@${procedureId}`]?.value ?? null
@@ -20,20 +23,19 @@ function read(facts: ProfileFacts, key: string, procedureId: string): unknown {
 
 function dateOr<T extends string>(value: unknown, word: T): string | T | null {
   if (value === word) return word
-  return typeof value === 'string' && ISO_DATE.test(value) ? value : null
+  return isDay(value) ? value : null
 }
 
 export function procedureFromProfile(facts: ProfileFacts, procedureId: string): Procedure {
   const type = read(facts, 'procedure_type', procedureId)
   const filedOn = read(facts, 'filed_on', procedureId)
-  const parsed = procedureSchema.safeParse({
+  // Each fact is checked on its own, so the schema cannot fail and no valid fact is lost to another's error.
+  return procedureSchema.parse({
     procedureType: typeof type === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(type) ? type : null,
-    filedOn: typeof filedOn === 'string' && ISO_DATE.test(filedOn) ? filedOn : null,
+    filedOn: isDay(filedOn) ? filedOn : null,
     decidedOn: dateOr(read(facts, 'decided_on', procedureId), 'pending'),
     worksStartedOn: dateOr(read(facts, 'works_started_on', procedureId), 'not_started'),
   })
-  // A calendar-invalid date (2023-02-30) fails the schema; the whole procedure is then unknown.
-  return parsed.success ? parsed.data : procedureSchema.parse({})
 }
 
 /** Whether the profile names this procedure at all. */

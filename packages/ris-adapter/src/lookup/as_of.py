@@ -24,13 +24,15 @@ import re
 from datetime import date
 
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+#: An ISO timestamp, read as its day: OGD-RIS may state a date as one. Nothing else after a date is accepted.
+_ISO_TIMESTAMP = re.compile(r"(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?")
 _GERMAN = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
 
 
 def parse_day(text: str) -> date | None:
     """An ISO (``2023-01-01``) or German (``01.01.2023``) date, or None for anything else."""
     text = (text or "").strip()
-    iso = _ISO.fullmatch(text) or _ISO.match(text)
+    iso = _ISO.fullmatch(text) or _ISO_TIMESTAMP.fullmatch(text)
     german = _GERMAN.fullmatch(text)
     try:
         if iso:
