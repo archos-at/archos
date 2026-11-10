@@ -45,6 +45,11 @@ class ContextBlocks:
     #: role and last check (``lib/base-knowledge/office/turn-block.ts``). None
     #: from an older BFF, with the flag off, or when the office holds none.
     base_knowledge: str | None = None
+    #: The data of each confirmed office copy's answer label (``officeAnswerLabel``
+    #: in ``lib/base-knowledge/office/answer-label.ts``): document id, kind,
+    #: designation, edition, role, last check, text use. Tokens for the answer's
+    #: renderer (S2) to word; empty from an older BFF or with the flag off.
+    base_knowledge_labels: tuple[dict[str, object], ...] = ()
     #: Where the BFF spent its time, read off the route's ``Server-Timing``
     #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
     #: waited for the query embed). Scalars only, never content; empty from an
@@ -65,6 +70,17 @@ WORKSPACE_MAX_CHARS = 6500
 #: A header and at most 40 lines of 400 chars (``MAX_TURN_ENTRIES``,
 #: ``MAX_TURN_LINE_CHARS`` in ``lib/base-knowledge/office/turn-block.ts``).
 BASE_KNOWLEDGE_MAX_CHARS = 17_000
+
+#: As many labels as the block carries lines (``MAX_TURN_ENTRIES``).
+BASE_KNOWLEDGE_MAX_LABELS = 40
+
+
+def _labels(value: object) -> tuple[dict[str, object], ...]:
+    """The answer-label records, bounded; anything not a list of objects reads as none. Pure."""
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, dict))[:BASE_KNOWLEDGE_MAX_LABELS]
+
 
 #: The line that opens the office's conventions in the WORKSPACE block
 #: (``officeConventionsHeader`` in ``lib/office-conventions/render.ts``).
@@ -169,6 +185,7 @@ def _parse_blocks(body: object) -> ContextBlocks:
             data.get("baseKnowledge") if isinstance(data.get("baseKnowledge"), str) else None,
             BASE_KNOWLEDGE_MAX_CHARS,
         ),
+        base_knowledge_labels=_labels(data.get("baseKnowledgeLabels")),
     )
 
 

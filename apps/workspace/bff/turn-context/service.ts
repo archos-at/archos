@@ -170,6 +170,7 @@ export async function loadTurnContext(
     drewOnOtherProjects: drewOnOthers,
     referenceProjects,
     workspace,
-    baseKnowledge,
+    baseKnowledge: baseKnowledge?.block ?? null,
+    baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
   }
 }

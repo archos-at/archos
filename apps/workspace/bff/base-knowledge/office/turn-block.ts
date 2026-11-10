@@ -16,6 +16,7 @@
  */
 
 import type { BaseKnowledgeEntry } from '../wire'
+import type { ListedEdition } from '../platform'
 import { directiveApplicability, type ProjectTerritory } from './authority'
 
 /** Most entries the block carries; the rest are named by count. */
@@ -83,11 +84,25 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
 }
 
 /** The block, or null when the office holds no confirmed entry. */
-export function renderBaseKnowledgeBlock(entries: readonly BaseKnowledgeEntry[], project: ProjectTerritory): string | null {
+/** A norm the platform lists that the office holds no copy of: named, never quoted. */
+function listedLine(listed: ListedEdition): string {
+  const text = listed.hasText ? 'the platform holds its text' : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
+  const name = `${listed.designation} „${listed.title}“`
+  const result = `- ${name}: listed by the platform, edition ${listed.editionLabel}; ${text}`
+  return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
+}
+
+/** The block, or null when the office holds no confirmed entry and the platform lists nothing it lacks. */
+export function renderBaseKnowledgeBlock(
+  entries: readonly BaseKnowledgeEntry[],
+  project: ProjectTerritory,
+  listed: readonly ListedEdition[] = [],
+): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
-  if (confirmed.length === 0) return null
+  if (confirmed.length === 0 && listed.length === 0) return null
   const shown = confirmed.slice(0, MAX_TURN_ENTRIES).map((entry) => line(entry, project))
   const rest = confirmed.length - shown.length
   const more = rest > 0 ? [`- … and ${rest} more not listed here.`] : []
-  return [BASE_KNOWLEDGE_HEADER, ...shown, ...more].join('\n')
+  const listedLines = listed.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length)).map(listedLine)
+  return [BASE_KNOWLEDGE_HEADER, ...shown, ...more, ...listedLines].join('\n')
 }

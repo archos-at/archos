@@ -45,6 +45,7 @@ import {
 } from '../store/repository'
 import { markCopyPoints } from './mark'
 import { readDocumentReading, visibleOfficeDocuments } from './repository'
+import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
 import {
   BaseKnowledgeDisabledError,
@@ -223,8 +224,30 @@ describe('the turn', () => {
     vi.mocked(findProjectProfileInOrg).mockResolvedValue({
       profile: { facts: { federal_state: { value: 'vienna' } } },
     } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
-    const block = await baseKnowledgeForTurn('org-1', 'proj-1')
-    expect(block?.split('\n')).toHaveLength(2)
-    expect(block).toContain('ÖNORM B 1600:2017')
+    const turn = await baseKnowledgeForTurn('org-1', 'proj-1')
+    expect(turn?.block?.split('\n')).toHaveLength(2)
+    expect(turn?.block).toContain('ÖNORM B 1600:2017')
+    expect(turn?.labels).toEqual([
+      expect.objectContaining({ documentId: 'doc-1', holder: 'office', role: 'requirement_source', editionLabel: '2017-04-01' }),
+    ])
+  })
+
+  it('names what the platform lists and the office does not hold, through the one platform interface', async () => {
+    const previous = usePlatformKnowledge({
+      ...STUB_PLATFORM_KNOWLEDGE,
+      listedNotHeld: async (held) =>
+        held.includes('ÖNORM B 5371:2021')
+          ? []
+          : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15', hasText: false }],
+    })
+    try {
+      vi.mocked(readOfficeEntries).mockResolvedValue([])
+      const turn = await baseKnowledgeForTurn('org-2', null)
+      expect(turn?.block).toContain('ÖNORM B 5371:2021 „Treppen“: listed by the platform')
+      expect(turn?.block).toContain('gelistet, kein Text')
+      expect(turn?.labels).toEqual([])
+    } finally {
+      usePlatformKnowledge(previous)
+    }
   })
 })

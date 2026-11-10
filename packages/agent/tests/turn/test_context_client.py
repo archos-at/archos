@@ -304,3 +304,20 @@ def test_base_knowledge_rides_after_the_memory_tagged():
     assert client.with_base_knowledge("MEMORY", "- a") == (
         "MEMORY\n\n<office_base_knowledge>\n- a\n</office_base_knowledge>"
     )
+
+
+def test_base_knowledge_labels_are_read_as_records_and_bounded(request_context, opener):
+    labels = [{"documentId": f"doc-{n}", "holder": "office", "role": "requirement_source"} for n in range(60)]
+    opener.open.return_value.read.return_value = json.dumps(
+        {
+            "data": {
+                "projectContext": None,
+                "projectMemory": None,
+                "orgInstructions": None,
+                "baseKnowledgeLabels": [*labels, "not a record"],
+            }
+        }
+    ).encode("utf-8")
+    blocks = client.fetch_turn_context(request_context)
+    assert len(blocks.base_knowledge_labels) == client.BASE_KNOWLEDGE_MAX_LABELS
+    assert blocks.base_knowledge_labels[0] == labels[0]

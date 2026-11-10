@@ -71,6 +71,9 @@ class TurnContext:
     #: conversation's audience, what waits, and this conversation's proposals
     #: with every status. Rendered when the workspace tools are bound.
     workspace: str | None = None
+    #: The data of each confirmed office copy's answer label (ADR-0158), for the
+    #: answer's renderer to word. Empty with the flag off or from an older BFF.
+    base_knowledge_labels: tuple[dict[str, object], ...] = ()
     #: Whether this turn may hand work over (`create_task`). Its own flag, see
     #: :class:`agent.stages.flags.TurnFlags`.
     tasks_allowed: bool = True
@@ -351,6 +354,7 @@ async def _load_turn_context(
         org_instructions=blocks.org_instructions,
         reference_projects=blocks.reference_projects,
         workspace=blocks.workspace,
+        base_knowledge_labels=blocks.base_knowledge_labels,
         phase_facts=blocks.timing,
         # The restriction is settled after the whole setup gather
         # (`settle_restriction`): the digest and the subject can each confine.

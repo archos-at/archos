@@ -56,6 +56,8 @@ import { readDocumentReading, visibleOfficeDocuments, type EntryDocument } from 
 import { releaseText, withholdText } from './text-effects'
 import { termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
+import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
+import { platformKnowledge } from '../platform'
 
 /** Thrown when the organization does not have base knowledge switched on. */
 export class BaseKnowledgeDisabledError extends ForbiddenError {
@@ -278,17 +280,26 @@ export async function removeBaseKnowledge(session: AuthorizedSession, entryId: s
 }
 
 /**
- * The block a turn carries (`turn-context/service.ts`), or null: when the flag
- * is off for the organization or it holds no confirmed entry. Read as the model
+ * What a turn carries (`turn-context/service.ts`): the block and each copy's
+ * answer-label data, or null when the flag is off for the organization. The
+ * platform's listings come through `platformKnowledge()` (a stub until S7). Read as the model
  * reads (`SCREENED_ONLY`), so a held upload stays out of the turn.
  */
-export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<string | null> {
+export interface BaseKnowledgeTurn {
+  /** The block the agent reads, or null. */
+  block: string | null
+  /** The data of each confirmed copy's answer label, for the answer's renderer. */
+  labels: OfficeAnswerLabel[]
+}
+
+export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.officeBaseKnowledge, organizationId))) return null
   const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed)
-  if (stored.length === 0) return null
-  const [documents, profile] = await Promise.all([
+  const held = stored.flatMap((entry) => (entry.values.designation ? [entry.values.designation] : []))
+  const [documents, profile, listed] = await Promise.all([
     visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
+    platformKnowledge().listedNotHeld(held),
   ])
   const facts = profile?.profile?.facts ?? {}
   const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
@@ -297,5 +308,8 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
     const document = documents.get(entry.documentId)
     return document ? [toEntry(entry, document, now)] : []
   })
-  return renderBaseKnowledgeBlock(entries, territory)
+  return {
+    block: renderBaseKnowledgeBlock(entries, territory, listed),
+    labels: entries.map((entry) => officeAnswerLabel(entry, territory)),
+  }
 }

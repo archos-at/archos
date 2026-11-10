@@ -36,6 +36,13 @@ export const turnContextResponseSchema = z.object({
    * holds none; an older agent ignores it.
    */
   baseKnowledge: z.string().nullable(),
+  /**
+   * The data of the label an answer puts on a passage from each confirmed
+   * office copy (`lib/base-knowledge/office/answer-label.ts`): kind,
+   * designation, edition, role, last check, text use, a directive's verdict.
+   * Tokens, no prose; the answer's renderer words it. Empty with the flag off.
+   */
+  baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

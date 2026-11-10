@@ -150,6 +150,7 @@ describe('POST /api/internal/turn-context', () => {
       referenceProjects: null,
       workspace: expect.stringContaining('WORKSPACE v1'),
       baseKnowledge: null,
+      baseKnowledgeLabels: [],
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({
