@@ -84,6 +84,8 @@ class TurnContext:
     building_law: BuildingLaw | None = None
     #: The turn's knowledge context (ADR-0173); None with the ``knowledge-context`` flag off.
     knowledge_context: KnowledgeContext | None = None
+    #: The kinds of model file the project holds (``ContextBlocks.project_models``); None is unknown.
+    project_models: frozenset[str] | None = None
     #: Whether this turn may hand work over (`create_task`). Its own flag, see
     #: :class:`agent.stages.flags.TurnFlags`.
     tasks_allowed: bool = True
@@ -334,6 +336,17 @@ async def _platform_lessons(conversation_id: str | None) -> LessonsResolution:
         return LessonsResolution(digest=None, arm="off")
 
 
+def _record_base_knowledge(blocks: ContextBlocks) -> None:
+    """The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
+    can compare answers with and without the office's own standards."""
+    if blocks.base_knowledge is None:
+        return
+    lines = blocks.base_knowledge.splitlines()
+    record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
+    overdue = overdue_count(blocks.base_knowledge_labels)
+    emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
+
+
 async def _load_turn_context(
     request: RequestContext,
     *,
@@ -353,13 +366,7 @@ async def _load_turn_context(
         # The office's conventions the turn was shown (ADR-0129): 0 on a turn
         # without them, so Langfuse can compare filing answers with and without.
         record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
-    # The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
-    # can compare answers with and without the office's own standards.
-    if blocks.base_knowledge is not None:
-        lines = blocks.base_knowledge.splitlines()
-        record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
-        overdue = overdue_count(blocks.base_knowledge_labels)
-        emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
+    _record_base_knowledge(blocks)
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
         # An earlier turn drew on another project (ADR-0094): this one starts
         # with every door a whole project reads shut (`settle_restriction`).
@@ -375,6 +382,7 @@ async def _load_turn_context(
         base_knowledge_labels=blocks.base_knowledge_labels,
         building_law=blocks.building_law,
         knowledge_context=blocks.knowledge_context,
+        project_models=blocks.project_models,
         phase_facts=blocks.timing,
         # The restriction is settled after the whole setup gather
         # (`settle_restriction`): the digest and the subject can each confine.

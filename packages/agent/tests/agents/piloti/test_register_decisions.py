@@ -346,6 +346,39 @@ class TestTheTurn:
         assert agent.run.await_args.kwargs["turn"].prefetch == ()
 
 
+class TestTheMeasuringToolsNeedAModel:
+    """In a project known to hold no IFC (or no DXF) the tool that measures one is not sent."""
+
+    NAMES = ("knowledge_search", "ifc_query", "ifc_measure", "dxf_measure", "bim__ifc_query")
+
+    def _scoped(self, monkeypatch, kinds):
+        from types import SimpleNamespace
+
+        from agent.agents.piloti import turn_tools
+
+        monkeypatch.setattr(turn_tools, "get_project_id_from_context", lambda: "p-1")
+        turn_tools.set_project_models(kinds)
+        try:
+            return [t.name for t in turn_tools.tools_in_scope([SimpleNamespace(name=n) for n in self.NAMES])]
+        finally:
+            turn_tools.set_project_models(None)
+
+    def test_a_project_without_a_model_is_sent_none_of_them(self, monkeypatch):
+        assert self._scoped(monkeypatch, frozenset()) == ["knowledge_search"]
+
+    def test_each_kind_brings_its_own_tools(self, monkeypatch):
+        assert self._scoped(monkeypatch, frozenset({"ifc"})) == [
+            "knowledge_search",
+            "ifc_query",
+            "ifc_measure",
+            "bim__ifc_query",
+        ]
+        assert self._scoped(monkeypatch, frozenset({"dxf"})) == ["knowledge_search", "dxf_measure"]
+
+    def test_unknown_keeps_every_tool_in_a_project(self, monkeypatch):
+        assert self._scoped(monkeypatch, None) == list(self.NAMES)
+
+
 class TestTheBuildingModelToolsNeedAProject:
     """Outside a project `ifc_query`/`ifc_measure` can only say "no project"; they are not sent."""
 

@@ -25,6 +25,7 @@ from agent.agents.piloti.clarify import build_clarifier
 from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
+from agent.agents.piloti.turn_tools import set_project_models
 from agent.auth.request_identity import skip_clarifier_requested
 from agent.citations.roles import set_turn_building_law
 from agent.common import AgentGroup
@@ -460,6 +461,7 @@ async def _prepare_turn(
     # Each edition's role at the site (ADR-0168), for the citation wire; None
     # included, so a turn never keys a source on the last turn's records.
     set_turn_building_law(context.building_law)
+    set_project_models(context.project_models)  # which model files the project holds, for the tools bound
     # Which country, coverage and editions apply, and what the turn may retrieve
     # (ADR-0173); None included, so a turn never reads the last turn's gate.
     set_turn_knowledge_context(context.knowledge_context)

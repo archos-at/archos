@@ -64,6 +64,11 @@ class ContextBlocks:
     #: ``knowledge-context`` flag is off, or an older BFF); a key that is not its
     #: shape reads as ``knowledge_unavailable``.
     knowledge_context: KnowledgeContext | None = None
+    #: Which kinds of model file the project holds and this turn may read
+    #: (``"ifc"``, ``"dxf"``), so the tools that measure one are bound only
+    #: where there is one (the chat agent's ``turn_tools``). None from an older
+    #: BFF or outside a project: unknown, and the tools stay as they were.
+    project_models: frozenset[str] | None = None
     #: Where the BFF spent its time, read off the route's ``Server-Timing``
     #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
     #: waited for the query embed). Scalars only, never content; empty from an
@@ -202,7 +207,15 @@ def _parse_blocks(body: object) -> ContextBlocks:
         base_knowledge_labels=_labels(data.get("baseKnowledgeLabels")),
         building_law=parse_building_law(data.get("buildingLaw")),
         knowledge_context=parse_knowledge_context(data["knowledgeContext"]) if "knowledgeContext" in data else None,
+        project_models=_model_kinds(data.get("projectModels")),
     )
+
+
+def _model_kinds(value: object) -> frozenset[str] | None:
+    """``{"ifc": true, "dxf": false}`` as the kinds present; anything else is unknown (None). Pure."""
+    if not isinstance(value, dict):
+        return None
+    return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
 
 
 def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:

@@ -28,6 +28,7 @@ vi.mock('@/lib/proposals/repository', () => ({ listConversationProposals: vi.fn(
 vi.mock('@/lib/cross-project/reference-brief', () => ({ loadReferenceBrief: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ baseKnowledgeForTurn: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/chain/turn', () => ({ buildingLawForTurn: vi.fn(async () => null) }))
+vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false })) }))
 // Undefined is the flag off (ADR-0173): the response then carries no `knowledgeContext` key at all.
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
@@ -172,6 +173,7 @@ describe('POST /api/internal/turn-context', () => {
       baseKnowledge: null,
       baseKnowledgeLabels: [],
       buildingLaw: null,
+      projectModels: { ifc: true, dxf: false },
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({

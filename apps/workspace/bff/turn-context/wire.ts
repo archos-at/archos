@@ -62,6 +62,13 @@ export const turnContextResponseSchema = z.object({
    * ignores it.
    */
   knowledgeContext: knowledgeContextSchema.optional(),
+  /**
+   * Which kinds of model file the project holds and the agent may read
+   * (`lib/bim/model-kinds-repository.ts`), so the agent binds its IFC and DXF
+   * tools only where there is one. Null outside a project or when it could not
+   * be read: the agent then binds them as before. An older agent ignores it.
+   */
+  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean() }).strict().nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()
