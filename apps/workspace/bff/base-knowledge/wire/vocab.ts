@@ -60,7 +60,7 @@ export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'referen
 
 /**
  * The payload schemas a ruleset body may carry: the evaluator's decision table,
- * and the two setup records (migration 0206, ADR-0169). A v2 arrives with a pure
+ * and the two setup records (migration 0207, ADR-0169). A v2 arrives with a pure
  * converter from v1 (design §3.7).
  */
 export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1', 'fact_definitions.v1', 'fact_sources.v1'] as const

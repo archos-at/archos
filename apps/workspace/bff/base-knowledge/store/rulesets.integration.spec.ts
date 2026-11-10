@@ -13,7 +13,7 @@
  * does not count; a body is never updated; a row that is both a table and a
  * deferral, or a table for a purpose with no table schema, is refused by the
  * database itself; a tenant never writes a platform ruleset. And end to end,
- * E32 decided from a stored synthetic ruleset. Since 0206, a setup record
+ * E32 decided from a stored synthetic ruleset. Since 0207, a setup record
  * (`fact_definitions.v1`, `fact_sources.v1`) under its own purpose only.
  */
 
@@ -268,7 +268,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     ).resolves.toBeUndefined()
   })
 
-  it('stores a setup record and reads it back as written (migration 0206, ADR-0169)', async () => {
+  it('stores a setup record and reads it back as written (migration 0207, ADR-0169)', async () => {
     const sources = (await import('../rulesets/seeds/at-setup-fact-sources.json')).default as RulesetValuesInput
     const recordId = await store.insertOfficeRuleset(ORG, sources, { ...CONTEXT, inForce: true })
     const read = await store.readRulesetsInForce(ORG, { purpose: 'fact_sources', territoryIds: ['AT'] })

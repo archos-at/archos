@@ -39,7 +39,7 @@ operation, not as a questionnaire.
 ## Decision Outcome
 
 Chosen: option 1. Two payload schemas join the decision table as ruleset
-bodies (migration 0206 widens the `payload_schema` CHECK and pairs each with
+bodies (migration 0207 widens the `payload_schema` CHECK and pairs each with
 its purpose):
 
 - `fact_definitions.v1`: the facts a country's setup knows, with type, unit,
@@ -71,7 +71,7 @@ document each open input needs (E34).
 
 **Where the records live today.** Austria's three records ship as seeds
 (`bff/base-knowledge/rulesets/seeds/`, listed in `rulesets/shipped.ts`) and are
-parsed by the same wire at boot. Migration 0206 makes them storable, but the
+parsed by the same wire at boot. Migration 0207 makes them storable, but the
 setup does not read the database yet: an office's or the platform's ruleset in
 force at `AT` would make two records for one node, which the selection refuses
 as ambiguous. Moving Austria into published platform records with the

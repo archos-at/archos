@@ -6,7 +6,11 @@
  *   drafted on the platform) with the type it must have; a record keeps its
  *   type and its country; a territory belongs to the request's country; no
  *   record is proposed twice in one batch.
- * - KC-3: intervals are ordered.
+ * - KC-3: intervals are ordered, and no two editions of one work are in force
+ *   on the same day: two in one batch, or a new one beside one already on the
+ *   platform (the as-of resolver refuses that as ambiguous, so it is refused
+ *   here first).
+ * - KC-5: a ruleset's and a transition's own examples hold on the evaluator.
  *
  * The rest of the kit (anchors, quote spans, hosts, level obligations,
  * instruction-like text) needs sources and rulesets that arrive later; until
@@ -14,6 +18,7 @@
  */
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
+import { failingExamples } from '../rulesets/decision-table'
 import { proposalKey, recordIdOf, referencesOf } from './records'
 import type { ProposedRecord } from './wire'
 
@@ -24,7 +29,7 @@ export interface KnownRecord {
 }
 
 export interface Problem {
-  check: 'KC-1' | 'KC-3'
+  check: 'KC-1' | 'KC-3' | 'KC-5'
   /** The proposal's key (or a territory's id) the problem is about. */
   key: string
   detail: string
@@ -45,11 +50,64 @@ function intervalProblems(record: ProposedRecord): Problem[] {
   return []
 }
 
+/** An edition already on the platform (at its head), with its work and dates: what a proposal must not overlap. */
+export interface DatedPlatformEdition {
+  id: string
+  workId: string
+  inForceFrom: string | null
+  inForceTo: string | null
+}
+
+const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
+  a.from <= (b.to ?? '9999-12-31') && b.from <= (a.to ?? '9999-12-31')
+
+/**
+ * Editions of one work in force on the same day (`inForceTo` is inclusive):
+ * two proposed in one batch, or one proposed beside one already on the
+ * platform. A batch that re-proposes the existing edition (closing its
+ * `inForceTo`) is compared against its new dates, not its old ones.
+ */
+function overlapProblems(records: readonly ProposedRecord[], existing: readonly DatedPlatformEdition[]): Problem[] {
+  const proposed = records.flatMap((record) =>
+    record.type === 'edition' && record.inForceFrom
+      ? [{ id: recordIdOf(record), key: record.key, workId: `work:${record.workKey}`, from: record.inForceFrom, to: record.inForceTo }]
+      : [],
+  )
+  const inBatch = new Set(records.map(recordIdOf))
+  const others = existing.flatMap((edition) =>
+    edition.inForceFrom && !inBatch.has(edition.id)
+      ? [{ id: edition.id, key: edition.id, workId: edition.workId, from: edition.inForceFrom, to: edition.inForceTo }]
+      : [],
+  )
+  const problems: Problem[] = []
+  for (const [index, first] of proposed.entries()) {
+    for (const second of [...proposed.slice(index + 1), ...others]) {
+      if (first.workId !== second.workId || !overlaps(first, second)) continue
+      problems.push({ check: 'KC-3', key: first.key, detail: `is in force on days ${second.key} is; end one before the other begins.` })
+    }
+  }
+  return problems
+}
+
+function exampleProblems(record: ProposedRecord): Problem[] {
+  const table =
+    record.type === 'ruleset' && record.values.body.kind === 'table'
+      ? record.values.body.payload
+      : record.type === 'edition'
+        ? record.transition
+        : null
+  if (!table) return []
+  const failing = failingExamples(table)
+  if (failing.length === 0) return []
+  return [{ check: 'KC-5', key: proposalKey(record), detail: `examples ${failing.map((failure) => failure.index).join(', ')} do not hold on the evaluator.` }]
+}
+
 /** The territories a record names, which must exist. */
 export function namedTerritories(record: ProposedRecord): string[] {
   if (record.type === 'territory') return record.parentIds
   if (record.type === 'authority') return [record.seatTerritoryId, ...record.competenceTerritoryIds]
   if (record.type === 'work') return [...record.territoryIds, ...record.addressees.map((addressee) => addressee.territoryId)]
+  if (record.type === 'ruleset') return record.values.territoryIds
   return []
 }
 
@@ -57,6 +115,7 @@ export function validateProposal(
   records: readonly ProposedRecord[],
   countryId: string,
   known: ReadonlyMap<string, KnownRecord>,
+  existing: readonly DatedPlatformEdition[] = [],
 ): Problem[] {
   const batch = new Map<string, KnowledgeRecordType>()
   const problems: Problem[] = []
@@ -89,7 +148,7 @@ export function validateProposal(
         problems.push({ check: 'KC-1', key, detail: `names territory ${territoryId}, which is not imported; import it first.` })
       }
     }
-    problems.push(...intervalProblems(record))
+    problems.push(...intervalProblems(record), ...exampleProblems(record))
   }
-  return problems
+  return [...problems, ...overlapProblems(records, existing)]
 }

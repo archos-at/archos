@@ -2,7 +2,7 @@
  * The records the setup reads today (ADR-0169): each country's setup facts
  * and classification as ruleset records, shipped with the build until Austria
  * is published as the platform's first pack (S8). They are the same records a
- * change request carries (migration 0206 makes their bodies storable), parsed
+ * change request carries (migration 0207 makes their bodies storable), parsed
  * by the same wire, and selected by the same walk up the territory chain, so
  * moving them into the database changes where they are read, not what they say.
  *

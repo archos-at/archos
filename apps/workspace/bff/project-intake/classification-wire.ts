@@ -7,17 +7,24 @@
  */
 
 import { z } from 'zod'
-import { ProjectPrimitiveValueSchema } from '@/lib/project-profile/types'
+import { ProjectPrimitiveValueSchema, type ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import { factSourceCitationSchema } from '@/lib/base-knowledge/wire/setup-facts'
 
 const factKey = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
-// Keys are checked by what the table reads: a key no input names is never read.
-const overrides = z.record(z.string().max(64), ProjectPrimitiveValueSchema)
+// Keys are checked by what the table reads: a key no input names is never read. Each value is a profile
+// value, checked as a refinement so the tool schema an agent reads stays small (the door's size budget).
+const overrides = z
+  .record(z.string().max(64), z.unknown())
+  .refine(
+    (facts) => Object.values(facts).every((value) => ProjectPrimitiveValueSchema.safeParse(value).success),
+    'each value is a string, number, boolean, list of strings or null'
+  )
+  .transform((facts) => facts as Record<string, ProjectPrimitiveValue>)
 
 export const classificationEvaluateRequestSchema = z
   .object({
     buildingId: z.string().max(12).default('bldg1'),
-    planned: overrides.optional().describe('Planned values to try (`storeys_above_ground`).'),
+    planned: overrides.optional(),
     existing: overrides.optional(),
     on: z.iso.date().optional(),
   })

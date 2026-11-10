@@ -238,7 +238,8 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/base-knowledge/platform/platform.integration.spec.ts
+    bff/base-knowledge/platform/platform.integration.spec.ts \
+    bff/base-knowledge/time/time.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -3510,3 +3511,18 @@ check_in pbk_0205 "SELECT count(*) FROM knowledge_records" "0" "0205 down remove
 apply_in pbk_0205 0205_platform_base_knowledge.sql
 check_in pbk_0205 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_release_moves'" "1" "0205 applies again after its down"
 echo "==> 0205 platform base knowledge and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0206: an edition's transition is a table (an object) or absent, and a work
+# says from when its history is held; the down drops both and 0206 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0206 editions in time and its down migration on te_0206"
+migrate_until te_0206 0206_editions_in_time
+sql_in te_0206 <<<"INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('work_t0206', 'org_0206', 'work', 'user_author');"
+refused_in te_0206 "INSERT INTO knowledge_edition_revisions (revision_id, record_id, organization_id, work_id, label, transition) VALUES (gen_random_uuid(), 'edition_t0206', 'org_0206', 'work_t0206', 'x', '[]')" "knowledge_edition_revisions_transition_object" "a transition that is not a table"
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_work_revisions' AND column_name = 'history_available_from'" "1" "0206 adds the history start"
+apply_in te_0206 0206_editions_in_time.down.sql
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE column_name IN ('transition', 'history_available_from') AND table_name LIKE 'knowledge_%'" "0" "0206 down drops both columns"
+apply_in te_0206 0206_editions_in_time.sql
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'transition'" "1" "0206 applies again after its down"
+echo "==> 0206 editions in time and its down migration verified"

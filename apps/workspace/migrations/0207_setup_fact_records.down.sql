@@ -1,4 +1,4 @@
--- Reverse 0206. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0207. ORDER: roll the frontend back first; the newer build writes
 -- setup records.
 --
 -- Lossy: every record that ever held a setup body goes, with its whole history,
