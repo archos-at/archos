@@ -173,6 +173,79 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
+def document_licence(collection: str, file_name: str, *, unindexed: Any = None) -> Any:
+    """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
+
+    Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
+    read answers a licensed, unattested copy, so its text is listed and never sent unguarded. A process with no
+    store configured at all (``QDRANT_URL`` unset: a test, a CLI) holds no mark, so nothing there is licensed.
+    """
+    import os
+
+    from knowledge_layer.vector_store import get_store
+
+    if not (os.environ.get("QDRANT_URL") or "").strip():
+        return None
+
+    from agent.common.licensed_text import AI_PROCESSING_KEY
+    from agent.common.licensed_text import EDITION_KEY
+    from agent.common.licensed_text import LICENCE_CLASS_KEY
+    from agent.common.licensed_text import LICENSED
+    from agent.common.licensed_text import QUOTE_MAX_CHARS_KEY
+    from agent.common.licensed_text import LicenceTerms
+    from agent.common.licensed_text import licence_from_metadata
+
+    fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
+    try:
+        records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
+    except Exception:  # noqa: BLE001 - fails closed, see the docstring
+        return LicenceTerms(licence_class=LICENSED)
+    # No point at all is `unindexed`: the office layer indexes no unconfirmed or unattested copy, so a caller
+    # whose document may be one (an office shelf file) passes the licence that fails closed.
+    return licence_from_metadata(records[0].payload or {}) if records else unindexed
+
+
+def file_licence(row: Any) -> Any:
+    """The licence of a document row: what the row states (``FileRow.licence_class``), else what its points carry."""
+    from agent.common.licensed_text import licence_from_metadata
+
+    stated = licence_from_metadata(
+        {
+            "licence_class": row.licence_class,
+            "quote_max_chars": row.quote_max_chars,
+            "ai_processing_attested": row.ai_processing_attested,
+        }
+    )
+    return stated or document_licence(row.collection, row.file_name)
+
+
+#: How many points of one page a recall reads, at most.
+_RECALL_POINTS = 4000
+
+
+def licensed_passage_sources(collection: str, file_name: str, page: int | None) -> tuple[Any, list[str]]:
+    """What a licensed reference from an earlier turn may be read again from: the document's licence now, and
+    the texts a hit on ``page`` was rendered from (its points' text, the page as the estate reads it).
+
+    No text when the copy is not a licensed, attested one any more: the caller then expands nothing. The
+    caller checks each candidate against the reference's hash (``agent.common.licensed_recall``).
+    """
+    import asyncio
+
+    from knowledge_layer.vector_store import TEXT_FIELD
+    from knowledge_layer.vector_store import get_store
+
+    terms = document_licence(collection, file_name)
+    if terms is None or not terms.licensed or not terms.ai_processing:
+        return terms, []
+    filters = {"file_name": file_name} | ({"page_label": str(page)} if page is not None else {})
+    points = get_store().scroll(collection, filters, limit=_RECALL_POINTS, fields=[TEXT_FIELD])
+    texts = [str((point.payload or {}).get(TEXT_FIELD) or "") for point in points]
+    pages = asyncio.run(stored_pages.read_pages(collection, file_name, wanted={page} if page else None))
+    texts += [found.text for found in (pages.pages if pages else []) if page is None or found.number == page]
+    return terms, [text for text in texts if text]
+
+
 def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: bool = True) -> Any:
     """One page as a grounding record: the page's text, the file's own row, the ``file, p.N`` key."""
     from knowledge_layer.search.grounding_hits import _citation_key_for
@@ -202,6 +275,7 @@ def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: 
         body=body[:budget] if truncated else body,
         body_truncated=truncated,
         path=file.path,
+        licence=file_licence(file.row),
     )
 
 
@@ -212,6 +286,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
     from knowledge_layer.search.grounding_hits import _hit_provenance
 
     from agent.common.grounding_block import GroundingHit
+    from agent.common.licensed_text import licence_from_metadata
     from agent.common.source_kinds import parse_shelf
 
     shelf = parse_shelf(file.row.shelf)
@@ -237,6 +312,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
         body=content[:_CHUNK_TRUNCATE_CHARS] if truncated else content,
         body_truncated=truncated,
         path=file.path,
+        licence=licence_from_metadata(chunk.metadata) or file_licence(file.row),
     )
 
 

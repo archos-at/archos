@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import os
 from typing import Any
@@ -38,9 +39,14 @@ class _NoOutcome:
 try:  # the Grid agent draws one row per call (ADR-0132); the standalone dist has no agent package
     from agent.common.action_outcome import ActionOutcome
     from agent.common.action_rows import ActionRow
+    from agent.common.licensed_text import refused_outbound_query
 except ImportError:
     ActionOutcome = _NoOutcome  # type: ignore[assignment,misc]
     ActionRow = _NoRow  # type: ignore[assignment,misc]
+
+    def refused_outbound_query(query: str) -> str | None:  # standalone: no turn, so no licensed text to refuse
+        return None
+
 
 # Track if we've already warned about missing API key to avoid duplicate warnings
 _missing_key_warned = False
@@ -76,6 +82,20 @@ class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
             "This is a hard filter: matching domains are removed from the results."
         ),
     )
+
+
+def _refusing_licensed_text(search):
+    """``search``, refusing a query that repeats licensed text the turn read before the provider sees it.
+
+    The office's licensed text goes to no search provider (``agent.common.licensed_text``). Outside a turn that
+    read licensed text, nothing is refused and the search is unchanged.
+    """
+
+    @functools.wraps(search)
+    async def searched(question: str) -> str:
+        return refused_outbound_query(question) or await search(question)
+
+    return searched
 
 
 @register_function(config_type=TavilyWebSearchToolConfig)
@@ -256,6 +276,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return "Error: Web search failed - no attempts were made"
 
     yield FunctionInfo.from_fn(
-        _tavily_web_search,
+        _refusing_licensed_text(_tavily_web_search),
         description=_tavily_web_search.__doc__,
     )

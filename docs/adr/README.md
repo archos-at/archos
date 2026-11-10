@@ -228,6 +228,7 @@ Consequences, where a reader looks for them.
 | [0161](0161-every-outbound-flow-is-a-row-in-one-data-flow-register.md) | Every outbound flow is a row in one data-flow register, and the legal page and DPA annex are generated from it | Proposed |
 | [0162](0162-public-sources-are-configured-records-over-protocol-access-types.md) | Public sources are configured records over protocol access types and format engines, fetched from a sandbox | Proposed |
 | [0163](0163-office-base-knowledge-shares-the-platform-records.md) | An office's own standards, commentaries and directives are base knowledge records with an owner, the same records the platform will hold | Proposed |
+| [0164](0164-licensed-text-is-a-reference-outside-the-model-call.md) | Licensed text is a reference everywhere but inside the model call, and leaves it only as capped quotes | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

@@ -81,7 +81,9 @@ class TestTheTurnLearnsIt:
             turn_context,
             "_turn_flags",
             lambda *_a, **_k: _awaitable(
-                SimpleNamespace(deep_research_allowed=True, tasks_allowed=True, enabled_stages=())
+                SimpleNamespace(
+                    deep_research_allowed=True, tasks_allowed=True, licensed_text_allowed=False, enabled_stages=()
+                )
             ),
         )
         request = SimpleNamespace(organization_id="org", project_id="p1", user_id="u1", federal_state=None)

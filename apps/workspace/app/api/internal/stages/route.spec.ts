@@ -52,3 +52,15 @@ describe('/api/internal/stages features.sourceRouting', () => {
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('source-routing', 'org_off')
   })
 })
+
+describe('/api/internal/stages features.licensedSeam', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('is the licensed-seam flag of the organization asked about, off unless WorkOS says yes', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockImplementation(async (flag, org) => flag === 'licensed-seam' && org === 'org_on')
+
+    expect(await call('org_on')).toMatchObject({ features: { licensedSeam: true, folderCards: false } })
+    expect(await call('org_off')).toMatchObject({ features: { licensedSeam: false } })
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('licensed-seam', 'org_off')
+  })
+})

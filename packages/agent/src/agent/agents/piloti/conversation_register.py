@@ -282,6 +282,7 @@ def _turn_state(
         workspace_block=context.workspace,
         deep_research_allowed=context.deep_research_allowed,
         tasks_allowed=context.tasks_allowed,
+        licensed_text_allowed=context.licensed_text_allowed,
         confined=context.confined,
     )
 

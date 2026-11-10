@@ -47,6 +47,7 @@ from contextvars import ContextVar
 from typing import Any
 
 from agent.common.image_redaction import redact_inline_images
+from agent.common.licensed_text import trace_payload
 from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
 from agent.observability.langfuse_trace_attributes import METADATA_PREFIX
 from agent.observability.langfuse_trace_attributes import OBSERVATION_MODEL_NAME
@@ -159,13 +160,13 @@ def _current_tracer():
 
 
 def _clip(text: str) -> str:
-    """A payload attribute as it may leave the process: inline images redacted, then cut to the bound.
+    """A payload attribute as it may leave the process: images and licensed text redacted, then cut to the bound.
 
-    Every payload this tracer writes passes here, so no prompt, output or pick carries an image's
-    bytes (``common.image_redaction``), as on the agent runtime's pipeline spans. Redacted before the cut, so a
-    cut never leaves half a data URL the pattern no longer matches.
+    Every payload this tracer writes passes here, so no prompt, output or pick carries an image's bytes
+    (``common.image_redaction``) or a licensed passage past its quote cap (``common.licensed_text``). Redacted
+    before the cut, so a cut never leaves half a data URL the pattern no longer matches.
     """
-    text = redact_inline_images(text)
+    text = trace_payload(redact_inline_images(text))
     if len(text) <= MAX_PAYLOAD_CHARS:
         return text
     return text[:MAX_PAYLOAD_CHARS] + TRUNCATION_MARKER
