@@ -3,6 +3,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
 import { appPullPolicy, backendImage } from "../config/images";
 import { commonLabels } from "../platform/namespaces";
+import { type RolloutProfile, gracefulShutdown, surgeRollout } from "../platform/rollout";
+import { installPdb, onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { UID } from "../constants";
 import { API_TIERS, CHAT_TIERS } from "./tier-names";
@@ -38,15 +40,35 @@ export const PUBLIC_SOURCE_FETCHER = {
   ],
   /** ULA, link-local, loopback, NAT64 (a gateway to IPv4, private ranges included) and IPv4-mapped. */
   privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96", "::ffff:0:0/96"],
+  /**
+   * It also parses the PDFs it fetches (`POST /v1/extract`): at most two readers at once, each a child process
+   * held to 1 GiB of address space (`public_sources/pdf.py`), beside the server itself (about 65 MiB idle,
+   * measured 2026-11-10). The request holds the server and one large reader, so under node pressure it is not
+   * the first pod evicted; the limit holds both readers at their ceiling.
+   */
   resources: {
-    requests: { cpu: "50m", memory: "128Mi" },
-    limits: { cpu: "500m", memory: "512Mi" },
+    requests: { cpu: "100m", memory: "1Gi" },
+    limits: { cpu: "1000m", memory: "2560Mi" },
   },
 } as const;
 
-/** `PUBLIC_SOURCE_FETCHER_URL` for the backend roles, exactly when the fetcher is deployed. */
-export function publicSourceFetcherEnv(cfg: Pick<DeployConfig, "publicSourceFetcher">): EnvVar[] {
-  if (!cfg.publicSourceFetcher.enabled) return [];
+/**
+ * Its rollout: a source fetch or a PDF parse, the longest of which a caller
+ * waits 50 s for (`EXTRACT_TIMEOUT_SECONDS` in `public_sources/pdf.py`, which
+ * `test_pdf_in_fetcher.py` holds this against). Surge-only, so a source is
+ * never unreachable mid-deploy; the preStop sleep keeps the old pod serving
+ * while the Service stops routing to it, then uvicorn finishes the requests it
+ * holds. Grace = hook + 50 s + slack.
+ */
+export const FETCHER_ROLLOUT: RolloutProfile = {
+  minReadySeconds: 10,
+  progressDeadlineSeconds: 600,
+  terminationGracePeriodSeconds: 65,
+  endpointDrainSeconds: 5,
+};
+
+/** `PUBLIC_SOURCE_FETCHER_URL` for the backend roles: the one way they reach a public source. */
+export function publicSourceFetcherEnv(): EnvVar[] {
   const { name, port } = PUBLIC_SOURCE_FETCHER;
   return [{ name: "PUBLIC_SOURCE_FETCHER_URL", value: `http://${name}:${port}` }];
 }
@@ -56,6 +78,12 @@ export interface PublicSourceFetcher {
   service: k8s.core.v1.Service;
   /** Undefined when the stack runs without NetworkPolicies (`networkPolicies: false`). */
   networkPolicy?: k8s.networking.v1.NetworkPolicy;
+  /**
+   * At most one pod away in a voluntary disruption. With one replica (the default) a node drain still
+   * evicts it, and public sources and PDF captures are refused until it is scheduled again (the surge
+   * rollout covers a deploy, not a drain); `replicas: 2` closes that gap.
+   */
+  pdb: k8s.policy.v1.PodDisruptionBudget;
 }
 
 export function installPublicSourceFetcher(
@@ -67,6 +95,8 @@ export function installPublicSourceFetcher(
   const { name, port } = PUBLIC_SOURCE_FETCHER;
   const labels = commonLabels(name);
   const image = backendImage(cfg);
+  // A rollout mid-parse must not cut it: preStop drain, then uvicorn finishes what it holds.
+  const shutdown = gracefulShutdown(FETCHER_ROLLOUT, "python");
 
   const deployment = new k8s.apps.v1.Deployment(
     name,
@@ -75,18 +105,23 @@ export function installPublicSourceFetcher(
       spec: {
         replicas: cfg.publicSourceFetcher.replicas,
         selector: { matchLabels: labels },
+        ...surgeRollout(FETCHER_ROLLOUT),
         template: {
           metadata: { labels },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             automountServiceAccountToken: false,
+            terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
             securityContext: { runAsNonRoot: true, runAsUser: UID.backend, runAsGroup: UID.backend },
+            // Beside the backend roles that call it.
+            ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
               {
                 name,
                 image,
                 imagePullPolicy: appPullPolicy(cfg, image),
                 securityContext: hardenedContainerSecurityContext(),
+                lifecycle: shutdown.lifecycle,
                 // The image's working directory is /app, where configs/sources lives.
                 command: ["/app/.venv/bin/python", "-m", "public_sources.fetcher"],
                 env: [
@@ -153,5 +188,7 @@ export function installPublicSourceFetcher(
       )
     : undefined;
 
-  return { deployment, service, networkPolicy };
+  const pdb = installPdb(name, namespace, provider, labels, [deployment]);
+
+  return { deployment, service, networkPolicy, pdb };
 }

@@ -25,7 +25,7 @@ WHOLE_LAW = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&
 def _version(url: str, since: str, until: str = "") -> RisHit:
     metadata = {"In Kraft seit": since, "Bundesland": ""}
     if until:
-        metadata["Außer Kraft seit"] = until
+        metadata["In Kraft bis"] = until
     return RisHit(
         application="BrKons",
         document_number=url.rsplit("/", 1)[-1].removesuffix(".html"),
@@ -39,10 +39,10 @@ def _version(url: str, since: str, until: str = "") -> RisHit:
 
 @pytest.fixture
 def versions(lookup, monkeypatch):
-    """Two versions of one §: 2015-01-01 to 2021-01-01, and from 2021-01-01."""
+    """Two versions of one §: 2015-01-01 through 2020-12-31, and from 2021-01-01."""
     monkeypatch.setenv(ENV_OVERRIDE, "on")
     lookup.client.search_result = RisSearchResult(
-        hits=[_version(NEW_URL, "2021-01-01"), _version(OLD_URL, "2015-01-01", "2021-01-01")]
+        hits=[_version(NEW_URL, "2021-01-01"), _version(OLD_URL, "2015-01-01", "2020-12-31")]
     )
     lookup.client.documents[OLD_URL] = RisDocument(
         url=OLD_URL, title="Bundesgesetz (fixture)", text="§ 3. (1) Die alte Fassung gilt."
@@ -107,8 +107,9 @@ async def test_a_malformed_day_is_an_error(lookup, monkeypatch):
     assert output.startswith("Error: as_of must be a calendar day")
 
 
-def test_the_version_window_excludes_the_day_it_went_out_of_force_and_unknown_dates():
-    window = {"In Kraft seit": "01.01.2015", "Außer Kraft seit": "2021-01-01"}
+def test_the_version_window_holds_its_last_day_and_excludes_unknown_dates():
+    # RIS's Ausserkrafttretensdatum is the last day in force: 31.12.2020 is in force, 01.01.2021 is not.
+    window = {"In Kraft seit": "01.01.2015", "In Kraft bis": "2020-12-31"}
     assert [
         in_force_on(window, date(*day)) for day in ((2014, 12, 31), (2015, 1, 1), (2020, 12, 31), (2021, 1, 1))
     ] == [
@@ -118,7 +119,7 @@ def test_the_version_window_excludes_the_day_it_went_out_of_force_and_unknown_da
         False,
     ]
     assert in_force_on({}, date(2020, 1, 1)) is False
-    assert in_force_on({"In Kraft seit": "2015-01-01", "Außer Kraft seit": "bald"}, date(2020, 1, 1)) is False
+    assert in_force_on({"In Kraft seit": "2015-01-01", "In Kraft bis": "bald"}, date(2020, 1, 1)) is False
     assert parse_day("2023-02-30") is None
 
 

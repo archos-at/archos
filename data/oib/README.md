@@ -28,7 +28,20 @@ one spelling:
 | Erläuterungen | `erlaeuterungen_oib-rl_2.1_…` | `erlaeuterungen-zu-oib-richtlinie_2.2_…` |
 | Änderungen | `aenderungen_oib-rl_2.1_…` | `aenderungen_oib-richtlinie_2.2_…` |
 
-`canonical_oib_file_name` maps both spellings onto one before parsing. The
+The other editions a Land still binds keep oib.or.at's names too, which follow
+neither column:
+
+| Edition | Published name |
+|---|---|
+| Ausgabe April 2019 | `oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf` (and RL 2–6 alike); RL 1 is `richtlinie_1_12.04.19_0.pdf` |
+| Ausgabe September 2025 | `oib-rl_6_september_2025.pdf` |
+| Ausgabe März 2015 | `oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf` |
+
+`canonical_oib_file_name` (`agent/common/oib_file_names.py`) maps every spelling
+onto one before parsing; each of these eleven is a manifestation's `corpusFile`
+in `configs/knowledge-packs/at.json`. Tying a passage to its edition by its
+file's name is the bridge until retrieval reads the edition from the chunk's
+`edition_id`. The
 Änderungen diff documents are kept out of retrieval by name
 (`knowledge_search.exclude_file_names` in `configs/config_oib_openrouter.yml`),
 so a new published name there needs a new line in that list;

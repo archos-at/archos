@@ -573,6 +573,7 @@
   --shadow-2xs: var(--shadow-hairline);
   --shadow-press: var(--elevation-press);
   --shadow-xs: var(--elevation-xs);
+  --shadow-thumb: var(--elevation-thumb);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
@@ -699,6 +700,7 @@
   --elevation-3: 0 0 0 1px rgb(15 14 13 / 0.1), 0 24px 64px rgb(15 14 13 / 0.22);
   --elevation-press: 0 0 0 1px var(--edge); /* a press at rest: its edge, no drop shadow */
   --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a press under the pointer, a track's thumb */
+  --elevation-thumb: var(--elevation-xs); /* the current choice on a track (a tab, a view): white, its edge and 1px shadow */
   --elevation-sm: var(--elevation-1); /* a sheet */
   --elevation-md: var(--elevation-2); /* menu, popover, floating bar */
   --elevation-lg: var(--elevation-3); /* dialog */
@@ -731,6 +733,9 @@
   --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);
   --elevation-press: 0 0 0 1px var(--edge);
   --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4);
+  /* The thumb is 1.2:1 above its track in dark: the field's border (3.2:1 on the desk) is its edge, so the current tab
+     and view read as chosen (review of 2026-11-10, finding 25). */
+  --elevation-thumb: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-sm: var(--elevation-1);
   --elevation-md: var(--elevation-2);
   --elevation-lg: var(--elevation-3);

@@ -18,7 +18,6 @@ import type { FolderItem } from '../file-types'
 import { FileWorkspace } from './file-workspace'
 import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
-import { DocumentFindingsPanel } from './document-findings-panel'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 // The row and folder types live in `../file-types`; they are re-exported here
@@ -185,9 +184,6 @@ export function ProjectFileWorkspace({
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}
         initialFolderId={initialFolderId}
-        aboveList={({ readyCount }) => (
-          <DocumentFindingsPanel projectId={projectId} refreshKey={String(readyCount)} className="px-4 pt-3" />
-        )}
       />
       {mailOffered && phone && <MailImportDialog projectId={projectId} open={mailOpen} onOpenChange={setMailOpen} />}
     </>

@@ -175,6 +175,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
     expect((await visible()).sort()).toEqual([`edition:sia-500-2009-${RUN}`, `work:sia-500-${RUN}`])
     expect(await bindingOf(AUSTRIAN, 'AT-9', `work:sia-500-${RUN}`)).toEqual([[`edition:sia-500-2009-${RUN}`, 'binding']])
+    // What binds in the chain is what the time path answers for: one visibility predicate (store/visibility.ts).
+    const { readWorkInTime } = await import('../time/repository')
+    expect((await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`))?.work.editions.map((edition) => edition.id)).toEqual([`edition:sia-500-2009-${RUN}`])
+    expect(await readWorkInTime(GERMAN, `work:sia-500-${RUN}`)).toBeNull()
     // A German office reaches nothing through an Austrian relation it cannot read.
     const german = await withTenant({ organizationId: GERMAN }, () =>
       db.execute(sql`SELECT id FROM knowledge_records WHERE id = ${`work:sia-500-${RUN}`}`),
@@ -182,6 +186,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(german).toHaveLength(0)
     await release.rollbackChangeRequest(relation, 'spec: the reference goes', ACTOR)
     expect(await visible()).toEqual([])
+    expect(await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`)).toBeNull()
   })
 
   it('reads an office relation for its own office only, as a route the office maintains', async () => {

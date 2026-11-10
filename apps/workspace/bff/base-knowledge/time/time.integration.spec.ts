@@ -142,7 +142,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         workKey: key('noe-bo'),
         label: 'LGBl. 1/2015',
         inForceFrom: '2015-02-01',
-        inForceTo: '2022-12-31',
+        inForceTo: '2023-01-01',
       },
       {
         type: 'edition',
@@ -222,7 +222,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         edition.transition !== null,
       ])
     ).toEqual([
-      ['LGBl. 1/2015', '2015-02-01', '2022-12-31', false],
+      ['LGBl. 1/2015', '2015-02-01', '2023-01-01', false],
       ['LGBl. 2023/1', '2023-01-01', null, true],
     ])
     expect(await repository.readTerritoryChain(ORG, NODE)).toEqual([NODE, 'AT-3', 'AT'])
@@ -250,6 +250,17 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     expect(await answerFor(ORG, { filedOn: '2014-01-01' })).toMatchObject({
       reason: 'history_not_held',
     })
+  })
+
+  it('holds an edition’s end exclusive in the database: one ending on the day it begins is refused (0217)', async () => {
+    const rows = await withPlatformAccess('test: the edition order check', () =>
+      db.execute<{ definition: string }>(sql`
+        SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+        WHERE conname = 'knowledge_edition_revisions_dates_ordered'`)
+    )
+    expect(rows.map((row) => row.definition)).toEqual([
+      'CHECK (((in_force_to IS NULL) OR (in_force_from IS NULL) OR (in_force_to > in_force_from)))',
+    ])
   })
 
   it('an office not entitled to Austria reads no such work', async () => {

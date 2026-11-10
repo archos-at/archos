@@ -6,7 +6,7 @@ export const files = {
     /** `size` is formatted with its unit ("100 MB"); the limit is per file. */
     maxSize: 'Up to {size} per file',
     accepts: 'Accepts: {types}',
-    dragOrBrowse: 'Drag files here or browse',
+    dropAnywhere: 'Or drop files anywhere on this page.',
     maxSizeShort: 'max. {size} per file',
   },
   // The upload tray. Wording follows the surface's one rule: a number is
@@ -117,6 +117,24 @@ export const files = {
    */
   documentTag: {
     correspondence: 'Correspondence',
+    developmentPlan: 'Development plan',
+    zoningPlan: 'Zoning plan',
+    floorPlan: 'Floor plan',
+    section: 'Section',
+    elevation: 'Elevation',
+    detail: 'Detail',
+    expertReport: 'Expert report',
+    officialDecision: 'Official decision',
+    standard: 'Standard or guideline',
+    contract: 'Contract',
+    photo: 'Photo',
+    other: 'Other',
+    structuralSafety: 'Structural safety',
+    fireSafety: 'Fire safety',
+    hygieneHealthEnvironment: 'Hygiene, health and environment',
+    safetyInUse: 'Safety in use and accessibility',
+    soundProtection: 'Sound protection',
+    energyEconomy: 'Energy economy and heat retention',
   },
   preview: {
     closePreview: 'Close preview',
@@ -467,7 +485,12 @@ export const files = {
   },
   browser: {
     folderEmptyTitle: 'This folder is empty',
-    folderEmptyDescription: 'Upload documents here, or pick another folder from the sidebar.',
+    folderEmptyDescription: 'Upload documents here, or drop them anywhere on this page.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Upload documents here.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Search: “{query}”',
+    searchCount: '{count, plural, one {# match} other {# matches}}',
     noDocumentsTitle: 'No documents yet',
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
@@ -538,6 +561,7 @@ export const files = {
     items: '{count, plural, one {# item} other {# items}}',
     openFolder: 'Open folder “{name}”',
     breadcrumb: 'Folder path',
+    hiddenLevels: '{count, plural, one {# more level} other {# more levels}}',
     movedFolder: '“{name}” moved to “{parent}”.',
     moveFolderError: 'The folder could not be moved. Please try again.',
     /** Folder access (ADR-0088, ADR-0097): restricting a folder to people. */
@@ -722,6 +746,7 @@ export const files = {
   // Explorer detail view — column headings for the sortable listing.
   selection: {
     start: 'Select',
+    nothingToPick: 'No file here to select',
     done: 'Done',
     all: 'Select all',
     move: 'Move',
@@ -1131,7 +1156,8 @@ export const files = {
    */
   // The folder brief: what Piloti knows about a folder and everything under it.
   brief: {
-    scopeFolder: 'in “{name}” and its subfolders',
+    scopeFolder: 'in this folder',
+    scopeFolderTree: 'in this folder and its subfolders',
     scopeProject: 'in this project',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',

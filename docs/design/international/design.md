@@ -165,7 +165,7 @@ Directives carry `addressees`. A directive applies when the competent body match
 
 A **work** is the abstract instrument (BayBO, OIB-RL 2, ÖNORM B 1600, a MANZ commentary, an MA 37 directive). It carries `kind`, `areas[]`, `territory_ids[]` (empty for standards bodies), `connects_by`, `identifiers` (ELI, designation, ECLI, CELEX), `issuer_authority_id`, `addressees` and `applies_when` (JsonLogic over facts).
 
-An **edition** is ELI's point-in-time version: the Ausgabe, not a Fassung. It carries `label`, `issued_on`, `in_force_from`, `in_force_to` and an `outline`. There is one edition per distinct in-force date of the consolidated text. "Applies to procedures filed from X" is a transition, never a second date. The CPR 2024/3110, which applies article by article, gets one edition per date (KC-3; fixture `cpr-staggered`).
+An **edition** is ELI's point-in-time version: the Ausgabe, not a Fassung. It carries `label`, `issued_on`, `in_force_from`, `in_force_to` (exclusive, the first day no longer in force, like every interval here) and an `outline`. There is one edition per distinct in-force date of the consolidated text. "Applies to procedures filed from X" is a transition, never a second date. The CPR 2024/3110, which applies article by article, gets one edition per date (KC-3; fixture `cpr-staggered`).
 
 A **manifestation** is a text, dataset or link with `language` (BCP 47), `text_status` (`authentic`, `official_non_prevailing` for South Tyrol's German texts, `translation`), `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (`mayIndex`, `quoteMaxChars`, `validTo`, attribution), `document_id` and `sha256`. An expression is the pair of edition and language and has no table.
 

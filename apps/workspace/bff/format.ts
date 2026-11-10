@@ -164,6 +164,21 @@ export const formatBytes = (bytes: number | null | undefined, locale?: string): 
 }
 
 /**
+ * A transfer's progress as two sizes in one unit, the total's, each with one decimal from MB up: „3,0 von 6,0 MB“.
+ * Each size rounded on its own read „3 MB von 6 MB“ beside rows of „4,8 MB“ and „1,2 MB“ (review of 2026-11-10,
+ * finding 20). The unit is said once, after the total; the copy joins them (`{done} von {total}`).
+ */
+export const formatByteProgress = (done: number, total: number, locale?: string): { done: string; total: string } => {
+  const whole = formatBytes(total, locale)
+  const scale = [1e12, 1e9, 1e6, 1e3].find((step) => total >= step) ?? 1
+  const digits = scale >= 1e6 ? 1 : 0
+  const number = (bytes: number) =>
+    new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.max(0, bytes) / scale)
+  const unit = whole.replace(/^[\d\s.,\u00a0\u202f]+/u, '')
+  return { done: number(done), total: `${number(total)}\u00a0${unit}` }
+}
+
+/**
  * Localized relative timestamp ("3 hours ago" / "vor 3 Stunden"). Falls back
  * to the raw ISO string for unparseable input. Truncates toward zero at unit
  * boundaries so a value never rounds up into a misleading "in 60 minutes".

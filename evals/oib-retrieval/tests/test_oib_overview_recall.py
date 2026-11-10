@@ -139,10 +139,11 @@ def test_the_normative_expected_files_resolve_against_the_clause_index(entries):
 
 def test_no_expected_file_is_production_excluded(entries):
     excluded = overview.production_excluded()
-    # 17: the 16 originals plus `aenderungen_oib-richtlinie_2.2_…`, the name oib.or.at
-    # actually publishes the 2.2 diff under. The fixtures index 2.2 as `oib-rl_2.2_…`,
-    # so that addition excludes nothing the baseline saw.
-    assert len(excluded) == 17, "production exclusion list changed shape — re-derive the baseline"
+    # 28: the 16 originals plus `aenderungen_oib-richtlinie_2.2_…`, the name oib.or.at
+    # actually publishes the 2.2 diff under (the fixtures index 2.2 as `oib-rl_2.2_…`), plus
+    # the eleven diffs published beside the 2019 and 2025 Richtlinien (2026-11-10). The
+    # fixtures hold only 2023 files, so none of these excludes anything the baseline saw.
+    assert len(excluded) == 28, "production exclusion list changed shape — re-derive the baseline"
     for entry in entries:
         assert not (set(entry.expected) & excluded), entry.id
 

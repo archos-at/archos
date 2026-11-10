@@ -7,7 +7,7 @@ export const files: typeof en.files = {
     orDragAndDrop: ' oder per Drag-and-drop ablegen',
     maxSize: 'Bis zu {size} pro Datei',
     accepts: 'Zulässig: {types}',
-    dragOrBrowse: 'Dateien hierher ziehen oder auswählen',
+    dropAnywhere: 'Oder Dateien irgendwo auf die Seite ziehen.',
     maxSizeShort: 'max. {size} pro Datei',
   },
   // Die Upload-Leiste. Die Formulierungen folgen der Regel der Oberfläche:
@@ -119,6 +119,24 @@ export const files: typeof en.files = {
   // Eintrag.
   documentTag: {
     correspondence: 'Korrespondenz',
+    developmentPlan: 'Bebauungsplan',
+    zoningPlan: 'Flächenwidmungsplan',
+    floorPlan: 'Grundriss',
+    section: 'Schnitt',
+    elevation: 'Ansicht',
+    detail: 'Detail',
+    expertReport: 'Gutachten',
+    officialDecision: 'Bescheid',
+    standard: 'Norm/Richtlinie',
+    contract: 'Vertrag',
+    photo: 'Foto',
+    other: 'Sonstiges',
+    structuralSafety: 'Standsicherheit',
+    fireSafety: 'Brandschutz',
+    hygieneHealthEnvironment: 'Hygiene/Gesundheit/Umweltschutz',
+    safetyInUse: 'Nutzungssicherheit/Barrierefreiheit',
+    soundProtection: 'Schallschutz',
+    energyEconomy: 'Energieeinsparung/Wärmeschutz',
   },
   preview: {
     closePreview: 'Vorschau schließen',
@@ -454,8 +472,12 @@ export const files: typeof en.files = {
   },
   browser: {
     folderEmptyTitle: 'Dieser Ordner ist leer',
-    folderEmptyDescription:
-      'Laden Sie hier Dokumente hoch oder wählen Sie einen anderen Ordner in der Seitenleiste.',
+    folderEmptyDescription: 'Laden Sie hier Dokumente hoch oder ziehen Sie sie irgendwo auf die Seite.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Laden Sie hier Dokumente hoch.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Suche: „{query}“',
+    searchCount: '{count, plural, one {# Treffer} other {# Treffer}}',
     noDocumentsTitle: 'Noch keine Dokumente',
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
@@ -523,6 +545,7 @@ export const files: typeof en.files = {
     items: '{count, plural, one {# Element} other {# Elemente}}',
     openFolder: 'Ordner „{name}“ öffnen',
     breadcrumb: 'Ordnerpfad',
+    hiddenLevels: '{count, plural, one {# weitere Ebene} other {# weitere Ebenen}}',
     movedFolder: '„{name}“ nach „{parent}“ verschoben.',
     moveFolderError: 'Der Ordner konnte nicht verschoben werden. Bitte erneut versuchen.',
     /** Ordnerzugriff (ADR-0088, ADR-0097): einen Ordner auf Personen einschränken. */
@@ -716,6 +739,7 @@ export const files: typeof en.files = {
   // Detailansicht des Explorers – Spaltenüberschriften der sortierbaren Liste.
   selection: {
     start: 'Auswählen',
+    nothingToPick: 'Hier liegt keine Datei zum Auswählen',
     done: 'Fertig',
     all: 'Alle auswählen',
     move: 'Verschieben',
@@ -1108,7 +1132,8 @@ export const files: typeof en.files = {
    */
   // Der Ordnerbrief: was Piloti über einen Ordner und alles darunter weiß.
   brief: {
-    scopeFolder: 'in „{name}“ und seinen Unterordnern',
+    scopeFolder: 'in diesem Ordner',
+    scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',

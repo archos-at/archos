@@ -139,7 +139,7 @@ ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
  */
 const SEGMENTED_PILL_BG: Record<string, string> = {
   // The thumb: white with the press's edge and its 1px shadow at rest, and only ever on a track.
-  default: 'bg-sheet shadow-xs',
+  default: 'bg-sheet shadow-thumb',
   outline: 'bg-card',
   inverted: 'bg-foreground',
 }

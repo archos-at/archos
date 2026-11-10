@@ -50,8 +50,9 @@ const FILE_NAMESPACES = [
 
 const FORBIDDEN: Record<'de' | 'en', RegExp> = {
   de: /(?<![\p{L}-])(Plan|Pläne|Plänen|Plans|Planstand|Planstände|Planständen)(?![\p{L}-])/u,
-  // „floor plan“ and „site plan“ are Dokumentarten that are drawings by definition.
-  en: /(?<!\b(?:floor|site)\s)\bplans?\b(?!-)/i,
+  // „floor plan“ and „site plan“ are Dokumentarten that are drawings by definition; „development plan“ and „zoning
+  // plan“ (Bebauungsplan, Flächenwidmungsplan) are Dokumentarten too, the municipality's, never a file.
+  en: /(?<!\b(?:floor|site|development|zoning)\s)\bplans?\b(?!-)/i,
 }
 
 function leaves(node: unknown, path: string, found: Array<[string, string]> = []): Array<[string, string]> {

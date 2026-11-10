@@ -46,6 +46,7 @@ import importlib.util  # noqa: E402
 
 import httpx  # noqa: E402
 import yaml  # noqa: E402
+from public_sources.engines import RIS_IN_FORCE_UNTIL  # noqa: E402
 from ris_adapter.client import RisClient  # noqa: E402
 from ris_adapter.client import federal_state_param  # noqa: E402
 
@@ -77,6 +78,7 @@ def _load_norm_registry_module():
     # norm_registry imports source_kinds, which is stdlib-only; loaded the same
     # way, or the builder dies on import before it verifies anything.
     _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
+    _standalone_module("agent.common.oib_file_names", common_dir / "oib_file_names.py")  # stdlib-only too
     # So does profile_names (stdlib only), for the federal-state tokens.
     _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
     # family_query (stdlib only) holds the family-query detection norm_registry re-exports.
@@ -109,7 +111,7 @@ def _pick_hit(entry_id: str, verify, hits):
         if verify.statute_number and f"Gesetzesnummer={verify.statute_number}" not in hit.full_law_url:
             continue
         candidates.append(hit)
-    in_force = [h for h in candidates if not h.metadata.get("Außer Kraft seit")]
+    in_force = [h for h in candidates if not h.metadata.get(RIS_IN_FORCE_UNTIL)]
     selected = in_force or candidates
     if len(selected) != 1:
         raise SystemExit(

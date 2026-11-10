@@ -36,15 +36,27 @@ describe('tag vocabulary', () => {
     expect(tagLabel('correspondence', t)).toBe(label)
   })
 
-  it('reads every labelled token from every dictionary, and a German value as itself', () => {
+  it('reads every labelled token from every dictionary, and a free topic as itself', () => {
     for (const dictionary of [de, en]) {
       const t = createTranslator(dictionary, 'files')
       for (const tag of LABELLED_TAGS) {
         expect(tagLabel(tag, t)).not.toBe(`documentTag.${tag}`)
         expect(tagLabel(tag, t)).not.toBe(tag)
       }
-      expect(tagLabel('Grundriss', t)).toBe('Grundriss')
       expect(tagLabel('a free topic', t)).toBe('a free topic')
     }
+  })
+
+  it('reads a tag still stored in German as itself in German and as its translation in English', () => {
+    // „What this is about: Grundriss“ in an English workspace (review of 2026-11-10, finding 21).
+    const german = createTranslator(de, 'files')
+    const english = createTranslator(en, 'files')
+    for (const tag of ALLOWED_TAGS) {
+      if (LABELLED_TAGS.includes(tag as (typeof LABELLED_TAGS)[number])) continue
+      expect(tagLabel(tag, german)).toBe(tag)
+      expect(tagLabel(tag, english)).not.toMatch(/^documentTag\./)
+      expect(tagLabel(tag, english)).not.toBe(tag === 'Detail' ? 'never' : tag)
+    }
+    expect(tagLabel('Grundriss', english)).toBe('Floor plan')
   })
 })

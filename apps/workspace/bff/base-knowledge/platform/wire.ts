@@ -114,7 +114,7 @@ const editionRecord = z.object({
   label: z.string().trim().min(1).max(120).describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
   issuedOn: isoDate.nullable().default(null),
   inForceFrom: isoDate.nullable().default(null),
-  inForceTo: isoDate.nullable().default(null).describe('The last day in force, inclusive; null while in force.'),
+  inForceTo: isoDate.nullable().default(null).describe('The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.'),
   transition: transitionTableSchema
     .nullable()
     .default(null)

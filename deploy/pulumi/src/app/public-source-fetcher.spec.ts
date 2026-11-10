@@ -11,8 +11,10 @@ const PROJECT = "stack";
  *   - a fetcher that can reach the cluster (a missing egress rule, a private
  *     range left out): any source whose DNS answers 10.x reads Qdrant;
  *   - a fetcher any pod may call: a turn-less process gets a free proxy;
- *   - a backend that gets the URL while the fetcher is off: every routed RIS
- *     call then fails, and the fallback the flag promises never runs.
+ *   - a backend without the URL: it reads no source at all, since there is no
+ *     in-pod path any more;
+ *   - a rollout that kills a pod mid-parse: the caller waits 50 s for an
+ *     extract, so the old pod must outlive the longest one.
  */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
@@ -42,26 +44,46 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 
 describe("public-source-fetcher", () => {
   let mod: typeof import("./public-source-fetcher");
-  let cfgOn: Awaited<ReturnType<typeof import("../config")["loadConfig"]>>;
-  let cfgOff: typeof cfgOn;
+  let cfg: Awaited<ReturnType<typeof import("../config")["loadConfig"]>>;
 
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({ ...forProject(baseStackConfig(), PROJECT), [`${PROJECT}:observabilityEnabled`]: "false" });
     const { loadConfig } = await import("../config");
     mod = await import("./public-source-fetcher");
-    cfgOff = loadConfig();
-    cfgOn = { ...cfgOff, publicSourceFetcher: { enabled: true, replicas: 1 } };
+    cfg = loadConfig();
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
-    const fetcher = mod.installPublicSourceFetcher(cfgOn, provider, "app", []);
+    const fetcher = mod.installPublicSourceFetcher(cfg, provider, "app", []);
     await new Promise((done) => fetcher.service.id.apply(done));
   });
 
-  it("is off by default, and the backend gets its URL exactly when it is on", () => {
-    expect(cfgOff.publicSourceFetcher.enabled).toBe(false);
-    expect(mod.publicSourceFetcherEnv(cfgOff)).toEqual([]);
-    expect(mod.publicSourceFetcherEnv(cfgOn)).toEqual([
+  it("is part of every stack: no switch, and the backend always gets its URL", () => {
+    expect(cfg.publicSourceFetcher).toEqual({ replicas: 1 });
+    expect(mod.publicSourceFetcherEnv()).toEqual([
       { name: "PUBLIC_SOURCE_FETCHER_URL", value: "http://public-source-fetcher:8095" },
     ]);
+  });
+
+  it("has room for two PDF readers of 1 GiB each beside the server, and requests one", async () => {
+    const spec = await resolve(find("kubernetes:apps/v1:Deployment", "public-source-fetcher").inputs.spec);
+    expect(spec.template.spec.containers[0].resources.limits.memory).toBe("2560Mi");
+    expect(spec.template.spec.containers[0].resources.requests.memory).toBe("1Gi");
+  });
+
+  it("lets a voluntary disruption take at most one fetcher pod", async () => {
+    const pdb = await resolve(find("kubernetes:policy/v1:PodDisruptionBudget", "public-source-fetcher").inputs.spec);
+    expect(pdb.maxUnavailable).toBe(1);
+    expect(pdb.selector.matchLabels["app.kubernetes.io/name"]).toBe("public-source-fetcher");
+  });
+
+  it("drains a parse in flight before it stops, and rolls out without dropping capacity", async () => {
+    const spec = await resolve(find("kubernetes:apps/v1:Deployment", "public-source-fetcher").inputs.spec);
+    const pod = spec.template.spec;
+    const drain = 5;
+    const extractWaitSeconds = 50; // EXTRACT_TIMEOUT_SECONDS in public_sources/pdf.py
+    expect(pod.containers[0].lifecycle.preStop.exec.command).toEqual(["python", "-c", `import time; time.sleep(${drain})`]);
+    expect(pod.terminationGracePeriodSeconds).toBeGreaterThan(drain + extractWaitSeconds);
+    expect(spec.strategy.rollingUpdate).toEqual({ maxUnavailable: 0, maxSurge: 1 });
+    expect(spec.minReadySeconds).toBeGreaterThan(0);
   });
 
   it("runs the fetcher module on the backend image with no token and no secret", async () => {

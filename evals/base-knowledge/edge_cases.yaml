@@ -17,6 +17,7 @@
 #   uses        per work id: role, qualifier, labels (each listed field must match)
 #   absentWorks works that must carry no use at all
 #   noUses      true when the turn carries no use
+#   undetermined  the law whose edition at the date is not determined, with its reason
 
 graphs:
   austria:
@@ -121,6 +122,20 @@ cases:
       uses:
         work:bo-wien: { role: binding, qualifier: null, labels: [] }
       absentWorks: [work:stmk-bg]
+
+  - id: E-undetermined
+    title: Two editions of the Wiener Bauordnung recorded as in force on one day bind neither, and the context names the law as undetermined
+    graphs: [austria]
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: AT-9, certainty: verified }
+    date: '2026-12-14'
+    records:
+      - { type: edition, key: bo-wien-2018, workKey: bo-wien, label: Fassung 2018, inForceFrom: '2018-01-01' }
+      - { type: edition, key: bo-wien-2024, workKey: bo-wien, label: Fassung 2024, inForceFrom: '2024-01-01' }
+    expect:
+      gate: full
+      absentWorks: [work:bo-wien]
+      undetermined: [{ workId: 'work:bo-wien', reason: ambiguous_editions }]
 
   - id: E-none
     title: A country with territories and no coverage record reads none, and carries no use
