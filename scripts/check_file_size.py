@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import json
 import re
 import subprocess
@@ -105,6 +106,31 @@ def tracked_sources(root: Path) -> list[str]:
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
+@functools.lru_cache(maxsize=1)
+def _parsed(source: str) -> ast.Module:
+    """One parse per file: its import lines and its function lengths are read from the same tree."""
+    return ast.parse(source)
+
+
+#: The fields a statement keeps its nested statements in. An import is a
+#: statement, so it is found without descending into any expression.
+_STATEMENT_FIELDS = ("body", "orelse", "finalbody", "handlers", "cases")
+
+
+def _statements(tree: ast.AST) -> list[ast.AST]:
+    """Every statement of ``tree``, nested ones included (also the handlers and cases that hold them)."""
+    found: list[ast.AST] = []
+    pending = [tree]
+    while pending:
+        node = pending.pop()
+        for name in _STATEMENT_FIELDS:
+            children = getattr(node, name, None)
+            if isinstance(children, list):
+                found += children
+                pending += children
+    return found
+
+
 def function_lengths(source: str) -> dict[str, int]:
     """Each function's span in lines, keyed by its qualified name (`Class.method`, `outer.inner`).
 
@@ -127,7 +153,7 @@ def function_lengths(source: str) -> dict[str, int]:
                 lengths[name] = (child.end_lineno or child.lineno) - child.lineno + 1
             visit(child, f"{name}.")
 
-    visit(ast.parse(source), "")
+    visit(_parsed(source), "")
     return lengths
 
 
@@ -149,12 +175,12 @@ def import_lines(path: str, source: str) -> set[int]:
     """The 1-based lines of ``source`` its import statements occupy."""
     if path.endswith(".py"):
         try:
-            tree = ast.parse(source)
+            tree = _parsed(source)
         except SyntaxError:
             return set()
         return {
             line
-            for node in ast.walk(tree)
+            for node in _statements(tree)
             if isinstance(node, ast.Import | ast.ImportFrom)
             for line in range(node.lineno, (node.end_lineno or node.lineno) + 1)
         }

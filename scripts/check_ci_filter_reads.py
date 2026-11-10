@@ -88,32 +88,55 @@ def opens_string(before: str) -> bool:
     return not before or before[-1] in "(,=:[!&|?{};+" or before.endswith(("=>", "return", "case"))
 
 
+#: Where the comment stripper has a decision to make outside a string, and inside one.
+_OUTSIDE = re.compile(r"[`\"'/]")
+_INSIDE = {quote: re.compile(r"[\\" + quote + "]") for quote in "`\"'"}
+
+
 def script_tokens(source: str) -> list[str]:
-    """The same for JavaScript and TypeScript: comments are stripped first, outside strings."""
+    """The same for JavaScript and TypeScript: comments are stripped first, outside strings.
+
+    It jumps from one quote, slash or backslash to the next; everything between
+    is copied whole. Reading 1,964 spec files a character at a time was 15 of
+    this check's 25 profiled seconds (2026-11-10).
+    """
     code: list[str] = []
+    tail = ""  # the last 80 characters kept, which `opens_string` reads
+
+    def keep(text: str) -> None:
+        nonlocal tail
+        code.append(text)
+        tail = (tail + text)[-80:]
+
     index, quote = 0, ""
     while index < len(source):
-        char = source[index]
+        found = (_INSIDE[quote] if quote else _OUTSIDE).search(source, index)
+        if found is None:
+            keep(source[index:])
+            break
+        keep(source[index : found.start()])
+        index, char = found.start(), found.group()
         if quote:
-            code.append(char)
+            keep(char)
             if char == "\\":
-                code.append(source[index + 1 : index + 2])
+                keep(source[index + 1 : index + 2])
                 index += 1
-            elif char == quote:
+            else:
                 quote = ""
-        elif char == "`" or char in "\"'" and opens_string("".join(code[-80:])):
-            quote = char
-            code.append(char)
-        elif source.startswith("//", index):
-            index = source.find("\n", index)
-            index = len(source) if index < 0 else index
-            continue
-        elif source.startswith("/*", index):
-            end = source.find("*/", index + 2)
-            index = len(source) if end < 0 else end + 2
-            continue
+        elif char == "/":
+            if source.startswith("//", index):
+                index = source.find("\n", index)
+                index = len(source) if index < 0 else index
+                continue
+            if source.startswith("/*", index):
+                end = source.find("*/", index + 2)
+                index = len(source) if end < 0 else end + 2
+                continue
+            keep(char)
         else:
-            code.append(char)
+            if char == "`" or opens_string(tail):
+                quote = char
+            keep(char)
         index += 1
     return [match.group() for match in TOKEN.finditer("".join(code))]
 

@@ -28,7 +28,7 @@ hour, and the tiers are far from equal (each task alone, 2026-11-10):
 | `be:test:ci` (138s as `be:test`, without coverage) | 2m 48s | 463 |
 | `infra:test` | 1m 05s | 191 |
 | `be:test:api` | 44s | 127 |
-| `lint:repo` (pre-commit 34s, `agents:audit` 9s; 79s on a cold cache) | 43s | |
+| `lint:repo` (pre-commit 28s, `agents:audit` 9s; 79s on a cold cache) | 37s | |
 | `workspace:lint` | 25s | 30 |
 | everything else together | under 1m | |
 
