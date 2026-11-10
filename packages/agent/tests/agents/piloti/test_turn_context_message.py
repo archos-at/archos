@@ -43,6 +43,7 @@ from agent.agents.piloti.prompt import render_turn_prompt
 from agent.agents.piloti.prompt import request_messages
 from agent.agents.piloti.prompt import system_prompt_template
 from agent.common import LLMProvider
+from agent.common.message_utils import content_to_text
 from agent.common.prompt_store import PromptStore
 from agent.common.steering import AppliedSteer
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
@@ -122,7 +123,7 @@ class TestWhereTheContextGoes:
 
         request = request_messages(PROMPT, history)
 
-        assert isinstance(request[0], SystemMessage) and request[0].content == "SYSTEM"
+        assert isinstance(request[0], SystemMessage) and content_to_text(request[0].content) == "SYSTEM"
         assert request[1:3] == history[:2]
         assert isinstance(request[3], HumanMessage) and request[3].content == PROMPT.context
         assert request[4:] == history[2:]
@@ -138,10 +139,22 @@ class TestWhereTheContextGoes:
         assert two[0] == one[0]
         assert two[1] == turn_one[0]
 
+    def test_the_system_prompt_ends_on_the_one_cache_breakpoint(self):
+        """The static prompt is one text block whose end is where the cache entry is written.
+
+        Without it no entry is ever written at the bytes every turn shares, and
+        the next turn's first call re-writes the whole static prefix
+        (``common/prompt_caching.py``, "one block breakpoint").
+        """
+        request = request_messages(PROMPT, [HumanMessage(content="Frage")])
+
+        assert request[0].content == [{"type": "text", "text": "SYSTEM", "cache_control": {"type": "ephemeral"}}]
+        assert not any(isinstance(m.content, list) for m in request[1:])
+
     def test_a_transcript_without_a_question_gets_it_after_the_system_prompt(self):
         request = request_messages(PROMPT, [AIMessage(content="geweckt")])
 
-        assert [m.content for m in request] == ["SYSTEM", PROMPT.context, "geweckt"]
+        assert [content_to_text(m.content) for m in request] == ["SYSTEM", PROMPT.context, "geweckt"]
 
     def test_steering_notes_keep_their_place_after_the_context(self):
         history = [
@@ -153,7 +166,7 @@ class TestWhereTheContextGoes:
 
         request = request_messages(PROMPT, history, [note])
 
-        assert [m.content for m in request] == [
+        assert [content_to_text(m.content) for m in request] == [
             "SYSTEM",
             PROMPT.context,
             "Frage",

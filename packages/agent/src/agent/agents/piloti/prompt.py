@@ -36,7 +36,6 @@ from typing import NamedTuple
 
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
-from langchain_core.messages import SystemMessage
 
 from agent.citations.roles import get_turn_building_law
 from agent.common import load_prompt
@@ -50,6 +49,7 @@ from agent.common.norm_registry import resolve_country
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
+from agent.common.prompt_caching import cached_system_message
 from agent.common.prompt_store import ResolvedPrompt
 from agent.common.prompt_store import git_blob_version
 from agent.common.prompt_store import prompt_store
@@ -429,7 +429,10 @@ def request_messages(
 ) -> list[BaseMessage]:
     """The request for one model call: system, history, turn context, newest human message, this turn. Pure.
 
-    The turn context goes right BEFORE the last human message and is never
+    The system prompt carries the one block breakpoint (``prompt_caching.
+    cached_system_message``): it is the same bytes on every call of every turn
+    of an organization, so the entry written there is read by the next turn's
+    first call. The turn context goes right BEFORE the last human message and is never
     stored, so every round of a turn shares the whole prefix up to and
     including it, and the next turn shares the system prompt and every turn
     before the previous question (that question was sent behind its own
@@ -444,7 +447,7 @@ def request_messages(
         0,
     )
     request = [
-        SystemMessage(content=prompt.system),
+        cached_system_message(prompt.system),
         *history[:newest],
         HumanMessage(content=prompt.context),
         *history[newest:],

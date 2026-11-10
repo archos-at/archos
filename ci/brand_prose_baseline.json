@@ -1509,7 +1509,7 @@
   "packages/agent/tests/common/test_llm_factory.py": 3,
   "packages/agent/tests/common/test_lost_citations.py": 2,
   "packages/agent/tests/common/test_norm_registry.py": 2,
-  "packages/agent/tests/common/test_prompt_caching.py": 9,
+  "packages/agent/tests/common/test_prompt_caching.py": 3,
   "packages/agent/tests/common/test_prompt_store.py": 4,
   "packages/agent/tests/common/test_provenance.py": 2,
   "packages/agent/tests/common/test_provider_limiter_call_sites.py": 1,

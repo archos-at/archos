@@ -14,10 +14,12 @@ from agent.common.prompt_caching import CACHE_CONTROL_FIELD
 from agent.common.prompt_caching import PROMPT_CACHE_KEY_FIELD
 from agent.common.prompt_caching import SESSION_ID_FIELD
 from agent.common.prompt_caching import begin_stable_prefix
+from agent.common.prompt_caching import cached_system_message
 from agent.common.prompt_caching import end_stable_prefix
 from agent.common.prompt_caching import needs_cache_marker
 from agent.common.prompt_caching import prompt_cache_extra_body
 from agent.common.prompt_caching import prompt_cache_key
+from agent.common.prompt_caching import strip_block_breakpoints
 from agent.common.prompt_caching import with_cache_marker
 from agent.common.prompt_caching import with_prompt_cache_routing
 
@@ -26,7 +28,7 @@ TOOLS = [{"type": "function", "name": "knowledge_search", "parameters": {"type":
 
 def _key(**overrides):
     args = {
-        "system_prompt": "You are Piloti.",
+        "system_prompt": "You are the office colleague.",
         "tools": TOOLS,
         "organization_id": "org_1",
         "model": "openai/gpt-5.6-luna",
@@ -95,7 +97,7 @@ def test_no_leading_system_message_means_no_key():
 
 
 def test_one_turns_iterations_share_a_key():
-    system = SystemMessage(content="You are Piloti.")
+    system = SystemMessage(content="You are the office colleague.")
     kwargs = {"tools": TOOLS}
     first = prompt_cache_extra_body([system, HumanMessage(content="q")], kwargs, organization_id="org_1")
     grown = [system, HumanMessage(content="q"), AIMessage(content="thinking"), HumanMessage(content="tool result")]
@@ -104,7 +106,7 @@ def test_one_turns_iterations_share_a_key():
 
 
 def test_a_narrowed_tool_set_gets_its_own_key():
-    system = SystemMessage(content="You are Piloti.")
+    system = SystemMessage(content="You are the office colleague.")
     messages = [system, HumanMessage(content="q")]
     full = prompt_cache_extra_body(messages, {"tools": TOOLS})
     narrowed = prompt_cache_extra_body(messages, {"tools": []})
@@ -115,7 +117,7 @@ def test_the_envelope_response_format_is_part_of_the_key():
     # response_format sits in the cached prefix (OpenAI: "text.format … adds
     # output-format instructions and the requested schema"), so a call that
     # fell through to another rung must not claim the stronger rung's shard.
-    system = SystemMessage(content="You are Piloti.")
+    system = SystemMessage(content="You are the office colleague.")
     messages = [system, HumanMessage(content="q")]
     strict = prompt_cache_extra_body(messages, {"response_format": {"type": "json_schema"}})
     loose = prompt_cache_extra_body(messages, {"response_format": {"type": "json_object"}})
@@ -132,7 +134,7 @@ class TestClaudeIsAskedToCache:
         assert not needs_cache_marker(None)
 
     def test_a_claude_call_carries_the_marker_and_the_routing_key(self):
-        messages = [SystemMessage(content="You are Piloti."), HumanMessage(content="q")]
+        messages = [SystemMessage(content="You are the office colleague."), HumanMessage(content="q")]
         body = prompt_cache_extra_body(messages, {}, model="anthropic/claude-opus-5.5")
         assert body[CACHE_CONTROL_FIELD] == {"type": "ephemeral"}
         assert body[SESSION_ID_FIELD].startswith("grid-")
@@ -146,7 +148,7 @@ class TestClaudeIsAskedToCache:
         assert with_cache_marker(mine, "anthropic/claude-opus-5.5") == mine
 
     def test_other_models_are_untouched(self):
-        messages = [SystemMessage(content="You are Piloti."), HumanMessage(content="q")]
+        messages = [SystemMessage(content="You are the office colleague."), HumanMessage(content="q")]
         assert CACHE_CONTROL_FIELD not in prompt_cache_extra_body(messages, {}, model="openai/gpt-6-luna")
 
 
@@ -195,3 +197,82 @@ class TestAStablePrefixKeepsTheShard:
             end_stable_prefix(token)
         bare = prompt_cache_key(system_prompt=self.STATIC, tools=(TOOLS, None), organization_id="org_1", model=None)
         assert named[PROMPT_CACHE_KEY_FIELD] == bare
+
+
+class TestTheStaticSystemPromptCarriesOneBreakpoint:
+    """The block marker reaches a provider that takes it, and no other.
+
+    Writes happen only at breakpoints, so without this marker nothing is ever
+    written at the end of the bytes every turn shares (``prompt_caching``,
+    "one block breakpoint").
+    """
+
+    MARKED = [cached_system_message("You are the office colleague."), HumanMessage(content="Frage")]
+
+    def test_the_helper_puts_the_marker_at_the_end_of_the_one_text_block(self):
+        assert self.MARKED[0].content == [
+            {"type": "text", "text": "You are the office colleague.", CACHE_CONTROL_FIELD: {"type": "ephemeral"}}
+        ]
+
+    def test_kept_for_the_families_that_take_a_block_marker(self):
+        for model in ("anthropic/claude-opus-5.5", "openai/gpt-6.1-terra", "google/gemini-4-argon", "~openai/x"):
+            assert strip_block_breakpoints(self.MARKED, model) is self.MARKED, model
+
+    def test_taken_off_for_any_other_family_and_off_openrouter(self):
+        for model, openrouter in (("mistralai/mistral-large-4-0", True), ("openai/gpt-6.1-terra", False)):
+            stripped = strip_block_breakpoints(self.MARKED, model, openrouter=openrouter)
+            assert stripped[0].content == "You are the office colleague.", model
+            assert stripped[1] is self.MARKED[1]
+        assert self.MARKED[0].content[0][CACHE_CONTROL_FIELD] == {"type": "ephemeral"}, "input mutated"
+
+    def test_the_marker_does_not_re_key_a_shard(self):
+        """The block form keys as its text: the move to it did not start every org cold."""
+        plain = [SystemMessage(content="You are the office colleague."), HumanMessage(content="Frage")]
+        model = "openai/gpt-6.1-terra"
+        marked_key = prompt_cache_extra_body(self.MARKED, {}, organization_id="org_1", model=model)
+        plain_key = prompt_cache_extra_body(plain, {}, organization_id="org_1", model=model)
+        assert marked_key[PROMPT_CACHE_KEY_FIELD] == plain_key[PROMPT_CACHE_KEY_FIELD]
+
+
+class TestTheMarkerIsOnTheWire:
+    """What langchain actually sends: the request body, not our message objects."""
+
+    def _payload(self, model: str, *, responses: bool = False) -> dict:
+        from langchain_openai import ChatOpenAI
+
+        from agent.common.llm_factory import prepare_request
+
+        llm = ChatOpenAI(
+            model=model, api_key="test", base_url="https://openrouter.ai/api/v1", use_responses_api=responses
+        )
+        kwargs: dict = {}
+        messages = prepare_request(llm, TestTheStaticSystemPromptCarriesOneBreakpoint.MARKED, kwargs)
+        return llm._get_request_payload(messages, **kwargs)
+
+    def test_chat_completions_carries_the_block_marker_to_openrouter(self):
+        system = self._payload("openai/gpt-6.1-terra")["messages"][0]
+        assert system["content"][-1][CACHE_CONTROL_FIELD] == {"type": "ephemeral"}
+
+    def test_a_family_without_block_markers_gets_the_plain_prompt(self):
+        system = self._payload("mistralai/mistral-large-4-0")["messages"][0]
+        assert system["content"] == "You are the office colleague."
+
+    def test_the_responses_api_drops_it_which_is_why_the_chat_role_left_it(self):
+        """Measured 2026-11-10: langchain's Responses converter keeps no per-block key.
+
+        If this ever starts passing the marker through, the chat role could go
+        back to ``api_type: responses`` without losing the breakpoint.
+        """
+        system = self._payload("openai/gpt-6.1-terra", responses=True)["input"][0]
+        assert all(CACHE_CONTROL_FIELD not in block for block in system["content"])
+
+
+def test_the_chat_role_runs_on_chat_completions():
+    """The breakpoint reaches the provider only on Chat Completions (``TestTheMarkerIsOnTheWire``)."""
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[4]
+    config = yaml.safe_load((root / "configs" / "config_oib_openrouter.yml").read_text())
+    assert config["llms"]["research_llm"].get("api_type", "chat_completion") == "chat_completion"
