@@ -7,6 +7,7 @@ is a question of its own.
 
 from __future__ import annotations
 
+import functools
 import logging
 import math
 from typing import Any
@@ -75,3 +76,57 @@ def reported_cost(raw: Any, generation_id: str | None) -> float | None:
         return float(raw)
     logger.warning("Ignoring malformed provider cost %r on generation %s; recorded as missing", raw, generation_id)
     return None
+
+
+def chunk_accounting(usage: Any) -> dict[str, Any] | None:
+    """``cost`` and ``is_byok`` off a streamed chunk's ``usage``, plain dict or SDK model; None without them."""
+    raw = usage if isinstance(usage, dict) else getattr(usage, "model_extra", None) or {}
+    if not isinstance(raw, dict):
+        return None
+    accounting = {key: raw[key] for key in ACCOUNTING_FIELDS if raw.get(key) is not None}
+    return accounting or None
+
+
+def install_chat_stream_cost_carrier() -> bool:
+    """Keep OpenRouter's ``cost`` on a streamed Chat Completions reply. ``True`` once installed.
+
+    OpenRouter sends ``usage.cost`` on the final chunk of a stream. langchain-openai
+    turns that chunk into ``usage_metadata`` (token counts only) in
+    ``BaseChatOpenAI._convert_chunk_to_generation_chunk`` and drops the rest, and a
+    streamed call has no ``llm_output`` to fall back on, so the ledger booked it at
+    zero, ``missing``. The chat answer streams (``turn/answer_stream.streaming_call``),
+    so since ``research_llm`` runs on Chat Completions that was the main call of
+    every turn (found by review, 2026-11-10). The wrapper puts the two fields on the
+    chunk's ``response_metadata`` under ``cost_tracking.RESPONSES_ACCOUNTING_KEY``, where the
+    merged message carries them to ``cost_tracking.extract_usage_event``.
+    Idempotent; ``False`` and an error log when langchain-openai renames the method.
+    """
+    logger = logging.getLogger(__name__)
+    # Called while ``cost_tracking`` finishes importing, after it defined the key.
+    from agent.common.cost_tracking import RESPONSES_ACCOUNTING_KEY
+
+    try:
+        from langchain_openai.chat_models.base import BaseChatOpenAI
+    except ImportError:
+        return False
+    original = getattr(BaseChatOpenAI, "_convert_chunk_to_generation_chunk", None)
+    if original is None:
+        logger.error("langchain-openai has no _convert_chunk_to_generation_chunk; streamed calls record no cost")
+        return False
+    if getattr(original, "__cost_carrier__", False):
+        return True
+
+    @functools.wraps(original)
+    def convert(self: Any, chunk: Any, *args: Any, **kwargs: Any) -> Any:
+        generation = original(self, chunk, *args, **kwargs)
+        try:
+            accounting = chunk_accounting(chunk.get("usage")) if isinstance(chunk, dict) else None
+            if generation is not None and accounting:
+                generation.message.response_metadata[RESPONSES_ACCOUNTING_KEY] = dict(accounting)
+        except Exception:  # noqa: BLE001 - accounting must never break an answer
+            logger.warning("Could not carry the streamed usage cost", exc_info=True)
+        return generation
+
+    convert.__cost_carrier__ = True  # type: ignore[attr-defined]
+    BaseChatOpenAI._convert_chunk_to_generation_chunk = convert  # type: ignore[method-assign]
+    return True
