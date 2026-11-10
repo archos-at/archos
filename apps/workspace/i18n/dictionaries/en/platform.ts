@@ -48,6 +48,7 @@ export const platform = {
       manifestation: 'texts',
     },
     recordTypes: {
+      ruleset: 'Rule',
       territory: 'Territory',
       authority: 'Authority',
       work: 'Law, standard or directive',

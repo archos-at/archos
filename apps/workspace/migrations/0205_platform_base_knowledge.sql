@@ -30,8 +30,10 @@
 --   honestly got from the corpus.
 --
 -- Two record types join (`territory`, `authority`), platform only, each with
--- its typed body. Every platform record names the country it belongs to
--- (`country_id`), which is what an office is entitled to.
+-- its typed body; 0204's `ruleset` stays (an office may own one, and a
+-- platform ruleset is released like any other platform record). Every
+-- platform record names the country it belongs to (`country_id`), which is
+-- what an office is entitled to.
 --
 -- ## Entitlement
 --
@@ -54,7 +56,7 @@ ALTER TABLE "knowledge_records" ADD COLUMN IF NOT EXISTS "country_id" text;
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 --> statement-breakpoint
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_type_known
-  CHECK ("type" IN ('work', 'edition', 'manifestation', 'territory', 'authority'));
+  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority'));
 --> statement-breakpoint
 -- Territories and authorities are the platform's; an office names them, never owns them.
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_platform_types
@@ -439,6 +441,11 @@ SELECT secure_table('knowledge_manifestation_revisions',
   'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
 --> statement-breakpoint
 SELECT secure_table('knowledge_territory_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
+--> statement-breakpoint
+-- A ruleset body (0204) is read like the others: a platform one once released, by an entitled office.
+SELECT secure_table('knowledge_ruleset_revisions',
   'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
   'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
 --> statement-breakpoint

@@ -17,6 +17,7 @@ import {
   knowledgeEditionRevisions,
   knowledgeManifestationRevisions,
   knowledgeRecords,
+  knowledgeRulesetRevisions,
   knowledgeRevisions,
   knowledgeWorkRevisions,
   type KnowledgeProvenance,
@@ -176,6 +177,7 @@ const BODY_TABLES = [
   knowledgeWorkRevisions,
   knowledgeEditionRevisions,
   knowledgeManifestationRevisions,
+  knowledgeRulesetRevisions,
   knowledgeTerritoryRevisions,
   knowledgeAuthorityRevisions,
 ] as const

@@ -14,6 +14,7 @@ import {
   APPROVAL_ROLES,
   CHANGE_REQUEST_STATUSES,
   KNOWLEDGE_WORK_KINDS,
+  type KnowledgeRecordType,
   RELEASE_CHANNELS,
   REVIEW_DECISIONS,
   TERRITORY_KINDS,
@@ -214,7 +215,7 @@ export interface ClaimView {
 export interface RevisionView {
   revisionId: string
   recordId: string
-  type: ProposedRecord['type']
+  type: KnowledgeRecordType
   createdBy: string
   citations: z.infer<typeof citationSchema>[]
   claims: ClaimView[]

@@ -45,6 +45,7 @@ export const platform: typeof en.platform = {
       manifestation: 'Texte',
     },
     recordTypes: {
+      ruleset: 'Regel',
       territory: 'Gebiet',
       authority: 'Behörde',
       work: 'Gesetz, Norm oder Weisung',

@@ -23,6 +23,7 @@ import {
   knowledgeManifestationRevisions,
   knowledgeRecords,
   knowledgeRevisions,
+  knowledgeRulesetRevisions,
   knowledgeWorkRevisions,
   type KnowledgeCheckResult,
   type KnowledgeProvenance,
@@ -57,13 +58,14 @@ export interface StoredEntry extends EntryRecordIds {
   createdAt: Date
 }
 
-const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
+export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** The typed body table of each record type (0202, 0205). */
+/** The typed body table of each record type (0202, 0204, 0205). */
 const BODY_TABLES = {
   work: knowledgeWorkRevisions,
   edition: knowledgeEditionRevisions,
   manifestation: knowledgeManifestationRevisions,
+  ruleset: knowledgeRulesetRevisions,
   territory: knowledgeTerritoryRevisions,
   authority: knowledgeAuthorityRevisions,
 } as const
@@ -104,6 +106,7 @@ export async function appendRevision(
 type WorkBody = Omit<typeof knowledgeWorkRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 type EditionBody = Omit<typeof knowledgeEditionRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 type CopyBody = Omit<typeof knowledgeManifestationRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
+export type RulesetBody = Omit<typeof knowledgeRulesetRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 
 function bodiesOf(
   values: EntryValues,

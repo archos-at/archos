@@ -9,6 +9,7 @@
         "work",
         "edition",
         "manifestation",
+        "ruleset",
         "territory",
         "authority"
       ]
@@ -61,6 +62,25 @@
         "newer_known",
         "withdrawn",
         "source_unreachable"
+      ]
+    },
+    "knowledge_ruleset_revisions.purpose": {
+      "type": "string",
+      "enum": [
+        "classification",
+        "derivation",
+        "reference_date",
+        "competence",
+        "fact_definitions",
+        "fact_sources",
+        "advice_policy",
+        "terminology"
+      ]
+    },
+    "knowledge_ruleset_revisions.payload_schema": {
+      "type": "string",
+      "enum": [
+        "decision_table.v1"
       ]
     },
     "knowledge_territory_revisions.kind": {

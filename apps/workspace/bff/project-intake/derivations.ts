@@ -138,6 +138,16 @@ const INPUT_DOMAINS: Record<BuildingClassInput, InputDomain> = {
   uses: { read: readPurelyResidential, bands: [true, false] },
 }
 
+/**
+ * One input as the rules read it, or undefined when it is missing or
+ * unreadable: the same reading the band enumeration uses, so the ruleset
+ * evaluation (`base-knowledge/rulesets/building-class.ts`) sees the same facts.
+ * `uses` reads as „rein Wohnen" here; the ruleset reads the list itself.
+ */
+export function readBuildingClassInput(input: BuildingClassInput, raw: ProjectPrimitiveValue | undefined): Band | undefined {
+  return INPUT_DOMAINS[input].read(raw)
+}
+
 /** One combination of bands, as the rules read it. */
 interface Building {
   isBuilding: boolean

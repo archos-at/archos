@@ -7,7 +7,7 @@
 -- they never carry a country, a change request or a corpus file. 0202's read
 -- policies come back, so an office reads what it read before 0205.
 DELETE FROM "knowledge_records" WHERE "organization_id" IS NULL;
--- 0202's read policies first: the 0205 ones name the columns and functions dropped below.
+-- 0202's (and 0204's) read policies first: the 0205 ones name the columns and functions dropped below.
 SELECT secure_table('knowledge_records',
   'organization_id = current_org() OR (organization_id IS NULL AND head_revision_id IS NOT NULL)');
 SELECT secure_table('knowledge_revisions',
@@ -19,6 +19,8 @@ SELECT secure_table('knowledge_edition_revisions',
 SELECT secure_table('knowledge_manifestation_revisions',
   'organization_id = current_org() OR (organization_id IS NULL AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.head_revision_id = revision_id))');
 SELECT secure_table('knowledge_checks', 'organization_id = current_org() OR organization_id IS NULL');
+SELECT secure_table('knowledge_ruleset_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.head_revision_id = revision_id))');
 DROP TABLE IF EXISTS "knowledge_index_runs";
 DROP TABLE IF EXISTS "knowledge_release_moves";
 DROP TABLE IF EXISTS "knowledge_approvals";
@@ -40,7 +42,7 @@ ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_coun
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_platform_types;
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_type_known
-  CHECK ("type" IN ('work', 'edition', 'manifestation'));
+  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset'));
 CREATE OR REPLACE FUNCTION knowledge_records_head_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF (NEW.id, NEW.organization_id, NEW.type, NEW.document_id, NEW.created_by, NEW.created_at)
