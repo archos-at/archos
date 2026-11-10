@@ -8,7 +8,8 @@
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import type { getDb } from '@/lib/db'
-import type { TerritoryParent } from '../chain/territory-chain'
+import { walkSeeds, type TerritoryParent } from '../chain/territory-chain'
+import { sqlTextArray } from '@/lib/db/sql-list'
 import { recordReadable } from '../store/visibility'
 
 interface TerritoryRow extends Record<string, unknown> {
@@ -24,7 +25,7 @@ export async function readTerritoryParents(
 ): Promise<Map<string, TerritoryParent[]>> {
   const rows = await db.execute<TerritoryRow>(sql`
     WITH RECURSIVE chain(id, depth) AS (
-      SELECT ${territoryId}::text, 0
+      SELECT unnest(${sqlTextArray(walkSeeds(territoryId))}), 0
       UNION
       SELECT p.parent_id, c.depth + 1
       FROM chain c

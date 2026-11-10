@@ -153,6 +153,15 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(raw).toHaveLength(0)
   })
 
+  it('walks to the EU on the time path too, from a Land and from a code with no record', async () => {
+    const { readTerritoryChain } = await import('../time/repository')
+    // AT-0 has no territory record: the walk still starts at its ISO country, as the chain path's does.
+    for (const land of ['AT-9', 'AT-0']) {
+      expect(await readTerritoryChain(AUSTRIAN, land, '2026-11-10'), land).toEqual(expect.arrayContaining([land, 'AT', 'EU']))
+      expect(await readTerritoryChain(AUSTRIAN, land, '1994-12-31'), land).not.toContain('EU')
+    }
+  })
+
   it('reads no EU record through a membership that has ended', async () => {
     const euRecords = async (organizationId: string) =>
       withTenant({ organizationId }, () => db.execute(sql`SELECT id FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'EU'`))

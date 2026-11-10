@@ -22,6 +22,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import type { RelationAnchor, TerritoryParent } from '@/lib/db/schema/knowledge-platform'
 import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 import { recordReadable } from '../store/visibility'
+import { walkSeeds } from './territory-chain'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
 /** Most rows of one type a graph reads. */
@@ -91,10 +92,9 @@ const dateText = (value: unknown): string | null => (value === null || value ===
 const readable = (organizationId: string) => recordReadable('r', organizationId)
 
 async function territoriesOn(organizationId: string, leafId: string): Promise<TerritoryRow[]> {
-  const iso = /^([A-Z]{2})-/.exec(leafId)?.[1] ?? leafId
   return getDb().execute<TerritoryRow>(sql`
     WITH RECURSIVE chain(id, depth) AS (
-      SELECT unnest(ARRAY[${leafId}::text, ${iso}::text]), 0
+      SELECT unnest(${sqlTextArray(walkSeeds(leafId))}), 0
       UNION
       SELECT p.id, c.depth + 1
       FROM chain c

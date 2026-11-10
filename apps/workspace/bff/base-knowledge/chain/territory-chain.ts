@@ -9,11 +9,20 @@
  * says so.
  */
 
-/** A territory's parent, for an interval when it states one (design §3.2 `parents`). */
-export interface TerritoryParent {
-  id: string
-  validFrom?: string | null
-  validTo?: string | null
+/** A territory's parent, for an interval when it states one (design §3.2 `parents`); the column's own type. */
+export type { TerritoryParent } from '@/lib/db/schema/knowledge-platform'
+import type { TerritoryParent } from '@/lib/db/schema/knowledge-platform'
+
+/**
+ * Where a walk over the stored parents starts: the place, and the country an
+ * ISO 3166-2 code lies in whether or not its record says so. Both SQL loaders
+ * (`chain/load.ts`, `platform/territories.ts`) seed with it, so a Land that
+ * states no parent, or has no record, reaches its country's parents (`EU`) on
+ * every path.
+ */
+export function walkSeeds(leafId: string): string[] {
+  const iso = /^([A-Z]{2})-/.exec(leafId)?.[1]
+  return iso ? [leafId, iso] : [leafId]
 }
 
 /** Most territories one chain holds: a guard against a cycle the records should never have. */
