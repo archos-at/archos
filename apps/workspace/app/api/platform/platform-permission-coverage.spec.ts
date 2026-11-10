@@ -70,6 +70,7 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/index-status/route.ts GET': 'settingsView',
   // Which countries an office is entitled to, and its seat: an organization's platform settings.
   'organizations/[organizationId]/countries/route.ts POST': 'organizationsManage',
+  'organizations/countries/route.ts GET': 'organizationsView',
   'organizations/[organizationId]/home-country/route.ts PUT': 'organizationsManage',
   'knowledge/reingest/route.ts POST': 'settingsManage',
   'knowledge/sync/route.ts POST': 'settingsManage',
