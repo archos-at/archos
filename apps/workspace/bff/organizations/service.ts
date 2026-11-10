@@ -9,8 +9,6 @@
 import 'server-only'
 import type { SwitchableOrganization } from './switchable'
 import { findOrganization, upsertOrganization } from './repository'
-import { ensureOrganizationRow, stateHomeCountry } from './home-country-row'
-import type { HomeCountry } from './home-country'
 import { getWorkOS } from '@/lib/workos/client'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { invalidateBackendModelConfig } from '@/lib/model-config/backend-key'
@@ -270,8 +268,6 @@ export async function switchableOrganizations(
 
 export interface OrgSettingsPatch {
   displayName?: string | null
-  /** Stated once (`stateHomeCountry`); never edited here. */
-  homeCountry?: HomeCountry
   /** `null` takes the choice back: members then start in their browser's language. */
   defaultLocale?: Locale | null
   settings?: Record<string, unknown>
@@ -364,8 +360,6 @@ async function writeOrgSettings(
   organizationId: string,
   patch: OrgSettingsPatch
 ): Promise<OrgSettings> {
-  await ensureOrganizationRow(organizationId)
-  if (patch.homeCountry) await stateHomeCountry(organizationId, patch.homeCountry)
   const current = await getOrgSettings(organizationId)
   const next: OrgSettings = {
     displayName: patch.displayName !== undefined ? patch.displayName : current.displayName,
