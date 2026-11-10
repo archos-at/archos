@@ -162,8 +162,7 @@ const territoryRecord = z.object({
   id: territoryIdSchema,
   kind: z.enum(TERRITORY_KINDS),
   name: z.string().trim().min(1).max(200),
-  parentIds: z.array(territoryIdSchema).max(10).default([]).describe('Nearest first, e.g. ["AT"] for AT-6.'),
-  datedParents: z
+  parents: z
     .array(
       z.object({
         id: territoryIdSchema,
@@ -171,9 +170,9 @@ const territoryRecord = z.object({
         validTo: isoDate.nullable().default(null),
       }),
     )
-    .max(10)
+    .max(20)
     .default([])
-    .describe('Parents for an interval only, half-open: [{ id: "EU", validFrom: "1995-01-01" }] for AT.'),
+    .describe('Every territory it lies in directly, nearest first; a parent for an interval only states it, half-open: [{ id: "EU", validFrom: "1995-01-01" }] for AT, [{ id: "AT" }] for AT-6.'),
   aliases: z.record(z.string().regex(/^[a-z]{2,8}$/), z.string().min(1).max(40)).default({}),
   validFrom: isoDate.nullable().default(null),
   validTo: isoDate.nullable().default(null),
@@ -185,6 +184,8 @@ const territoryRecord = z.object({
   municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
   ...common,
 })
+  // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.
+  .strict()
 
 /** An AKN eId (`par_4__abs_2`, `pkt_3.1`, `cl_4.2`): what an anchor names, never prose. */
 const anchorIdSchema = z.string().trim().regex(/^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$/, 'an AKN eId such as par_4__abs_2 or pkt_3.1')

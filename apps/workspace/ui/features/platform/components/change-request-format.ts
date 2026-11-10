@@ -44,7 +44,7 @@ export const CLAIM_FIELDS = [
   'functionCodes',
   'territoryIds',
   'addressees',
-  'parentIds',
+  'parents',
   'issuedOn',
   'inForceFrom',
   'inForceTo',
@@ -86,7 +86,7 @@ export interface Wording {
   licenceWord: (licenceClass: string) => string | null
 }
 
-const TERRITORY_FIELDS = new Set(['competenceTerritoryIds', 'seatTerritoryId', 'territoryIds', 'parentIds'])
+const TERRITORY_FIELDS = new Set(['competenceTerritoryIds', 'seatTerritoryId', 'territoryIds'])
 
 function territoryItem(id: string, wording: Wording): { text: string; code?: string } {
   const name = territoryName(id, wording.locale)
@@ -113,6 +113,18 @@ export function showValue(path: string, value: unknown, wording: Wording): Shown
     const ids = Array.isArray(value) ? value.map(String) : [String(value)]
     const items = ids.map((id) => territoryItem(id, wording))
     return items.length === 1 && !Array.isArray(value) ? { kind: 'text', ...items[0] } : { kind: 'list', items }
+  }
+  if (path === 'parents' && Array.isArray(value)) {
+    // `{ id: 'EU', validFrom: '1995-01-01' }` reads "Europäische Union (EU), 1995-01-01 –": the place, then its interval when it has one.
+    return {
+      kind: 'list',
+      items: value.map((entry) => {
+        const parent = entry as { id: string; validFrom?: string | null; validTo?: string | null }
+        const item = territoryItem(String(parent.id), wording)
+        const interval = parent.validFrom || parent.validTo ? `${parent.validFrom ?? ''} – ${parent.validTo ?? ''}`.trim() : null
+        return interval ? { ...item, text: `${item.text}, ${interval}` } : item
+      }),
+    }
   }
   if (path === 'kind' && typeof value === 'string') return { kind: 'text', text: wording.kindWord(value) ?? value }
   if (path === 'functionCodes' && Array.isArray(value)) {

@@ -75,8 +75,9 @@ interface AuthorityRow extends Record<string, unknown> {
 
 /** Who is competent at the site, by the competence rulesets of its chain on the office's today. */
 async function competenceAt(organizationId: string, territoryId: string): Promise<SiteAuthority> {
-  const [chain, zone] = await Promise.all([readTerritoryChain(organizationId, territoryId), officeTimeZone(organizationId)])
-  const [site] = await competentAuthorities(organizationId, [chain], calendarDayIn(zone))
+  const today = calendarDayIn(await officeTimeZone(organizationId))
+  const chain = await readTerritoryChain(organizationId, territoryId, today)
+  const [site] = await competentAuthorities(organizationId, [chain], today)
   return site ?? { status: 'undetermined', reason: 'no_territory' }
 }
 

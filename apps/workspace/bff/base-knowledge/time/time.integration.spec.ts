@@ -118,13 +118,13 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     }
     await published('Austria: territories for time', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parentIds: ['AT'] },
+      { type: 'territory', id: 'AT-3', kind: 'state', name: 'Niederösterreich', parents: [{ id: 'AT' }] },
       {
         type: 'territory',
         id: NODE,
         kind: 'municipality',
         name: 'Testgemeinde',
-        parentIds: ['AT-3'],
+        parents: [{ id: 'AT-3' }],
       },
     ])
     await published('A Land building code in time', [
@@ -195,7 +195,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
   async function answerFor(organizationId: string, procedure: Record<string, unknown>) {
     const read = await repository.readWorkInTime(organizationId, workId())
     if (!read) return null
-    const chain = await repository.readTerritoryChain(organizationId, NODE)
+    const chain = await repository.readTerritoryChain(organizationId, NODE, '2026-11-10')
     const rules = await rulesets.readRulesetsInForce(organizationId, {
       purpose: 'reference_date',
       territoryIds: chain,
@@ -225,7 +225,8 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
       ['LGBl. 1/2015', '2015-02-01', '2023-01-01', false],
       ['LGBl. 2023/1', '2023-01-01', null, true],
     ])
-    expect(await repository.readTerritoryChain(ORG, NODE)).toEqual([NODE, 'AT-3', 'AT'])
+    // `EU` follows `AT` where another spec in the same database published the Austria pack's dated parent.
+    expect((await repository.readTerritoryChain(ORG, NODE, '2026-11-10')).slice(0, 3)).toEqual([NODE, 'AT-3', 'AT'])
   })
 
   it('names the edition that applied: the stored transition keeps the old law for a procedure open at the boundary', async () => {

@@ -118,12 +118,12 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     // Austria's territories, one request: what authorities and directives name.
     await published('Austria: territories', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
       // Run-scoped places, so the competence rules below decide for this run's places only and never for a
       // real Gemeinde another suite in the same database resolves (site-resolution's Graz).
-      { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parentIds: ['AT-6'] },
-      { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parentIds: ['AT-9'] },
+      { type: 'territory', id: GRAZ, kind: 'municipality', name: 'Graz (test)', parents: [{ id: 'AT-6' }] },
+      { type: 'territory', id: VIENNA, kind: 'municipality', name: 'Wien (test)', parents: [{ id: 'AT-9' }] },
     ])
   })
 

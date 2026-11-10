@@ -20,9 +20,10 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
-import type { DatedParent, RelationAnchor } from '@/lib/db/schema/knowledge-platform'
+import type { RelationAnchor, TerritoryParent } from '@/lib/db/schema/knowledge-platform'
 import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 import { recordReadable } from '../store/visibility'
+import { walkSeeds } from './territory-chain'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
 /** Most rows of one type a graph reads. */
@@ -40,8 +41,7 @@ interface TerritoryRow extends Record<string, unknown> {
   id: string
   kind: TerritoryKind
   name: string
-  parent_ids: string[]
-  dated_parents: DatedParent[]
+  parents: TerritoryParent[]
   valid_from: string | null
   valid_to: string | null
   coverage_level: CoverageLevel | null
@@ -95,22 +95,20 @@ const dateText = (value: unknown): string | null => (value === null || value ===
 const readable = (organizationId: string) => recordReadable('r', organizationId)
 
 async function territoriesOn(organizationId: string, leafId: string): Promise<TerritoryRow[]> {
-  const iso = /^([A-Z]{2})-/.exec(leafId)?.[1] ?? leafId
   return getDb().execute<TerritoryRow>(sql`
     WITH RECURSIVE chain(id, depth) AS (
-      SELECT unnest(ARRAY[${leafId}::text, ${iso}::text]), 0
+      SELECT unnest(${sqlTextArray(walkSeeds(leafId))}), 0
       UNION
       SELECT p.id, c.depth + 1
       FROM chain c
       JOIN knowledge_records r ON r.id = c.id AND r.organization_id IS NULL AND r.type = 'territory' AND r.head_revision_id IS NOT NULL
       JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
       CROSS JOIN LATERAL (
-        SELECT unnest(t.parent_ids) AS id
-        UNION SELECT d ->> 'id' FROM jsonb_array_elements(t.dated_parents) AS d
+        SELECT d ->> 'id' AS id FROM jsonb_array_elements(t.parents) AS d
       ) p
       WHERE c.depth < ${MAX_TERRITORY_DEPTH}
     )
-    SELECT r.id, t.kind, t.name, t.parent_ids, t.dated_parents, t.valid_from, t.valid_to, t.coverage_level, t.municipal_law
+    SELECT r.id, t.kind, t.name, t.parents, t.valid_from, t.valid_to, t.coverage_level, t.municipal_law
     FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
     WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.id IN (SELECT id FROM chain)
       AND ${readable(organizationId)}
@@ -177,8 +175,7 @@ function toTerritory(row: TerritoryRow): GraphTerritory {
     id: row.id,
     kind: row.kind,
     name: row.name,
-    parentIds: row.parent_ids,
-    datedParents: row.dated_parents,
+    parents: row.parents,
     validFrom: dateText(row.valid_from),
     validTo: dateText(row.valid_to),
     coverageLevel: row.coverage_level ?? null,

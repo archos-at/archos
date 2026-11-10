@@ -57,7 +57,7 @@ export async function editionAsOfForSession(
   const procedure = await procedureOf(session, query)
   const [read, chain] = await Promise.all([
     readWorkInTime(organizationId, query.workId),
-    readTerritoryChain(organizationId, query.territoryId),
+    readTerritoryChain(organizationId, query.territoryId, query.asOf ?? now.toISOString().slice(0, 10)),
   ])
   if (!read)
     throw new NotFoundError(

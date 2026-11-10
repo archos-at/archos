@@ -22,15 +22,15 @@
 graphs:
   austria:
     - { type: territory, id: EU, kind: union, name: EU }
-    - { type: territory, id: AT, kind: country, name: Österreich, datedParents: [{ id: EU, validFrom: '1995-01-01' }], coverageLevel: core }
-    - { type: territory, id: AT-6, kind: state, name: Steiermark, parentIds: [AT] }
-    - { type: territory, id: AT-9, kind: state, name: Wien, parentIds: [AT], coverageLevel: full, municipalLaw: true }
+    - { type: territory, id: AT, kind: country, name: Österreich, parents: [{ id: EU, validFrom: '1995-01-01' }], coverageLevel: core }
+    - { type: territory, id: AT-6, kind: state, name: Steiermark, parents: [{ id: AT }] }
+    - { type: territory, id: AT-9, kind: state, name: Wien, parents: [{ id: AT }], coverageLevel: full, municipalLaw: true }
     - { type: work, key: stmk-bg, kind: statute, title: Steiermärkisches Baugesetz, territoryIds: [AT-6] }
     - { type: work, key: bo-wien, kind: statute, title: Bauordnung für Wien, territoryIds: [AT-9] }
   germany:
-    - { type: territory, id: DE, kind: country, name: Deutschland, datedParents: [{ id: EU, validFrom: '1958-01-01' }], coverageLevel: open }
-    - { type: territory, id: DE-BY, kind: state, name: Bayern, parentIds: [DE] }
-    - { type: territory, id: DE-NW, kind: state, name: Nordrhein-Westfalen, parentIds: [DE] }
+    - { type: territory, id: DE, kind: country, name: Deutschland, parents: [{ id: EU, validFrom: '1958-01-01' }], coverageLevel: open }
+    - { type: territory, id: DE-BY, kind: state, name: Bayern, parents: [{ id: DE }] }
+    - { type: territory, id: DE-NW, kind: state, name: Nordrhein-Westfalen, parents: [{ id: DE }] }
     - { type: work, key: bauo-nrw, kind: statute, title: Bauordnung NRW, designation: BauO NRW, territoryIds: [DE-NW] }
     - { type: work, key: bauo-nrw-dvo, kind: ordinance, title: Durchführungsverordnung BauO NRW, territoryIds: [DE-NW] }
     - { type: edition, key: bauo-nrw-dvo-2019, workKey: bauo-nrw-dvo, label: '2019', inForceFrom: '2019-01-01' }

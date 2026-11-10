@@ -40,7 +40,7 @@ vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import
 import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
 
 const AUSTRIA = {
-  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parentIds: [], datedParents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
+  territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
   works: new Map(),
   editions: new Map(),
   relations: [],
