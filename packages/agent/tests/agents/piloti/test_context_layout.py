@@ -103,6 +103,28 @@ class TestTheHeadHoldsAcrossTurns:
             assert value in prompt.context, value
             assert value not in prompt.conversation, value
 
+    def test_the_memory_digest_ranked_for_the_question_is_the_turns(self, monkeypatch):
+        """The BFF picks and orders memory notes by the question: in the head they would rewrite it every turn."""
+        profile = "PROJECT_CONTEXT v1\n\nconfirmed:\n- name=Wohnbau"
+        notes = ["- [fact | high | unverified] GK 4", "- [fact | high | unverified] Tiefgarage geplant"]
+
+        def asked(order):
+            memory = "PROJECT_MEMORY v1\n" + "\n".join(order)
+            state = _state("Frage")
+            state.project_context = (
+                f"{profile}\n\n{memory}\n\n<office_base_knowledge>\n- ÖNORM B 1600\n</office_base_knowledge>"
+            )
+            return _render(monkeypatch, 1, state)
+
+        one, two = asked(notes), asked(list(reversed(notes)))
+        assert one.conversation == two.conversation
+        assert "name=Wohnbau" in one.conversation
+        for text in ("GK 4", "Tiefgarage", "PROJECT_MEMORY v1", "ÖNORM B 1600"):
+            assert text not in one.conversation, text
+            assert text in one.context, text
+        # The template's own note on what a memory note is rides with the notes.
+        assert "is what you concluded in earlier conversations" in one.context
+
     def test_files_still_being_read_are_the_turns_not_the_heads(self, monkeypatch):
         prompt = _render(monkeypatch, 1, _state("Frage", in_flight_documents=["Schnitt_AA.pdf"]))
         assert "Schnitt_AA.pdf" in prompt.context

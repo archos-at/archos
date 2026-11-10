@@ -15,9 +15,11 @@ The conversation layout, the default, splits it in two:
 * the **conversation context**, what the project and the office set
   (:data:`CONVERSATION_VALUES`), one message right after the system prompt,
   with a cache breakpoint at its end. The same bytes on every turn and in every
-  conversation of the project until a file settles or a memory note changes;
+  conversation of the project until a file settles or the profile changes;
 * the **turn note**, what this turn varies (:data:`TURN_VALUES`), right before
-  the question where the turn context was, request-only as before.
+  the question where the turn context was, request-only as before. The project
+  context's memory part goes here too (:func:`split_project_context`): the BFF
+  picks and orders the memory notes by their relevance to the question.
 
 Nothing else changes: what is stored, the write-back, the history window.
 Every value the template reads is in exactly one of the two sets, held by a test
@@ -140,10 +142,39 @@ def _inventories(values: dict[str, Any]) -> tuple[str, str]:
     return whole, "\n\n".join(part for part in parts if part)
 
 
+#: The headers that open the parts of the project context after the profile
+#: (``compose_project_context`` + ``turn/context_client.with_base_knowledge``;
+#: the BFF's ``composeMemoryContext``). The memory digest among them is picked
+#: and ordered per question, by its recall score.
+_MEMORY_PART_HEADERS = (
+    "PROJECT_MEMORY v1",
+    "PROPOSAL_DECISIONS v1",
+    "REVIEW_DECISIONS v1",
+    "FOLDER_DESCRIPTIONS v1",
+    "<office_base_knowledge>",
+)
+
+
+def split_project_context(composed: str | None) -> tuple[str | None, str | None]:
+    """The project context as (profile, memory part). Pure.
+
+    The profile is the same for every question of the project; the memory part
+    is not (``buildProjectMemoryDigest`` ranks unpinned notes by the question),
+    so only the profile may sit in the stable head.
+    """
+    if not composed:
+        return None, None
+    starts = [index for header in _MEMORY_PART_HEADERS if (index := composed.find(header)) >= 0]
+    cut = min(starts, default=len(composed))
+    profile, memory = composed[:cut].strip(), composed[cut:].strip()
+    return profile or None, memory or None
+
+
 def layout_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """The template values of the conversation context and of the turn's note, inventories included."""
     conversation, note = split_values(values)
     conversation["document_inventory"], note["document_inventory"] = _inventories(values)
+    conversation["project_context"], note["project_context"] = split_project_context(values.get("project_context"))
     return conversation, note
 
 

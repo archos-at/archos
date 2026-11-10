@@ -13,8 +13,9 @@ export interface ProjectModelKinds {
 
 /**
  * Whether the project, the office shelf or this conversation's own uploads hold
- * an IFC or a DXF the agent may read (`SCREENED_ONLY`, the reader its tools read
- * through). Read off the documents, not `bim_models`, so an IFC whose extraction
+ * an IFC or a DXF past screening (`SCREENED_ONLY`, the reader the agent's tools
+ * read through). A file in a folder the asker may not open still counts: that
+ * binds a tool, which then refuses the read, and tells the model nothing. Read off the documents, not `bim_models`, so an IFC whose extraction
  * has not started yet still counts. The agent binds `ifc_query`, `ifc_measure`
  * and `dxf_measure` only where this says there is one: their schemas are ~9k
  * tokens of every call of a turn (the chat agent's `turn_tools.py`).

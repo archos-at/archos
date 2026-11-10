@@ -105,18 +105,25 @@ async def ainvoke_synthesis(binding: Any, messages: list[Any], live: Any, json_m
     ``tool_choice`` invalidates the messages at most, and the envelope rests on
     the fenced contract and its parser (rung 3), as every round's does.
 
-    A provider that ignores ``tool_choice`` and calls a tool anyway gets the
-    tool-free call down the format ladder, as before: a tool call here would
-    run past the turn's ceiling.
+    A provider that ignores ``tool_choice`` and calls a tool anyway, or rejects
+    the parameter (400/422), gets the tool-free call down the format ladder, as
+    before: a tool call here would run past the turn's ceiling.
     """
     from agent.turn.answer_stream import streaming_call
 
     answering, config = streaming_call(binding.llm_with_tools.bind(tool_choice=NO_TOOL_CALLS), live=live)
     invoke = ainvoke_with_envelope_json_mode if json_mode_with_tools else ainvoke
-    response = await invoke(answering, messages, config)
+    try:
+        response = await invoke(answering, messages, config)
+    except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting tool_choice
+        if not is_parameter_rejection(exc):
+            raise
+        logger.warning("Forced synthesis: tool_choice=none rejected (%s); answering tool-free", exc)
+        response = None
     calls = getattr(response, "tool_calls", None) or []
-    if not calls:
+    if response is not None and not calls:
         return response
-    logger.warning("Forced synthesis: tool_choice=none was ignored (%d call(s)); answering tool-free", len(calls))
+    if calls:
+        logger.warning("Forced synthesis: tool_choice=none was ignored (%d call(s)); answering tool-free", len(calls))
     answering, config = streaming_call(binding.llm, live=live)
     return await ainvoke_with_envelope_json_mode(answering, messages, config)
