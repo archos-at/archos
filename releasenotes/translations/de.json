@@ -2292,6 +2292,10 @@
     "de": "Einen Skill mit Schrägstrich zu nennen schreibt jetzt einfach seinen Namen in Ihre Nachricht, und Piloti greift von dort zum gemeinten Skill. Bei Piloti kommt genau der Text an, den Sie abgeschickt haben."
   },
   {
+    "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
+    "de": "Neuerungen ist übersichtlicher: Jede Woche zeigt ihre Datumsangaben, ihre Zusammenfassung und die Anzahl der enthaltenen Änderungen und lässt sich bei Bedarf aufklappen. Innerhalb einer Woche sind die Änderungen nach Bereichen gruppiert, und ein einzelner Fix wird jetzt als „1 fix“ angezeigt."
+  },
+  {
     "en": "New Postfach entries, mentions and shares now reach colleagues right away again, without a reload.",
     "de": "Neue Postfach-Einträge, Erwähnungen und geteilte Inhalte erreichen Kolleginnen und Kollegen jetzt wieder sofort – ohne Neuladen."
   },

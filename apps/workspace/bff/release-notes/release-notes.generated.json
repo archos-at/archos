@@ -80,6 +80,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
+            "de": "Neuerungen ist übersichtlicher: Jede Woche zeigt ihre Datumsangaben, ihre Zusammenfassung und die Anzahl der enthaltenen Änderungen und lässt sich bei Bedarf aufklappen. Innerhalb einer Woche sind die Änderungen nach Bereichen gruppiert, und ein einzelner Fix wird jetzt als „1 fix“ angezeigt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "building-law",
           "text": {
