@@ -19,7 +19,7 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 
 - **One orchestrator** (this session) and **parallel cloud sessions**, each in its own container with its own CPU budget. The local workflow cap of 2 agents does not apply across sessions.
 - **One session = one PR = one branch** `claude/intl-<slug>`, based on `develop`, PR into `develop`. Wave 2 sessions that need S1 base on S1's branch; CI runs on PRs whose base is a `claude/**` branch (CONTRIBUTING.md).
-- **A thin contract, as text.** Only S2 depends on S1's tables, so there is no code contract to wait for. The shared points (record shape, licence values, flag names, file ownership) are written in each brief, and S1 owns the tables. Wave 0 is only the design on a branch every session can read. A session that finds a better shape proposes it in its PR, and the orchestrator reconciles.
+- **A thin contract, as text.** In Wave 1 only S2 depends on S1's tables, so there is no code contract to wait for; from Wave 2 on, sessions base on merged work. The shared points (record shape, licence values, flag names, file ownership) are written in each brief, and S1 owns the tables. Wave 0 is only the design on a branch every session can read. A session that finds a better shape proposes it in its PR, and the orchestrator reconciles.
 - **The orchestrator** spawns sessions, watches them (`get_session`, `list_events`), reviews each PR against its intent (not against the suggestions) with an independent reviewer, carries good deviations to dependent sessions, fixes the stacking order and rebases. Cloud sessions cannot message back, so each session finishes by opening its PR with the sections the orchestrator reads.
 - **Gates in every session:** `task verify:fast`, plus `task db:test:rls` for a tenant-boundary change, `task pkg:test` for `packages/`, and `task be:eval:answer-suite` before and after anything that shapes answers, with the report in the PR. Conventional PR title, a release note per slug, and the definition-of-done checklist.
 - **Scout with Haiku, build with the session's own model.** Reading the code to find where something lives, which callers a change touches, or what a test asserts is scouting: hand it to Haiku subagents, several in parallel, each with a narrow question and a short written answer. The session's own context stays for design and code. Scouts report findings; the session re-checks any fact before it relies on it or writes it down.
@@ -32,9 +32,9 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 |---|---|---|---|
 | 0 | the orchestrator alone: the design on `claude/intl-design` | now | minutes |
 | 1 | S1 Office layer · S2 Licensed seam · S3 Correctness · S4 Door split · S5 Data-flow register · S6 Connector types | design branch pushed | 3 – 5 h |
-| 2 | S7 Platform records, review, entitlements · S13 Rulesets and the evaluator · S14 Residency and AI Act | S7 and S13 when S1 is merged; S14 when S5 is merged (AI Act marking is due 2026-12-02) | 4 – 6 h |
+| 2 | S7 Platform records, review, entitlements · S13 Rulesets and the evaluator · S14 Residency | S7 and S13 when S1 is merged; S14 when S2 and S5 are merged. **S14a AI Act marking starts now**, alone: it needs nothing else, and it is due 2026-12-02 | 4 – 6 h |
 | 3 | S8 Austria as pack 1 · S9 Setup facts · S10 Agent-grade door · S11 Time and editions · S12 Address resolution | S7 merged; S9 and S11 also need S13 | 4 – 6 h |
-| 4 | S15 Turn context and gate · S16 Germany readiness | S15 when S8 and S11 are merged; S16 when S6 and S13 are | 3 – 5 h |
+| 4 | S15 Turn context and gate · S16 Germany readiness | S15 when S8, S9, S11 and S12 are merged; S16 when S6, S7, S10 and S13 are | 3 – 5 h |
 | then | Germany at L0: an operator's Claude session onboards it **through the door**, no code | S10, S15 and S16 merged, counsel sign-off | review time |
 
 About 2 – 3 days of wall clock for the code if PRs are merged as they turn green. Your review and merge sit on the critical path, not the writing. The dated edge cases and the week table in `design.md` were written before this split; the waves replace them, and no date there is a commitment.
@@ -45,19 +45,22 @@ S1 office layer ──┬──> S7 platform records ──┬──> S8 Austria
 S2 licensed seam  │                          ├──> S10 agent door ───┼────────────────────────┐
 S3 correctness    ├──> S13 rulesets ─────────┼──> S9 setup facts    │                        ├──> Germany L0
 S4 door split     │                          ├──> S11 time+editions ┴──> S15 turn context ───┤
-S5 register ──────┴──> S14 residency+AI Act  └──> S12 addresses                              │
+S5 register ──────┴──> S14 residency         └──> S12 addresses                              │
 S6 connectors ──────────────────────────────────────────────────────> S16 Germany readiness ─┘
+S14a AI Act marking (now, alone)
 ```
 
 ## Coverage
 
-On 2026-11-10 an independent reviewer mapped every buildable item of `design.md` (304: records, operations, flags, tests, scores, guards, edge cases E01–E48, test rows T30–T32, ADRs, tickets) and the `codebase-map.md` defects to this split. The first version left 91 items with no home, chiefly the evaluator and rulesets (3.7), the turn context and gate (4.6, 5.5), and residency B3 with the AI Act deadline (6.4–6.7), so Germany L0 could not have run on it. This revision gives every one of them a home: a session below, the Germany L0 operation, or "Not in this build" with the trigger that brings it back. S8 and S9 moved to Wave 3 because they need S7's records and S13's evaluator.
+On 2026-11-10 an independent reviewer mapped every buildable item of `design.md` (304: records, operations, flags, tests, scores, guards, edge cases E01–E48, test rows T30–T32, ADRs, tickets) and the `codebase-map.md` defects to this split. The first version left 91 items with no home, chiefly the evaluator and rulesets (3.7), the turn context and gate (4.6, 5.5), and residency B3 with the AI Act deadline (6.4–6.7), so Germany L0 could not have run on it. A second check of the revision found seven still open and five new ordering problems; the second revision closes them, so every item now has a home: a session below, the Germany L0 operation, or "Not in this build" with the trigger that brings it back. S8 and S9 moved to Wave 3 because they need S7's records and S13's evaluator.
 
-**Every session also:** writes the ADR the design's ADR table assigns to its part (next free number); declares the Langfuse scores its part produces in `SCORE_DEFINITIONS`; adds its consumers to `consumers.ts` (S1 creates it) so the anti-relapse spec grows with each part.
+**Every session also:** writes the ADR the design's ADR table assigns to its part (next free number); declares the Langfuse scores its part produces in `SCORE_DEFINITIONS` and the trace metadata fields it sets (design 7.3); adds its consumers to `consumers.ts` (S1 creates it) so the anti-relapse spec grows with each part.
 
 **Ownership where two sessions touch one thing:**
 - The geocoder: S3 switches komoot off by default; S5 registers it.
-- Defects 6 and 7 (Vienna laws everywhere, OIB classes for every project) are S8's, through chain text and adoption relations; defect 5 and `bim/rules.ts` are S9's.
+- The live defects of design 2.2: S3 fixes 1 – 4 and 8 (and switches off 9); S9 fixes 5 (`withDerivedClass` and `bim/rules.ts` deriving OIB classes for any project); S8 fixes 6 (the static `<building_law>` block) and 7 (OIB-RL 2023 counted as binding in every Land), through chain text and adoption relations.
+- `common/openrouter.py`: S2 owns the seam expansion in Wave 1; S14 adds per-role routing and `processing_location` on top after S2 is merged.
+- ADR authorship where a design ADR spans sessions: S6 writes the connector ADR and S16 amends it for the portal classification; S13 writes the axes-and-competence ADR, which S7 and S15 cite.
 - `personDecides`: S7 builds the primitive for approve, publish, rollback and entitlement; S10 reuses it on the door.
 - Idempotency keys and RFC 9457 problems: S1 builds the shared helper for office operations; S10 extends it to every door operation.
 - Licensed ingest: S1 marks it metadata-only in the pipeline; S2 owns `vision_calls.py`.
@@ -73,7 +76,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Licence values** S2 keys on: `public_open`, `public_restricted`, `licensed`. Licensed text is marked on its search-index points (S1 writes the mark, S2 enforces it at the model seam).
 - **Owner filter in search:** a mandatory office filter on tenant scopes (S1 adds it; everyone else reads through it).
 - **Flags,** default off: `officeGrundlagen` (S1), `licensedSeam` (S2), `knowledgeDoor` (S4), `sourceRouting` (S6), `knowledgeContext` (later).
-- **Files nobody but the orchestrator edits during Wave 1:** `apps/workspace/bff/agent-api/exposure.config.ts` and `catalog/platform.ts` are over the 600-line limit. New operations go in new files (`catalog/base-knowledge.ts`, `exposure/<area>.ts`) with a one-line spread; the session adding the first one makes the spread.
+- **Files nobody but the orchestrator edits during Wave 1:** `apps/workspace/bff/agent-api/exposure.config.ts` (except S4, which classifies every platform operation in it) and `catalog/platform.ts` are over the 600-line limit. New operations go in new files (`catalog/base-knowledge.ts`, `exposure/<area>.ts`) with a one-line spread; the session adding the first one makes the spread.
 - **Numbers:** the next free migration and ADR number at the time of writing (`scripts/check_adrs.py --next`); the orchestrator renumbers on merge if two collide.
 
 ## Wave 1
@@ -94,8 +97,8 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Outcome, measured by:** an untraced test and an ordering test green; feld72's case answers from its own copy behind `licensedSeam`.
 
 ### S3 Correctness and the organization flag
-- **Design suggests:** v7 defects 1 – 8 (`resolve_country`, OIB verdicts outside Austria, `country=at` and confirmed typed addresses in `intake-seed.ts`, Vienna laws in every Land in `applicability.py`, OIB classes for every project, permit extraction, the Fluchtniveau question); organization rows backfilled with a home country; DE sensitive-data detectors via `stdnum`; geocoder default off.
-- **Fixed, ownership:** `intake-seed.ts`, `country_profile.py`, `project_context.py`, `common/applicability.py`, `permit_extraction.py`, the intake prompt, a migration (next free number). The geocoder is S5's to list, not S3's to switch off.
+- **Design suggests:** v7 defects 1 – 4 and 8 (`resolve_country`, OIB verdicts outside Austria, `country=at` and confirmed typed addresses in `intake-seed.ts`, Vienna laws in every Land in `applicability.py`, permit extraction and the Fluchtniveau question; defects 5 – 7 belong to S9 and S8); organization rows backfilled with a home country; DE sensitive-data detectors via `stdnum`; komoot off by default.
+- **Fixed, ownership:** `intake-seed.ts`, `oib/applicable-standards.ts` (the TypeScript twin of defect 2), `country_profile.py`, `project_context.py`, `common/applicability.py`, `permit_extraction.py`, the intake prompt, a migration (next free number). S3 switches the geocoder off by default; S5 registers it.
 - **Fixed, safety:** prepares, does not run the country-neutral static prompt push (ask first).
 - **Outcome, measured by:** DE and CH fixtures produce no OIB fact, rule or doctrine; every WorkOS organization has a row; answer suite before and after, with an allowlist of expected diffs.
 
@@ -118,10 +121,10 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### Wave 1 additions (sent to the running sessions on 2026-11-10)
 - **S1:** the stubs above; `consumers.ts` with `knowledge-consumers.spec.ts`, and `wire/vocab.ts` with its generator, so record words have one source.
-- **S2:** render the office answer label; the door's cumulative quote cap per document and session (E19); refuse a web search that shares a shingle with licensed text; the multilingual quoting rule; no groundedness judge on licensed turns; the lessons distiller refuses turns that used office or licensed text (E44).
+- **S2:** render the office answer label; the door's cumulative quote cap per document and session (E19); refuse a web search that shares a shingle with licensed text; the multilingual quoting rule; no groundedness judge on licensed turns; the lessons distiller refuses turns that used office or licensed text (E44), detected from S2's own seam markers until S15's `message_edition_uses` exists.
 - **S3:** komoot off by default; the remaining Austria-only prompts and derivations (`parcel_note` without a country, project-experience prompts "in Austria", the deep-research opener "Austrian office", `prompt-view.ts` deriving `country=at`); `time_zone` replacing `OFFICE_TIME_ZONE`. Prepare the neutral static prompt push, and gate it on S8's renderer being deployed.
-- **S4:** the right to edit `exposure.config.ts`; correct `docs/architecture/agent-surface.md` where it describes the platform door.
-- **S5:** the DPA annex generated from the register; the corrected "excerpt" copy on the legal page.
+- **S4:** the right to edit `exposure.config.ts`; the office door honours the exclusion list (design 6.5, T-row "door honours it"); correct `docs/architecture/agent-surface.md` where it describes the platform door.
+- **S5:** the DPA annex generated from the register; the corrected "excerpt" copy on the legal page; the interim FAQ correction (design 1.3: no claim of Germany or of older versions) as static wording until S15 generates the FAQ.
 - **S6:** the AKN `eId` anchor fixture test.
 
 ## Wave 2
@@ -137,12 +140,15 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Design suggests:** v7 3.7. A ruleset record type; `decision_table.v1` as Zod; one JsonLogic evaluator with a library oracle and property tests; competence rulesets with the open-node rule.
 - **Why:** setup facts (S9), reference dates (S11), competence and the German advice policy (S16) are all rulesets. Without one evaluator each becomes code per country again.
 - **Fixed, ownership:** the evaluator package, the ruleset tables (a migration, next free number), its ADR.
-- **Outcome, measured by:** Austrian competence and OIB classification expressed as rulesets reproduce today's results on the fixtures; E32 (Berlin-Mitte, Hamburg-Altona → Bezirksamt) from a synthetic ruleset.
+- **Outcome, measured by:** OIB classification expressed as a ruleset reproduces today's results on the fixtures; competence proven on synthetic territories and authorities (E32: Berlin-Mitte, Hamburg-Altona → Bezirksamt), since the real territories and authorities arrive with S7 in parallel. S8 loads Austria's real competence rulesets.
 
-### S14 Residency and AI Act
+### S14a AI Act marking (starts now)
+- **Fixed, deadline:** AI Act Art. 50 marking of generated content and the disclosure on letters to authorities, live by 2026-12-02 (design 6.7). It needs no other session.
+- **Outcome, measured by:** marking present on every generated document and letter, with a test per output path.
+
+### S14 Residency
 - **Design suggests:** v7 6.4 – 6.7 (B3). The per-role processing table; EU routing; `processing_location` and `subprocessor` on every generation; the ZDR org switch that today turns off; BYOK held to the EU; `organization_processing_policies` with `purpose_ok` and the include-only judge filter; WorkOS audit events with salted hashes instead of filenames; staff break-glass; the `residency_cell` boot check.
-- **Fixed, deadline:** AI Act Art. 50 marking of generated content and the disclosure on letters to authorities, live by 2026-12-02.
-- **Outcome, measured by:** `processing_location_compliant` on every generation; a planted non-EU route fails the boot check; marking present on generated documents.
+- **Outcome, measured by:** `processing_location_compliant` on every generation; a planted non-EU route fails the boot check; trace metadata `cell` and `purpose_ok` set.
 
 
 ## Wave 3
@@ -179,6 +185,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 ### S15 Turn context and gate
 - **Design suggests:** v7 4.6 and 5.5. `/api/internal/turn-context` with the full `KnowledgeContext`; `RequestContext` gains jurisdiction, procedures and gate; the gate (`organization_unplaced`, `not_entitled`, coverage levels L0 – L2); coverage labels and freshness degradation; `site_unknown`; pinned pack sequences for a running research turn (E42); `message_edition_uses` (E25); the `knowledge_unavailable` alert; `coverage-get`, `base-knowledge-report`, `project-base-get` and `-confirm`; the intake's backend tools; the FAQ generated from coverage, checked by `check_coverage_copy.py`. Flag `knowledgeContext`.
 - **Why:** this is where an answer learns which country, edition and coverage apply. Without it the records exist and the agent does not read them.
+- **Also (coverage):** `project-base-confirm` is the Steckbrief confirmation, built here; `evals/base-knowledge/edge_cases.yaml` with the E-fixtures; trace metadata `jurisdiction_chains`, `gate`, `coverage`, `pack_seqs`, `stichtage`.
 - **Outcome, measured by:** E01, E02, E04, E28, E40 on fixtures; the `knowledge` phase within its p95 budget; a test that plants two organizations with equal digests and gets two cache keys.
 
 ### S16 Germany readiness
@@ -190,7 +197,7 @@ Each returns when its trigger arrives, as its own session.
 - Default-deny egress for every workload, the data-class inventory, and export, erasure, backups and retention across all stores.
 - Office region packs; office records proposed to or contributed into the platform (E43, E45); `arcgis_rest`; `location-lookup`.
 - The contract step that drops `norm_registry` and `oib_knowledge` (after S8 has run in production).
-- `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, Steckbrief, agentic intake). Trigger: the agentic project-setup track.
+- `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, agentic intake; the Steckbrief confirmation itself is S15's). Trigger: the agentic project-setup track.
 - The alias map (E29). Trigger: a source changes its format.
 - Switzerland's LexFind connector; DPIA and TIA templates (documents, not code).
 
@@ -205,7 +212,7 @@ The user delegated the Wave 1 merge (2026-11-10): the orchestrator merges the wh
 5. **Watch the dev deploy** of the last merge: the migrate Job completes, and nothing ask-first ran (the static prompt push, the authz catalog apply and Langfuse provisioning stay with the user).
 
 ## Human steps on the critical path
-1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S5 before S14; S7 and S13 before Wave 3; S8 and S11 before S15, S6 and S13 before S16. Wave 1 is merged by the orchestrator (above).
+1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S2 and S5 before S14; S7 and S13 before Wave 3; S8, S9, S11 and S12 before S15; S6, S7, S10 and S13 before S16. S14a merges whenever it is green. Wave 1 is merged by the orchestrator (above).
 2. Approve the ask-first steps each session prepares.
 3. Counsel for the German advice policy; an expert for anything past L0.
 
