@@ -6,9 +6,15 @@
  *
  * It renders what the server already chose: the page, the area and the reader's language
  * (`localizeReleaseNotes`). The filter and the pager are links, so a filtered page has an address
- * to share and the back button undoes a filter. Within a week the changes come in the order the
- * release notes keep (new, improved, then the small print); the fixes are folded, because a
- * returning member scans what they gained before what was repaired.
+ * to share and the back button undoes a filter.
+ *
+ * A week reads from the top down: its dates, its summary, then its changes. A real week holds about
+ * a hundred changes, so only the newest week of the newest page opens by itself; an older one shows
+ * its summary and what it holds, and opens on demand. A page narrowed to one area opens every week,
+ * because a week has few changes left and no summary to stand for them. Within a week the changes
+ * come in the order the release notes keep (new, improved, then the small print), each section
+ * grouped by product area so an area is named once; the fixes are folded, because a returning member
+ * scans what they gained before what was repaired, unless fixes are all the week has.
  */
 
 import type { JSX } from 'react'
@@ -16,10 +22,8 @@ import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Chip, ChipCount } from '@/components/ui/chip'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SectionLabel } from '@/components/ui/section-label'
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import { whatsNewCopy } from '@/i18n/namespaces/whats-new'
 import type {
@@ -29,7 +33,23 @@ import type {
   ReleaseNoteArea,
   ReleaseNoteSection,
 } from '@/lib/release-notes/release-notes-wire'
-import { RELEASE_NOTE_SECTIONS } from '@/lib/release-notes/release-notes-wire'
+import { RELEASE_NOTE_AREAS, RELEASE_NOTE_SECTIONS } from '@/lib/release-notes/release-notes-wire'
+import {
+  AreaFilterRow,
+  AreaGroup,
+  AreaGroups,
+  ChangeItem,
+  ChangeList,
+  ChangeSectionHeader,
+  ChangeSections,
+  Fold,
+  WeekEntry,
+  WeekHeading,
+  WeekLede,
+  WeekTally,
+  WeekTallyItem,
+  WeekTimeline,
+} from './whats-new-atoms'
 
 /** The sections shown folded: ordinary fixes, read on demand. */
 const FOLDED: ReadonlySet<ReleaseNoteSection> = new Set(['fixes'])
@@ -38,43 +58,68 @@ export interface WhatsNewListProps {
   list: LocalizedReleaseNoteList
   /** The page's own path; the filter and the pager add their query to it. */
   basePath?: string
+  /** Query the page's own address carries and every link keeps (the dev preview's `data=real`). */
+  query?: Readonly<Record<string, string>>
 }
 
 /** The address of one page of the list: an area, and the cursor the page starts after. */
-export function whatsNewHref(basePath: string, area: ReleaseNoteArea | null, cursor: string | null = null): string {
-  const query = new URLSearchParams()
+export function whatsNewHref(
+  basePath: string,
+  area: ReleaseNoteArea | null,
+  cursor: string | null = null,
+  keep: Readonly<Record<string, string>> = {},
+): string {
+  const query = new URLSearchParams(keep)
   if (area) query.set('area', area)
   if (cursor) query.set('cursor', cursor)
   const search = query.toString()
   return search ? `${basePath}?${search}` : basePath
 }
 
-export function WhatsNewList({ list, basePath = '/app/whats-new' }: WhatsNewListProps): JSX.Element {
+/** Where the links of one list point: its path and the query they keep. */
+interface Address {
+  basePath: string
+  keep: Readonly<Record<string, string>>
+}
+
+export function WhatsNewList({ list, basePath = '/app/whats-new', query = {} }: WhatsNewListProps): JSX.Element {
   const t = useTranslations(whatsNewCopy)
   const { locale } = useLocale()
+  const address: Address = { basePath, keep: query }
+  const filtered = list.area !== null
   return (
-    <div className="flex flex-col gap-6">
-      <AreaFilter list={list} basePath={basePath} t={t} />
+    <div className="flex flex-col gap-8">
+      <AreaFilter list={list} address={address} t={t} />
       {list.weeks.length === 0 ? (
         <EmptyState icon={Sparkles} title={t('empty')} />
       ) : (
-        list.weeks.map((week) => (
-          <WeekCard key={week.id} week={week} filtered={list.area !== null} locale={locale} t={t} />
-        ))
+        <WeekTimeline>
+          {list.weeks.map((week, index) => (
+            <Week
+              key={week.id}
+              week={week}
+              filtered={filtered}
+              open={filtered || (index === 0 && list.cursor === null)}
+              locale={locale}
+              t={t}
+            />
+          ))}
+        </WeekTimeline>
       )}
-      <Pager list={list} basePath={basePath} t={t} />
+      <Pager list={list} address={address} t={t} />
     </div>
   )
 }
 
-function AreaFilter({ list, basePath, t }: { list: LocalizedReleaseNoteList; basePath: string; t: Translator }): JSX.Element {
+function AreaFilter({ list, address, t }: { list: LocalizedReleaseNoteList; address: Address; t: Translator }): JSX.Element {
   const areas = list.areas.filter((area) => area.count > 0)
+  const href = (area: ReleaseNoteArea | null): string => whatsNewHref(address.basePath, area, null, address.keep)
   return (
     <nav aria-label={t('filterLabel')}>
-      <ul className="flex flex-wrap gap-2">
+      <AreaFilterRow aria-label={t('filterLabel')}>
         <li>
           <Chip asChild interactive variant={list.area === null ? 'default' : 'outline'} size="md">
-            <Link href={whatsNewHref(basePath, null)} aria-current={list.area === null ? 'page' : undefined}>
+            <Link href={href(null)} aria-current={list.area === null ? 'page' : undefined}>
               {t('allAreas')}
             </Link>
           </Chip>
@@ -82,14 +127,14 @@ function AreaFilter({ list, basePath, t }: { list: LocalizedReleaseNoteList; bas
         {areas.map((area) => (
           <li key={area.id}>
             <Chip asChild interactive variant={list.area === area.id ? 'default' : 'outline'} size="md">
-              <Link href={whatsNewHref(basePath, area.id)} aria-current={list.area === area.id ? 'page' : undefined}>
+              <Link href={href(area.id)} aria-current={list.area === area.id ? 'page' : undefined}>
                 {t(`areas.${area.id}`)}
                 <ChipCount>{area.count}</ChipCount>
               </Link>
             </Chip>
           </li>
         ))}
-      </ul>
+      </AreaFilterRow>
     </nav>
   )
 }
@@ -108,91 +153,116 @@ export function weekTitle(week: LocalizedReleaseNoteWeek, locale: string, unrele
   return week.dateEnd ? format.formatRange(start, new Date(`${week.dateEnd}T00:00:00Z`)) : format.format(start)
 }
 
-function WeekCard({
+/** A section's changes, one group per product area, in the vocabulary's order. */
+export function groupByArea(
+  notes: readonly LocalizedReleaseNote[],
+): { area: ReleaseNoteArea; notes: LocalizedReleaseNote[] }[] {
+  return RELEASE_NOTE_AREAS.map((area) => ({ area, notes: notes.filter((note) => note.area === area) })).filter(
+    (group) => group.notes.length > 0,
+  )
+}
+
+function Week({
   week,
   filtered,
+  open,
   locale,
   t,
 }: {
   week: LocalizedReleaseNoteWeek
   filtered: boolean
+  open: boolean
   locale: string
   t: Translator
 }): JSX.Element {
   const headingId = `week-${week.id}`
+  const title = weekTitle(week, locale, t('unreleased'))
+  const sections = RELEASE_NOTE_SECTIONS.map((section) => ({
+    section,
+    notes: week.notes.filter((note) => note.section === section),
+  })).filter((entry) => entry.notes.length > 0)
   return (
-    <Card aria-labelledby={headingId} role="region">
-      <CardHeader>
-        <CardTitle>
-          <h2 id={headingId} className="text-base font-medium">
-            {week.date ? (
-              <time dateTime={week.date}>{weekTitle(week, locale, t('unreleased'))}</time>
-            ) : (
-              weekTitle(week, locale, t('unreleased'))
-            )}
-          </h2>
-        </CardTitle>
-        {week.summary && <CardDescription className="max-w-prose">{week.summary}</CardDescription>}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        {RELEASE_NOTE_SECTIONS.map((section) => {
-          const notes = week.notes.filter((note) => note.section === section)
-          if (notes.length === 0) return null
-          return FOLDED.has(section) ? (
-            <details key={section} className="group">
-              <summary className="text-muted-foreground cursor-pointer text-sm font-medium">
-                {t('fixesSummary', { count: notes.length })}
-              </summary>
-              <NoteItems notes={notes} showArea={!filtered} t={t} className="mt-3" />
-            </details>
-          ) : (
-            <section key={section} aria-label={t(`sections.${section}`)}>
-              <SectionLabel as="h3" className="mb-2">
+    <WeekEntry
+      aria-labelledby={headingId}
+      rail={
+        <>
+          <WeekHeading id={headingId}>{week.date ? <time dateTime={week.date}>{title}</time> : title}</WeekHeading>
+          <WeekTally>
+            {sections.map(({ section, notes }) => (
+              <WeekTallyItem key={section} count={notes.length}>
                 {t(`sections.${section}`)}
-              </SectionLabel>
-              <NoteItems notes={notes} showArea={!filtered} t={t} />
-            </section>
-          )
-        })}
-      </CardContent>
-    </Card>
+              </WeekTallyItem>
+            ))}
+          </WeekTally>
+        </>
+      }
+    >
+      {week.summary && <WeekLede>{week.summary}</WeekLede>}
+      <Fold open={open} label={t('noteCount', { count: week.notes.length })}>
+        <ChangeSections className="mt-5">
+          {sections.map(({ section, notes }) =>
+            FOLDED.has(section) ? (
+              <Fold key={section} open={sections.length === 1} label={t('fixesSummary', { count: notes.length })}>
+                <Changes notes={notes} byArea={!filtered} t={t} />
+              </Fold>
+            ) : (
+              <section key={section} aria-label={t(`sections.${section}`)}>
+                <ChangeSectionHeader count={notes.length}>{t(`sections.${section}`)}</ChangeSectionHeader>
+                <Changes notes={notes} byArea={!filtered} t={t} />
+              </section>
+            ),
+          )}
+        </ChangeSections>
+      </Fold>
+    </WeekEntry>
   )
 }
 
-function NoteItems({
+function Changes({
   notes,
-  showArea,
+  byArea,
   t,
-  className,
 }: {
   notes: readonly LocalizedReleaseNote[]
-  showArea: boolean
+  byArea: boolean
   t: Translator
-  className?: string
 }): JSX.Element {
+  if (!byArea) {
+    return (
+      <AreaGroup>
+        <NoteItems notes={notes} />
+      </AreaGroup>
+    )
+  }
   return (
-    <ul className={`flex flex-col gap-2.5 ${className ?? ''}`}>
-      {notes.map((note, index) => (
-        <li key={index} className="flex flex-col gap-1 text-sm leading-relaxed sm:flex-row sm:items-baseline sm:gap-3">
-          {showArea && (
-            <Chip variant="muted" size="sm" className="sm:w-44 sm:shrink-0 sm:justify-center">
-              {t(`areas.${note.area}`)}
-            </Chip>
-          )}
-          <span className="min-w-0">{note.text}</span>
-        </li>
+    <AreaGroups>
+      {groupByArea(notes).map((group) => (
+        <AreaGroup key={group.area} label={t(`areas.${group.area}`)}>
+          <NoteItems notes={group.notes} />
+        </AreaGroup>
       ))}
-    </ul>
+    </AreaGroups>
   )
 }
 
-function Pager({ list, basePath, t }: { list: LocalizedReleaseNoteList; basePath: string; t: Translator }): JSX.Element | null {
+function NoteItems({ notes }: { notes: readonly LocalizedReleaseNote[] }): JSX.Element {
+  return (
+    <ChangeList>
+      {notes.map((note, index) => (
+        // Positional: a week's notes are a fixed sequence, and two may share a text.
+        <ChangeItem key={index}>{note.text}</ChangeItem>
+      ))}
+    </ChangeList>
+  )
+}
+
+function Pager({ list, address, t }: { list: LocalizedReleaseNoteList; address: Address; t: Translator }): JSX.Element | null {
   if (!list.cursor && !list.nextCursor) return null
   return (
     <nav aria-label={t('pageLabel')} className="flex items-center justify-between gap-2">
       {list.cursor ? (
         <Button asChild variant="outline" size="sm">
-          <Link href={whatsNewHref(basePath, list.area)}>
+          <Link href={whatsNewHref(address.basePath, list.area, null, address.keep)}>
             <ChevronLeft className="size-4" aria-hidden />
             {t('newer')}
           </Link>
@@ -202,7 +272,7 @@ function Pager({ list, basePath, t }: { list: LocalizedReleaseNoteList; basePath
       )}
       {list.nextCursor && (
         <Button asChild variant="outline" size="sm">
-          <Link href={whatsNewHref(basePath, list.area, list.nextCursor)}>
+          <Link href={whatsNewHref(address.basePath, list.area, list.nextCursor, address.keep)}>
             {t('older')}
             <ChevronRight className="size-4" aria-hidden />
           </Link>
