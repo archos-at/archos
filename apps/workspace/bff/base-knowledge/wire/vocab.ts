@@ -192,6 +192,9 @@ export const COVERAGE_LEVELS = ['none', 'open', 'core', 'full'] as const
  */
 export const GATE_STATES = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', ...COVERAGE_LEVELS] as const
 export type GateState = (typeof GATE_STATES)[number]
+
+/** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
+export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
 /**

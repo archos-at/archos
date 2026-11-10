@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES } from '../wire/vocab'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS } from '../wire/vocab'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
@@ -16,8 +16,7 @@ export const MAX_CONTEXT_USES = 40
 /** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
 export { GATE_STATES, type GateState } from '../wire/vocab'
 
-/** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
-export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
+export { SITE_UNKNOWN_REASONS } from '../wire/vocab'
 
 /** How sure the site is: confirmed from a register or by a person, or only assumed. */
 export const SITE_CERTAINTY = ['verified', 'unverified'] as const

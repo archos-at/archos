@@ -7,17 +7,20 @@
  * its escape level is unknown.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn() }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(), contextWithNames: vi.fn() }))
 
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ForbiddenError } from '@/lib/api/errors'
 import { requireProjectAccess } from '@/lib/authz/projects'
+import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import type { GateState, KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import { findProjectProfileInOrg, type ProjectProfileState } from '@/lib/projects/repository'
 import { evaluateClassification, evaluateProjectClassification } from './classification'
 import { classificationEvaluationSchema } from './classification-wire'
@@ -112,6 +115,14 @@ describe('classification-evaluate', () => {
 
 describe('evaluateProjectClassification, the route’s service', () => {
   const session = { organizationId: 'org-1', userId: 'user-1' } as Partial<AuthorizedSession> as AuthorizedSession
+  const gateAt = (state: GateState, reason: 'no_site' | 'no_territory' | null = null) =>
+    vi.mocked(knowledgeContextForTurn).mockResolvedValue({ gate: { state, reason, leaves: [] } } as Partial<KnowledgeContext> as KnowledgeContext)
+  beforeEach(() => {
+    gateAt('core')
+    vi.mocked(findProjectProfileInOrg).mockResolvedValue({
+      profile: placedProfile({ country: 'at', 'building_type@bldg1': 'building' }),
+    } as Partial<ProjectProfileState> as ProjectProfileState)
+  })
 
   it('answers anyone who may view the project, from the stored profile', async () => {
     vi.mocked(findProjectProfileInOrg).mockResolvedValue({
@@ -120,6 +131,25 @@ describe('evaluateProjectClassification, the route’s service', () => {
     const result = await evaluateProjectClassification(session, 'p-1', {})
     expect(requireProjectAccess).toHaveBeenCalledWith(session, 'p-1', 'project:view')
     expect(result.status).toBe('evaluated')
+    expect(result.gate).toBeNull()
+  })
+
+  it.each([
+    ['not_entitled', null],
+    ['knowledge_unavailable', null],
+    ['none', null],
+    ['organization_unplaced', null],
+    ['site_unknown', 'no_territory'],
+  ] as const)('names no class where the turn’s gate is %s, and says so with the gate', async (state, reason) => {
+    gateAt(state, reason)
+    const result = await evaluateProjectClassification(session, 'p-1', {})
+    expect(classificationEvaluationSchema.parse(result)).toEqual(result)
+    expect(result).toMatchObject({ status: 'undetermined', gate: { state, reason }, classification: null, planned: null, existing: null, requests: [] })
+  })
+
+  it('evaluates under open coverage, as the turn reads uncurated law', async () => {
+    gateAt('open')
+    expect((await evaluateProjectClassification(session, 'p-1', {})).status).toBe('evaluated')
   })
 
   it('refuses before it reads the profile', async () => {
