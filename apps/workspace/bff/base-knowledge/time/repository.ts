@@ -23,7 +23,6 @@ import type { WorkInTime } from './as-of'
 /** Most editions one work has; a consolidated law has one per in-force date, so this is generous. */
 export const MAX_EDITIONS = 500
 
-
 /** A `date` column as an ISO date, whichever form the driver returns it in. */
 export function isoDateOf(value: unknown): string | null {
   if (value === null || value === undefined) return null

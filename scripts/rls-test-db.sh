@@ -278,14 +278,18 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # HATCHET_CLIENT_HOST_PORT, CI's hatchet-lite); without one it skips.
 # The country-pack suite publishes Austria's real territory ids, which the
 # platform suite above publishes too: alone, so neither publish meets the other's.
+# The visibility suite reads the owner's URL to check the office predicate with
+# the row policy bypassed (`store/visibility.ts`).
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
     bff/jobs-queue/repository.integration.spec.ts \
     bff/jobs-queue/task-run.integration.spec.ts \
     bff/jobs-queue/orchestrator.integration.spec.ts \
     bff/scheduling/repository.integration.spec.ts \
-    bff/base-knowledge/chain/chain.integration.spec.ts
+    bff/base-knowledge/chain/chain.integration.spec.ts \
+    bff/base-knowledge/store/visibility.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
