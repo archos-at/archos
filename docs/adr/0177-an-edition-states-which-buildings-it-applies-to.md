@@ -98,10 +98,28 @@ What it is:
   (the fact definitions' labels), with the provision its row cites, and opens
   the edition's text at the page its manifestation cites first
   (`GraphEdition.sourceUrl`).
+- **Austria.** `configs/knowledge-packs/at-scopes.json`: the 2019 and 2023
+  editions of OIB-RL 2.1, 2.2 and 2.3 again, each with `appliesWhen`, a change
+  request of its own after `at.json`. None of the three states its scope in a
+  clause: Punkt 1 refers to the „OIB-Richtlinien – Begriffsbestimmungen“, and
+  Punkt 0 holds caveats. So each scope is read from the guideline's title and
+  the term it defines there, both quoted from the published PDFs, the 2019
+  and 2023 definitions being word for word the same:
+  - 2.1 „Brandschutz bei Betriebsbauten“, a Betriebsbau being a building that
+    „der Produktion … bzw. der Lagerung von Produkten oder Gütern dient“:
+    `uses` ∋ `production` applies. An agricultural or technical building
+    without it is left to a person, since Punkt 0 counts a building for
+    technical installations as a Betriebsbau with relief. Any other building
+    is out of scope.
+  - 2.2 „… Garagen, überdachten Stellplätzen und Parkdecks“: `uses` ∋
+    `garage`. Mixed use is per use (OIB-RL 2, Punkt 0), so a garage part brings
+    2.2. Garages of at most 15 m² are in scope with no requirements (Punkt 0),
+    and no fact tells them apart.
+  - 2.3 „… mit einem Fluchtniveau von mehr als 22 m“: `escape_level_m` > 22.
 
 ### Consequences
 
-- Good: once Austria's scopes are published, a block of flats no longer names
+- Good: once `at-scopes.json` is published, a block of flats no longer names
   OIB-RL 2.1, on the page or in the answer, and the chip says why the ones it
   names apply.
 - Good: a second country states its own editions' scopes by proposing them,
@@ -109,10 +127,8 @@ What it is:
 - Bad: a scope can only read a fact the intake asks. A scope that turns on
   something the profile does not hold (a Betriebsbau's fire compartment size)
   can only answer `check`.
-- Bad: until scopes are published in an environment, nothing narrows there,
-  as before this change. Austria's rows wait for the OIB-RL 2.1, 2.2 and 2.3
-  scope clauses read from the published text, each row quoting its clause;
-  they are not written from memory.
+- Bad: until the scopes are published in an environment, nothing narrows
+  there, as before this change.
 - Neutral: the removed OIB list also graded OIB-RL 4, 5 and 6 by main use
   („stronger for publicly used buildings“). That was a hint, not scope: those
   texts apply to every building, and they get no scope.
@@ -132,6 +148,13 @@ What it is:
   examples.
 - `bff/base-knowledge/chain/chain.integration.spec.ts`: the loader reads
   `applies_when` and the source page.
+- `bff/base-knowledge/chain/at-scopes.spec.ts`: Austria's scopes pass the
+  kit against the pack with their examples, change nothing of an edition but
+  its scope and citations, and in Vienna name 2.2 for flats over a garage, 2.1
+  for a production hall, 2.3 past 22 m, ask for an open escape level, and
+  leave a farm building's 2.1 to a person.
+- `bff/base-knowledge/platform/record-schemas.spec.ts`: the record schemas,
+  with the decision table written once, fit one tool result on the door.
 - `scripts/rls-test-db.sh` (0216): the object CHECK, down and reapply.
 - `ui/features/project-intake/components/steps/profile-step.spec.tsx`: the
   chip and its peek.

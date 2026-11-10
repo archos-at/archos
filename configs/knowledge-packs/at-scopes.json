@@ -1,0 +1,677 @@
+{
+  "$comment": "Which buildings OIB-RL 2.1, 2.2 and 2.3 are written for (ADR-0177): each edition's scope as `appliesWhen`, read from its title and the defined term its Punkt 1 refers to in the OIB-Richtlinien – Begriffsbestimmungen of the same issue, each quote checked against the published PDF. A change request of its own for AT after at.json, which holds these editions without a scope: proposing them here gives each a new revision. A use the scope does not settle (agriculture, technical) is left to a person. Mixed use is per use (OIB-RL 2, Punkt 0), so a garage part brings 2.2.",
+  "countryId": "AT",
+  "title": "Austria: which buildings OIB-RL 2.1, 2.2 and 2.3 apply to",
+  "records": [
+    {
+      "type": "edition",
+      "key": "oib-rl-2-1-2019",
+      "workKey": "oib-rl-2-1",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf",
+          "quote": "Brandschutz bei Betriebsbauten",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/begriffsbestimmungen-2019.pdf",
+          "quote": "Bauwerk oder Teil eines Bauwerkes, welches der Produktion (Herstellung, Behandlung, Verwertung, Verteilung) bzw. der Lagerung von Produkten oder Gütern dient.",
+          "note": "the definition of Betriebsbau its Punkt 1 refers to"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf",
+          "quote": "Betriebsbauten, die lediglich der Aufstellung technischer Anlagen dienen",
+          "note": "Punkt 0: a building for technical installations is a Betriebsbau with relief, so the technical use is left to a person"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "uses",
+            "type": "codes"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "production",
+            "when": {
+              "in": [
+                "production",
+                {
+                  "var": "uses"
+                }
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.1, Ausgabe April 2019: Titel „Brandschutz bei Betriebsbauten“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Betriebsbau",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "no-betriebsbau-use",
+            "when": {
+              "!": {
+                "or": [
+                  {
+                    "in": [
+                      "production",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  },
+                  {
+                    "in": [
+                      "agriculture",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  },
+                  {
+                    "in": [
+                      "technical",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.1, Ausgabe April 2019: Titel „Brandschutz bei Betriebsbauten“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Betriebsbau",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "uses": [
+                "production"
+              ]
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "uses": [
+                "residential",
+                "garage"
+              ]
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "uses"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-1-2023",
+      "workKey": "oib-rl-2-1",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_2.1_ausgabe_mai_2023.pdf",
+          "quote": "Brandschutz bei Betriebsbauten",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_begriffsbestimmungen_ausgabe_mai_2023.pdf",
+          "quote": "Bauwerk oder Teil eines Bauwerkes, welches der Produktion (Herstellung, Behandlung, Verwertung, Verteilung) bzw. der Lagerung von Produkten oder Gütern dient.",
+          "note": "the definition of Betriebsbau its Punkt 1 refers to"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_2.1_ausgabe_mai_2023.pdf",
+          "quote": "Betriebsbauten, die lediglich der Aufstellung technischer Anlagen dienen",
+          "note": "Punkt 0: a building for technical installations is a Betriebsbau with relief, so the technical use is left to a person"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "uses",
+            "type": "codes"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "production",
+            "when": {
+              "in": [
+                "production",
+                {
+                  "var": "uses"
+                }
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.1, Ausgabe Mai 2023: Titel „Brandschutz bei Betriebsbauten“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Betriebsbau",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "no-betriebsbau-use",
+            "when": {
+              "!": {
+                "or": [
+                  {
+                    "in": [
+                      "production",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  },
+                  {
+                    "in": [
+                      "agriculture",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  },
+                  {
+                    "in": [
+                      "technical",
+                      {
+                        "var": "uses"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.1, Ausgabe Mai 2023: Titel „Brandschutz bei Betriebsbauten“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Betriebsbau",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "uses": [
+                "production"
+              ]
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "uses": [
+                "residential",
+                "garage"
+              ]
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "uses"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2-2019",
+      "workKey": "oib-rl-2-2",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf",
+          "quote": "Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/begriffsbestimmungen-2019.pdf",
+          "quote": "Gebäude oder Teil eines Gebäudes zum Einstellen von Kraftfahrzeugen.",
+          "note": "the definition of Garage its Punkt 1 refers to"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf",
+          "quote": "Für überdachte Stellplätze und Garagen mit jeweils höchstens 15 m² Nutzfläche",
+          "note": "Punkt 0: the smallest garages are in scope but carry no fire-safety requirements"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "uses",
+            "type": "codes"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "garage",
+            "when": {
+              "in": [
+                "garage",
+                {
+                  "var": "uses"
+                }
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.2, Ausgabe April 2019: Titel „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Garage",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "no-garage",
+            "when": {
+              "!": {
+                "in": [
+                  "garage",
+                  {
+                    "var": "uses"
+                  }
+                ]
+              }
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.2, Ausgabe April 2019: Titel „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Garage",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "uses": [
+                "residential",
+                "garage"
+              ]
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "uses": [
+                "office"
+              ]
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "uses"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2-2023",
+      "workKey": "oib-rl-2-2",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_2.2_ausgabe_mai_2023.pdf",
+          "quote": "Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_begriffsbestimmungen_ausgabe_mai_2023.pdf",
+          "quote": "Gebäude oder Teil eines Gebäudes zum Einstellen von Kraftfahrzeugen.",
+          "note": "the definition of Garage its Punkt 1 refers to"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_2.2_ausgabe_mai_2023.pdf",
+          "quote": "Für überdachte Stellplätze und Garagen mit jeweils höchstens 15 m² Nutzfläche",
+          "note": "Punkt 0: the smallest garages are in scope but carry no fire-safety requirements"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "uses",
+            "type": "codes"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "garage",
+            "when": {
+              "in": [
+                "garage",
+                {
+                  "var": "uses"
+                }
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.2, Ausgabe Mai 2023: Titel „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Garage",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "no-garage",
+            "when": {
+              "!": {
+                "in": [
+                  "garage",
+                  {
+                    "var": "uses"
+                  }
+                ]
+              }
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.2, Ausgabe Mai 2023: Titel „Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Garage",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "uses": [
+                "residential",
+                "garage"
+              ]
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "uses": [
+                "office"
+              ]
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "uses"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-3-2019",
+      "workKey": "oib-rl-2-3",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf",
+          "quote": "Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/begriffsbestimmungen-2019.pdf",
+          "quote": "Höhendifferenz zwischen der Fußbodenoberkante des höchstgelegenen oberirdischen Geschoßes und der an das Gebäude angrenzenden Geländeoberfläche nach Fertigstellung im Mittel.",
+          "note": "the definition of Fluchtniveau its Punkt 1 refers to"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "escape_level_m",
+            "type": "number"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "over-22",
+            "when": {
+              ">": [
+                {
+                  "var": "escape_level_m"
+                },
+                22
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.3, Ausgabe April 2019: Titel „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Fluchtniveau",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "up-to-22",
+            "when": {
+              "<=": [
+                {
+                  "var": "escape_level_m"
+                },
+                22
+              ]
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.3, Ausgabe April 2019: Titel „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe April 2019: Fluchtniveau",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "escape_level_m": 30
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "escape_level_m": 22
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "escape_level_m"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-3-2023",
+      "workKey": "oib-rl-2-3",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_2.3_ausgabe_mai_2023.pdf",
+          "quote": "Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m",
+          "note": "its title, which names what it is written for"
+        },
+        {
+          "url": "https://www.oib.or.at/wp-content/uploads/richtlinien/richtlinie_2023/oib-rl_begriffsbestimmungen_ausgabe_mai_2023.pdf",
+          "quote": "Höhendifferenz zwischen der Fußbodenoberkante des höchstgelegenen oberirdischen Geschoßes und der an das Gebäude angrenzenden Geländeoberfläche nach Fertigstellung im Mittel.",
+          "note": "the definition of Fluchtniveau its Punkt 1 refers to"
+        }
+      ],
+      "appliesWhen": {
+        "inputs": [
+          {
+            "key": "escape_level_m",
+            "type": "number"
+          }
+        ],
+        "output": {
+          "type": "boolean"
+        },
+        "rows": [
+          {
+            "id": "over-22",
+            "when": {
+              ">": [
+                {
+                  "var": "escape_level_m"
+                },
+                22
+              ]
+            },
+            "then": true,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.3, Ausgabe Mai 2023: Titel „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Fluchtniveau",
+              "wording": "paraphrase"
+            }
+          },
+          {
+            "id": "up-to-22",
+            "when": {
+              "<=": [
+                {
+                  "var": "escape_level_m"
+                },
+                22
+              ]
+            },
+            "then": false,
+            "provision": {
+              "citation": "OIB-Richtlinie 2.3, Ausgabe Mai 2023: Titel „Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m“; OIB-Richtlinien – Begriffsbestimmungen, Ausgabe Mai 2023: Fluchtniveau",
+              "wording": "paraphrase"
+            }
+          }
+        ],
+        "otherwise": {
+          "undetermined": true
+        },
+        "examples": [
+          {
+            "facts": {
+              "escape_level_m": 30
+            },
+            "expect": {
+              "then": true
+            }
+          },
+          {
+            "facts": {
+              "escape_level_m": 22
+            },
+            "expect": {
+              "then": false
+            }
+          },
+          {
+            "facts": {},
+            "expect": {
+              "undeterminedBy": [
+                "escape_level_m"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
