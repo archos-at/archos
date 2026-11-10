@@ -130,8 +130,7 @@ export function splitReportTitle(report: string): { title: string | null; body: 
  *     says the edition binds), so a compliance statement without it is not
  *     checkable — the reader cannot tell which law it was checked against.
  *   - **Gebäudeklasse** — the classification nearly everything hangs off.
- *     `lib/oib/applicable-standards.ts` derives which Richtlinien apply from
- *     it, and the brandschutz skill opens with "nearly every requirement in
+ *     The building-class ruleset derives it, and the brandschutz skill opens with "nearly every requirement in
  *     OIB Richtlinie 2 hangs off the Gebäudeklasse". A fire-resistance class
  *     printed without it is "a number with no claim attached to it".
  *   - **Erstellt am** — when. Already carried by the .docx.
@@ -149,7 +148,7 @@ export function splitReportTitle(report: string): { title: string | null; body: 
  * Deliberately NOT on it, and each for a reason:
  *
  *   - **Nutzung** (`main_use`). It belongs by every other measure — it is
- *     the second axis `applicable-standards.ts` reads. It is left off because
+ *     the second axis the building-class rulesets read. It is left off because
  *     its stored values are wire tokens (`wohnen`, `produzierend`) and this
  *     repo has no label set for them: `NUTZUNGEN` in `intake-definition.ts` is
  *     a DIFFERENT, unexported vocabulary (`produktion`, `handel`, `gastro`),

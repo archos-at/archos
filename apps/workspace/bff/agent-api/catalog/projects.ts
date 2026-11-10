@@ -159,18 +159,6 @@ export const projectsOperations = [
     load: () => import('@/app/api/projects/[id]/overview/route'),
   },
   {
-    name: 'project-standards-get',
-    domain: 'projects',
-    summary: 'The OIB standards that apply to a project',
-    description:
-      'Which standards apply, from the project’s brief: `{ standards: [{ code, title, status, reason, decidingFact? }], briefComplete }`. `status` is `required`, `likely` or ' +
-      '`check`; a `check`’s `decidingFact` is the profile key that settles it (project-profile-patch). `briefComplete: false`: the brief is thin, six generic verdicts answered. Orientation only.',
-    method: 'GET',
-    path: '/api/projects/[id]/standards',
-    params: projectParams,
-    load: () => import('@/app/api/projects/[id]/standards/route'),
-  },
-  {
     name: 'project-status-set',
     domain: 'projects',
     summary: 'Pause, resume or close a project',

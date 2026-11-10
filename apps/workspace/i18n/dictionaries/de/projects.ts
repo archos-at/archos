@@ -395,29 +395,6 @@ export const projects: typeof en.projects = {
     cancel: 'Abbrechen',
     submit: 'Projekt anlegen',
   },
-  applicableStandards: {
-    heading: 'Anwendbare Standards',
-    description: 'OIB-Richtlinien, die auf Basis des Briefings für dieses Projekt relevant sind.',
-    briefIncomplete:
-      'Vervollständigen Sie das Projekt-Briefing für eine auf dieses Gebäude zugeschnittene Anwendbarkeit.',
-    status: {
-      required: 'Erforderlich',
-      check: 'Prüfen',
-      likely: 'Wahrscheinlich',
-    },
-    askQuestion: 'Welche Anforderungen von {code} ({title}) gelten für dieses Projekt?',
-    source: 'Quelle',
-    sourceAria: 'Quelle für {code} öffnen',
-    sourceTitle: 'OIB-Quelle öffnen',
-    askGrid: '{productName} fragen',
-    askAgentAria: '{productName} zu {code} fragen',
-    askAgentTitle: '{productName} zu dieser Richtlinie fragen',
-    emptyTitle: 'Noch keine anwendbaren Standards',
-    emptyDescription:
-      'Vervollständigen Sie das Projekt-Briefing, damit {productName} ermitteln kann, welche OIB-Richtlinien auf dieses Gebäude zutreffen.',
-    disclaimer:
-      'Nur zur Orientierung — keine Rechtsberatung. Prüfen Sie die Anwendbarkeit anhand der aktuellen Bauordnung und der zuständigen Behörde.',
-  },
   dangerZone: {
     deleteSuccess:
       'Projekt gelöscht. Ein Organisationsadministrator kann es bis {date} wiederherstellen.',

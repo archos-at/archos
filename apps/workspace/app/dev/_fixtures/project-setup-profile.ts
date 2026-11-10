@@ -2,23 +2,25 @@
  * Step 5, Steckbrief: fixtures for `/dev/project-setup?step=profile&state=<name>`
  * and the step's specs. They build on the review fixtures
  * (`project-intake.ts`), the Aufstockung in Wien, and add what this step shows
- * of its own: the rule set's Ampel as the server computes it
- * (`getApplicableStandards` over the confirmed values), a value two documents
- * agree on, a high-rise, and a Steckbrief with nothing left open.
+ * of its own: the law at the site as the server reads it from the platform's
+ * records (`projectLawFor`; synthetic editions for Vienna, not the Austria
+ * pack's), a value two documents agree on, a high-rise, a Steckbrief with
+ * nothing left open, and the two refusals a person meets most.
  *
  *   - `review`: a contradiction (one quiet line to the Rückfragen), two
  *     decisive values heading the findings table, the rest folded by topic,
- *     the class suggested for Bauwerk 1 and open for Bauwerk 2, and the
- *     general list of Richtlinien (nothing decisive confirmed yet).
+ *     the class suggested for Bauwerk 1 and open for Bauwerk 2, and the law
+ *     in Vienna by the records.
  *   - `confirmed`: every decisive value and the class taken („Von Ihnen“),
- *     the rest still suggestions: the Ampel is the project's.
+ *     the rest still suggestions.
  *   - `hochhaus`: Bauwerk 1's Fluchtniveau is confirmed above 22 m, so it has
- *     no class and OIB-RL 2.3 is required.
+ *     no class.
+ *   - `siteUnknown`: no site yet, so the card names no law and says why.
+ *   - `notEntitled`: a site in a country the office is not entitled to.
  *   - `readonly`: the review for someone who may look but not decide.
  */
 
-import { getApplicableStandards } from '@/lib/oib/applicable-standards'
-import type { ProjectProfile } from '@/lib/project-profile/types'
+import type { ProjectLaw } from '@/lib/base-knowledge/context/operations-wire'
 import type { DerivationReview, IntakeView, Suggestion, SuggestionGroup } from '@/lib/project-intake/types'
 import {
   DERIVATION_OPEN,
@@ -31,25 +33,16 @@ import {
   SUGGESTION_UNITS,
 } from './project-intake'
 
-const AT = '2026-10-14T08:30:00.000Z'
-
-/**
- * A profile holding exactly these confirmed values, for the Ampel the server would compute from it.
- * The project is in Austria (`country=at`): only a project placed there gets OIB verdicts.
- */
-function standardsFor(confirmed: Record<string, Suggestion['value']>): IntakeView['applicableStandards'] {
-  const profile: ProjectProfile = {
-    facts: Object.fromEntries(
-      Object.entries({ country: 'at', ...confirmed }).map(([key, value]) => [
-        key,
-        { value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: AT },
-      ])
-    ),
-    goals: {},
-    unknowns: [],
-    assumptions: {},
-  }
-  return getApplicableStandards(profile)
+/** The law in Vienna as `projectLawFor` answers it: binding law and guidance by the chain (synthetic editions). */
+export const LAW_VIENNA: ProjectLaw = {
+  gate: 'core',
+  uses: [
+    { workId: 'work:at-wien-bo', editionId: 'edition:at-wien-bo-2023', role: 'binding', designation: 'BO für Wien', editionLabel: 'LGBl. Nr. 37/2023' },
+    { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'binding', designation: 'OIB-RL 2', editionLabel: '2023' },
+    { workId: 'work:oib-rl-4', editionId: 'edition:oib-rl-4-2023', role: 'binding', designation: 'OIB-RL 4', editionLabel: '2023' },
+    { workId: 'work:oenorm-b-1600', editionId: 'edition:oenorm-b-1600-2017', role: 'guidance', designation: 'ÖNORM B 1600', editionLabel: '2017' },
+    { workId: 'work:oib-erl-2', editionId: 'edition:oib-erl-2-2023', role: 'interpretation', designation: 'OIB-RL 2 Erläuterungen', editionLabel: '2023' },
+  ],
 }
 
 const confirm = (item: Suggestion): Suggestion => ({ ...item, state: 'confirmed', alternatives: [], decisive: false })
@@ -74,7 +67,7 @@ const REVIEW_GROUPS = withItems(INTAKE_READY.groups, (item) =>
 export const PROFILE_REVIEW: IntakeView = {
   ...INTAKE_READY,
   groups: REVIEW_GROUPS,
-  applicableStandards: standardsFor({ site_address: 'Lacknergasse 12, 1170 Wien', project_phase: 'submission_planning' }),
+  applicableLaw: LAW_VIENNA,
 }
 
 const DECIDED = new Set([SUGGESTION_STOREYS.key, SUGGESTION_ESCAPE_LEVEL.key, SUGGESTION_UNITS.key])
@@ -93,12 +86,6 @@ export const PROFILE_CONFIRMED: IntakeView = {
   questions: [],
   groups: withItems(REVIEW_GROUPS, (item) => (DECIDED.has(item.key) ? confirm(item) : item)),
   derivations: [CLASS_CONFIRMED],
-  applicableStandards: standardsFor({
-    'storeys_above_ground@bldg1': 6,
-    'escape_level_m@bldg1': 18.4,
-    'use_units@bldg1': 14,
-    'building_class@bldg1': 5,
-  }),
 }
 
 const ESCAPE_LEVEL_HIGH: Suggestion = {
@@ -110,7 +97,7 @@ const ESCAPE_LEVEL_HIGH: Suggestion = {
   evidence: [fromDocument('E-02 Schnitt A-A.pdf', 1, 'Fluchtniveau +24,60 m über Gelände')],
 }
 
-/** Bauwerk 1 is a high-rise: no class, OIB-RL 2.3 required. */
+/** Bauwerk 1 is a high-rise: no class. */
 export const PROFILE_HIGH_RISE: IntakeView = {
   ...PROFILE_CONFIRMED,
   groups: withItems(PROFILE_CONFIRMED.groups, (item) => (item.key === ESCAPE_LEVEL_HIGH.key ? ESCAPE_LEVEL_HIGH : item)),
@@ -126,8 +113,13 @@ export const PROFILE_HIGH_RISE: IntakeView = {
     },
     DERIVATION_OPEN,
   ],
-  applicableStandards: standardsFor({ 'escape_level_m@bldg1': 24.6 }),
 }
+
+/** No site yet: the card says what is missing instead of naming law. */
+export const PROFILE_SITE_UNKNOWN: IntakeView = { ...PROFILE_REVIEW, applicableLaw: { gate: 'site_unknown', uses: [] } }
+
+/** A site in a country the office is not entitled to: no law named, the office's own documents still answer. */
+export const PROFILE_NOT_ENTITLED: IntakeView = { ...PROFILE_REVIEW, applicableLaw: { gate: 'not_entitled', uses: [] } }
 
 /** Someone who may look at the Steckbrief but not decide on it. */
 export const PROFILE_READONLY: IntakeView = { ...PROFILE_REVIEW, canDecide: false, canComplete: false }
@@ -136,6 +128,8 @@ export const PROFILE_STEP_FIXTURES = {
   review: PROFILE_REVIEW,
   confirmed: PROFILE_CONFIRMED,
   highRise: PROFILE_HIGH_RISE,
+  siteUnknown: PROFILE_SITE_UNKNOWN,
+  notEntitled: PROFILE_NOT_ENTITLED,
   readonly: PROFILE_READONLY,
 } as const
 

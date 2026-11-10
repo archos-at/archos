@@ -13,7 +13,7 @@
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
 import { SETUP_DETERMINANTS, type SetupDeterminant } from '@/lib/base-knowledge/wire/vocab'
-import type { ApplicableStatus } from '@/lib/oib/applicable-standards'
+import { projectLawSchema } from '@/lib/base-knowledge/context/operations-wire'
 import {
   DERIVATION_RULES,
   derivationInputSchema,
@@ -379,28 +379,12 @@ export const intakeViewSchema = z.object({
   canComplete: z.boolean(),
   // --- Step 5, Steckbrief (ticket 31) -------------------------------------
   /**
-   * The rule set's Ampel: which OIB-Richtlinien apply, required / likely /
-   * check, as `getApplicableStandards` (`lib/oib/applicable-standards.ts`)
-   * computes it from the profile's confirmed values only, so a suggestion
-   * changes it once a person takes it. The same verdicts the overview's panel
-   * shows. `buildIntakeView` always sends it; optional so a view built
-   * elsewhere (a fixture) may leave the panel out.
+   * The law at the project's site from the platform's records (ADR-0175,
+   * `lib/base-knowledge/context/project-law.ts`): the gate and the editions the
+   * chain names with their role, the same the turn reads. `viewOf` always sends
+   * it; optional so a view built elsewhere (a fixture) may leave the card out.
    */
-  applicableStandards: z
-    .array(
-      z.object({
-        code: z.string().min(1).max(32),
-        titleEn: z.string().max(300),
-        titleDe: z.string().max(300),
-        scope: z.string().max(1000),
-        oibUrl: z.string().max(500),
-        status: z.enum(['required', 'likely', 'check'] as const satisfies readonly ApplicableStatus[]),
-        reason: z.string().max(1000),
-        decidingFact: z.string().max(100).optional(),
-      })
-    )
-    .max(40)
-    .optional(),
+  applicableLaw: projectLawSchema.optional(),
   // --- end Step 5 ----------------------------------------------------------
   // -- Step 4, Rückfragen ----------------------------------------------------
   /**

@@ -371,16 +371,6 @@
    "withheld": null,
    "reason": null
   },
-  "project-standards-get": {
-   "kind": "catalog",
-   "domain": "projects",
-   "sensitivity": null,
-   "external": true,
-   "agent": true,
-   "platform": false,
-   "withheld": null,
-   "reason": null
-  },
   "project-status-set": {
    "kind": "catalog",
    "domain": "projects",

@@ -1523,8 +1523,9 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    Brandschutzanlagen, …) as binding constraints, derive building classes from
    them, flag contradictions, and surface gaps.
 - **Applicability** — `common/applicability.py` is a small hand-written module
-  (no DSL): OIB verdicts from project facts (mirrors the UI's
-  `applicable-standards.ts`), German trigger hints for the four boolean intake
+  (no DSL): OIB verdicts from project facts (the UI's TS twin,
+  `applicable-standards.ts`, went with the cut-over, ADR-0175: the Steckbrief
+  shows the law the records resolve at the site), German trigger hints for the four boolean intake
   facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz; the Viennese
   Kleingarten- and Garagengesetz only for a project in Wien), and the
   prompt section Piloti renders from the project context, only for a project

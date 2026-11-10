@@ -4091,60 +4091,6 @@
         }
       }
     },
-    "/api/projects/{id}/standards": {
-      "get": {
-        "operationId": "project-standards-get",
-        "summary": "The OIB standards that apply to a project",
-        "description": "Which standards apply, from the project’s brief: `{ standards: [{ code, title, status, reason, decidingFact? }], briefComplete }`. `status` is `required`, `likely` or `check`; a `check`’s `decidingFact` is the profile key that settles it (project-profile-patch). `briefComplete: false`: the brief is thin, six generic verdicts answered. Orientation only.",
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The project id, from project-list."
-            },
-            "description": "The project id, from project-list."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "429": {
-            "$ref": "#/components/responses/Error429"
-          }
-        },
-        "x-mcp-annotations": {
-          "title": "The OIB standards that apply to a project",
-          "readOnlyHint": true,
-          "destructiveHint": false,
-          "idempotentHint": true,
-          "openWorldHint": false
-        }
-      }
-    },
     "/api/projects/{id}/status": {
       "put": {
         "operationId": "project-status-set",
