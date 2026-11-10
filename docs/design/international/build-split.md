@@ -69,7 +69,9 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Outcome, measured by:** leak test with a positive control; zero residue after removal; a second office sees "gelistet, kein Text".
 
 ### S2 Licensed seam
-- **Design suggests:** licensed text reaches the model only as references with a quote cap; no licensed text in traces, caches or checkpoints (`_observed_vlm_call` writes full vision messages today); extraction eval on feld72's norms.
+- **Fixed, product:** the model reads licensed norms in full (whole sections or the whole norm, as the question needs). The cap applies to what an *answer quotes back*, not to what the model reads.
+- **Fixed, cost:** the provider's short-lived prompt cache stays usable for licensed text: a breakpoint after the expanded norm, so an agent loop does not pay full price for the same norm on every call. "No caches" means our own persistent stores (Dragonfly, checkpoints, job payloads, traces), not the provider's prompt cache. Measure cost and cache hits with and without.
+- **Design suggests:** in our stores licensed text is held as references and expanded to full text just before the request; no licensed text in traces, logs, checkpoints or job payloads (`_observed_vlm_call` writes full vision messages today); answers quote at most `quoteMaxChars` per span; extraction eval on feld72's norms.
 - **Fixed, ownership:** `common/openrouter.py`, `vision_calls.py`, the retrieval-to-prompt rendering path, the eval fixture.
 - **Outcome, measured by:** an untraced test and an ordering test green; feld72's case answers from its own copy behind `licensedSeam`.
 

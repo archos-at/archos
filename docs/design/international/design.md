@@ -813,13 +813,13 @@ The DPA annex states live retention plus copies. `test_retention_register.py` fa
 ### 6.4 Outbound processing
 
 **Licensed content at the seam (B2).**
-- **References, not text.** Retrieval returns licensed points as `{ref, anchor, sha256}`. `common/openrouter.py` expands them just before the request and never writes the expansion back.
+- **The model reads the full text.** Nothing here limits what the model sees: it reads whole sections or the whole norm, as the question needs. What is limited is where the text *rests* on our side. Retrieval returns licensed points as `{ref, anchor, sha256}` inside our stores; `common/openrouter.py` expands them to the full text just before the request and never writes the expansion back to a checkpoint, trace or job payload.
 - **Logged before expansion.** Langfuse logs the input first, and a test holds that order.
-- **Caching.** The expansion sits after the last cache breakpoint, so the static prefix keeps its cache; no provider keeps a persistent cache of licensed text (in-memory prefix caching under ZDR only, as the register says). B2 measures the cost and latency delta.
+- **Caching.** "No caches" means *our* persistent caches (Dragonfly, LangGraph checkpoints, job payloads), never the provider's prompt cache. The provider's short-lived prompt cache is part of the model reading the text and is wanted: place a cache breakpoint after the expanded norm, so the later calls of an agent loop read it from cache instead of paying full input price each time. Use it only with processors whose zero-retention terms cover the prompt cache (in-memory, minutes to an hour, never written at rest), as the register records per processor. B2 measures the cost, latency and cache-hit rate with and without the breakpoint.
 - **Quote caps.** A shingle matcher caps quoted licensed spans at `quoteMaxChars`, scored `licensed_quote_capped`. It covers answers, reasoning content, tool arguments and Langfuse outputs. The door also caps cumulative quotes per document and session at three times `quoteMaxChars`.
 - **Ingestion.** For licensed text, ingest records metadata only: model, tokens, page id, sha256. Today `_observed_vlm_call` logs full transcriptions [V `vision_calls.py:156-169`]. The upload proposal follows the same rule. `test_licensed_ingest_untraced` plants a licensed fixture, with a public positive control.
 
-**To feld72.** No licensed body rests in our traces, logs, analytics, caches, checkpoints or job payloads. Answers may quote at most 500 characters per span; those quotes persist with the answer and are erased with it. Text goes only to ZDR processors, and only as much as the question needs.
+**To feld72.** No licensed body rests in our traces, logs, analytics, caches, checkpoints or job payloads. Answers may quote at most 500 characters per span; those quotes persist with the answer and are erased with it. Text goes only to ZDR processors; the model may read the full norm, and a provider's short-lived prompt cache is allowed under those terms.
 
 **"Only the relevant excerpt"** is false for indexing [V]. Wording for 2026-11-27 (decision 2): "Für Antworten gehen nur die gefundenen Passagen an das Modell. Beim Indexieren läuft jede Seite einmal durch ein Modell ohne Datenspeicherung." The register generates it, and a lint holds it.
 
