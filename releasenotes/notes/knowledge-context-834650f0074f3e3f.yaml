@@ -9,7 +9,7 @@ features:
 operators:
   - >
     Off until the knowledge-context flag is set for an organization. Migration
-    0212 adds coverage on territory records, a work's connecting factor, the
+    0213 adds coverage on territory records, a work's connecting factor, the
     record of which edition each answer used, and confirmed project
     Steckbriefe. Coverage is set by publishing a reviewed change request; a
     territory without one reads as having no base knowledge.
