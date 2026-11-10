@@ -113,9 +113,9 @@ class CapturedPage:
     size: int
     text: str | None
     retrieved_at: str
-    #: Pages read, for a PDF; ``None`` for a page that has none.
+    #: A PDF's pages; ``None`` for a body that has none.
     pages: int | None = None
-    #: What a reader of ``text`` must know: a PDF with no text layer, or one read only in part.
+    #: What a reader of ``text`` must know: which pages of a PDF have no text layer (a scan). Empty otherwise.
     note: str = ""
 
 
