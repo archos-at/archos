@@ -21,6 +21,7 @@ import type {
   ReleaseAction,
   ReleaseChannel,
   ReviewDecision,
+  ReviewDecisionSource,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
@@ -68,6 +69,8 @@ export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   decision: text('decision').$type<ReviewDecision>().notNull(),
   note: text('note'),
   reviewer: text('reviewer').notNull(),
+  /** NULL only on verdicts written before migration 0208. */
+  decisionSource: text('decision_source').$type<ReviewDecisionSource>(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

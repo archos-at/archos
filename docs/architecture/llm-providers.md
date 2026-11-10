@@ -198,7 +198,7 @@ models cannot be rewritten per call (their client is built at boot), so a cell s
   OpenRouter's `supported_parameters` has no token for it. The measurements
   are in the ADR; a new tool search starts from them rather than re-deriving
   them. Since ADR-0052 Piloti binds its full tool set on every turn, greetings
-  included; scope (`register._tools_in_scope`) is what keeps the BIM schemas
+  included; scope (`turn_tools.tools_in_scope`) is what keeps the BIM schemas
   off a turn without a project.
 - `reasoning_effort` is a **native** `ChatOpenAI` field
   (`langchain_openai`'s `BaseChatOpenAI.reasoning_effort`), not something

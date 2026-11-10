@@ -6,9 +6,11 @@
  * authority record names the territories it decides for (MA 37: AT-9), and the
  * project's territory must lie in one of them, by the territory records' parent
  * chain or, for ISO 3166-2, by its prefix. So an MA 37 directive never applies
- * in Graz (AT-6). Where the project's territory is unknown the answer says so
- * instead of guessing; where it is known and nobody is competent, the
- * directive is left out of the turn.
+ * in Graz (AT-6). Where the project's territory is unknown, or an addressee's
+ * authority record cannot be read and no other addressee is competent, the
+ * answer says so instead of guessing; where it is known and nobody is
+ * competent, the directive is left out of the turn. An addressee that names no
+ * authority record decides for the territory it names.
  */
 
 export interface PlatformAuthority {
@@ -51,13 +53,19 @@ export function platformDirectiveApplies(
 ): PlatformDirectiveVerdict {
   if (!projectTerritoryId || addressees.length === 0) return { verdict: 'authority_unknown' }
   const chain = territoryChain(projectTerritoryId, parents)
+  let unreadable = false
   for (const addressee of addressees) {
     const authority = addressee.authorityId ? authorities.get(addressee.authorityId) : undefined
-    // An addressee whose authority record is not readable decides where the addressee says.
+    // An authority named but not readable (rolled back, or a country the office is not entitled to)
+    // decides nothing: its competence is unknown, so its own territory is no evidence.
+    if (addressee.authorityId && !authority) {
+      unreadable = true
+      continue
+    }
     const competence = authority?.competenceTerritoryIds ?? [addressee.territoryId]
     if (competence.some((territory) => chain.includes(territory))) {
       return { verdict: 'applies', authority: authority?.name ?? addressee.name, territoryId: projectTerritoryId }
     }
   }
-  return { verdict: 'excluded' }
+  return unreadable ? { verdict: 'authority_unknown' } : { verdict: 'excluded' }
 }

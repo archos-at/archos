@@ -1,6 +1,6 @@
 /**
  * Write one release of an official address register into the cell (migration
- * 0208, ADR-0172). The one writer of `address_register_entries`; the script
+ * 0209, ADR-0172). The one writer of `address_register_entries`; the script
  * `scripts/import-address-register.ts` drives it, and the integration spec
  * drives the same function. No `server-only`: it runs outside Next.
  *

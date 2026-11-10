@@ -56,7 +56,7 @@ register itself and no typed text leaves the cell.
   (`AT:gkz:60101`, ADR-0165's ids) and a Land (`AT-6`, the GKZ's first digit
   is ISO 3166-2:AT's number), the shape of its country's postcodes, and its
   download URL.
-- **Tables.** Migration 0208: `address_register_releases` (one import on one
+- **Tables.** Migration 0209: `address_register_releases` (one import on one
   reference date; `loading`, `active`, `retired`; one active per register) and
   `address_register_entries` (one address, keyed by the register's own id, with
   the keys the resolver compares). Platform tables (`secure_platform_table`):

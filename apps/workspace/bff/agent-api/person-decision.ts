@@ -12,7 +12,9 @@
  * - Anything else under an acting session, `app-unverified` included: refused.
  *
  * Used by the platform's approve, publish, rollback and entitlement routes
- * (`bff/base-knowledge/platform/`); the agent-grade door (S10) reuses it.
+ * (`bff/base-knowledge/platform/`); the agent-grade door (S10) reuses it. A
+ * route that lets an agent act but records how (a claim verdict) reads
+ * {@link callDecisionSource} instead.
  */
 
 import 'server-only'
@@ -33,11 +35,18 @@ export class PersonDecisionRequiredError extends ApiError {
   }
 }
 
-/** The person's yes for the call in flight, or a refusal naming `what` (an English phrase an agent reads). */
-export function requirePersonDecision(what: string): PersonDecisionSource {
+/** How the call in flight was decided: the person's yes, or `agent` when no yes came with it. */
+export function callDecisionSource(): PersonDecisionSource | 'agent' {
   const acting = actingDecision()
   if (!acting) return 'app'
   if (acting.proposalId) return 'app'
   if (acting.decisionSource === 'elicitation' || acting.decisionSource === 'app') return acting.decisionSource
-  throw new PersonDecisionRequiredError(what)
+  return 'agent'
+}
+
+/** The person's yes for the call in flight, or a refusal naming `what` (an English phrase an agent reads). */
+export function requirePersonDecision(what: string): PersonDecisionSource {
+  const source = callDecisionSource()
+  if (source === 'agent') throw new PersonDecisionRequiredError(what)
+  return source
 }
