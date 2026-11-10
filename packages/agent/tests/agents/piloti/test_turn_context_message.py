@@ -54,6 +54,16 @@ TOOLS = [{"name": "knowledge_search"}, {"name": "workspace__search"}, {"name": "
 PROMPT = TurnPrompt(system="SYSTEM", context="<turn_context>\nCTX\n</turn_context>")
 
 
+def _read(prompt: TurnPrompt) -> str:
+    """Everything the model reads about the turn besides the system prompt, in either layout (``context_layout``)."""
+    return (prompt.conversation or "") + prompt.context
+
+
+def _between(request: list) -> str:
+    """The text a request carries between its system prompt and the question."""
+    return "".join(content_to_text(message.content) for message in request[1:-1])
+
+
 @pytest.fixture(autouse=True)
 def _bundled_prompt(monkeypatch):
     monkeypatch.setattr(prompt_module, "prompt_store", lambda: PromptStore(enabled=False))
@@ -105,10 +115,10 @@ class TestTheSystemPromptIsTheStaticHalf:
         rendered = render_turn_prompt(system_prompt_template(), state, TOOLS)
 
         for value in ("2026-10-02", "Anna Weber", "Wohnbau", "Grundriss_EG.pdf", "p-1", "Kurz antworten."):
-            assert value in rendered.context, value
+            assert value in _read(rendered), value
             assert value not in rendered.system, value
         assert rendered.context.startswith("<turn_context>")
-        assert "<restricted_conversation>" in rendered.context
+        assert "<restricted_conversation>" in _read(rendered)
 
 
 class TestWhereTheContextGoes:
@@ -290,13 +300,13 @@ class TestThroughTheAgent:
         sent_one = llm.ainvoke.call_args_list[0][0][0]
         sent_two = llm.ainvoke.call_args_list[1][0][0]
         assert sent_one[0].content == sent_two[0].content
-        assert "name: A" in sent_one[-2].content and sent_one[-1].content == "Frage eins"
-        assert "name: B" in sent_two[-2].content and sent_two[-1].content == "Frage zwei"
+        assert "name: A" in _between(sent_one) and sent_one[-1].content == "Frage eins"
+        assert "name: B" in _between(sent_two) and sent_two[-1].content == "Frage zwei"
         # Turn one's context is not replayed into turn two.
         assert not any("name: A" in str(message.content) for message in sent_two)
         # Request-only: the stored transcript carries no turn context.
         for result in (first, second):
-            assert not any("<turn_context>" in str(message.content) for message in result.messages)
+            assert not any("_context>" in str(message.content) for message in result.messages)
 
     async def test_the_request_carries_the_line_and_the_trace_names_the_call(self, agent, llm):
         token = begin_trace_contributions()
@@ -348,7 +358,7 @@ def _jurisdiction_context(placing: str) -> str:
         messages=[HumanMessage(content="Welche Anforderungen gelten für das Stiegenhaus?")],
         project_context=f"PROJECT_CONTEXT v1\n\nconfirmed:\n{placing}{JURISDICTION_FACTS}\n",
     )
-    return render_turn_prompt(system_prompt_template(), state, [{"name": "knowledge_search"}]).context
+    return _read(render_turn_prompt(system_prompt_template(), state, [{"name": "knowledge_search"}]))
 
 
 @pytest.mark.parametrize(

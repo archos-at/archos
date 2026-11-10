@@ -134,6 +134,7 @@ from contextvars import ContextVar
 from contextvars import Token
 from typing import Any
 
+from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 
 logger = logging.getLogger(__name__)
@@ -282,6 +283,15 @@ def cached_system_message(text: str) -> SystemMessage:
     an entry nobody reads, at 1.25x.
     """
     return SystemMessage(content=[{"type": "text", "text": text, CACHE_CONTROL_FIELD: dict(_AUTOMATIC_CACHE)}])
+
+
+def cached_context_message(text: str) -> HumanMessage:
+    """A context message that leads every turn of a conversation, with a breakpoint at its end.
+
+    The conversation layout's stable head (the chat agent's ``context_layout``): the
+    second breakpoint after the system prompt's, of Anthropic's four.
+    """
+    return HumanMessage(content=[{"type": "text", "text": text, CACHE_CONTROL_FIELD: dict(_AUTOMATIC_CACHE)}])
 
 
 def _without_breakpoint(content: Any) -> Any:

@@ -5,11 +5,13 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 from langchain_core.messages import ToolMessage
 
+from agent.agents.piloti import history as history_module
 from agent.agents.piloti.history import UNCITED_PASSAGE_NOTE
 from agent.agents.piloti.history import _count_message_tokens
 from agent.agents.piloti.history import compact_tool_results
 from agent.agents.piloti.history import prune_tool_results
 from agent.agents.piloti.history import trim_message_history
+from agent.agents.piloti.history import window_start
 
 
 class TestTrimMessageHistory:
@@ -299,3 +301,40 @@ class TestWarmTokenEncoder:
             assert history._get_token_encoder.cache_info().misses == before
         finally:
             history._get_token_encoder.cache_clear()
+
+
+class TestTheWindowMovesInSteps:
+    """Past its budget the window's start moves once per overflow, not on every turn (``window_start``).
+
+    The start is the first byte after the static prefix: every move re-sends
+    the whole history at the full input price.
+    """
+
+    TURN = "Abstand zur Grundgrenze und Fluchtweglänge im Stiegenhaus. " * 40
+
+    def _transcript(self, turns: int) -> list:
+        messages = []
+        for turn in range(turns):
+            messages += [HumanMessage(content=f"Q{turn} {self.TURN}"), AIMessage(content=f"A{turn} {self.TURN}")]
+        return messages[:-1]
+
+    def test_under_the_budget_the_window_is_the_whole_conversation(self):
+        assert window_start(self._transcript(3), 100_000) == 0
+
+    def test_the_start_holds_for_several_turns_after_it_moves(self):
+        # Production's ratio: a 40k budget against prose-only turns of a few thousand tokens.
+        turn = history_module._count_message_tokens(self._transcript(2)[:2])
+        budget = 16 * turn
+        starts = [window_start(self._transcript(turns), budget) for turns in range(1, 60)]
+
+        assert starts == sorted(starts), "the start never moves back"
+        moves = [turn for turn in range(1, len(starts)) if starts[turn] != starts[turn - 1]]
+        assert moves, "the conversation outgrew the budget"
+        # A window cut to the budget moved on every turn past it; this one moves in steps.
+        assert len(moves) >= 2
+        assert all(later - earlier >= 5 for earlier, later in zip(moves, moves[1:], strict=False)), moves
+
+    def test_the_window_still_fits_its_budget(self):
+        transcript = self._transcript(25)
+        budget = 6 * history_module._count_message_tokens(self._transcript(1))
+        assert history_module._count_message_tokens(history_module.history_window(transcript, budget)) <= budget

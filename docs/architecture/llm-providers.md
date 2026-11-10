@@ -144,6 +144,16 @@ models cannot be rewritten per call (their client is built at boot), so a cell s
   write at 1.25x input from GPT-5.6 on, so a cold first call costs more than an
   uncached one used to. The per-answer carry is measured from the first agent
   call of each answer (`chat_cross_turn_cache_carry` in PostHog).
+- **What closed the cross-turn miss (2026-11-10, slice Q1, not yet measured in
+  production).** No cache entry was ever written at the end of the bytes every
+  turn shares, because a provider writes only at a breakpoint and the only one
+  was the automatic marker at each request's tail. The chat system prompt now
+  carries a block breakpoint (`common/prompt_caching.py`), which is why
+  `research_llm` runs on Chat Completions: the Responses API drops per-block
+  `cache_control`. The project and office context sits right after it with a
+  breakpoint of its own, and history is pruned and trimmed in steps (ADR-0175);
+  `test_cross_turn_prefix.py` measures the request builders, and the ledger's
+  `cache_write_tokens` says what each call wrote.
 - **What zero data retention leaves open on price (2026-11-04,
   `/api/v1/endpoints/zdr`).** Only Azure serves `openai/gpt-6.1-terra` and
   `openai/gpt-6-luna` with zero data retention; `azure/eu` lists 20 % above
