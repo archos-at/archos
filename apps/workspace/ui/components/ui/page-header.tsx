@@ -23,10 +23,20 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   action?: React.ReactNode
   /**
    * Where the page is, above the title, small and muted (12/16, `text-meta`): the project a tab belongs to, so the
-   * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox). On a phone the title is the
-   * tabs' business and the crumb becomes the one visible line (16/24/600), the h1 kept for the accessibility tree.
+   * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox).
    */
   crumb?: React.ReactNode
+  /** Classes for the crumb's line: `max-md:hidden` where the widths without a rail start the page with its title. */
+  crumbClassName?: string
+  /** What starts the title's line, before the title: a way back (a phone's ←), on the title's edge. */
+  titleStart?: React.ReactNode
+  /** Where `titleStart` is shown (`md:hidden`): an empty slot still took the line's gap and moved the title 8px in. */
+  titleStartClassName?: string
+  /**
+   * What ends the title's line, at every width: a glyph that belongs to the header (the phone's search, a page's
+   * one ⋯). A 44px target hangs into the line's height, so it costs the header none.
+   */
+  titleEnd?: React.ReactNode
   /** The action stays on the title's line at every width: a compact one (a single ⋯) that a phone need not stack. */
   actionInline?: boolean
 }
@@ -83,6 +93,10 @@ export function PageHeader({
   subtitle,
   action,
   crumb,
+  crumbClassName,
+  titleStart,
+  titleStartClassName,
+  titleEnd,
   actionInline = false,
   className,
   ...props
@@ -95,11 +109,20 @@ export function PageHeader({
             sentence cost two lines of a 393px-wide screen on every tab. A
             ratchet in `page-header.spec.tsx` holds it. */}
         {crumb && (
-          <p className="text-meta text-muted-foreground mb-1 flex min-w-0 items-center gap-1 phone:mb-0 phone:text-section phone:text-foreground" data-testid="page-header-crumb">
+          <p className={cn('text-meta text-muted-foreground mb-1 flex min-w-0 items-center gap-1', crumbClassName)} data-testid="page-header-crumb">
             {crumb}
           </p>
         )}
-        <h1 className={cn('text-balance text-page-title phone:text-section', crumb && 'phone:sr-only')}>{title}</h1>
+        {titleStart || titleEnd ? (
+          <div className="flex min-w-0 items-center gap-2" data-slot="page-header-title-line">
+            {/* -10px each side: a 44px target on the title's 24px line. */}
+            {titleStart && <div className={cn('-my-2.5 flex shrink-0 items-center', titleStartClassName)}>{titleStart}</div>}
+            <h1 className="min-w-0 flex-1 text-balance text-page-title phone:text-section">{title}</h1>
+            {titleEnd && <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>}
+          </div>
+        ) : (
+          <h1 className="text-balance text-page-title phone:text-section">{title}</h1>
+        )}
         {subtitle && (
           <p className="mt-1 text-pretty text-sm text-muted-foreground phone:hidden">{subtitle}</p>
         )}

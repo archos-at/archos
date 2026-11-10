@@ -680,7 +680,7 @@
   "apps/workspace/ui/components/projects/address-field.tsx": 1,
   "apps/workspace/ui/components/projects/create-project-form.spec.tsx": 10,
   "apps/workspace/ui/components/projects/create-project-form.tsx": 5,
-  "apps/workspace/ui/components/shell/app-sidebar.tsx": 2,
+  "apps/workspace/ui/components/shell/app-sidebar.tsx": 1,
   "apps/workspace/ui/components/shell/org-header.spec.tsx": 1,
   "apps/workspace/ui/components/shell/organization-switcher.spec.tsx": 2,
   "apps/workspace/ui/components/shell/phone-more.ts": 1,

@@ -41,7 +41,7 @@ import { ArrowLeft, Lock, MailPlus, MailSearch, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { ProjectSectionActions } from '@/components/shell/project-section-frame'
+import { ProjectSectionActions, ProjectSectionBack, useSectionBackSlot } from '@/components/shell/project-section-frame'
 import { PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTranslations } from '@/i18n'
@@ -133,6 +133,7 @@ export function InboundMailWorkspace({
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const phone = useMediaQuery(PHONE_QUERY)
+  const backInHeader = useSectionBackSlot()
   const router = useRouter()
   const paths = useMemo(() => pathsProp ?? inboundMailPaths(projectId), [pathsProp, projectId])
   const filter = useMemo(() => ({ status, outcome }), [status, outcome])
@@ -440,11 +441,13 @@ export function InboundMailWorkspace({
       />
     ) : null
 
+  // On a phone the section's header draws the way back, on its title's line (`ProjectSectionBack`): one arrow, not two.
   const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-3.5 w-fit @3xl:hidden" /* its 14px padding given back: the arrow on the gutter */>
+    <Button asChild variant="ghost" size="sm" className={cn('-ml-3.5 w-fit @3xl:hidden', backInHeader && 'phone:hidden')} /* its 14px padding given back */>
       <Link href={paths.list(filter)} data-testid="inbound-mail-back">
         <ArrowLeft className="size-4" aria-hidden />
         {t('title')}
+        <ProjectSectionBack href={paths.list(filter)} to={t('title')} />
       </Link>
     </Button>
   )

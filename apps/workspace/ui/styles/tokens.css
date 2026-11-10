@@ -511,11 +511,13 @@
   --color-paper-ink-foreground: var(--paper-ink-foreground);
 
   /* sidebar primitive — aliases onto the existing paper/ink tokens, not a second palette */
-  --color-sidebar: var(--background-color-surface-sunken);
+  /* The rail is the desk (Paper on a desk): what the pointer is over, or what stands open, is one step down the
+     ladder (the picked grey), and where the reader is lies on it as a sheet (`bg-sheet shadow-xs`). */
+  --color-sidebar: var(--desk);
   --color-sidebar-foreground: var(--foreground);
   --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: var(--primary-foreground);
-  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent: var(--selected);
   --color-sidebar-accent-foreground: var(--foreground);
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);

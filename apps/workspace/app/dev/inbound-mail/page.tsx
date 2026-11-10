@@ -17,6 +17,8 @@
 import type { JSX } from 'react'
 import { use, useMemo } from 'react'
 import { I18nProvider } from '@/i18n'
+import { cn } from '@/lib/utils'
+import { DevRailShell } from '../_fixtures/rail-shell'
 import { InboundMailWorkspace } from '@/features/inbound-mail/components/inbound-mail-workspace'
 import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import type { InboundMailPaths } from '@/lib/inbound-mail/paths'
@@ -58,11 +60,13 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
   }, [variant, locale, params.chrome])
   const initial = mailId ? (DETAIL_BY_ID.get(mailId) ?? null) : null
 
-  return (
-    <I18nProvider initialLocale={locale} fixedLocale>
-      <main className="bg-background flex h-dvh min-h-0 flex-col" data-testid="inbound-mail-preview">
+  // `?rail=1`: the app shell round the page, as a project shows it (the rail; on a phone the band, the tab bar, „Mehr“).
+  const inShell = one(params.rail) === '1'
+  const filesPath = `/app/projects/${PROJECT_ID}/files/mail${mailId ? `/${mailId}` : ''}`
+  const page = (
+      <main className={cn('bg-background flex min-h-0 flex-col', inShell ? 'h-full' : 'h-dvh')} data-testid="inbound-mail-preview">
         {/* The real section frame, as the project's Dateien › E-Mail-Eingang heads it. */}
-        <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={`/app/projects/${PROJECT_ID}/files/mail${mailId ? `/${mailId}` : ''}`} inboundMail>
+        <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={filesPath} inboundMail>
         <InboundMailWorkspace
           key={`${variant}:${status}:${outcome ?? ''}:${mailId ?? ''}`}
           projectId={PROJECT_ID}
@@ -84,8 +88,19 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
           initialChecked={fixture.checked}
         />
         </ProjectSectionFrame>
-        {one(params.chrome) !== '0' && <DevVariantStrip base="/dev/inbound-mail" variants={Object.keys(LIST_VARIANTS)} current={variant} locale={locale} />}
+        {one(params.chrome) !== '0' && !inShell && <DevVariantStrip base="/dev/inbound-mail" variants={Object.keys(LIST_VARIANTS)} current={variant} locale={locale} />}
       </main>
+  )
+
+  return (
+    <I18nProvider initialLocale={locale} fixedLocale>
+      {inShell ? (
+        <DevRailShell projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={filesPath}>
+          {page}
+        </DevRailShell>
+      ) : (
+        page
+      )}
     </I18nProvider>
   )
 }

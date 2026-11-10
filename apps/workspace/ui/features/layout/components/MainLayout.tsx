@@ -45,8 +45,6 @@ interface MainLayoutProps {
   isAuthenticated?: boolean
   /** Callback when sign in is clicked */
   onSignIn?: () => void
-  /** Active project name — named in the thread header's phone context row. */
-  projectName?: string | null
   /**
    * Whether the collaboration surfaces are available (ADR-0032…0035): message
    * authorship, the unread divider, the turn-in-flight banner. Threaded to
@@ -69,7 +67,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
   onSignIn,
   canCollaborate = false,
   canChatInProject = true,
-  projectName = null,
 }) => {
   // Only what the layout shows, never the conversation objects themselves:
   // a streamed answer replaces the open conversation on every delta, and the
@@ -223,7 +220,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
               chat, not the research panel (which has its own header). */}
           <ChatToolbar
             sessionTitle={currentConversationTitle}
-            projectName={projectName ?? undefined}
             onNewSession={handleNewSession}
             isNewSessionDisabled={isNavigationBlocked}
             isChatStarted={messageCount > 0}

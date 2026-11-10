@@ -24,7 +24,7 @@
  * development-only, and idempotent.
  *
  * Variants via `?variant=`:
- *   - default     — the expanded 236px rail.
+ *   - default     — the expanded 272px rail.
  *   - `collapsed` — the 64px icon rail.
  *   - `wide`      — the rail dragged out to 400px, which is now a state a
  *     reader can put it in: the edge is a real resize handle, and a width the
@@ -32,11 +32,21 @@
  *     nav column and footer edge as the default shot, at a width the design
  *     was never reviewed at.
  *
- * Below `md` the same page is the PHONE shell: the rail's top band (project
- * pill, search), a content stand-in, and the bottom tab bar, lit for Dateien.
- * Two more states for the phone, via `?open=`:
- *   - `drawer`   — "Mehr" pressed: the rail as a drawer over the page.
- *   - `switcher` — the project pill pressed: the switcher sheet.
+ * The rail lights a section, as it always does inside a project: Dateien by
+ * default, another with `?active=` (`chat`, `automation`, `settings`,
+ * `officeShelf`, `search`, `inbox`). `?presence=reconnecting` or `offline`
+ * shows the connection row, which says nothing while all is well.
+ * `?gates=viewer` is a member with no Büroablage, no Automatisierung and no
+ * organisation or platform rights: the organisation's group is Suche and
+ * the Postfach alone.
+ *
+ * Below `md` the same page is the PHONE shell: the rail's top band (the
+ * project's name, search), a content stand-in, and the bottom tab bar, lit for
+ * Dateien. Two more states for the phone: `?open=more`, „Mehr" with the project
+ * selector as its first row, and `?open=switcher`, the project list it opens.
+ *
+ * The reader's last chats stand under „Chat“ (`?active=chat` opens one of them, the current place);
+ * `?chats=empty` is a project with no chats yet, where the rail lists none.
  */
 
 import type { JSX } from 'react'
@@ -44,11 +54,12 @@ import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
-import { ProjectSwitcherSheet } from '@/components/shell/project-switcher-sheet'
+import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
-import { useLayoutStore } from '@/features/layout/store'
+import { installConnectionHealthFake } from '../_fixtures/connection-health'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
+import { DevRailChats } from '../_fixtures/rail-chats'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar.width'
@@ -60,6 +71,8 @@ const WIDE_WIDTH = 400
 // is already too late for the provider's restore effect.
 // The badge shows a count, as it does for anyone with something waiting.
 installInboxBadgeFake(3)
+// Healthy unless `?presence=` says otherwise, so the shot does not depend on load time.
+installConnectionHealthFake()
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   try {
@@ -85,8 +98,17 @@ const PROJECTS = [
   { id: 'p-6', name: 'Dachausbau Kaiserstraße 12' },
 ]
 
-/** The tab the phone preview lights: the page the stand-in is pretending to be. */
-const PREVIEW_PATH = '/app/projects/p-1/files'
+/** The route each `?active=` value lights. */
+const ACTIVE_PATHS: Record<string, string> = {
+  chat: '/app/projects/p-1/chat/t-1',
+  files: '/app/projects/p-1/files',
+  automation: '/app/projects/p-1/automation',
+  settings: '/app/projects/p-1/settings',
+  officeShelf: '/app/office-shelf',
+  search: '/app/search',
+  inbox: '/app/inbox',
+}
+
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   // A week on site: the reader came here from two other projects.
@@ -99,19 +121,20 @@ export default function AppRailPreview(): JSX.Element {
   const params = useSearchParams()
   const variant = params?.get('variant') ?? 'default'
   const open = params?.get('open')
-  const setDrawerOpen = useLayoutStore((s) => s.setMobileNavOpen)
-  const setSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
+  const viewer = params?.get('gates') === 'viewer'
+  const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
+  const setSheetOpen = useShellOverlays((s) => s.setMoreSheetOpen)
 
-  // After the rail's own route-change reset (it closes the drawer on mount).
+  // After the first paint, so the sheet opens as it does on a press.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (open === 'drawer') setDrawerOpen(true)
-      if (open === 'switcher') setSheetOpen(true)
+      if (open === 'switcher' || open === 'more') setSheetOpen(true)
     }, 150)
     return () => window.clearTimeout(timer)
-  }, [open, setDrawerOpen, setSheetOpen])
+  }, [open, setSheetOpen])
 
   return (
+    <DevRailChats pathname={previewPath} empty={params?.get('chats') === 'empty'}>
     <div
       className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row"
       data-testid="app-rail-preview"
@@ -119,24 +142,25 @@ export default function AppRailPreview(): JSX.Element {
     >
       {/* `contents` keeps the rail a direct flex child of the shell row, the
           way the shell hosts it: the desktop rail at `md`, the phone's top band
-          and drawer below. */}
+          below. */}
       <div className="contents">
         <AppSidebar
           projectId="p-1"
           projects={PROJECTS}
+          pathname={previewPath}
           user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
           organizationName="Musterarchitektur ZT GmbH"
           authRequired={false}
           // Every gated entry on, so the shot shows the rail at FULL height —
           // the footer-clipping and group-rhythm defects only surface when the
           // nav column is long enough to compete for vertical space.
-          canViewOrganization
-          canManageOrganization
-          canManagePlatform
-          canAccessOfficeShelf
+          canViewOrganization={!viewer}
+          canManageOrganization={!viewer}
+          canManagePlatform={!viewer}
+          canAccessOfficeShelf={!viewer}
           canAccessInbox
           showModels
-          showSkills
+          showSkills={!viewer}
         />
       </div>
 
@@ -149,12 +173,28 @@ export default function AppRailPreview(): JSX.Element {
             ? 'collapsed icon rail (64px)'
             : variant === 'wide'
               ? `rail dragged to ${WIDE_WIDTH}px`
-              : 'expanded rail (236px)'}
-          <span className="md:hidden"> · phone: tab bar lit for {PREVIEW_PATH}</span>
+              : 'expanded rail (272px)'}
+          <span className="md:hidden"> · phone: tab bar lit for {previewPath}</span>
         </p>
       </main>
-      <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={PREVIEW_PATH} />
-      <ProjectSwitcherSheet projects={PROJECTS} activeProjectId="p-1" />
+      <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={previewPath} />
+      <PhoneMoreSheet
+        projectId="p-1"
+        projects={PROJECTS}
+        projectName={PROJECTS[0]!.name}
+        initialView={open === 'switcher' ? 'projects' : 'more'}
+        pathname={previewPath}
+        organizationName="Musterarchitektur ZT GmbH"
+        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
+        authRequired={false}
+        canAccessOfficeShelf
+        canAccessInbox
+        showSkills
+        canViewOrganization
+        canManageOrganization={false}
+        canManagePlatform={false}
+      />
     </div>
+    </DevRailChats>
   )
 }

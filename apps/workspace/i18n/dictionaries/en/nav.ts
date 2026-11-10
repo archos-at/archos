@@ -2,6 +2,9 @@
 export const nav = {
   projectNavigation: 'Project navigation',
   projectSections: 'Project sections',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Recent chats',
+  allChats: 'All chats',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
@@ -17,7 +20,6 @@ export const nav = {
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
-  closeNavigation: 'Close navigation',
   sections: {
     chat: 'Chat',
     files: 'Files',
@@ -40,7 +42,6 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
-    work: 'Work',
     org: 'Organization',
   },
   sectionSubtitles: {
@@ -118,7 +119,7 @@ export const nav = {
       title: 'More',
       description: 'More areas and your account.',
       close: 'Close',
-      places: 'Areas',
+      project: 'Project',
       account: 'Account',
     },
   },

@@ -4,6 +4,9 @@ import type { en } from '../en'
 export const nav: typeof en.nav = {
   projectNavigation: 'Projektnavigation',
   projectSections: 'Projektbereiche',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Letzte Chats',
+  allChats: 'Alle Chats',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',
@@ -13,7 +16,6 @@ export const nav: typeof en.nav = {
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
   expandSidebarHint: 'Ziehen oder klicken zum Ausklappen',
   openNavigation: 'Navigation öffnen',
-  closeNavigation: 'Navigation schließen',
   sections: {
     chat: 'Chat',
     files: 'Dateien',
@@ -36,7 +38,6 @@ export const nav: typeof en.nav = {
     setup: 'Einrichtung',
   },
   sectionGroups: {
-    work: 'Arbeit',
     org: 'Organisation',
   },
   sectionSubtitles: {
@@ -99,7 +100,7 @@ export const nav: typeof en.nav = {
       title: 'Mehr',
       description: 'Weitere Bereiche und das Konto.',
       close: 'Schließen',
-      places: 'Bereiche',
+      project: 'Projekt',
       account: 'Konto',
     },
   },
