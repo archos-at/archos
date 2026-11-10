@@ -1,17 +1,14 @@
 /**
  * The building law a turn carries (ADR-0168, design §5.5 steps 1, 6 and 8):
  * the chain text for the project's site and the role of every edition on it,
- * read from the platform's records. Behind `building-law-chain` per
- * organization; with it off the turn carries nothing new.
+ * read from the platform's records, on every turn since the cut-over (ADR-0175).
  *
  * Fails closed: no project, no stated Land, no released law on the chain, or a
- * graph that hit its bound yields no chain, and the agent keeps what it had
- * (the static prompt's block, or for a site outside it, the jurisdiction note).
+ * graph that hit its bound yields no chain, and the knowledge context's gate
+ * says what the turn may claim.
  */
 
 import 'server-only'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { calendarDayIn } from '@/lib/format'
@@ -24,16 +21,13 @@ export type PhaseTimer = <T>(name: string, load: () => Promise<T>) => Promise<T>
 
 const untimed: PhaseTimer = (_name, load) => load()
 
-/**
- * The turn's building law, or null. The phase is timed only once the flag is
- * on, so a turn with it off records no new phase: its trace stays what it was.
- */
+/** The turn's building law, or null; timed as the `building-law` phase. */
 export async function buildingLawForTurn(
   organizationId: string,
   projectId: string | null,
   time: PhaseTimer = untimed,
 ): Promise<BuildingLawTurn | null> {
-  if (!projectId || !(await isOrgFeatureEnabled(FEATURE_FLAGS.buildingLawChain, organizationId))) return null
+  if (!projectId) return null
   return time('building-law', async () => {
     const profile = await findProjectProfileInOrg(projectId, organizationId)
     const facts = profile?.profile?.facts ?? {}

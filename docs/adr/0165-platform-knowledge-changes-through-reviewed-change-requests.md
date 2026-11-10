@@ -80,7 +80,7 @@ the corpus reports its chunks.
 **Behind a flag.** `platform-base-knowledge`: per office, its turn reads the
 platform's listings and directives; for the platform organization, the routes
 answer and the norm registry stops taking edits (409). Off, everything is as
-before.
+before. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 
 ### Confirmation
 

@@ -119,7 +119,7 @@ cannot present a law the project's facts do not support.
   `intake-seed.spec.ts` hold the postal-code suggestion, Swiss codes included.
 - `test_applicability.py` and the jurisdiction section of
   `test_turn_context_message.py` fail when OIB verdicts reach a project abroad
-  or unplaced; `applicable-standards.test.ts` does the same for the overview.
+  or unplaced; `applicable-standards.test.ts` did the same for the overview until the cut-over removed the OIB list ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md)); the Steckbrief shows the law the records resolve at the site.
 - `intake-seed.spec.ts` fails on `country=at` for `outside_austria` and on a
   confirmed typed address.
 - `scripts/rls-test-db.sh` holds 0201 (Austrian addresses placed, a Zürich

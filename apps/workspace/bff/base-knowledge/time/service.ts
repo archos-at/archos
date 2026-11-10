@@ -8,21 +8,14 @@
  */
 
 import 'server-only'
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
 import { getProjectProfile } from '@/lib/project-profile/profile-service'
 import { procedureSchema, type AsOfQuery, type Procedure } from '@/lib/base-knowledge/wire/time'
 import { readRulesetsInForce } from '../store/rulesets'
 import { editionAsOf, editionForProcedure, type AsOfAnswer } from './as-of'
 import { procedureFromProfile, profileHasProcedure } from './profile-procedure'
 import { readTerritoryChain, readWorkInTime } from './repository'
-
-export class TimeEditionsDisabledError extends ForbiddenError {
-  constructor() {
-    super('Editions in time are not enabled for this organization.')
-  }
-}
 
 export type AsOfResponse = {
   workId: string
@@ -60,7 +53,6 @@ export async function editionAsOfForSession(
   query: AsOfQuery,
   now: Date = new Date()
 ): Promise<AsOfResponse> {
-  if (!isFeatureEnabled(session, FEATURE_FLAGS.timeEditions)) throw new TimeEditionsDisabledError()
   const organizationId = session.organizationId
   const procedure = await procedureOf(session, query)
   const [read, chain] = await Promise.all([

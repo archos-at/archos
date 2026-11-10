@@ -94,7 +94,8 @@ function listedLine(listed: ListedEdition): string {
 /**
  * A platform authority directive that is not excluded for the project. One
  * whose authority is not competent where the project is never reaches here
- * (`platform/applicability.ts`): MA 37's directives stay out of a Graz turn.
+ * (`directiveVerdict` in `platform.ts`, by the competence rulesets): MA 37's
+ * directives stay out of a Graz turn.
  */
 function directiveLine(directive: PlatformDirective): string {
   const name = directive.designation ? `${directive.designation} „${directive.title}“` : `„${directive.title}“`

@@ -11,11 +11,13 @@ import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import type { ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
-import { readTerritoryParents } from './territories'
-import { platformDirectiveApplies, type PlatformAddressee, type PlatformAuthority } from './applicability'
+import { calendarDayIn } from '@/lib/format'
+import { officeTimeZone } from '@/lib/organizations/time-zone'
+import { competentAuthorities } from '@/lib/site-resolution/competence'
+import type { SiteAuthority } from '@/lib/site-resolution/wire'
+import { directiveVerdict, type PlatformAddressee } from '../platform'
+import { readTerritoryChain } from '../time/repository'
 
 /** Most listings or directives one turn reads. */
 const MAX_READ = 200
@@ -69,11 +71,17 @@ interface DirectiveRow extends Record<string, unknown> {
 interface AuthorityRow extends Record<string, unknown> {
   id: string
   name: string
-  competence_territory_ids: string[]
+}
+
+/** Who is competent at the site, by the competence rulesets of its chain on the office's today. */
+async function competenceAt(organizationId: string, territoryId: string): Promise<SiteAuthority> {
+  const [chain, zone] = await Promise.all([readTerritoryChain(organizationId, territoryId), officeTimeZone(organizationId)])
+  const [site] = await competentAuthorities(organizationId, [chain], calendarDayIn(zone))
+  return site ?? { status: 'undetermined', reason: 'no_territory' }
 }
 
 async function directivesFor(organizationId: string, territoryId: string | null): Promise<PlatformDirective[]> {
-  return withTenant({ organizationId }, async () => {
+  const { directives, authorities } = await withTenant({ organizationId }, async () => {
     const db = getDb()
     const directives = await db.execute<DirectiveRow>(sql`
       SELECT w.title, w.identifiers ->> 'designation' AS designation, w.addressees,
@@ -87,43 +95,39 @@ async function directivesFor(organizationId: string, territoryId: string | null)
         AND w.kind = 'authority_directive'
       ORDER BY w.title
       LIMIT ${MAX_READ}`)
-    if (directives.length === 0) return []
-    const [authorities, parents] = await Promise.all([
-      db.execute<AuthorityRow>(sql`
-        SELECT r.id, a.name, a.competence_territory_ids
-        FROM knowledge_records r JOIN knowledge_authority_revisions a ON a.revision_id = r.head_revision_id
-        WHERE r.organization_id IS NULL AND r.type = 'authority' AND knowledge_country_entitled(r.country_id)
-        LIMIT ${MAX_READ}`),
-      territoryId ? readTerritoryParents(db, territoryId) : Promise.resolve(new Map<string, string[]>()),
-    ])
-    const authorityById = new Map<string, PlatformAuthority>(
-      authorities.map((row) => [row.id, { id: row.id, name: row.name, competenceTerritoryIds: row.competence_territory_ids }]),
-    )
-    return directives.flatMap((row) => {
-      const verdict = platformDirectiveApplies(row.addressees, authorityById, parents, territoryId)
-      if (verdict.verdict === 'excluded') return []
-      return [
-        {
-          title: row.title,
-          designation: row.designation,
-          editionLabel: row.edition_label,
-          authorities: row.addressees.map((addressee) => authorityById.get(addressee.authorityId ?? '')?.name ?? addressee.name),
-          verdict,
-        },
-      ]
-    })
+    if (directives.length === 0) return { directives, authorities: [] as AuthorityRow[] }
+    const authorities = await db.execute<AuthorityRow>(sql`
+      SELECT r.id, a.name
+      FROM knowledge_records r JOIN knowledge_authority_revisions a ON a.revision_id = r.head_revision_id
+      WHERE r.organization_id IS NULL AND r.type = 'authority' AND knowledge_country_entitled(r.country_id)
+      LIMIT ${MAX_READ}`)
+    return { directives, authorities }
+  })
+  if (directives.length === 0) return []
+  const site = territoryId ? await competenceAt(organizationId, territoryId) : null
+  const nameById = new Map(authorities.map((row) => [row.id, row.name]))
+  return directives.flatMap((row) => {
+    const verdict = directiveVerdict(row.addressees, site, territoryId)
+    if (verdict.verdict === 'excluded') return []
+    return [
+      {
+        title: row.title,
+        designation: row.designation,
+        editionLabel: row.edition_label,
+        authorities: row.addressees.map((addressee) => nameById.get(addressee.authorityId ?? '') ?? addressee.name),
+        verdict,
+      },
+    ]
   })
 }
 
-/** The platform as offices read it once its records exist; the stub's answers while the flag is off. */
+/** The platform as offices read it: the released records of the countries each office is entitled to. */
 export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return []
     const holds = new Set(held.map(designationKey))
     return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
   },
   async isReleased(organizationId, revisionId) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return false
     const rows = await withTenant({ organizationId }, () =>
       getDb().execute(sql`
         SELECT 1 FROM knowledge_revisions
@@ -133,7 +137,6 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
     return rows.length > 0
   },
   async directivesFor(organizationId, territoryId) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return []
     return directivesFor(organizationId, territoryId)
   },
 }

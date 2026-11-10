@@ -790,7 +790,6 @@ export const organization: typeof en.organization = {
     appliesIn: 'Gilt in {territories}',
     addressedTo: 'Weisung von {authorities}',
     empty: 'Noch keine Grundlagen erfasst. Wählen Sie ein Dokument aus der Büroablage.',
-    off: 'Grundlagen des Büros sind für diese Organisation noch nicht freigeschaltet.',
     loadError: 'Die Grundlagen konnten nicht geladen werden.',
     saveError: 'Das konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
     field: {

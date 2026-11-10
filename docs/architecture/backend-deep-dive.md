@@ -1499,8 +1499,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    building-class derivation. Deep research's **Jurisdiction & Country
    Handling** block (`country_profile.JURISDICTION_GROUNDING`) states the same.
 - **OIB edition per Land** — relation records of the Austria pack
-   (`configs/knowledge-packs/at.json`, ADR-0168). Behind the
-   `building-law-chain` flag the BFF resolves the project's Land against the
+   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over (ADR-0175) the BFF resolves the project's Land against the
    platform's records (`bff/base-knowledge/chain/`) and the turn context
    carries `buildingLaw`: the chain text and each edition's role. The agent
    binds it per turn (`citations/roles.py`, beside `set_turn_documents`); a
@@ -1526,8 +1525,9 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    Brandschutzanlagen, …) as binding constraints, derive building classes from
    them, flag contradictions, and surface gaps.
 - **Applicability** — `common/applicability.py` is a small hand-written module
-  (no DSL): OIB verdicts from project facts (mirrors the UI's
-  `applicable-standards.ts`), German trigger hints for the four boolean intake
+  (no DSL): OIB verdicts from project facts (the UI's TS twin,
+  `applicable-standards.ts`, went with the cut-over, ADR-0175: the Steckbrief
+  shows the law the records resolve at the site), German trigger hints for the four boolean intake
   facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz; the Viennese
   Kleingarten- and Garagengesetz only for a project in Wien), and the
   prompt section Piloti renders from the project context, only for a project

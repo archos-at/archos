@@ -51,7 +51,6 @@ import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
 import { forgetKeysFor } from '../http/idempotency'
 import {
-  BaseKnowledgeDisabledError,
   baseKnowledgeForTurn,
   confirmBaseKnowledge,
   listBaseKnowledge,
@@ -74,10 +73,9 @@ const MANAGER: AuthorizedSession = {
   organizationMembershipId: 'om-1',
   role: 'member',
   permissions: [ORG_PERMISSIONS.officeShelfManage],
-  featureFlags: ['office-base-knowledge'],
+  featureFlags: [],
 }
 const MEMBER: AuthorizedSession = { ...MANAGER, permissions: [] }
-const FLAG_OFF: AuthorizedSession = { ...MANAGER, featureFlags: [] }
 
 const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf' }
 
@@ -118,11 +116,6 @@ beforeEach(() => {
 })
 
 describe('who may do what', () => {
-  it('lists nothing and refuses every write while the flag is off', async () => {
-    expect(await listBaseKnowledge(FLAG_OFF)).toEqual({ enabled: false, canManage: false, entries: [], nextCursor: null })
-    await expect(proposeBaseKnowledge(FLAG_OFF, { documentId: 'doc-1' })).rejects.toBeInstanceOf(BaseKnowledgeDisabledError)
-  })
-
   it('lets any member read and only a shelf manager write', async () => {
     const list = await listBaseKnowledge(MEMBER)
     expect(list.canManage).toBe(false)
@@ -334,10 +327,10 @@ describe('removing', () => {
 })
 
 describe('the turn', () => {
-  it('carries nothing while the organization does not have the flag', async () => {
+  it('reads the office’s entries for every organization, with no switch to ask (ADR-0175)', async () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
-    expect(await baseKnowledgeForTurn('org-1', 'proj-1')).toBeNull()
-    expect(readOfficeEntries).not.toHaveBeenCalled()
+    await baseKnowledgeForTurn('org-1', 'proj-1')
+    expect(readOfficeEntries).toHaveBeenCalledWith('org-1')
   })
 
   it('carries confirmed entries only, with the project’s territory for directives', async () => {

@@ -4,8 +4,7 @@
  * publishes: a change opens a change request that a reviewer owns.
  *
  * A run (the `source-monitor` sweep, `bff/scheduling/tasks.ts`):
- * 1. Only with `platform-base-knowledge` and `source-monitors` on for the
- *    platform organization; otherwise it reads, fetches and writes nothing.
+ * 1. Only with `source-monitors` on for the platform organization; otherwise it reads, fetches and writes nothing.
  * 2. Every published source whose monitor names a probe and whose interval has
  *    passed since its last check is probed through the api tier (the
  *    fetcher's guard: the source's hosts, public addresses, GET), with its key
@@ -38,7 +37,6 @@ import { insertCapture } from './captures'
 import { configuredSource } from './onboarding'
 import { lagDays, type ProbeAnswer, probeSource } from './source-service'
 import { activeSources, type MonitorState, monitorStates, type RegisteredSource, writeMonitorState } from './sources'
-import { platformKnowledgeEnabled } from './service-gate'
 import { platformTransaction } from './store'
 import type { Tx } from '../store/repository'
 
@@ -67,7 +65,7 @@ export interface MonitorDeps {
 async function monitorsEnabled(): Promise<boolean> {
   const organizationId = await getPlatformOrganizationId()
   if (!organizationId) return false
-  return (await platformKnowledgeEnabled()) && (await isOrgFeatureEnabled(FEATURE_FLAGS.sourceMonitors, organizationId))
+  return isOrgFeatureEnabled(FEATURE_FLAGS.sourceMonitors, organizationId)
 }
 
 const DEFAULT_DEPS: MonitorDeps = { probe: probeSource, enabled: monitorsEnabled, record: recordSourceMonitorRun }

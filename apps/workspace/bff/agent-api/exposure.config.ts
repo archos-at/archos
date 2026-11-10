@@ -153,7 +153,6 @@ export const EXPOSURE = {
   'project-rename': OFFERED,
   'project-restore': OFFERED,
   'project-same-address-list': OFFERED,
-  'project-standards-get': OFFERED,
   'project-status-set': OFFERED,
   'project-summary-generate': OFFERED,
   'project-upload-screening-get': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),

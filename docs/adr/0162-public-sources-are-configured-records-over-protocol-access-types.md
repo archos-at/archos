@@ -32,7 +32,7 @@ data, and where its requests are made.
   that originate, one step removed, from a model and from the publisher's own
   redirects.
 - **Nothing about a tenant leaves beyond what the source contract allows.**
-- **Austrian answers do not change.** The adapter's requests stay byte-identical.
+- **Austrian answers do not change.** The adapter's requests stay byte-identical. ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.)
 - **Industry standards and their names**: ELI, Akoma Ntoso, OpenAPI's shape of a
   read, SPARQL where the publisher resolves ELI that way.
 

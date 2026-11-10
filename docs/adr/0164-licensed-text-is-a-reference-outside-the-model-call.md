@@ -157,7 +157,7 @@ while the model still reads what the office licensed for this use.
   decides whether the turn's capture may expand at all. Off, a licensed hit is listed (document,
   page, clause) with no text, nothing is recalled, and the web search's description and the
   distiller's input are unchanged. The seam itself is never off: a marked passage is never rendered
-  as text. No text a model reads names this record.
+  as text. No text a model reads names this record. ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.)
 
 ### Consequences
 

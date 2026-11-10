@@ -46,7 +46,6 @@ function entry(id: string, values: Partial<BaseKnowledgeEntry['values']>, rest: 
 }
 
 const LIST: BaseKnowledgeList = {
-  enabled: true,
   canManage: true,
   nextCursor: null,
   entries: [

@@ -53,6 +53,11 @@ describe('validateProposal', () => {
     expect(found).toContainEqual(expect.stringContaining('KC-1 1 /id: DE-BY lies outside AT'))
   })
 
+  it('names a competence territory that is not imported, by pointer', () => {
+    const found = validateProposal(parse([ma37({ competenceTerritoryIds: ['AT-9', 'AT-8'] })]), 'AT', KNOWN, CAPTURES).map((p) => `${p.code} ${p.pointer}`)
+    expect(found).toContainEqual(expect.stringMatching(/^KC-1 \/competenceTerritoryIds\/1/))
+  })
+
   it('refuses an edition of a work that is neither on the platform nor in the batch, and an inverted interval', () => {
     const records = parse([{ type: 'edition', key: 'e1', workKey: 'nowhere', label: '2020', inForceFrom: '2021-01-01', inForceTo: '2020-01-01' }])
     expect(kit(records, 'AT', KNOWN).map((problem) => problem.code).sort()).toEqual(['KC-1', 'KC-3'])
