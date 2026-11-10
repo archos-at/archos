@@ -105,9 +105,12 @@ Who downloaded or opened which file is in [the download log](download-log.md).
   a letter to an authority included, opens with „Verfasst von ARCHOS, einem
   KI-System, für <Ihr Büro>." (Article 50(1) of the AI Act). Your office can
   change its document header and footer; it cannot remove this line.
-- **To other AI clients.** An answer ARCHOS gives through its MCP server
-  (`agent-ask-create`, `agent-ask-get`) carries `_meta.aiGenerated: true` and
-  the same IPTC term, so the client that receives it can tell.
+- **To other AI clients.** What ARCHOS writes and hands out through its MCP
+  server (an answer from `agent-ask-create` or `agent-ask-get`, a generated
+  project summary, the assistant's messages in a conversation) carries
+  `_meta.aiGenerated: true` and the same IPTC term, so the client that receives
+  it can tell; an answer through the A2A server carries it in the answer
+  artifact's metadata.
 - **Not yet marked.** Article 50(2) of the AI Act asks that generated text be
   marked in a machine-readable way. Answers and cards shown in the chat, and
   text copied from them, carry no such marking today; only the notice under the
