@@ -657,6 +657,30 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+            "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+            "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+            "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",

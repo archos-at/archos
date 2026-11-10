@@ -620,6 +620,10 @@
     "de": "Eine Frage nach einer ganzen Richtlinie wie „Was weißt du über die OIB 2?“ beantwortet Piloti jetzt aus einem Suchlauf über alle vorhandenen Teile: je Teil der Geltungsbereich als zitierfähige Passage, darunter dessen Gliederung."
   },
   {
+    "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+    "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
+  },
+  {
     "en": "A question about building regulations no longer comes back empty just because a document was open beside the chat. Only the file you chose with \"Asking about this file\" narrows the search now, and when a search in that file finds nothing on a regulation question, Piloti searches the guidelines again without it.",
     "de": "Eine Frage zu Bauvorschriften liefert keine leeren Ergebnisse mehr, nur weil neben dem Chat ein Dokument geöffnet war. Nur die Datei, die Sie über „Fragen zu dieser Datei“ ausgewählt haben, schränkt die Suche jetzt ein. Findet die Suche in dieser Datei bei einer Frage zu Vorschriften nichts, durchsucht Piloti die Richtlinien erneut ohne diese Einschränkung."
   },
@@ -1012,6 +1016,10 @@
     "de": "Eine Antwort erscheint jetzt Wort für Wort in gleichmäßigem Tempo, und jedes Wort blendet sanft ein. Ist sie fertig, laufen die letzten Worte schnell durch, danach klappt die Herleitung zusammen, und die Schaltflächen unter der Antwort erscheinen in einem Zug statt in mehreren Sprüngen."
   },
   {
+    "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+    "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
+  },
+  {
     "en": "An answer read from your workspace, such as who is on a project or which approvals are open, no longer shows as low confidence. The confidence tooltip now says what the answer rests on, for example „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg\".",
     "de": "Eine Antwort aus Ihrem Workspace, etwa dazu, wer an einem Projekt arbeitet oder welche Freigaben offen sind, wird nicht mehr als wenig zuverlässig angezeigt. Der Tooltip zur Vertrauenswürdigkeit zeigt jetzt, worauf die Antwort basiert, zum Beispiel „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg“."
   },
@@ -1174,6 +1182,10 @@
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+    "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
   },
   {
     "en": "Answers no longer occasionally end in a block of raw technical data after the list of sources.",
