@@ -1,4 +1,5 @@
 import { TextEncoder, TextDecoder } from 'util'
+import { BroadcastChannel } from 'node:worker_threads'
 
 globalThis.TextEncoder = TextEncoder
 globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder
@@ -54,4 +55,10 @@ class InertEventSource {
 
 if (typeof globalThis.EventSource === 'undefined') {
   globalThis.EventSource = InertEventSource as unknown as typeof globalThis.EventSource
+}
+
+// MSW's WebSocket support constructs a BroadcastChannel when the module loads.
+// Node has one, but a vm pool's DOM context starts without it.
+if (typeof globalThis.BroadcastChannel === 'undefined') {
+  globalThis.BroadcastChannel = BroadcastChannel as unknown as typeof globalThis.BroadcastChannel
 }
