@@ -64,7 +64,7 @@ const ABSOLUTE_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 /** Relative for the recent past, the exact date once it stops being "just now". */
 export function runTimeLabel(iso: string, locale: string, now: number = Date.now()): string {
   const at = new Date(iso).getTime()
-  if (Number.isNaN(at) || now - at <= ABSOLUTE_AFTER_MS) return formatRelativeTime(iso, locale)
+  if (Number.isNaN(at) || now - at <= ABSOLUTE_AFTER_MS) return formatRelativeTime(iso, locale, now)
   return formatAbsoluteTime(iso, locale)
 }
 
