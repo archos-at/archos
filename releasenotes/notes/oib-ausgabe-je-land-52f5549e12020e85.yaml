@@ -11,6 +11,6 @@ features:
 operators:
   - >
     Off until the building-law-chain flag is set for an organization, and the
-    Austria and EU packs are published as change requests, the EU pack first. Migration 0206 adds relation records. The country-neutral
+    Austria and EU packs are published as change requests, the EU pack first. Migration 0208 adds relation records. The country-neutral
     static prompt may be published once this is deployed; until then turns
     read the building-law block from the static prompt as before.
