@@ -5,10 +5,11 @@
  */
 import { render, screen, waitFor } from '@/test-utils'
 import { useLayoutEffect, useState, type ReactNode } from 'react'
-import { vi, describe, test, expect, afterEach } from 'vitest'
+import { vi, describe, test, expect, afterEach, beforeAll } from 'vitest'
 import { AgentResponse } from './AgentResponse'
 import { CardSlot, CardSlotLiveProvider, forgetArrivals, resetArrivalsForTests } from './CardSlotArrival'
 import { useDrawnReporter } from '@/features/a2ui/catalog'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { ChatStoreWithHydration } from '../store'
 import type { AnswerCard } from '@/shared/cards/schemas'
@@ -37,6 +38,10 @@ vi.mock('@/adapters/auth', () => ({
 const PROSE = 'Die Antwort.\n\n[[card:1]]\n\nDanach.'
 
 describe('a placed card while the answer streams', () => {
+  // The card's renderer is a dynamic import; until it settles a card draws its
+  // placeholder, so the title is not in the first commit on a loaded runner.
+  beforeAll(rendererSettled)
+
   test('its marker holds the place, between the paragraphs it was written between', () => {
     render(<AgentResponse content={PROSE} isStreaming />)
 
