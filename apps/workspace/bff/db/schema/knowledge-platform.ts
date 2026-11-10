@@ -28,7 +28,7 @@ import type {
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
-/** A parent for an interval only (migration 0210): `AT` lies in `EU` from 1995-01-01. Half-open. */
+/** A parent for an interval only (migration 0211): `AT` lies in `EU` from 1995-01-01. Half-open. */
 export interface DatedParent {
   id: string
   validFrom?: string | null
@@ -54,7 +54,7 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   validTo: date('valid_to'),
 })
 
-/** How one instrument bears on another (migration 0210, design §3.5). Append-only like every body. */
+/** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */
 export const knowledgeRelationRevisions = pgTable('knowledge_relation_revisions', {
   revisionId: uuid('revision_id').primaryKey(),
   recordId: text('record_id').notNull(),

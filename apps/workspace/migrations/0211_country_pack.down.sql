@@ -1,10 +1,10 @@
--- Reverse 0210. ORDER: roll the frontend back first; the newer build reads and
+-- Reverse 0211. ORDER: roll the frontend back first; the newer build reads and
 -- writes relations, dated parents and the wider kinds.
 --
 -- Lossy: every relation record goes, and every territory's dated parents. A
 -- work of a kind 0205 did not know stays: its CHECK comes back NOT VALID, so
 -- the row survives and only a new one is held to the five kinds.
--- 0205's read policy and entitlement come back, so an office reads what it read before 0210.
+-- 0205's read policy and entitlement come back, so an office reads what it read before 0211.
 SELECT secure_table('knowledge_records',
   'organization_id = current_org() OR (organization_id IS NULL AND head_revision_id IS NOT NULL '
   'AND knowledge_country_entitled(country_id))');

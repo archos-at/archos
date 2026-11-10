@@ -233,7 +233,7 @@ const BOUNDARY_MIGRATIONS = [
   // Adds relations as a base knowledge record type (ADR-0168): the relation body
   // table, layered like 0202's and append-only; and re-secures knowledge_records,
   // whose platform read now also follows a released relation across packs.
-  '0210_country_pack.sql',
+  '0211_country_pack.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

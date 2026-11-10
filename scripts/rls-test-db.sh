@@ -3620,29 +3620,29 @@ check_in cc_0209 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0209 citation captures and their down migration verified"
 
 # ---------------------------------------------------------------------------
-# 0210: relations are records (ADR-0168): a relation names two records of its
+# 0211: relations are records (ADR-0168): a relation names two records of its
 # owner, a mode only for makes_binding; the down removes relations and their
-# records and the record type, and 0210 applies again.
+# records and the record type, and 0211 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0210 country pack and its down migration on cp_0210"
-migrate_until cp_0210 0210_country_pack
-sql_in cp_0210 <<'SQL'
+echo "==> verifying 0211 country pack and its down migration on cp_0211"
+migrate_until cp_0211 0211_country_pack
+sql_in cp_0211 <<'SQL'
 INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
-  ('work:t0210-ordinance', 'org_0210', 'work', 'user_author'),
-  ('work:t0210-norm', 'org_0210', 'work', 'user_author'),
-  ('relation:t0210', 'org_0210', 'relation', 'user_author');
+  ('work:t0211-ordinance', 'org_0211', 'work', 'user_author'),
+  ('work:t0211-norm', 'org_0211', 'work', 'user_author'),
+  ('relation:t0211', 'org_0211', 'relation', 'user_author');
 INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
-  VALUES ('00000000-0000-4000-8000-000000000210', 'relation:t0210', 'relation', 'org_0210', 'user_author');
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'relation', 'org_0211', 'user_author');
 INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
-  VALUES ('00000000-0000-4000-8000-000000000210', 'relation:t0210', 'org_0210', 'makes_binding', 'declared',
-          'work:t0210-ordinance', 'work', 'work:t0210-norm', 'work');
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'org_0211', 'makes_binding', 'declared',
+          'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work');
 SQL
-refused_in cp_0210 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0210', 'org_0210', 'supersedes', 'declared', 'work:t0210-ordinance', 'work', 'work:t0210-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
-refused_in cp_0210 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
-apply_in cp_0210 0210_country_pack.down.sql
-check_in cp_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0210 down drops the relation bodies"
-check_in cp_0210 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0210 down removes the relation records"
-check_in cp_0210 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0210-%'" "2" "0210 down keeps the works"
-apply_in cp_0210 0210_country_pack.sql
-check_in cp_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0210 applies again after its down"
-echo "==> 0210 country pack and its down migration verified"
+refused_in cp_0211 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0211', 'org_0211', 'supersedes', 'declared', 'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
+refused_in cp_0211 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
+apply_in cp_0211 0211_country_pack.down.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0211 down drops the relation bodies"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0211 down removes the relation records"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0211-%'" "2" "0211 down keeps the works"
+apply_in cp_0211 0211_country_pack.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0211 applies again after its down"
+echo "==> 0211 country pack and its down migration verified"

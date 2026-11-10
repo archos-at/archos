@@ -10,7 +10,7 @@ export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'rule
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /**
- * Every kind of instrument (design §3.5, migration 0210): how far it binds is
+ * Every kind of instrument (design §3.5, migration 0211): how far it binds is
  * its kind and its routes, never a flag on the record. Law binds in its
  * territory while in force; a model code, a standard or a guideline only where
  * a `makes_binding` route reaches it; a directive never binds a project
