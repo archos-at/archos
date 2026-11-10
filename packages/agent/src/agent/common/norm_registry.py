@@ -453,14 +453,14 @@ STATE_OF_TERRITORY: dict[str, str] = {
 def resolve_federal_state() -> str | None:
     """The Bundesland to focus the catalog on: the Land of the turn's site, from its knowledge context alone.
 
-    The site's first leaf (``chains``), as the BFF resolved it (ADR-0175). No placed site, or a site outside
-    Austria, is None, and None is final: every Land's lane renders. Nothing here reads the project's text,
-    so "Bauherr in der Wiener Straße, Grundstück in Linz" never narrows the catalog to Wien.
+    The first Land on the site's chain, as the BFF resolved it (ADR-0175); the leaf may be a municipality
+    (``AT:gkz:40101``). No placed site, or one outside Austria, is None, and None is final: every Land's lane
+    renders. No text is read: "Wiener Straße … Grundstück in Linz" never narrows it to Wien.
     """
     from agent.common.knowledge_context import turn_knowledge_context
 
-    leaf = next(iter(turn_knowledge_context().chains), None)
-    return STATE_OF_TERRITORY.get(leaf) if leaf else None
+    chain = next(iter(turn_knowledge_context().chains.values()), ())
+    return next((STATE_OF_TERRITORY[node] for node in chain if node in STATE_OF_TERRITORY), None)
 
 
 def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[NormEntry]:

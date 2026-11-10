@@ -91,9 +91,11 @@ behavior with a warning):
    verified pointers directly — no HTTP call, no planner LLM.
 2. **`ris_catalog_lookup`**: explicit topic search in the catalog for the agent.
 3. **Prompt block**: `agent.common.norm_registry.render_block_for_prompt`
-   renders the catalog — Bundesrecht lane, the project's own Bundesland lane
-   (other states' law dropped), curated binding notes, and an OIB-corpus
-   citation note — into Piloti's and the deep researcher's prompts.
+   renders the catalog as addresses only — Bundesrecht lane, then the Land of
+   the site's knowledge context (other states' law dropped; with no site, every
+   Land's lane) — into the deep researcher's prompts, and only where the run's
+   knowledge context lets RIS run. It names no edition as binding: the chain
+   text does (ADR-0175). The chat prompt carries no catalog.
 
 **Jurisdiction-aware matching.** Building law is state law, and the nine state
 codes all match generic topics like "bauordnung", so both tool consumers

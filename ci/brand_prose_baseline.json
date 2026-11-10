@@ -1592,7 +1592,7 @@
   "packages/knowledge-layer/src/register.py": 3,
   "packages/knowledge-layer/src/search/trace_lanes.py": 1,
   "packages/knowledge-layer/src/vector_store/import_vectors.py": 3,
-  "packages/ris-adapter/README.md": 4,
+  "packages/ris-adapter/README.md": 3,
   "packages/ris-adapter/pyproject.toml": 1,
   "packages/ris-adapter/src/client.py": 1,
   "packages/ris-adapter/src/register.py": 3,

@@ -26,12 +26,19 @@ import { findingsBlocks } from './findings'
 import { referencesFromStored, splitProse, type ReferenceEntry } from './citations'
 import { markdownToBlocks } from './markdown'
 
-/** The answer's confidence self-assessment (ADR-0037), as stored on the message. */
 /** The caps an exported answer explains, each with its dictionary key: the one list the reader, the PDF and the type share. */
-const CAPPED_REASON_COPY = { ungrounded: 'ungrounded', quote_unverified: 'quoteUnverified', law_unsettled: 'lawUnsettled' } as const
-export const EXPORTED_CAPPED_REASONS = Object.keys(CAPPED_REASON_COPY) as [ExportedCappedReason, ...ExportedCappedReason[]]
+const CAPPED_REASON_COPY = {
+  ungrounded: 'ungrounded',
+  quote_unverified: 'quoteUnverified',
+  law_unsettled: 'lawUnsettled',
+} as const
+export const EXPORTED_CAPPED_REASONS = Object.keys(CAPPED_REASON_COPY) as [
+  ExportedCappedReason,
+  ...ExportedCappedReason[],
+]
 export type ExportedCappedReason = keyof typeof CAPPED_REASON_COPY
 
+/** The answer's confidence self-assessment (ADR-0037), as stored on the message. */
 export interface AnswerConfidence {
   level: 'low' | 'medium' | 'high'
   /** The model's own one-clause justification, quoted verbatim. */

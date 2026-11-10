@@ -186,3 +186,9 @@ def test_with_no_site_every_land_renders_and_the_project_text_decides_nothing(tw
 def test_the_site_s_land_comes_from_the_context_s_leaf(two_lands):
     rendered = _catalog_with("core", {"AT-4": ("AT-4", "AT", "EU")})
     assert "OÖ BauO" in rendered and "BO Wien" not in rendered
+
+
+def test_a_site_placed_by_its_municipality_still_narrows_to_its_land(two_lands):
+    """Review of #1582: the BFF's leaf is the register municipality first, so the Land is found down the chain."""
+    rendered = _catalog_with("core", {"AT:gkz:40101": ("AT:gkz:40101", "AT-4", "AT", "EU")})
+    assert "OÖ BauO" in rendered and "BO Wien" not in rendered
