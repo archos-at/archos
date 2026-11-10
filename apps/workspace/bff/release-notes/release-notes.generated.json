@@ -409,6 +409,54 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+            "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+            "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+            "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+            "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+            "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+            "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "building-law",
           "text": {
             "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
