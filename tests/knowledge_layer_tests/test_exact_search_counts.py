@@ -262,7 +262,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {c.chunk_id: c for c in self.points}

@@ -38,7 +38,7 @@ const REQUESTS = [
 
 /** The body of a top-level Python class, up to the next top-level definition. */
 const pythonClass = (name: string): string => {
-  const body = new RegExp(`^class ${name}\\(BaseModel\\):\\n([\\s\\S]*?)(?=^\\S)`, 'm').exec(
+  const body = new RegExp(`^class ${name}\\([A-Za-z, ]+\\):\\n([\\s\\S]*?)(?=^\\S)`, 'm').exec(
     REQUESTS
   )
   expect(body, `class ${name} not found in the request models`).not.toBeNull()

@@ -115,7 +115,7 @@ vi.mock('@/lib/storage/admission', () => ({
 // The erasure of a document's objects is `object-cleanup.spec.ts`'s subject;
 // here it is what the delete asks for, and what the delete does when it fails.
 vi.mock('@/lib/documents/object-cleanup', () => ({
-  eraseDocumentObjectsOrKeepRow: vi.fn().mockResolvedValue(undefined),
+  eraseDocumentObjectsOrKeepRow: vi.fn().mockResolvedValue({ versionsLeft: 0 }),
 }))
 
 vi.mock('@/lib/compliance/repository', () => ({
@@ -543,6 +543,7 @@ describe('deleteOfficeShelfDocument', () => {
     )
     vi.mocked(eraseDocumentObjectsOrKeepRow).mockImplementationOnce(async () => {
       order.push('objects')
+      return { versionsLeft: 0 }
     })
     vi.mocked(deleteOfficeShelfDocumentRow).mockImplementationOnce(async () => {
       order.push('row')

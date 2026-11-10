@@ -21,6 +21,7 @@ from agent.knowledge.base import BaseIngestor
 from agent.knowledge.schema import Chunk
 from agent.knowledge.scoping import _normalize_collection_name
 from agent.observability.direct_trace import observed_retrieval
+from agent.project_context import ORGANIZATION_ID_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
@@ -79,6 +80,28 @@ def _verified_collection_scope(http_request: Request) -> list[str] | None:
     if ctx is None:
         return None
     return ctx.collection_scope
+
+
+def request_office(http_request: Request) -> str | None:
+    """The office this request searches as: the signed envelope's organization, else (anonymous mode only) the header.
+
+    The agent runtime's context is empty on a plain route (see
+    :func:`_verified_collection_scope`), so a search here names its office
+    through ``knowledge_layer.search.reading_as``. Under ``REQUIRE_AUTH`` only
+    the signed envelope counts, as for the scope. None when neither names one:
+    the knowledge layer then takes an office shelf's organization from its
+    name, and refuses a project or session read (``vector_store.scope.ScopeRead``).
+    """
+    ctx = RequestContext.from_envelope(
+        http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_HEADER),
+        http_request.headers.get(REQUEST_CONTEXT_ENVELOPE_SIG_HEADER),
+        os.environ.get("INTERNAL_API_TOKEN"),
+    )
+    if ctx is not None and ctx.organization_id:
+        return ctx.organization_id
+    if _require_auth():
+        return None
+    return (http_request.headers.get(ORGANIZATION_ID_HEADER) or "").strip() or None
 
 
 def _authorize_collection(http_request: Request, collection_name: str) -> None:
@@ -446,6 +469,32 @@ async def _workspace_search(request: GroupedDocumentSearchRequest, collections: 
     return hits
 
 
+async def _search_across(
+    request: GroupedDocumentSearchRequest, collections: list[str], office_id: str | None
+) -> DocumentSearchResponse:
+    """The grouped search over ``collections``, read as ``office_id`` (``request_office``)."""
+    from knowledge_layer.search import reading_as
+
+    with reading_as(office_id):
+        if request.purpose != "workspace_search":
+            hits, _ = await _search_grouped(request, collections)
+            return DocumentSearchResponse(hits=hits)
+        return DocumentSearchResponse(hits=await _workspace_search(request, collections))
+
+
+async def _retrieve_one(request: DocumentSearchRequest, collection_name: str, office_id: str | None) -> list[Chunk]:
+    """The top chunks of one collection for the query, read as ``office_id`` (``request_office``)."""
+    from knowledge_layer.search import reading_as
+
+    from agent.knowledge.factory import get_active_retriever
+
+    with reading_as(office_id):
+        result = await get_active_retriever().retrieve(
+            query=request.query, collection_name=collection_name, top_k=request.top_k, filters=None
+        )
+    return result.chunks
+
+
 def add_document_search_routes(router: APIRouter):
     """Add semantic document-search routes to the FastAPI app."""
 
@@ -473,10 +522,7 @@ def add_document_search_routes(router: APIRouter):
         collections = list(dict.fromkeys(request.collections))
         for collection in collections:
             _authorize_collection(http_request, collection)
-        if request.purpose != "workspace_search":
-            hits, _ = await _search_grouped(request, collections)
-            return DocumentSearchResponse(hits=hits)
-        return DocumentSearchResponse(hits=await _workspace_search(request, collections))
+        return await _search_across(request, collections, request_office(http_request))
 
     @router.post(
         "/v1/collections/{collection_name}/search",
@@ -506,15 +552,8 @@ def add_document_search_routes(router: APIRouter):
         await require_collection(ingestor, collection_name)
 
         try:
-            from agent.knowledge.factory import get_active_retriever
-
-            result = await get_active_retriever().retrieve(
-                query=request.query,
-                collection_name=collection_name,
-                top_k=request.top_k,
-                filters=None,
-            )
-            hits = _aggregate_hits(result.chunks, collection_name, request.top_k_files, request.snippet_max_chars)
+            chunks = await _retrieve_one(request, collection_name, request_office(http_request))
+            hits = _aggregate_hits(chunks, collection_name, request.top_k_files, request.snippet_max_chars)
             return DocumentSearchResponse(hits=hits)
         except HTTPException:
             raise

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "base-knowledge.schema.json",
+  "description": "The closed vocabularies of the base knowledge records (ADR-0163). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.",
+  "$defs": {
+    "knowledge_records.type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition",
+        "manifestation"
+      ]
+    },
+    "knowledge_work_revisions.kind": {
+      "type": "string",
+      "enum": [
+        "technical_standard",
+        "guideline",
+        "commentary",
+        "authority_directive",
+        "statute"
+      ]
+    },
+    "knowledge_manifestation_revisions.form": {
+      "type": "string",
+      "enum": [
+        "text",
+        "dataset",
+        "link"
+      ]
+    },
+    "knowledge_manifestation_revisions.text_status": {
+      "type": "string",
+      "enum": [
+        "authentic",
+        "official_non_prevailing",
+        "translation"
+      ]
+    },
+    "knowledge_manifestation_revisions.licence_class": {
+      "type": "string",
+      "enum": [
+        "public_open",
+        "public_restricted",
+        "licensed"
+      ]
+    },
+    "knowledge_checks.target_type": {
+      "type": "string",
+      "enum": [
+        "edition",
+        "manifestation"
+      ]
+    },
+    "knowledge_checks.result": {
+      "type": "string",
+      "enum": [
+        "current",
+        "newer_known",
+        "withdrawn",
+        "source_unreachable"
+      ]
+    }
+  }
+}

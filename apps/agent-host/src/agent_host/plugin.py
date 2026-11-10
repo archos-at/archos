@@ -89,6 +89,7 @@ from .routes.generate_summary import add_generate_summary_routes
 from .routes.ingest import add_ingest_routes
 from .routes.internal_tools import add_internal_tool_routes
 from .routes.jobs import register_job_routes
+from .routes.knowledge_mark import add_knowledge_mark_routes
 from .routes.lesson_distill import add_lesson_distill_routes
 from .routes.mail import add_mail_routes
 from .routes.mail_archive import add_mail_archive_routes
@@ -329,6 +330,8 @@ API_APP_REGISTRARS = (register_job_routes,)
 #: calls Gotenberg for an office file (ADR-0157).
 _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_internal_tool_routes,
+    # A file's licence class and knowledge edition onto its chunks (office base knowledge).
+    add_knowledge_mark_routes,
     add_mail_archive_routes,
     add_mail_routes,
     add_drawing_rendition_routes,

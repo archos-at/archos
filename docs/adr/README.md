@@ -226,6 +226,7 @@ Consequences, where a reader looks for them.
 | [0159](0159-address-search-is-off-until-a-deployment-opts-in.md) | Address search is off until a deployment opts in; amends 0151 | Accepted |
 | [0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md) | An operator's agent reaches the platform's own content, never what offices wrote: tenant-content console operations are on no door, and the platform MCP gateway allowlists each server's tools | Proposed |
 | [0162](0162-public-sources-are-configured-records-over-protocol-access-types.md) | Public sources are configured records over protocol access types and format engines, fetched from a sandbox | Proposed |
+| [0163](0163-office-base-knowledge-shares-the-platform-records.md) | An office's own standards, commentaries and directives are base knowledge records with an owner, the same records the platform will hold | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

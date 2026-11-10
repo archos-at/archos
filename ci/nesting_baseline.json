@@ -160,7 +160,7 @@
   "packages/knowledge-layer/src/estate/backend.py": 1,
   "packages/knowledge-layer/src/estate/grep.py": 5,
   "packages/knowledge-layer/src/estate/listing.py": 1,
-  "packages/knowledge-layer/src/ingest/adapter.py": 89,
+  "packages/knowledge-layer/src/ingest/adapter.py": 88,
   "packages/knowledge-layer/src/ingest/captioned_tables.py": 1,
   "packages/knowledge-layer/src/ingest/chunk_metadata.py": 1,
   "packages/knowledge-layer/src/ingest/clause_chunking.py": 8,

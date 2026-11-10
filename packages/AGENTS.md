@@ -106,7 +106,7 @@ hyphenated `packages/<distribution>/` has no dotted path to import by. A conftes
 The run is parallel (`-n logical --dist loadfile`), so a test may not write
 into the repository or share any other state with a test in another file:
 `test_qdrant_import_boundary.py` plants its offenders under `tmp_path` for that
-reason. A collection costs 62 payload indexes to make (over four seconds), so
+reason. A collection costs one payload index per indexed field (70 in November 2026, over four seconds) to make, so
 `qdrant_store` gives a test module one pair it shares, emptied after each test,
 and drops it when a test changed more than its points; a test of how a
 collection comes to be asks for `fresh_qdrant_store`. A test asserts what OUR

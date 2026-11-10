@@ -2497,3 +2497,24 @@ reaches every tenant) and the anonymization boundary.
   `docs/architecture/semantic-notes.md` for why the vector is a column rather
   than a second store, and where that stops being the right call.
   Schema: `apps/workspace/bff/db/schema/platform-lessons.ts`.
+
+## knowledge_records / knowledge_revisions / knowledge_*_revisions / knowledge_checks (migration 0202, ADR-0163)
+
+Base knowledge: one set of tables for the platform (`organization_id` NULL) and
+every office. `owner_key` (`coalesce(organization_id, '')`, generated) is the
+owner every composite foreign key carries, so a row never points at another
+owner's.
+
+| Table | What a row is | Rules the database holds |
+|---|---|---|
+| `knowledge_records` | A work, an edition or a copy (`type`), with `head_revision_id` (the confirmed revision; NULL while proposed) and, for an office copy, its office shelf `document_id` | One entry per document (`knowledge_records_document_type_key` on `(document_id, type)`); a platform row names no office document (`knowledge_records_document_is_office`); only `head_revision_id` changes (`knowledge_records_head_only`); the document's delete cascades |
+| `knowledge_revisions` | One version of a record's values: who, when, `provenance` (`reading`, `person`, `agent`) | Append-only (`knowledge_append_only`); goes only with its record |
+| `knowledge_work_revisions` | `kind` (`statute`, `technical_standard`, `guideline`, `commentary`, `authority_directive`), title, `identifiers.designation` (indexed), `territory_ids`, issuer, `addressees` | Append-only |
+| `knowledge_edition_revisions` | The edition's `label`, `issued_on`, `in_force_from`/`to`, `outline` | Append-only; dates ordered |
+| `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256` | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
+| `knowledge_checks` | That somebody checked a work, edition or copy is still in force, and the `result` | Append-only; target and owner checked by trigger (`knowledge_refuse_cross_owner`) |
+
+RLS: an office reads its own rows and the platform's rows that have a head;
+writes are its own rows only (restrictive guards). `scripts/rls-test-db.sh`
+verifies 0202 and its down; `bff/base-knowledge/store/repository.integration.spec.ts`
+proves isolation with a positive control.

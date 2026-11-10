@@ -149,6 +149,7 @@ vi.mock('@/lib/documents/semantic-search', async (importOriginal) => {
     // its place in the one fused ranking (`state.ranking`, else the score).
     fetchGroupedSemanticHits: vi.fn(
       async (
+        _organizationId: string,
         collections: readonly string[],
         _query: string,
         filesPerCollection: number,

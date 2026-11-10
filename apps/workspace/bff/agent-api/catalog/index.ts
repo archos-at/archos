@@ -7,6 +7,7 @@
  */
 
 import { AGENT_DOMAINS, type AgentOperation, type OperationExample } from '../operation'
+import { baseKnowledgeOperations } from './base-knowledge'
 import { bimOperations } from './bim'
 import { collaborationOperations } from './collaboration'
 import { consultOperations } from './consult'
@@ -41,6 +42,7 @@ export type OperationName = (
   | typeof tasksOperations
   | typeof skillsOperations
   | typeof knowledgeOperations
+  | typeof baseKnowledgeOperations
   | typeof bimOperations
   | typeof organizationOperations
   | typeof releaseNotesOperations
@@ -60,6 +62,7 @@ const unordered: readonly AgentOperation[] = [
   ...tasksOperations,
   ...skillsOperations,
   ...knowledgeOperations,
+  ...baseKnowledgeOperations,
   ...bimOperations,
   ...organizationOperations,
   ...releaseNotesOperations,
