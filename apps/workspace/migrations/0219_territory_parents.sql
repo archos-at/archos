@@ -12,6 +12,12 @@
 -- - `parents` is backfilled from both lists on every stored revision (the
 --   append-only trigger is lifted for this one rewrite, as 0212's down migration does).
 -- - `knowledge_country_entitled` reads the `EU` membership from `parents`.
+--
+-- Rollback risk: a build older than 0219 writes `parent_ids` and
+-- `dated_parents` only, so a territory revision it writes after 0219 has
+-- `parents = []`, and the newer build reads that territory as parentless (no
+-- country, no EU) until it is proposed again. Roll back the build only with
+-- the down migration, or re-propose every territory written in between.
 ALTER TABLE "knowledge_territory_revisions" ADD COLUMN IF NOT EXISTS "parents" jsonb DEFAULT '[]'::jsonb NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "knowledge_territory_revisions" ADD CONSTRAINT knowledge_territory_revisions_parents_array

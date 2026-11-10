@@ -33,7 +33,7 @@ import type {
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
-/** A territory's parent (migration 0217, design §3.2): `AT` lies in `EU` from 1995-01-01. Half-open; an absent date is open. */
+/** A territory's parent (migration 0219, design §3.2): `AT` lies in `EU` from 1995-01-01. Half-open; an absent date is open. */
 export interface TerritoryParent {
   id: string
   validFrom?: string | null
@@ -52,11 +52,11 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   organizationId: text('organization_id'),
   kind: text('kind').$type<TerritoryKind>().notNull(),
   name: text('name').notNull(),
-  /** Every parent, nearest first, each for an interval when it states one (0217): the one field anything reads. */
+  /** Every parent, nearest first, each for an interval when it states one (0219): the one field anything reads. */
   parents: jsonb('parents').$type<TerritoryParent[]>().notNull().default([]),
-  /** Written beside `parents` for builds before 0217 only; drop with the contract migration. */
+  /** Written beside `parents` for builds before 0219 only; drop with the contract migration. */
   parentIds: text('parent_ids').array().notNull().default([]),
-  /** Written beside `parents` for builds before 0217 only; drop with the contract migration. */
+  /** Written beside `parents` for builds before 0219 only; drop with the contract migration. */
   datedParents: jsonb('dated_parents').$type<TerritoryParent[]>().notNull().default([]),
   aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
   validFrom: date('valid_from'),

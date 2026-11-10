@@ -201,17 +201,25 @@ describe('validateProposal', () => {
     })
     const backToBack = parse([
       work,
-      edition('e2018', '2018-09-01', '2023-12-31'),
+      edition('e2018', '2018-09-01', '2024-01-01'),
       edition('e2024', '2024-01-01', null),
     ])
     expect(kit(backToBack, 'AT', KNOWN)).toEqual([])
     const overlapping = parse([
       work,
-      edition('e2018', '2018-09-01', '2024-01-01'),
+      edition('e2018', '2018-09-01', '2024-01-02'),
       edition('e2024', '2024-01-01', null),
     ])
     expect(kit(overlapping, 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018' }),
+    ])
+    // RIS's last day in force copied as the end leaves one day between the editions: refused, with the day to enter.
+    expect(kit(parse([work, edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)]), 'AT', KNOWN)).toEqual([
+      expect.objectContaining({ code: 'KC-3', key: 'e2018', pointer: '/inForceTo', detail: expect.stringContaining('plus one') }),
+    ])
+    // inForceTo is the first day no longer in force: an edition ending on the day it begins is in force on no day.
+    expect(kit(parse([work, edition('e2024', '2024-01-01', '2024-01-01')]), 'AT', KNOWN)).toEqual([
+      expect.objectContaining({ code: 'KC-3', pointer: '/inForceTo' }),
     ])
   })
 
@@ -239,7 +247,7 @@ describe('validateProposal', () => {
     expect(kit(alone, 'AT', known, published)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2024', detail: expect.stringContaining('edition:e2018') }),
     ])
-    const closing = parse([edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)])
+    const closing = parse([edition('e2018', '2018-09-01', '2024-01-01'), edition('e2024', '2024-01-01', null)])
     expect(kit(closing, 'AT', known, published)).toEqual([])
     // An edition of another work does not count.
     expect(kit(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])

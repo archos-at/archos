@@ -329,7 +329,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases, captures, secondReviewRolesOf] = await Promise.all([
+    const [revisions, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
       reviewedRevisions(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
@@ -340,6 +340,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         .limit(2000),
       captureViews(tx, id),
       secondReviewRoles(tx, id),
+      tx.execute<{ unchecked: boolean }>(sql`SELECT knowledge_sources_unchecked(${id}::uuid) AS unchecked`),
     ])
     return {
       ...summaryOf(request),
@@ -347,6 +348,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
       captures,
+      sourcesUnchecked: unchecked[0]?.unchecked === true,
       secondReviewRoles: secondReviewRolesOf,
       approvals: approvals.map((approval) => ({
         approver: approval.approver,
@@ -416,6 +418,13 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
   return rows.map((row) => row.role as ApprovalRole)
 }
 
+/**
+ * Why an approval waits on a pasted page (0209, 0218), and the two ways out: a second person's source check,
+ * or, to approve alone, a fetched capture in its place (ADR-0170, ADR-0176).
+ */
+const SOURCE_UNCHECKED =
+  'A record cites an operator-supplied capture that nobody but its author has checked against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture from a configured source instead.'
+
 export async function insertApproval(
   tx: Tx,
   input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation'; overrideReason?: string },
@@ -432,9 +441,7 @@ export async function insertApproval(
       throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
     }
     if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
-    if (/no reviewer checked/.test(message)) {
-      throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
-    }
+    if (/no reviewer checked/.test(message)) throw new ConflictError(SOURCE_UNCHECKED)
     throw error
   }
 }
@@ -483,9 +490,7 @@ export async function insertSecondReview(
     if (/owed only in a role approved alone/.test(message)) {
       throw new ConflictError(`No approval in the ${input.role} role was given alone, so no second review is owed in it.`)
     }
-    if (/no reviewer checked/.test(message)) {
-      throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
-    }
+    if (/no reviewer checked/.test(message)) throw new ConflictError(SOURCE_UNCHECKED)
     throw error
   }
 }

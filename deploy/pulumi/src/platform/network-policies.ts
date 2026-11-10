@@ -130,7 +130,7 @@ export function installNetworkPolicies(
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             // Its own policy admits the tool-running roles alone (`app/public-source-fetcher.ts`).
-            ...(cfg.publicSourceFetcher.enabled ? [PUBLIC_SOURCE_FETCHER.name] : []),
+            PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
             // Rule 22 is its one caller; its stats and readiness ports are the kubelet's.
             ...(cfg.mcpGateway.enabled ? [MCP_GATEWAY.name] : []),

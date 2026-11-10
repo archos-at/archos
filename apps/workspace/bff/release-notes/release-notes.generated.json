@@ -643,6 +643,14 @@
           "section": "fixes",
           "area": "building-law",
           "text": {
+            "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+            "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
             "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
             "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
           }

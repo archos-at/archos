@@ -1,4 +1,4 @@
--- Reverse 0217. ORDER: roll the frontend back first; the newer build reads `parents`.
+-- Reverse 0219. ORDER: roll the frontend back first; the newer build reads `parents`.
 --
 -- Lossless while the newer build ran: it kept writing `parent_ids` and
 -- `dated_parents` beside `parents`.

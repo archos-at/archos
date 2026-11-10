@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, migrations/0216_source_vocabularies_from_python.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, migrations/0216_source_vocabularies_from_python.sql, migrations/0218_knowledge_four_eyes_in_the_database.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -26,6 +26,7 @@ const MIGRATIONS = [
   'migrations/0214_knowledge_approve_alone.sql',
   'migrations/0215_pdf_document_sources.sql',
   'migrations/0216_source_vocabularies_from_python.sql',
+  'migrations/0218_knowledge_four_eyes_in_the_database.sql',
 ].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
 )

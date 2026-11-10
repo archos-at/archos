@@ -2584,6 +2584,10 @@
     "de": "Im Skills-Tab lässt sich ein Skill ausschalten. Ausgeschaltet verschwindet er aus dem „/“-Menü und aus der Auswahl, die Piloti für eine Antwort treffen kann."
   },
   {
+    "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+    "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
+  },
+  {
     "en": "On the overview the Steckbrief is now a summary with a „Bearbeiten“ dialog, and closing a project asks who was involved, so the record is complete before it becomes read-only.",
     "de": "In der Übersicht ist der Steckbrief jetzt eine Zusammenfassung mit einem „Bearbeiten“-Dialog; beim Schließen eines Projekts wird abgefragt, wer beteiligt war, damit der Datensatz vollständig ist, bevor er schreibgeschützt wird."
   },

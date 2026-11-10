@@ -218,7 +218,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
-  // Migration 0217: one parents field; the two lists before it are written, derived, for older builds only.
+  // Migration 0219: one parents field; the two lists before it are written, derived, for older builds only.
   { element: 'knowledge_territory_revisions.parents', consumer: PLATFORM_TERRITORIES, test: MA37 },
   { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_RECORDS, test: LEGACY_PARENTS },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },

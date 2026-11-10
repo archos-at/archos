@@ -141,8 +141,8 @@ export const WORKS: Record<string, WorkInTime> = {
     id: 'work:fixture-wien-bo',
     historyAvailableFrom: '2014-01-01',
     editions: [
-      edition('edition:fixture-wien-bo-2014', 'LGBl. 2014/25', '2014-01-01', '2018-08-31'),
-      edition('edition:fixture-wien-bo-2018', 'LGBl. 2018/37', '2018-09-01', '2023-12-31'),
+      edition('edition:fixture-wien-bo-2014', 'LGBl. 2014/25', '2014-01-01', '2018-09-01'),
+      edition('edition:fixture-wien-bo-2018', 'LGBl. 2018/37', '2018-09-01', '2024-01-01'),
       edition('edition:fixture-wien-bo-2024', 'LGBl. 2023/37', '2024-01-01', null),
     ],
   },
@@ -150,7 +150,7 @@ export const WORKS: Record<string, WorkInTime> = {
     id: 'work:fixture-noe-bo',
     historyAvailableFrom: null,
     editions: [
-      edition('edition:fixture-noe-bo-2014', 'LGBl. 1/2015', '2015-02-01', '2022-12-31'),
+      edition('edition:fixture-noe-bo-2014', 'LGBl. 1/2015', '2015-02-01', '2023-01-01'),
       edition(
         'edition:fixture-noe-bo-2023',
         'LGBl. 2023/1',
@@ -164,7 +164,7 @@ export const WORKS: Record<string, WorkInTime> = {
     id: 'work:fixture-bayern-bo',
     historyAvailableFrom: '2008-01-01',
     editions: [
-      edition('edition:fixture-bayern-bo-2021', 'GVBl. 2021', '2021-02-01', '2024-12-31'),
+      edition('edition:fixture-bayern-bo-2021', 'GVBl. 2021', '2021-02-01', '2025-01-01'),
       edition('edition:fixture-bayern-bo-2025', 'GVBl. 2025', '2025-01-01', null),
     ],
   },
@@ -172,7 +172,7 @@ export const WORKS: Record<string, WorkInTime> = {
     id: 'work:fixture-land-use',
     historyAvailableFrom: '1962-01-01',
     editions: [
-      edition('edition:fixture-land-use-1977', 'Fassung 1977', '1977-10-01', '1990-01-26'),
+      edition('edition:fixture-land-use-1977', 'Fassung 1977', '1977-10-01', '1990-01-27'),
       edition('edition:fixture-land-use-1990', 'Fassung 1990', '1990-01-27', null),
     ],
   },

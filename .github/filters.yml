@@ -159,6 +159,7 @@ backend:
   - 'deploy/posthog/README.md'
   - 'deploy/posthog/support/copy.de.json'
   - 'deploy/pulumi/src/app/config.ts'
+  - 'deploy/pulumi/src/app/public-source-fetcher.ts'
   - 'docs/README.md'
   - 'docs/adr/README.md'
   - 'docs/architecture/agent-capabilities.md'

@@ -20,6 +20,7 @@ import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { publishedRequest } from '../platform/testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -35,14 +36,11 @@ const AUSTRIAN = `org_vis_${RUN}_at`
 const GERMAN = `org_vis_${RUN}_de`
 const AUTHOR = 'user_vis_author'
 const EXPERT = 'user_vis_expert'
-const ACTOR = { by: EXPERT, decisionSource: 'app' as const }
 
 const pack = (name: string): { countryId: string; title: string; records: unknown[] } =>
   JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'configs', 'knowledge-packs', name), 'utf8'))
 
 describe.skipIf(!url || !ownerUrl)('the office read predicate against the row policy', () => {
-  let store: typeof import('../platform/store')
-  let release: typeof import('../platform/release')
   let wire: typeof import('../platform/wire')
   let visibility: typeof import('./visibility')
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
@@ -51,29 +49,12 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let owner: postgres.Sql
 
+  /** A pack published through the lifecycle (migration 0218), in batches as records-propose takes them: a pack may hold more than one batch. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<void> {
-    const id = await store.insertChangeRequest({ title, countryId, createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
-      await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      await store.insertReviewDecisions(
-        tx,
-        id,
-        ACTOR,
-        view!.revisions.flatMap((revision) =>
-          revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
-        ),
-      )
-      await store.insertApproval(tx, { changeRequestId: id, approver: EXPERT, role: 'domain_expert', decisionSource: 'app' })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    await release.publishChangeRequest(id, 'preview', ACTOR)
-    await release.publishChangeRequest(id, 'stable', ACTOR)
+    const records = Array.from({ length: Math.ceil(raw.length / wire.MAX_PROPOSED_RECORDS) }, (_, i) =>
+      wire.proposeRecordsBodySchema.parse({ records: raw.slice(i * wire.MAX_PROPOSED_RECORDS, (i + 1) * wire.MAX_PROPOSED_RECORDS) }).records,
+    ).flat()
+    await publishedRequest({ title, countryId, records }, { author: AUTHOR, expert: EXPERT })
   }
 
   /** The ids the runtime role reads through the row policy, as `organizationId`. */
@@ -99,8 +80,6 @@ describe.skipIf(!url || !ownerUrl)('the office read predicate against the row po
     withPlatformAccess = context.withPlatformAccess
     ORGANIZATION_SETTING = context.ORGANIZATION_SETTING
     db = (await import('@/lib/db')).getDb()
-    store = await import('../platform/store')
-    release = await import('../platform/release')
     wire = await import('../platform/wire')
     visibility = await import('./visibility')
     owner = postgres(ownerUrl as string, { max: 1, onnotice: () => {} })

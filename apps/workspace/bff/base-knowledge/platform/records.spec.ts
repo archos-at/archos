@@ -1,8 +1,8 @@
 /**
  * @vitest-environment node
  *
- * A territory's body (migration 0217): `parents` is the one claim, and the two
- * lists before it are written beside it, derived, so a build older than 0217
+ * A territory's body (migration 0219): `parents` is the one claim, and the two
+ * lists before it are written beside it, derived, so a build older than 0219
  * reads the same parents until the contract migration drops them.
  */
 

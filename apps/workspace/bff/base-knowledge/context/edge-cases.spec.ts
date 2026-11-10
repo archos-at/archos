@@ -50,6 +50,7 @@ const caseSchema = z
         noUses: z.boolean().optional(),
         uses: z.record(z.string(), useExpectation).optional(),
         absentWorks: z.array(z.string()).optional(),
+        undetermined: z.array(z.object({ workId: z.string(), reason: z.string() })).optional(),
       })
       .strict(),
   })
@@ -103,5 +104,6 @@ describe('the edge cases of country base knowledge', () => {
       expect(use).toMatchObject(expected)
     }
     for (const workId of want.absentWorks ?? []) expect(context.uses.map((use) => use.workId)).not.toContain(workId)
+    if (want.undetermined) expect(context.undetermined).toEqual(want.undetermined)
   })
 })

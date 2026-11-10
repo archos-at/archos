@@ -15,5 +15,5 @@ type Params = { changeRequestId: string }
 export const POST = platformApiRoute<Params>(
   async ({ session, params, request }) =>
     rollbackPlatformChangeRequest(session, params.changeRequestId, (await parseJsonBody(request, rollbackBodySchema)).reason),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeReview },
 )

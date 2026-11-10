@@ -35,6 +35,7 @@
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
 import { failingExamples } from '../rulesets/decision-table'
+import { dayAfter } from '../time/editions'
 import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
 import type { ProposedRecord } from './wire'
@@ -107,8 +108,8 @@ function territoryCountry(territoryId: string): string {
 }
 
 function intervalProblems(record: ProposedRecord): Problem[] {
-  if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo < record.inForceFrom) {
-    return [problem('KC-3', record, '/inForceTo', 'inForceTo lies before inForceFrom.')]
+  if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo <= record.inForceFrom) {
+    return [problem('KC-3', record, '/inForceTo', 'inForceTo must lie after inForceFrom (intervals are half-open: inForceTo is the first day no longer in force).')]
   }
   if ((record.type === 'territory' || record.type === 'relation') && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
     return [problem('KC-3', record, '/validTo', 'validTo must lie after validFrom (intervals are half-open).')]
@@ -128,11 +129,16 @@ export interface DatedPlatformEdition {
   inForceTo: string | null
 }
 
+/** Two half-open intervals share a day: one ending on the day the other begins does not. */
 const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
-  a.from <= (b.to ?? '9999-12-31') && b.from <= (a.to ?? '9999-12-31')
+  a.from < (b.to ?? '9999-12-31') && b.from < (a.to ?? '9999-12-31')
+
+/** `earlier` ends the day before `later` begins: a source's printed last day entered as the exclusive end. */
+const oneDayApart = (earlier: { to: string | null }, later: { from: string }) => earlier.to !== null && dayAfter(earlier.to) === later.from
 
 /**
- * Editions of one work in force on the same day (`inForceTo` is inclusive):
+ * Editions of one work in force on the same day (intervals are half-open), or
+ * one day apart, which is the last day in force copied as the end:
  * two proposed in one batch, or one proposed beside one already on the
  * platform. A batch that re-proposes the existing edition (closing its
  * `inForceTo`) is compared against its new dates, not its old ones.
@@ -152,8 +158,12 @@ function overlapProblems(records: readonly ProposedRecord[], existing: readonly 
   const found: [number, Problem][] = []
   for (const [position, first] of proposed.entries()) {
     for (const second of [...proposed.slice(position + 1), ...others]) {
-      if (first.workId !== second.workId || !overlaps(first, second)) continue
-      found.push([first.index, problem('KC-3', first.record, '/inForceFrom', `is in force on days ${second.key} is; end one before the other begins.`)])
+      if (first.workId !== second.workId) continue
+      if (overlaps(first, second)) {
+        found.push([first.index, problem('KC-3', first.record, '/inForceFrom', `is in force on days ${second.key} is; let one end (inForceTo, exclusive) on the day the other begins.`)])
+      } else if (oneDayApart(first, second) || oneDayApart(second, first)) {
+        found.push([first.index, problem('KC-3', first.record, '/inForceTo', `leaves one day between it and ${second.key}: inForceTo is the first day no longer in force, so enter the source's last day plus one, the day the next edition begins.`)])
+      }
     }
   }
   return found

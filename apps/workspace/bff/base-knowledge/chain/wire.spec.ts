@@ -43,6 +43,12 @@ describe('buildingLawTurn', () => {
     expect(buildingLawTurn(graphOf(records), 'AT-9', DATE, 'Wien')).toBeNull()
   })
 
+  it('carries the chain where the only law is undetermined, so the turn says its edition is not determined', () => {
+    const overlapping = [...law, { type: 'edition', key: 'bo-wien-2024b', workKey: 'bo-wien', label: 'Fassung 2024b', inForceFrom: '2024-06-01' }]
+    const turn = buildingLawTurn(graphOf([...territories, ...overlapping]), 'AT-9', DATE, 'Wien')
+    expect(turn?.text).toContain('- Bauordnung für Wien: more than one edition is recorded as in force on this date')
+  })
+
   it('carries nothing where no law of its territory binds, only guidance', () => {
     expect(buildingLawTurn(graphOf([...territories, ...modelCodes(2)]), 'AT-9', DATE, 'Wien')).toBeNull()
   })

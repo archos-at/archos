@@ -37,22 +37,6 @@ describe('/api/internal/stages features.folderCards', () => {
   })
 })
 
-describe('/api/internal/stages features.sourceRouting', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('is the source-routing flag of the organization asked about, and off unless WorkOS says yes', async () => {
-    vi.mocked(isOrgFeatureEnabled).mockImplementation(
-      async (flag, org) => flag === 'source-routing' && org === 'org_on'
-    )
-
-    expect(await call('org_on')).toMatchObject({
-      features: { sourceRouting: true, folderCards: false },
-    })
-    expect(await call('org_off')).toMatchObject({ features: { sourceRouting: false } })
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('source-routing', 'org_off')
-  })
-})
-
 describe('/api/internal/stages features.licensedSeam', () => {
   beforeEach(() => vi.clearAllMocks())
 

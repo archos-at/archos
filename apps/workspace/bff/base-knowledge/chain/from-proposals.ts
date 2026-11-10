@@ -48,6 +48,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           territoryIds: record.territoryIds,
           addresseeTerritoryIds: record.addressees.map((addressee) => addressee.territoryId),
           connectsBy: record.connectsBy,
+          historyAvailableFrom: record.historyAvailableFrom,
         })
         break
       case 'edition':
