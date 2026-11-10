@@ -64,9 +64,29 @@ _RIS_LINK = re.compile(r"https?://(?:www\.|ogd\.)?ris\.bka\.gv\.at/\S*", re.IGNO
 _LGBL_IN_PROVISION = re.compile(r"LGBl\.\s*(\d+/\d{4})")
 #: A word that turns „gilt die Ausgabe 2019" into its opposite, or into another day's statement.
 _NEGATION = re.compile(
-    r"\b(?:nicht|kein\w*|nie|erst|noch|bis(?:her)?|früher|ehemals|vormals|ersetzt|aufgehoben|außer kraft|abgelöst)\b",
+    r"\b(?:nicht|kein\w*|nie|erst|noch|bis(?:her)?|früher|ehemals|vormals|ersetzt|aufgehoben|außer kraft|abgelöst"
+    r"|künftig|voraussichtlich|geplant)\b",
     re.IGNORECASE,
 )
+#: Words a period follows without ending the sentence („LGBl. Nr. 83/2026", „§ 9 Abs. 1").
+_ABBREVIATIONS = frozenset(
+    "lgbl nr abs idf lit pkt bzw vgl ca etc art bgbl gem kap ff zb dh oö nö bgld stmk sbg vbg ktn bauvo btv".split()
+)
+#: How an answer names each Land: the name, its adjective, its abbreviation, its Verordnung.
+_LAND_WORDS = {
+    "AT-1": r"burgenland\w*|bgld\b",
+    "AT-2": r"kärnt\w*|k-btv",
+    "AT-3": r"niederösterreich\w*|\bnö\b",
+    "AT-4": r"oberösterreich\w*|\boö\b",
+    "AT-5": r"salzburg\w*|\bsbg\b",
+    "AT-6": r"steiermark|steirisch\w*|\bstmk\b|\bstbtv\b",
+    "AT-7": r"tirol\w*|\btbv\b",
+    "AT-8": r"vorarlberg\w*|\bvbg\b",
+    "AT-9": r"\bwien\w*|\bwbtv\b",
+}
+#: A measure a requirement states: 1,20 m, 30 min, 47 dB, 0,35 W/m²K, 10 %.
+_MEASURE = re.compile(r"\d+(?:[,.]\d+)?\s*(?:mm|cm|m²|m³|m|min|minuten|db|w/|kwh|lx|%|prozent)(?![a-zäöü])", re.I)
+_ANY_EDITION = re.compile(r"(?:ausgabe|fassung|version|edition)\s+(?:\w+\s+)?(?:19|20)\d{2}\b", re.I)
 #: The Land's code in RIS gazette ids and ELI paths (``LGBLA_SA_…``, ``/eli/lgbl/SA/2026/83``),
 #: as `configs/norms/at/registry.yml` cites them.
 RIS_LAND_CODES = {
@@ -195,19 +215,59 @@ def links_lgbl(answer: str, land: str, lgbl: str) -> bool:
     return any(target.search(link.group(0)) for link in _RIS_LINK.finditer(answer))
 
 
-def plainly_binding(answer: str, guideline: str, year: str, others: list[str]) -> bool | None:
+def plainly_binding(
+    answer: str, guideline: str, year: str, others: list[str], *, land: str = "", days: tuple[str, ...] = ()
+) -> bool | None:
     """True or False when the answer settles it without a reader, None when only a reader can tell.
 
-    False: the expected edition is never named. True: it is the only edition named, and
-    no sentence naming it also negates or moves it in time. Anything else is a meaning.
+    False: the expected edition is never named. True: it is the only edition named, and no
+    sentence naming it negates it, moves it in time (a date other than ``days``: the asked day
+    and the in-force day), or speaks of another Land than ``land``. Anything else is a meaning.
     """
     if not mentions_edition(answer, guideline, year):
         return False
     if any(mentions_edition(answer, guideline, other) for other in others):
         return None
     pattern = re.compile(_edition_pattern(guideline, year), re.IGNORECASE)
-    sentences = [s for s in re.split(r"(?<=[.;!?:])\s+|\n+", answer) if pattern.search(s)]
-    return None if any(_NEGATION.search(sentence) for sentence in sentences) else True
+    sentences = [s for s in _sentences(answer) if pattern.search(s)]
+    other_lands = [words for code, words in _LAND_WORDS.items() if code != land]
+    for sentence in sentences:
+        if _NEGATION.search(sentence) or set(_dates(sentence)) - set(days):
+            return None
+        if any(re.search(words, sentence, re.IGNORECASE) for words in other_lands):
+            return None
+    return True
+
+
+def states_a_requirement_of_an_edition(answer: str) -> bool:
+    """Whether a sentence names an edition (any year) and a measure: a requirement given from some text."""
+    return any(_ANY_EDITION.search(s) and _MEASURE.search(s) for s in _sentences(answer))
+
+
+def _sentences(text: str) -> list[str]:
+    """``text`` cut at sentence ends: not after a number („1. September") or an abbreviation („LGBl.", „Abs.")."""
+    sentences, start = [], 0
+    for end in re.finditer(r"[.;!?](?=\s)|\n+", text):
+        word = re.search(r"(\S+)$", text[start : end.start()])
+        token = word.group(1).lstrip('(„"').casefold() if word else ""
+        if end.group(0) == "." and (token.isdigit() or len(token) == 1 or token in _ABBREVIATIONS):
+            continue
+        sentences.append(text[start : end.end()])
+        start = end.end()
+    return [s for s in [*sentences, text[start:]] if s.strip()]
+
+
+def _dates(text: str) -> list[str]:
+    """Every full date in ``text``, as ISO."""
+    months = {name: n for n, names in enumerate(_MONTHS, start=1) for name in names}
+    found = [
+        f"{y}-{int(m):02d}-{int(d):02d}" for d, m, y in re.findall(r"\b(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\b", text)
+    ]
+    found += [
+        f"{y}-{months[m.lower()]:02d}-{int(d):02d}"
+        for d, m, y in re.findall(rf"\b(\d{{1,2}})\.?\s*({_MONTH_WORD})\s+(\d{{4}})\b", text, re.IGNORECASE)
+    ]
+    return found + re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text)
 
 
 # --- Checks ------------------------------------------------------------------
@@ -240,6 +300,7 @@ def set_checks(
         if question.get("group") == "r3":
             held = held_editions(records, guideline)
             checks["no_held_edition"] = not any(mentions_edition(answer, guideline, year) for year in held)
+            checks["no_remembered_requirement"] = not states_a_requirement_of_an_edition(answer)
     asked = str(question.get("question") or "")
     for flag, kind, claim in (
         ("abstain", "abstains", None),
@@ -258,7 +319,8 @@ def _binding(
     expect = question["expect"]
     guideline, year = str(question["guideline"]), str(expect["edition"])
     others = [held for held in held_editions(records, guideline) if held != year]
-    plain = plainly_binding(answer, guideline, year, others)
+    days = (str(question["day"]), str(expect.get("in_force") or question["day"]))
+    plain = plainly_binding(answer, guideline, year, others, land=str(question.get("land")), days=days)
     if plain is not None:
         return plain
     land = territories(records).get(str(question.get("land")), str(question.get("land")))

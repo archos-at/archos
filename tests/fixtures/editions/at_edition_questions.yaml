@@ -29,16 +29,18 @@
 # An `expect` value the pack does not hold is left out, never filled from
 # memory: the 2019 adoptions in Steiermark and Oberösterreich RL 6 name no LGBl.
 #
-#   edition        the edition that binds that day: `binding` fails when it is never named, passes
-#                  when it is the only one named with no negation in its sentence, else the judge decides
+#   edition        the edition that binds that day: `binding` fails when it is never named, passes when it
+#                  is the only one named and its sentences hold no negation, no other date than the asked
+#                  and in-force days and no other Land; anything else the judge decides
 #   other_edition  r2: the edition on the other side of the changeover, which the answer names too
 #   lgbl           the Landesgesetzblatt number that makes it binding („LGBl. Nr. 83/2026")
 #   in_force       the day that relation took effect, ISO; any common German date form matches
 #   ris_link       a link to ris.bka.gv.at or ogd.ris.bka.gv.at; `ris_lgbl` also asks that it point at the LGBl
-#   no_substitute  the corpus holds no text of the binding edition (it holds only the 2023 texts):
+#   no_substitute  the corpus holds no text of the binding edition (the pack holds only the 2023 texts):
 #                  the answer cites no passage of that Richtlinie, since any it cites is another edition's
 #   abstain        no OIB-RL passage cited (`no_substitute`), the judge reads an abstention (`abstains`),
-#                  and in r3 no edition the pack holds is named (`no_held_edition`)
+#                  and in r3 no edition the pack holds is named (`no_held_edition`) and no sentence
+#                  gives a measure from any edition (`no_remembered_requirement`)
 #   transition     r2: the judge reads the quoted transitional rule in the answer (`transition`)
 #   premise        r5: the false part of the question; the judge reads a correction (`corrects_premise`)
 #

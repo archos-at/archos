@@ -244,10 +244,11 @@ def set_questions(name: str | None) -> list[dict]:
 
 
 def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[list[dict], list[str]]:
-    """The runnable questions and the ids skipped because they need a project."""
+    """The runnable questions and the ids skipped for a project; a row of a set but loop's carries its ``set``."""
     import yaml
 
-    rows = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("questions") or []
+    named = next((name for name, file in NORM_QUESTIONS.items() if file == path and name != "loop"), None)
+    rows = [{**r, "set": named} if named else r for r in yaml.safe_load(path.read_text("utf-8"))["questions"]]
     runnable, skipped = [], []
     for row in rows:
         if row.get("family") is None:
@@ -511,9 +512,8 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
     if question.get("kind"):
         accepted = [question["kind"], *((question.get("expect") or {}).get("kind_also") or [])]
         checks["kind"] = run.kind in accepted
-    family = _family_number(question.get("family"))
     module = set_module(question.get("set"))
-    if family and getattr(module, "CHECKS_FAMILY", True):
+    if (family := _family_number(question.get("family"))) and getattr(module, "CHECKS_FAMILY", True):
         checks["family_cited"] = family in run.cited_families
     expect = question.get("expect") or {}
     # The reader sees the prose AND the cards (a variant's table sits in a tab),

@@ -293,3 +293,43 @@ class TestReport:
             ),
         ]
         assert "| r1 | 2 | 1/2 (50%) | 1 |" in edition_eval.report_lines(runs)
+
+
+class TestTheRealRunPath:
+    """The re-review (2026-11-10): rows that ``--set editions`` loads must reach the set's checks."""
+
+    def test_a_row_the_suite_selects_is_checked_by_the_set(self, monkeypatch):
+        monkeypatch.setattr(suite, "_judge", lambda: None)
+        path = suite.NORM_QUESTIONS["editions"]
+        (row,), _ = suite.select_questions(["r2-sbg-rl2-2026-09-01"], False, path)
+        assert row["set"] == "editions"
+        wrong = "Am 1. September 2026 gilt noch die Ausgabe 2019; die Ausgabe Mai 2023 wird erst später verbindlich."
+        checks = suite.check(row, _run(wrong), {"cards": []})
+        assert checks["binding"] is False and "family_cited" not in checks
+
+    def test_the_loop_set_rows_stay_unmarked(self):
+        rows, _ = suite.select_questions(None, False)
+        assert all("set" not in row for row in rows)
+
+
+class TestAdversarialAnswers:
+    def test_a_later_date_in_the_sentence_goes_to_the_judge(self):
+        row = _row("r1-sbg-rl2")
+        wrong = "Ab dem 1. Dezember 2026 gilt die OIB-RL 2 Ausgabe 2023 in Salzburg."
+        assert edition_eval.set_checks(row, _run(wrong), wrong, None)["binding"] is False
+        right = "In Salzburg gilt seit 1. September 2026 die OIB-RL 2 Ausgabe Mai 2023 (LGBl. Nr. 83/2026)."
+        assert edition_eval.set_checks(row, _run(right), right, None)["binding"] is True
+
+    def test_another_land_in_the_sentence_goes_to_the_judge(self):
+        row = _row("r1-bgld-rl2")
+        wrong = "Für Wien gilt die OIB-RL 2 Ausgabe April 2019."
+        assert edition_eval.plainly_binding(wrong, "2", "2019", ["2023"], land="AT-1") is None
+        assert edition_eval.set_checks(row, _run(wrong), wrong, _Judge(False))["binding"] is False
+
+    def test_an_abstention_that_quotes_a_remembered_edition_fails_whatever_the_judge_says(self):
+        row = _row("r3-wien-rl2-2020-01-31")
+        wrong = "Den Text halte ich nicht. Nach Ausgabe März 2015: Fluchtweglänge 40 m."
+        checks = edition_eval.set_checks(row, _run(wrong), wrong, _Judge(True))
+        assert checks["no_remembered_requirement"] is False and checks["abstains"] is True
+        honest = "Für den 31. Jänner 2020 halte ich keinen Text der OIB-RL 2; die Ausgabe 2015 ist nicht im Bestand."
+        assert edition_eval.set_checks(row, _run(honest), honest, _Judge(True))["no_remembered_requirement"] is True

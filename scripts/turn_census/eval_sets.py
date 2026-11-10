@@ -13,5 +13,10 @@ def set_module(name: str | None) -> ModuleType | None:
     import visual_eval
     import workspace_eval
 
-    modules = {"workspace": workspace_eval, "files": files_eval, "visual": visual_eval, "editions": edition_eval}
-    return {**modules, "north-star": north_star_eval}.get(str(name))
+    return {
+        "workspace": workspace_eval,
+        "files": files_eval,
+        "visual": visual_eval,
+        "north-star": north_star_eval,
+        "editions": edition_eval,
+    }.get(str(name))
