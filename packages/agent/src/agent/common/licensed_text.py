@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 from collections.abc import Iterable
@@ -65,6 +66,8 @@ from pydantic import ConfigDict
 
 from agent.common.passage_fence import neutralise_tags
 
+logger = logging.getLogger(__name__)
+
 #: The licence classes a manifestation, a search-index point or a document row may carry (design 3.4).
 PUBLIC_OPEN = "public_open"
 PUBLIC_RESTRICTED = "public_restricted"
@@ -74,6 +77,8 @@ LICENCE_CLASSES = (PUBLIC_OPEN, PUBLIC_RESTRICTED, LICENSED)
 #: The payload keys the mark is read from (``licence_class``) and the licence's quote cap (``quote_max_chars``).
 LICENCE_CLASS_KEY = "licence_class"
 QUOTE_MAX_CHARS_KEY = "quote_max_chars"
+#: The office edition a point belongs to (S1, ``knowledge_layer.vector_store.KNOWLEDGE_EDITION_FIELD``).
+EDITION_KEY = "knowledge_edition_id"
 #: Whether the office attested that its licence covers processing by the hosted AI services (indexing, model
 #: reads, quotation; design 4.7). Office-wide use alone is not enough, so only ``True`` counts: a licensed
 #: passage without it is usable by no model call at all.
@@ -98,10 +103,25 @@ _REF_RE = re.compile(r"⟦licensed:(lp_[0-9a-f]{16})⟧")
 
 #: The ``Licence:`` header line's text, under which the passage follows as a reference.
 LICENSED_LINE = (
-    "licensed — the office's own licensed copy. Quote at most {cap} characters of it per quote. "
-    "Where a value, above all in a table, cannot be read reliably, do not state it: name the page "
-    "and the clause or table where it stands."
+    "licensed — the office's own licensed copy. Quote at most {cap} characters of it per quote, in the "
+    "language it is written in: a translation of it is no quote and no source; answering in another language, "
+    "say which language the quote is in. Where a value, above all in a table, cannot be read reliably, do not "
+    "state it: name the page and the clause or table where it stands."
 )
+
+#: Added to the ``Licence:`` line of a hit that names its office edition (S1's ``knowledge_edition_id``): the
+#: answer labels the copy with what the office base knowledge block states for that edition.
+EDITION_LABEL = (
+    " Label it in the answer as the office's copy with its edition and last check, as the office base knowledge "
+    "states them for edition {edition}, e.g. „Norm, Büroexemplar Ausgabe 2017, zuletzt geprüft am 12.09.2026“."
+)
+
+#: The trace tag of a turn that read licensed text. The answer judges skip such a turn: their input would be
+#: the references, not the text the answer was grounded in (``observability.langfuse_catalog``).
+LICENSED_TRACE_TAG = "licensed-text"
+
+#: The score a turn that read licensed text carries: the quotes of it a reply had cut (``SCORE_DEFINITIONS``).
+LICENSED_QUOTE_CAPPED_SCORE = "licensed-quote-capped"
 
 #: The ``Licence:`` line of a licensed hit no model may read.
 UNATTESTED_LINE = "licensed — the office's own copy, not confirmed for AI processing: listed only, never quoted."
@@ -138,6 +158,8 @@ class LicenceTerms(BaseModel):
     quote_max_chars: int = DEFAULT_QUOTE_MAX_CHARS
     #: The office attested that its licence covers processing by the hosted AI services (:data:`AI_PROCESSING_KEY`).
     ai_processing: bool = False
+    #: The office edition the passage belongs to, for the answer's label; ``None`` when no edition is known.
+    edition_id: str | None = None
 
     @property
     def licensed(self) -> bool:
@@ -166,6 +188,7 @@ def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | 
         licence_class=licence_class,
         quote_max_chars=quote_max_chars or DEFAULT_QUOTE_MAX_CHARS,
         ai_processing=(metadata or {}).get(AI_PROCESSING_KEY) is True,
+        edition_id=str((metadata or {}).get(EDITION_KEY) or "") or None,
     )
 
 
@@ -181,10 +204,14 @@ class LicensedCapture:
     #: Whether this turn may send licensed text to the model at all (the ``licensed-seam`` flag).
     text_allowed: bool
     passages: dict[str, tuple[str, int]] = field(default_factory=dict)
+    #: Whether any licensed passage was filed this turn, and how many quotes of it a reply had cut.
+    read_any: bool = False
+    capped_quotes: int = 0
     _cap: QuoteCap | None = None
 
     def file(self, text: str, quote_max_chars: int) -> str:
         ref = f"lp_{secrets.token_hex(8)}"
+        self.read_any = True
         self.passages[ref] = (text, quote_max_chars)
         while len(self.passages) > MAX_PASSAGES_PER_TURN:
             del self.passages[next(iter(self.passages))]
@@ -212,7 +239,20 @@ def end_licensed_capture(token: Token) -> None:
     capture = _capture.get()
     if capture is not None:
         capture.passages.clear()
+        if capture.read_any:
+            _emit_capped_score(capture.capped_quotes)
     _capture.reset(token)
+
+
+def _emit_capped_score(capped: int) -> None:
+    """``licensed-quote-capped`` for a turn that read licensed text: how many quotes of it a reply had cut."""
+    try:
+        from agent.observability.langfuse_scores import RuntimeScore
+        from agent.observability.langfuse_scores import emit_scores
+
+        emit_scores([RuntimeScore(LICENSED_QUOTE_CAPPED_SCORE, float(capped))], writer="licensed-seam")
+    except Exception:  # noqa: BLE001 - a score must never fail the turn that earned it
+        logger.debug("licensed-quote-capped not emitted", exc_info=True)
 
 
 def licensed_body(body: str, terms: LicenceTerms | None) -> str:
@@ -224,6 +264,9 @@ def licensed_body(body: str, terms: LicenceTerms | None) -> str:
     capture = _capture.get()
     if capture is None or not capture.text_allowed:
         return WITHHELD_NOTE
+    from agent.observability.langfuse_trace_attributes import add_trace_tag
+
+    add_trace_tag(LICENSED_TRACE_TAG)
     return f"⟦licensed:{capture.file(body, terms.quote_max_chars)}⟧"
 
 
@@ -231,7 +274,10 @@ def licence_line(terms: LicenceTerms | None) -> str | None:
     """The ``Licence:`` header value of a licensed hit; ``None`` for any other."""
     if terms is None or not terms.licensed:
         return None
-    return LICENSED_LINE.format(cap=terms.quote_max_chars) if terms.ai_processing else UNATTESTED_LINE
+    if not terms.ai_processing:
+        return UNATTESTED_LINE
+    label = EDITION_LABEL.format(edition=terms.edition_id) if terms.edition_id else ""
+    return LICENSED_LINE.format(cap=terms.quote_max_chars) + label
 
 
 def quotable(body: str, terms: LicenceTerms | None) -> str | None:
@@ -306,7 +352,7 @@ def expand_messages(messages: Any, *, zero_retention: bool) -> tuple[Any, QuoteC
             out.append(message.model_copy(update={"content": expanded}))
     if all(a is b for a, b in zip(out, messages, strict=True)):
         return messages, None
-    return out, QuoteCap(used.values()) if used else None
+    return out, QuoteCap(used.values(), capture) if used else None
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +381,9 @@ class QuoteCap:
     it drops, so a run that goes on stays cut.
     """
 
-    def __init__(self, passages: Iterable[tuple[str, int]]) -> None:
+    def __init__(self, passages: Iterable[tuple[str, int]], capture: LicensedCapture | None = None) -> None:
+        #: The turn whose count of capped quotes this cap adds to (``licensed-quote-capped``).
+        self._capture = capture
         self._grams: dict[str, int] = {}
         for text, cap in passages:
             norm = _normalised_text(text)
@@ -362,6 +410,11 @@ class QuoteCap:
 
     def gram_cap(self, gram: str) -> int | None:
         return self._grams.get(gram)
+
+    def shares_shingle(self, text: str) -> bool:
+        """Whether ``text`` holds any :data:`SHINGLE_CHARS`-character window of a licensed passage."""
+        norm = _normalised_text(text)
+        return any(norm[start : start + SHINGLE_CHARS] in self._grams for start in range(len(norm) - SHINGLE_CHARS + 1))
 
 
 class _Run:
@@ -416,6 +469,8 @@ class _Run:
             return ""
         self._marked = True
         self._owner.capped_runs += 1
+        if self._owner._capture is not None:
+            self._owner._capture.capped_quotes += 1
         return CAP_MARKER
 
     def _advance(self, logical: str) -> bool:
@@ -482,3 +537,21 @@ def trace_payload(text: str) -> str:
     capture = _capture.get()
     cap = capture.quote_cap() if capture is not None else None
     return cap.cap_text(text, json_raw=True) if cap is not None else text
+
+
+# ---------------------------------------------------------------------------
+# Outbound text that is not a model call
+# ---------------------------------------------------------------------------
+
+#: What a refused web search answers: the query carried licensed text, which must not reach a search provider.
+WEB_SEARCH_REFUSAL = (
+    "Web search refused: the query repeats text from the office's licensed copy, and licensed text goes to no "
+    "search provider. Search with your own words: the topic, the designation and the clause."
+)
+
+
+def refused_outbound_query(query: str) -> str | None:
+    """The refusal for an outbound query (a web search) that shares a shingle with this turn's licensed text."""
+    capture = _capture.get()
+    cap = capture.quote_cap() if capture is not None else None
+    return WEB_SEARCH_REFUSAL if cap is not None and cap.shares_shingle(query) else None

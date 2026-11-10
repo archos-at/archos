@@ -262,7 +262,7 @@ reports, and the chat-request contract expands the reference only after that
 (ADR-0159). A reply that read licensed text is capped at the passage's
 `quote_max_chars` before any callback sees it, and every direct generation's
 payload passes `licensed_text.trace_payload` in `direct_trace._clip`. The
-generation is never dropped; only its content is. `test_licensed_seam.py` plants
+generation is never dropped; only its content is. A turn that read licensed text carries the trace tag `licensed-text`, and the `chat-turn-judges` rule skips it (`none of`): its trace holds references, not the text the answer was grounded in. `test_licensed_seam.py` plants
 a shingle and fails if a callback, the checkpointed messages or the log hold more
 of it than the cap.
 
@@ -292,6 +292,7 @@ a name is written but not declared, or declared but not listed here.
 | `confidence-capped` | categorical | agent | which guard lowered it, or `none` |
 | `quotes-verbatim-rate` | numeric 0–1 | agent | checked quote lines held verbatim |
 | `quotes-patched` | numeric | agent | misremembered quotes the repair corrected (ADR-0067) |
+| `licensed-quote-capped` | numeric | agent | on a turn that read licensed text, the quotes of it a reply had cut at the licence's quote cap; absent when no licensed text was read (ADR-0159) |
 | `dialect-repairs` | numeric | agent | answer-dialect blocks repaired; 0 is a measurement |
 | `sketch-drawn` | categorical | agent | one per ```` ```excalidraw ```` fence in an answer (ADR-0146): `drawn`, or `refused` by the fence check (`common/sketch_fence.py`) and stored as `excalidraw-refused`, which the reader sees as one quiet line, never its JSON. The comment names the refusal (`malformed-json`, `too-many-elements`, …); metadata `elements` and `dimension_labels`, the labels that read like a measurement. The turn's trace metadata `answer_dialect.sketches` sums them per answer. The share `refused` is how well the `excalidraw-sketch` skill teaches the format; `dimension_labels` above 0 is a sketch claiming what only a document or the model view may |
 | `card-validity` | categorical | agent | per envelope card that missed its schema: `repaired`, `dropped`; or `stripped`, a calculation or formula that stated what the card computes (a `result`, a formula's `limits`), with `fields` in metadata |

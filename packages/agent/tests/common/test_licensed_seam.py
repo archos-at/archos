@@ -525,3 +525,68 @@ async def test_the_model_reads_the_passage_whole_and_every_call_sends_the_same_b
     first, second = (_all_text(body) for body in wire.bodies)
     assert _norm(LICENSED) in _norm(first), "the expanded passage is the whole passage"
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# Outbound queries, labels, judges and the score
+# ---------------------------------------------------------------------------
+
+
+def test_a_web_search_that_repeats_licensed_text_is_refused_and_an_own_words_one_is_not():
+    token = begin_grounding_capture(licensed_text=True)
+    try:
+        _block(_hit())
+        assert licensed_text.refused_outbound_query(f"Was heißt {SHINGLE}?") == licensed_text.WEB_SEARCH_REFUSAL
+        assert licensed_text.refused_outbound_query("Mindesthöhe Absturzsicherung ÖNORM B 1600 Tabelle 7") is None
+    finally:
+        end_grounding_capture(token)
+    assert licensed_text.refused_outbound_query(SHINGLE) is None, "no licensed text read, nothing to refuse"
+
+
+def test_the_licence_line_asks_for_the_office_label_and_the_quote_in_its_own_language():
+    line = licensed_text.licence_line(TERMS.model_copy(update={"edition_id": "ed-b1600-2017"}))
+    assert "edition ed-b1600-2017" in line and "Büroexemplar" in line
+    assert "in the language it is written in" in line
+    assert "Büroexemplar" not in licensed_text.licence_line(TERMS), "no edition, no label to ask for"
+    assert licence_from_metadata({"licence_class": "licensed", "knowledge_edition_id": "e1"}).edition_id == "e1"
+
+
+def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_scored(monkeypatch):
+    from agent.observability import langfuse_catalog
+    from agent.observability import langfuse_scores
+    from agent.observability.langfuse_trace_attributes import begin_trace_contributions
+    from agent.observability.langfuse_trace_attributes import end_trace_contributions
+    from agent.observability.langfuse_trace_attributes import snapshot_contributions
+
+    emitted = []
+    monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **kwargs: emitted.extend(scores))
+    contributions = begin_trace_contributions()
+    token = begin_grounding_capture(licensed_text=True)
+    try:
+        _block(_hit())
+        tags = snapshot_contributions()["tags"]
+    finally:
+        end_grounding_capture(token)
+        end_trace_contributions(contributions)
+
+    assert licensed_text.LICENSED_TRACE_TAG in tags
+    (rule,) = langfuse_catalog.RULES
+    assert {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": ["licensed-text"]} in rule.filter
+    assert [(score.name, score.value) for score in emitted] == [("licensed-quote-capped", 0.0)]
+
+
+async def test_the_score_counts_the_quotes_a_reply_had_cut(monkeypatch):
+    from agent.observability import langfuse_scores
+
+    emitted = []
+    monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **kwargs: emitted.extend(scores))
+    await _turn(licence=TERMS, streaming=False)
+    assert emitted and emitted[-1].name == "licensed-quote-capped" and emitted[-1].value >= 1
+
+
+def test_outside_a_turn_capture_a_licensed_hit_is_listed_only():
+    """The agent door's tools (agent-host) open no turn capture: an outside agent gets the place, never the text,
+    so the cumulative quote cap per document and session (design E19) holds at zero."""
+    block = _block(_hit())
+    assert licensed_text.WITHHELD_NOTE in block
+    assert longest_licensed_run(block) < licensed_text.SHINGLE_CHARS

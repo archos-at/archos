@@ -461,4 +461,29 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     const byId = await listProfiledConversations(PROFILER_SCOPE, PROFILED_CHAT)
     expect(byId.rows.map((row) => row.conversationId)).toEqual([PROFILED_CHAT])
   })
+
+  /**
+   * Design E44: a down-voted answer that drew on the office's own text (an office
+   * document, the office's licensed copy of a norm) becomes no platform lesson, whose
+   * text reaches every other office. Told apart by the sources the turn stored.
+   */
+  it('leaves a vote on an answer that drew on office text out of the lessons input, and keeps one that did not', async () => {
+    const officeChat = randomUUID()
+    const lawChat = randomUUID()
+    const officeAnswer = await seedVotedChat(officeChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
+    const lawAnswer = await seedVotedChat(lawChat, 'Was sagt die OIB-RL 4?', 'Laut OIB-RL 4 100 cm.', false)
+    const stored = (shelf: string, kind: string) =>
+      JSON.stringify({ provenance: { steps: [{ lanes: [{ key: kind, kind, sources: [{ name: 'n.pdf', shelf }] }] }] } })
+    await inOrg((executor) =>
+      executor.execute(sql`update messages set metadata = ${stored('office_shelf', 'office')}::jsonb where id = ${officeAnswer}`)
+    )
+    await inOrg((executor) =>
+      executor.execute(sql`update messages set metadata = ${stored('base', 'building_law')}::jsonb where id = ${lawAnswer}`)
+    )
+
+    const { reports } = await readers()
+    const answers = reports.map((report) => report.answer)
+    expect(answers).not.toContain('Laut Büroexemplar 110 cm.')
+    expect(answers).toContain('Laut OIB-RL 4 100 cm.')
+  })
 })

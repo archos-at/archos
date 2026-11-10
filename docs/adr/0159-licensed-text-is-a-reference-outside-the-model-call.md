@@ -89,6 +89,24 @@ while the model still reads what the office licensed for this use.
   job config's `licence_class`) records its generations as metadata only: length and sha256.
 - **The registry and the estate.** A licensed hit's `chunk_text` in the citation registry is cut to
   its quote cap; `grep`'s index of lines prints none of a licensed document.
+- **Everything else that could carry licensed text out.**
+  - A web search whose query shares a shingle with the turn's licensed text is refused before the
+    provider sees it (`licensed_text.refused_outbound_query`, in `tavily_web_search`).
+  - A turn that read licensed text is tagged `licensed-text`, and the `chat-turn-judges` rule skips
+    it (`none of`): its trace holds references, so a judge would grade the answer against the wrong
+    evidence. It carries the score `licensed-quote-capped` (quotes a reply had cut; 0 when it kept
+    to the cap).
+  - The lessons distiller takes no vote on an answer whose stored sources name the office shelf or
+    the `office` kind (`platform-lessons/repository.ts`, design E44): a lesson reaches every office.
+  - The `Licence:` line asks for the answer's label ("Norm, Büroexemplar Ausgabe 2017, zuletzt
+    geprüft am …"), read from the office base knowledge block by the hit's `knowledge_edition_id`,
+    and for every quote in the language the passage is written in: a translation is no quote and
+    no source.
+  - The agent door's tools (`apps/agent-host`) run without a turn capture, so a licensed hit reaches
+    an outside agent listed only and the cumulative quote cap per document and session (design E19)
+    holds at zero. `document-text-get`, which reads a document's text in the BFF, does not know a
+    document's licence yet; until it does, it is the one door path that can return a licensed
+    copy's text (see the PR).
 - **The flag.** `licensed-seam` (entitlement, read per turn through `GET /api/internal/stages`)
   decides whether the turn's capture may expand at all. Off, a licensed hit is listed (document,
   page, clause) with no text. The seam itself is never off: a marked passage is never rendered as

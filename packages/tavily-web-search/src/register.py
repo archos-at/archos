@@ -38,9 +38,14 @@ class _NoOutcome:
 try:  # the Grid agent draws one row per call (ADR-0132); the standalone dist has no agent package
     from agent.common.action_outcome import ActionOutcome
     from agent.common.action_rows import ActionRow
+    from agent.common.licensed_text import refused_outbound_query
 except ImportError:
     ActionOutcome = _NoOutcome  # type: ignore[assignment,misc]
     ActionRow = _NoRow  # type: ignore[assignment,misc]
+
+    def refused_outbound_query(query: str) -> str | None:  # standalone: no turn, so no licensed text to refuse
+        return None
+
 
 # Track if we've already warned about missing API key to avoid duplicate warnings
 _missing_key_warned = False
@@ -151,14 +156,12 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return TavilySearch(**(tavily_kwargs | {"max_results": max_results}))
 
     async def _tavily_web_search(question: str) -> str:
-        """Retrieves relevant contexts from web search (using Tavily) for the given question.
+        """Web search (Tavily) for ``question``, cut to 400 characters: the documents found and their URLs.
 
-        Args:
-            question (str): The question to be answered. Will be truncated to 400 characters if longer.
-
-        Returns:
-            str: The web search results containing relevant documents and their URLs.
+        A query that repeats licensed text the turn read is refused: it would hand it to the provider (ADR-0159).
         """
+        if refusal := refused_outbound_query(question):
+            return refusal
         outcome = ActionOutcome()
         row = ActionRow("web", query=question)
         try:

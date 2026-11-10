@@ -18,6 +18,8 @@ from dataclasses import field
 from pathlib import Path
 from typing import Any
 
+from agent.common.licensed_text import LICENSED_TRACE_TAG
+
 #: The queue every down-voted answer lands in (the BFF adds it,
 #: ``apps/workspace/bff/langfuse/feedback-score.ts`` ``REVIEW_QUEUE_NAME``).
 REVIEW_QUEUE_NAME = "answer-review"
@@ -125,6 +127,9 @@ RULES: tuple[RuleDefinition, ...] = (
             {"type": "stringOptions", "column": "traceName", "operator": "any of", "value": ["chat-turn"]},
             {"type": "boolean", "column": "isRootObservation", "operator": "=", "value": True},
             {"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["outcome:answered"]},
+            # A turn that read licensed text holds references in its trace, not the text it was grounded in,
+            # so a judge would grade the answer against the wrong evidence (ADR-0159, design 6.1).
+            {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": [LICENSED_TRACE_TAG]},
         ],
     ),
 )

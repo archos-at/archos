@@ -197,7 +197,7 @@ class TestSteerCount:
     def test_a_steered_turn_scores_its_notes_and_says_how_many_were_read(self):
         from agent.common.steering import SteerInbox
         from agent.common.steering import SteerNote
-        from agent.observability.langfuse_scores import steer_scores
+        from agent.observability.answer_scores import steer_scores
 
         inbox = SteerInbox()
         inbox.offer(SteerNote(steer_id="a", text="x"))
@@ -212,7 +212,7 @@ class TestSteerCount:
 
     def test_an_unsteered_turn_writes_no_score(self):
         from agent.common.steering import SteerInbox
-        from agent.observability.langfuse_scores import steer_scores
+        from agent.observability.answer_scores import steer_scores
 
         assert steer_scores(SteerInbox()) == []
 
