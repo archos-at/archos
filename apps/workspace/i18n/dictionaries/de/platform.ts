@@ -153,6 +153,7 @@ export const platform: typeof en.platform = {
     progress: '{checked} von {total} Einträgen geprüft',
     wrongCount: 'nicht richtig: {count}',
     why: {
+      own: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte, nicht abgerufene Seite prüft eine andere Person gegen ihre Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
       open: 'Noch zu prüfen: {count}',
       alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',

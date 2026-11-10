@@ -375,6 +375,33 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(preview?.to).toBe(laterRevision!.revisionId)
   })
 
+  it('withdraws a preview that another withdrawn request put back: no rejected revision stays in preview', async () => {
+    const first = await submitted('restored-preview-a', 'restored-preview')
+    await service.decidePlatformChangeRequest(owner, first, alone)
+    await service.publishPlatformChangeRequest(owner, first, { channel: 'preview' })
+    const second = await submitted('restored-preview-b', 'restored-preview')
+    await service.decidePlatformChangeRequest(owner, second, alone)
+    await service.publishPlatformChangeRequest(owner, second, { channel: 'preview' })
+    const [firstRevision] = (await service.getPlatformChangeRequest(expert, first)).revisions
+    const previewOf = async () => {
+      const [row] = await withPlatformAccess('alone spec', () =>
+        db.execute<{ to: string | null }>(
+          sql`SELECT to_revision_id AS to FROM knowledge_release_moves WHERE record_id = ${firstRevision!.recordId} AND channel = 'preview' ORDER BY seq DESC LIMIT 1`,
+        ),
+      )
+      return row?.to ?? null
+    }
+    // The second is disputed and rejected: its withdrawal puts the first one's revision back in preview.
+    await service.decidePlatformChangeRequest(expert, second, { decision: 'reject', role: 'domain_expert' })
+    await service.decidePlatformChangeRequest(expert, second, { decision: 'reject', role: 'domain_expert' })
+    expect(await previewOf()).toBe(firstRevision!.revisionId)
+    // The first is disputed and rejected too: its revision is withdrawn although another request's move restored it.
+    await service.decidePlatformChangeRequest(expert, first, { decision: 'reject', role: 'domain_expert' })
+    await service.decidePlatformChangeRequest(expert, first, { decision: 'reject', role: 'domain_expert' })
+    expect(audit.record).toHaveBeenLastCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ withdrawn: 1 }) }))
+    expect(await previewOf()).not.toBe(firstRevision!.revisionId)
+  })
+
   it('needs a domain expert’s approval on every request: an approval in another role alone approves nothing', async () => {
     const id = await submitted('counsel-only')
     await acceptAll(id, expert)

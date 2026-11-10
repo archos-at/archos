@@ -316,8 +316,16 @@ export function ChangeRequestReview({
       : view.status === 'submitted'
       ? {
           step: 'approve',
-          enabled: open === 0 && wrong === 0,
-          why: wrong > 0 ? t('countryKnowledge.why.wrong', { count: wrong }) : open > 0 ? t('countryKnowledge.why.open', { count: open }) : undefined,
+          // An author's plain approve can only be refused (four eyes): another person approves, or checks the pasted page first.
+          enabled: open === 0 && wrong === 0 && !authored,
+          why:
+            wrong > 0
+              ? t('countryKnowledge.why.wrong', { count: wrong })
+              : authored
+                ? t('countryKnowledge.why.own')
+                : open > 0
+                  ? t('countryKnowledge.why.open', { count: open })
+                  : undefined,
         }
       : view.status === 'approved' && disputed
         ? { step: 'reject', enabled: true }

@@ -266,8 +266,11 @@ describe('CountryKnowledge', () => {
     const user = userEvent.setup()
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
-    await screen.findByTestId('change-request-next')
+    await user.click(await screen.findByRole('button', { name: 'All correct' }))
+    // Every entry correct, and still neither an approval alone nor a plain approve, which four eyes would refuse.
+    await screen.findByText(/another person approves it/)
     expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
   })
 
   test('offers no approval alone once the request is approved as domain expert', async () => {
