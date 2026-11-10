@@ -194,6 +194,8 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### Wave 5: cut-over (added 2026-11-10)
 
+**Dev is the playground (the user, 2026-11-10).** On the dev stack every switch is on for every organization, and a merge to `develop` deploys there in about ten minutes, so a slice is merged as soon as it is green and reviewed, then checked live on dev. Production is never touched by a session, not even read: it gets its own release, in the order below.
+
 Waves 1 to 4 built every new path beside the old one, behind a switch whose off state was byte-identical to before. The design says the new paths *replace* the old (the role engine replaces `citations/binding.py`, the chain text replaces the static `<building_law>` block), and no session was planned to delete the old ones; the user's goal was the old paths gone. Wave 5 does that. The data still enters only through `records-propose` (no seed path, design 7), so the order is fixed:
 
 1. **Production release of develop as it stands**: switches off, and the platform door exists in production. Not every change is behind a switch, so two things a person notices change with it, and the release names them: address search in the project dialog is off unless the stack sets `geocoderUrl` (S3, ADR-0159; recovery: set it, or `GEOCODER_URL` in Compose, and redeploy), and the platform door no longer offers the 18 tenant-content operations, the cross-office conversation and feedback reads among them (S4, #1548; platform staff keep them in the console in the browser, and there is no switch back by design).
