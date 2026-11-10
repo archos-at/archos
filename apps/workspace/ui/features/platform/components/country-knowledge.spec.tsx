@@ -9,6 +9,10 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))
 
+/** Who is looking: `u` wrote the fixture's request, anybody else did not. */
+const viewer = vi.hoisted(() => ({ id: 'reviewer' }))
+vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: viewer.id } }) }))
+
 /**
  * Platform → countries (ADR-0165): the countries and the queue from the real
  * routes' shapes; a request's next step asks before it runs, and read-only
@@ -63,6 +67,7 @@ function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unkn
 }
 
 beforeEach(() => {
+  viewer.id = 'reviewer'
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -164,6 +169,59 @@ describe('CountryKnowledge', () => {
         expect.objectContaining({
           body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'competenceTerritoryIds', decision: 'accepted', sourceChecked: true }] }),
         }),
+      ),
+    )
+  })
+
+  test('offers the author an approval alone only with the permission, and asks for a reason first (ADR-0176)', async () => {
+    viewer.id = 'u'
+    serve()
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByRole('button', { name: 'Approve without a second review' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Approve without a second review?' })
+    const confirm = within(dialog).getByRole('button', { name: 'Approve without a second review' })
+    expect(confirm).toBeDisabled()
+    const reason = 'Nobody else on the platform team this week.'
+    await user.type(within(dialog).getByTestId('approve-alone-reason'), reason)
+    await user.click(confirm)
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/decision',
+        expect.objectContaining({ body: JSON.stringify({ decision: 'approve', role: 'domain_expert', override: { reason } }) }),
+      ),
+    )
+  })
+
+  test('offers no approval alone to an author without the permission', async () => {
+    viewer.id = 'u'
+    serve()
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()
+  })
+
+  test('marks a request approved alone, and lets another person confirm or dispute its second review', async () => {
+    serve(200, { ...REQUEST, status: 'published', approval: 'single', secondReview: { state: 'due', by: null, at: null } } as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const badges = await screen.findByTestId('approval-badges')
+    expect(badges).toHaveTextContent('Approved without a second review')
+    expect(badges).toHaveTextContent('Second review due')
+    expect(screen.getByTestId('second-review-confirm')).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'All correct' }))
+    await waitFor(() => expect(screen.getByTestId('second-review-confirm')).toBeEnabled())
+    await user.click(screen.getByTestId('second-review-dispute'))
+    const dialog = await screen.findByRole('dialog', { name: 'Dispute the approval?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Dispute' }))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/decision',
+        expect.objectContaining({ body: JSON.stringify({ decision: 'reject', role: 'domain_expert' }) }),
       ),
     )
   })

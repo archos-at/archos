@@ -4,7 +4,8 @@
  * Dev preview for Platform → countries (ADR-0165). Renders the REAL
  * CountryKnowledge on fixture data: the countries table, the review queue, and
  * (with `?request=1`) a submitted change request opened in its sheet, with an
- * authority, a std-asi listing and claims half reviewed.
+ * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
+ * a published one its author approved alone, its second review due (ADR-0176).
  *
  * A module-scope fetch shim (browser + dev only) serves the overview and the
  * change request. Not linked from anywhere; 404s outside development.
@@ -18,6 +19,9 @@ import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
 const REQUEST_ID = '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
+const ALONE_ID = '5d1c0a7e-2b3f-4e8d-9c6a-7f1e2d3c4b5a'
+const FOUR_EYES = { approval: 'four_eyes', secondReview: null }
+const DUE = { approval: 'single', secondReview: { state: 'due', by: null, at: null } }
 
 const OVERVIEW = {
   countries: [
@@ -27,8 +31,9 @@ const OVERVIEW = {
     { countryId: 'LI', released: {}, openRequests: 0, entitledOffices: 0, overdueEditions: 0 },
   ],
   queue: [
-    { id: REQUEST_ID, title: 'MA 37 und die ÖNORMen der OIB-RL 4', countryId: 'AT', status: 'submitted', createdBy: 'user_a', createdAt: '2026-11-10T08:00:00Z', revisionCount: 3 },
-    { id: 'c2', title: 'Bayern: Gebiete', countryId: 'DE', status: 'submitted', createdBy: 'user_b', createdAt: '2026-11-09T08:00:00Z', revisionCount: 97 },
+    { id: REQUEST_ID, title: 'MA 37 und die ÖNORMen der OIB-RL 4', countryId: 'AT', status: 'submitted', createdBy: 'user_a', createdAt: '2026-11-10T08:00:00Z', revisionCount: 3, ...FOUR_EYES },
+    { id: 'c2', title: 'Bayern: Gebiete', countryId: 'DE', status: 'submitted', createdBy: 'user_b', createdAt: '2026-11-09T08:00:00Z', revisionCount: 97, ...FOUR_EYES },
+    { id: ALONE_ID, title: 'Liechtenstein: Baugesetz 2026', countryId: 'LI', status: 'published', createdBy: 'user_a', createdAt: '2026-11-08T08:00:00Z', revisionCount: 3, ...DUE },
   ],
 }
 
@@ -41,6 +46,7 @@ const REQUEST = {
   createdAt: '2026-11-10T08:00:00Z',
   submittedAt: '2026-11-10T09:00:00Z',
   publishedAt: null,
+  ...FOUR_EYES,
   approvals: [],
   releases: [],
   captures: [
@@ -111,6 +117,36 @@ const REQUEST = {
   ],
 }
 
+/** The same records, published after its author approved it alone; nobody has given the second review yet. */
+const ALONE = {
+  ...REQUEST,
+  ...DUE,
+  id: ALONE_ID,
+  title: 'Liechtenstein: Baugesetz 2026',
+  countryId: 'LI',
+  status: 'published',
+  publishedAt: '2026-11-08T10:00:00Z',
+  approvals: [
+    {
+      approver: 'user_a',
+      role: 'domain_expert',
+      decisionSource: 'app',
+      decidedAt: '2026-11-08T09:30:00Z',
+      overrideReason: 'Einzige Plattformverantwortliche diese Woche; Zweitprüfung folgt.',
+    },
+  ],
+  releases: REQUEST.revisions.map((revision, index) => ({
+    seq: index + 1,
+    recordId: revision.recordId,
+    channel: 'stable',
+    action: 'publish',
+    toRevisionId: revision.revisionId,
+    releasedAt: '2026-11-08T10:00:00Z',
+    approval: 'single',
+  })),
+  revisions: REQUEST.revisions.map((revision) => ({ ...revision, claims: revision.claims.map((claim) => ({ ...claim, decision: null })) })),
+}
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformCountriesShim?: boolean }
   if (!w.__platformCountriesShim) {
@@ -121,7 +157,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url === '/api/platform/knowledge') return Response.json(OVERVIEW)
       if (url.startsWith('/api/platform/knowledge/change-requests/')) {
         if (init?.method === 'POST') return Response.json({ recorded: 1 })
-        return Response.json(REQUEST)
+        return Response.json(url.includes(ALONE_ID) ? ALONE : REQUEST)
       }
       return real(input, init)
     }
@@ -134,13 +170,15 @@ export default function PlatformCountriesDevPage(): JSX.Element {
 
 function Preview(): JSX.Element {
   const t = useTranslations(platformCopy)
-  // `?request=1` opens the first request in the queue, through the real button.
+  // `?request=1` opens the first request in the queue, `?request=alone` the one approved alone, through the real button.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('request') !== '1') return
+    const which = new URLSearchParams(window.location.search).get('request')
+    if (which !== '1' && which !== 'alone') return
     let cancelled = false
     const open = (): void => {
       if (cancelled) return
-      const button = document.querySelector<HTMLButtonElement>('[data-testid="country-knowledge-queue"] button')
+      const buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid="country-knowledge-queue"] button')
+      const button = which === 'alone' ? buttons[buttons.length - 1] : buttons[0]
       if (button) button.click()
       else window.setTimeout(open, 100)
     }
