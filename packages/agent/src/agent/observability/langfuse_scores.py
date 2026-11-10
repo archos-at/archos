@@ -39,33 +39,18 @@ from dataclasses import dataclass
 from dataclasses import field
 from threading import Lock
 from typing import Any
-from typing import Literal
 
+from .base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS
 from .card_scores import card_validity_score  # noqa: F401  (re-exported)
 from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+from .score_definition import DataType
+from .score_definition import ScoreDefinition
 
 logger = logging.getLogger(__name__)
-
-DataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 HOST_ENV = "LANGFUSE_HOST"
 PUBLIC_KEY_ENV = "LANGFUSE_PUBLIC_KEY"
 SECRET_KEY_ENV = "LANGFUSE_SECRET_KEY"  # pragma: allowlist secret
-
-
-@dataclass(frozen=True)
-class ScoreDefinition:
-    """One score name Grid writes, and the Langfuse score config that describes it."""
-
-    name: str
-    data_type: DataType
-    description: str
-    #: Who writes it: the agent at runtime, the BFF from a vote, a reviewer in
-    #: an annotation queue, or a Langfuse LLM-as-a-judge evaluator.
-    writer: Literal["agent", "bff", "annotation", "judge"] = "agent"
-    categories: tuple[str, ...] = ()
-    min_value: float | None = None
-    max_value: float | None = None
 
 
 #: Every score Grid writes. Adding a score means adding it here first.
@@ -326,6 +311,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "On a turn asked to answer in an Anmerkung's thread: true when the model replied there itself, false "
         "when the socket had to post the answer for it. Not written when the turn may not post there.",
     ),
+    *BASE_KNOWLEDGE_SCORE_DEFINITIONS,
 )
 
 #: Scores a person or a judge writes inside Langfuse. Grid never writes these;

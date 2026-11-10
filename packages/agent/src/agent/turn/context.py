@@ -25,6 +25,9 @@ from agent.knowledge.restricted_collections import restricted_collections_in
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.knowledge.restricted_use import current_restricted_use
 from agent.knowledge.restricted_use import drew_on_other_projects
+from agent.observability.base_knowledge_scores import overdue_count
+from agent.observability.langfuse_scores import RuntimeScore
+from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_trace_attributes import record_lessons
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.project_context import RequestContext
@@ -342,6 +345,8 @@ async def _load_turn_context(
     if blocks.base_knowledge is not None:
         lines = blocks.base_knowledge.splitlines()
         record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
+        overdue = overdue_count(blocks.base_knowledge_labels)
+        emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="piloti")
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
         # An earlier turn drew on another project (ADR-0094): this one starts
         # with every door a whole project reads shut (`settle_restriction`).
