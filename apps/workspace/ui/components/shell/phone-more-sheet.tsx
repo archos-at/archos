@@ -9,17 +9,25 @@
  * (derived from the bar's tab list and the rail's gates, never a second list).
  * Rows are 56px, the current page is marked, and the actions that were behind
  * the avatar (appearance, language, tour, feedback, sign out) sit below the
- * destinations. The project switcher stays on the header pill.
+ * destinations.
+ *
+ * Its first row, inside a project, is the PROJECT SELECTOR: the project's name
+ * at 16/600 on one line over „Projekt wechseln“, one press (white with its
+ * edge) under the thumb. It turns the sheet into the project list
+ * (`PhoneProjectList`), with a way back to „Mehr“. Until 2026-11-10 the
+ * selector was a 44px press in the top band of every page, the place a thumb
+ * reaches worst, for something done a few times a day.
  */
 
 import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Check, ChevronRight, Compass, Globe, LogOut, MessagesSquare, Monitor, Moon, Sun } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, ChevronsUpDown, Compass, Globe, LogOut, MessagesSquare, Monitor, Moon, Sun } from 'lucide-react'
 
 import { useAuth } from '@/adapters/auth/use-auth'
-import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
+import { FOCUS_RING, FOCUS_RING_INSET } from '@/components/ui/focus-ring'
+import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { PRESSABLE } from '@/components/ui/press'
 import { SectionLabel } from '@/components/ui/section-label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -46,6 +54,8 @@ import { feedbackCopy } from '@/i18n/namespaces/feedback'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { isCurrentDestination, moreDestinations, type MoreDestination, type MoreFlags } from './phone-more'
+import { PhoneProjectList } from './phone-project-list'
+import type { ProjectSwitcherProject } from './project-list'
 import { useShellOverlays } from './shell-overlays'
 import type { SidebarUser } from './sidebar-user-menu'
 
@@ -54,7 +64,7 @@ const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
 const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark']
 
 const ROW =
-  'flex min-h-12 w-full items-center gap-3 px-4 text-left text-sm outline-none active:bg-accent ' +
+  'flex min-h-12 w-full items-center gap-3 px-4 text-left text-sm outline-none active:bg-desk ' +
   PRESSABLE +
   ' ' +
   FOCUS_RING_INSET
@@ -67,11 +77,17 @@ export interface PhoneMoreSheetProps extends MoreFlags {
   pathname?: string
   /** Heads the organisation's places, as it heads them in the rail; „Organisation" without it. */
   organizationName?: string | null
-  /** Heads the project's places, as the switcher heads them in the rail; „Projekt" without it. */
+  /** The project's name: the selector's first line, and the heading of the project's places. */
   projectName?: string | null
+  /** The projects „Projekt wechseln“ lists; without them (above a project, a preview) the sheet has no selector. */
+  projects?: ProjectSwitcherProject[]
+  /** The view the sheet opens in. A preview passes `projects` to show the list; the product always opens „Mehr“. */
+  initialView?: MoreView
   /** Who is signed in, shown first under „Konto". */
   user?: SidebarUser
 }
+
+type MoreView = 'more' | 'projects'
 
 function initials(user: SidebarUser): string {
   const source = (user.name || user.email || '').trim()
@@ -91,6 +107,8 @@ export function PhoneMoreSheet({
   pathname: pinnedPathname,
   organizationName = null,
   projectName = null,
+  projects,
+  initialView = 'more',
   user,
   ...flags
 }: PhoneMoreSheetProps): JSX.Element {
@@ -112,10 +130,18 @@ export function PhoneMoreSheet({
   const feedbackUpdatedCount = useFeedbackUpdatedCount()
   const feedbackAvailable = useFeedbackAvailable()
 
-  // A navigation closes the sheet, as it does the project sheet.
+  const [view, setView] = React.useState<MoreView>(initialView)
+  const selectable = projectId !== null && projects !== undefined && projectName !== null
+
+  // A navigation closes the sheet.
   React.useEffect(() => {
     setOpen(false)
   }, [pathname, setOpen])
+  // Every opening starts on „Mehr“: the list is one press further, not where the sheet was left.
+  React.useEffect(() => {
+    if (open) setView(initialView)
+  }, [open, initialView])
+  const listing = view === 'projects' && selectable
 
   const destinations = moreDestinations(projectId, pathname, flags)
   const label = (destination: MoreDestination): string =>
@@ -147,20 +173,61 @@ export function PhoneMoreSheet({
         closeLabel={t('tabBar.moreSheet.close')}
         data-slot="phone-more-sheet"
         className={cn(
-          'max-h-[85dvh] gap-0 overflow-hidden rounded-overlay p-0 outline-none',
+          'gap-0 overflow-hidden rounded-overlay p-0 outline-none',
+          // The list has a search: never taller than what the keyboard leaves,
+          // and a fixed height so typing does not move the sheet's top.
+          listing ? 'h-[min(85dvh,var(--visual-viewport-height,100dvh))] max-h-none' : 'max-h-[85dvh]',
           'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]'
         )}
       >
         <div aria-hidden className="bg-border mx-auto mt-2 h-1 w-9 shrink-0 rounded-full" />
-        <SheetHeader className="shrink-0 gap-0.5 px-4 pb-2 pt-3">
-          <SheetTitle className="text-base font-medium">{t('tabBar.moreSheet.title')}</SheetTitle>
-          <SheetDescription className="sr-only">{t('tabBar.moreSheet.description')}</SheetDescription>
+        <SheetHeader className={cn('shrink-0 flex-row items-center gap-1 px-4 pt-3', listing ? 'pb-3 pl-1.5' : 'pb-2')}>
+          {listing && (
+            <button
+              type="button"
+              onClick={() => setView('more')}
+              aria-label={t('backTo', { label: t('tabBar.moreSheet.title') })}
+              className={cn('text-muted-foreground active:bg-desk -my-2.5 flex size-11 shrink-0 items-center justify-center rounded-control outline-none', FOCUS_RING)}
+            >
+              <ChevronLeft className="size-5" aria-hidden />
+            </button>
+          )}
+          <SheetTitle className="text-base font-medium">
+            {listing ? t('projectSwitcher.switchHeading') : t('tabBar.moreSheet.title')}
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            {listing ? t('projectSheet.description') : t('tabBar.moreSheet.description')}
+          </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
+        {listing && <PhoneProjectList projects={projects} activeProjectId={projectId} onDone={() => setOpen(false)} />}
+        <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2', listing && 'hidden')}>
+          {selectable && (
+            // The project selector, the sheet's first row: a press (white with
+            // its 12% edge, radius 6), the name whole on its own line. `mt-px`,
+            // or the scroll box, flush with it, cuts its edge (gotchas.md).
+            <button
+              type="button"
+              data-project-selector=""
+              onClick={() => setView('projects')}
+              aria-label={t('projectSwitcher.switchCurrent', { name: projectName })}
+              className={cn(
+                'bg-sheet shadow-press active:bg-pressed dark:bg-transparent mx-4 mt-px mb-2 flex min-h-14 w-[calc(100%-2rem)] items-center gap-3 rounded-control py-2 pr-3 pl-4 text-left outline-none',
+                PRESSABLE,
+                FOCUS_RING
+              )}
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <MiddleTruncate text={projectName} tail={12} className="text-foreground text-section" />
+                <span className="text-muted-foreground text-name">{t('projectSwitcher.switchHeading')}</span>
+              </span>
+              <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            </button>
+          )}
           {/* The project's places, then the organisation's under its name,
               as the rail groups them. */}
           {[
-            { key: 'project', label: projectName ?? t('tabBar.moreSheet.project'), list: projectPlaces },
+            // Under the selector, which names the project, the group is „Projekt“; without it, the name.
+            { key: 'project', label: selectable ? t('tabBar.moreSheet.project') : (projectName ?? t('tabBar.moreSheet.project')), list: projectPlaces },
             { key: 'organization', label: organizationName ?? t('sectionGroups.org'), list: orgPlaces },
           ].map(({ key, label: groupLabel, list }) =>
             list.length > 0 ? (
@@ -173,7 +240,7 @@ export function PhoneMoreSheet({
             {/* Who is signed in, first, as the avatar menu's header says it. */}
             {user && (
               <li className="flex min-h-12 items-center gap-3 px-4">
-                <span className="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium">
+                <span className="bg-desk text-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium">
                   {initials(user)}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">

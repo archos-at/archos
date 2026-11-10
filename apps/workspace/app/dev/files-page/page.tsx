@@ -17,8 +17,6 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import { CheckSquare, FolderPlus } from 'lucide-react'
 import { notFound, useSearchParams } from 'next/navigation'
-import { AppSidebar } from '@/components/shell/app-sidebar'
-import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents/components/document-actions'
 import { FileBrowserPane } from '@/features/documents/components/file-browser-pane'
@@ -36,20 +34,8 @@ import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-
 import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { I18nProvider } from '@/i18n'
-import { installConnectionHealthFake } from '../_fixtures/connection-health'
-import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
+import { DevRailShell } from '../_fixtures/rail-shell'
 import { FILES, FOLDERS, useFixtureFolderNav } from '../file-browser/fixtures'
-
-// For the `?rail=1` shell: a count on the Postfach and a healthy connection, so the shot does not depend on load time.
-installInboxBadgeFake(3)
-installConnectionHealthFake()
-
-const RAIL_PROJECTS = [
-  { id: 'dev', name: 'Wohnhaus Lindengasse' },
-  { id: 'p-2', name: 'Sanierung Amtshaus Favoriten' },
-  { id: 'p-4', name: 'Bürohaus Lände 3' },
-]
-const RAIL_PATH = '/app/projects/dev/files'
 
 function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const phone = usePhoneLayout()
@@ -147,23 +133,8 @@ function FilesPageInShell(): JSX.Element {
   const inShell = useSearchParams()?.get('rail') === '1'
   if (!inShell) return <FilesPage />
   return (
-    <div className="bg-background text-foreground flex h-dvh flex-col overflow-hidden md:flex-row">
-      <AppSidebar
-        projectId="dev"
-        projects={RAIL_PROJECTS}
-        pathname={RAIL_PATH}
-        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
-        organizationName="Musterarchitektur ZT GmbH"
-        authRequired={false}
-        canViewOrganization
-        canAccessOfficeShelf
-        canAccessInbox
-        showSkills
-      />
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
-        <FilesPage inShell />
-      </main>
-      <PhoneTabBar projectId="dev" canAccessOfficeShelf canAccessInbox pathname={RAIL_PATH} />
-    </div>
+    <DevRailShell projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files">
+      <FilesPage inShell />
+    </DevRailShell>
   )
 }

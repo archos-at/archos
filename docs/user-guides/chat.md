@@ -2,7 +2,7 @@
 
 The chat talks to the agent over a WebSocket, for real-time interaction with full HITL (human-in-the-loop) support.
 
-On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and a project pill with search sits above the thread header.
+On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and the project's name with the search sits above the thread header. To switch projects on a phone, open **Mehr** in the tab bar: its first entry shows the project you are in, and **Projekt wechseln** opens the list.
 
 ## Starting a conversation
 

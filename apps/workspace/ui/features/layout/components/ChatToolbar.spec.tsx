@@ -236,20 +236,17 @@ describe('ChatToolbar', () => {
 
   describe('phone context row', () => {
     beforeEach(() => {
-      useShellOverlays.setState({ paletteOpen: false, projectSheetOpen: false })
+      useShellOverlays.setState({ paletteOpen: false })
       mockIsMobile = false
     })
 
-    test('names the project and opens the switcher sheet — the chat route has no phone header', async () => {
-      const user = userEvent.setup()
+    test('names the project as a quiet line — the chat route has no phone band, and the selector is in „Mehr“', () => {
       render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
 
       const row = screen.getByTestId('chat-project-context')
-      const pill = within(row).getByTestId('project-pill')
-      expect(pill).toHaveTextContent('Wohnbau Favoriten')
-      await user.click(pill)
-
-      expect(useShellOverlays.getState().projectSheetOpen).toBe(true)
+      expect(within(row).getByTestId('project-crumb')).toHaveTextContent('Wohnbau Favoriten')
+      // The search is the row's one control.
+      expect(within(row).getAllByRole('button').map((button) => button.getAttribute('data-testid'))).toEqual(['shell-search'])
     })
 
     test('carries the search that opens the command palette', async () => {
@@ -264,7 +261,7 @@ describe('ChatToolbar', () => {
     test('is there on a chat that has not started, where the reader most needs a way out', () => {
       render(<ChatToolbar projectName="Wohnbau Favoriten" isChatStarted={false} />)
 
-      expect(screen.getByTestId('project-pill')).toBeInTheDocument()
+      expect(screen.getByTestId('project-crumb')).toBeInTheDocument()
       expect(screen.getByTestId('shell-search')).toBeInTheDocument()
     })
 

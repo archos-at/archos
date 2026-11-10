@@ -40,10 +40,10 @@
  * organisation or platform rights: the organisation's group is Suche and
  * the Postfach alone.
  *
- * Below `md` the same page is the PHONE shell: the rail's top band (project
- * pill, search), a content stand-in, and the bottom tab bar, lit for Dateien.
- * One more state for the phone, via `?open=switcher`: the project pill
- * pressed, the switcher sheet. („Mehr" has its own preview, `/dev/phone-more`.)
+ * Below `md` the same page is the PHONE shell: the rail's top band (the
+ * project's name, search), a content stand-in, and the bottom tab bar, lit for
+ * Dateien. Two more states for the phone: `?open=more`, „Mehr" with the project
+ * selector as its first row, and `?open=switcher`, the project list it opens.
  */
 
 import type { JSX } from 'react'
@@ -51,7 +51,7 @@ import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
-import { ProjectSwitcherSheet } from '@/components/shell/project-switcher-sheet'
+import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
@@ -119,12 +119,12 @@ export default function AppRailPreview(): JSX.Element {
   const open = params?.get('open')
   const viewer = params?.get('gates') === 'viewer'
   const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
-  const setSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
+  const setSheetOpen = useShellOverlays((s) => s.setMoreSheetOpen)
 
   // After the first paint, so the sheet opens as it does on a press.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (open === 'switcher') setSheetOpen(true)
+      if (open === 'switcher' || open === 'more') setSheetOpen(true)
     }, 150)
     return () => window.clearTimeout(timer)
   }, [open, setSheetOpen])
@@ -173,7 +173,22 @@ export default function AppRailPreview(): JSX.Element {
         </p>
       </main>
       <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={previewPath} />
-      <ProjectSwitcherSheet projects={PROJECTS} activeProjectId="p-1" />
+      <PhoneMoreSheet
+        projectId="p-1"
+        projects={PROJECTS}
+        projectName={PROJECTS[0]!.name}
+        initialView={open === 'switcher' ? 'projects' : 'more'}
+        pathname={previewPath}
+        organizationName="Musterarchitektur ZT GmbH"
+        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
+        authRequired={false}
+        canAccessOfficeShelf
+        canAccessInbox
+        showSkills
+        canViewOrganization
+        canManageOrganization={false}
+        canManagePlatform={false}
+      />
     </div>
   )
 }

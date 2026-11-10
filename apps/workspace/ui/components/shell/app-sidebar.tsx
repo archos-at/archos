@@ -19,8 +19,9 @@
  * `org` group under the project's — because they are reachable from inside a
  * project, where they open as sheets above it.
  *
- * Below `md` this renders the phone's top band only; the destinations are the
- * tab bar's (`PhoneTabBar`) and „Mehr"'s. Collapse persistence lives in the
+ * Below `md` this renders the phone's top band only (the project's name as a
+ * quiet line, the search); the destinations are the tab bar's (`PhoneTabBar`)
+ * and „Mehr"'s, whose first row is the project selector. Collapse persistence lives in the
  * primitive (`sidebar.collapsed`).
  */
 
@@ -54,7 +55,7 @@ import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
 import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
-import { ProjectPill } from './project-pill'
+import { ProjectCrumb } from './project-crumb'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
@@ -68,7 +69,6 @@ import {
 } from './project-sections'
 import { phoneBackTarget } from './phone-tabs'
 import { useRecordRecentProject } from './recent-projects'
-import { useShellOverlays } from './shell-overlays'
 import { ShellSearchButton } from './shell-search-button'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
@@ -223,9 +223,6 @@ function AppSidebarFrame({
   const inboxDoor = useStartDockDoor('inbox')
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
 
-  const projectSheetOpen = useShellOverlays((s) => s.projectSheetOpen)
-  const setProjectSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
-
   const base = `/app/projects/${projectId}`
 
   // Chat owns its top chrome (floating pills), so the global mobile top bar is
@@ -308,24 +305,25 @@ function AppSidebarFrame({
   return (
     <>
       {/* The phone's top band. Hidden on chat, whose toolbar is its own top
-          band. The project's name is the door to the switcher sheet; the
-          destinations live in the tab bar at the bottom (`PhoneTabBar`), and
-          „Mehr" there lists the rest. */}
+          band. It says which project this is, as a quiet line, and holds the
+          search; it is not a control. The destinations live in the tab bar at
+          the bottom (`PhoneTabBar`), and the project selector is the first row
+          of „Mehr" there. */}
       <header
         data-scope="project"
         className={cn(
           // The app renders edge-to-edge (`viewportFit: 'cover'` in the root
           // viewport), so a bar pinned to the top of the screen has to say where
-          // the screen actually starts. `min-h-14` rather than `h-14`, because the
+          // the screen actually starts. `min-h-11` rather than `h-11`, because the
           // inset has to be able to make the bar taller instead of eating its
           // contents. The header band is the page's own paper (Paper on a
-          // desk, „The three planes“), so it draws no fill and no rule: the
-          // project's press is the one white thing on it.
+          // desk, „The three planes“), so it draws no fill and no rule.
           'bg-background w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden',
           isChatRoute ? 'hidden' : 'flex'
         )}
       >
-        <div className="flex min-h-14 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+        {/* 44px, the search glyph's own height: the band was 56px round a 44px press. */}
+        <div className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
           {back && (
             <Link
               href={back.href}
@@ -335,17 +333,8 @@ function AppSidebarFrame({
               <ChevronLeft className="size-5" aria-hidden />
             </Link>
           )}
-          <ProjectPill
-            name={activeProject?.name ?? t('projectSwitcher.select')}
-            label={
-              activeProject
-                ? t('projectSwitcher.switchCurrent', { name: activeProject.name })
-                : t('projectSwitcher.select')
-            }
-            expanded={projectSheetOpen}
-            onOpen={() => setProjectSheetOpen(true)}
-            className={back ? undefined : 'ml-1'}
-          />
+          {/* On the page's 16px gutter, where the title under it starts. */}
+          {activeProject && <ProjectCrumb name={activeProject.name} className={cn('flex-1', !back && 'ml-2')} />}
           <ShellSearchButton className="ml-auto" />
         </div>
         {isMobile && <ConnectionBand />}

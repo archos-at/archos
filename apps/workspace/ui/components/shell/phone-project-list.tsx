@@ -1,14 +1,15 @@
 'use client'
 
 /**
- * The project switcher on a phone: a bottom sheet, one tap from anywhere in a
- * project.
+ * The project list on a phone: what „Projekt wechseln“ opens inside „Mehr“
+ * (`PhoneMoreSheet`).
  *
- * The desktop switcher is a dropdown at the top of the rail. On a phone that
- * rail is a drawer, so a switch was two stretches to the top of the screen
- * (open the drawer, open the dropdown) followed by a 32px row. Here the
- * project name in the header is the door, the list rises from the bottom where
- * the thumb already is, and every row is 56px.
+ * Until 2026-11-10 it was a sheet of its own, opened from a project press in
+ * the phone's top band. The selector moved to „Mehr“: the band names the
+ * project as a quiet line and no longer spends 56px of every page on a press
+ * used a few times a day. The list is the same one: a search, the projects
+ * opened last, the rest, „Alle Projekte ansehen“, every row 56px, in the order
+ * the rail's selector lists them (`project-list.ts`).
  *
  * ORDER. The projects this reader opened last come first (`recent-projects`),
  * because on site the switch is almost always between the two or three
@@ -16,9 +17,8 @@
  * folds both into one list of matches. "Alle Projekte" at the foot goes to the
  * projects home, where closed projects and the full search live.
  *
- * The sheet does not focus its search field on open. Focus would raise the
- * keyboard over the very rows the reader opened the sheet to tap; the field is
- * one tap away for the reader who wants it.
+ * The search field is not focused when the list opens. Focus would raise the
+ * keyboard over the very rows the reader opened it to tap.
  */
 
 import type { JSX } from 'react'
@@ -31,50 +31,31 @@ import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { SearchField } from '@/components/ui/search-field'
 import { SectionLabel } from '@/components/ui/section-label'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 import { switcherSections, type ProjectSwitcherProject } from './project-list'
-
 import { readRecentProjectIds } from './recent-projects'
-import { useShellOverlays } from './shell-overlays'
 
-export interface ProjectSwitcherSheetProps {
+export interface PhoneProjectListProps {
   projects: ProjectSwitcherProject[]
   activeProjectId?: string
+  /** A project was chosen or „Alle Projekte ansehen“ pressed: the sheet that holds the list closes. */
+  onDone: () => void
 }
 
-export function ProjectSwitcherSheet({
-  projects,
-  activeProjectId,
-}: ProjectSwitcherSheetProps): JSX.Element {
+export function PhoneProjectList({ projects, activeProjectId, onDone }: PhoneProjectListProps): JSX.Element {
   const t = useTranslations(navCopy)
   const router = useRouter()
-  const open = useShellOverlays((s) => s.projectSheetOpen)
-  const setOpen = useShellOverlays((s) => s.setProjectSheetOpen)
   const [query, setQuery] = React.useState('')
-  const [recentIds, setRecentIds] = React.useState<string[]>([])
-  const contentRef = React.useRef<HTMLDivElement>(null)
-
-  // Read on every open, not once: the reader may have moved between projects
-  // since the sheet last stood.
-  React.useEffect(() => {
-    if (!open) return
-    setRecentIds(readRecentProjectIds())
-    setQuery('')
-  }, [open])
+  // Read on every mount, which is every opening: the reader may have moved
+  // between projects since the list last stood.
+  const [recentIds] = React.useState<string[]>(() => readRecentProjectIds())
 
   const sections = switcherSections(projects, activeProjectId, recentIds, query)
   const choose = (projectId: string): void => {
-    setOpen(false)
+    onDone()
     // Switching into a project lands on its chat, as the desktop switcher does.
     if (projectId !== activeProjectId) router.push(`/app/projects/${projectId}/chat`)
   }
@@ -88,31 +69,7 @@ export function ProjectSwitcherSheet({
   )
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent
-        ref={contentRef}
-        side="bottom"
-        closeLabel={t('projectSheet.close')}
-        data-slot="project-switcher-sheet"
-        onOpenAutoFocus={(event) => {
-          event.preventDefault()
-          contentRef.current?.focus()
-        }}
-        className={cn(
-          'gap-0 overflow-hidden rounded-overlay p-0 outline-none',
-          // Never taller than what the keyboard leaves, so the field and the
-          // first matches stay in view while the reader types.
-          'h-[min(85dvh,var(--visual-viewport-height,100dvh))] max-h-none',
-          'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]'
-        )}
-      >
-        <div aria-hidden className="bg-border mx-auto mt-2 h-1 w-9 shrink-0 rounded-full" />
-        <SheetHeader className="shrink-0 gap-0.5 px-4 pb-3 pt-3">
-          <SheetTitle className="text-base font-medium">
-            {t('projectSwitcher.switchHeading')}
-          </SheetTitle>
-          <SheetDescription className="sr-only">{t('projectSheet.description')}</SheetDescription>
-        </SheetHeader>
+    <div data-slot="phone-project-list" className="flex min-h-0 flex-1 flex-col">
         <div className="shrink-0 px-4 pb-2">
           <SearchField
             value={query}
@@ -157,7 +114,7 @@ export function ProjectSwitcherSheet({
               grey bar it stood a screen away from the projects it belongs to. */}
           <Link
             href="/app/projects"
-            onClick={() => setOpen(false)}
+            onClick={onDone}
             className={cn(
               'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
               PRESSABLE,
@@ -169,8 +126,7 @@ export function ProjectSwitcherSheet({
             <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </Link>
         </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   )
 }
 

@@ -24,7 +24,7 @@
  *
  * ON A PHONE the chrome has a second half: the bottom tab bar
  * (`PhoneTabBar`), mounted after `<main>` so it sits in flow under the page
- * rather than over it, and the project switcher sheet its header opens.
+ * rather than over it, and „Mehr“ (`PhoneMoreSheet`), whose first row is the project selector.
  *
  * OVERLAY ROUTES KEEP THE CHROME OF THE PAGE THEY COVER. The Archiv and the
  * Postfach are intercepted routes: a soft navigation to `/app/office-shelf` changes
@@ -64,7 +64,6 @@ import { projectIdFromPathname } from './org-sections'
 import { PhoneMoreSheet } from './phone-more-sheet'
 import { PhoneTabBar } from './phone-tab-bar'
 import { phoneTabBarHiddenOnRoute } from './phone-tabs'
-import { ProjectSwitcherSheet } from './project-switcher-sheet'
 import { useKeyboardUp } from './use-keyboard-up'
 import type { ProjectSwitcherProject } from './project-switcher'
 import type { SidebarUser } from './sidebar-user-menu'
@@ -278,6 +277,7 @@ export function AppShellChrome({
       {inProject && tabBarShown && (
         <PhoneMoreSheet
           projectId={projectId}
+          projects={chrome.projects}
           organizationName={chrome.organizationName}
           projectName={chrome.projects.find((project) => project.id === projectId)?.name ?? null}
           user={chrome.user}
@@ -290,7 +290,6 @@ export function AppShellChrome({
           canManagePlatform={chrome.canManagePlatform}
         />
       )}
-      {inProject && <ProjectSwitcherSheet projects={chrome.projects} activeProjectId={projectId} />}
       {overlay}
     </div>
     </FeedbackProvider>

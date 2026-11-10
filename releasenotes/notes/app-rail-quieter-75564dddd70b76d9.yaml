@@ -3,7 +3,12 @@ improvements:
   - >
     The project selector at the top of the sidebar is one button with the
     project's name on a single line, and the list of projects opens right
-    under it; on a phone it is the same button at the top of the screen.
+    under it.
+  - >
+    On a phone you switch projects from „Mehr“: its first entry shows the
+    project you are in, and „Projekt wechseln“ opens the list of projects.
+    The top of each page names the project in one quiet line and leaves more
+    room for the page.
   - >
     A project name too long for the selector is shortened in the middle, so
     its end stays readable, and is never wrapped onto a second line.

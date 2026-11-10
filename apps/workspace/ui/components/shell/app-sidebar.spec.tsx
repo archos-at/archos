@@ -68,7 +68,7 @@ afterEach(() => {
   // the rail used to hand the icon rail to every test that ran after it.
   window.localStorage.removeItem('sidebar.collapsed')
   vi.mocked(useIsMobile).mockReturnValue(false)
-  useShellOverlays.setState({ projectSheetOpen: false, paletteOpen: false })
+  useShellOverlays.setState({ paletteOpen: false })
 })
 
 describe('the Inbox entry follows canAccessInbox, in both directions', () => {
@@ -295,17 +295,19 @@ describe('AppSidebar - mobile top bar', () => {
 })
 
 describe('AppSidebar - the phone top band', () => {
-  test("names the project, and opens the switcher sheet from it", async () => {
+  test('names the project as a quiet line, and is not the project selector', () => {
+    // The selector is the first row of „Mehr“ on a phone (2026-11-10): the
+    // band was a 56px row round a 44px press on every page.
     pathname = '/app/projects/p1/files'
-    const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    const pill = within(screen.getByRole('banner')).getByTestId('project-pill')
-    expect(pill).toHaveTextContent('Project One')
-    expect(pill).toHaveAttribute('aria-expanded', 'false')
-
-    await user.click(pill)
-
-    expect(useShellOverlays.getState().projectSheetOpen).toBe(true)
+    const banner = screen.getByRole('banner')
+    const crumb = within(banner).getByTestId('project-crumb')
+    expect(crumb).toHaveTextContent('Project One')
+    expect(crumb).toHaveClass('text-muted-foreground', 'text-name')
+    // One control in the band: the search. Nothing opens a project list from here.
+    expect(within(banner).getAllByRole('button').map((button) => button.getAttribute('data-testid'))).toEqual(['shell-search'])
+    expect(banner.querySelector('.min-h-11')).not.toBeNull()
+    expect(banner.querySelector('.min-h-14')).toBeNull()
   })
 
   test('carries the search that opens the command palette', async () => {
