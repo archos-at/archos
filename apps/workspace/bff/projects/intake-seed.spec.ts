@@ -25,8 +25,9 @@ vi.mock('./repository', () => ({
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
+import { siteCountry } from '@/lib/project-profile/site'
 import { makeProject } from '@/test-utils/db-fixtures'
-import { intakeRowFor, intakeSeed, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
+import { intakeRowFor, intakeSeed, POSTAL_CODE_REASON, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
 
 const NOW = new Date('2026-10-14T09:00:00Z')
 const session = { organizationId: 'org_1', userId: 'user_pl' } as AuthorizedSession
@@ -82,7 +83,7 @@ describe('intakeSeed', () => {
   })
 
   // Defect 3 (design 2.2): a typed address no register confirmed was stored as a confirmed fact.
-  it('keeps a typed address as an unconfirmed assumption with the person as evidence, and derives nothing from it', () => {
+  it('keeps a typed address as an unconfirmed assumption with the person as evidence, and derives nothing from it without a postal code', () => {
     const { facts, assumptions } = intakeSeed({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
     expect(facts).toEqual({})
     expect(assumptions.site_address).toEqual({
@@ -94,6 +95,65 @@ describe('intakeSeed', () => {
       evidence: [{ kind: 'person', userId: 'u1', at: NOW.toISOString() }],
     })
     expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
+  })
+
+  // Review of #1545, fix 6: with address search off, an Austrian office's new
+  // project must not start without its Land. The PLZ suggests it; the person confirms.
+  it('suggests the Bundesland from an Austrian postal code and place, as an unconfirmed derivation', () => {
+    const { facts, assumptions } = intakeSeed({ address: 'Herrengasse 16, 8010 Graz' }, NOW, 'u1')
+    expect(facts).toEqual({})
+    expect(assumptions.federal_state).toEqual({
+      value: 'styria',
+      status: 'unconfirmed',
+      reason: POSTAL_CODE_REASON,
+      source: 'onboarding_default',
+      updatedAt: NOW.toISOString(),
+      evidence: [
+        {
+          kind: 'derivation',
+          rule: 'postal_code',
+          citation: 'PLZ 8010 (GeoNames, CC BY 4.0)',
+          inputs: [{ key: 'site_address', value: 'Herrengasse 16, 8010 Graz', suggested: true }],
+        },
+      ],
+    })
+    expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
+    expect(siteCountry({ facts, assumptions })).toBe('at')
+  })
+
+  it('suggests no Land for a Swiss address with a four-digit code', () => {
+    const { assumptions } = intakeSeed({ address: 'Bahnhofstrasse 1, 8001 Zürich' }, NOW, 'u1')
+    expect(assumptions.federal_state).toBeUndefined()
+    expect(siteCountry({ facts: {}, assumptions })).toBeNull()
+  })
+
+  it('keeps a Land chosen by hand over the one the postal code suggests', () => {
+    const { facts, assumptions } = intakeSeed(
+      { address: 'Herrengasse 16, 8010 Graz', federalState: 'vienna' },
+      NOW,
+      'u1'
+    )
+    expect(facts.federal_state?.value).toBe('vienna')
+    expect(assumptions.federal_state).toBeUndefined()
+  })
+
+  it('writes a country chosen by hand, outside Austria, and no Land from an Austrian-looking postal code', () => {
+    const { facts, assumptions } = intakeSeed(
+      { address: 'Herrengasse 16, 8010 Graz', country: 'de', federalState: 'styria' },
+      NOW,
+      'u1'
+    )
+    expect(facts.country?.value).toBe('de')
+    expect(facts.federal_state?.value).toBe('outside_austria')
+    expect(assumptions.federal_state).toBeUndefined()
+    expect(siteCountry({ facts, assumptions })).toBe('de')
+  })
+
+  it('writes Austria chosen by hand and still suggests the Land from the postal code', () => {
+    const { facts, assumptions } = intakeSeed({ address: 'Hauptplatz 1, 4020 Linz', country: 'at' }, NOW, 'u1')
+    expect(facts.country?.value).toBe('at')
+    expect(facts.federal_state).toBeUndefined()
+    expect(assumptions.federal_state?.value).toBe('upper_austria')
   })
 
   it('takes the chosen hit over a typed line', () => {

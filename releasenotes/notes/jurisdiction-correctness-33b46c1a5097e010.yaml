@@ -11,6 +11,10 @@ fixes:
     search, now waits for your confirmation instead of counting as confirmed.
 features:
   - >
+    When you create a project you can state its country and, in Austria, its
+    Bundesland. Left empty, the postal code of an Austrian address suggests
+    the Bundesland, and you confirm it during setup.
+  - >
     A new organization names the country its office is in, and upload
     screening can now also hold files with German social insurance numbers or
     tax IDs.

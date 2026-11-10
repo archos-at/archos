@@ -214,7 +214,8 @@ The project context includes confirmed facts (hard constraints), unknowns (gaps)
 # ---------------------------------------------------------------------------
 
 _SECTION_HEADER = re.compile(r"^(confirmed|assumptions):\s*$")
-_SITE_LINE = re.compile(r"^-\s*(country|federal_state)=([a-z_]+)\b")
+# Case-blind on the value, as the TypeScript twin (`site.ts`) lowercases it: `country=DE` places in Germany.
+_SITE_LINE = re.compile(r"^-\s*(country|federal_state)=([a-z_]+)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -252,7 +253,7 @@ def _site_lines(project_context: str) -> dict[str, dict[str, str]]:
         section = _section_after(raw, section)
         match = _SITE_LINE.match(raw.strip()) if section else None
         if section and match:
-            found[section].setdefault(match.group(1), match.group(2))
+            found[section].setdefault(match.group(1).lower(), match.group(2).lower())
     return found
 
 

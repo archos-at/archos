@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
-import { isValidFederalStateToken } from '@/lib/project-profile/intake-conditions'
+import { isValidCountryToken, isValidFederalStateToken } from '@/lib/project-profile/intake-conditions'
 import { normalizeProfileToken } from '@/lib/project-profile/legacy-names'
 import { MAX_INTAKE_DESCRIPTION_LENGTH } from '@/lib/project-intake/types'
 import { monthSchema } from './month'
@@ -54,6 +54,8 @@ export const createProjectFieldsSchema = z
       .transform((token) => normalizeProfileToken('federal_state', token))
       .refine(isValidFederalStateToken, 'A Bundesland token.')
       .optional(),
+    /** The site's country, chosen first: `at`, `de`, `ch` or `other`. Any but `at` places the project outside Austria. */
+    country: z.string().trim().toLowerCase().refine(isValidCountryToken, 'A country token: at, de, ch or other.').optional(),
   })
   .strict()
 

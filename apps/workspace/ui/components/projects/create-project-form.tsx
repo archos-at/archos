@@ -39,6 +39,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { MonthInput } from '@/components/ui/month-input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AddressField, type AddressFieldProps, type AddressValue } from './address-field'
+import { EMPTY_SITE_PLACE, setSitePlace, SitePlaceFields, type SitePlace } from './site-place-fields'
 import { createProject } from '@/app/app/(shell)/projects/actions'
 import {
   FileDropOverlay,
@@ -144,6 +145,7 @@ export function CreateProjectForm({
     defaultValues: {
       name: initial?.name ?? '',
       address: { text: initial?.address ?? '', place: null } as AddressValue,
+      site: EMPTY_SITE_PLACE as SitePlace,
       description: initial?.description ?? '',
       state: 'active' as CreateProjectState,
       outcome: '' as ProjectOutcome | '',
@@ -273,6 +275,15 @@ export function CreateProjectForm({
             />
           )}
         </form.Field>
+
+        {/* A chosen hit knows its Land; the picker is for a typed address. */}
+        {!values.address.place && (
+          <form.Field name="site">
+            {(site) => (
+              <SitePlaceFields value={site.state.value} onChange={site.handleChange} disabled={isSubmitting} />
+            )}
+          </form.Field>
+        )}
 
         {/* The state and what a closed project adds stay one block, so the
             folded part costs no gap of its own while it is shut. */}
@@ -548,12 +559,13 @@ function FolderZone({
 
 /**
  * The action's fields. `name`, `state` and `setup` always; the address (the chosen hit, else the typed
- * line), the description and the held drop's key when given; the closed project's facts when it is closed.
+ * line and the country and Land chosen beside it), the description and the held drop's key when given; the closed project's facts when it is closed.
  */
 function toFormData(
   value: {
     name: string
     address: AddressValue
+    site: SitePlace
     description: string
     state: CreateProjectState
     outcome: string
@@ -570,6 +582,7 @@ function toFormData(
   if (value.description.trim() !== '') formData.set('description', value.description.trim())
   if (value.address.place) formData.set('location', JSON.stringify(value.address.place))
   else if (value.address.text.trim() !== '') formData.set('address', value.address.text.trim())
+  if (!value.address.place) setSitePlace(formData, value.site)
   if (value.state !== 'closed') return formData
   formData.set('outcome', value.outcome)
   formData.set('startedOn', value.startedOn)

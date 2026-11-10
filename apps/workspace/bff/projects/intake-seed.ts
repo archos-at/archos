@@ -9,15 +9,21 @@
  * An address typed and not chosen from a list (no geocoder configured, or no
  * hit taken) is the person's own line, and no register confirmed it: it goes
  * in as an unconfirmed assumption (`site_address`, the person as its evidence),
- * never as a confirmed fact, and nothing is derived from it (design
- * `docs/design/international/design.md`, invariant A1). The Bundesland is then
- * the reading's to find or the review's to ask. A Bundesland chosen by hand
- * (older API callers) is a fact without evidence.
+ * never as a confirmed fact (design `docs/design/international/design.md`,
+ * invariant A1). Its Postleitzahl and place, when they name one Austrian Land
+ * (`postal-place.ts`, a table shipped with the code), suggest the Bundesland:
+ * an unconfirmed assumption carrying the derivation as its evidence, which
+ * places the project in Austria as unverified until the person confirms it.
+ * Otherwise the Bundesland is the reading's to find or the review's to ask. A
+ * Bundesland chosen by hand (the create form's picker, an API caller) is a fact
+ * the person stated.
  *
  * `country` is written as `at` only for an Austrian site: a geocoder hit (the
- * adapter keeps Austrian hits only) or an Austrian Land. A project marked
- * `outside_austria` gets no country: it is not Austrian, and which country it
- * is, the intake asks.
+ * adapter keeps Austrian hits only), an Austrian Land, or Austria chosen by
+ * hand. A country chosen by hand other than Austria is written as stated, with
+ * `federal_state=outside_austria`, and outranks an Austrian Land in the same
+ * body. A project marked `outside_austria` with no country gets none: which
+ * country it is, the intake asks.
  *
  * The profile and the intake row are one write (`seedProjectProfile`'s
  * `inTransaction`), so a project never has facts without its intake or the
@@ -34,6 +40,7 @@ import type { GeocodeResult } from '@/lib/geocoding/types'
 import { insertProjectIntake } from '@/lib/project-intake/repository'
 import type { ClosingIntent } from '@/lib/project-intake/types'
 import { emptyProjectProfile, pruneResolvedAssumptions } from '@/lib/project-profile/patch-engine'
+import { postalPlaceOf } from '@/lib/project-profile/postal-place'
 import { seedProjectProfile } from '@/lib/project-profile/profile-service'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
@@ -46,6 +53,8 @@ export interface IntakeSeedInput {
   address?: string | undefined
   /** An A2_land token chosen by hand, when no address was searched. */
   federalState?: string | undefined
+  /** An A2_country token chosen by hand: `at`, `de`, `ch` or `other`. */
+  country?: string | undefined
   closing?: ClosingIntent | undefined
 }
 
@@ -62,6 +71,30 @@ function fact(value: string, now: Date, evidence?: ProjectFact['evidence']): Pro
 /** Why a typed address waits for confirmation. Read by a person in the brief and by the agent's prompt view. */
 export const TYPED_ADDRESS_REASON = 'Adresse eingetippt, von keinem Register bestätigt'
 
+/** Why a Land read from the Postleitzahl waits for confirmation. */
+export const POSTAL_CODE_REASON = 'Aus der Postleitzahl der eingetippten Adresse abgeleitet'
+
+/** The Bundesland a typed address suggests, as an assumption with its derivation. Null when its PLZ names none. */
+function postalCodeSuggestion(typed: string, now: Date): ProjectAssumption | null {
+  const place = postalPlaceOf(typed)
+  if (!place) return null
+  return {
+    value: place.federalState,
+    status: 'unconfirmed',
+    reason: POSTAL_CODE_REASON,
+    source: 'onboarding_default',
+    updatedAt: now.toISOString(),
+    evidence: [
+      {
+        kind: 'derivation',
+        rule: 'postal_code',
+        citation: `PLZ ${place.code} (GeoNames, CC BY 4.0)`,
+        inputs: [{ key: 'site_address', value: typed, suggested: true }],
+      },
+    ],
+  }
+}
+
 /** The profile entries a new project starts with. */
 export interface IntakeSeed {
   facts: Record<string, ProjectFact>
@@ -73,13 +106,15 @@ export interface IntakeSeed {
  * a new profile. Empty when none was given. Pure.
  */
 export function intakeSeed(
-  input: Pick<IntakeSeedInput, 'location' | 'address' | 'federalState'>,
+  input: Pick<IntakeSeedInput, 'location' | 'address' | 'federalState' | 'country'>,
   now: Date,
   userId: string
 ): IntakeSeed {
   const { location } = input
   const typed = input.address?.trim()
-  const federalState = location?.federalState ?? input.federalState ?? null
+  // A country other than Austria, chosen by hand, outranks any Austrian Land the same body names.
+  const abroad = !location && input.country !== undefined && input.country !== 'at'
+  const federalState = abroad ? 'outside_austria' : (location?.federalState ?? input.federalState ?? null)
   const facts: Record<string, ProjectFact> = {}
   const assumptions: Record<string, ProjectAssumption> = {}
   if (location) {
@@ -95,9 +130,12 @@ export function intakeSeed(
       updatedAt: now.toISOString(),
       evidence: [{ kind: 'person', userId, at: now.toISOString() }],
     }
+    const suggested = federalState ? null : postalCodeSuggestion(typed, now)
+    if (suggested) assumptions.federal_state = suggested
   }
   const austrianState = federalState !== null && federalState !== 'outside_austria'
-  if (location || austrianState) facts.country = fact('at', now)
+  if (abroad && input.country) facts.country = fact(input.country, now)
+  else if (location || austrianState || input.country === 'at') facts.country = fact('at', now)
   if (federalState) facts.federal_state = fact(federalState, now)
   return { facts, assumptions }
 }

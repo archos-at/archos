@@ -248,8 +248,10 @@ export interface CreateProjectInput {
   location?: GeocodeResult
   /** The address as the person typed it, when no search hit was chosen. Seeds `site_address` only. */
   address?: string
-  /** A Bundesland token chosen by hand (API callers; the dialog no longer asks). */
+  /** A Bundesland token chosen by hand (the dialog's picker, API callers). */
   federalState?: string
+  /** The site's country chosen by hand (`at`, `de`, `ch`, `other`). Outranks an Austrian Bundesland. */
+  country?: string
 }
 
 /**
@@ -347,6 +349,7 @@ export async function createProject(
           location: input.location,
           address: input.address,
           federalState: input.federalState,
+          country: input.country,
           closing: closing && { outcome: closing.outcome, startedOn: closing.startedOn, endedOn: closing.endedOn },
         },
         now

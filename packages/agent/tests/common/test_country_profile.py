@@ -196,6 +196,9 @@ class TestResolveSite:
             (_profile("- federal_state=vienna"), "at", "vienna", True),
             (_profile("- country=de"), "de", None, True),
             (_profile("- country=ch"), "ch", None, True),
+            # Upper case, as an API caller may write it; `site.ts` lowercases it too.
+            (_profile("- country=DE"), "de", None, True),
+            (_profile("- country=AT\n- federal_state=Tyrol"), "at", "tyrol", True),
             # `other` never matched the old `country=[a-z]{2}\b` and fell through to Austria.
             (_profile("- country=other"), "other", None, True),
             (_profile("- federal_state=outside_austria"), "other", None, True),

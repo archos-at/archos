@@ -24,6 +24,9 @@ describe('siteCountry', () => {
     [profile({ country: 'at', federal_state: 'tyrol' }), 'at'],
     [profile({ federal_state: 'vienna' }), 'at'],
     [profile({ country: 'de' }), 'de'],
+    // Upper case reads as lower, in both twins.
+    [profile({ country: 'DE' }), 'de'],
+    [profile({ country: 'AT', federal_state: 'Tyrol' }), 'at'],
     [profile({ country: 'other' }), 'other'],
     [profile({ federal_state: 'outside_austria' }), 'other'],
     [profile({}, { federal_state: 'vienna' }), 'at'],
