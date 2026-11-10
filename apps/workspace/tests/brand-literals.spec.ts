@@ -880,6 +880,15 @@ describe('Dateien in a real project (round 6)', () => {
     expect(doc('folder-brief')).not.toMatch(/folder-brief-toggle[\s\S]{0,900}?\btruncate\b/)
   })
 
+  it('lets the upload tray’s summary wrap rather than cut', () => {
+    expect(doc('upload-tray')).toMatch(/aria-live="polite" className="text-pretty text-sm font-medium/)
+  })
+
+  it('floats the selection’s bar on the column’s edges, centred only where the column is', () => {
+    // Centred always, it stood 74px right of the tiles at 1700px, where the column keeps the rail's edge.
+    expect(doc('selection-bar')).toMatch(/md:mx-8 md:max-w-\[1216px\] @min-\[90rem\]\/section:mx-auto!/)
+  })
+
   it('gives the places their room on a narrow section: the level’s presses keep their glyph, the tabs their glyph, the header stacks', () => {
     const frame = source('ui/components/shell/project-section-frame.tsx')
     expect(frame).toMatch(/@max-\[60rem\]\/section:\[&_\[data-slot=button\]>span\]:sr-only/)

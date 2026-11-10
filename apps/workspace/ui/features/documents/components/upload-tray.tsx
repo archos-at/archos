@@ -264,7 +264,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           {/* Polite, not assertive: the phase changes two or three times per
               batch and each one is worth hearing, but the byte counter beneath
               it updates every second and must never be announced. */}
-          <p aria-live="polite" className="truncate text-sm font-medium leading-tight text-foreground">
+          <p aria-live="polite" className="text-pretty text-sm font-medium leading-tight text-foreground" /* wraps, never cuts: „2 Dokumente werden hochgeladen“ lost its end at 768px */>
             {headline}
           </p>
           {/* Two lines, not one: on a phone the sentence that says why nothing

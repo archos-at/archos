@@ -248,6 +248,27 @@ export function SectionActionsInline({ children }: { children: ReactNode }): JSX
   )
 }
 
+/**
+ * A folder's name as a title that may wrap: a break chance after each `_` and none after a `-`, read as the one
+ * string it is. „Rauchabschnittsbildung_Bauteil_C_Index-“ over a lone „D“ was a phone's title line (dev, 2026-11-10).
+ */
+function BreakableName({ text }: { text: string }): JSX.Element {
+  const parts = text.split('_')
+  return (
+    <>
+      <span aria-hidden>
+        {parts.map((part, index) => (
+          <span key={index}>
+            {(index < parts.length - 1 ? `${part}_` : part).replaceAll('-', '-\u2060')}
+            {index < parts.length - 1 && <wbr />}
+          </span>
+        ))}
+      </span>
+      <span className="sr-only">{text}</span>
+    </>
+  )
+}
+
 /** Dateien's places as tabs, the E-Mail-Eingang only for whoever may decide the project's mail. */
 function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; inboundMail: boolean; pathname: string }): JSX.Element {
   const t = useTranslations(navCopy)
@@ -358,7 +379,7 @@ export function ProjectSectionFrame({
             // Below a 60rem section Dateien's tools (≈680px) stand under the title, not in three rows beside it.
             className={files ? '@max-[60rem]/section:flex-col! @max-[60rem]/section:items-stretch!' : undefined}
             // Inside a folder the title is the folder („Index C“); „Alle Dateien“ names only the shelf's root.
-            title={place ? place.title : files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
+            title={place ? <BreakableName text={place.title} /> : files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
             crumb={
               files ? (
                 <>

@@ -62,6 +62,14 @@ describe('a folder in the header', () => {
     expect(step.className).toMatch(/\btruncate\b/)
   })
 
+  it('lets a long folder title wrap after its underscores, never after a hyphen, and reads it whole', () => {
+    // A phone's title line broke „Rauchabschnittsbildung_Bauteil_C_Index-“ over a lone „D“.
+    renderAt('e')
+    const title = screen.getByRole('heading', { level: 1, name: 'Rauchabschnittsbildung_Bauteil_C_Index-D' })
+    expect(title.querySelectorAll('wbr')).toHaveLength(3)
+    expect(title.textContent).toContain('Index-\u2060D')
+  })
+
   it('collapses the middle of a deep path into „…“, keeping the first level and the parent', () => {
     renderAt('e')
     const trail = screen.getByTestId('folder-trail')

@@ -39,9 +39,10 @@ export function SelectionBar({
   const t = useTranslations(filesCopy)
   return (
     // While picking, a white bar floats 16px off the foot: elevation 2, the overlay radius (paper on a desk).
-    // Its content keeps the listing's container; the ✕ gives back its inset so its glyph stands on the edge.
+    // Its content keeps the listing's container, on the column's left edge as `listing-container` is (centred only from a
+    // 90rem section; centred always, it stood 74px right of the tiles at 1700px); the ✕ gives back its inset.
     <div
-      className="bg-sheet shadow-md rounded-overlay animate-in fade-in-0 slide-in-from-bottom-2 duration-base mx-4 mb-[max(1rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] shrink-0 py-2 ease-out motion-reduce:animate-none md:mx-auto md:w-[calc(100%-4rem)] md:max-w-[1216px]"
+      className="bg-sheet shadow-md rounded-overlay animate-in fade-in-0 slide-in-from-bottom-2 duration-base mx-4 mb-[max(1rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] shrink-0 py-2 ease-out motion-reduce:animate-none md:mx-8 md:max-w-[1216px] @min-[90rem]/section:mx-auto!"
       data-testid="selection-bar"
     >
       <div className="flex items-center gap-3 px-4" /* presses 12px apart, as every bar */>
