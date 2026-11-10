@@ -120,6 +120,8 @@ vi.mock('./engagement', () => ({
 }))
 
 import { ConflictError, ForbiddenError, NotFoundError, ResourceRightsLostError, UpstreamError } from '@/lib/api/errors'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { purgeConversationCollaboration } from '@/lib/collaboration/cleanup'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -1350,11 +1352,9 @@ describe('the collaboration flag is off (spec NF-8, NF-7)', () => {
       },
     ]).catch((error: unknown) => error)
 
-    expect((failure as ForbiddenError).status).toBe(403)
-    expect((failure as ForbiddenError).details).toEqual({
-      reason: 'feature-disabled',
-      feature: 'collaboration',
-    })
+    // The one refusal of a switched-off feature, as requireFeature answers it (RFC 9457, `feature_disabled`).
+    expect(failure).toBeInstanceOf(FeatureDisabledError)
+    expect((failure as FeatureDisabledError).problem).toEqual(featureDisabledProblem('collaboration'))
     // No grant, no mention request, no inbox row — and the message itself is not
     // stored either, because a refused mention must not leave a half-sent trail.
     expect(applyMessageMentions).not.toHaveBeenCalled()

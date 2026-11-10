@@ -104,6 +104,23 @@ const workRecord = z.object({
     .max(3)
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
+  identifiers: z
+    .object({
+      'ris_gesetzesnummer': z
+        .string()
+        .regex(/^\d{1,12}$/)
+        .optional()
+        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
+      eli: z
+        .url()
+        .max(300)
+        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
+        .optional()
+        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
+    })
+    .strict()
+    .default({})
+    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
   ...common,
 })
 
@@ -338,8 +355,8 @@ export interface CaptureView {
   retrievedAt: string
 }
 
-/** The record types `platform-knowledge-schema-get` describes. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset', 'source'] as const
+/** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),

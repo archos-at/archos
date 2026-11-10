@@ -90,7 +90,9 @@ proposing a pack captures the OIB's table and each Land's page first.
 `packs.spec.ts` holds every other check and pins that KC-6 is all that is left.
 
 **The turn.** Behind the `building-law-chain` flag (removed by ADR-0175: every turn now) the turn context carries the
-chain text and each edition's role (`buildingLaw`). The agent renders the
+chain text and each edition's role, since ADR-0175 inside the knowledge context
+(`knowledgeContext.text` and its `uses`, in the roles the context corrects:
+one payload, never a second `buildingLaw` beside it). The agent renders the
 `<building_law>` block in the turn context only once the static prompt no
 longer holds it (`agent/turn/building_law.py`): the records' chain before the
 standing doctrine, or for an Austrian site without records the bundled block,
