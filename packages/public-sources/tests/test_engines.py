@@ -107,6 +107,6 @@ def test_akn_eids_are_the_anchors_at_any_unit_the_record_names():
     assert "art_16_b/para_1" in anchors and "art_16_b/para_2" in anchors
     assert anchors.index("art_1/para_1") < anchors.index("art_16_b/para_1")
     assert len(anchors) == len(set(anchors)), "an eId is unique within the document"
-    absatz = document.passage("art_16_b/para_2")
-    assert absatz is not None and absatz.number == "2"
-    assert absatz.text.startswith("Wurde die Bewilligung befristet")
+    subsection = document.passage("art_16_b/para_2")
+    assert subsection is not None and subsection.number == "2"
+    assert subsection.text.startswith("Wurde die Bewilligung befristet")
