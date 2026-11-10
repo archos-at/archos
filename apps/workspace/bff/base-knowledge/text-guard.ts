@@ -5,8 +5,10 @@
  */
 
 import 'server-only'
-import { textUseOf } from './office/text-use'
+import { licenceMarkOf, textUseOf, type LicenceMark } from './office/text-use'
 import { copyForDocument } from './store/repository'
+
+export { licenceMarkFields } from './office/text-use'
 
 /**
  * A licensed copy (proposed or confirmed) whose office has not stated that its
@@ -23,11 +25,26 @@ export async function isMetadataOnlyCopy(organizationId: string, documentId: str
   }
 }
 
-/** The licence class and edition a confirmed copy's points carry; null for any other document. */
+/** The mark a confirmed copy's points carry, with its edition; null for any other document. */
 export async function copyMarkForIngest(
   organizationId: string,
   documentId: string
-): Promise<{ licenceClass: string; editionId: string } | null> {
+): Promise<(LicenceMark & { editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
-  return copy?.confirmed ? { licenceClass: copy.licenceClass, editionId: copy.editionId } : null
+  return copy?.confirmed ? { ...licenceMarkOf(copy.licenceClass, copy.terms), editionId: copy.editionId } : null
+}
+
+/**
+ * The licence lookup by document id, for the licensed seam (ADR-0159): whether
+ * the document is an office copy marked licensed, and whether the office stated
+ * its licence covers AI processing. Null for a document that is no base-knowledge
+ * copy. A proposed copy counts: its text is withheld until confirmation.
+ */
+export async function licenceOfDocument(
+  organizationId: string,
+  documentId: string
+): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean }) | null> {
+  const copy = await copyForDocument(organizationId, documentId)
+  if (!copy) return null
+  return { ...licenceMarkOf(copy.licenceClass, copy.terms), licensed: copy.licenceClass === 'licensed', confirmed: copy.confirmed }
 }

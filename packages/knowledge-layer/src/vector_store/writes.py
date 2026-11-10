@@ -26,11 +26,13 @@ from .payload import ChunkRecord
 from .payload import document_facts
 from .payload import project_payload
 from .prefilter import FOLDER_FIELD
+from .schema import AI_PROCESSING_FIELD
 from .schema import INDEXED_AT_FIELD
 from .schema import KNOWLEDGE_EDITION_FIELD
 from .schema import LICENCE_CLASS_FIELD
 from .schema import LICENCE_CLASSES
 from .schema import OFFICE_FIELD
+from .schema import QUOTE_MAX_CHARS_FIELD
 from .store import get_store
 
 logger = logging.getLogger(__name__)
@@ -65,7 +67,8 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
     ``PUT /v1/collections/{c}/project-facts``. ``indexed_at`` is when the
     chunks were written: what a collection's ``updated_at`` is read from,
     and what the 24-hour reaper of conversation uploads measures. The licence
-    mark (``licence_class``, ``knowledge_edition_id``) is copied from the job
+    mark (``licence_class``, ``ai_processing_attested``, ``quote_max_chars``,
+    ``knowledge_edition_id``) is copied from the job
     when it names one, so a re-ingest keeps what
     ``PUT /v1/collections/{c}/knowledge-mark`` set.
     """
@@ -95,7 +98,7 @@ def enrichment(scope: str, config: Mapping[str, Any] | None = None) -> dict[str,
 
 
 def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
-    """The licence class and knowledge edition the ingest job names; a field the job leaves out is not written.
+    """The licence mark and knowledge edition the ingest job names; a field the job leaves out is not written.
 
     A class outside ``schema.LICENCE_CLASSES`` is left out and logged rather than
     failing the file: the mark is a copy the knowledge-mark route can set again.
@@ -109,6 +112,11 @@ def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
     edition = config.get(KNOWLEDGE_EDITION_FIELD)
     if isinstance(edition, str) and edition.strip():
         mark[KNOWLEDGE_EDITION_FIELD] = edition.strip()
+    if isinstance(config.get(AI_PROCESSING_FIELD), bool):
+        mark[AI_PROCESSING_FIELD] = config[AI_PROCESSING_FIELD]
+    cap = config.get(QUOTE_MAX_CHARS_FIELD)
+    if isinstance(cap, int) and not isinstance(cap, bool) and cap > 0:
+        mark[QUOTE_MAX_CHARS_FIELD] = cap
     return mark
 
 

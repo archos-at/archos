@@ -1,8 +1,11 @@
-"""Mark one file's points with its licence class and knowledge edition (office base knowledge).
+"""Mark one file's points with its licence mark and knowledge edition (office base knowledge).
 
 What a source may be used for (``licence_class``: ``public_open``,
-``public_restricted``, ``licensed``) and which knowledge edition it belongs to
-(``knowledge_edition_id``) are decided by the platform, which holds them; the
+``public_restricted``, ``licensed``), whether the office stated its licence
+covers AI processing (``ai_processing_attested``), the longest quote a model
+may see (``quote_max_chars``, read by the licensed seam, ADR-0159) and which
+knowledge edition it belongs to (``knowledge_edition_id``) are decided by the
+platform, which holds them; the
 points carry a copy so a search can filter by them in the one query. Ingestion
 writes the same fields when its job names them (``vector_store.writes.licence_mark``),
 so a re-ingest keeps the mark; this route sets it on a file already indexed.
@@ -37,8 +40,10 @@ def _store() -> Any:
 
 def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     """Set the mark on the file's chunks; their number, or None when the collection holds no chunk of the file."""
+    from knowledge_layer.vector_store import AI_PROCESSING_FIELD
     from knowledge_layer.vector_store import KNOWLEDGE_EDITION_FIELD
     from knowledge_layer.vector_store import LICENCE_CLASS_FIELD
+    from knowledge_layer.vector_store import QUOTE_MAX_CHARS_FIELD
 
     store = _store()
     if not store.exists(collection):
@@ -46,7 +51,12 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     chunks = store.count(collection, {"file_name": update.file_name})
     if not chunks:
         return None
-    payload = {LICENCE_CLASS_FIELD: update.licence_class, KNOWLEDGE_EDITION_FIELD: update.edition_id}
+    payload = {
+        LICENCE_CLASS_FIELD: update.licence_class,
+        AI_PROCESSING_FIELD: update.ai_processing_attested,
+        QUOTE_MAX_CHARS_FIELD: update.quote_max_chars,
+        KNOWLEDGE_EDITION_FIELD: update.edition_id,
+    }
     store.set_file_payloads(collection, {update.file_name: payload})
     return chunks
 
@@ -63,7 +73,7 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
     async def put_knowledge_mark(
         collection_name: str, request: KnowledgeMarkUpdate, http_request: Request
     ) -> KnowledgeMarkResult:
-        """Overwrite ``licence_class`` and ``knowledge_edition_id`` on every chunk of the file.
+        """Overwrite the licence mark and ``knowledge_edition_id`` on every chunk of the file.
 
         403 without the internal token. 422 for a licence class outside the
         three. 404 when the collection holds no chunk of the file. 409 when

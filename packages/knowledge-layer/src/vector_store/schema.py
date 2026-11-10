@@ -127,6 +127,11 @@ LICENCE_CLASS_FIELD = "licence_class"
 LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
 #: Payload field holding the id of the knowledge edition a point's source belongs to.
 KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
+#: Payload field holding whether the office stated its licence covers processing by the hosted AI services
+#: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
+AI_PROCESSING_FIELD = "ai_processing_attested"
+#: Payload field holding the longest quote of a licensed point's text a model may see (a positive int).
+QUOTE_MAX_CHARS_FIELD = "quote_max_chars"
 #: Payload field holding the chunk text: what BM25 reads, what the full-text
 #: index serves phrase queries from, and what a hit's content is.
 TEXT_FIELD = "text"

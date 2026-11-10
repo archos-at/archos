@@ -88,9 +88,13 @@ platform layer, as additions).
   again; withdrawing it takes the text out again. The turn names a
   metadata-only copy as held, with no file to search and an instruction not to
   quote or paraphrase it.
-- **The licence mark.** A confirmed copy's points carry `licence_class` and
-  `knowledge_edition_id` (set by the internal `knowledge-mark` route, kept by a
-  re-ingest through the job's fields). S2 enforces the seam on it.
+- **The licence mark.** A confirmed copy's points carry `licence_class`,
+  `ai_processing_attested` (the office's statement, a bool), `quote_max_chars`
+  (from the terms, else the seam's default of 500) and `knowledge_edition_id`
+  (set by the internal `knowledge-mark` route, kept by a re-ingest through the
+  job's fields; one pure function, `licenceMarkOf` in `office/text-use.ts`,
+  builds both). The licensed seam (ADR-0159) enforces on it, and asks the
+  records by document id through `licenceOfDocument` (`base-knowledge/text-guard.ts`).
 - **Answers.** The turn context carries the office's confirmed entries, one line
   each: edition, role (a commentary is interpretation only; a directive applies
   only where its authority decides, from the project's Land as the interim path

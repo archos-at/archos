@@ -265,6 +265,17 @@ class TestTheLicenceMark:
         assert base[LICENCE_CLASS_FIELD] == "licensed"
         assert base[KNOWLEDGE_EDITION_FIELD] == "ed-2026"
 
+    def test_the_seams_attestation_and_quote_cap_ride_along(self):
+        config = {"licence_class": "licensed", "ai_processing_attested": False, "quote_max_chars": 400}
+
+        base = enrichment(PROJECT, config)
+
+        assert base["ai_processing_attested"] is False and base["quote_max_chars"] == 400
+
+    def test_a_cap_that_is_no_positive_count_is_left_out(self):
+        for cap in (0, -5, "400", True):
+            assert "quote_max_chars" not in enrichment(PROJECT, {"quote_max_chars": cap})
+
     def test_a_job_naming_no_mark_writes_none(self):
         base = enrichment(PROJECT, {"organization_id": OFFICE_A})
 

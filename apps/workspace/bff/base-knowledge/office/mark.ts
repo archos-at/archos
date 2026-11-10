@@ -1,7 +1,8 @@
 /**
- * Mark a base-knowledge copy's search-index points with its licence class and
- * edition (ADR-0158): the licensed seam keys on `licence_class` to keep
- * licensed text inside its bounds, and a hit names the edition it came from.
+ * Mark a base-knowledge copy's search-index points with its licence mark and
+ * edition (ADR-0158): the licensed seam (ADR-0159) keys on `licence_class`,
+ * `ai_processing_attested` and `quote_max_chars` to keep licensed text inside
+ * its bounds, and a hit names the edition it came from.
  *
  * Best effort, like the folder-path mirror (`documents/move-to-folder.ts`): the
  * records are the durable truth, and a re-ingest carries the same values in its
@@ -11,12 +12,12 @@
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-url'
 import { internalServiceHeaders } from '@/lib/internal-auth'
-import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
+import { licenceMarkFields, type LicenceMark } from './text-use'
 import type { EntryDocument } from './repository'
 
 const MARK_TIMEOUT_MS = 5_000
 
-export async function markCopyPoints(document: EntryDocument, editionId: string, licenceClass: LicenceClass): Promise<boolean> {
+export async function markCopyPoints(document: EntryDocument, editionId: string, mark: LicenceMark): Promise<boolean> {
   const row = { collectionName: document.collectionName, filename: document.storedName }
   try {
     const backendUrl = getBackendUrl()
@@ -25,7 +26,7 @@ export async function markCopyPoints(document: EntryDocument, editionId: string,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-        body: JSON.stringify({ file_name: row.filename, licence_class: licenceClass, edition_id: editionId }),
+        body: JSON.stringify({ file_name: row.filename, ...licenceMarkFields(mark), edition_id: editionId }),
         signal: AbortSignal.timeout(MARK_TIMEOUT_MS),
       }
     )

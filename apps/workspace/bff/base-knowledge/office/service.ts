@@ -54,7 +54,7 @@ import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
 import { readDocumentReading, visibleOfficeDocuments, type EntryDocument } from './repository'
 import { releaseText, withholdText } from './text-effects'
-import { termsAfter, textUseOf } from './text-use'
+import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
@@ -219,7 +219,7 @@ async function writeValues(
   const after = textUseOf(values.licenceClass, terms)
   if (after === 'metadata_only') await withholdText(session, stored.documentId)
   else if (before === 'metadata_only') await releaseText(session, stored.documentId)
-  else await markCopyPoints(document, stored.editionId, values.licenceClass)
+  else await markCopyPoints(document, stored.editionId, licenceMarkOf(values.licenceClass, terms))
 }
 
 /** Confirm a proposed entry, with any corrections; it reaches answers from now on. */

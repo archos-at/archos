@@ -113,6 +113,9 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   // The search-index payload fields this layer writes or filters on.
   { element: 'point.office_id', consumer: 'packages/knowledge-layer/src/vector_store/scope.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_office_a_never_reads_office_bs_point_in_a_shared_scope' } },
   { element: 'point.licence_class', consumer: 'apps/agent-host/src/agent_host/routes/knowledge_mark.py', test: { file: MARK_SPEC, name: 'test_the_mark_lands_on_every_chunk_of_the_file' } },
+  // Read by the licensed seam (ADR-0159, `agent/common/licensed_text.py`), which lists a licensed point without text until both are there.
+  { element: 'point.ai_processing_attested', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_the_seams_attestation_and_quote_cap_ride_along' } },
+  { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
   { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
 ]
 

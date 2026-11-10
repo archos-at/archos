@@ -26,7 +26,13 @@ from agent_host.routes.knowledge_mark import add_knowledge_mark_routes
 
 TOKEN = "knowledge-mark-test-token"
 PATH = "/v1/collections/office_shelf_org_1/knowledge-mark"
-BODY = {"file_name": "OIB-RL_2.pdf", "licence_class": "licensed", "edition_id": "ed-2026"}
+BODY = {
+    "file_name": "OIB-RL_2.pdf",
+    "licence_class": "licensed",
+    "ai_processing_attested": True,
+    "quote_max_chars": 400,
+    "edition_id": "ed-2026",
+}
 
 
 class _Store:
@@ -85,7 +91,14 @@ async def test_the_mark_lands_on_every_chunk_of_the_file(store):
     assert store.written == [
         (
             "office_shelf_org_1",
-            {"OIB-RL_2.pdf": {"licence_class": "licensed", "knowledge_edition_id": "ed-2026"}},
+            {
+                "OIB-RL_2.pdf": {
+                    "licence_class": "licensed",
+                    "ai_processing_attested": True,
+                    "quote_max_chars": 400,
+                    "knowledge_edition_id": "ed-2026",
+                }
+            },
         )
     ]
 
@@ -94,7 +107,9 @@ async def test_null_clears_the_mark(store):
     response = await _put({"file_name": "OIB-RL_2.pdf", "licence_class": None, "edition_id": None})
 
     assert response.status_code == 200
-    assert store.written[0][1] == {"OIB-RL_2.pdf": {"licence_class": None, "knowledge_edition_id": None}}
+    fields = ("licence_class", "ai_processing_attested", "quote_max_chars", "knowledge_edition_id")
+    cleared = dict.fromkeys(fields)
+    assert store.written[0][1] == {"OIB-RL_2.pdf": cleared}
 
 
 async def test_an_unknown_licence_class_is_refused(store):
@@ -170,11 +185,13 @@ async def _ingest(app: FastAPI, **fields) -> int:
 async def test_the_ingest_job_carries_the_mark_into_its_config(ingest_app):
     app, ingestor = ingest_app
 
-    assert await _ingest(app, licence_class="public_restricted", knowledge_edition_id="ed-2026") == 202
+    mark = {"ai_processing_attested": True, "quote_max_chars": 500}
+    assert await _ingest(app, licence_class="licensed", knowledge_edition_id="ed-2026", **mark) == 202
 
     config = ingestor.submit_job.call_args.kwargs["config"]
-    assert config["licence_class"] == "public_restricted"
+    assert config["licence_class"] == "licensed"
     assert config["knowledge_edition_id"] == "ed-2026"
+    assert config["ai_processing_attested"] is True and config["quote_max_chars"] == 500
 
 
 async def test_an_ingest_job_with_no_mark_carries_none(ingest_app):

@@ -56,7 +56,11 @@ vi.mock('./repository', () => ({
 // The organization's upload-screening policy (ADR-0086) is read through its
 // settings row; each test states the row it means.
 vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
-vi.mock('@/lib/base-knowledge/text-guard', () => ({ isMetadataOnlyCopy: vi.fn(async () => false), copyMarkForIngest: vi.fn(async () => null) }))
+vi.mock('@/lib/base-knowledge/text-guard', async () => ({
+  isMetadataOnlyCopy: vi.fn(async () => false),
+  copyMarkForIngest: vi.fn(async () => null),
+  licenceMarkFields: (await vi.importActual<typeof import('@/lib/base-knowledge/office/text-use')>('@/lib/base-knowledge/office/text-use')).licenceMarkFields,
+}))
 
 // The converter is `rendition.spec.ts`'s subject; here it is a switch and an
 // outcome, so what is under test is what dispatch does with each.
@@ -68,7 +72,7 @@ vi.mock('./rendition', async (importOriginal) => {
 import { runBimExtraction } from '@/lib/bim/service'
 import { invalidateCached } from '@/lib/cache'
 import { getOrgSettings } from '@/lib/organizations/service'
-import { isMetadataOnlyCopy } from '@/lib/base-knowledge/text-guard'
+import { copyMarkForIngest, isMetadataOnlyCopy } from '@/lib/base-knowledge/text-guard'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { findOpenJobId } from '@/lib/jobs-queue/repository'
 import {
@@ -486,6 +490,23 @@ describe('the ingest dispatch sends the document folder path', () => {
     )
     await dispatchDocument(input('plan.pdf'))
     expect(bodyOf(1).byte_size).toBeNull()
+  })
+
+  it('stamps a confirmed copy’s licence mark on the job, as the licensed seam reads it', async () => {
+    vi.mocked(copyMarkForIngest).mockResolvedValueOnce({
+      licenceClass: 'licensed',
+      aiProcessingAttested: true,
+      quoteMaxChars: 500,
+      editionId: 'ed-1',
+    })
+    await dispatchDocument(input('plan.pdf'))
+
+    expect(bodyOf(0)).toMatchObject({
+      licence_class: 'licensed',
+      ai_processing_attested: true,
+      quote_max_chars: 500,
+      knowledge_edition_id: 'ed-1',
+    })
   })
 
   it('sends the folder path the document was filed under', async () => {

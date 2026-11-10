@@ -194,6 +194,8 @@ full-text index.
 | `stand` | datetime, `is_principal` on documents | Document date, for recency |
 | `licence_class` | keyword | How the source may be used: `public_open`, `public_restricted`, `licensed` (office base knowledge). Set by `PUT /v1/collections/{c}/knowledge-mark` and by an ingest job that names it (`writes.licence_mark`) |
 | `knowledge_edition_id` | keyword | The knowledge edition the source belongs to; written like `licence_class` |
+| `ai_processing_attested` | not indexed (bool) | Whether the office stated its licence covers processing by the hosted AI services; written like `licence_class`. The licensed seam (ADR-0159) lists a licensed point without its text until it is true |
+| `quote_max_chars` | not indexed (int) | The longest quote of a licensed point's text a model may see; written like `licence_class`. A job value that is no positive int is left out |
 
 Payload indexes are created *before* the first upsert (Qdrant builds the
 filterable HNSW links at index time). **Strict mode** is on with

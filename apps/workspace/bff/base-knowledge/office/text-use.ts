@@ -47,3 +47,31 @@ export function termsAfter(previous: KnowledgeTerms, given: Attestations, userId
   }
   return terms
 }
+
+/** The quote cap when the office's terms name none: the licensed seam's own default (ADR-0159). */
+export const DEFAULT_QUOTE_MAX_CHARS = 500
+
+/**
+ * What a copy's search-index points and ingest job carry for the licensed seam
+ * (ADR-0159), as the seam reads them: the class, whether the office stated its
+ * licence covers AI processing, and the longest quote a model may see.
+ */
+export interface LicenceMark {
+  licenceClass: LicenceClass
+  aiProcessingAttested: boolean
+  quoteMaxChars: number
+}
+
+export function licenceMarkOf(licenceClass: LicenceClass, terms: KnowledgeTerms): LicenceMark {
+  const cap = terms.quoteMaxChars
+  return {
+    licenceClass,
+    aiProcessingAttested: Boolean(terms.aiProcessingAttestedAt),
+    quoteMaxChars: typeof cap === 'number' && Number.isInteger(cap) && cap > 0 ? cap : DEFAULT_QUOTE_MAX_CHARS,
+  }
+}
+
+/** The mark in the payload's own spelling (`licence_class`, `ai_processing_attested`, `quote_max_chars`). */
+export function licenceMarkFields(mark: LicenceMark): { licence_class: LicenceClass; ai_processing_attested: boolean; quote_max_chars: number } {
+  return { licence_class: mark.licenceClass, ai_processing_attested: mark.aiProcessingAttested, quote_max_chars: mark.quoteMaxChars }
+}
