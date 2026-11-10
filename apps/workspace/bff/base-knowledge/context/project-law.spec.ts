@@ -28,7 +28,8 @@ vi.mock('./turn-snapshot', () => ({ rememberTurnContext: vi.fn() }))
 
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from '../chain/from-proposals'
-import { gateNamesLaw, lawOf, projectLawFor } from './project-law'
+import { gateNamesLaw } from '../wire/project-law'
+import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 
 /** Wien with its Bauordnung, OIB-RL 2 guiding there, and the HOAI connecting by the office's seat. */

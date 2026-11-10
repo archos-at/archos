@@ -50,7 +50,28 @@ export function classificationFor(
   profile: ProjectProfile,
   options: SetupScopeOptions = {}
 ): BuildingClassification | null {
+  if (options.lawWithheld) return null
   return buildingClassificationOf(setupScopeOf(profile, options))
+}
+
+/**
+ * The profile without a class a derivation wrote: where the knowledge context
+ * withholds law, a person reading the profile sees no Gebäudeklasse the
+ * classification would not give either. A class a document stated, or one a
+ * person confirmed, stays.
+ */
+export function withoutDerivedClasses(profile: ProjectProfile, definition: ProjectIntakeDefinition): ProjectProfile {
+  let current = profile
+  for (const buildingId of buildingIdsOf(profile, definition)) {
+    const key = buildingClassKey(buildingId)
+    current = withoutDerivedSuggestion(current, key).profile
+    const fact = current.facts[key]
+    if (fact?.alternatives?.some(isDerived)) {
+      const alternatives = fact.alternatives.filter((entry) => !isDerived(entry))
+      current = { ...current, facts: { ...current.facts, [key]: { ...fact, alternatives } } }
+    }
+  }
+  return current
 }
 
 /** The buildings the profile describes, in order (`bldg1` when it names none). */

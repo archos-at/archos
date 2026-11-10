@@ -16,7 +16,7 @@
 
 import { chainAt, resolveChain } from '../chain/resolve'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
-import { nameOf, renderChainText, useKey, type UseNotes } from '../chain/text'
+import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
@@ -181,9 +181,9 @@ function contextUse(
  * law binds in its own territory by the records: there is no chain to read.
  */
 function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string): string | null {
-  const corrected = new Map(uses.map((use) => [useKey(use), use]))
+  const corrected = new Map(uses.map((use) => [keyOfUse(use), use]))
   const named = resolved.uses.flatMap((use) => {
-    const context = corrected.get(useKey(use))
+    const context = corrected.get(keyOfUse(use))
     return context ? [{ ...use, role: context.role }] : []
   })
   const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')

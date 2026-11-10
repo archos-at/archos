@@ -59,7 +59,7 @@
     "apps/workspace/bff/platform-lessons/service.ts": 680,
     "apps/workspace/bff/posthog-support/client.ts": 664,
     "apps/workspace/bff/product-feedback/service.ts": 815,
-    "apps/workspace/bff/project-intake/service.ts": 626,
+    "apps/workspace/bff/project-intake/service.ts": 624,
     "apps/workspace/bff/projects/folder-bin-repository.ts": 717,
     "apps/workspace/bff/projects/folder-bin.ts": 707,
     "apps/workspace/bff/projects/memory-service.ts": 1246,

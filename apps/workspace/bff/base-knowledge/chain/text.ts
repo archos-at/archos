@@ -28,7 +28,7 @@ export interface UseNotes {
 }
 
 /** The key a use's notes are found under. */
-export const useKey = (use: Pick<EditionUse, 'workId' | 'editionId'>): string => `${use.workId}/${use.editionId ?? ''}`
+export const keyOfUse = (use: Pick<EditionUse, 'workId' | 'editionId'>): string => `${use.workId}/${use.editionId ?? ''}`
 
 const CONNECTING_WORDS: Record<ConnectingFactor, string> = { site: 'the site', office_seat: 'where the office sits', client: 'who the client is' }
 
@@ -159,12 +159,12 @@ function section(header: string, lines: readonly string[]): string[] {
 /**
  * The chain text for a resolved site; `place` is the leaf's name as the
  * project states it. `notes` are the knowledge context's corrections by
- * `useKey`; without them every use reads as the chain resolved it.
+ * `keyOfUse`; without them every use reads as the chain resolved it.
  */
 export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string, notes?: ReadonlyMap<string, UseNotes>): string {
   const leaf = resolved.chain[0]
   const leafName = nameOf(graph.territories.get(leaf)?.name ?? place) || leaf
-  const noteOf = (use: EditionUse) => notes?.get(useKey(use))
+  const noteOf = (use: EditionUse) => notes?.get(keyOfUse(use))
   const connected = (use: EditionUse) => (noteOf(use)?.connectsBy ?? ['site']).some((factor) => factor !== 'site')
   const by = (role: EditionUse['role']) => resolved.uses.filter((use) => use.role === role && !connected(use))
   const interpretations = by('interpretation')

@@ -12,14 +12,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn() }))
-vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(), contextForPage: vi.fn() }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: vi.fn() }))
 
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ForbiddenError } from '@/lib/api/errors'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
 import type { GateState, KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import { findProjectProfileInOrg, type ProjectProfileState } from '@/lib/projects/repository'
 import { evaluateClassification, evaluateProjectClassification } from './classification'
@@ -116,7 +116,7 @@ describe('classification-evaluate', () => {
 describe('evaluateProjectClassification, the route’s service', () => {
   const session = { organizationId: 'org-1', userId: 'user-1' } as Partial<AuthorizedSession> as AuthorizedSession
   const gateAt = (state: GateState, reason: 'no_site' | 'no_territory' | null = null) =>
-    vi.mocked(knowledgeContextForTurn).mockResolvedValue({ gate: { state, reason, leaves: [] } } as Partial<KnowledgeContext> as KnowledgeContext)
+    vi.mocked(contextForPage).mockResolvedValue({ gate: { state, reason, leaves: [] } } as Partial<KnowledgeContext> as KnowledgeContext)
   beforeEach(() => {
     gateAt('core')
     vi.mocked(findProjectProfileInOrg).mockResolvedValue({
