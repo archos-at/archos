@@ -76,14 +76,16 @@ export type RegisterSite = z.infer<typeof registerSiteSchema>
 
 /**
  * Why a typed address stays unverified:
- * - `incomplete`: the line names no street and house number, or neither a postcode nor a
- *   place: a street and number alone could be in a country this cell has no register for;
+ * - `incomplete`: the line names no street and house number, or no place: a street and
+ *   number, with or without a four-digit postcode (Switzerland and Liechtenstein have them
+ *   too), could be in a country this cell has no register for;
  * - `no_register`: the cell hosts no register for the stated country, or none is imported yet;
  * - `no_register_hit`: the register holds no such address;
  * - `ambiguous`: several addresses of one municipality match;
- * - `multi_leaf`: matches lie in several municipalities (design 5.2).
+ * - `multi_leaf`: matches lie in several municipalities (design 5.2);
+ * - `conflict`: the postcode names an address, and the place another municipality.
  */
-export const UNVERIFIED_REASONS = ['incomplete', 'no_register', 'no_register_hit', 'ambiguous', 'multi_leaf'] as const
+export const UNVERIFIED_REASONS = ['incomplete', 'no_register', 'no_register_hit', 'ambiguous', 'multi_leaf', 'conflict'] as const
 
 export const siteResolutionSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('verified'), typed: z.string(), site: registerSiteSchema }),

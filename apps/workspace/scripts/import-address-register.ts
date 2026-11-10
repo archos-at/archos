@@ -18,7 +18,8 @@
  * `--apply` connects as the runtime role and steps up to the platform role per
  * transaction (`workers/platform-scope.js`), the one role that writes platform
  * tables. A release that would shrink the active one by more than 5 % is
- * refused (`--max-shrink 0.2` to accept more, after looking at why). Runbook:
+ * refused (`--max-shrink 0.2` to accept more, after looking at why), and so is
+ * a release not newer than the active one (`--allow-older` to roll back). Runbook:
  * docs/deployment/address-register.md.
  */
 
@@ -71,7 +72,9 @@ async function main(): Promise<void> {
     return
   }
   const url = process.env.APP_DATABASE_URL ?? fail('APP_DATABASE_URL is required with --apply.')
-  const maxShrink = Number(argument('--max-shrink') ?? DEFAULT_MAX_SHRINK)
+  const rawShrink = argument('--max-shrink')
+  const maxShrink = rawShrink === null ? DEFAULT_MAX_SHRINK : Number(rawShrink)
+  if (!Number.isFinite(maxShrink) || maxShrink < 0 || maxShrink >= 1) fail(`--max-shrink is a number from 0 to below 1, e.g. 0.2; got ${rawShrink}.`)
   const sql = postgres(url, { max: 1 })
   const withPlatform: WithPlatform = (fn) =>
     sql.begin(async (tx) => {
@@ -86,6 +89,7 @@ async function main(): Promise<void> {
       sourceUrl,
       entries: archive.entries(),
       maxShrink,
+      allowOlder: process.argv.includes('--allow-older'),
     })
     console.log(
       `${BEV_ADDRESS_REGISTER.id} ${referenceDate}: release ${result.releaseId} active with ${result.entryCount} addresses ` +

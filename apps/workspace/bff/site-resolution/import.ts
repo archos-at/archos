@@ -11,10 +11,13 @@
  * 3. the swap: the new release becomes `active`, the previous one `retired`
  *    and its entries deleted, in one transaction.
  *
- * Fail closed: a release with no entries, or one that shrinks the active
- * release by more than `maxShrink`, is refused and removed, and the active
- * release stays. A register does not lose a tenth of its addresses between
- * two reference dates; a truncated download does.
+ * Fail closed: a release with no entries, one that shrinks the active release
+ * by more than `maxShrink`, or one whose reference date is not after the
+ * active one's (unless `allowOlder`), is refused and removed, and the active
+ * release stays. A register does not lose a twentieth of its addresses between
+ * two reference dates; a truncated download does. A `maxShrink` that is not a
+ * number in [0, 1) is refused before anything is written. A `loading` release
+ * older than a day, left by an import that died, is removed first.
  */
 
 import type { TransactionSql } from 'postgres'
@@ -35,6 +38,8 @@ export interface ImportRelease {
   sourceUrl: string | null
   entries: Iterable<RegisterEntry> | AsyncIterable<RegisterEntry>
   maxShrink?: number
+  /** Accept a reference date not after the active release's: a rollback to an earlier archive. */
+  allowOlder?: boolean
 }
 
 export interface ImportResult {
@@ -89,12 +94,25 @@ async function writeBatches(withPlatform: WithPlatform, releaseId: string, entri
   return written
 }
 
-async function activate(withPlatform: WithPlatform, release: ImportRelease, releaseId: string, entryCount: number): Promise<string[]> {
+/** The shrink a release may show, refused when it is no number in [0, 1): NaN would switch the guard off. */
+function maxShrinkOf(release: ImportRelease): number {
   const maxShrink = release.maxShrink ?? DEFAULT_MAX_SHRINK
+  if (!Number.isFinite(maxShrink) || maxShrink < 0 || maxShrink >= 1)
+    throw new ReleaseRefusedError(`maxShrink must be a number from 0 to below 1, not ${String(release.maxShrink)}.`)
+  return maxShrink
+}
+
+async function activate(withPlatform: WithPlatform, release: ImportRelease, releaseId: string, entryCount: number): Promise<string[]> {
+  const maxShrink = maxShrinkOf(release)
   return withPlatform(async (tx) => {
-    const active = await tx<{ id: string; entry_count: number }[]>`
-      SELECT id, entry_count FROM address_register_releases
+    const active = await tx<{ id: string; entry_count: number; reference_date: string }[]>`
+      SELECT id, entry_count, reference_date::text FROM address_register_releases
       WHERE register = ${release.register.id} AND status = 'active' FOR UPDATE`
+    if (active[0] && !release.allowOlder && release.referenceDate <= active[0].reference_date)
+      throw new ReleaseRefusedError(
+        `${release.register.id} ${release.referenceDate} is not after the active release's ${active[0].reference_date}; ` +
+          'pass allowOlder to roll back to it.'
+      )
     const floor = active[0] ? Math.ceil(active[0].entry_count * (1 - maxShrink)) : 1
     if (entryCount < Math.max(floor, 1))
       throw new ReleaseRefusedError(
@@ -115,6 +133,11 @@ async function activate(withPlatform: WithPlatform, release: ImportRelease, rele
 
 /** Import a release and make it the register's active one, or refuse it and leave the active release as it was. */
 export async function importRelease(withPlatform: WithPlatform, release: ImportRelease): Promise<ImportResult> {
+  maxShrinkOf(release)
+  await withPlatform((tx) =>
+    tx`DELETE FROM address_register_releases
+       WHERE register = ${release.register.id} AND status = 'loading' AND imported_at < now() - interval '1 day'`.then(() => undefined)
+  )
   const [{ id: releaseId }] = await withPlatform((tx) => tx<{ id: string }[]>`
     INSERT INTO address_register_releases (register, country_id, reference_date, attribution, source_url)
     VALUES (${release.register.id}, ${release.register.country}, ${release.referenceDate}, ${release.attribution}, ${release.sourceUrl})

@@ -57,6 +57,10 @@ million rows.
   a changed file format does. The new release is removed and the active one
   stays. Look at the dry run's counts and `rows skipped`; pass
   `--max-shrink 0.2` only once you know why.
+- `… is not after the active release's …`: the archive is not newer than the
+  one in use. To roll back to it on purpose, pass `--allow-older`.
+- `--max-shrink is a number from 0 to below 1`: the value did not parse; the
+  guard is never switched off by a typo.
 - `The archive has no ADRESSE.csv`: not the relational tables (the INSPIRE
   GeoPackage and CSV are a different product).
 - `--reference-date X, but the archive says Y`: the wrong file.
@@ -75,5 +79,6 @@ organization (a rollout flag in WorkOS).
 
 ## Rolling back
 
-Re-import the previous archive with `--apply` (and `--max-shrink` if it is
-smaller). The tables are dropped only by migration 0206's down.
+Re-import the previous archive with `--apply --allow-older` (and
+`--max-shrink` if it is smaller). An import that died leaves a `loading`
+release no lookup reads; the next import removes it once it is a day old. The tables are dropped only by migration 0206's down.

@@ -81,9 +81,14 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
   const releases = await activeReleases(session.organizationId, registersFor(parsed))
   if (releases.length === 0) return unverified('no_register')
   const narrowed: RegisterRow[] = []
+  let conflict = false
+  let searched = 0
   for (const release of releases) {
     const register = ADDRESS_REGISTERS[release.register]
     const postcode = usablePostcode(parsed, register.postcodeShape)
+    // A postcode of another country's shape is evidence of that country (A1), unless the register lists it.
+    if (parsed.postcode && !postcode && !register.crossBorderPostcodes.test(parsed.postcode)) continue
+    searched += 1
     const found = await findByKeys(session.organizationId, {
       registers: [register.id],
       streetKey: streetKey(parsed.street),
@@ -91,12 +96,16 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
       postcode,
       placeKey: !postcode && parsed.place ? placeKey(parsed.place) : null,
     })
-    narrowed.push(...narrow(parsed, found, register.postcodeShape))
+    const result = narrow(parsed, found, register.postcodeShape)
+    narrowed.push(...result.rows)
+    conflict ||= result.conflict
   }
-  const outcome = outcomeOf(narrowed)
-  // A street and number alone place nothing, even when the register holds one such address:
-  // the line could be in a country this cell has no register for (invariant A1). Its candidates are offered.
-  if (!parsed.postcode && !parsed.place)
+  if (searched === 0) return unverified('no_register')
+  const outcome = outcomeOf(narrowed, conflict)
+  // A street and number with no place place nothing, even when the register holds one such address:
+  // the line could be in a country this cell has no register for (invariant A1); a four-digit postcode
+  // does not say which (Switzerland and Liechtenstein have them). Its candidates are offered.
+  if (!parsed.place)
     return unverified(outcome.status === 'one' ? 'incomplete' : outcome.reason, await withAuthorities(session, outcome.status === 'one' ? [outcome.row] : outcome.rows, now))
   if (outcome.status === 'one') {
     const [site] = await withAuthorities(session, [outcome.row], now)
@@ -138,6 +147,6 @@ export async function setProjectSite(
     resolution = await resolveSite(session, body.typed ?? '', now)
   }
   const operations: ProjectProfilePatchOperation[] = siteProfileOperations(resolution, session.userId, now)
-  const patched = await patchProjectProfile(session, projectId, operations)
+  const patched = await patchProjectProfile(session, projectId, operations, undefined, { registerEvidence: true })
   return { resolution, profileVersion: patched.profileVersion }
 }

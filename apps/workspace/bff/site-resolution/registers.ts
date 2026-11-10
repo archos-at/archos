@@ -20,8 +20,15 @@ export interface AddressRegister {
   publisher: string
   /** The territory id of a municipality by its official code: `AT:gkz:60101` (ADR-0165's territory ids). */
   municipalityTerritory: (code: string) => string
-  /** A postcode of this country's shape; another (a neighbour's) is not a filter. */
+  /** A postcode of this country's shape: a filter on the register's rows. */
   postcodeShape: RegExp
+  /**
+   * A neighbour's postcodes that this country's addresses are written with
+   * (the Kleinwalsertal and Jungholz are delivered by the Deutsche Post, design
+   * E30): not a filter, and not evidence of the neighbour. Any other postcode of
+   * another shape is such evidence, and the register is not searched.
+   */
+  crossBorderPostcodes: RegExp
   /** The state (Land) a municipality lies in, from its code alone; null when the code names none. */
   stateOf: (code: string) => string | null
   /** The bulk file the importer reads: an official download, never a query. */
@@ -39,6 +46,8 @@ export const BEV_ADDRESS_REGISTER: AddressRegister = {
   publisher: 'BEV – Bundesamt für Eich- und Vermessungswesen (Österreichisches Adressregister)',
   municipalityTerritory: (code) => `AT:gkz:${code}`,
   postcodeShape: /^\d{4}$/,
+  // Mittelberg (Kleinwalsertal) 87567–87569, Jungholz 87491.
+  crossBorderPostcodes: /^(8756[7-9]|87491)$/,
   stateOf: austrianStateOf,
   // The relational tables as of a reference date ("Stichtagsdaten"), published twice a year (CC BY 4.0).
   downloadUrl: (referenceDate) =>

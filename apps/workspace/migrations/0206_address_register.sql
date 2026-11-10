@@ -28,8 +28,8 @@
 -- lets every tenant read and only the platform role write. Not a platform
 -- knowledge record either (ADR-0165): 2.5 million rows of a publisher's list
 -- are not claims a reviewer can read one by one; the release is the unit, and
--- the importer refuses a release that differs from the active one by more than
--- it was told to accept.
+-- the importer refuses a release that shrinks the active one by more than it
+-- was told to accept, or that is not newer than it.
 
 CREATE TABLE IF NOT EXISTS address_register_releases (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -66,8 +66,9 @@ register itself and no typed text leaves the cell.
 - **Import.** `scripts/import-address-register.ts` (`bun run register:import`)
   reads the archive, dry-run by default, and with `--apply` writes a `loading`
   release in batches, then swaps it in one transaction. A release that would
-  shrink the active one by more than 5 % is refused and removed, and the
-  active release stays (`--max-shrink` accepts more, after a person looked).
+  shrink the active one by more than 5 %, or that is not newer than it, is
+  refused and removed, and the active release stays (`--max-shrink` and
+  `--allow-older` accept it, after a person looked). Growth is not checked.
   The download is the only egress: `data.bev.gv.at` is a row of
   `configs/subprocessors/public-sources.yaml`, and nothing anyone types is in
   it.
@@ -77,13 +78,18 @@ register itself and no typed text leaves the cell.
   so SQL compares keys and never folds text.
 - **Resolution.** `resolveSite` parses the line (`parse.ts`), looks the street
   and house number up in the active releases, and narrows: a postcode of the
-  register country's shape must match (a German postcode in the Kleinwalsertal,
-  E30, is not a filter); a place must be the Gemeinde, the Ortschaft or the
-  delivery place unless a postcode already matched; a house number with a door
+  register country's shape must match; a postcode of another shape is evidence
+  of another country and the register is not searched, unless the register
+  lists it as cross-border (the Kleinwalsertal's 87567–87569 and Jungholz's
+  87491, E30); a place must be the Gemeinde, the Ortschaft or the delivery
+  place, or begin with one ("Wien-Innere Stadt"), and a place the postcode's
+  addresses do not lie in is `conflict`, never the postcode's address; a house
+  number with a door
   (`12/3/4`) is tried as typed, then as `12`; a lot number (`GNR 310/4`) is the
-  house number. Exactly one address, on a line that names a postcode or a place,
-  is `verified`. Otherwise `unverified` with a reason: `incomplete` (no street
-  and number, or neither postcode nor place), `no_register` (none for the stated country, or none imported),
+  house number. Exactly one address, on a line that names a place, is
+  `verified`. Otherwise `unverified` with a reason: `incomplete` (no street and
+  number, or no place: a four-digit postcode alone is Switzerland's and
+  Liechtenstein's shape too), `conflict`, `no_register` (none for the stated country, or none imported),
   `no_register_hit`, `ambiguous` (several in one Gemeinde) or `multi_leaf`
   (several Gemeinden, design §5.2), and up to eight register candidates. A
   stated country is kept as stated (A1): a line ending in "Deutschland" or
@@ -99,7 +105,9 @@ register itself and no typed text leaves the cell.
   writes through the profile's one door (`patchProjectProfile`, project:edit).
   A register address becomes confirmed facts (`site_address`, `country`,
   `federal_state`, `municipality`, `site_territory`) with `register` evidence
-  (the address id and the reference date). A typed line the register does not
+  (the address id and the reference date). No other write may add `register`
+  evidence: the generic patch and replace refuse an entry the stored profile
+  does not hold. A typed line the register does not
   confirm stays an unconfirmed assumption, as ADR-0158 has it, with the
   postcode's Land suggestion. The previous site's entries are removed first.
 - **Behind a flag.** `site-resolution` (a rollout: public data, no cost per
@@ -175,6 +183,14 @@ alone verified 139 of 200, because those addresses are unique in Austria: a
 line that states no postcode and no place could be in a country this cell has
 no register for, so it now stays `incomplete` and offers its candidates
 (invariant A1).
+
+An independent review of the branch then found three more ways a line could be
+verified wrongly, each now a test: a postcode that matched while the place named
+another Gemeinde (`8010 Wien` took Graz; now `conflict`), any five-digit postcode
+being dropped as if it were the Kleinwalsertal's (now only the listed ones), and
+a postcode with no place (now `incomplete`). It also found that a malformed
+`--max-shrink` read as NaN switched the shrink guard off, and that `register`
+evidence could be written through the generic profile patch.
 
 ### Confirmation
 

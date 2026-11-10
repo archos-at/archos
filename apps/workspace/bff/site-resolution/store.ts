@@ -100,7 +100,10 @@ export async function findByKeys(
   const narrowing = query.postcode
     ? sql`AND e.postcode = ${query.postcode}`
     : query.placeKey
-      ? sql`AND e.place_keys @> ARRAY[${query.placeKey}]::text[]`
+      ? // The place itself, or a district written after it ("wieninnerestadt" in "wien"), as `match.ts` reads it.
+        // Keys are letters and digits only, so LIKE sees no wildcard in them.
+        sql`AND EXISTS (SELECT 1 FROM unnest(e.place_keys) AS p(key)
+              WHERE p.key = ${query.placeKey} OR (length(p.key) >= 3 AND ${query.placeKey} LIKE p.key || '%'))`
       : sql``
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<RawRow>(sql`${SELECT_ROW}

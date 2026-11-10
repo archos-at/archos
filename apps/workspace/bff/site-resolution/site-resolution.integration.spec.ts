@@ -255,6 +255,16 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(resolution.status === 'unverified' && resolution.candidates.map((candidate) => candidate.municipality.name).sort()).toEqual(['Graz', 'Knittelfeld', 'Leoben'])
   })
 
+  it('never takes the postcode\'s address when the place or the postcode says otherwise', async () => {
+    expect(await service.resolveSite(session, 'Herrengasse 16, 8010 Wien', now)).toMatchObject({ status: 'unverified', reason: 'conflict' })
+    expect(await service.resolveSite(session, 'Herrengasse 16, 8010 Zürich', now)).toMatchObject({ status: 'unverified', reason: 'conflict' })
+    // A German postcode outside the Kleinwalsertal and Jungholz is evidence of Germany: Austria's register is not searched.
+    expect(await service.resolveSite(session, 'Herrengasse 16, 01010 Wien', now)).toMatchObject({ status: 'unverified', reason: 'no_register' })
+    // A postcode and no place could be Switzerland's or Liechtenstein's.
+    expect(await service.resolveSite(session, 'Herrengasse 16, 8010', now)).toMatchObject({ status: 'unverified', reason: 'incomplete' })
+    expect(await service.resolveSite(session, 'Herrengasse 16, 1010 Wien-Innere Stadt', now)).toMatchObject({ status: 'verified', site: { municipality: { name: 'Wien' } } })
+  })
+
   it('finds the Kleinwalsertal address typed with its German postcode (E30), and refuses Germany (no register)', async () => {
     const walser = await service.resolveSite(session, 'Walserstraße 54, 87567 Riezlern', now)
     expect(walser).toMatchObject({ status: 'verified', site: { municipality: { name: 'Mittelberg' }, state: { territoryId: 'AT-8' } } })
@@ -281,6 +291,21 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(typed.assumptions.federal_state).toMatchObject({ value: 'styria', status: 'unconfirmed' })
   })
 
+  it('refuses register evidence through the generic profile patch, and keeps it through it (ADR-0172)', async () => {
+    await service.setProjectSite(session, projectId, { addressId: 'at-bev:5734380' }, now)
+    const { patchProjectProfile } = await import('@/lib/project-profile/profile-service')
+    const forged = {
+      value: 'Leoben',
+      confidence: 'confirmed',
+      source: 'user_confirmed',
+      updatedAt: now.toISOString(),
+      evidence: [{ kind: 'register', addressId: 'at-bev:5925325', label: 'Hauptplatz 1, 8700 Leoben', referenceDate: '2025-10-01', resolvedAt: now.toISOString() }],
+    }
+    await expect(patchProjectProfile(session, projectId, [{ op: 'replace', path: '/facts/municipality', value: forged }])).rejects.toThrow(/Register evidence/)
+    // An unrelated patch leaves the register's own evidence where it is.
+    await expect(patchProjectProfile(session, projectId, [{ op: 'add', path: '/goals/note', value: 'x' }])).resolves.toBeTruthy()
+  })
+
   it('refuses an address id the active release does not hold', async () => {
     await expect(service.setProjectSite(session, projectId, { addressId: 'at-bev:0' }, now)).rejects.toThrow(/No address with that id/)
   })
@@ -289,6 +314,10 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     const next = await importFixture('2026-04-01')
     expect(next.retiredReleaseIds).toHaveLength(1)
     await expect(importFixture('2026-10-01', 5)).rejects.toThrow(importer.ReleaseRefusedError)
+    await expect(importFixture('2025-10-01')).rejects.toThrow(/not after the active release/)
+    await expect(importer.importRelease(withPlatform, {
+      register: registers.BEV_ADDRESS_REGISTER, referenceDate: '2026-10-01', attribution: 'x', sourceUrl: null, entries: fixtureEntries(), maxShrink: Number.NaN,
+    })).rejects.toThrow(/maxShrink/)
     const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
     expect(resolution.status === 'verified' && resolution.site.register.referenceDate).toBe('2026-04-01')
     const releases = await withPlatform((tx) => tx<{ status: string; n: number }[]>`

@@ -45,7 +45,8 @@ function lookup(line: string) {
   if (!parsed) throw new Error(`unparsed: ${line}`)
   const keys = houseKeysOf(parsed)
   const found = ROWS.filter((row) => row.streetKey === streetKey(parsed.street) && keys.includes(row.houseKey))
-  return outcomeOf(narrow(parsed, found, BEV_ADDRESS_REGISTER.postcodeShape))
+  const narrowed = narrow(parsed, found, BEV_ADDRESS_REGISTER.postcodeShape)
+  return outcomeOf(narrowed.rows, narrowed.conflict)
 }
 
 describe('the BEV archive', () => {
@@ -125,6 +126,16 @@ describe('narrowing the rows a line found', () => {
 
   it('finds a Kleinwalsertal address typed with the German postcode (E30)', () => {
     expect(lookup('Walserstraße 54, 87567 Riezlern')).toMatchObject({ status: 'one', row: { municipalityCode: '80228', postcode: '6991' } })
+  })
+
+  it('refuses a postcode the place contradicts, whichever way round (conflict, never the postcode\'s address)', () => {
+    expect(lookup('Herrengasse 16, 8010 Wien')).toMatchObject({ status: 'none', reason: 'conflict' })
+    expect(lookup('Herrengasse 16, 1010 Graz')).toMatchObject({ status: 'none', reason: 'conflict' })
+    expect(lookup('Herrengasse 16, 8010 Zürich')).toMatchObject({ status: 'none', reason: 'conflict' })
+  })
+
+  it('takes a district written after the place', () => {
+    expect(lookup('Herrengasse 16, 1010 Wien-Innere Stadt')).toMatchObject({ status: 'one', row: { addressId: '6792486' } })
   })
 
   it('finds nothing for an address the register does not hold', () => {
