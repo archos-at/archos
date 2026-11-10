@@ -51,7 +51,6 @@ describe('withAiProvenanceXmp', () => {
     const marked = withAiProvenanceXmp(original, marking)
 
     expect(marked.subarray(0, original.length)).toEqual(original)
-    // Before `readPdf`: pdf.js transfers the buffer it is given, leaving it empty.
     expect(markingIsInBytes(marked, marking)).toBe(true)
     const before = await readPdf(original)
     const after = await readPdf(marked)

@@ -60,7 +60,10 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfContents> {
   // document proxy does not (pdf.js 6). Holding it is the difference between a
   // spec file that finishes and one that leaves a worker alive per assertion.
   const task = pdfjs.getDocument({
-    data: bytes,
+    // A copy: pdf.js transfers the buffer it is given to its worker, which
+    // leaves the caller's array empty, and a spec that then asserts on the
+    // same bytes (a byte scan for a marking) fails on a file that is fine.
+    data: bytes.slice(),
     // No system font probing: a test process has no font book, and asking for
     // one turns a parse into a filesystem sweep.
     useSystemFonts: false,

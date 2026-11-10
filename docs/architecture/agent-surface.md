@@ -1031,6 +1031,18 @@ these routes, so ADR-0131's "fix the route" does not apply. A per-operation decl
 than guessing from the shape, because `{ id }` is a project in one answer and a document in the
 next. The backend operations (`files-list`, `knowledge-search`) carry no links yet.
 
+### The AI mark on a generated answer
+
+Article 50(2) AI Act asks that text a model generates be marked in a machine-readable way. An
+operation whose answer holds such text names its key, `generatedContent: 'answer'` (today
+`agent-ask-create` and `agent-ask-get`), and `fromOperationResult` adds
+`_meta: { aiGenerated: true, digitalSourceType: '…/trainedAlgorithmicMedia' }` to the tool result
+when that key is present and not null (`lib/agent-api/ai-generated-meta.ts`). Every ask path goes
+through that seam: the single call, the progress stream and the tasks extension's inline result. An
+ask still `working` has no answer and no mark, and a read of a stored document is not marked here:
+the document carries its own marking (`@/lib/ai-provenance`). The IPTC term is the one the exported
+files carry, so one detector vocabulary covers files and the wire.
+
 ### Sensitive operations
 
 `sensitivity: 'access'` marks an operation that widens who may do what (sharing

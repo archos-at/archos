@@ -88,11 +88,21 @@ Who downloaded or opened which file is in [the download log](download-log.md).
   KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten
   Unterlagen." It is always shown. The **KI-Transparenzhinweis** page explains
   the system, its models and its limits.
-- **In files ARCHOS produces.** A filed report or draft (PDF or Word), a
-  diagram (SVG or PDF) and an answer exported as a Word document each carry a
-  visible notice that ARCHOS generated them and no person checked them, and a
-  machine-readable marking in the file itself (`AIGenerated`, `AIGenerator: ARCHOS`,
-  `AIHumanReviewed`): see [Reports ARCHOS writes](agent-authored-reports.md).
+- **In files ARCHOS produces.** A filed report (PDF), a diagram (SVG or PDF)
+  and an answer exported as a Word document carry a machine-readable marking in
+  the file itself: the standard IPTC term `trainedAlgorithmicMedia` (in the
+  PDF's XMP metadata, and as the Word file's `DigitalSourceType` property),
+  beside ARCHOS's own `AIGenerated`, `AIGenerator: ARCHOS` and
+  `AIHumanReviewed`: see [Reports ARCHOS writes](agent-authored-reports.md). A
+  report or diagram ARCHOS files also prints a visible notice; an exported
+  answer prints one when you ask for it.
+- **In documents ARCHOS drafts.** Every document ARCHOS writes into a project,
+  a letter to an authority included, opens with „Verfasst von ARCHOS, einem
+  KI-System, für <Ihr Büro>." (Article 50(1) of the AI Act). Your office can
+  change its document header and footer; it cannot remove this line.
+- **To other AI clients.** An answer ARCHOS gives through its MCP server
+  (`agent-ask-create`, `agent-ask-get`) carries `_meta.aiGenerated: true` and
+  the same IPTC term, so the client that receives it can tell.
 - **Not yet marked.** Article 50(2) of the AI Act asks that generated text be
   marked in a machine-readable way. Answers and cards shown in the chat, and
   text copied from them, carry no such marking today; only the notice under the
