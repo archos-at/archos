@@ -358,6 +358,22 @@ export const FEATURE_FLAGS = {
    * stay untouched.
    */
   platformBaseKnowledge: 'platform-base-knowledge',
+  /**
+   * The building law of a project's site from the platform's records
+   * (ADR-0168): the chain text that says which edition binds in its Land and
+   * why, in the turn context, and each edition's role on the sources an answer
+   * cites (`bff/base-knowledge/chain/`). With it on, an office entitled to
+   * Austria reads OIB-RL 2:2019 as binding in Steiermark and 2023 as guidance
+   * there, where the static prompt and the host regex called 2023 binding in
+   * every Land.
+   *
+   * An entitlement, off until an operator targets the organization. With it
+   * off the turn context carries no chain and every source keeps the status
+   * `citations/binding.py` gave it before, byte for byte. The chain text only
+   * reaches a prompt once the static prompt no longer carries `<building_law>`
+   * (the country-neutral push); until then it rides along unread.
+   */
+  buildingLawChain: 'building-law-chain',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -392,6 +408,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
+  'building-law-chain': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

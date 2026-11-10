@@ -1443,6 +1443,13 @@
       "when": 1792900000000,
       "tag": "0205_platform_base_knowledge",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1792910000000,
+      "tag": "0206_country_pack",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { buildingLawTurnSchema } from '@/lib/base-knowledge/chain/wire'
 
 export const turnContextRequestSchema = z.object({
   query: z.string().trim().max(2000).optional(),
@@ -43,6 +44,14 @@ export const turnContextResponseSchema = z.object({
    * Tokens, no prose; the answer's renderer words it. Empty with the flag off.
    */
   baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
+  /**
+   * The building law of the project's site from the platform's records
+   * (`lib/base-knowledge/chain/`, ADR-0168): the chain text and each
+   * edition's role. Null when the `building-law-chain` flag is off, the
+   * project states no Land, or nothing binds there by the records; an older
+   * agent ignores it.
+   */
+  buildingLaw: buildingLawTurnSchema.nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

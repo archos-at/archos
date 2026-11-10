@@ -1,0 +1,79 @@
+{
+  "$comment": "The EU pack (ADR-0168): the union as a territory, and the union law a member's site reaches through its dated parent. Proposed like any platform change.",
+  "countryId": "EU",
+  "title": "European Union: the union and its construction products law",
+  "records": [
+    {
+      "type": "territory",
+      "id": "EU",
+      "kind": "union",
+      "name": "Europäische Union",
+      "parentIds": [],
+      "citations": [
+        {
+          "note": "The union; a member names it as a dated parent."
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "eu-cpr",
+      "kind": "statute",
+      "title": "Bauproduktenverordnung",
+      "designation": "Verordnung (EU) Nr. 305/2011",
+      "territoryIds": [
+        "EU"
+      ],
+      "issuer": "Europäisches Parlament und Rat",
+      "citations": [
+        {
+          "url": "https://eur-lex.europa.eu/eli/reg/2011/305/oj",
+          "note": "CELEX 32011R0305"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "eu-cpr-305-2011",
+      "workKey": "eu-cpr",
+      "label": "Verordnung (EU) Nr. 305/2011",
+      "issuedOn": "2011-03-09",
+      "inForceFrom": "2013-07-01",
+      "citations": [
+        {
+          "url": "https://eur-lex.europa.eu/eli/reg/2011/305/oj",
+          "note": "applies in full from 2013-07-01 (Art. 68)"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "eu-epbd",
+      "kind": "directive",
+      "title": "Richtlinie über die Gesamtenergieeffizienz von Gebäuden",
+      "designation": "Richtlinie (EU) 2024/1275",
+      "territoryIds": [
+        "EU"
+      ],
+      "issuer": "Europäisches Parlament und Rat",
+      "citations": [
+        {
+          "url": "https://eur-lex.europa.eu/eli/dir/2024/1275/oj",
+          "note": "a directive binds through its transposing law, never a project directly"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "eu-epbd-2024",
+      "workKey": "eu-epbd",
+      "label": "Richtlinie (EU) 2024/1275",
+      "issuedOn": "2024-04-24",
+      "citations": [
+        {
+          "url": "https://eur-lex.europa.eu/eli/dir/2024/1275/oj"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+/**
+ * The chain text: what binds at a site, in words the agent reads (ADR-0168,
+ * design §3.7 "no free text from records reaches a prompt" and §5.5 step 8).
+ * Pure.
+ *
+ * Every sentence is fixed here and keyed by a typed field: the kind of an
+ * instrument, the role and mode of a route, a displacement's anchors. What
+ * comes from a record is a name (title, designation, edition label,
+ * provision), each reduced to one bounded line with no markup, so a record
+ * cannot carry an instruction into every office's prompt. English, because
+ * the agent reads it; the names are the jurisdiction's own.
+ */
+
+import type { KnowledgeWorkKind } from '../wire/vocab'
+import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep } from './graph'
+
+/** Longest name taken from a record. */
+export const MAX_NAME_CHARS = 120
+
+/** Most lines per section; the rest are counted. */
+export const MAX_SECTION_LINES = 24
+
+const KIND_WORDS: Record<KnowledgeWorkKind, string> = {
+  statute: 'law',
+  ordinance: 'ordinance',
+  administrative_regulation: 'administrative regulation',
+  directive: 'directive',
+  intergovernmental_agreement: 'agreement',
+  model_code: 'model code',
+  technical_standard: 'standard',
+  guideline: 'guideline',
+  commentary: 'commentary',
+  authority_directive: 'authority directive',
+}
+
+const MODE_WORDS = {
+  declared: 'declared binding by',
+  static_reference: 'binding in this edition through a reference in',
+  dynamic_reference: 'binding in its edition in force through a reference in',
+} as const
+
+/** One line of a name: no markup, no line breaks, no control characters, bounded. */
+export function nameOf(value: string | null | undefined): string {
+  const flat = (value ?? '')
+    .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+    .replace(/[<>{}`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return flat.length > MAX_NAME_CHARS ? `${flat.slice(0, MAX_NAME_CHARS - 1)}…` : flat
+}
+
+const PREAMBLE =
+  'What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only ' +
+  'where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, ' +
+  'which add no requirement. Information from an authority shows its practice, not a norm.'
+
+function workName(graph: KnowledgeGraph, workId: string): string {
+  const work = graph.works.get(workId)
+  if (!work) return nameOf(workId)
+  const title = nameOf(work.title)
+  const designation = nameOf(work.designation)
+  return designation && designation !== title ? `${designation} „${title}“` : title
+}
+
+function editionName(graph: KnowledgeGraph, editionId: string | null): string {
+  if (!editionId) return 'the consolidated text in force at its source'
+  return `edition ${nameOf(graph.editions.get(editionId)?.label ?? editionId)}`
+}
+
+function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
+  const by = workName(graph, step.workId)
+  const mode = step.mode ? MODE_WORDS[step.mode] : 'binding through'
+  const provision = step.provision ? ` (${nameOf(step.provision)})` : ''
+  const office = step.owner === 'office' ? ', a route the office maintains' : ''
+  return `${mode} ${by}${provision}${office}`
+}
+
+function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly string[]): string[] {
+  const work = graph.works.get(use.workId)
+  const kind = work ? KIND_WORDS[work.kind] : 'instrument'
+  const last = use.route.at(-1)
+  const where = work?.territoryIds.find((id) => chain.includes(id))
+  const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, in force` : stepWords(graph, last)
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}`]
+  for (const displaced of use.displaced) {
+    const target = displaced.anchor ?? 'the whole instrument'
+    const by = workName(graph, displaced.byWorkId)
+    const provision = displaced.provision ? ` (${nameOf(displaced.provision)})` : ''
+    lines.push(
+      displaced.replacedBy
+        ? `  - ${nameOf(target)} does not apply here; ${by} ${nameOf(displaced.replacedBy)} applies instead${provision}`
+        : `  - ${nameOf(target)} is not adopted here by ${by}${provision}`,
+    )
+  }
+  return lines
+}
+
+function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
+  const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : '; no edition of it binds here'
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
+}
+
+function interpretationLine(graph: KnowledgeGraph, use: EditionUse): string {
+  const on = use.relatedEditionId ? `, on ${editionName(graph, use.relatedEditionId)}` : ''
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: interpretation only${on}; never the source of a requirement`
+}
+
+function practiceLine(graph: KnowledgeGraph, use: EditionUse): string {
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: the practice of the authority that decides here, not a norm`
+}
+
+function section(header: string, lines: readonly string[]): string[] {
+  if (lines.length === 0) return []
+  const shown = lines.slice(0, MAX_SECTION_LINES)
+  const more = lines.length - shown.length
+  return [header, ...shown, ...(more > 0 ? [`- and ${more} more`] : [])]
+}
+
+/** The chain text for a resolved site; `place` is the leaf's name as the project states it. */
+export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, place: string): string {
+  const leaf = resolved.chain[0]
+  const leafName = nameOf(graph.territories.get(leaf)?.name ?? place) || leaf
+  const by = (role: EditionUse['role']) => resolved.uses.filter((use) => use.role === role)
+  const interpretations = by('interpretation')
+  const information = by('information').length
+  const lines = [
+    `Building law at this site, ${leafName} (${resolved.chain.join(', ')}), on ${resolved.date}, from the platform's reviewed records. ${PREAMBLE}`,
+    ...section('Binding here:', by('binding').flatMap((use) => bindingLine(graph, use, resolved.chain))),
+    ...section('Authority practice here:', by('authority_practice').map((use) => practiceLine(graph, use))),
+    ...section(
+      'Guidance only (no route makes this edition binding here; cite it as guidance and name the edition that binds):',
+      by('guidance').map((use) => guidanceLine(graph, use)),
+    ),
+    ...(interpretations.length > 0
+      ? section('Interpretation:', interpretations.map((use) => interpretationLine(graph, use)))
+      : ['Legal commentaries are not available; say so when asked for one.']),
+    ...(information === 1 ? ['1 other edition is not in force here and is information only.'] : []),
+    ...(information > 1 ? [`${information} other editions are not in force here and are information only.`] : []),
+  ]
+  return lines.join('\n')
+}

@@ -39,15 +39,19 @@ function intervalProblems(record: ProposedRecord): Problem[] {
   if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo < record.inForceFrom) {
     return [{ check: 'KC-3', key, detail: 'inForceTo lies before inForceFrom.' }]
   }
-  if (record.type === 'territory' && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
+  if ((record.type === 'territory' || record.type === 'relation') && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
     return [{ check: 'KC-3', key, detail: 'validTo must lie after validFrom (intervals are half-open).' }]
+  }
+  if (record.type === 'territory') {
+    const reversed = record.datedParents.find((parent) => parent.validFrom && parent.validTo && parent.validTo <= parent.validFrom)
+    if (reversed) return [{ check: 'KC-3', key, detail: `the interval of parent ${reversed.id} is empty or reversed.` }]
   }
   return []
 }
 
 /** The territories a record names, which must exist. */
 export function namedTerritories(record: ProposedRecord): string[] {
-  if (record.type === 'territory') return record.parentIds
+  if (record.type === 'territory') return [...record.parentIds, ...record.datedParents.map((parent) => parent.id)]
   if (record.type === 'authority') return [record.seatTerritoryId, ...record.competenceTerritoryIds]
   if (record.type === 'work') return [...record.territoryIds, ...record.addressees.map((addressee) => addressee.territoryId)]
   return []

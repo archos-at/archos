@@ -11,8 +11,8 @@
 import { z } from 'zod'
 import {
   KNOWLEDGE_CHECK_RESULTS,
-  KNOWLEDGE_WORK_KINDS,
   LICENCE_CLASSES,
+  OFFICE_WORK_KINDS,
   type KnowledgeCheckResult,
 } from '@/lib/base-knowledge/wire/vocab'
 
@@ -37,7 +37,7 @@ export const addresseeSchema = z.object({
 /** The values a person confirms; every field optional on a proposal, where the reading fills the rest. */
 const entryFields = {
   kind: z
-    .enum(KNOWLEDGE_WORK_KINDS)
+    .enum(OFFICE_WORK_KINDS)
     .describe('A commentary only interprets.'),
   title: z.string().trim().min(1).max(300).describe('The title as the document prints it.'),
   designation: z

@@ -12,9 +12,12 @@
 import { z } from 'zod'
 import {
   APPROVAL_ROLES,
+  BINDING_MODES,
   CHANGE_REQUEST_STATUSES,
   KNOWLEDGE_WORK_KINDS,
   type KnowledgeRecordType,
+  RELATION_END_TYPES,
+  RELATION_TYPES,
   RELEASE_CHANNELS,
   REVIEW_DECISIONS,
   TERRITORY_KINDS,
@@ -105,11 +108,61 @@ const territoryRecord = z.object({
   kind: z.enum(TERRITORY_KINDS),
   name: z.string().trim().min(1).max(200),
   parentIds: z.array(territoryIdSchema).max(10).default([]).describe('Nearest first, e.g. ["AT"] for AT-6.'),
+  datedParents: z
+    .array(
+      z.object({
+        id: territoryIdSchema,
+        validFrom: isoDate.nullable().default(null),
+        validTo: isoDate.nullable().default(null),
+      }),
+    )
+    .max(10)
+    .default([])
+    .describe('Parents for an interval only, half-open: [{ id: "EU", validFrom: "1995-01-01" }] for AT.'),
   aliases: z.record(z.string().regex(/^[a-z]{2,8}$/), z.string().min(1).max(40)).default({}),
   validFrom: isoDate.nullable().default(null),
   validTo: isoDate.nullable().default(null),
   ...common,
 })
+
+/** An AKN eId (`par_4__abs_2`, `pkt_3.1`, `cl_4.2`): what an anchor names, never prose. */
+const anchorIdSchema = z.string().trim().regex(/^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$/, 'an AKN eId such as par_4__abs_2 or pkt_3.1')
+
+const relationEnd = z.object({
+  type: z.enum(RELATION_END_TYPES),
+  key: keySchema.describe('The work or edition, proposed here or already published, in any pack.'),
+})
+
+const relationRecord = z
+  .object({
+    type: z.literal('relation'),
+    key: keySchema,
+    relationType: z.enum(RELATION_TYPES),
+    mode: z.enum(BINDING_MODES).nullable().default(null).describe('Only for makes_binding: declared, static_reference or dynamic_reference.'),
+    from: relationEnd.describe('The instrument that binds, displaces, supersedes or interprets.'),
+    to: relationEnd,
+    anchors: z
+      .array(z.object({ from: anchorIdSchema.optional(), to: anchorIdSchema.optional() }))
+      .max(50)
+      .default([])
+      .describe('Paired clauses; empty for the whole instrument. A deviates_from names at least one.'),
+    provision: z.string().trim().min(1).max(120).nullable().default(null).describe('Where the from-instrument says so, e.g. "§ 1 WBTV 2023".'),
+    validFrom: isoDate.nullable().default(null),
+    validTo: isoDate.nullable().default(null),
+    ...common,
+  })
+  .refine((record) => (record.mode !== null) === (record.relationType === 'makes_binding'), {
+    message: 'mode is set for a makes_binding relation and only for it',
+    path: ['mode'],
+  })
+  .refine((record) => record.relationType !== 'deviates_from' || record.anchors.length > 0, {
+    message: 'a deviates_from names the clauses it displaces',
+    path: ['anchors'],
+  })
+  .refine((record) => !(record.from.type === record.to.type && record.from.key === record.to.key), {
+    message: 'a relation joins two different instruments',
+    path: ['to'],
+  })
 
 const authorityRecord = z.object({
   type: z.literal('authority'),
@@ -128,6 +181,7 @@ export const proposedRecordSchema = z.discriminatedUnion('type', [
   manifestationRecord,
   territoryRecord,
   authorityRecord,
+  relationRecord,
 ])
 export type ProposedRecord = z.infer<typeof proposedRecordSchema>
 

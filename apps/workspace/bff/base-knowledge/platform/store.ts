@@ -26,6 +26,7 @@ import {
   knowledgeApprovals,
   knowledgeAuthorityRevisions,
   knowledgeChangeRequests,
+  knowledgeRelationRevisions,
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
   knowledgeTerritoryRevisions,
@@ -180,6 +181,7 @@ const BODY_TABLES = [
   knowledgeRulesetRevisions,
   knowledgeTerritoryRevisions,
   knowledgeAuthorityRevisions,
+  knowledgeRelationRevisions,
 ] as const
 
 /** Each revision's body columns, by revision id. */

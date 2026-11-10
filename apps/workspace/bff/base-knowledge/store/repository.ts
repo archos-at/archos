@@ -31,8 +31,15 @@ import {
   type LicenceClass,
   type KnowledgeRecordType,
 } from '@/lib/db/schema/knowledge-records'
-import { knowledgeAuthorityRevisions, knowledgeTerritoryRevisions } from '@/lib/db/schema/knowledge-platform'
+import {
+  knowledgeAuthorityRevisions,
+  knowledgeRelationRevisions,
+  knowledgeTerritoryRevisions,
+} from '@/lib/db/schema/knowledge-platform'
 import type { EntryCheck, EntryValues } from '../wire'
+import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
+
+const isOfficeWorkKind = (kind: string): kind is OfficeWorkKind => (OFFICE_WORK_KINDS as readonly string[]).includes(kind)
 
 /** Most entries one office lists or a turn reads. */
 export const MAX_OFFICE_ENTRIES = 500
@@ -60,7 +67,7 @@ export interface StoredEntry extends EntryRecordIds {
 
 export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** The typed body table of each record type (0202, 0204, 0205). */
+/** The typed body table of each record type (0202, 0204, 0205, 0206). */
 const BODY_TABLES = {
   work: knowledgeWorkRevisions,
   edition: knowledgeEditionRevisions,
@@ -68,6 +75,7 @@ const BODY_TABLES = {
   ruleset: knowledgeRulesetRevisions,
   territory: knowledgeTerritoryRevisions,
   authority: knowledgeAuthorityRevisions,
+  relation: knowledgeRelationRevisions,
 } as const
 
 /**
@@ -350,6 +358,8 @@ function assembleEntries(
     const editionBody = bodies.editions.find((row) => row.revisionId === inForce.get(edition.id))
     const copyBody = bodies.copies.find((row) => row.revisionId === inForce.get(manifestation.id))
     if (!workBody || !editionBody || !copyBody) continue
+    // An office holds only its five kinds; a row of another kind is no entry of the office's.
+    if (!isOfficeWorkKind(workBody.kind)) continue
     entries.push({
       workId: work.id,
       editionId: edition.id,

@@ -44,6 +44,26 @@ const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna
 
 const STICHTAG = 'S11 (ticket 30): edition selection by the project’s reference date'
 
+const CHAIN_RESOLVE = 'apps/workspace/bff/base-knowledge/chain/resolve.ts'
+const CHAIN_TEXT = 'apps/workspace/bff/base-knowledge/chain/text.ts'
+const CHAIN_LOAD = 'apps/workspace/bff/base-knowledge/chain/load.ts'
+const CHAIN_MIGRATION = 'apps/workspace/migrations/0206_country_pack.sql'
+const RESOLVE_SPEC = 'apps/workspace/bff/base-knowledge/chain/resolve.spec.ts'
+const TEXT_SPEC = 'apps/workspace/bff/base-knowledge/chain/text.spec.ts'
+const CHAIN_SPEC = 'apps/workspace/bff/base-knowledge/chain/chain.integration.spec.ts'
+const ROUTE_WBTV = { file: RESOLVE_SPEC, name: 'route-wbtv-oib2: in Wien the WBTV declares OIB-RL 2 in its 2023 edition, with the route' }
+const ASOF_VIENNA = { file: RESOLVE_SPEC, name: 'asof-vienna: Wien binds RL 6 in 2023 before 2026-07-15 and in 2025 from that day' }
+const DEVIATION = { file: RESOLVE_SPEC, name: 'deviation-wbtv-pkt: a WBTV clause displaces an OIB-RL 2 Punkt in Wien, and nowhere else' }
+const OFFICE_ROUTE = { file: RESOLVE_SPEC, name: 'E37: an office relation makes a DIN edition binding as office_maintained, and a platform relation displaces it' }
+const CROSS_PACK = { file: RESOLVE_SPEC, name: 'li-sia500: Liechtenstein law reaches SIA and VKF works in another pack through relations' }
+const DATED_PARENT = { file: RESOLVE_SPEC, name: 'gb-2021-no-eu: Great Britain lies in the EU until the end of 2020, and not after' }
+const EVERY_KIND = { file: RESOLVE_SPEC, name: '%s reads as its kind and route say' }
+const LAW_DATED = { file: RESOLVE_SPEC, name: 'a law with editions none of which is in force at the date applies to nothing then' }
+const CHAIN_NAMED = { file: TEXT_SPEC, name: 'names what binds in Wien, why, and the clause the Land displaces' }
+const STYRIA_DB = { file: CHAIN_SPEC, name: 'reads the chain for Steiermark: OIB-RL 2 binds in 2019, and 2023 only guides (defect 7)' }
+const REACHED = { file: CHAIN_SPEC, name: 'reads a record of another pack only where a released relation reaches it, and not after its rollback' }
+const RELATION_GUARDS = { file: CHAIN_SPEC, name: 'keeps a relation append-only, and refuses a platform relation to an office record' }
+
 const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts'
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
 const PLATFORM_RELEASE = 'apps/workspace/bff/base-knowledge/platform/release.ts'
@@ -103,8 +123,8 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_edition_revisions.work_id', consumer: STORE, test: CROSS_OWNER },
   { element: 'knowledge_edition_revisions.label', consumer: TURN, test: NAMED },
   { element: 'knowledge_edition_revisions.issued_on', consumer: SERVICE, test: PROPOSAL },
-  { element: 'knowledge_edition_revisions.in_force_from', awaits: STICHTAG },
-  { element: 'knowledge_edition_revisions.in_force_to', awaits: STICHTAG },
+  { element: 'knowledge_edition_revisions.in_force_from', consumer: CHAIN_RESOLVE, test: LAW_DATED },
+  { element: 'knowledge_edition_revisions.in_force_to', consumer: CHAIN_RESOLVE, test: LAW_DATED },
   { element: 'knowledge_edition_revisions.outline', awaits: 'S8: clause anchors from the masthead outline' },
   // knowledge_manifestation_revisions
   { element: 'knowledge_manifestation_revisions.revision_id', consumer: STORE, test: HEADS },
@@ -132,6 +152,11 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_work_revisions.kind=commentary', consumer: TURN, test: { file: TURN_SPEC, name: 'marks a commentary as interpretation only' } },
   { element: 'knowledge_work_revisions.kind=authority_directive', consumer: TURN, test: DIRECTIVE },
   { element: 'knowledge_work_revisions.kind=statute', consumer: TURN, test: NAMED },
+  { element: 'knowledge_work_revisions.kind=ordinance', consumer: CHAIN_RESOLVE, test: EVERY_KIND },
+  { element: 'knowledge_work_revisions.kind=administrative_regulation', consumer: CHAIN_RESOLVE, test: EVERY_KIND },
+  { element: 'knowledge_work_revisions.kind=directive', consumer: CHAIN_RESOLVE, test: EVERY_KIND },
+  { element: 'knowledge_work_revisions.kind=intergovernmental_agreement', consumer: CHAIN_RESOLVE, test: EVERY_KIND },
+  { element: 'knowledge_work_revisions.kind=model_code', consumer: CHAIN_RESOLVE, test: EVERY_KIND },
   { element: 'knowledge_manifestation_revisions.licence_class=licensed', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'keeps a licensed copy metadata-only until the office states its licence covers AI processing' } },
   { element: 'knowledge_manifestation_revisions.licence_class=public_open', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'uses a public copy’s text without any statement' } },
   { element: 'knowledge_manifestation_revisions.licence_class=public_restricted', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'uses a public copy’s text without any statement' } },
@@ -151,7 +176,22 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
-  { element: 'knowledge_territory_revisions.name', awaits: ADDRESS },
+  { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
+  { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },
+  // Migration 0206 (ADR-0168): relations, read by the resolver that gives every edition its role.
+  { element: 'knowledge_relation_revisions.revision_id', consumer: CHAIN_LOAD, test: STYRIA_DB },
+  { element: 'knowledge_relation_revisions.record_id', consumer: CHAIN_MIGRATION, test: REACHED },
+  { element: 'knowledge_relation_revisions.organization_id', consumer: CHAIN_LOAD, test: OFFICE_ROUTE },
+  { element: 'knowledge_relation_revisions.relation_type', consumer: CHAIN_RESOLVE, test: DEVIATION },
+  { element: 'knowledge_relation_revisions.mode', consumer: CHAIN_TEXT, test: ROUTE_WBTV },
+  { element: 'knowledge_relation_revisions.from_id', consumer: CHAIN_RESOLVE, test: ROUTE_WBTV },
+  { element: 'knowledge_relation_revisions.from_type', consumer: CHAIN_RESOLVE, test: DEVIATION },
+  { element: 'knowledge_relation_revisions.to_id', consumer: CHAIN_RESOLVE, test: CROSS_PACK },
+  { element: 'knowledge_relation_revisions.to_type', consumer: CHAIN_RESOLVE, test: CROSS_PACK },
+  { element: 'knowledge_relation_revisions.anchors', consumer: CHAIN_RESOLVE, test: DEVIATION },
+  { element: 'knowledge_relation_revisions.provision', consumer: CHAIN_TEXT, test: ROUTE_WBTV },
+  { element: 'knowledge_relation_revisions.valid_from', consumer: CHAIN_RESOLVE, test: ASOF_VIENNA },
+  { element: 'knowledge_relation_revisions.valid_to', consumer: CHAIN_RESOLVE, test: RELATION_GUARDS },
   { element: 'knowledge_territory_revisions.aliases', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.valid_from', awaits: TIME },
   { element: 'knowledge_territory_revisions.valid_to', awaits: TIME },
@@ -215,8 +255,6 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
 
 /** The elements written before anything reads them, when this ledger was made. Remove a line when its reader lands; never add one. */
 export const AWAITING_BASELINE: readonly string[] = [
-  'knowledge_edition_revisions.in_force_from',
-  'knowledge_edition_revisions.in_force_to',
   'knowledge_edition_revisions.outline',
   'knowledge_manifestation_revisions.form',
   'knowledge_manifestation_revisions.language',
@@ -224,7 +262,6 @@ export const AWAITING_BASELINE: readonly string[] = [
   'knowledge_manifestation_revisions.sha256',
   // Migration 0205's own, at its landing: the territory and authority fields the slices after S7 read.
   'knowledge_territory_revisions.kind',
-  'knowledge_territory_revisions.name',
   'knowledge_territory_revisions.aliases',
   'knowledge_territory_revisions.valid_from',
   'knowledge_territory_revisions.valid_to',
