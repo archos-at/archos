@@ -29,6 +29,7 @@ import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import { stripCardMarkers } from '@/lib/text/card-markers'
 import { buildAnswerDocument, type AnswerConfidence } from './answer-document'
 import { DOCX_MEDIA_TYPE, renderDocx } from './docx'
+import type { AiProvenance } from '@/lib/ai-provenance'
 import { sanitizeQuoteStamps } from '@/lib/conversations/message-quote-stamps'
 
 export interface ExportedAnswer {
@@ -127,6 +128,15 @@ function fileNameFor(stem: string, createdAt: Date): string {
 }
 
 /**
+ * The run that wrote the answer, when the stored metadata names it: the
+ * agent tier's Langfuse trace id, which `metadata.trace_id` carries.
+ */
+function answerProvenance(metadata: Record<string, unknown>): AiProvenance {
+  const traceId = metadata.trace_id
+  return typeof traceId === 'string' && traceId ? { runId: traceId } : {}
+}
+
+/**
  * Render one stored answer as a .docx.
  *
  * Throws `NotFoundError` for a message that is not in this conversation — the
@@ -191,7 +201,11 @@ export async function exportAnswerDocument(
 
   return {
     filename: fileNameFor(conversation.title?.trim() || t('fileName'), new Date(answer.createdAt)),
-    bytes: renderDocx(blocks),
+    // Machine-readable marking on every answer export (Art. 50(2) AI Act): an
+    // answer is the model's text whether or not the person read it first. The
+    // printed notice stays opt-in (`agentAuthored`). `AIHumanReviewed=false`
+    // says the product recorded no review, which it did not.
+    bytes: renderDocx(blocks, { aiProvenance: answerProvenance(metadata) }),
     mediaType: DOCX_MEDIA_TYPE,
   }
 }

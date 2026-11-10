@@ -40,6 +40,7 @@ import {
 } from '@/lib/product-feedback/types'
 import { similarPassagesRequestSchema } from '@/lib/similar-passages/types'
 import type { AgentOperation } from '../operation'
+import { generatedRows } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const conversationParams = z.object({
@@ -132,6 +133,8 @@ export const conversationsOperations = [
     path: '/api/conversations/[id]/messages',
     params: conversationParams,
     query: listMessagesQuerySchema,
+    // An assistant's messages are a model's text; a person's are not.
+    generatedContent: generatedRows('messages', (message) => message.role === 'assistant'),
     load: () => import('@/app/api/conversations/[id]/messages/route'),
   },
   {

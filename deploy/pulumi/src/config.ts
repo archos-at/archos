@@ -631,12 +631,16 @@ export function loadConfig(): DeployConfig {
   };
 }
 
-/** komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`. */
+/**
+ * komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`.
+ * Not the default any more (ADR-0159): every keystroke of an address search goes to it, and it is a
+ * processor no register lists. A stack opts in by setting `geocoderUrl` to it.
+ */
 export const PUBLIC_GEOCODER_URL = "https://photon.komoot.io";
 
-/** `geocoderUrl`: an http(s) URL, or empty for no address search. A typo is refused, not served as "off". */
+/** `geocoderUrl`: an http(s) URL, or empty (the default) for no address search. A typo is refused, not served as "off". */
 function loadGeocoderUrl(cfg: pulumi.Config): string {
-  const url = (cfg.get("geocoderUrl") ?? PUBLIC_GEOCODER_URL).trim();
+  const url = (cfg.get("geocoderUrl") ?? "").trim();
   if (url !== "" && !/^https?:\/\/[^\s/]+/.test(url)) {
     throw new Error(`${pulumi.getProject()}:geocoderUrl must be an http(s) URL or empty (got "${url}").`);
   }

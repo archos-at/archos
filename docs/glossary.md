@@ -208,7 +208,7 @@ replaced `agent_capability_missing`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | `task` | go-task, the runner every repo command goes through; `task --list` is the live list | [`Taskfile.yml`](../Taskfile.yml) |
-| `task verify` | The local merge gate; `verify:fast` skips the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
+| `task verify` | The local merge gate; `verify:fast` runs the tiers and UI specs the diff reaches, without the two production builds | [`docs/contributing/testing-and-verification.md`](contributing/testing-and-verification.md) |
 | Definition of done | The bar for calling work done: observed evidence, summed up in a closing checklist in the PR | [`docs/contributing/definition-of-done.md`](contributing/definition-of-done.md) |
 | Correction ratchet | After a correction, close the layer that let the error through, so a second occurrence is caught by machinery | [`docs/contributing/correction-ratchet.md`](contributing/correction-ratchet.md) |
 | Gotchas register | Known failures indexed by the symptom you arrive with | [`docs/contributing/gotchas.md`](contributing/gotchas.md) |

@@ -21,6 +21,7 @@
  * from the prompt view and must give the same verdicts.
  */
 
+import { siteCountry } from '@/lib/project-profile/site'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
 import { getOibStandard, OIB_STANDARDS } from './standards-catalog'
 
@@ -191,6 +192,9 @@ function genericSix(): ApplicableStandard[] {
  * 'required' and let the UI prompt the architect to complete the brief.
  */
 export function getApplicableStandards(profile: ProjectProfile | null): ApplicableStandard[] {
+  // The OIB-Richtlinien are Austrian law: only a project placed in Austria gets them. One placed
+  // abroad, or whose site nothing states, gets none, never the generic six (as the agent's prompt).
+  if (!profile || siteCountry(profile) !== 'at') return []
   const hasFacts = profile?.facts != null && Object.keys(profile.facts).length > 0
   if (!hasFacts) {
     return genericSix()

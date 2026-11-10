@@ -41,6 +41,7 @@ import {
 } from '@/lib/projects/project-wire'
 import { projectScreeningOverrideSchema } from '@/lib/upload-screening/project-policy'
 import type { AgentOperation } from '../operation'
+import { generatedAt } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const projectParams = z.object({ id: z.string().describe('The project id, from project-list.') })
@@ -123,6 +124,8 @@ export const projectsOperations = [
     description:
       'Creates a project in the organization and returns it with its id. Give a name; optionally the address (typed `address`), ' +
       'a description, and `setup`: `piloti` (default) has ' + PRODUCT_NAME + ' read the documents afterwards, `self` leaves the profile to the intake wizard. ' +
+      'State the site with `country` (`at`, `de`, `ch`, `other`) and, in Austria, `federalState`; without them, an Austrian postal code ' +
+      'and place in a typed address suggest the Land for the person to confirm. ' +
       'To add a past project as a reference, pass `closing` with the outcome and months. Call project-same-address-list first to avoid a duplicate. ' +
       'Next: upload documents, then project-intake-get to follow the reading.',
     method: 'POST',
@@ -569,6 +572,7 @@ export const projectsOperations = [
     path: '/api/projects/[id]/generate-summary',
     params: projectParams,
     body: generateSummaryRequestSchema,
+    generatedContent: generatedAt('summary'),
     idempotent: true,
     load: () => import('@/app/api/projects/[id]/generate-summary/route'),
   },
