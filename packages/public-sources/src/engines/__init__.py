@@ -10,6 +10,7 @@ from public_sources.engines.base import Passage
 from public_sources.engines.geojson import GeoJson
 from public_sources.engines.html_statute import HtmlStatute
 from public_sources.engines.pdf_document import PdfDocument
+from public_sources.engines.ris_xml import IN_FORCE_UNTIL as RIS_IN_FORCE_UNTIL
 from public_sources.engines.ris_xml import RisXml
 
 #: Every format a source record may name. A new one is code, written once.
@@ -28,4 +29,13 @@ def engine_for(source) -> Engine:
     return engine_type(source.format)(source.engine)
 
 
-__all__ = ["ENGINES", "Engine", "EngineError", "ParsedDocument", "Passage", "engine_for", "engine_type"]
+__all__ = [
+    "ENGINES",
+    "RIS_IN_FORCE_UNTIL",
+    "Engine",
+    "EngineError",
+    "ParsedDocument",
+    "Passage",
+    "engine_for",
+    "engine_type",
+]

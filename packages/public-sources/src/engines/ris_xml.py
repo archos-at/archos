@@ -134,6 +134,10 @@ def _as_text(value: Any) -> str:
     return str(value).strip()
 
 
+#: The label of ``Ausserkrafttretensdatum``: the last day a version is in force, inclusive (OGD-RIS).
+#: Readers that decide whether a version holds on a day key on this name, never on a copy of the string.
+IN_FORCE_UNTIL = "In Kraft bis"
+
 # Metadata fields worth surfacing to the agent, in display order.
 _METADATA_FIELDS = (
     ("Kurztitel", "Kurztitel"),
@@ -141,7 +145,7 @@ _METADATA_FIELDS = (
     ("Gesetzesnummer", "Gesetzesnummer"),
     ("Kundmachungsorgan", "Kundmachungsorgan"),
     ("Inkrafttretensdatum", "In Kraft seit"),
-    ("Ausserkrafttretensdatum", "In Kraft bis"),  # the last day in force, inclusive (OGD-RIS)
+    ("Ausserkrafttretensdatum", IN_FORCE_UNTIL),
     ("Geschaeftszahl", "Geschäftszahl"),
     ("Entscheidungsdatum", "Entscheidungsdatum"),
     ("Gericht", "Gericht"),

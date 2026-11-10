@@ -25,6 +25,8 @@ import os
 import re
 from datetime import date
 
+from public_sources.engines import RIS_IN_FORCE_UNTIL
+
 _ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 #: An ISO timestamp, read as its day: OGD-RIS may state a date as one. Nothing else after a date is accepted.
 _ISO_TIMESTAMP = re.compile(r"(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?")
@@ -60,7 +62,7 @@ def in_force_on(metadata: dict[str, str], day: date) -> bool:
     since = parse_day(metadata.get("In Kraft seit", ""))
     if since is None or since > day:
         return False
-    until_text = metadata.get("In Kraft bis", "").strip()
+    until_text = metadata.get(RIS_IN_FORCE_UNTIL, "").strip()
     if not until_text:
         return True
     until = parse_day(until_text)
