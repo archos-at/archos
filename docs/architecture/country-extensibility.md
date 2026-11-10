@@ -102,37 +102,39 @@ the 2019 adoptions each 2023 one replaced, so an earlier date resolves too. This
 table is the summary; the LGBl. numbers come from RIS and secondary
 consolidations: re-check each on RIS before quoting it.
 
-- Where RIS disagrees with the pack, the edition set
-  (`tests/fixtures/editions/at_edition_questions.yaml`) marks the rows
-  `disputed_source` and expects RIS. Read from the authentic gazette on
-  2026-11-10 (`https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/<ID>/<ID>.xml`):
+- Where the OIB table and the authentic gazette differ, RIS governs and the
+  pack follows RIS, each corrected record citing its `LgblAuth` document (read
+  2026-11-10 from `https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/<ID>/<ID>.xml`).
+  The OIB's values are the premises of the edition set's false-premise rows
+  (`tests/fixtures/editions/at_edition_questions.yaml`, group `r5`):
   - Niederösterreich: LGBl. 41/2025 was published 2025-03-19 and is in force
     „am Tag der Kundmachung folgenden Tag", so 2025-03-20 (`LGBLA_NI_20250319_41`).
-  - Salzburg: LGBl. 83/2026 § 9 Abs 1 puts it in force on 2026-09-01; its § 1
-    table binds OIB-RL 1–5 Mai 2023 and **OIB-RL 6 März 2015** „gemäß Teil E der
-    Anlage 1" (`LGBLA_SA_20260806_83`).
+    The OIB's 2025-03-18 is the adoption.
+  - Salzburg: LGBl. 83/2026 § 9 Abs 1 puts it in force on 2026-09-01, not the
+    OIB's 2026-08-06, the day of publication. Its § 1 table binds OIB-RL 1–5 Mai
+    2023 and **OIB-RL 6 März 2015** „gemäß Teil E der Anlage 1"
+    (`LGBLA_SA_20260806_83`). The pack holds the 2015 edition from 2026-09-01;
+    Teil E's deviations are not modelled, and the days before are not held, since
+    the replaced LGBl. Nr 55/2016 was not read. The corpus has no 2015 text.
   - Burgenland: LGBl. 75/2026, published 2026-11-04, binds OIB-RL 6 „in der
     Fassung 2025" from the next day, 2026-11-05; RL 1–5 stay at 2019
-    (`LGBLA_BU_20261104_75`). The pack has no such relation yet.
+    (`LGBLA_BU_20261104_75`). The OIB table still shows „-".
   - Wien: LGBl. 26/2026 replaces Anlage 13 of the WBTV 2023, which is OIB-RL 6
     Ausgabe September 2025, but it enters into force „mit dem Inkrafttreten des
     W-EGUG 2026", so the text itself does not confirm the pack's 2026-07-15
-    (`LGBLA_WI_20260715_26`). Pending procedures keep the earlier law.
-- Niederösterreich's day is 2025-03-18 (the OIB's table).
-- Salzburg: the OIB lists 2026-08-06, RIS 2026-09-01; the pack takes the OIB's
-  day. Salzburg adopted no RL 6 in 2019 or 2023, and the OIB's 2015 table lists
-  RL 6:2015 in force there since 2016-07-01, never replaced. The pack holds no
-  2015 edition, so RL 6 reads as guidance in Salzburg, not as the 2015 edition
-  that may still bind: add it before quoting RL 6 for a Salzburg project.
+    (the OIB's day, kept). Pending procedures keep the earlier law
+    (`LGBLA_WI_20260715_26`).
+- The pack names no LGBl. for the Steiermark's StBTV 2020 or for Oberösterreich's
+  RL 6 2019 adoption, and no adoption before 2019 in any Land.
 
 | Land | Binding edition | In force since | Instrument |
 |---|---|---|---|
 | Wien | RL 1–5: 2023, RL 6: 2025 | 2024-02-23; RL 6 2026-07-15 | WBTV 2023 (LGBl. 14/2024), RL 6 by LGBl. 26/2026 |
-| Niederösterreich | RL 1–6: 2023 | 2025-03-18 | NÖ BTV 2014 as amended by LGBl. 41/2025 |
+| Niederösterreich | RL 1–6: 2023 | 2025-03-20 | NÖ BTV 2014 as amended by LGBl. 41/2025 |
 | Oberösterreich | RL 1–5: 2023, RL 6: 2019 | 2025-10-01; RL 6 2020-09-01 | Oö. BauTV-Novelle 2025 (LGBl. 70/2025) |
 | Steiermark | RL 1–6: 2019 | 2020-09-01 | StBTV 2020 |
 | Kärnten | RL 1–6: 2023 | 2024-12-31 | K-BTV 2024 (LGBl. 105/2024) |
-| Salzburg | RL 1–5: 2023; RL 6: no adoption listed | 2026 (OIB: 2026-08-06; RIS: 2026-09-01) | Bautechnikverordnung LGBl. 83/2026 |
+| Salzburg | RL 1–5: 2023; RL 6: März 2015 | 2026-09-01 | Sbg. BTV, LGBl. 83/2026 |
 | Tirol | RL 1–5: 2023, RL 6: 2025 without Pkt 2.2 and 2.3.1 | 2026-07-16 | TBV 2026 § 43 (LGBl. 59/2026) |
 | Vorarlberg | RL 1–6: 2019 | 2022-01-01 | BTV as amended by LGBl. 67/2021 |
-| Burgenland | RL 1–6: 2019 | 2021-04-10 | Bgld. BauVO 2008 as amended by LGBl. 22/2021 |
+| Burgenland | RL 1–5: 2019, RL 6: 2025 | 2021-04-10; RL 6 2026-11-05 | Bgld. BauVO 2008 as amended by LGBl. 22/2021; RL 6 by LGBl. 75/2026 |
