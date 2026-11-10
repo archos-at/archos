@@ -86,6 +86,12 @@ The paths that went with them:
   path, design §8.1). The competence rulesets of the site's chain decide it now
   (`directiveVerdict` in `bff/base-knowledge/platform.ts`, over
   `competentAuthorities`); where they decide nothing the authority is unknown.
+  The chain resolver asks the same decider (amended 2026-11-10): the turn's
+  knowledge context and building law read `competentAuthorities` for the site
+  and pass it to `resolveChain`, so an authority directive addressed to an
+  authority record is authority practice only where that authority is
+  competent. Where competence is undetermined, or the directive names no
+  authority record, its addressees' territories still decide.
   `siteFacts` reads a chain whose leaf is a state as that state, so a project
   placed only to its Land is decided.
 - Five hand-written lists of Austria's Länder (the create form's picker, the

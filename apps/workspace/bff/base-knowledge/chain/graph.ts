@@ -36,6 +36,8 @@ export interface GraphWork {
   territoryIds: readonly string[]
   /** A directive's addressees, by the territory each decides for. */
   addresseeTerritoryIds: readonly string[]
+  /** A directive's addressees that name an authority record: what the competence rulesets decide on. */
+  addresseeAuthorityIds?: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
   /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */

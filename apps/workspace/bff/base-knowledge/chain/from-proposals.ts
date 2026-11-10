@@ -48,6 +48,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           designation: record.designation,
           territoryIds: record.territoryIds,
           addresseeTerritoryIds: record.addressees.map((addressee) => addressee.territoryId),
+          addresseeAuthorityIds: record.addressees.flatMap((addressee) => (addressee.authorityKey ? [`authority:${addressee.authorityKey}`] : [])),
           connectsBy: record.connectsBy,
           historyAvailableFrom: record.historyAvailableFrom,
         })

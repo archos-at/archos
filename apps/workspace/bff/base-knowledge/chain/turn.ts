@@ -13,7 +13,9 @@ import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { calendarDayIn } from '@/lib/format'
 import { projectTerritory } from '../office/authority'
+import { competentAuthorities } from '@/lib/site-resolution/competence'
 import { loadGraph } from './load'
+import { chainAt } from './resolve'
 import { buildingLawTurn, type BuildingLawTurn } from './wire'
 
 /** Times one phase of the turn context's load (`TurnContextTiming.time`); the identity when nobody measures. */
@@ -35,6 +37,8 @@ export async function buildingLawForTurn(
     if (!territory.territoryId) return null
     const [{ graph, truncated }, zone] = await Promise.all([loadGraph(organizationId, territory.territoryId), officeTimeZone(organizationId)])
     if (truncated) return null
-    return buildingLawTurn(graph, territory.territoryId, calendarDayIn(zone), territory.label ?? territory.territoryId)
+    const today = calendarDayIn(zone)
+    const [competence] = await competentAuthorities(organizationId, [chainAt(territory.territoryId, today, graph)], today)
+    return buildingLawTurn(graph, territory.territoryId, today, territory.label ?? territory.territoryId, competence ?? null)
   })
 }

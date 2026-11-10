@@ -23,6 +23,7 @@ vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone }))
 vi.mock('@/lib/cache', () => ({ getCached: async (_key: string, _ttl: number, load: () => Promise<unknown>) => load() }))
 vi.mock('@/lib/db/tenant-context', () => ({ withPlatformAccess: async () => [] }))
 vi.mock('../chain/load', () => ({ loadGraph }))
+vi.mock('@/lib/site-resolution/competence', () => ({ competentAuthorities: async () => [{ status: 'undetermined', reason: 'no_rule' }] }))
 vi.mock('../platform/entitlements', () => ({ readOrganizationCountries }))
 vi.mock('./turn-snapshot', () => ({ rememberTurnContext: vi.fn() }))
 

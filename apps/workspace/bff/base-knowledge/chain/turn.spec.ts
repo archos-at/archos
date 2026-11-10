@@ -16,6 +16,7 @@ const { findProjectProfileInOrg, loadGraph, officeTimeZone } = vi.hoisted(() => 
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
 vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone }))
 vi.mock('./load', () => ({ loadGraph }))
+vi.mock('@/lib/site-resolution/competence', () => ({ competentAuthorities: async () => [{ status: 'undetermined', reason: 'no_rule' }] }))
 
 import { buildingLawForTurn } from './turn'
 

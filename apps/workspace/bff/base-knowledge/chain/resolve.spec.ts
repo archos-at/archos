@@ -241,8 +241,8 @@ describe('law and routes', () => {
     const onFiling = editionsInForceAt(dated, '2023-06-01')
     const today = editionsInForceAt(dated, '2026-11-10')
     const editionFor = (workId: string) => (workId === 'work:bo-wien' ? onFiling(workId) : today(workId))
-    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
-    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
+    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', { editionFor }), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
+    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', { editionFor }), 'edition:oib-rl-6-2025')).toBe('binding')
   })
 })
 
@@ -443,6 +443,29 @@ describe('every kind', () => {
     expect(usesOf(graz, 'work:ma37')).toEqual([])
     expect(usesOf(graz, 'work:law')).toEqual([])
     expect(usesOf(graz, 'work:commentary')).toEqual([])
+  })
+
+  it('lets competence decide an authority directive: applied where the competent body is its addressee, excluded where another is', () => {
+    const records = parse([
+      ...AUSTRIA,
+      work('ma37-weisung', 'authority_directive', ['AT-9'], { addressees: [{ name: 'MA 37', territoryId: 'AT-9', authorityKey: 'at-wien-ma37' }] }),
+      edition('ma37-weisung-e', 'ma37-weisung', '2024-01-01'),
+    ])
+    const competent = (authorityId: string) => ({
+      status: 'decided' as const,
+      bodies: [{ authorityId, role: 'decides' as const, name: authorityId }],
+      rulesetId: 'ruleset:competence-at',
+      territoryId: 'AT-9',
+      citation: null,
+    })
+    const vienna = graphFromProposals(records)
+    expect(usesOf(resolveChain(vienna, 'AT-9', '2026-11-10', { competence: competent('authority:at-wien-ma37') }), 'work:ma37-weisung')).toMatchObject([
+      { role: 'authority_practice' },
+    ])
+    // Another body is competent here: the directive's territory alone no longer makes it apply.
+    expect(usesOf(resolveChain(vienna, 'AT-9', '2026-11-10', { competence: competent('authority:at-wien-ma19') }), 'work:ma37-weisung')).toEqual([])
+    // Competence undetermined: the directive's territory still says whether it concerns the site.
+    expect(usesOf(resolveChain(vienna, 'AT-9', '2026-11-10', { competence: { status: 'undetermined', reason: 'no_rule' } }), 'work:ma37-weisung')).toHaveLength(1)
   })
 
   it('scopes a commentary by every work it interprets', () => {

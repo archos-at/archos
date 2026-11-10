@@ -38,6 +38,8 @@ import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
 import type { KnowledgeContext, ProcedureContext } from './wire'
+import { competentAuthorities } from '@/lib/site-resolution/competence'
+import { chainAt } from '../chain/resolve'
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
 export const CONTEXT_TTL_MS = 10 * 60 * 1000
@@ -175,12 +177,18 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
+  // Who is competent at the site decides which authority directives concern it (ADR-0175).
+  const competence =
+    loaded && first && !loaded.truncated
+      ? ((await time('competence', () => competentAuthorities(organizationId, [chainAt(first.territoryId, inputs.date, loaded.graph)], inputs.date)))[0] ?? null)
+      : null
   const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
     graph,
     truncated: loaded?.truncated ?? false,
+    competence,
     date: inputs.date,
     now: new Date(),
     procedures: inputs.procedures,

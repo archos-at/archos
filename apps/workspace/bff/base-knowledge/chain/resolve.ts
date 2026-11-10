@@ -35,6 +35,8 @@
 import type { DatedEdition } from '../wire/time'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import { editionInForce, newestInForce, type EditionOnDay } from '../time/editions'
+import type { SiteAuthority } from '@/lib/site-resolution/wire'
+import { directiveVerdict, type PlatformDirectiveVerdict } from '../platform'
 import type {
   Displacement,
   EditionUse,
@@ -300,6 +302,17 @@ function editionUse(
   return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId }
 }
 
+/**
+ * Whether the site's competent authority is one a directive is addressed to,
+ * by the one decider (`directiveVerdict`). A directive that names no authority
+ * record, or a site whose competence the rulesets did not decide, is
+ * `authority_unknown`: its territory alone then says whether it concerns the site.
+ */
+function competenceVerdict(work: GraphWork, competence: SiteAuthority | null, leafId: string | null): PlatformDirectiveVerdict['verdict'] {
+  const addressees = (work.addresseeAuthorityIds ?? []).map((authorityId) => ({ name: authorityId, territoryId: leafId ?? '', authorityId }))
+  return directiveVerdict(addressees, competence, leafId).verdict
+}
+
 /** Whether a work that nothing makes binding concerns this site. */
 function inScope(work: GraphWork, chain: readonly string[], interpretsInScope: boolean): boolean {
   if (work.kind === 'authority_directive' && work.addresseeTerritoryIds.length > 0) {
@@ -334,6 +347,7 @@ function unroutedUses(
     chain: readonly string[]
     date: string
     editionFor: EditionFor
+    competence: SiteAuthority | null
     relations: readonly GraphRelation[]
     boundEditions: readonly string[]
     boundWorks: readonly string[]
@@ -351,11 +365,15 @@ function unroutedUses(
     const newest = newestEdition(editions, context.date)
     return newest ? [editionUse(work.id, newest.id, 'interpretation', [], [], target.editionId)] : []
   }
-  if (bound.length === 0 && !inScope(work, context.chain, false)) return []
   if (work.kind === 'authority_directive') {
+    // Competence decides where it can (ADR-0175): the rulesets named a body, and the directive is addressed to one.
+    const verdict = competenceVerdict(work, context.competence, context.chain[0] ?? null)
+    if (verdict === 'excluded') return []
+    if (verdict === 'authority_unknown' && !inScope(work, context.chain, false)) return []
     const newest = newestEdition(editions, context.date)
     return newest ? [editionUse(work.id, newest.id, 'authority_practice', [])] : []
   }
+  if (bound.length === 0 && !inScope(work, context.chain, false)) return []
   if (NORM_KINDS.has(work.kind)) {
     const newest = newestEdition(rest, context.date)
     const bindingEdition = bound[0]?.id ?? null
@@ -374,17 +392,18 @@ function unroutedUses(
 
 const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
-/**
- * Resolve a site on a date: the chain, and what each edition is to it.
- * `editionFor` says which edition of a work applies; by default the one in
- * force at `date`, and a reference date per procedure and work plugs in here.
- */
-export function resolveChain(
-  graph: KnowledgeGraph,
-  leafId: string,
-  date: string,
-  editionFor: EditionFor = editionsInForceAt(graph, date),
-): ResolvedChain {
+/** What a resolution may be told besides the graph, the site and the date. */
+export interface ResolveOptions {
+  /** Which edition of a work applies; by default the one in force at the date. A reference date per procedure and work plugs in here. */
+  editionFor?: EditionFor
+  /** Who is competent at the site, by its competence rulesets (`competentAuthorities`); absent or undetermined, a directive's territory decides. */
+  competence?: SiteAuthority | null
+}
+
+/** Resolve a site on a date: the chain, and what each edition is to it. */
+export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string, options: ResolveOptions = {}): ResolvedChain {
+  const editionFor = options.editionFor ?? editionsInForceAt(graph, date)
+  const competence = options.competence ?? null
   const chain = chainAt(leafId, date, graph)
   const relations = effectiveRelations(graph, date)
   const superseded = supersededWorks(graph, relations)
@@ -401,7 +420,7 @@ export function resolveChain(
   const boundWorks = new Set(bindings.map((binding) => binding.workId))
   for (const work of graph.works.values()) {
     if (LAW_KINDS.has(work.kind) && boundWorks.has(work.id)) continue
-    uses.push(...unroutedUses(graph, work, { chain, date, editionFor, relations, boundEditions, boundWorks: [...boundWorks] }))
+    uses.push(...unroutedUses(graph, work, { chain, date, editionFor, competence, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
   uses.sort(

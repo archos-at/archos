@@ -6,6 +6,7 @@
  * (`turn/context_client.py`).
  */
 
+import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import { z } from 'zod'
 import { EDITION_ROLES } from '../wire/vocab'
 import type { KnowledgeGraph } from './graph'
@@ -45,8 +46,14 @@ export type BuildingLawUse = z.infer<typeof buildingLawUseSchema>
 export type BuildingLawTurn = z.infer<typeof buildingLawTurnSchema>
 
 /** The turn's building law for a site, or null when nothing binds there by the records or the resolution was truncated (fail closed). */
-export function buildingLawTurn(graph: KnowledgeGraph, leafId: string, date: string, place: string): BuildingLawTurn | null {
-  const resolved = resolveChain(graph, leafId, date)
+export function buildingLawTurn(
+  graph: KnowledgeGraph,
+  leafId: string,
+  date: string,
+  place: string,
+  competence: SiteAuthority | null = null,
+): BuildingLawTurn | null {
+  const resolved = resolveChain(graph, leafId, date, { competence })
   // A truncated resolution would leave some cited editions with no role, read as the old guess: none at all.
   if (resolved.truncated) return null
   const lawHere = resolved.uses.some((use) => use.role === 'binding' && use.route[0]?.via === 'territory' && use.route.length === 1)

@@ -15,6 +15,7 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
+import type { SiteAuthority } from '@/lib/site-resolution/wire'
 import type { GraphEdition, KnowledgeGraph } from '../chain/graph'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
@@ -46,6 +47,8 @@ export interface ContextInputs {
   graph: KnowledgeGraph | null
   /** The graph hit its bound: what was left out reads as nothing, so the turn uses none of it. */
   truncated: boolean
+  /** Who is competent at the first leaf by its competence rulesets; absent when not read. */
+  competence?: SiteAuthority | null
   /** The day in the office's zone the turn resolves at. */
   date: string
   now: Date
@@ -204,7 +207,7 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
   }
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
-  const resolved = resolveChain(graph, first.territoryId, inputs.date)
+  const resolved = resolveChain(graph, first.territoryId, inputs.date, { competence: inputs.competence ?? null })
   if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
   const uses = resolved.uses
     .map((use) => contextUse(graph, use, coverage, inputs))
