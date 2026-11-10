@@ -153,6 +153,7 @@ describe('the filing seam resolves the branding once', () => {
     vi.mocked(getOrgSettings).mockResolvedValueOnce({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: { documentBranding: { copy: { de: { header: 'Büro {organization}', prose: 'Von uns.' } } } },
     } as Awaited<ReturnType<typeof getOrgSettings>>)
     const branding = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: 'Musterbüro ZT GmbH', locale: 'de' })
