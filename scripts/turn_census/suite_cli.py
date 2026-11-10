@@ -34,10 +34,11 @@ def build_parser(description: str | None) -> argparse.ArgumentParser:
     parser.add_argument("--override", nargs=2, action="append", metavar=("KEY", "VALUE"))
     parser.add_argument(
         "--set",
-        choices=("loop", "precedent", "workspace", "files", "visual", "north-star"),
+        choices=("loop", "editions", "precedent", "workspace", "files", "visual", "north-star"),
         default="loop",
         help=(
-            "loop: the norm questions; precedent: questions in a fixture office's project (fixture_bff.py); "
+            "loop: the norm questions; editions: which OIB-RL edition binds per Land and day (edition_eval.py); "
+            "precedent: questions in a fixture office's project (fixture_bff.py); "
             "workspace: office work through the MCP door (fixture_workspace.py); "
             "files: questions about a fixture project's own files (files_eval.py); "
             "visual: questions answered by looking at a drawing (visual_eval.py); "
