@@ -20,7 +20,7 @@ import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { getApplicableStandards } from '@/lib/oib/applicable-standards'
 import { deriveAll } from './derivation-view'
 import { locationRegisterFor } from './location-register'
-import { BUILDING_CLASS_DERIVATION } from './derivations'
+import { BUILDING_CLASS_RULE } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
 import {
   MAX_INTAKE_NEEDS,
@@ -55,7 +55,7 @@ export function keyHomes(definition: ProjectIntakeDefinition): Map<string, KeyHo
     for (const question of stageQuestions(stage)) {
       const written = /^\/facts\/([^/]+)/.exec(question.writesTo ?? '')?.[1]
       if (written && !homes.has(written)) homes.set(written, { stage, question })
-      if (question.derives === BUILDING_CLASS_DERIVATION.rule && !homes.has(question.derives)) {
+      if (question.derives === BUILDING_CLASS_RULE && !homes.has(question.derives)) {
         homes.set(question.derives, { stage, question })
       }
     }
@@ -65,7 +65,7 @@ export function keyHomes(definition: ProjectIntakeDefinition): Map<string, KeyHo
 
 function displayOf(home: KeyHome, value: ProjectFact['value']): string {
   const { question } = home
-  if (question?.derives === BUILDING_CLASS_DERIVATION.rule) return `GK ${String(value)}`
+  if (question?.derives === BUILDING_CLASS_RULE) return `GK ${String(value)}`
   return question ? formatIntakeAnswer(question, value) : String(value)
 }
 
@@ -119,7 +119,7 @@ function profileItems(
 }
 
 /** The derived class: shown and decided in `derivations`, so not again in its module. */
-const isDerivedClass = (item: Suggestion) => item.baseKey === BUILDING_CLASS_DERIVATION.rule
+const isDerivedClass = (item: Suggestion) => item.baseKey === BUILDING_CLASS_RULE
 
 /** Every value on the profile under a key the definition knows, grouped by module in the wizard's order; the derived class is not among them. */
 export function suggestionGroups(
@@ -150,7 +150,7 @@ function derivationReviews(
   )
   return deriveAll(profile, definition).map((derivation) => ({
     ...derivation,
-    suggestion: classes.get(`${BUILDING_CLASS_DERIVATION.rule}@${derivation.buildingId}`) ?? null,
+    suggestion: classes.get(`${BUILDING_CLASS_RULE}@${derivation.buildingId}`) ?? null,
   }))
 }
 

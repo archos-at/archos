@@ -58,9 +58,29 @@ export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
 
 export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'reference_date', 'competence'] as const satisfies readonly RulesetPurpose[]
 
-/** The payload schemas the evaluator reads. A v2 arrives with a pure converter from v1 (design §3.7). */
-export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1'] as const
+/**
+ * The payload schemas a ruleset body may carry: the evaluator's decision table,
+ * and the two setup records (migration 0207, ADR-0169). A v2 arrives with a pure
+ * converter from v1 (design §3.7).
+ */
+export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1', 'fact_definitions.v1', 'fact_sources.v1'] as const
 export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
+
+/** The purpose each setup record schema serves: one each, held by a CHECK as well. */
+export const SETUP_RECORD_PURPOSES = {
+  'fact_definitions.v1': 'fact_definitions',
+  'fact_sources.v1': 'fact_sources',
+} as const satisfies Partial<Record<RulesetPayloadSchema, RulesetPurpose>>
+
+/**
+ * What the location decides about a project, by ticket 31's table
+ * „Standortinformationen aus den Unterlagen": the plot (Grundbuch), zoning and
+ * Bebauungsbestimmungen, heritage, natural hazards and contamination, and
+ * noise. A `fact_sources` entry with one of these is listed by the setup's
+ * register on its own.
+ */
+export const SETUP_DETERMINANTS = ['plot', 'zoning', 'heritage', 'hazards', 'noise'] as const
+export type SetupDeterminant = (typeof SETUP_DETERMINANTS)[number]
 
 /** The types a decision table's input declares; a fact of another type is refused, never read as false. */
 export const FACT_TYPES = ['number', 'boolean', 'code', 'codes', 'date'] as const

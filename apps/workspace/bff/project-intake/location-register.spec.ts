@@ -9,7 +9,11 @@ import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
-import { LOCATION_REGISTER, locationRegisterFor, type LocationRegisterInput } from './location-register'
+import factSourcesSeed from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-sources.json'
+import factDefinitionsSeed from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-definitions.json'
+import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
+import { locationRegisterFor, type LocationRegisterInput } from './location-register'
+import { THREE_COUNTRIES } from './setup-countries.fixtures'
 import { computeNeeds } from './needs'
 import { flattenIntakeQuestions } from '@/lib/project-profile/intake-conditions'
 import { FEDERAL_STATE_TOKENS } from '@/lib/project-profile/intake-conditions'
@@ -51,40 +55,70 @@ const request = (view: ReturnType<typeof register>, determinant: string) =>
 
 const AT_NEW_BUILD = { country: 'at', work_type: ['new_build'] }
 
+/** Austria's register: the determinant entries of its shipped `fact_sources` record. */
+const AT_SOURCES = (() => {
+  const values = rulesetValuesSchema.parse(factSourcesSeed)
+  if (values.body.kind !== 'fact_sources') throw new Error('a fact_sources record')
+  return values.body.payload.entries
+})()
+const LOCATION_ENTRIES = AT_SOURCES.filter((entry) => entry.determinant)
+
+/** The Länder Austria's fact definitions list, by territory. */
+const AT_LANDS = new Map(
+  (factDefinitionsSeed.body.payload.subdivisions?.options ?? []).map((option) => [option.territoryId, option.token])
+)
+
 describe('the register as data', () => {
   it('settles only keys a wizard question writes', () => {
     const written = new Set(
       flattenIntakeQuestions(projectIntakeDefinitionV1).map((question) => /^\/facts\/([^/]+)/.exec(question.writesTo ?? '')?.[1])
     )
-    for (const entry of LOCATION_REGISTER) for (const key of entry.keys) expect(written).toContain(key)
+    for (const entry of AT_SOURCES) for (const key of entry.factKeys) expect(written).toContain(key)
   })
 
   it('cites a source for every entry and every Bundesland variant, and names only real Bundesländer', () => {
-    for (const entry of LOCATION_REGISTER) {
+    for (const entry of AT_SOURCES) {
       expect(entry.sources.length).toBeGreaterThan(0)
-      for (const [land, variant] of Object.entries(entry.byFederalState ?? {})) {
-        expect(FEDERAL_STATE_TOKENS).toContain(land)
-        expect(variant?.sources.length).toBeGreaterThan(0)
+      for (const [territoryId, variant] of Object.entries(entry.variants)) {
+        expect(FEDERAL_STATE_TOKENS).toContain(AT_LANDS.get(territoryId))
+        expect(variant.sources.length).toBeGreaterThan(0)
       }
-      for (const local of entry.byMunicipality ?? []) expect(local.sources.length).toBeGreaterThan(0)
+      for (const local of entry.additions) expect(AT_LANDS.has(local.territoryId)).toBe(true)
     }
   })
 
   it('has a Widmung source for each of the nine Bundesländer', () => {
-    const zoning = LOCATION_REGISTER.find((entry) => entry.determinant === 'zoning')
-    expect(Object.keys(zoning?.byFederalState ?? {}).sort()).toEqual(
+    const zoning = LOCATION_ENTRIES.find((entry) => entry.determinant === 'zoning')
+    expect(Object.keys(zoning?.variants ?? {}).map((territoryId) => AT_LANDS.get(territoryId)).sort()).toEqual(
       FEDERAL_STATE_TOKENS.filter((token) => token !== 'outside_austria').sort()
     )
   })
 })
 
 describe('locationRegisterFor', () => {
-  it('asks for the Bundesland and the Vorhaben when a typed address left them open', () => {
+  it('asks for the site and the Vorhaben when a typed address left them open, and requests no document yet', () => {
     const view = register(profileWith({ site_address: 'Hauptplatz 1, Irgendwo' }))
     expect(view.federalState).toBeNull()
     expect(view.questions.map((need) => need.key)).toEqual(['federal_state', 'work_type'])
-    // Without a Bundesland the register still asks, in the words that hold everywhere.
+    // No country, no country's documents: Austria's would be a guess (ADR-0169).
+    expect(view.documentRequests).toEqual([])
+  })
+
+  it('asks for the words that hold everywhere in Austria while the Bundesland is open', () => {
+    const view = register(profileWith({ country: 'at' }))
     expect(request(view, 'zoning')).toMatchObject({ document: 'Auszug aus Flächenwidmungs- und Bebauungsplan' })
+  })
+
+  it('lists only a German project’s own documents, with its Land’s variant', () => {
+    const profile = profileWith({ country: 'de', federal_state: 'bavaria', work_type: ['new_build'] })
+    const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode: 'active', dismissed: [] })
+    const view = locationRegisterFor({ profile, location: null, mode: 'active', needs, records: THREE_COUNTRIES })
+    expect(locationRegisterViewSchema.parse(view)).toEqual(view)
+    expect(view.federalState).toBe('bavaria')
+    // The record's entry without a determinant (the storeys) is asked only when a decision waits for it.
+    expect(view.documentRequests.map((entry) => entry.document)).toEqual(['Bebauungsplan der Gemeinde (BY)'])
+    // Without Germany's record, nothing: no Austrian document stands in.
+    expect(register(profile).documentRequests).toEqual([])
   })
 
   it('takes the Bundesland from the geocoder when the profile has none', () => {

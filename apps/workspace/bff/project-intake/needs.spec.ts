@@ -14,6 +14,7 @@ import {
   type ComputeNeedsOptions,
 } from './needs'
 import { needSchema, type Need } from './types'
+import { BUILDING_CLASS_INPUTS } from './derivations.oracle'
 
 const at = '2026-10-14T08:00:00.000Z'
 
@@ -336,9 +337,17 @@ describe('gebaeudeklasseInputsFor', () => {
       { ...building, 'storeys_above_ground@bldg1': 3 },
       { 'storeys_above_ground@bldg1': 9, 'escape_level_m@bldg1': 6.5 }
     )
-    const inputs = buildingClassInputsFor(profile, projectIntakeDefinitionV1, 'bldg1')
+    const inputs = buildingClassInputsFor(profile, projectIntakeDefinitionV1, 'bldg1', [...BUILDING_CLASS_INPUTS])
     expect(inputs).toMatchObject({ building_type: 'building', storeys_above_ground: 3, escape_level_m: 6.5 })
     expect('gfa_above_ground' in inputs && inputs.bgf_oberirdisch === undefined).toBe(true)
+  })
+
+  it('keeps a confirmed class input on the list only where the site selects a classification', () => {
+    const austrian = profileWith({ ...building, 'storeys_above_ground@bldg1': 3 })
+    expect(byKey(needs(austrian)).get('storeys_above_ground@bldg1')?.state).toBe('confirmed')
+    const german = profileWith({ ...building, 'storeys_above_ground@bldg1': 3 })
+    german.facts.country = { value: 'de', confidence: 'confirmed', source: 'onboarding', updatedAt: at }
+    expect(byKey(needs(german)).has('storeys_above_ground@bldg1')).toBe(false)
   })
 
   it('marks nothing decisive for a project placed abroad: the intake knows no law there', () => {

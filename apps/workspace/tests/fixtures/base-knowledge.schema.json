@@ -80,7 +80,9 @@
     "knowledge_ruleset_revisions.payload_schema": {
       "type": "string",
       "enum": [
-        "decision_table.v1"
+        "decision_table.v1",
+        "fact_definitions.v1",
+        "fact_sources.v1"
       ]
     },
     "knowledge_territory_revisions.kind": {
