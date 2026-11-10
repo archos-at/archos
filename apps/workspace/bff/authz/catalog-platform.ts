@@ -16,7 +16,7 @@ import type { PermissionSpec } from './catalog'
  * grouping and no security guarantee at all.
  *
  * What actually holds the line is two things, both ours:
- *   1. `./platform` requires membership of the GRID Platform organization
+ *   1. `./platform` requires membership of the platform organization
  *      before any platform surface answers — a claim alone is never enough.
  *   2. `catalog.spec.ts` asserts no environment-scoped role holds a
  *      `platform:*` permission, which is the ONLY check standing between a
