@@ -2,8 +2,8 @@
 # area: documents
 improvements:
   - >
-    Answers exported to Word, and the reports and diagrams Piloti files as PDF,
-    now say in their file properties that AI wrote them, in the standard
-    vocabulary archive and compliance tools recognise. Every document Piloti
+    Answers exported to Word, and the reports and diagrams the agent files as
+    PDF, now say in their file properties that AI wrote them, in the standard
+    vocabulary archive and compliance tools recognise. Every document the agent
     drafts, a letter to an authority included, now opens with a line saying
     that an AI system wrote it and for which office.
