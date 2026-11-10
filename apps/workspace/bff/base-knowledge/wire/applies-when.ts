@@ -4,8 +4,8 @@
  * the building is within the edition's scope; false, it is outside it;
  * undetermined, a fact it waits for is open, or the case needs a person (an
  * `otherwise` left undetermined). It sits on the edition, not on a territory:
- * a guideline's scope can change between editions (OIB-RL 2.3, 2019 and 2023)
- * and does not depend on where the site is. Pure and zod.
+ * a new edition can change its scope, and the scope does not depend on where
+ * the site is. Pure and zod.
  */
 
 import { z } from 'zod'
