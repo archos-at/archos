@@ -553,6 +553,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers now name the editions the Landesgesetzblatt itself makes binding: OIB-RL 6 Ausgabe 2025 in Burgenland from 5 November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg, and the 2023 guidelines in Salzburg from 1 September 2026 and in Niederösterreich from 20 March 2025.",
+            "de": "Die Antworten nennen jetzt die Ausgaben, die das Landesgesetzblatt selbst für verbindlich erklärt: OIB-RL 6 Ausgabe 2025 im Burgenland ab 5. November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg sowie die Richtlinien 2023 in Salzburg ab 1. September 2026 und in Niederösterreich ab 20. März 2025."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
