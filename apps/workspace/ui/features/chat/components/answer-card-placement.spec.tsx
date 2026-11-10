@@ -27,8 +27,9 @@
  */
 
 import { render, screen } from '@/test-utils'
-import { vi, describe, test, expect } from 'vitest'
+import { vi, describe, test, expect, beforeAll } from 'vitest'
 import { AgentResponse } from './AgentResponse'
+import { rendererSettled } from '@/features/a2ui/A2uiCard'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { ChatStoreWithHydration } from '../store'
 import type { AnswerCard } from '@/shared/cards/schemas'
@@ -47,6 +48,10 @@ vi.mock('../store', () => ({
 vi.mock('@/adapters/api', () => ({ cancelJob: vi.fn() }))
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
 /** Two cards, told apart by their titles rather than by their order. */
+// The card renderer is a dynamic import; a card checked in the commit it
+// renders needs it loaded (`rendererSettled`, A2uiCard.tsx).
+beforeAll(rendererSettled)
+
 const PLACED = { ...CARD_PREVIEW_FIXTURES.calculation!, title: 'Platzierte Karte' } as AnswerCard
 const UNPLACED = { ...CARD_PREVIEW_FIXTURES.calculation!, title: 'Nachgestellte Karte' } as AnswerCard
 
