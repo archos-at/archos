@@ -26,7 +26,7 @@ import { callDecisionSource, requirePersonDecision } from '@/lib/agent-api/perso
 import { homeCountrySchema } from '@/lib/organizations/home-country'
 import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
-import { enqueueIndexRuns, readIndexStatus } from './indexing'
+import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
 import { runKit, validateRequest } from './onboarding'
 import { requirePlatform } from './service-gate'
@@ -281,10 +281,12 @@ export async function rollbackPlatformChangeRequest(
   const decisionSource = requirePersonDecision('Rolling back a published change request')
   await requireRequest(requestId)
   const outcome = await rollbackChangeRequest(requestId, reason, { by: person.userId, decisionSource })
+  // A text no release names any more leaves every office's base corpus (ADR-0173).
+  const deindexFailed = outcome.unreleasedFiles.length > 0 ? await enqueueDeindex(await getPlatformOrganizationId(), outcome.unreleasedFiles) : 0
   await audit(person, {
     action: 'platform.knowledge.rolled_back',
     targetId: requestId,
-    metadata: { restored: outcome.restored, decisionSource },
+    metadata: { restored: outcome.restored, decisionSource, deindexed: outcome.unreleasedFiles.length, deindexFailed },
   })
   return outcome
 }

@@ -14,6 +14,7 @@ after every change, so a pre-filter sees what the post-filter would.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Iterable
 from collections.abc import Mapping
@@ -27,6 +28,7 @@ from .payload import document_facts
 from .payload import project_payload
 from .prefilter import FOLDER_FIELD
 from .schema import AI_PROCESSING_FIELD
+from .schema import COUNTRY_FIELD
 from .schema import INDEXED_AT_FIELD
 from .schema import KNOWLEDGE_EDITION_FIELD
 from .schema import LICENCE_CLASS_FIELD
@@ -112,6 +114,11 @@ def licence_mark(scope: str, config: Mapping[str, Any]) -> dict[str, Any]:
     edition = config.get(KNOWLEDGE_EDITION_FIELD)
     if isinstance(edition, str) and edition.strip():
         mark[KNOWLEDGE_EDITION_FIELD] = edition.strip()
+    country = config.get(COUNTRY_FIELD)
+    if isinstance(country, str) and re.fullmatch(r"[A-Z]{2}", country):
+        mark[COUNTRY_FIELD] = country
+    elif country is not None:
+        logger.error("Qdrant: the ingest job for %s names an unknown country %r; not written", scope, country)
     if isinstance(config.get(AI_PROCESSING_FIELD), bool):
         mark[AI_PROCESSING_FIELD] = config[AI_PROCESSING_FIELD]
     cap = config.get(QUOTE_MAX_CHARS_FIELD)

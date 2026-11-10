@@ -103,6 +103,19 @@ Chosen option 3.
   the conversation's newest recorded answer (`updatedSinceLastAnswer`), read
   per conversation after the cache, so the answer can say "Grundlage seit der
   letzten Antwort aktualisiert".
+- **The shared corpus carries its country** (audit of #1559, item 1). A
+  base-corpus chunk carries `country_id` and `knowledge_edition_id`, from the
+  published copy the platform's indexing job re-ingests (`oib_corpus_marks`);
+  `knowledge_search` reads only the countries the gate allows
+  (`base_corpus_country_filter`), a chunk written before the field as Austrian.
+  A rollback that leaves a text unreleased marks its chunks `ZZ`, which no
+  office reads. With the edition on the chunk, a search can read one edition's
+  text (`filters={"knowledge_edition_id": …}`), the id from
+  `base-knowledge-edition-as-of`; the tool's description says so with the
+  country-neutral prompt, so the flag-off request stays as it was.
+- **Coverage claims on the website are generated** from the packs' coverage
+  (`scripts/check_coverage_copy.py`, the `coverage-copy` hook): the building-law
+  page names a country's law only once its pack states `open` or better.
 - **Edge cases as data.** `evals/base-knowledge/edge_cases.yaml` holds the
   design's E-fixtures as paper records; `context/edge-cases.spec.ts` runs each
   through the resolver a turn uses.

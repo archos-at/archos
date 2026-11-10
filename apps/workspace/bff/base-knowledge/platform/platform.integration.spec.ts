@@ -27,9 +27,9 @@ vi.mock('server-only', () => ({}))
 const flag = { on: true }
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => flag.on }))
 
-const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[] }
+const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[], marks: {} as Record<string, unknown> }
 vi.mock('@/lib/knowledge/service', () => ({
-  reingestKnowledgeBaseDocuments: async (names: string[]) => ({
+  reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => (Object.assign(corpus.marks, marks), {
     status: 'pending',
     queued: names.filter((name) => corpus.queued.includes(name)),
     unknown: names.filter((name) => corpus.unknown.includes(name)),
@@ -251,6 +251,8 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     corpus.queued = [file]
     await indexing.runPlatformTextIndex(ORG, { runId: runs[0].id }, { last: false })
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('queued')
+    // The text's chunks carry its country and edition, so a turn's gate can filter them (ADR-0173).
+    expect(corpus.marks[file]).toEqual({ countryId: 'AT', editionId: `edition:${key('oib-rl-4-2023')}` })
     corpus.ingested = [file]
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('indexed')
     // The listing now says the platform holds the text.

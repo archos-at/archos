@@ -122,6 +122,22 @@ class TestSync:
         assert isinstance(download, corpus_store.CorpusObjectDownload)
         assert (download.storage_key, download.sha256) == ("base-corpus/a.pdf", _sha(b"alpha"))
 
+    def test_the_job_carries_the_country_and_edition_the_platform_recorded(self, ingestor):
+        corpus_store.put("a.pdf", b"alpha")
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="DE", edition_id="edition:baybo-2025"))
+        _sync()
+
+        job = ingest_dispatch.decode(take_run().input.payload)
+        assert job.config["country_id"] == "DE"
+        assert job.config["knowledge_edition_id"] == "edition:baybo-2025"
+
+    def test_a_file_without_a_mark_carries_no_country(self, ingestor):
+        corpus_store.put("a.pdf", b"alpha")
+        _sync()
+
+        job = ingest_dispatch.decode(take_run().input.payload)
+        assert "country_id" not in job.config and "knowledge_edition_id" not in job.config
+
     def test_the_worker_reads_the_object_itself_and_checks_its_hash(self, ingestor, bucket):
         corpus_store.put("a.pdf", b"alpha")
         _sync()

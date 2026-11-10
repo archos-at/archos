@@ -41,6 +41,7 @@ def _store() -> Any:
 def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     """Set the mark on the file's chunks; their number, or None when the collection holds no chunk of the file."""
     from knowledge_layer.vector_store import AI_PROCESSING_FIELD
+    from knowledge_layer.vector_store import COUNTRY_FIELD
     from knowledge_layer.vector_store import KNOWLEDGE_EDITION_FIELD
     from knowledge_layer.vector_store import LICENCE_CLASS_FIELD
     from knowledge_layer.vector_store import QUOTE_MAX_CHARS_FIELD
@@ -56,6 +57,8 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
         AI_PROCESSING_FIELD: update.ai_processing_attested,
         QUOTE_MAX_CHARS_FIELD: update.quote_max_chars,
         KNOWLEDGE_EDITION_FIELD: update.edition_id,
+        # Only a base-corpus text names its country (ADR-0173); an office copy's mark leaves it alone.
+        **({COUNTRY_FIELD: update.country_id} if "country_id" in update.model_fields_set else {}),
     }
     store.set_file_payloads(collection, {update.file_name: payload})
     return chunks

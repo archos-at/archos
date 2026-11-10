@@ -228,6 +228,15 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: coverage-copy
+        name: the website claims a country's law only as far as its pack's coverage goes
+        # ADR-0173: the building-law page's country lines are generated from the
+        # coverage the country packs state; its other copy names no other country.
+        entry: .venv/bin/python scripts/check_coverage_copy.py
+        language: system
+        pass_filenames: false
+        files: ^(configs/knowledge-packs/|apps/website/src/i18n/pages/(building-law|coverage\.generated)\.ts$|scripts/check_coverage_copy\.py$)
+
       - id: package-surfaces
         name: code outside a package imports its surface, not its submodules
         # Laying knowledge_layer out by job rewrote nearly a thousand imports and

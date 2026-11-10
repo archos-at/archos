@@ -105,6 +105,18 @@ _files = Table(
     Column("failed_job_id", Text, nullable=True),
 )
 
+#: The platform record a corpus file is the text of (ADR-0173): its country's pack and its edition.
+#: Its own table, so the file table's shape stays what every replica created; set by the platform's
+#: indexing job, read into every ingest job of the file, so a re-ingest keeps them on the chunks.
+_marks = Table(
+    "oib_corpus_marks",
+    _metadata,
+    Column("file_name", Text, primary_key=True),
+    Column("country_id", Text, nullable=True),
+    Column("edition_id", Text, nullable=True),
+    Column("marked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 _initialized: set[str] = set()
 _INIT_LOCK = threading.Lock()
 
@@ -203,6 +215,7 @@ def _ensure_table(url: str) -> None:
         # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         ensure_schema(engine, _files.name, lambda conn: conn.execute(CreateTable(_files, if_not_exists=True)))
+        ensure_schema(engine, _marks.name, lambda conn: conn.execute(CreateTable(_marks, if_not_exists=True)))
         _initialized.add(url)
 
 
@@ -255,6 +268,39 @@ def _upsert_file(row: FileRow) -> None:
 def _delete_file_row(name: str) -> None:
     with _transaction() as conn:
         conn.execute(delete(_files).where(_files.c.file_name == name))
+        conn.execute(delete(_marks).where(_marks.c.file_name == name))
+
+
+@dataclass(frozen=True)
+class FileMark:
+    """The country and the edition a corpus file is the text of; either may be unknown."""
+
+    country_id: str | None = None
+    edition_id: str | None = None
+
+    def job_config(self) -> dict[str, str]:
+        """The fields an ingest job carries (``vector_store.writes.licence_mark`` writes them on every chunk)."""
+        fields = {"country_id": self.country_id, "knowledge_edition_id": self.edition_id}
+        return {key: value for key, value in fields.items() if value}
+
+
+def set_mark(name: str, mark: FileMark) -> None:
+    """Record which country and edition ``name`` is the text of; a later ingest job carries them."""
+    _require_name(name)
+    values = {"country_id": mark.country_id, "edition_id": mark.edition_id}
+    with _transaction() as conn:
+        insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
+        conn.execute(
+            insert(_marks)
+            .values(file_name=name, **values)
+            .on_conflict_do_update(index_elements=[_marks.c.file_name], set_={**values, "marked_at": func.now()})
+        )
+
+
+def get_mark(name: str) -> FileMark | None:
+    with _transaction() as conn:
+        record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
+    return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
 
 
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:

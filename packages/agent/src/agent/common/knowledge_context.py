@@ -149,6 +149,32 @@ def get_turn_knowledge_context() -> KnowledgeContext | None:
     return _turn_knowledge_context.get()
 
 
+#: The country every base-corpus point written before ``country_id`` existed belongs to: the corpus was Austria's alone.
+LEGACY_CORPUS_COUNTRY = "AT"
+
+
+def base_corpus_country_filter() -> dict[str, object] | None:
+    """The base-corpus filter the turn's gate sets: only the countries it may read; None when no context is bound.
+
+    A point without ``country_id`` predates it and is Austrian, so it is read only while Austria is.
+    An empty list reads nothing: the caller drops the base corpus instead of searching it.
+    """
+    context = _turn_knowledge_context.get()
+    if context is None:
+        return None
+    countries = sorted(context.retrieval_countries)
+    allowed: dict[str, object] = {"country_id": {"$in": countries}}
+    if LEGACY_CORPUS_COUNTRY in context.retrieval_countries:
+        return {"$or": [allowed, {"country_id": {"$exists": False}}]}
+    return allowed
+
+
+def base_corpus_readable() -> bool | None:
+    """Whether the turn may search the base corpus at all; None without a context (the site decides, ADR-0158)."""
+    context = _turn_knowledge_context.get()
+    return None if context is None else bool(context.retrieval_countries)
+
+
 def corpus_country_allowed(country: str) -> bool | None:
     """Whether the turn may read ``country``'s shared corpus and law tools; None when no context is bound (flag off)."""
     context = _turn_knowledge_context.get()

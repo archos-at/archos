@@ -56,6 +56,11 @@ class KnowledgeMarkUpdate(BaseModel):
     edition_id: str | None = Field(
         None, min_length=1, max_length=200, description="The knowledge edition the source belongs to; None clears it"
     )
+    country_id: str | None = Field(
+        None,
+        pattern=r"^[A-Z]{2}$",
+        description="The country whose pack a base-corpus text belongs to (ADR-0173); ZZ for none; None clears it",
+    )
 
 
 class KnowledgeMarkResult(BaseModel):

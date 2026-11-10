@@ -106,6 +106,7 @@ export const BFF_JOB_KINDS = [
   'inbound_mail_sender_file',
   'search_facets_sync',
   'platform_text_index',
+  'platform_text_deindex',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 

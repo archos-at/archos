@@ -103,6 +103,20 @@ async def test_the_mark_lands_on_every_chunk_of_the_file(store):
     ]
 
 
+async def test_a_base_corpus_text_is_marked_with_its_country(store):
+    response = await _put({"file_name": "OIB-RL_2.pdf", "edition_id": None, "country_id": "ZZ"})
+
+    assert response.status_code == 200
+    assert store.written[0][1]["OIB-RL_2.pdf"]["country_id"] == "ZZ"
+
+
+async def test_a_malformed_country_is_refused(store):
+    response = await _put({"file_name": "OIB-RL_2.pdf", "country_id": "Austria"})
+
+    assert response.status_code == 422
+    assert store.written == []
+
+
 async def test_null_clears_the_mark(store):
     response = await _put({"file_name": "OIB-RL_2.pdf", "licence_class": None, "edition_id": None})
 

@@ -306,6 +306,10 @@ def _request_locked(name: str, doc_class: str | None, enqueue: EnqueueIngestJob)
     config: dict = {"cleanup_files": True, "original_filenames": [name], "priority": "bulk"}
     if doc_class:
         config["doc_class"] = doc_class
+    # The country and edition the platform recorded for this text (ADR-0173), on every chunk it writes.
+    mark = corpus_store.get_mark(name)
+    if mark is not None:
+        config.update(mark.job_config())
     prepared = ingestor.prepare_job(
         [corpus_store.CorpusObjectDownload(row.storage_key, row.sha256)],
         COLLECTION_NAME,

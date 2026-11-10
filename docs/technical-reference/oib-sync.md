@@ -26,6 +26,16 @@ oib_corpus_files
   failed_job_id          text null          -- the ingest job that ran for these bytes and gave up
 ```
 
+```
+oib_corpus_marks                            -- ADR-0173: the platform record a file is the text of
+  file_name    text pk
+  country_id   text null                    -- its pack's country (ISO 3166-1); ZZ for none
+  edition_id   text null                    -- its knowledge edition's record id
+  marked_at    timestamptz not null default now()
+```
+
+The platform's indexing job (`platform_text_index`, `bff/base-knowledge/platform/indexing.ts`) sends a published text's country and edition with its re-ingest (`marks` on `POST /v1/admin/oib/reingest`); every ingest job of the file carries them, and each chunk gets `country_id` and `knowledge_edition_id`. A turn's knowledge context reads only the countries its office is entitled to; a chunk without `country_id` predates it and reads as Austrian. A rollback that leaves a text unreleased marks its chunks `ZZ` (`platform_text_deindex`), which no office reads, and keeps them for a re-release.
+
 Without `SUMMARY_DB` the store fails with an error. It does not fall back to a local SQLite file, which would recreate the per-replica state it exists to remove.
 
 There are no files on the backend that matter. A replica that loses its cache downloads again what it needs; nothing is pulled speculatively. The backend image ships no PDFs and reads no bind mount.

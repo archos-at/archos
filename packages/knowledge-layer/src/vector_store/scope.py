@@ -15,6 +15,7 @@ always accepted::
     {"field": {"$eq"|"$ne": v}}                   -> (not) equal
     {"field": {"$in"|"$nin": [v1, ...]}}          -> (not) in
     {"field": {"$gt"|"$gte"|"$lt"|"$lte": v}}     -> range (integer and datetime fields only)
+    {"field": {"$exists": true|false}}            -> the point carries the field, or lacks it (empty)
     {"$and": [node, ...]}  /  {"$or": [node, ...]} -> groups
 
 A read is over chunks unless it says otherwise. A folder card's point
@@ -73,7 +74,7 @@ from .schema import TEXT_FIELDS
 PointKind = Literal["chunk", "folder", "any"]
 
 _RANGE_OPERATORS = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
-_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", *_RANGE_OPERATORS})
+_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", "$exists", *_RANGE_OPERATORS})
 
 
 def _range(field: str, op: str, value: Any) -> models.FieldCondition:
@@ -172,6 +173,11 @@ def _field_exact(field: str, condition: Any) -> models.Filter:
         return models.Filter(must=[_match_any(field, value)])
     if op in _RANGE_OPERATORS:
         return models.Filter(must=[_range(field, op, value)])
+    if op == "$exists":
+        if not isinstance(value, bool):
+            raise ValueError(f"Filter on {field!r}: $exists needs true or false, got {value!r}")
+        empty = models.IsEmptyCondition(is_empty=models.PayloadField(key=field))
+        return models.Filter(must_not=[empty]) if value else models.Filter(must=[empty])
     # $nin of nothing excludes nothing.
     return models.Filter(must_not=[_match_any(field, value)] if value else [])
 
