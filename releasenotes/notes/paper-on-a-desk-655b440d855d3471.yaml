@@ -9,6 +9,8 @@ improvements:
   - >
     Each place in Files is now titled by its own name, with the project above it
     as a small breadcrumb, and the explanatory line under the title is gone.
+    The places (Alle Dateien, E-Mail-Eingang, …) stand clearly apart from the
+    title above them.
   - >
     Project mail opens the first waiting email on a wide screen, so the reading
     pane is never empty. On a phone the list stays first.
@@ -22,9 +24,10 @@ improvements:
     sheets, and list rows are separated by one even line. Dark mode keeps the
     email list visible against the page.
   - >
-    The page is a shade darker so white documents and folders stand clearly
-    apart from it. Buttons, the selected tab and folders now each look
-    different: a folder shows an arrow to open it.
+    The page keeps the light background of the brand, and white
+    documents and folders stand apart from it by a fine edge and a soft
+    shadow. Buttons, the selected tab and folders now each look different: a
+    folder shows an arrow to open it.
   - >
     Open points mark a point in colour only when it is yours or overdue, and
     the filters are one row of rounded chips with „Alle“ to clear them. Who has
