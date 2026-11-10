@@ -36,6 +36,7 @@ export const consultOperations = [
     method: 'POST',
     path: '/api/agent-asks',
     body: createAskSchema,
+    generatedContent: 'answer',
     load: () => import('@/app/api/agent-asks/route'),
   },
   {
@@ -52,6 +53,7 @@ export const consultOperations = [
     path: '/api/agent-asks/[id]',
     params: askParamsSchema,
     query: getAskQuerySchema,
+    generatedContent: 'answer',
     load: () => import('@/app/api/agent-asks/[id]/route'),
   },
   {
