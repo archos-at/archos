@@ -188,22 +188,27 @@ def _ris(url: str, tool: str = "ris_fetch_document") -> SourceEntry:
     return SourceEntry(url=url, title="Bauordnung für Wien", tool_name=tool)
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
-        "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/P63",
-        "https://ris.bka.gv.at/eli/lgbl/wi/1930/11/P63",
-        "https://www.ris.bka.gv.at/Dokument.wxe?Abfrage=LrW&Dokumentnummer=LWI40000225",
+#: How a RIS passage of a work carries each identity: what the legal-database tools return as its URL.
+RIS_URLS = {
+    "ris_gesetzesnummer": lambda value: [
+        f"https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer={value}"
     ],
-)
-def test_a_ris_passage_of_the_wiener_bauordnung_binds_by_the_records_the_bff_sends(url):
-    """Coordinator's decision: the Wiener Bauordnung keeps its binding badge, from the records. Each of its
-    three identities in the generated context finds it; the ELI with the host either way RIS spells it."""
+    "eli": lambda value: [f"{value.rstrip('/')}/P63", f"{value.rstrip('/').replace('://www.', '://')}/P63"],
+    "ris_dokumentnummer": lambda value: [f"https://www.ris.bka.gv.at/Dokument.wxe?Abfrage=LrW&Dokumentnummer={value}"],
+}
+
+
+def test_a_ris_passage_of_the_wiener_bauordnung_binds_by_the_records_the_bff_sends():
+    """Coordinator's decision: the Wiener Bauordnung keeps its binding badge, from the records. Every identity
+    the generated context carries finds it (the ELI with the host either way RIS spells it), and it carries
+    its Gesetzesnummer at least."""
+    refs = BO_WIEN["sourceRefs"]
+    assert {"scheme": "ris_gesetzesnummer", "value": "20000006"} in refs
     _bind(VIENNA)
-    wire = source_entry_to_wire(_ris(url))
-    assert wire["binding_status"] == "binding"
-    assert wire["role"] == "binding"
+    for ref in refs:
+        for url in RIS_URLS[ref["scheme"]](ref["value"]):
+            wire = source_entry_to_wire(_ris(url))
+            assert (wire["binding_status"], wire["role"]) == ("binding", "binding"), url
 
 
 def test_a_ris_passage_no_record_names_is_unknown():
@@ -228,7 +233,8 @@ def test_a_law_number_matches_only_as_the_ris_url_s_query_parameter(url):
 
 
 def test_a_document_number_matches_as_a_whole_token():
-    _bind(VIENNA)
+    ref = {"scheme": "ris_dokumentnummer", "value": "LWI40000225"}
+    _bind(_with(VIENNA, [{**BO_WIEN, "sourceRefs": [ref]}]))
     assert use_for_entry(_ris("https://www.ris.bka.gv.at/Dokument.wxe?Dokumentnummer=LWI40000225")) is not None
     assert use_for_entry(_ris("https://www.ris.bka.gv.at/Dokument.wxe?Dokumentnummer=LWI400002251")) is None
 
@@ -251,13 +257,17 @@ def test_an_unknown_scheme_or_a_bare_value_never_matches():
     )
 
 
-def test_an_eli_matches_as_the_url_s_prefix_only():
-    _bind(_with(VIENNA, [{**BO_WIEN, "sourceRefs": [{"scheme": "eli", "value": BO_WIEN_ELI}]}]))
+@pytest.mark.parametrize(
+    "eli", ["https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11", "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/"]
+)
+def test_an_eli_matches_by_whole_path_segments_only(eli):
+    """``…/1930/11`` is the Bauordnung; ``…/1930/110`` is another law of 1930 and gets no badge from it."""
+    _bind(_with(VIENNA, [{**BO_WIEN, "sourceRefs": [{"scheme": "eli", "value": eli}]}]))
     assert use_for_entry(_ris("https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/P63")) is not None
+    assert use_for_entry(_ris("https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11")) is not None
+    assert use_for_entry(_ris("https://www.ris.bka.gv.at/eli/lgbl/WI/1930/110")) is None
+    assert use_for_entry(_ris("https://www.ris.bka.gv.at/eli/lgbl/WI/1930/110/P1")) is None
     assert use_for_entry(_ris("https://example.org/?u=https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11")) is None
-
-
-BO_WIEN_ELI = next(ref["value"] for ref in BO_WIEN["sourceRefs"] if ref["scheme"] == "eli")
 
 
 GESETZ_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006"

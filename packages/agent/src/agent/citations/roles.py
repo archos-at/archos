@@ -28,7 +28,7 @@ Fail closed: no context bound, or a gate that carries no uses, maps every passag
 A base-corpus passage maps to an edition by its corpus file, and a passage
 read through a legal database (RIS) by an identity the edition's records carry
 (``sourceRefs``, ``{scheme, value}``: a Gesetzesnummer as the RIS URL's query
-parameter, a document number as a whole token, an ELI as the URL's prefix; an
+parameter, a document number as a whole token, an ELI by whole path segments of the URL; an
 unknown scheme never matches). An
 office's copy that happens to share a file name is the office's, and its label
 is the office layer's.
@@ -65,12 +65,18 @@ class BindingClassification:
     binding_status: str = "unknown"
 
 
-def _comparable(url: str) -> str:
-    """A URL for a prefix match: lower case, any scheme, and the host without ``www.`` (RIS links come both
-    ways: ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``). Pure."""
+def _eli_segments(url: str) -> tuple[str, ...]:
+    """A URL as the segments an ELI is matched on: the host without ``www.`` (RIS links come both ways:
+    ``www.ris.bka.gv.at`` and the open-data ``ris.bka.gv.at``), then each path segment, lower case. Pure."""
     parts = urlsplit(url.strip().lower())
-    host = parts.netloc.removeprefix("www.")
-    return f"{host}{parts.path}" + (f"?{parts.query}" if parts.query else "")
+    return (parts.netloc.removeprefix("www."), *(segment for segment in parts.path.split("/") if segment))
+
+
+def _within_eli(url: str, eli: str) -> bool:
+    """Whether ``url`` is the work ``eli`` names or a part of it, by whole path segments: ``…/1930/11`` holds
+    ``…/1930/11/P63`` but not ``…/1930/110``, another law. A trailing ``/`` changes nothing. Pure."""
+    prefix = _eli_segments(eli)
+    return len(prefix) > 1 and _eli_segments(url)[: len(prefix)] == prefix
 
 
 def _law_number(url: str | None) -> str | None:
@@ -83,12 +89,12 @@ def _law_number(url: str | None) -> str | None:
 def _ref_matches(ref: SourceRef, entry: SourceEntry) -> bool:
     """Whether one identity names the passage ``entry`` read, by its scheme; an unknown scheme never matches. Pure.
 
-    ``eli`` is the prefix of the passage's URL (host with or without ``www.``), ``ris_gesetzesnummer``
+    ``eli`` holds the passage's URL by whole path segments (host with or without ``www.``), ``ris_gesetzesnummer``
     the Gesetzesnummer its RIS URL asks for, ``ris_dokumentnummer`` a whole token of its URL, citation key
     or collection.
     """
     if ref.scheme == "eli":
-        return bool(entry.url) and _comparable(entry.url).startswith(_comparable(ref.value))
+        return bool(entry.url) and _within_eli(entry.url, ref.value)
     if ref.scheme == "ris_gesetzesnummer":
         return _law_number(entry.url) == ref.value
     if ref.scheme != "ris_dokumentnummer":
