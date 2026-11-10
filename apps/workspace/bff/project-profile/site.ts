@@ -9,6 +9,7 @@
  * not the office's seat, not Austria. Pure and client-safe.
  */
 
+import { isValidCountryToken, isValidFederalStateToken } from './intake-conditions'
 import type { ProjectProfile } from './types'
 
 /** `null`: nothing places the project (`site_unknown`). `other`: a country the intake does not name. */
@@ -18,10 +19,15 @@ function stringValue(entry: { value: unknown } | undefined): string | null {
   return typeof entry?.value === 'string' && entry.value.trim() ? entry.value.trim().toLowerCase() : null
 }
 
+/**
+ * The site one section places, or null. A value the intake does not offer (a
+ * stray `federal_state=foo`) places nothing, as in the Python twin: the OIB list
+ * and the agent's prompt must read one profile the same way.
+ */
 function countryOf(country: string | null, federalState: string | null): SiteCountry {
-  if (country) return country
+  if (country && (isValidCountryToken(country) || /^[a-z]{2}$/.test(country))) return country
   if (federalState === 'outside_austria') return 'other'
-  return federalState ? 'at' : null
+  return federalState && isValidFederalStateToken(federalState) ? 'at' : null
 }
 
 /** The project's country: `at`, another ISO-2 code, `other`, or `null` when nothing places it. */

@@ -29,6 +29,9 @@ describe('siteCountry', () => {
     [profile({}, { federal_state: 'vienna' }), 'at'],
     [profile({ country: 'de' }, { federal_state: 'vienna' }), 'de'],
     [profile({ main_use: 'residential' }), null],
+    // A value the intake does not offer places nothing, as in the Python twin.
+    [profile({ federal_state: 'foo' }), null],
+    [profile({ country: 'germany' }), null],
   ])('places %j in %s', (input, expected) => {
     expect(siteCountry(input)).toBe(expected)
   })
