@@ -2213,10 +2213,10 @@
    "office-shelf-folder-update",
    "document-bin",
    "project-folder-bin-list",
+   "document-summary-get",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "project-folder-bin-purge",
-   "project-folder-list"
+   "project-folder-bin-purge"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
