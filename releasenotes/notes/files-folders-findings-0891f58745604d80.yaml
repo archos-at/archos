@@ -1,0 +1,14 @@
+---
+improvements:
+  - >
+    Inside a folder in Dateien, the page's title is now the folder's name, and
+    the line above it shows the way there, with each step one click back up.
+    Long folder names show in full on two lines instead of being cut.
+  - >
+    Findings from the documents are now part of the overview at the top of
+    Dateien: its line says how many there are, and opening it lists them
+    with the documents they come from.
+  - >
+    The upload menu now says which formats you can upload and the size limit,
+    and that you can drop files anywhere on the page. The extra upload tile
+    among your files is gone.

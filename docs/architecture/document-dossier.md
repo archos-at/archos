@@ -172,5 +172,6 @@ pages not read in full. It is read as the uploader (their pinned session, the
 findings' own listing), bounded by one shelf read and four seconds, and fail-open:
 any failure writes the row without it. It names no document, only counts, types and
 finding keys, because the row outlives the reader's right to a file; the row links to
-the findings panel, which re-authorizes. Agents read it on `inbox-list` as
+the findings, a section of the folder brief at the root of the project's Dateien
+(`#document-findings` opens the brief), which re-authorizes. Agents read it on `inbox-list` as
 `uploadReport`.
