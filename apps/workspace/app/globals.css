@@ -325,6 +325,40 @@ body {
   }
 }
 
+/* A bar pinned (sticky) over the foot of the content it sits in (the E-Mail-Eingang's decision bar): a faint
+   shadow upward instead of a line, and only while content is left beneath it; at the end of the scroll, and in a
+   pane that does not scroll (an inactive timeline), it draws none. Guarded like `scroll-edge-bottom`. A bar below
+   a list rather than over it (a selection bar) is a band of the one grey and needs neither. */
+@keyframes pinned-foot-reveal {
+  from {
+    box-shadow: 0 -8px 16px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@utility shadow-pinned-foot {
+  @supports (animation-timeline: scroll(nearest block)) {
+    animation: pinned-foot-reveal linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: calc(100% - 24px) 100%;
+  }
+}
+
+/* The design system's 1280px content container, for every listing of a project's section (Dateien and its
+   tabs). It keeps the section's left edge, which beside the app rail is the rail's edge, and centres once its
+   section is at least 1440px wide: the page cannot ask whether a rail is shown, but a 1440px section has none
+   beside it at a laptop's width and is a wide screen otherwise, where 192px of paper on one side read as a
+   page that had slid. The section frame names the container (`@container/section`). */
+@utility listing-container {
+  width: 100%;
+  max-width: 1280px;
+  @container section (min-width: 90rem) {
+    margin-inline: auto;
+  }
+}
+
 @utility scroll-edge-top {
   @supports (animation-timeline: scroll(nearest block)) {
     animation: scroll-edge-reveal-top linear both;
@@ -712,6 +746,7 @@ body {
     /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
        read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
     font-size: 12px;
+    line-height: 16px; /* the label step of the type scale, 12/16/500 (paper on a desk) */
     font-weight: 500;
   }
 

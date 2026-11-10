@@ -23,10 +23,12 @@ const view = (over: Partial<InboundMailAddressView>): InboundMailAddressView => 
 })
 
 describe('InboundMailHeaderActions', () => {
-  it('shows the address to copy, and opens the details beside it', async () => {
+  it('copies the address with a press that says so, and opens the details beside it', async () => {
     const onOpen = vi.fn()
     render(<InboundMailHeaderActions state={{ kind: 'ready', address: view({}) }} onOpenAddress={onOpen} />)
-    expect(screen.getByTestId('inbound-mail-header-address')).toHaveTextContent(ADDRESS)
+    // The press, not the 45 characters: the address is read in the dialog and the empty state.
+    expect(screen.getByTestId('inbound-mail-address-copy')).toHaveTextContent('Copy address')
+    expect(screen.getByTestId('inbound-mail-header-address')).not.toHaveTextContent(ADDRESS)
     await userEvent.click(screen.getByTestId('inbound-mail-address-open'))
     expect(onOpen).toHaveBeenCalledOnce()
   })

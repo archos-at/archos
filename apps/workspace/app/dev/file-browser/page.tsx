@@ -80,7 +80,6 @@ import { RevisionsFixture } from './revisions-fixture'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
 import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
 
-
 export default function FileBrowserDevPage(): JSX.Element {
   const variant = useSearchParams()?.get('variant') ?? 'default'
   if (process.env.NODE_ENV !== 'development') {
@@ -259,8 +258,7 @@ function FolderDropTargetFixture(): JSX.Element {
 }
 
 /**
- * Folders in the DETAIL view — the one composition of this pane that had no
- * shot at all.
+ * Folders in the DETAIL view — the one composition of this pane that had no shot at all.
  *
  * Every existing file-browser target photographs the card grid, or a search. The
  * detail view's folder band was captured nowhere, which is how it came to be
@@ -279,7 +277,7 @@ function FoldersInListViewFixture(): JSX.Element {
       <div>
         <h1 className="text-lg font-semibold">Files browser — folders in the detail view</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The level’s folders as rows above the sortable file table, at the root.
+          The level’s folders as the first rows of the sortable file table, under its head, at the root.
         </p>
       </div>
       <div
@@ -296,6 +294,8 @@ function FoldersInListViewFixture(): JSX.Element {
             search={search}
             view="list"
             folderNav={folderNav}
+            wrapFileRow={(file, row) => <DocumentObjectMenu document={file} scope="files" folders={FOLDERS} onOpen={() => setSelected(file.id)} asChild>{row}</DocumentObjectMenu>}
+            renderActions={() => <DocumentActionsTrigger />} /* as the workspace wires both: each row's menu supplies its ⋯ */
           />
         </div>
       </div>
@@ -343,7 +343,7 @@ function SearchInListViewFixture(): JSX.Element {
       {/* Mirrors ProjectFileWorkspace's composition: the field lives in the
           header, one component above the pane it filters. */}
       <div className="flex h-[460px] flex-col overflow-hidden rounded-xl border" data-testid="file-browser-search-list">
-        <div className="flex items-center justify-end border-b px-4 py-3">
+        <div className="flex items-center justify-end px-4 py-3">
           <FileSearchField
             className="w-72"
             value={search.query}
@@ -510,7 +510,7 @@ function SearchFailedFixture(): JSX.Element {
       {/* Mirrors ProjectFileWorkspace's composition: the field lives in the
           header, one component above the pane it filters. */}
       <div className="flex h-[460px] flex-col overflow-hidden rounded-xl border" data-testid="file-browser-search-failed">
-        <div className="flex items-center justify-end border-b px-4 py-3">
+        <div className="flex items-center justify-end px-4 py-3">
           <FileSearchField
             className="w-72"
             value={search.query}
@@ -601,7 +601,7 @@ function FileBrowserFixtures(): JSX.Element {
         {/* The REAL header controls (`FilesHeaderControls`), so this preview
             draws the row the product draws: one row on a phone, the desk's
             toggle, filter and search otherwise. */}
-        <div className="border-b px-4 py-3">
+        <div className="px-4 py-3">
           <FilesHeaderControls
             phone={phone}
             view={view}

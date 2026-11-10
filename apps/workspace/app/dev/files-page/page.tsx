@@ -13,6 +13,7 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
+import { CheckSquare, FolderPlus } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents/components/document-actions'
@@ -21,6 +22,7 @@ import { FileFilterMenu } from '@/features/documents/components/file-filter-menu
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
+import { UploadFab } from '@/features/documents/components/upload-fab'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
@@ -47,7 +49,7 @@ function FilesPage(): JSX.Element {
   // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
-    <div className="h-dvh">
+    <div className="relative h-dvh">
       <ProjectSectionFrame projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files" inboundMail>
         <ProjectSectionActions>
           <FilesHeaderControls
@@ -59,6 +61,15 @@ function FilesPage(): JSX.Element {
             )}
             search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
             upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />}
+            // A phone's root, as the workspace builds it: the level's tools first in the ⋯.
+            levelEntries={
+              phone && folderNav.currentFolderId === null
+                ? [
+                    { type: 'item', id: 'select', label: 'Auswählen', icon: CheckSquare, onSelect: () => {} },
+                    { type: 'item', id: 'new-folder', label: 'Ordner anlegen', icon: FolderPlus, onSelect: () => {} },
+                  ]
+                : undefined
+            }
           />
         </ProjectSectionActions>
         <FileBrowserPane
@@ -73,6 +84,7 @@ function FilesPage(): JSX.Element {
           folderNav={folderNav}
           // „Auswählen“ in the path row, as a project with files offers it.
           selection={{ active: false, selectedIds: new Set(), onToggle: () => {}, onStart: () => {} }}
+          rootToolsInMenu={phone && folderNav.currentFolderId === null}
           brief={
             <FolderBrief
               brief={buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)}
@@ -91,7 +103,15 @@ function FilesPage(): JSX.Element {
           )}
           renderActions={() => <DocumentActionsTrigger />}
         />
+        {/* The workspace ends a phone's list above the floating Hochladen (`pb-24`): the last tiles are never under it. */}
+        {phone && <div className="h-24" aria-hidden />}
       </ProjectSectionFrame>
+      {/* The phone's Hochladen, floating at the foot as the workspace draws it (`uploadFab`). */}
+      {phone && (
+        <UploadFab inSheet={false}>
+          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders glyphOnly onSendByMail={() => {}} />
+        </UploadFab>
+      )}
     </div>
   )
 }

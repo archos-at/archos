@@ -46,14 +46,15 @@ const OFF_SCREEN_SKIP = '[content-visibility:auto] [contain-intrinsic-block-size
  * product belongs to the source-signal system, so no tile has a colour of its
  * own.
  */
-export function GridTileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
+export function TileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
   const shell = (
     <div
       className={cn(
         'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        interactive && 'hover:bg-accent',
+        // The hover is the desk grey, as a list row's; the open or picked tile holds the selected grey (`bg-accent`).
+        interactive && 'hover:bg-desk',
         className,
       )}
       {...rest}
@@ -71,10 +72,10 @@ export function GridTileShell({ interactive = true, className, children, ...rest
   )
 }
 
-/** The thumbnail: on the one grey, as the design system lays product cut-outs on `surface-sunken`, so every tile reads the same size; rounded, no border, no shadow. */
+/** The thumbnail: a white sheet with its edge and elevation 1 (paper on a desk), the document lying on the desk; every tile's the same size. */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-muted relative w-full overflow-hidden rounded-lg', className)} {...rest}>
+    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-surface', className)} {...rest}>
       {children}
     </div>
   )
@@ -92,7 +93,7 @@ export function FileTileBody({ className, children, ...rest }: ComponentProps<'d
 /** The facts (size, age, what is open), muted, at the foot of the tile. */
 export function FileTileFooter({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 px-1 pb-0.5 pt-1.5 text-xs', className)} {...rest}>
+    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 pt-1.5 text-xs', className)} {...rest}>
       {children}
     </div>
   )

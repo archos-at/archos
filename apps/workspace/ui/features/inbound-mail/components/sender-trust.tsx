@@ -148,7 +148,7 @@ export function SenderTrustLine({
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
             aria-label={explain}
           >
             <Info className="size-3.5" aria-hidden />
@@ -198,7 +198,7 @@ export function SenderWaitLine({
     // What the mail asks of the reader: attention, so ochre on the glyph and the words in ink (colour never alone).
     <p className="text-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
       <Clock className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
+      <span className="min-w-0 max-w-[64ch] [overflow-wrap:anywhere]" /* a measure: across a 750px reader it ran two lines of 120 characters */>{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
     </p>
   )
 }

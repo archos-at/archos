@@ -249,45 +249,50 @@ describe('ThumbnailWithFallback', () => {
 })
 
 /**
- * The tile has to reach the bottom of its grid cell whatever it carries. A
- * document that is still being read has no AI summary yet, so it is shorter than
- * its settled neighbours; the grid stretches every cell to the row height, and
- * the card used to keep its natural height inside that cell — the size · time
- * footer floated in the middle of the tile with a band of dead surface beneath.
+ * A tile's anatomy (paper on a desk): the sheet, the name, one meta line right
+ * under it. A document still being read has no summary yet, and a tile shows
+ * none anyway; only the chat's card without a meta line keeps the summary, and
+ * holds its slot with skeleton lines while it is on its way.
  *
  * jsdom does no layout, so what is asserted is the mechanism rather than the
- * pixels: the raised content block is the growing flex child. The rendered
- * result is pinned by the `file-browser-uploading` screenshot target.
+ * pixels. The rendered result is pinned by the `/dev/files-page` capture.
  */
 describe('FileCard while the document is still being read', () => {
   const unsettled: FileItem = { ...file('c1', 'Schnitt.pdf', 'application/pdf'), status: 'processing' }
 
-  it('lets the footer take the leftover height of a row, so its meta lines share one baseline', () => {
+  it('sets the meta line right under the name, not at the foot of the cell', () => {
     render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    // The body keeps its own height; the footer, the button's sibling since it holds the filing chip,
-    // grows below it and starts at its top, so „4 offen“ hangs under the meta line instead of lifting it.
+    // The footer is the button's sibling, since it holds the filing chip. It no longer grows to the cell's foot: a row
+    // of tiles with one two-line name opened a 24px hole under every one-line name to hold the meta lines level.
     const card = screen.getByTestId('file-card')
-    expect(card.className).not.toContain('flex-1')
     const footer = screen.getByTestId('file-card-footer')
     expect(card.nextElementSibling).toBe(footer)
-    expect(footer.className).toContain('flex-1')
-    expect(footer.className).toContain('content-start')
+    expect(footer.className.split(/\s+/)).not.toContain('flex-1')
+    expect(footer.className).not.toContain('content-end')
   })
 
-  it('holds the description slot with skeleton lines instead of leaving it blank', () => {
-    render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
-
-    // Decorative — the status badge already says "Processing" in words.
-    const placeholder = screen.getByTestId('file-card-summary-skeleton')
-    expect(placeholder).toHaveAttribute('aria-hidden')
-  })
-
-  it('drops the skeleton the moment the real summary arrives', () => {
+  it('carries no description on a Dateien tile: the sheet, the name and one meta line', () => {
+    // Paper on a desk, principle 8: a two-line summary on every tile made seven documents fill a 900px screen. The
+    // summary is the list view's and the preview's; a tile with a meta line shows neither it nor its skeleton.
     const summarized: FileItem = { ...unsettled, status: 'ready', summary: 'Perspektivischer Schnitt, Bauteil A.' }
+    const { unmount } = render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" />)
+    expect(screen.queryByText('Perspektivischer Schnitt, Bauteil A.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('file-card-footer')).toHaveTextContent('PDF')
+    unmount()
 
-    render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" />)
+    render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
+    expect(screen.queryByTestId('file-card-summary-skeleton')).not.toBeInTheDocument()
+  })
 
+  it('keeps the summary as the second line of a card without a meta line (the chat), holding its slot while it is read', () => {
+    const { unmount } = render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" hideFooter />)
+    // Decorative — the status badge already says "Processing" in words.
+    expect(screen.getByTestId('file-card-summary-skeleton')).toHaveAttribute('aria-hidden')
+    unmount()
+
+    const summarized: FileItem = { ...unsettled, status: 'ready', summary: 'Perspektivischer Schnitt, Bauteil A.' }
+    render(<FileCard file={summarized} isSelected={false} onSelect={() => {}} locale="de" hideFooter />)
     expect(screen.queryByTestId('file-card-summary-skeleton')).not.toBeInTheDocument()
     expect(screen.getByText('Perspektivischer Schnitt, Bauteil A.')).toBeInTheDocument()
   })

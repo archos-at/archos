@@ -47,14 +47,15 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
     [fixture]
   )
   const paths = useMemo<InboundMailPaths>(() => {
-    const base = `/dev/inbound-mail?variant=${variant}${locale === 'en' ? '&locale=en' : ''}`
+    // A capture without the strip (`&chrome=0`) stays without it as the rows and the first mail navigate.
+    const base = `/dev/inbound-mail?variant=${variant}${locale === 'en' ? '&locale=en' : ''}${one(params.chrome) === '0' ? '&chrome=0' : ''}`
     const filter = (f: { status: string; outcome: string | null }) => `${f.status !== 'waiting' ? `&status=${f.status}` : ''}${f.outcome ? `&outcome=${f.outcome}` : ''}`
     return {
       list: (f) => `${base}${filter(f)}`,
       mail: (id, f) => `${base}${filter(f)}&mail=${id}`,
       files: '/dev/files-header',
     }
-  }, [variant, locale])
+  }, [variant, locale, params.chrome])
   const initial = mailId ? (DETAIL_BY_ID.get(mailId) ?? null) : null
 
   return (

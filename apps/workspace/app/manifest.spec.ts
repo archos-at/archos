@@ -38,12 +38,15 @@ describe('installed app chrome', () => {
   })
 
   test('THEME_COLOR is still the --background token of each theme', () => {
-    // The token is oklch with its hex in a comment; the comment is the contract
-    // `theme-boot.ts` states ("Retune both together").
+    // The app's layer ("Paper on a desk", the last block of the file) sets --background to var(--paper)
+    // over the brand's surface, so the cascade's answer is the last --background and the --paper of each
+    // theme; the brand's #fafaf9 above it no longer reaches the page. `theme-boot.ts` states the contract.
     const tokens = readFileSync(join(__dirname, '..', 'ui', 'styles', 'tokens.css'), 'utf8')
-    const backgrounds = [...tokens.matchAll(/^\s*--background:[^;]+;\s*\/\*\s*(#[0-9a-f]{6})/gim)].map((m) => m[1])
+    const backgrounds = [...tokens.matchAll(/^\s*--background:\s*([^;]+);/gm)].map((m) => m[1].trim())
+    const papers = [...tokens.matchAll(/^\s*--paper:\s*(#[0-9a-f]{6});/gim)].map((m) => m[1])
 
-    expect(backgrounds).toEqual([THEME_COLOR.light, THEME_COLOR.dark])
+    expect(backgrounds.at(-1)).toBe('var(--paper)')
+    expect(papers).toEqual([THEME_COLOR.light, THEME_COLOR.dark])
   })
 
   test('iOS gets standalone metadata, under the product name', async () => {

@@ -6,6 +6,13 @@
  * optional so non-React callers without locale context keep working (they
  * get the runtime default).
  */
+/**
+ * The separator between a line's clauses („PDF\u00A0· 2,4 MB\u00A0· vor 3 Tagen“): a middot bound to the clause
+ * before it by a no-break space, so a wrapped line never starts with one, and one width of space on either side
+ * wherever the surface joins clauses in text (the chat's `JOIN` says the same).
+ */
+export const CLAUSE_JOIN = '\u00A0· '
+
 export const formatEur = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(value)
 
@@ -164,7 +171,12 @@ export const formatBytes = (bytes: number | null | undefined, locale?: string): 
  * `now` is the moment it is relative to: a caller that decided by its own `now`
  * whether to say a relative time at all must format against the same one.
  */
-export const formatRelativeTime = (isoDate: string, locale?: string, now: number = Date.now()): string => {
+export const formatRelativeTime = (
+  isoDate: string,
+  locale?: string,
+  now: number = Date.now(),
+  style: Intl.RelativeTimeFormatStyle = 'long'
+): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
 
@@ -172,7 +184,8 @@ export const formatRelativeTime = (isoDate: string, locale?: string, now: number
   const diffSeconds = Math.round(diffMs / 1000)
   const absSeconds = Math.abs(diffSeconds)
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style })
+  const numericRtf = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style })
 
   const thresholds: Array<[number, Intl.RelativeTimeFormatUnit]> = [
     [60, 'second'],
@@ -198,6 +211,9 @@ export const formatRelativeTime = (isoDate: string, locale?: string, now: number
     if (absSeconds < limit) {
       const divisor = divisors[unit]
       const value = Math.trunc(diffSeconds / divisor)
+      // Months and years in numbers („vor 1 Monat“), as every other step reads: „letzten Monat“ beside „vor 4
+      // Monaten“ was two forms for one scale. Days and hours keep „gestern“, „vor 3 Stunden“.
+      if (unit === 'month' || unit === 'year') return numericRtf.format(value, unit)
       return rtf.format(value, unit)
     }
   }
@@ -228,6 +244,16 @@ export const formatCalendarDate = (isoDate: string, locale?: string): string => 
   if (Number.isNaN(date.getTime())) return isoDate
 
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)
+}
+
+/**
+ * A UTC calendar day (`YYYY-MM-DD`, a due date) in the same form as {@link formatCalendarDate}: one absolute
+ * date format on a surface („08.11.2026“ beside „06.10.2026“, not „8. Nov. 2026“). UTC, as the day is a bucket.
+ */
+export const formatCalendarDay = (day: string, locale?: string): string => {
+  const date = new Date(`${day}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return day
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
 }
 
 /**

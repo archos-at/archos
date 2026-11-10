@@ -38,14 +38,18 @@ export function SelectionBar({
 }: SelectionBarProps): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
+    // While picking, a white bar floats 16px off the foot: elevation 2, the overlay radius (paper on a desk).
+    // Its content keeps the listing's container; the ✕ gives back its inset so its glyph stands on the edge.
     <div
-      className="bg-background animate-in fade-in-0 slide-in-from-bottom-2 duration-base flex shrink-0 items-center gap-2 border-t px-3 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none sm:px-4"
+      className="bg-sheet shadow-md rounded-overlay animate-in fade-in-0 slide-in-from-bottom-2 duration-base mx-4 mb-[max(1rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] shrink-0 py-2 ease-out motion-reduce:animate-none md:mx-auto md:w-[calc(100%-4rem)] md:max-w-[1216px]"
       data-testid="selection-bar"
     >
+      <div className="flex items-center gap-3 px-4" /* presses 12px apart, as every bar */>
       <Button
         type="button"
         variant="ghost"
         size="icon"
+        className="-ml-2.5"
         onClick={onDone}
         aria-label={t('selection.done')}
         data-testid="selection-done"
@@ -61,7 +65,7 @@ export function SelectionBar({
       </p>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
         onClick={onSelectAll}
         disabled={count >= total}
@@ -82,6 +86,7 @@ export function SelectionBar({
           {t('selection.move')}
         </Button>
       )}
+      </div>
     </div>
   )
 }

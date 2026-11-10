@@ -24,7 +24,7 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address in Cc when you write to the authority, the structural engineer or the client. The replies wait here to be filed.',
+      'Put the address in Cc when you write to the authority, the structural engineer or the client.',
     neverNoAddress:
       'This project has no mail address yet. With one, the correspondence with the authority, the structural engineer and the client lands in the project without anyone saving it by hand.',
     neverNoAddressMember: 'This project has no mail address yet. Ask someone who manages the project to create it.',
@@ -50,11 +50,11 @@ export const inboundMail = {
     noSubject: '(no subject)',
     attachments: '{count, plural, one {# attachment} other {# attachments}}',
     automatic: 'Automatic',
-    thread: 'Mail thread “{name}” · becomes revision {version}',
+    thread: 'Mail thread “{name}”\u00A0· becomes revision {version}',
     select: 'Select “{subject}”',
-    impersonation: 'Poses as {name} · do not file',
+    impersonation: 'Poses as {name}\u00A0· do not file',
     // The reader's own address, rejected by their domain: said to them, never „poses as you“.
-    impersonationOwn: 'Your address, rejected by your domain · check it',
+    impersonationOwn: 'Your address, rejected by your domain\u00A0· check it',
     /** Who files a mail that names a member whose domain did not verify it. */
     claim: {
       own: 'Did you send it? Confirm it',
@@ -64,7 +64,7 @@ export const inboundMail = {
     outcome: {
       filed: '{count, plural, one {# part filed} other {# parts filed}}',
       dismissed: '{count, plural, one {# part dismissed} other {# parts dismissed}}',
-      expired: '{count, plural, one {# part expired} other {# parts expired}}',
+      expired: '{count, plural, one {# part expired undecided} other {# parts expired undecided}}',
     },
     fileAsSuggested: 'File “{subject}” as suggested',
     needs: {
@@ -78,15 +78,15 @@ export const inboundMail = {
     },
     textFollowed: 'Text added to the mail thread (following)',
     // A member who may file sent it from a verified domain, and direct filing did not file it all the same (`not_filed`).
-    notFiled: 'Not filed directly · {need}',
+    notFiled: 'Not filed directly\u00A0· {need}',
     filing: 'Filing …',
     notFiledReady: 'Not filed directly',
   },
 
   readiness: {
-    ready: 'Ready ({count})',
-    needs_you: 'Needs you ({count})',
-    others: 'Waiting for others ({count})',
+    ready: 'Ready',
+    needs_you: 'Needs you',
+    others: 'Waiting for others',
     othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
     readyHint: 'Sender verified, a place suggested for every part, nothing to check.',
     fileAll: 'File all {count} as suggested',
@@ -94,7 +94,7 @@ export const inboundMail = {
   },
 
   group: {
-    thread: 'Mail thread “{name}” · {count, plural, one {# new mail} other {# new mails}}',
+    thread: 'Mail thread “{name}”\u00A0· {count, plural, one {# new mail} other {# new mails}}',
     threadLine: '“{name}”',
     threadAction: '{count, plural, one {File as revision {first}} other {File as revisions {first}–{last}}}',
     threadActionFirst: 'File the first {count} as revisions {first}–{last}',
@@ -106,9 +106,9 @@ export const inboundMail = {
   trust: {
     verified: 'Domain verified: {domain}',
     bccOwn: 'Your own mail (Bcc)',
-    memberUnverified: 'Member · domain not verified',
+    memberUnverified: 'Member\u00A0· domain not verified',
     impersonation: 'Poses as {name}',
-    impersonationOwn: 'Your address · rejected by your domain',
+    impersonationOwn: 'Your address\u00A0· rejected by your domain',
     unverified: 'Domain not verified',
     explain: {
       verified:
@@ -143,7 +143,7 @@ export const inboundMail = {
     paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
     // A mail the domain of a member who may file verified, and which waits all the same: direct filing did not file it (or not all of it).
     not_filed: 'Waiting: {name} sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.',
-    no_write_rights: 'Waiting: the sender may not file in this project. Check the mail and file what belongs in the project.',
+    no_write_rights: 'Waiting for you to file it, because the sender may not file in this project.',
     outside_office: 'Waiting: the sender is outside the office. File what belongs in the project; if nobody files it, it expires after {days} days and cannot be restored.',
     sender_unchecked: 'Waiting: when it arrived, whether the sender belongs to the office could not be checked. Check the address and the domain above before you file.',
   },
@@ -156,8 +156,10 @@ export const inboundMail = {
   },
 
   header: {
+    addressMenu: "The project's email address",
     addressMore: 'About the address',
-    fromShort: '{name} ‹{address}›',
+    addressCopy: 'Copy address',
+    addressCopied: 'Address copied',
     details: 'Details',
     sentLabel: 'Sent',
     receivedLabel: 'Received',
@@ -168,7 +170,7 @@ export const inboundMail = {
     cc: 'Cc',
     replyTo: 'Reply to',
     // The mail thread's words for the same forward: who wrote it first, then who forwarded it.
-    forwardedFrom: 'From {who} · domain not verified · forwarded by {forwarder}',
+    forwardedFrom: 'From {who}\u00A0· domain not verified\u00A0· forwarded by {forwarder}',
     forwardedExplain: 'Read from the forwarded text. The domain verifies only the forward, not who originally wrote the mail.',
     original: 'Download original (.eml)',
     originalHint: 'Opens in your mail program; images from outside are loaded there.',
@@ -251,15 +253,15 @@ export const inboundMail = {
     label: 'Attachments',
     unnamed: 'Attachment {position}',
     file: 'File {name}',
-    facts: '{type} · {size}',
+    facts: '{type}\u00A0· {size}',
     open: 'Open',
     change: 'Change',
     preview: 'Preview {name}',
     status: {
       scan_pending: 'Being checked for malware …',
       scan_failed: 'The check failed and is repeated',
-      scan_infected: 'Malware found · cannot be filed',
-      not_offered: 'This office does not file this file type · in the original',
+      scan_infected: 'Malware found\u00A0· cannot be filed',
+      not_offered: 'This office does not file this file type\u00A0· in the original',
       filing: 'Being filed …',
       filed: 'Filed in Files',
       filedTo: 'Filed in {folder}',
@@ -270,7 +272,7 @@ export const inboundMail = {
     notes: {
       duplicate: 'Already in the project: {path}',
       revision: 'becomes revision {version} of {name}',
-      revisionUnverified: 'could be revision {version} of {name} · domain not verified',
+      revisionUnverified: 'could be revision {version} of {name}\u00A0· domain not verified',
       revisionHidden: 'A possible earlier revision is in a folder you cannot see',
       nameStop: 'Name check: “{terms}”',
       releaseName: 'File anyway',
@@ -284,13 +286,13 @@ export const inboundMail = {
       lastFailure: 'Could not be filed: {reason}',
     },
     notStaged: {
-      tnef: '{name} · Outlook’s own attachment, not opened · in the original',
-      encrypted: '{name} · encrypted · in the original',
-      archive: '{name} · archive, not unpacked · in the original',
-      calendar: '{name} · appointment, shown in the text',
-      size: '{name} · too large to file · in the original',
-      limit: '{name} · beyond the number of attachments one mail may have · in the original',
-      layoutImages: '{count, plural, one {# picture from the signature} other {# pictures from the signature}} · in the original',
+      tnef: '{name}\u00A0· Outlook’s own attachment, not opened\u00A0· in the original',
+      encrypted: '{name}\u00A0· encrypted\u00A0· in the original',
+      archive: '{name}\u00A0· archive, not unpacked\u00A0· in the original',
+      calendar: '{name}\u00A0· appointment, shown in the text',
+      size: '{name}\u00A0· too large to file\u00A0· in the original',
+      limit: '{name}\u00A0· beyond the number of attachments one mail may have\u00A0· in the original',
+      layoutImages: '{count, plural, one {# picture from the signature} other {# pictures from the signature}}\u00A0· in the original',
     },
   },
 
@@ -336,6 +338,7 @@ export const inboundMail = {
     fileAnywayClose: 'Close filing',
   },
   bar: {
+    file: 'File',
     dismiss: 'Dismiss',
     dismissBusy: 'Dismissing …',
     fileBoth: '{count, plural, one {File # file and the mail text} other {File # files and the mail text}}',
@@ -375,10 +378,10 @@ export const inboundMail = {
     partialFailureAll: '{failed, plural, one {The file could not be filed.} other {None of the # files could be filed.}}',
     partialFailureHint: 'They wait here again. Choose another name or folder and file them again.',
     quotaFull: 'The office’s storage is full. Nothing was filed; the mail keeps waiting.',
-    expired: 'Expired · can be restored until {date}',
-    dismissed: 'Dismissed · can be restored until {date}',
-    partsExpired: '{count, plural, one {# part expired} other {# parts expired}} · can be restored until {date}',
-    partsDismissed: '{count, plural, one {# part dismissed} other {# parts dismissed}} · can be restored until {date}',
+    expired: 'Expired undecided\u00A0· can be restored until {date}',
+    dismissed: 'Dismissed\u00A0· can be restored until {date}',
+    partsExpired: '{count, plural, one {# part expired undecided} other {# parts expired undecided}}\u00A0· can be restored until {date}',
+    partsDismissed: '{count, plural, one {# part dismissed} other {# parts dismissed}}\u00A0· can be restored until {date}',
     restore: 'Restore',
     restoreBusy: 'Restoring …',
     settled: 'Everything of this mail is handled.',
@@ -403,6 +406,7 @@ export const inboundMail = {
 
   bulk: {
     selected: '{count} selected',
+    paneHint: 'The bar under the list acts on every selected mail.',
     clear: 'Clear selection',
     fileSuggested: 'File as suggested',
     fileSuggestedBusy: 'Filing …',
@@ -481,7 +485,7 @@ export const inboundMail = {
     label: 'Project mail address',
     copy: 'Copy',
     saveContact: 'Save as contact',
-    contactName: '{productName} · {project}',
+    contactName: '{productName}\u00A0· {project}',
     contactNote:
       '{productName} files your own mail to this address that your domain verifies directly, when you may file in the project; other mail waits until someone files it.',
     usesLabel: 'What the address is for',
@@ -502,7 +506,7 @@ export const inboundMail = {
     loadError: 'The project mail address could not be loaded.',
     lastReceived: 'Last mail received {time}',
     nothingReceived: 'No mail received yet',
-    sizeLimit: 'Up to {limit} MB per mail, attachments together up to about {attachments} MB.',
+    sizeLimit: 'Attachments up to about {attachments} MB per mail.',
     uploadInstead: 'Upload larger files directly',
     dropped: '{count, plural, one {# automatic reply or delivery report in the last {days} days, not shown} other {# automatic replies or delivery reports in the last {days} days, not shown}}',
     rotate: 'Create a new address …',

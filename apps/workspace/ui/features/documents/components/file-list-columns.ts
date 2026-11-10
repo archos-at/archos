@@ -8,12 +8,10 @@
  */
 
 import type { FileItem } from './project-file-workspace'
-import { isCitableStatus } from './document-status'
 import { isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
 
 export interface FileListColumns {
-  status: boolean
   approval: boolean
   pages: boolean
   /** A search hit carries no size: a column of „—“ is no column. */
@@ -32,7 +30,6 @@ export function approvalSubjectOf(file: FileItem) {
 
 export function listColumns(files: readonly FileItem[]): FileListColumns {
   return {
-    status: files.some((file) => file.status !== undefined && file.status !== null && !isCitableStatus(file.status)),
     approval: files.some((file) => isOlderRevisionEntry(file) || documentBadgeState(approvalSubjectOf(file)) !== null),
     pages: files.some((file) => file.pageCount !== null && file.pageCount !== undefined),
     size: files.some((file) => typeof file.fileSize === 'number'),

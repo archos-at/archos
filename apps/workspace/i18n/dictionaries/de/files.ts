@@ -26,14 +26,14 @@ export const files: typeof en.files = {
       processingOther: '{productName} liest {count} Dokumente',
       doneOne: '1 Dokument hinzugefügt',
       doneOther: '{count} Dokumente hinzugefügt',
-      mixed: '{ready} hinzugefügt · {failed} fehlgeschlagen',
+      mixed: '{ready} hinzugefügt\u00A0· {failed} fehlgeschlagen',
       failedOne: '1 Dokument konnte nicht hinzugefügt werden',
       failedOther: '{count} Dokumente konnten nicht hinzugefügt werden',
       // Von der Inhaltsprüfung zurückgehalten (ADR-0086): kein Fehler, nichts zu
       // wiederholen. Nie „freigeben“, das Wort gehört der Freigabe einer Fassung.
       heldOne: '1 Dokument zurückgehalten',
       heldOther: '{count} Dokumente zurückgehalten',
-      mixedHeld: '{ready} hinzugefügt · {held} zurückgehalten',
+      mixedHeld: '{ready} hinzugefügt\u00A0· {held} zurückgehalten',
       canceled: 'Upload abgebrochen',
     },
     detail: {
@@ -97,7 +97,7 @@ export const files: typeof en.files = {
     unknown: 'Unbekannt',
     // Nur die eigenen Uploads des Büros: Innerhalb eines Büros wird der Reihe
     // nach gelesen, zwischen Büros fair abgewechselt (ADR-0076).
-    queuedAhead: '{count, plural, one {Wartet · # Datei davor} other {Wartet · # Dateien davor}}',
+    queuedAhead: '{count, plural, one {Wartet\u00A0· # Datei davor} other {Wartet\u00A0· # Dateien davor}}',
   },
   toast: {
     // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
@@ -464,7 +464,8 @@ export const files: typeof en.files = {
     clearSearch: 'Suche löschen',
     clearFilters: 'Filter zurücksetzen',
     resetSearch: 'Suche zurücksetzen',
-    recentlyUploaded: 'Zuletzt hochgeladen',
+    // The label heads all of the root's files: „Zuletzt hochgeladen“ promised a subset.
+    recentlyUploaded: 'Dateien',
     /** Leere Suche, wenn die Suche nur im Namen sucht (der Ordner wird seitenweise geladen, ADR-0102). */
     noMatchNamesDescription:
       'Gesucht wird im Dateinamen. Drücken Sie Enter, um auch im Inhalt zu suchen – oder löschen Sie die Suche, um alle Dateien zu sehen.',
@@ -620,14 +621,30 @@ export const files: typeof en.files = {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
-    deletedBy: 'Gelöscht von {name} am {date}',
-    deletedOn: 'Gelöscht am {date}',
-    contents:
-      '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
-    purgeOn: 'Wird am {date} endgültig gelöscht',
-    purging: 'Wird gerade endgültig gelöscht',
-    failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
+    deletedBy: 'gelöscht von {name} am {date}',
+    deletedOn: 'gelöscht am {date}',
+    // What a folder holds, each figure only when it is not zero („0 Ordner“ was a clause that said nothing).
+    contentsDocuments: '{count, plural, one {# Dokument} other {# Dokumente}}',
+    contentsFolders: '{count, plural, one {# Ordner} other {# Ordner}}',
+    // One meta line („14 Dokumente · gelöscht von … am … · bleibt bis …“), so every clause is lower case and the row
+    // capitalises the line's first letter; what stays, not the press's words again;
+    // the date bound to its word.
+    purgeOn: 'bleibt bis {date}',
+    purging: 'wird gerade endgültig gelöscht',
+    failed: 'endgültige Löschung angehalten, ein Admin kümmert sich darum',
     restore: 'Wiederherstellen',
+    // Where the press would be, so the row says why it is not there.
+    restoreBlocked: {
+      folder_read_only: 'Nicht wiederherstellbar: Sie dürfen diesen Ordner nur lesen.',
+      project_closed: 'Nicht wiederherstellbar: Das Projekt ist abgeschlossen.',
+      no_write: 'Nicht wiederherstellbar: Sie dürfen in diesem Projekt nicht ablegen.',
+    },
+    // Dasselbe als Satzteil der zweiten Zeile auf dem Telefon („bleibt bis … · nur lesbar“); der ganze Satz steht im Titel.
+    restoreBlockedShort: {
+      folder_read_only: 'nur lesbar',
+      project_closed: 'Projekt abgeschlossen',
+      no_write: 'ohne Recht abzulegen',
+    },
     restored: '„{name}“ ist wiederhergestellt. Die Dokumente werden neu eingelesen.',
     restoredToRoot:
       '„{name}“ ist wiederhergestellt, und zwar direkt im Projekt: Sein übergeordneter Ordner ist gelöscht.',
@@ -644,7 +661,7 @@ export const files: typeof en.files = {
     cancel: 'Abbrechen',
     loadError: 'Der Papierkorb konnte nicht geladen werden.',
     retry: 'Erneut versuchen',
-    document: 'Dokument · kommt beim Wiederherstellen in seinen Ordner zurück',
+    document: 'Dokument',
     loadMore: 'Weitere laden',
   },
   workspace: {
@@ -695,7 +712,7 @@ export const files: typeof en.files = {
   selection: {
     start: 'Auswählen',
     done: 'Fertig',
-    all: 'Alle',
+    all: 'Alle auswählen',
     move: 'Verschieben',
     column: 'Auswahl',
     count: '{count} ausgewählt',
@@ -1116,6 +1133,8 @@ export const files: typeof en.files = {
     showState: 'Dokumente „{state}“ in allen Unterordnern zeigen',
     showTag: 'Alle Dokumente „{tag}“ in diesem Ordner und seinen Unterordnern zeigen',
     pages: '{count, plural, one {{formatted} Seite gelesen} other {{formatted} Seiten gelesen}}',
+    // On the brief's own line after „… gelesen“: the count alone, or „gelesen“ twice in one line.
+    pagesCount: '{count, plural, one {{formatted} Seite} other {{formatted} Seiten}}',
     aboutTitle: 'Worum es hier geht',
     aboutMore: '+{count}',
     noTypes: '{productName} hat hier noch keine Dokumentart erkannt.',
@@ -1129,6 +1148,7 @@ export const files: typeof en.files = {
     needsTitle: 'Hier sind Sie gefragt',
     failedLine: '{count, plural, one {{productName} konnte # Dokument nicht lesen.} other {{productName} konnte # Dokumente nicht lesen.}}',
     readAgainAll: '{count, plural, one {Erneut lesen} other {Alle # erneut lesen}}',
+    readAgainBoth: 'Beide erneut lesen',
     readAgainProgress: '{done} von {count} gestartet…',
     readAgainDone: '{count, plural, one {# Dokument wird neu gelesen} other {# Dokumente werden neu gelesen}}',
     readAgainPartial: '{count, plural, one {# Dokument ließ sich nicht neu starten} other {# Dokumente ließen sich nicht neu starten}}',
@@ -1478,7 +1498,8 @@ export const files: typeof en.files = {
   assignment: {
     unassigned: 'Unvergeben',
     assign: 'Zuweisen',
-    edit: 'Bearbeiten',
+    // Beside the person who is responsible: „Bearbeiten“ read as editing the file.
+    edit: 'Ändern',
     assignToMe: 'Mir zuweisen',
     filterAll: 'Alle',
     filterMine: 'Meine',
@@ -1492,10 +1513,10 @@ export const files: typeof en.files = {
     // und Posteingang. Vorher hieß derselbe Knopf „Piloti dazu fragen“ und war
     // ausgerechnet bei Entwürfen ausgegraut — genau den Dokumenten, über die man
     // sprechen will. Piloti kann jetzt auch eine unveröffentlichte Fassung lesen.
-    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kollegin fragen“ las es
+    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kolleg:in fragen“ las es
     // sich wie eine Besprechung im Team. Der Name steht deshalb im Knopf.
     discuss: 'Mit {productName} besprechen',
-    askColleague: 'Kollegin fragen',
+    askColleague: 'Kolleg:in fragen',
     copyLink: 'Link kopieren',
     linkCopied: 'Link kopiert',
     alsoAssign: 'Auch zuweisen',
@@ -1561,7 +1582,7 @@ export const files: typeof en.files = {
     listedOpenIn: '{marks} in „{name}“',
     // Was der Chip selbst sagt, kurz genug für eine Karte; der Tooltip trägt den ganzen Satz.
     listedOpenShort: '{count} offen',
-    listedOpenShortForYou: '{count} offen · {mine} für Sie',
+    listedOpenShortForYou: '{count} offen\u00A0· {mine} für Sie',
     // Pilotis Vorschläge, die niemand übernommen hat: getrennt von „offen“, wie in Offene Punkte und im Protokoll.
     listedProposedShort: '{count, plural, one {# Vorschlag} other {# Vorschläge}}',
   },
@@ -1570,8 +1591,8 @@ export const files: typeof en.files = {
     open: 'Offene Punkte',
     title: 'Offene Punkte',
     filters: {
-      assignee: 'Zuständig',
-      due: 'Frist',
+      label: 'Filter',
+      // Kein Filter gewählt: jeder offene Punkt. Ein Chip, damit der Zustand „alle“ sichtbar ist und ein Druck dorthin zurückführt.
       all: 'Alle',
       // Dasselbe Prädikat wie „Für Sie“ in der Prüfansicht und in Dateien (`isForReader`), also dieselben Worte.
       me: 'Für Sie',

@@ -282,9 +282,9 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             160px floor and the expander does not fit 390px, and the
             expander is what wrapped. */}
         {hasHeaderActions && (
-          <div className="order-3 flex basis-full items-center justify-end gap-2 sm:order-2 sm:basis-auto">
+          <div className="order-3 flex basis-full items-center justify-end gap-3 sm:order-2 sm:basis-auto">
           {isTransferring && onCancelAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={onCancelAll}>
+            <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={onCancelAll}>
               {t('uploads.actions.cancelAll')}
             </Button>
           )}
@@ -293,7 +293,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
               type="button"
               variant="secondary"
               size="sm"
-              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
+              className="shrink-0 gap-1.5"
               onClick={retryAll}
             >
               <RotateCcw className="size-3.5" aria-hidden />
@@ -301,7 +301,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             </Button>
           )}
           {summary.isSettled && dismissAll && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={dismissAll}>
+            <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={dismissAll}>
               {t('uploads.actions.dismissAll')}
             </Button>
           )}
