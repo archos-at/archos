@@ -59,7 +59,10 @@ Option 1.
   refuses to serve an organization placed in another cell, or one whose placement cannot be read,
   on every path: both transports and the chat contract check the request's organization (off the
   event loop on the async paths), and `data_policy_for` checks it for detached work. NULL is served
-  by the cell it reaches. A call with no organization is pinned to zero retention inside a cell.
+  by the cell it reaches. A call with no organization is pinned to zero retention inside a cell;
+  one that acts for a person, a project or a conversation and names no organization is tenant work
+  that cannot be placed, and the cell refuses it. An unreadable policy is never written to the
+  shared model-config cache, so no replica reads it back as an unplaced organization.
 - **Zero retention is the cell's promise.** Inside a cell the organization's switch cannot turn it
   off: the backend pins whatever is stored, and the BFF refuses the switch (409).
 - **Bring-your-own-key is held to the zone.** An office's OpenRouter key is rewritten to the zone's
@@ -68,7 +71,10 @@ Option 1.
   be processed for; no row reads as `service`, `quality_evaluation`, `human_review`, and
   `product_improvement` is opt-in. Every chat trace carries `cell`, `purpose_ok` and
   `processing_policy_version`, and is tagged `purpose_ok:quality_evaluation` when that purpose is
-  allowed. The judge rule requires the tag (include-only): a trace without it is never judged.
+  allowed. Inside a cell the judge rule requires the tag (include-only): a trace without it is never
+  judged. Without a cell the rule is provisioned without that condition (`judge_rules`,
+  `task langfuse:provision` reads `RESIDENCY_CELL`), so flag off leaves the judges as they were;
+  provisioning only creates a missing rule, so an existing one is edited in Langfuse.
 - **Recording.** A direct generation receives its route through a sink the seam calls; a chat
   generation carries it in `response_metadata`, which the span exporter keeps and
   `ProcessingLocationProcessor` lifts onto the generation. The seam writes the trace score

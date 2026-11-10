@@ -69,7 +69,7 @@ tasks:
       # test is here because it reads the first-impression docs, and a docs-only
       # change runs no filtered tier. The layout test is here because a new
       # top-level directory can come from any tier's change.
-      # On workers: 53s serial against 34s on four (2026-11-10), and in a UI
+      # On workers: 16s serial against 9s on four (2026-11-10), and in a UI
       # change's verify:fast this run is what the others wait for.
       - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.XDIST}} {{.HARNESS_TESTS}}'
 

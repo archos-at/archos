@@ -488,7 +488,11 @@ invalidation path is intact:
   the organization's processing policy (cell and purposes, ADR-0167); an L2 entry
   without it reads as a miss. Errors are negative-cached for 1 s in L1 only, and a
   missing `INTERNAL_API_TOKEN` (nobody was asked) stays L1-only; an answer from the
-  BFF, even an empty one (`{}, False`), is authoritative and is written to L2.
+  BFF, even an empty one (`{}, False`), is authoritative and is written to L2,
+  unless its processing policy could not be read (`processingPolicy` null or
+  malformed): the L2 codec carries no `known` bit, so `write_shared` skips an
+  unreadable policy rather than let another replica read it back as a known,
+  unplaced organization.
   Residual race: a fetch that started before the save can complete after the
   delete and re-populate L2 with the pre-save record (stale up to L2 60 s);
   a replica holding a pre-save L1 entry serves it for up to L1 10 s regardless.

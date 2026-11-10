@@ -287,16 +287,26 @@ class TestPolicy:
         metadata, tags = residency.turn_trace_metadata(residency.UNREADABLE_POLICY, None)
         assert tags == [] and metadata["purpose_ok"] == "service" and metadata["cell"] == "none"
 
-    def test_the_judge_rule_is_include_only(self):
-        from agent.observability.langfuse_catalog import RULES
+    def test_the_judge_rule_is_include_only_inside_a_cell(self):
+        from agent.observability.langfuse_catalog import judge_rules
 
-        conditions = RULES[0].filter
-        assert {
-            "type": "arrayOptions",
-            "column": "tags",
-            "operator": "any of",
-            "value": [residency.QUALITY_EVALUATION_TAG],
-        } in conditions
+        (rule,) = judge_rules(residency_on=True)
+        assert QUALITY_EVALUATION_CONDITION in rule.filter
+
+    def test_without_a_cell_the_judges_keep_judging_every_answered_turn(self):
+        """Only a chat turn carries the tag; without a cell the rule is what it was before ADR-0167."""
+        from agent.observability.langfuse_catalog import judge_rules
+
+        (rule,) = judge_rules(residency_on=False)
+        assert QUALITY_EVALUATION_CONDITION not in rule.filter
+
+
+QUALITY_EVALUATION_CONDITION = {
+    "type": "arrayOptions",
+    "column": "tags",
+    "operator": "any of",
+    "value": [residency.QUALITY_EVALUATION_TAG],
+}
 
 
 class TestTheBootCheck:
@@ -474,6 +484,36 @@ class TestPlacementOnEveryPath:
         monkeypatch.setattr(request_llm_context, "get_zdr_only_from_context", refuse)
         with pytest.raises(ResidencyViolation):
             asyncio.run(request_llm_context._read_zdr_only())
+
+    def test_tenant_work_with_no_organization_is_refused_inside_a_cell(self, cell, monkeypatch):
+        import asyncio
+
+        from agent import project_context
+
+        tenant = project_context.RequestContext(user_id="user_1", project_id="project_1")
+        monkeypatch.setattr(project_context.RequestContext, "from_context", classmethod(lambda cls: tenant))
+        with pytest.raises(ResidencyViolation):
+            residency.check_current_organization()
+        with pytest.raises(ResidencyViolation):
+            asyncio.run(residency.acheck_current_organization())
+        sent: list[httpx.Request] = []
+        with pytest.raises(ResidencyViolation):
+            _client(sent).post(f"{EU_BASE}/embeddings", json={"model": "m", "input": "x"})
+        assert sent == []
+
+    def test_platform_work_with_no_organization_is_served_inside_a_cell(self, cell, monkeypatch):
+        from agent import project_context
+
+        platform = project_context.RequestContext()
+        monkeypatch.setattr(project_context.RequestContext, "from_context", classmethod(lambda cls: platform))
+        residency.check_current_organization()
+
+    def test_flag_off_tenant_work_with_no_organization_is_served(self, no_cell, monkeypatch):
+        from agent import project_context
+
+        tenant = project_context.RequestContext(user_id="user_1")
+        monkeypatch.setattr(project_context.RequestContext, "from_context", classmethod(lambda cls: tenant))
+        residency.check_current_organization()
 
     def test_a_call_with_no_organization_is_pinned_inside_a_cell(self, cell):
         assert openrouter.data_policy_for(None) is ZERO_DATA_RETENTION

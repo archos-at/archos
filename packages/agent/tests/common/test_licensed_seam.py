@@ -574,8 +574,14 @@ def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_sco
 
     assert licensed_text.LICENSED_TRACE_TAG in tags
     assert steps == ["licensed-text"], "one step per turn: the mark the lessons distiller reads (E44)"
-    (rule,) = langfuse_catalog.RULES
-    assert {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": ["licensed-text"]} in rule.filter
+    for residency_on in (False, True):
+        (rule,) = langfuse_catalog.judge_rules(residency_on)
+        assert {
+            "type": "arrayOptions",
+            "column": "tags",
+            "operator": "none of",
+            "value": ["licensed-text"],
+        } in rule.filter
     assert [(score.name, score.value) for score in emitted] == [("licensed-quote-capped", 0.0)]
 
 
