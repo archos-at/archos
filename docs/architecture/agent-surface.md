@@ -499,8 +499,9 @@ before each: default models, reasoning efforts, retrieval settings, the price
 list (also `idempotent: false`), the norm registry, a forced re-ingest, the kill
 switch, the vector reconcile and the deletes. None gained a `sensitivity`;
 `platform-audit-portal-link` keeps its `secret` and stays hidden while the
-step-up scope is not enforced. The OpenAPI document still describes the
-console's operations to platform staff.
+step-up scope is not enforced. The OpenAPI document describes the console's
+platform-public operations to platform staff (`documentedOperations` asks
+`isExposedTo('platform', …)`), never the tenant-content ones.
 
 Connecting: the server's URL is `https://<app-host>/api/platform/mcp`, and the
 client must sign in **in the GRID Platform organization**. The client steps are

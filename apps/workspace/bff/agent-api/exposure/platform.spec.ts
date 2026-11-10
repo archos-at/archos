@@ -26,6 +26,7 @@ import { callOperation } from '../dispatch'
 import { type Audience, isExposedTo, isOnDoor } from '../exposure'
 import { EXPOSURE, type Exposure } from '../exposure.config'
 import { createAgentDoorHandler } from '../mcp-server'
+import { documentedOperations } from '../openapi'
 import { SENSITIVE_SCOPE, canSee, findVisibleOperation } from '../policy'
 import type { AgentPrincipal } from '../principal'
 import { PLATFORM_EXPOSURE, PLATFORM_PUBLIC } from './platform'
@@ -138,6 +139,14 @@ describe('no tenant-content operation is reachable by an agent', () => {
         expect(findVisibleOperation(principal, op.name), op.name).toBeUndefined()
       }
     }
+  })
+})
+
+describe('the OpenAPI document', () => {
+  it('describes none of them, to platform staff either', () => {
+    const documented = documentedOperations(AGENT_OPERATIONS, { platformStaff: true }).map((op) => op.name)
+    expect(documented).toContain('platform-norm-registry-get')
+    expect(documented.filter((name) => isTenantContent(name))).toEqual([])
   })
 })
 
