@@ -20,5 +20,5 @@ export async function recordPersistedAnswers(
 ): Promise<void> {
   await markLicensedAnswers(conversationId, inputs, inserted)
   // From the BFF's own knowledge context, advisory: never costs the answer its row.
-  await recordEditionUses(organizationId, projectId, inputs)
+  await recordEditionUses(organizationId, projectId, conversationId, inputs)
 }

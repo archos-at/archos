@@ -35,6 +35,7 @@ import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
+import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
 import type { KnowledgeContext, ProcedureContext } from './wire'
 
@@ -177,6 +178,8 @@ export async function knowledgeContextForTurn(
       const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
       const context = await getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
       if (!conversationId) return context
+      // What this turn is answered on: its answer records from it, not from a later resolution (E42).
+      await rememberTurnContext(organizationId, conversationId, context)
       // After the cache: whether the base moved since this conversation's last answer is per conversation (E42).
       const previous = await lastAnswerPackSeqs(organizationId, conversationId)
       return { ...context, updatedSinceLastAnswer: packsUpdatedSince(context.packs, previous) }

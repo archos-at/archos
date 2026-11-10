@@ -14,7 +14,7 @@ import 'server-only'
 import { getDb } from '@/lib/db'
 import { messageEditionUses } from '@/lib/db/schema/knowledge-context'
 import { withTenant } from '@/lib/db/tenant-context'
-import { knowledgeContextForTurn } from './service'
+import { turnContextOf } from './turn-snapshot'
 import type { KnowledgeContext } from './wire'
 
 /** Most uses one answer records: the context's own bound. */
@@ -42,7 +42,7 @@ export function citedFiles(metadata: Record<string, unknown> | undefined): Set<s
 }
 
 /** The uses of the context an answer citing `files` rested on, with the context's pack sequences. Pure. */
-export function editionUsesOf(context: KnowledgeContext, files: ReadonlySet<string>): EditionUseRow[] {
+export function editionUsesOf(context: Pick<KnowledgeContext, 'packs' | 'uses'>, files: ReadonlySet<string>): EditionUseRow[] {
   if (files.size === 0) return []
   const packSeqs = Object.fromEntries(context.packs.map((pack) => [pack.packId, pack.seq]))
   return context.uses
@@ -57,16 +57,23 @@ interface AnswerInput {
   metadata?: Record<string, unknown>
 }
 
-/** Record the editions each persisted answer used; nothing with the flag off, for a turn outside a project, or without citations. */
+/**
+ * Record the editions each persisted answer used, from the context its turn
+ * was answered on (`turn-snapshot.ts`), never one resolved now: a release that
+ * landed mid-turn must not be recorded as what the answer read (E42). Nothing
+ * outside a project, without citations, or when no snapshot was kept (the flag
+ * off, or expired): a missing record is safer than a wrong one.
+ */
 export async function recordEditionUses(
   organizationId: string,
   projectId: string | null,
+  conversationId: string,
   answers: readonly AnswerInput[],
 ): Promise<number> {
   const cited = answers.filter((input) => input.role === 'assistant').map((input) => ({ id: input.id, files: citedFiles(input.metadata) }))
   if (!projectId || cited.every((answer) => answer.files.size === 0)) return 0
   try {
-    const context = await knowledgeContextForTurn(organizationId, projectId)
+    const context = await turnContextOf(organizationId, conversationId)
     if (!context) return 0
     const rows = cited.flatMap((answer) =>
       editionUsesOf(context, answer.files).map((use) => ({ ...use, messageId: answer.id, organizationId, projectId })),

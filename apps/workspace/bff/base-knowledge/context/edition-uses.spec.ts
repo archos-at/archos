@@ -9,8 +9,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { knowledgeContextForTurn, insertValues } = vi.hoisted(() => ({ knowledgeContextForTurn: vi.fn(), insertValues: vi.fn() }))
-vi.mock('./service', () => ({ knowledgeContextForTurn }))
+const { turnContextOf, insertValues } = vi.hoisted(() => ({ turnContextOf: vi.fn(), insertValues: vi.fn() }))
+vi.mock('./turn-snapshot', () => ({ turnContextOf }))
 vi.mock('@/lib/db', () => ({
   getDb: () => ({ insert: () => ({ values: (rows: unknown) => ({ onConflictDoNothing: async () => insertValues(rows) }) }) }),
 }))
@@ -66,8 +66,8 @@ describe('the editions an answer used', () => {
   })
 
   it('writes one row per used edition of each answer, with the role the BFF resolved', async () => {
-    knowledgeContextForTurn.mockResolvedValue(CONTEXT)
-    const written = await recordEditionUses('org_1', 'project_1', [
+    turnContextOf.mockResolvedValue(CONTEXT)
+    const written = await recordEditionUses('org_1', 'project_1', 'conv_1', [
       { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } },
       { id: 'm0', role: 'user', metadata: { sources: [{ file_name: 'OIB-RL2-2019.pdf' }] } },
     ])
@@ -77,19 +77,29 @@ describe('the editions an answer used', () => {
     ])
   })
 
+  it('records the pack sequences the turn was answered on, not a release that landed since (E42)', async () => {
+    // The turn read AT at 41; AT 42 was released before the answer persisted. The snapshot is the turn's.
+    turnContextOf.mockResolvedValue(CONTEXT)
+    await recordEditionUses('org_1', 'project_1', 'conv_1', [
+      { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } },
+    ])
+    expect(turnContextOf).toHaveBeenCalledWith('org_1', 'conv_1')
+    expect(insertValues).toHaveBeenCalledWith([expect.objectContaining({ packSeqs: { AT: 41, EU: 7 } })])
+  })
+
   it('writes nothing with the flag off, or outside a project', async () => {
-    knowledgeContextForTurn.mockResolvedValue(undefined)
+    turnContextOf.mockResolvedValue(undefined)
     const answer = { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } }
-    expect(await recordEditionUses('org_1', 'project_1', [answer])).toBe(0)
-    expect(await recordEditionUses('org_1', null, [answer])).toBe(0)
+    expect(await recordEditionUses('org_1', 'project_1', 'conv_1', [answer])).toBe(0)
+    expect(await recordEditionUses('org_1', null, 'conv_1', [answer])).toBe(0)
     expect(insertValues).not.toHaveBeenCalled()
   })
 
   it('never costs the answer its row when the record fails', async () => {
-    knowledgeContextForTurn.mockRejectedValue(new Error('down'))
+    turnContextOf.mockRejectedValue(new Error('down'))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const answer = { id: 'm1', role: 'assistant', metadata: { sources: [{ file_name: 'OIB-RL6-2025.pdf' }] } }
-    await expect(recordEditionUses('org_1', 'project_1', [answer])).resolves.toBe(0)
+    await expect(recordEditionUses('org_1', 'project_1', 'conv_1', [answer])).resolves.toBe(0)
   })
 })
 

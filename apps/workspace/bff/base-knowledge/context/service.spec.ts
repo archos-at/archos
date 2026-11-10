@@ -35,6 +35,9 @@ vi.mock('@/lib/cache', () => ({ getCached }))
 vi.mock('@/lib/db/tenant-context', () => ({ withPlatformAccess: async () => [] }))
 vi.mock('../chain/load', () => ({ loadGraph }))
 vi.mock('../platform/entitlements', () => ({ readOrganizationCountries }))
+const { rememberTurnContext, lastAnswerPackSeqs } = vi.hoisted(() => ({ rememberTurnContext: vi.fn(), lastAnswerPackSeqs: vi.fn() }))
+vi.mock('./turn-snapshot', () => ({ rememberTurnContext }))
+vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import('./last-answer')>()), lastAnswerPackSeqs }))
 
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
@@ -85,6 +88,14 @@ describe('knowledgeContextForTurn', () => {
     expect(new Set(keys).size).toBe(2)
     expect(keys[0]).toBe(contextCacheKey('org_a', 'project_1', digests[0] as string))
     expect(loadGraph.mock.calls.map(([organizationId]) => organizationId)).toEqual(['org_a', 'org_b'])
+  })
+
+  it('keeps what a conversation’s turn was answered on, so its answer records that (E42)', async () => {
+    lastAnswerPackSeqs.mockResolvedValue(null)
+    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, 'conv_1')
+    expect(rememberTurnContext).toHaveBeenCalledWith('org_a', 'conv_1', expect.objectContaining({ gate: context?.gate }))
+    await knowledgeContextForTurn('org_a', 'project_1')
+    expect(rememberTurnContext).toHaveBeenCalledTimes(1)
   })
 
   it('fails closed to knowledge_unavailable when a read throws', async () => {
