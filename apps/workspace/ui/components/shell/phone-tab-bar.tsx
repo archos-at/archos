@@ -106,16 +106,14 @@ export function PhoneTabBar({
       aria-label={t('tabBar.label')}
       data-slot="phone-tab-bar"
       data-scope={projectId ? 'project' : 'org'}
-      data-surface={projectId ? 'sunken' : undefined}
       className={cn(
         'w-full shrink-0 md:hidden',
-        // The chrome takes its scope's surface, like the header above it:
-        // sunken inside a project (the rail's material), paper above one.
-        // Inside a project the grey band is the edge and needs no rule. Above
-        // one the bar is paper on paper, and the rule is the only thing that
-        // says where the scrolling page ends and the fixed bar begins.
-        // In dark the grey bar and the plane are 1.03:1: the rule again.
-        projectId ? 'bg-surface-sunken dark:border-border dark:border-t' : 'border-border bg-background border-t',
+        // Inside a project the bar is the rail on its side: the desk, a
+        // track whose thumb is the current tab, and the step to the paper is
+        // its edge in both themes. Above a project the bar is paper on paper,
+        // and the rule is the only thing that says where the scrolling page
+        // ends and the fixed bar begins.
+        projectId ? 'bg-desk' : 'border-border bg-background border-t',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
       )}
@@ -180,12 +178,13 @@ function PhoneTabItem({
             layoutId={pillId}
             data-slot="phone-tab-pill"
             aria-hidden
-            // The rail's active fill, at the size of one glyph: white on the
-            // project's grey bar, the one grey on the paper bar above a
-            // project. A fill, never a box.
-            // `rounded-control`, as the rail's and the Dateien tabs' selected
-            // fill: a capsule is for what is round (a count, an avatar).
-            className="bg-muted in-data-[surface=sunken]:bg-on-sunken absolute inset-0 rounded-control"
+            // The rail's current sheet, at the size of one glyph: white with
+            // its edge and the thumb's shadow on the project's desk bar; on
+            // the paper bar above a project, where there is no track, the
+            // desk's fill.
+            // `rounded-control`, as the rail's and the Dateien tabs' thumb:
+            // a capsule is for what is round (a count, an avatar).
+            className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs absolute inset-0 rounded-control"
             transition={springGlide}
           />
         )}
@@ -201,8 +200,8 @@ function PhoneTabItem({
           // The 12px label, as every label in the app (design-language.md,
           // „Type ramp“); 11px read as fine print under an 18px glyph.
           'relative max-w-full truncate px-0.5 text-xs leading-none',
-          // 440 at rest and 500 when current, as the rail's rows.
-          tab.active ? 'font-medium' : 'font-normal'
+          // 500 at rest and 600 when current, as the rail's rows.
+          tab.active ? 'font-semibold' : 'font-medium'
         )}
       >
         {label}

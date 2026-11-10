@@ -5,20 +5,19 @@
  * since the app-shell change the ONE persistent piece of chrome in `/app`.
  *
  * Composes the shadcn Sidebar primitive (icon-collapse, the resize edge)
- * rather than owning a rail and collapse itself. IA: the wordmark → the
- * project switcher, which heads the project's sections (Übersicht among them)
- * → the organisation's doorways, headed by the organisation's name → the
- * person at the foot. The rail is the one grey; what sits on it is white, the active
- * section included, and nothing on it is a box or a rule (design-language.md,
- * „The app rail“).
+ * rather than owning a rail and collapse itself. The rail is the desk beside
+ * the page, and where the reader is is the one sheet lying on it
+ * (design-language.md, „The app rail“). The project owns the top: the
+ * wordmark, the project's name as the rail's heading (the switcher), its
+ * sections. The office and the person own the foot: the organisation's
+ * doorways under its name, then who is signed in.
  *
- * PROJECT SCOPE ONLY. The rail earns its 236px by listing one project's
+ * PROJECT SCOPE ONLY. The rail earns its 272px by listing one project's
  * sections; above a project the org scope renders a slim header instead
  * (`OrgHeader`), and `AppShellChrome` decides which of the two stands. The
  * org-wide doorways (Büroablage, Suche, Postfach) still appear here — as the
  * `org` group under the project's — because they are reachable from inside a
- * project, where they open as sheets above it. Both scopes keep them at the
- * top: the org header's top right, the rail's top left.
+ * project, where they open as sheets above it.
  *
  * Below `md` this renders the phone's top band only; the destinations are the
  * tab bar's (`PhoneTabBar`) and „Mehr"'s. Collapse persistence lives in the
@@ -261,14 +260,12 @@ function AppSidebarFrame({
     })
   )
 
-  // The project's own sections under its switcher, Übersicht (the project hub)
-  // after Dateien, in the phone tab bar's order (Chat · Dateien · Übersicht):
-  // it is the project's, and at the foot under „Organisation“ proximity read it
-  // as the organisation's. The switcher is the group's
-  // heading, so the group carries no label of its own. The organisation's
-  // doorways (Büroablage, Suche, Postfach) follow, headed by the organisation's
-  // name as the project's are by the project's: a label „Organisation“ there
-  // was the same word as the user menu's organisation settings.
+  // The project's own sections under its name, Übersicht (the project hub)
+  // after Dateien, in the phone tab bar's order (Chat · Dateien · Übersicht).
+  // The name is the group's heading, so the group carries no label of its own.
+  // The organisation's doorways (Büroablage, Suche, Postfach) stand at the
+  // foot under the organisation's name: a label „Organisation“ there was the
+  // same word as the user menu's organisation settings.
   const orgGroup = groups.find((g) => g.key === 'org')
   const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
   const overview: RailItemModel = {
@@ -316,16 +313,15 @@ function AppSidebarFrame({
           „Mehr" there lists the rest. */}
       <header
         data-scope="project"
-        data-surface="sunken"
         className={cn(
           // The app renders edge-to-edge (`viewportFit: 'cover'` in the root
           // viewport), so a bar pinned to the top of the screen has to say where
           // the screen actually starts. `min-h-14` rather than `h-14`, because the
           // inset has to be able to make the bar taller instead of eating its
-          // contents. No rule under it: the band is the one grey, the page white.
-          // In dark the band and the plane are 1.03:1, so there the rule draws
-          // the edge the step cannot, as along the rail.
-          'bg-surface-sunken dark:border-border w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] dark:border-b md:hidden',
+          // contents. The header band is the page's own paper (Paper on a
+          // desk, „The three planes“), so it draws no fill and no rule: the
+          // project's press is the one white thing on it.
+          'bg-background w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden',
           isChatRoute ? 'hidden' : 'flex'
         )}
       >
@@ -334,7 +330,7 @@ function AppSidebarFrame({
             <Link
               href={back.href}
               aria-label={t('backTo', { label: t(`sections.${back.sectionKey}`) })}
-              className="text-muted-foreground hover:text-foreground active:bg-on-sunken flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
+              className="text-muted-foreground hover:text-foreground active:bg-desk flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
             >
               <ChevronLeft className="size-5" aria-hidden />
             </Link>
@@ -372,25 +368,28 @@ function AppSidebarFrame({
             // carries the rest (`brand-slot.ts`): 56px, as the org header's band.
             'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             column,
-            iconRail && 'overflow-hidden'
+            // `pb-px` with the clip: the selector's tile ends the header, and its
+            // 1px edge is a ring outside it (gotchas.md, „a sheet's edge is cut“).
+            iconRail && 'overflow-hidden pb-px'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
-          {/* The context slot, in both widths: which project this is, and the
-              way to another. The icon rail keeps it as a tile, or a collapsed
-              rail could not say which project its sections belong to. `mt-2`
-              under the 56px brand row puts its top at 64px; its height is the
-              name's, one line or two, and the sections keep 8px under it. */}
-          <div className={cn('mt-2 flex min-h-9 items-center pointer-coarse:min-h-11', iconRail && 'justify-center')}>
+          {/* The project selector, the rail's first control in both widths:
+              which project this is, and the way to another. The icon rail
+              keeps it as a tile of its initials, or a collapsed rail could
+              not say which project its sections belong to. */}
+          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
             <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
           </div>
         </SidebarHeader>
 
         <SidebarContent
           className={cn(
-            // 8px under the switcher's own box, whatever its height: near
-            // enough to read as what it heads, more than the rows' 2px.
-            'mt-2 flex-1',
+            // 12px under the selector: the rows are what it heads, and a
+            // press does not touch the sheet of the row under it. `py-px`, or this scroll box, flush with the
+            // first row, cuts the current row's 1px edge to its corners
+            // (gotchas.md, „a sheet's edge is cut“).
+            'mt-3 flex-1 gap-0 py-px',
             column,
             // overflow-y-auto here used to replace the primitive's
             // group-data-[collapsible=icon]:overflow-hidden, so labels kept
@@ -401,22 +400,29 @@ function AppSidebarFrame({
           <nav aria-label={t('projectSections')}>
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
+        </SidebarContent>
 
-          {/* The organisation's doorways, under the project's sections and
-              set off by 24px and their heading, not by a rule. At the top, as
-              the org header keeps them, not at the foot: there they swapped
-              corners when the reader stepped into a project, and left 440px
-              of empty band between the two groups. */}
+        <SidebarFooter
+          className={cn(
+            // The rail runs to the bottom of the screen, where the home
+            // indicator sits over the user menu without the inset.
+            'shrink-0 gap-0 p-0 pb-[max(12px,env(safe-area-inset-bottom))] pt-4',
+            column,
+            iconRail && 'items-center overflow-hidden'
+          )}
+        >
+          {/* The office at the foot, the project at the top: two owners at
+              the band's two ends, so neither reads as the other's and the
+              band is held at both. Stacked under the project's sections the
+              two heads fought and the lower 60% of the band stood empty. */}
           {orgGroup && (
-            <nav aria-label={orgGroup.label} className="mt-6">
+            <nav aria-label={orgGroup.label} className={cn('mb-2', iconRail ? 'w-9' : 'w-full')}>
               <SidebarGroup className="p-0">
-                {/* The organisation's name as the group's 12px label, on the
-                    icons' 24px edge, 4px over its first row. Not a second
-                    mark-and-name head: that looked like a switcher that does
-                    nothing and set three 14px ink lines against the selection. */}
+                {/* The organisation's name as the group's label (12/16/500
+                    muted, the app's `SectionLabel` step), on the icons' edge. */}
                 {!iconRail && (
-                  <div className="text-muted-foreground flex min-h-6 items-end px-3 pb-1 text-xs font-medium" title={orgGroup.label}>
-                    <span className="line-clamp-2">{orgGroup.label}</span>
+                  <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium" title={orgGroup.label}>
+                    <span className="truncate">{orgGroup.label}</span>
                   </div>
                 )}
                 <SidebarGroupContent>
@@ -425,17 +431,6 @@ function AppSidebarFrame({
               </SidebarGroup>
             </nav>
           )}
-        </SidebarContent>
-
-        <SidebarFooter
-          className={cn(
-            // The drawer runs to the bottom of the screen, where the home
-            // indicator sits over the user menu without the inset.
-            'shrink-0 gap-0 p-0 pb-[max(14px,env(safe-area-inset-bottom))] pt-4',
-            column,
-            iconRail && 'items-center overflow-hidden'
-          )}
-        >
           {/* The connection says something only when it is not fine: a row
               above the person while it reconnects or is gone, nothing (to the
               eye) while all is well. Nothing above it moves when it appears:
@@ -516,25 +511,26 @@ function RailNavItem({
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
-          // 14px, the ramp's body size: the global navigation no smaller than
-          // a page's own tabs (Dateien's).
-          'h-9 gap-[11px] rounded-control px-3 text-sm pointer-coarse:h-11',
+          // 14px in ink at 500, the size of a page's own tabs (Dateien's):
+          // a muted label at 440 read as a row that is switched off.
+          'text-foreground h-9 gap-[11px] rounded-control px-3 text-sm font-medium pointer-coarse:h-11',
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           // The active SURFACE lives on the pill below, so every fill the
           // primitive would otherwise paint under it is turned off explicitly.
           // Only the INK stays here: colour and weight are a tween's business,
           // never a spring's.
+          // 600 is the weight of state (Paper on a desk, „Hard numbers“):
+          // where the reader is.
           active
-            ? 'text-foreground hover:bg-transparent hover:text-foreground data-[active=true]:bg-transparent data-[active=true]:text-foreground font-medium data-[active=true]:font-medium'
+            ? 'hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-semibold data-[active=true]:font-semibold'
             : door?.open
-              ? // The Postfach docked open beside the page: an open thing is a
-                // fill, white on the band as the selected section is; the
-                // section's own pill stays where the page is.
-                'bg-on-sunken text-foreground hover:bg-on-sunken hover:text-foreground'
-              : // Hover is the ink, not a fill: a darker grey under the pointer
-                // and white under the selection pulled two ways on one band.
-                // A press shows white, as the selection it is about to become.
-                'text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-on-sunken'
+              ? // The Postfach docked open beside the page: open is the picked
+                // grey, one step down the ladder from the desk; white stays
+                // where the page is.
+                'bg-selected hover:bg-selected'
+              : // The pointer's fill is one step down from the plane it lies
+                // on (the picked grey on the desk), the press one more.
+                'hover:bg-selected active:bg-pressed'
         )}
       >
         <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
@@ -543,9 +539,11 @@ function RailNavItem({
               layoutId={pillId}
               data-slot="rail-active-pill"
               aria-hidden
-              // The selected entry is a fill, white on the grey rail
-              // (`bg-on-sunken`): no border and no shadow, which made it the
-              // one box on the rail (design-language.md, „The app rail“).
+              // Where the reader is: a sheet on the desk, white with the 12%
+              // edge and the thumb's 1px shadow (`shadow-xs`), as the open tab
+              // on Dateien's track and the open mail in its list. Without the
+              // edge it was a pale patch at 1.08:1, the weakest thing on the
+              // band (design-language.md, „The app rail“).
               //
               // `absolute inset-0` resolves against the LI, not the anchor: the
               // anchor is `overflow-hidden` (it clips long labels), and an
@@ -554,7 +552,7 @@ function RailNavItem({
               // already lets the icon-rail badge sit outside the tile. The li
               // and the anchor are the same box in both rail widths, so this
               // costs no geometry.
-              className="bg-on-sunken absolute inset-0 rounded-control"
+              className="bg-sheet absolute inset-0 rounded-control shadow-xs"
               // `springGlide`, not `springDrawer`. This chip's travel is
               // whatever the reader's last two routes happen to be — 38px
               // between neighbours, 288px from the top of the column to Inbox
@@ -575,7 +573,7 @@ function RailNavItem({
             // through to behind the rail's own background (`sidebar-container`
             // is the nearest stacking context, and a non-positioned block's
             // background paints ABOVE negative-z children inside it).
-            className="relative size-4 shrink-0"
+            className={cn('relative size-4 shrink-0', !active && 'text-muted-foreground')}
           />
           {/* `data-slot`, because the label is no longer the only <span> inside
               this anchor — the active pill is one too. A test (or a stylesheet)

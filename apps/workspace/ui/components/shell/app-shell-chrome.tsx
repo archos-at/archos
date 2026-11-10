@@ -15,7 +15,7 @@
  * layout DOES pass through is different: it renders a sheet, not the chrome,
  * and re-rendering a sheet on navigation is its job.)
  *
- * TWO SCOPES, TWO SHAPES. Inside a project the chrome is the 236px rail
+ * TWO SCOPES, TWO SHAPES. Inside a project the chrome is the 272px rail
  * (`AppSidebar`) — a project has sections to navigate. Above a project it is a
  * slim header (`OrgHeader`) and the page gets the full width: the org scope's
  * one real surface is the projects home, and its other destinations are sheets

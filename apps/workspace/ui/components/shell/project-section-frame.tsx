@@ -275,9 +275,11 @@ export function ProjectSectionFrame({
             crumb={
               files ? (
                 <>
-                  <span className="min-w-0 truncate">{projectName}</span>
+                  {/* On a phone the band's project selector stands right above this line and names the project: the line
+                      names the section, so project, section and place (the open tab) are each said once. */}
+                  <span className="min-w-0 truncate phone:hidden">{projectName}</span>
                   <ChevronRight className="size-3 shrink-0 phone:hidden" aria-hidden />
-                  <span className="shrink-0 phone:hidden">{sectionLabel}</span>
+                  <span className="shrink-0">{sectionLabel}</span>
                 </>
               ) : undefined
             }

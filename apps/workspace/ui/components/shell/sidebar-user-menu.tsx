@@ -150,12 +150,11 @@ export function SidebarUserMenu({
       <DropdownMenuTrigger
         className={cn(
           'group/user flex items-center text-left text-sm',
-          // The state fill on paper (the org header); on the rail's grey band a
-          // press is white (the tonal secondary, D4), and the disc turns grey.
-          // On paper (the org header) a hover is the state fill; on the rail's
-          // band it is the ink, as every row there, and open is the state fill.
-          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-transparent',
-          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-sidebar-accent',
+          // The pointer's fill and the open state are one step down the
+          // ladder from the plane the row lies on: the desk on paper (the org
+          // header), the picked grey on the rail's desk.
+          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-desk in-data-[sidebar=sidebar]:hover:bg-selected',
+          'data-[state=open]:bg-desk in-data-[sidebar=sidebar]:data-[state=open]:bg-selected',
           'active:scale-[0.98] motion-reduce:transition-none',
           // Compact is an avatar alone, 30-32px. Under a finger the trigger
           // grows to 44px around the disc rather than lending it a catchment:
@@ -181,27 +180,24 @@ export function SidebarUserMenu({
               count is on that row, one level down, and without a mark here
               nobody opens the menu to find it. */}
           <AttentionDot show={feedbackUpdatedCount > 0} className="absolute -top-0.5 -right-0.5 z-10" />
-          {/* The disc is the one grey on paper and white on the rail's grey
-              band (`bg-on-sunken`), where the grey fallback was invisible: a
-              0.3% lightness step. A hairline ring used to stand in for the
-              missing contrast; nothing grey on grey needs no line. */}
+          {/* The disc is a fill one step down from its plane: the kit's on
+              paper, the picked grey on the rail's desk. White on the rail is
+              where the reader is, and nothing else. */}
           <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="in-data-[surface=sunken]:bg-mark-on-sunken text-xs font-medium">
+            <AvatarFallback className="in-data-[sidebar=sidebar]:bg-selected in-data-[sidebar=sidebar]:text-foreground text-xs font-medium">
               {initial}
             </AvatarFallback>
           </Avatar>
         </span>
         {!compact && (
           <>
-            {/* The person's name alone. The organisation's name used to stand
-                over it as an eyebrow; it now heads the organisation's doorways
-                in the rail, and the menu's header says it too. */}
-            {/* 14px at 440, as the rail's rows: the person is not a second
-                focal point beside the selected section. */}
-            <span className="text-foreground min-w-0 flex-1 truncate text-sm">{displayName}</span>
-            {/* Says the row opens something, as the switcher's chevron does. */}
-            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+            {/* The person's name alone: the organisation's name heads its
+                doorways just above, and the menu's header says it too. */}
+            {/* 14px at 500, as the rail's rows. */}
+            <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{displayName}</span>
+            {/* Says the row opens something, as the switcher's chevrons do. */}
+            <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </>
         )}
       </DropdownMenuTrigger>

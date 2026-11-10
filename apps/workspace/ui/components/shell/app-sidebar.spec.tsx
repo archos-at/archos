@@ -371,13 +371,16 @@ describe('AppSidebar - active state', () => {
     expect(pills[0]!.closest('a')).toHaveTextContent('Chat')
   })
 
-  test('the active entry is a fill, never a box: no border and no shadow on the pill', () => {
-    // The pill was `border-border bg-card border shadow-xs`, the one raised box
-    // on the rail. On the grey rail what sits on it is white (`bg-on-sunken`).
+  test('the active entry is a sheet on the desk: white, with the thumb’s edge and shadow', () => {
+    // Where the reader is, is white on the desk with its 12% edge (`shadow-xs`
+    // carries both), as the open tab on Dateien's track. As a bare white fill
+    // it stood 1.08:1 off the band and was the weakest thing on it.
     const { container } = render(<AppSidebar {...baseProps} />)
     const pill = container.querySelector('[data-slot="rail-active-pill"]')!
-    expect(pill).toHaveClass('bg-on-sunken')
-    expect(pill.className).not.toMatch(/\b(border|shadow)\b|\bborder-|\bshadow-/)
+    expect(pill).toHaveClass('bg-sheet', 'shadow-xs')
+    // The edge is the shadow's ring, never a border: a border would move the row's content by 1px.
+    expect(pill.className).not.toMatch(/\bborder\b|\bborder-/)
+    expect(pill.closest('a')).toHaveClass('font-semibold')
   })
 
   test('a preview can pin the route the rail lights', () => {
@@ -411,12 +414,15 @@ describe('AppSidebar - on a phone', () => {
 })
 
 describe('AppSidebar - the organisation heads its doorways', () => {
-  test("the doorways' heading is the organisation's name, under the project's sections", () => {
+  test("the doorways' heading is the organisation's name, at the foot with the person", () => {
     render(<AppSidebar {...baseProps} canAccessOfficeShelf organizationName="Musterarchitektur ZT GmbH" />)
     const org = screen.getByRole('navigation', { name: 'Musterarchitektur ZT GmbH' })
     expect(within(org).getByText('Musterarchitektur ZT GmbH')).toBeInTheDocument()
-    // In the scrolling column with the project's sections, not pinned to the foot.
-    expect(org.closest('[data-sidebar="content"]')).not.toBeNull()
+    // The project owns the top of the rail and the office its foot: stacked
+    // under the project's sections the two heads fought, and the lower 60% of
+    // the band stood empty.
+    expect(org.closest('[data-sidebar="footer"]')).not.toBeNull()
+    expect(screen.getByLabelText('Project sections').closest('[data-sidebar="content"]')).not.toBeNull()
   })
 })
 

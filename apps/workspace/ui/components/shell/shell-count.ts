@@ -1,12 +1,12 @@
 /**
  * The muted count in the shell's chrome (the Postfach's, the E-Mail-Eingang's
- * beside Dateien): white with ink figures on a grey band (the rail, the
- * project's tab bar); on a row that is itself white (the selected section, a
- * door that stands open) a quiet bare figure, since the one grey on white was a
- * chip nobody could see; in the icon rail the pill hangs over the tile's corner
- * onto the band, so there it stays white; 12px figures. The ink pill it replaced
- * was the heaviest mark on the screen, outweighing the selection and the
- * page's one black action, for a count that is information beside a place.
+ * beside Dateien): a fill one step down the ladder from the plane it lies on,
+ * with ink figures at 12px. On the rail's desk and the phone's tab bar that is
+ * the picked grey; on the white sheet of the current section it is the desk.
+ * In the icon rail the pill hangs over the tile's corner onto the desk, so
+ * there it keeps the picked grey. The ink pill it replaced was the heaviest
+ * mark on the screen, outweighing the current place and the page's one black
+ * action, for a count that is information beside a place.
  */
 export const SHELL_COUNT =
-  'h-5 text-xs in-data-[surface=sunken]:bg-mark-on-sunken in-data-[surface=sunken]:text-foreground in-aria-[current=page]:bg-transparent in-aria-[current=page]:text-muted-foreground in-aria-expanded:bg-transparent in-aria-expanded:text-muted-foreground group-data-[collapsible=icon]:in-aria-[current=page]:bg-mark-on-sunken group-data-[collapsible=icon]:in-aria-[current=page]:text-foreground'
+  'h-5 bg-selected text-xs text-foreground in-aria-[current=page]:bg-desk group-data-[collapsible=icon]:in-aria-[current=page]:bg-selected'

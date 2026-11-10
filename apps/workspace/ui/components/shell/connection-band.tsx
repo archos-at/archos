@@ -19,6 +19,7 @@
 
 import type { JSX } from 'react'
 
+import { Button } from '@/components/ui/button'
 import { useTranslations } from '@/i18n'
 import { presenceCopy } from '@/i18n/namespaces/presence'
 import { requestConnectionCheck, useConnectionPresence } from '@/shared/hooks/use-connection-presence'
@@ -31,7 +32,7 @@ const APPEARANCE = {
   /** A thin line of text with no fill, for a header that floats over content (the chat toolbar). */
   line: 'h-6 justify-start px-1',
   /** A rail row: the dot in the icons' 16px slot at 24px, the words on the labels' edge. */
-  rail: 'min-h-9 flex-col items-start justify-center gap-1 px-3 py-2.5',
+  rail: 'min-h-9 flex-col items-start justify-center gap-2 px-3 py-2.5',
 } as const
 
 export function ConnectionBand({
@@ -65,20 +66,20 @@ export function ConnectionBand({
       {/* While the server does not answer, a way to ask now rather than at the
           next interval. Offline has none: the browser says when the network
           is back, and the page then checks by itself. */}
-      {presence === 'reconnecting' && !compact && (
+      {presence === 'reconnecting' && !compact && appearance === 'rail' && (
+        // A press, in the rail: the kit's secondary (white with its edge,
+        // 32px, 44px under a finger), under the words on the labels' edge
+        // (16px glyph + 11px gap).
+        <Button type="button" variant="secondary" size="sm" onClick={requestConnectionCheck} className="ml-[27px]">
+          {t('retry')}
+        </Button>
+      )}
+      {presence === 'reconnecting' && !compact && appearance !== 'rail' && (
+        // In a one-line band: a link-weight word with a finger's catchment.
         <button
           type="button"
           onClick={requestConnectionCheck}
-          className={cn(
-            'text-foreground shrink-0 rounded-control text-xs font-medium',
-            appearance === 'rail'
-              ? // A press, in the rail: the tonal secondary (D4), white on the
-                // band, under the words on the labels' edge (16px glyph + 11px
-                // gap), 28px and 44px under a finger.
-                'bg-on-sunken hover:bg-accent ml-[27px] h-7 px-2.5 pointer-coarse:h-11'
-              : // In a one-line band: a link-weight word with a finger's catchment.
-                'touch-target ml-2 underline underline-offset-2'
-          )}
+          className="text-foreground touch-target ml-2 shrink-0 rounded-control text-xs font-medium underline underline-offset-2"
         >
           {t('retry')}
         </button>

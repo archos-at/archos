@@ -27,8 +27,9 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar.width'
  * The bounds are the rail's own content, not a taste: below ~200px the project
  * switcher and the longest nav labels start truncating on their own, and above
  * ~420px the rail is taking width from the thing it navigates to.
+ * 272px by default (it was 236): the project selector then holds 212px of name on its one line.
  */
-const SIDEBAR_WIDTH = 236
+const SIDEBAR_WIDTH = 272
 const SIDEBAR_WIDTH_MIN = 200
 const SIDEBAR_WIDTH_MAX = 420
 const SIDEBAR_WIDTH_ICON = 64
@@ -291,12 +292,9 @@ function Sidebar({
           side === 'left'
             ? 'left-0 group-data-[collapsible=offcanvas]:-translate-x-full'
             : 'right-0 group-data-[collapsible=offcanvas]:translate-x-full',
-          // No rule along the page's edge in light: the rail is the one grey and the page is
-            // white, and that step is the edge (design-language.md, „The app rail“). In dark the
-            // band (#0a0908) is 1.03:1 against the plane (#0f0e0d), no edge at all, so there the
-            // rule carries the function the step cannot. The resize handle draws its own line
-            // while it is held or hovered.
-          'dark:border-border group-data-[collapsible=icon]:w-(--sidebar-width-icon) dark:border-r',
+          // No rule along the page's edge: the desk's step to the paper is the edge in both themes
+          // (design-language.md, „The app rail“). The resize handle draws its own line while held.
+          'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
           className,
         )}
         {...props}
@@ -304,9 +302,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          // A grey band: what sits on it is white (`bg-on-sunken`), and the tonal secondary
-          // press reads this to turn white (`button.tsx`).
-          data-surface="sunken"
+          // The desk (`--color-sidebar` is `--desk`): where the reader is lies on it as a sheet.
           className="flex h-full w-full flex-col bg-sidebar"
         >
           {children}
@@ -645,7 +641,7 @@ const sidebarMenuButtonVariants = cva(
   // hover fill) was snapping while its geometry was easing. Both are now the
   // right way round: the tile resizes in one pass with the rail, and `colors`
   // carries the hover.
-  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sheet data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {

@@ -209,8 +209,9 @@ function OrgHeaderIconLink({
             // box was the Büroablage.
             'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
             active || door?.open
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              ? // On paper, with no track: open is the picked grey, the pointer the desk.
+                'bg-selected text-foreground'
+              : 'text-muted-foreground hover:bg-desk hover:text-foreground',
           )}
         >
           <Icon className="size-4 shrink-0" aria-hidden />
@@ -247,7 +248,7 @@ function OrgHeaderIconButton({
           aria-label={label}
           onClick={onClick}
           data-testid="org-header-feedback"
-          className="text-muted-foreground hover:bg-accent hover:text-foreground hidden size-9 pointer-coarse:size-11 md:flex items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
+          className="text-muted-foreground hover:bg-desk hover:text-foreground hidden size-9 pointer-coarse:size-11 md:flex items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
         >
           <Icon className="size-4" aria-hidden />
         </button>

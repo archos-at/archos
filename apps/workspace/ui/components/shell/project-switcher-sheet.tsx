@@ -25,7 +25,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronRight, LayoutList } from 'lucide-react'
+import { Check, ChevronRight } from 'lucide-react'
 
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
@@ -43,7 +43,7 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
 import { switcherSections, type ProjectSwitcherProject } from './project-list'
-import { ProjectMark } from './project-mark'
+
 import { readRecentProjectIds } from './recent-projects'
 import { useShellOverlays } from './shell-overlays'
 
@@ -162,13 +162,9 @@ export function ProjectSwitcherSheet({
               'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
               PRESSABLE,
               FOCUS_RING_INSET,
-              'active:bg-accent'
+              'active:bg-desk'
             )}
           >
-            {/* In the marks' slot, so the words stand on the names' edge. */}
-            <span className="text-muted-foreground flex size-6 shrink-0 items-center justify-center" aria-hidden>
-              <LayoutList className="size-4" />
-            </span>
             <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
             <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </Link>
@@ -217,14 +213,13 @@ function SwitcherRow({
           'flex min-h-14 w-full items-center gap-3 px-4 text-left outline-none',
           PRESSABLE,
           FOCUS_RING_INSET,
-          'active:bg-accent'
+          'active:bg-desk'
         )}
       >
-        <ProjectMark name={project.name} />
         <span
           className={cn(
             'text-foreground min-w-0 flex-1 truncate text-[15px]',
-            current && 'font-medium'
+            current && 'font-semibold'
           )}
         >
           {project.name}

@@ -24,7 +24,8 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   /**
    * Where the page is, above the title, small and muted (12/16, `text-meta`): the project a tab belongs to, so the
    * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox). On a phone the title is the
-   * tabs' business and the crumb becomes the one visible line (16/24/600), the h1 kept for the accessibility tree.
+   * tabs' business and the crumb becomes the one visible line (16/24/600: the section, since the phone's band names
+   * the project), the h1 kept for the accessibility tree.
    */
   crumb?: React.ReactNode
   /** The action stays on the title's line at every width: a compact one (a single ⋯) that a phone need not stack. */

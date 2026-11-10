@@ -105,9 +105,9 @@ describe('ProjectSwitcherSheet', () => {
     const sheet = await open()
     const recent = within(sheet).getByRole('region', { name: 'Recently opened' })
     const rows = within(recent).getAllByRole('button')
-    // Each row leads with the project's mark (its initials, hidden from the
-    // accessibility tree), then its name.
-    expect(rows.map((row) => row.textContent)).toEqual(['BLBürohaus Lände', 'AFAmtshaus Favoriten'])
+    // A row is the project's name alone: initials beside a name say nothing
+    // the name does not (they stand only in the icon rail, where no name fits).
+    expect(rows.map((row) => row.textContent)).toEqual(['Bürohaus Lände', 'Amtshaus Favoriten'])
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     for (const row of rows) expect(row.className).toContain('min-h-14')
     expect(within(sheet).getByRole('link', { name: 'View all projects' })).toHaveAttribute(

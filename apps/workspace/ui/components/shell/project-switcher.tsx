@@ -2,17 +2,18 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight, LayoutList } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 import { cn } from '@/lib/utils'
-import { switcherSections, type ProjectSwitcherProject } from './project-list'
-import { ProjectMark } from './project-mark'
+import { projectInitials, switcherSections, type ProjectSwitcherProject } from './project-list'
 import { readRecentProjectIds } from './recent-projects'
 
 export type { ProjectSwitcherProject } from './project-list'
@@ -24,30 +25,26 @@ export interface ProjectSwitcherProps {
 }
 
 /**
- * The switcher is the heading of the project's sections, so it is set as one:
- * no box, the name in ink at 14px and on two lines before it is cut (the end
- * of a name, „Baufeld D12", is what tells sibling projects apart), the mark
- * centred on the icons' axis and the name on the labels' edge. It was a white
- * card with a hairline and a shadow, the one raised box on the rail. A press
- * open or pressed takes the state fill, and a hover is the ink, as on every row
- * of the band; white stays the selected section's.
+ * The project selector is the first control of the rail and the one press on
+ * it: the kit's secondary press (white with its 12% edge, radius 6; Paper on a
+ * desk, principle 4) across the rail's column, 40px, the project's name at
+ * 14/600 on ONE line and the chevrons that say it opens. A name that does not
+ * fit loses its middle and keeps its end („Baufeld D12" is what tells sibling
+ * projects apart); it never wraps, and the whole name is the press's title and
+ * the open menu's first row. The version before set the name on two wrapped
+ * lines beside a 24px tile of initials with no box round them: a paragraph and
+ * a tile, nothing that read as a control.
  */
-const TRIGGER_CLASS = cn(
-  // The 24px mark at 20–44 (centred on x=32) and a 7px gap put the name on 51.
-  'group/switcher flex min-h-9 w-full items-center gap-[7px] rounded-control px-2 py-2 text-left pointer-coarse:min-h-11',
-  'transition-[color,background-color,scale] duration-quick ease-out',
-  // Hover is the ink, as every row on the band; white is for open and pressed.
-  // Open is the state fill (one grey: „the open row" is `bg-accent`), not the
-  // selection's white: open and selected two rows apart read as one group.
-  'hover:text-foreground data-[state=open]:bg-sidebar-accent active:bg-sidebar-accent active:scale-[0.98] motion-reduce:transition-none',
-  // 12px on the right, so the chevron ends on 212 with the counts and the fold.
-  'pr-3',
-  // Focus is the app's one outline (globals.css), drawn inside the box
-  // (`data-focus-inset`) so it stays in the rail's column.
-)
+// 12 + name + 4 + 14 + 6: the name starts on the wordmark's and the icons' 24px edge
+// and has 212px of the default rail's 248px column.
+const TRIGGER_CLASS = 'h-10 w-full justify-between gap-1 pr-1.5 pl-3 text-left pointer-coarse:h-11'
 
-/** The icon rail's tile: a nav tile's 36px square on the rail's 32px axis. */
-const TILE_CLASS = 'size-9 min-h-0 justify-center p-0 pointer-coarse:size-9 pointer-coarse:min-h-0'
+/**
+ * The icon rail's shape of the same press: a nav tile's 36px square on the
+ * rail's 32px axis, holding the project's initials. The one place initials
+ * stand, because no name fits there; the name is its tooltip.
+ */
+const TILE_CLASS = 'size-9 min-w-0 p-0 pointer-coarse:size-11'
 
 const GROUP_CLASS =
   'p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground'
@@ -93,8 +90,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     const quiet = project.status === 'paused' || project.status === 'closed'
     return (
       <CommandItem key={project.id} value={project.id} onSelect={() => choose(project.id)} className="gap-2.5">
-        <ProjectMark name={project.name} />
-        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-medium')}>{project.name}</span>
+        <span className={cn('min-w-0 flex-1 truncate', isCurrent && 'font-semibold')}>{project.name}</span>
         {quiet && project.status && (
           <span className="text-muted-foreground shrink-0 text-xs">{tProjects(`card.status.${project.status}`)}</span>
         )}
@@ -104,24 +100,25 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   }
 
   const trigger = (
-    <PopoverTrigger data-focus-inset="" className={cn(TRIGGER_CLASS, collapsed && TILE_CLASS)} aria-label={triggerLabel}>
-      <ProjectMark
-        name={name}
-        onBand
-        className=""
-      />
-      {!collapsed && (
-        <>
-          <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-medium">{name}</span>
-          <ChevronDown
-            className={cn(
-              'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-              open && 'rotate-180'
-            )}
-            aria-hidden
-          />
-        </>
-      )}
+    <PopoverTrigger asChild>
+      <Button
+        type="button"
+        variant="secondary"
+        data-project-selector=""
+        aria-label={triggerLabel}
+        className={collapsed ? TILE_CLASS : TRIGGER_CLASS}
+      >
+        {collapsed ? (
+          <span aria-hidden data-slot="project-initials" className="text-xs leading-none font-semibold">
+            {projectInitials(name)}
+          </span>
+        ) : (
+          <>
+            <MiddleTruncate text={name} tail={12} className="min-w-0 flex-1 text-sm font-semibold" />
+            <ChevronsUpDown className="text-muted-foreground size-3.5" aria-hidden />
+          </>
+        )}
+      </Button>
     </PopoverTrigger>
   )
 
@@ -138,12 +135,12 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         trigger
       )}
       <PopoverContent
-        // Beside the rail, 8px past its edge, in both widths: hanging below
-        // the switcher at 288px it straddled the rail's edge, half on the band
-        // and half on the page.
+        // Under the press it belongs to, on its left edge, as a menu hangs
+        // from its button; beside the icon rail, where there is no room under
+        // a 36px tile.
         align="start"
-        side="right"
-        sideOffset={collapsed ? 22 : 20}
+        side={collapsed ? 'right' : 'bottom'}
+        sideOffset={collapsed ? 22 : 6}
         className="w-72 p-0 motion-reduce:animate-none"
       >
         {/* The phone's sheet in a popover: a search first (a dozen running
@@ -195,10 +192,6 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                 }}
                 className="gap-2.5"
               >
-                {/* In the marks' slot, so the words stand on the names' edge. */}
-                <span className="text-muted-foreground flex size-6 shrink-0 items-center justify-center" aria-hidden>
-                  <LayoutList className="size-4" />
-                </span>
                 <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
                 <ChevronRight className="text-muted-foreground size-4" aria-hidden />
               </CommandItem>

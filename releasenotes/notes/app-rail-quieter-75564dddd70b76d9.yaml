@@ -1,10 +1,21 @@
 ---
 improvements:
   - >
-    The sidebar inside a project is quieter: the section you are in is a white
-    fill on the grey sidebar, the project switcher reads as the heading of its
-    sections, and the lines between the parts of the sidebar are gone. The
-    same holds on a phone, for the top band, the tab bar and the project list.
+    The project selector at the top of the sidebar is one button with the
+    project's name on a single line, and the list of projects opens right
+    under it; on a phone it is the same button at the top of the screen.
+  - >
+    A project name too long for the selector is shortened in the middle, so
+    its end stays readable, and is never wrapped onto a second line.
+  - >
+    The sidebar inside a project shows where you are: the section you are in
+    is a white sheet with an edge, as the open tab in Dateien, and the other
+    sections are set in black instead of grey.
+  - >
+    The lines between the parts of the sidebar are gone, in the sidebar and
+    in the tab bar on a phone.
+  - >
+    The sidebar is a little wider, so most project names fit in full.
   - >
     Übersicht now stands with the project's other sections, under the project
     switcher, rather than at the foot of the sidebar among the organisation's
@@ -16,13 +27,13 @@ improvements:
     The connection state appears only while the connection is being restored
     or is gone; the green „Verbunden“ is no longer shown all the time.
   - >
-    Büroablage, Suche and Postfach now stand under the project's sections at
-    the top of the sidebar, under your office's name, as they stand at the
-    top of the page above a project.
+    Büroablage, Suche and Postfach stand at the foot of the sidebar under your
+    office's name, just above your own name; the project and its sections have
+    the top to themselves.
   - >
     The project switcher in the sidebar has the search and the order of the
-    one on a phone: the projects you opened last, then the rest. Each project
-    shows its initials, so the collapsed sidebar says which project you are in.
+    one on a phone: the projects you opened last, then the rest. The collapsed
+    sidebar shows the project's initials, so it says which project you are in.
   - >
     The counts beside Postfach are quiet grey pills, as the count beside the
     E-Mail-Eingang in Dateien.

@@ -24,7 +24,7 @@
  * development-only, and idempotent.
  *
  * Variants via `?variant=`:
- *   - default     — the expanded 236px rail.
+ *   - default     — the expanded 272px rail.
  *   - `collapsed` — the 64px icon rail.
  *   - `wide`      — the rail dragged out to 400px, which is now a state a
  *     reader can put it in: the edge is a real resize handle, and a width the
@@ -168,7 +168,7 @@ export default function AppRailPreview(): JSX.Element {
             ? 'collapsed icon rail (64px)'
             : variant === 'wide'
               ? `rail dragged to ${WIDE_WIDTH}px`
-              : 'expanded rail (236px)'}
+              : 'expanded rail (272px)'}
           <span className="md:hidden"> · phone: tab bar lit for {previewPath}</span>
         </p>
       </main>
