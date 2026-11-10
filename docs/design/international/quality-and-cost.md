@@ -46,6 +46,8 @@ Each slice names the part of the star it serves. None ships on opinion: each is 
 
 A test pins the size of the static prefix, so it cannot creep back. Modelled: about €0.11 → about €0.047 per routine answer.
 
+*Built 2026-11-10 on `claude/intl-q1-prefix-cache`, the suite run outstanding (the suite's key had no credit).* What landed and where: the breakpoint in `common/prompt_caching.py`, with `research_llm` on Chat Completions; `cache_write_tokens` through the ledger (migration 0214), Langfuse and the PostHog usage events; the stable head and the stepped history edits as [ADR-0175](../../adr/0175-what-the-project-and-the-office-set-goes-at-the-head-of-a-chat-request.md) (drafted as ADR-0154 on the unmerged branch, whose number was taken); `prompt_caching.one_shot_calls` around the claim judge, the memory judges, the follow-ups and the RIS planner; `projectModels` on the turn context and `turn_tools.tools_in_scope`; an empty `ENVELOPE_SHAPE_TYPES`; `envelope_call.ainvoke_synthesis`. The static prefix measured after it, o200k: system prompt 8,110, tools 20,418 (10,360 in a project without a model), pinned in `test_static_prefix_size.py`.
+
 **Q2: the Austrian golden set** (serves the first five points of the star and makes them measurable). Market requirements R1, R2, R3 and R5 become question sets in the suite:
 - 54 items for Land × OIB-RL edition;
 - the paired changeover days (Wien RL 6 on 14/15 July 2026, Salzburg RL 2 on 5/6 August 2026);
