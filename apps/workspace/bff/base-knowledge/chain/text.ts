@@ -75,13 +75,30 @@ function stepWords(graph: KnowledgeGraph, step: RouteStep): string {
   return `${mode} ${by}${provision}${office}`
 }
 
+/**
+ * Whether the line's work applies to this project's buildings (ADR-0176), in
+ * fixed words; the facts are the table's keys, reduced like any name. A work
+ * no building needs is not in the chain at all.
+ */
+function applicabilityWords(use: EditionUse): string {
+  const applicability = use.applicability
+  if (!applicability) return ''
+  const facts = (keys: readonly string[]) => keys.map(nameOf).join(', ')
+  if (applicability.verdict === 'applies') {
+    return applicability.basis.length > 0 ? `; applies to this project by its building's ${facts(applicability.basis)}` : '; applies to this project'
+  }
+  return applicability.open.length > 0
+    ? `; whether it applies to this project depends on ${facts(applicability.open)}, not yet known: ask before relying on it`
+    : '; whether it applies to this project needs a person to check its scope'
+}
+
 function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly string[]): string[] {
   const work = graph.works.get(use.workId)
   const kind = work ? KIND_WORDS[work.kind] : 'instrument'
   const last = use.route.at(-1)
   const where = work?.territoryIds.find((id) => chain.includes(id))
   const why = !last || last.via === 'territory' ? `${kind}${where ? ` of ${where}` : ''}, in force` : stepWords(graph, last)
-  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}`]
+  const lines = [`- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: ${why}${applicabilityWords(use)}`]
   for (const displaced of use.displaced) {
     const target = displaced.anchor ?? 'the whole instrument'
     const by = workName(graph, displaced.byWorkId)
@@ -97,7 +114,7 @@ function bindingLine(graph: KnowledgeGraph, use: EditionUse, chain: readonly str
 
 function guidanceLine(graph: KnowledgeGraph, use: EditionUse): string {
   const binding = use.relatedEditionId ? `; the edition that binds here is ${editionName(graph, use.relatedEditionId)}` : "; the records name no binding edition here; check the Land's ordinance"
-  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}`
+  return `- ${workName(graph, use.workId)}, ${editionName(graph, use.editionId)}: guidance only${binding}${applicabilityWords(use)}`
 }
 
 function interpretationLine(graph: KnowledgeGraph, use: EditionUse): string {

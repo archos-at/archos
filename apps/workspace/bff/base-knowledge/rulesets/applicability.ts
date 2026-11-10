@@ -9,18 +9,21 @@
  * excludes it for every building. A project with no building yet is one
  * building whose facts are all open, so it reads `check` with every fact the
  * table waits for. A work no table speaks for is not narrowed (`null`); two
- * tables for one node are a data error and read `check`, never a guess.
+ * tables for one node, or a table the evaluator cannot run, are a data error
+ * and read `check`, never a guess.
  *
  * No work and no country is named here: OIB-RL 2.1 narrowed to a Betriebsbau
  * is a record in Austria's pack, not code.
  */
 
+import type { UseApplicability } from '@/lib/base-knowledge/wire/project-law'
 import type { DecisionTable } from '@/lib/base-knowledge/wire/ruleset'
 import type { FactDefinition } from '@/lib/base-knowledge/wire/setup-facts'
 import type { ApplicabilityVerdict } from '@/lib/base-knowledge/wire/vocab'
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
 import { buildingClassFacts } from './building-class'
 import { evaluateDecisionTable } from './decision-table'
+import { RulesetEvaluationError } from './expression'
 import { selectRuleset, type StoredRuleset } from './select'
 
 /** One building's stored answers, by fact key (the profile's `<key>@<buildingId>`, read without the suffix). */
@@ -104,7 +107,14 @@ export function applicabilityOf(
   }
   const { table } = selection
   const buildings = query.buildings.length > 0 ? query.buildings : [{ buildingId: '', inputs: {} }]
-  const answers = buildings.map((building) => answerFor(table, building, query.definitions ?? []))
+  let answers: BuildingAnswer[]
+  try {
+    answers = buildings.map((building) => answerFor(table, building, query.definitions ?? []))
+  } catch (error) {
+    // A table the evaluator cannot run is a data error: the work stays, to check, never silently dropped.
+    if (!(error instanceof RulesetEvaluationError)) throw error
+    return { verdict: 'check', basis: [], open: [], provision: null, rulesetId: selection.ruleset.id }
+  }
   const strongest = Math.max(...answers.map((answer) => STRENGTH[answer.verdict]))
   const deciding = answers.filter((answer) => STRENGTH[answer.verdict] === strongest)
   const union = (pick: (answer: BuildingAnswer) => ReadonlySet<string>) =>
@@ -117,3 +127,9 @@ export function applicabilityOf(
     rulesetId: selection.ruleset.id,
   }
 }
+
+/** The wire form of a use's applicability (`wire/project-law.ts`): the verdict and why, without the ruleset's id. */
+export const useApplicabilityOf = (applicability: Applicability | null): UseApplicability | null =>
+  applicability
+    ? { verdict: applicability.verdict, basis: [...applicability.basis], open: [...applicability.open], provision: applicability.provision }
+    : null

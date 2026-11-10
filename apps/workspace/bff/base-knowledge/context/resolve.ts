@@ -14,7 +14,8 @@
  * on a country: adding one adds records.
  */
 
-import { chainAt, resolveChain } from '../chain/resolve'
+import { chainAt, resolveChain, type BuildingScope } from '../chain/resolve'
+import { useApplicabilityOf } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph } from '../chain/graph'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
@@ -52,6 +53,8 @@ export interface ContextInputs {
   procedures: readonly ProcedureContext[]
   /** The newest stable release sequence per pack. */
   packSeqs: Readonly<Record<string, number>>
+  /** The applicability tables on the site's chain and the project's buildings; null narrows nothing (ADR-0176). */
+  building?: BuildingScope | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -165,6 +168,7 @@ function contextUse(
     connectsBy,
     labels,
     corpusFiles: [...(edition?.corpusFiles ?? [])],
+    applicability: useApplicabilityOf(use.applicability),
   }
 }
 
@@ -204,7 +208,7 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
   }
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
-  const resolved = resolveChain(graph, first.territoryId, inputs.date)
+  const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
   if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
   const uses = resolved.uses
     .map((use) => contextUse(graph, use, coverage, inputs))

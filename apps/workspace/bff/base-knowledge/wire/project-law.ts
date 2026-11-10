@@ -7,7 +7,26 @@
  */
 
 import { z } from 'zod'
-import { EDITION_ROLES, GATE_STATES } from './vocab'
+import { APPLICABILITY_VERDICTS, EDITION_ROLES, GATE_STATES } from './vocab'
+
+/**
+ * Whether a use's work applies to the project's buildings (ADR-0176), as the
+ * chain, the knowledge context and the project's law carry it. Null on a use
+ * where no applicability table speaks for its work: the chain did not narrow it.
+ */
+export const useApplicabilitySchema = z
+  .object({
+    /** `applies` or `check`: a work no building needs is not on the wire at all. */
+    verdict: z.enum(APPLICABILITY_VERDICTS),
+    /** The building facts the deciding rows read: why it applies. */
+    basis: z.array(z.string()).max(32),
+    /** For `check`: the building facts whose answer would decide it; empty when the case needs a person. */
+    open: z.array(z.string()).max(32),
+    /** The provision the deciding row cites. */
+    provision: z.string().nullable(),
+  })
+  .strict()
+export type UseApplicability = z.infer<typeof useApplicabilitySchema>
 
 /** One use: the work and edition, the role and qualifier the turn reads, and the names a person reads. */
 export const projectLawUseSchema = z
@@ -20,6 +39,8 @@ export const projectLawUseSchema = z
     qualifier: z.enum(['uncurated', 'office_maintained']).nullable(),
     designation: z.string().nullable(),
     editionLabel: z.string().nullable(),
+    /** Whether the work applies to the project's buildings, and why (ADR-0176); null where no table narrows it. */
+    applicability: useApplicabilitySchema.nullable(),
   })
   .strict()
 

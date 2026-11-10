@@ -30671,6 +30671,7 @@
                                     "derivation",
                                     "reference_date",
                                     "competence",
+                                    "applicability",
                                     "fact_definitions",
                                     "fact_sources",
                                     "advice_policy",

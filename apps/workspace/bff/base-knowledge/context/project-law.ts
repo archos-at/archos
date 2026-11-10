@@ -34,6 +34,7 @@ export function lawOf({ context, names }: ContextResolution): ProjectLaw {
       qualifier: use.qualifier,
       designation: names.works[use.workId] ?? null,
       editionLabel: use.editionId ? (names.editions[use.editionId] ?? null) : null,
+      applicability: use.applicability,
     })),
   }
 }

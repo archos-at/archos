@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod'
+import { useApplicabilitySchema } from '../wire/project-law'
 import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES } from '../wire/vocab'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
@@ -70,6 +71,8 @@ export const contextUseSchema = z
     connectsBy: z.array(z.enum(CONNECTING_FACTORS)).min(1),
     labels: z.array(z.enum(USE_LABELS)).max(USE_LABELS.length),
     corpusFiles: z.array(z.string()),
+    /** Whether the work applies to the project's buildings (ADR-0176); null where no table narrows it. */
+    applicability: useApplicabilitySchema.nullable(),
   })
   .strict()
 

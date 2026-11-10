@@ -38,11 +38,11 @@ import {
 export const LAW_VIENNA: ProjectLaw = {
   gate: 'core',
   uses: [
-    { workId: 'work:at-wien-bo', editionId: 'edition:at-wien-bo-2023', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. Nr. 37/2023' },
-    { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023' },
-    { workId: 'work:oib-rl-4', editionId: 'edition:oib-rl-4-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 4', editionLabel: '2023' },
-    { workId: 'work:oenorm-b-1600', editionId: 'edition:oenorm-b-1600-2017', role: 'guidance', qualifier: null, designation: 'ÖNORM B 1600', editionLabel: '2017' },
-    { workId: 'work:oib-erl-2', editionId: 'edition:oib-erl-2-2023', role: 'interpretation', qualifier: null, designation: 'OIB-RL 2 Erläuterungen', editionLabel: '2023' },
+    { workId: 'work:at-wien-bo', editionId: 'edition:at-wien-bo-2023', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. Nr. 37/2023', applicability: null },
+    { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023', applicability: null },
+    { workId: 'work:oib-rl-4', editionId: 'edition:oib-rl-4-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 4', editionLabel: '2023', applicability: null },
+    { workId: 'work:oenorm-b-1600', editionId: 'edition:oenorm-b-1600-2017', role: 'guidance', qualifier: null, designation: 'ÖNORM B 1600', editionLabel: '2017', applicability: null },
+    { workId: 'work:oib-erl-2', editionId: 'edition:oib-erl-2-2023', role: 'interpretation', qualifier: null, designation: 'OIB-RL 2 Erläuterungen', editionLabel: '2023', applicability: null },
   ],
 }
 
@@ -126,8 +126,8 @@ export const PROFILE_UNCURATED: IntakeView = {
   applicableLaw: {
     gate: 'open',
     uses: [
-      { workId: 'work:at-wien-bo', editionId: null, role: 'binding', qualifier: 'uncurated', designation: 'BO für Wien', editionLabel: null },
-      { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'information', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023' },
+      { workId: 'work:at-wien-bo', editionId: null, role: 'binding', qualifier: 'uncurated', designation: 'BO für Wien', editionLabel: null, applicability: null },
+      { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'information', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023', applicability: null },
     ],
   },
 }

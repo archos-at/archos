@@ -32,6 +32,7 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   connectsBy: ['site'],
   labels: [],
   corpusFiles,
+  applicability: null,
 })
 
 const CONTEXT: KnowledgeContext = {

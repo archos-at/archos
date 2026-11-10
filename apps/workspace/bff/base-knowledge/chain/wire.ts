@@ -7,9 +7,11 @@
  */
 
 import { z } from 'zod'
+import { useApplicabilityOf } from '../rulesets/applicability'
+import { useApplicabilitySchema } from '../wire/project-law'
 import { EDITION_ROLES } from '../wire/vocab'
 import type { KnowledgeGraph } from './graph'
-import { resolveChain } from './resolve'
+import { resolveChain, type BuildingScope } from './resolve'
 import { nameOf, renderChainText } from './text'
 
 /** Most uses a turn carries; the resolver's own bound. */
@@ -27,6 +29,8 @@ export const buildingLawUseSchema = z
     corpusFiles: z.array(z.string()),
     designation: z.string().nullable(),
     editionLabel: z.string().nullable(),
+    /** Whether the work applies to the project's buildings (ADR-0176); null where no table narrows it. */
+    applicability: useApplicabilitySchema.nullable(),
   })
   .strict()
 
@@ -45,8 +49,14 @@ export type BuildingLawUse = z.infer<typeof buildingLawUseSchema>
 export type BuildingLawTurn = z.infer<typeof buildingLawTurnSchema>
 
 /** The turn's building law for a site, or null when nothing binds there by the records or the resolution was truncated (fail closed). */
-export function buildingLawTurn(graph: KnowledgeGraph, leafId: string, date: string, place: string): BuildingLawTurn | null {
-  const resolved = resolveChain(graph, leafId, date)
+export function buildingLawTurn(
+  graph: KnowledgeGraph,
+  leafId: string,
+  date: string,
+  place: string,
+  building: BuildingScope | null = null,
+): BuildingLawTurn | null {
+  const resolved = resolveChain(graph, leafId, date, building)
   // A truncated resolution would leave some cited editions with no role, read as the old guess: none at all.
   if (resolved.truncated) return null
   const lawHere = resolved.uses.some((use) => use.role === 'binding' && use.route[0]?.via === 'territory' && use.route.length === 1)
@@ -67,6 +77,7 @@ export function buildingLawTurn(graph: KnowledgeGraph, leafId: string, date: str
         corpusFiles: [...(edition?.corpusFiles ?? [])],
         designation: work?.designation ? nameOf(work.designation) : null,
         editionLabel: edition ? nameOf(edition.label) : null,
+        applicability: useApplicabilityOf(use.applicability),
       }
     }),
   }

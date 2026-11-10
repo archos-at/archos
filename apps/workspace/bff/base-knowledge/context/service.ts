@@ -28,11 +28,13 @@ import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import type { PhaseTimer } from '../chain/turn'
+import { buildingScopeFor, projectBuildings, type ProjectBuildings } from '../chain/building'
 import { loadGraph } from '../chain/load'
 import type { KnowledgeGraph } from '../chain/graph'
 import { nameOf } from '../chain/text'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
+import { chainAt } from '../chain/resolve'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
@@ -66,6 +68,8 @@ export interface ContextDigestInputs {
   procedures: readonly ProcedureContext[]
   /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
   recordsStamp?: string
+  /** The project's buildings by its country's facts: what the applicability tables read (ADR-0176). */
+  buildings?: ProjectBuildings
 }
 
 /** A stable hash of the inputs: same inputs, same digest, in any key order. */
@@ -175,6 +179,11 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
+  const project = inputs.buildings
+  const building =
+    loaded && first && project
+      ? await time('applicability', () => buildingScopeFor(organizationId, chainAt(first.territoryId, inputs.date, loaded.graph), project))
+      : null
   const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
@@ -185,6 +194,7 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
+    building,
   })
   return { context, names: graph ? namesOf(graph, context) : NO_NAMES }
 }
@@ -226,15 +236,17 @@ export async function readContextInputs(organizationId: string, projectId: strin
   const entitled = countries.entitled.map((entry) => entry.countryId)
   const sites = siteLeaves(profile?.profile)
   const facts = profile?.profile?.facts ?? {}
+  const date = calendarDayIn(zone)
   return {
     homeCountry: countries.homeCountry,
     entitled,
     sites,
-    date: calendarDayIn(zone),
+    date,
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites),
     recordsStamp: stamp,
+    buildings: projectBuildings(profile?.profile, date),
   }
 }
 

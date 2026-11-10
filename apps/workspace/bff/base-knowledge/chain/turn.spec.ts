@@ -8,6 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+const { readRulesetsInForce } = vi.hoisted(() => ({ readRulesetsInForce: vi.fn(async () => ({ rulesets: [], unreadable: [], truncated: false })) }))
+vi.mock('../store/rulesets', () => ({ readRulesetsInForce }))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone } = vi.hoisted(() => ({
   findProjectProfileInOrg: vi.fn(),
   loadGraph: vi.fn(),
@@ -25,7 +27,7 @@ const graph = { territories: new Map(), works: new Map(), editions: new Map(), r
 describe('buildingLawForTurn', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'AT' }, federal_state: { value: 'vienna' } } } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'AT' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
     loadGraph.mockResolvedValue({ graph, truncated: false })
     officeTimeZone.mockResolvedValue('Europe/Vienna')
   })

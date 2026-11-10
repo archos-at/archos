@@ -3073,6 +3073,53 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "applicability": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "verdict": {
+                            "type": "string",
+                            "enum": [
+                              "applies",
+                              "check",
+                              "not_applicable"
+                            ]
+                          },
+                          "basis": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "open": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "provision": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "verdict",
+                          "basis",
+                          "open",
+                          "provision"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -3081,7 +3128,8 @@
                   "role",
                   "qualifier",
                   "designation",
-                  "editionLabel"
+                  "editionLabel",
+                  "applicability"
                 ],
                 "additionalProperties": false
               }
