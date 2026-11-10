@@ -191,6 +191,21 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Also (from the Wave 2 and 3 audits):** the shared corpus carries no country yet. Give its chunks `country_id` and filter `knowledge_search` by the office's entitlement, so an office not entitled to a country reads none of its corpus; a rollback of a country de-indexes its chunks (audit of #1559, item 1, and S7). Corpus rows and `oib_sync`'s ingest job carry no `edition_id`, so `knowledge_search` cannot answer `asOf` from the corpus, and a mark set on a base-corpus file is lost on re-ingest (S8, S11; gotchas row "A mark you set on a base-corpus file's points"). Give the corpus row and its ingest job `edition_id`, then answer `asOf` from it.
 - **Outcome, measured by:** E01, E02, E04, E28, E40 on fixtures; the `knowledge` phase within its p95 budget; a test that plants two organizations with equal digests and gets two cache keys.
 
+### Wave 5: cut-over (added 2026-11-10)
+
+Waves 1 to 4 built every new path beside the old one, behind a switch whose off state was byte-identical to before. The design says the new paths *replace* the old (the role engine replaces `citations/binding.py`, the chain text replaces the static `<building_law>` block), and no session was planned to delete the old ones; the user's goal was the old paths gone. Wave 5 does that. The data still enters only through `records-propose` (no seed path, design 7), so the order is fixed:
+
+1. **Production release of develop as it stands**: switches off, no behaviour change, and the platform door exists in production.
+2. **Austria onto staging, then production**, through the platform door: an operator's agent proposes `eu.json` and `at.json` with captured sources (KC-6), a domain expert and a second approver approve, preview, stable. AT's coverage level core.
+3. **R1 and R2 merge** once staging has the data and the answer suite passes with the new path on; production gets them in the release after step 2 reached production. Merging them earlier leaves an environment with no Austrian law at all.
+
+| Session | Takes out | Contract |
+|---|---|---|
+| R1 agent | `citations/binding.py` and its host regex (callers move to `citations/roles.py`), `knowledge-layer/chat_binding.py`, the static `<building_law>` block (`chat_static.md`, `prompt.py`, `norm_registry.py`) and `test_static_prompt_split.py`'s byte pin, `common/applicability.py`, the Austria defaults in `agent/common` and `agent/citations`, every fallback taken when the turn has no knowledge context | With no context the agent fails closed: no verdict, no edition named binding, the gate's note. The corpus backfill (`LEGACY_CORPUS_COUNTRY`, `backfill_legacy_marks`) stays until it has run in production |
+| R2 workspace | The switches `knowledge-context`, `building-law-chain`, `time-editions` and the branches they choose between; `bff/oib/applicable-standards.ts` and its UI, `base-knowledge/platform/applicability.ts` where the rulesets replace it, the Austria lists in intake and project setup | The BFF sends the knowledge context on every turn; who reads which country is the entitlement rows (`knowledge_country_entitled`), never a WorkOS switch. Writes ADR-0175 (the cut-over), amends the flag-off sentences of ADR-0158 to 0174 |
+
+Kept as switches, because they gate data or a contract that does not exist yet rather than an old path: `site-resolution` (the BEV import), `source-monitors`, the residency switches (the EU contract). `office-base-knowledge`, `licensed-seam`, `source-routing` and `platform-base-knowledge` are rollout switches for capabilities with no old twin; R2 lists each with a keep-or-remove reason in ADR-0175.
+
 ### S16 Onboarding tooling
 - **Scope (2026-11-10):** country onboarding itself, Germany first, is run elsewhere. S16 builds only the country-neutral tooling it needs.
 - **Design suggests:** the advice-policy and terminology ruleset *types* with hedge templates and the `advice_policy_held` score (the content of a country's policy is that country's onboarding); the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points.
