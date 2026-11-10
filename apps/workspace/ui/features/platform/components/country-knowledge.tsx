@@ -38,9 +38,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SectionCard } from '@/features/platform/components/section-card'
+import { countryName } from './change-request-format'
+import { ChangeRequestReview } from './change-request-review'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type {
@@ -83,6 +85,7 @@ function claimValue(value: unknown): string {
 export function CountryKnowledge(): JSX.Element {
   const t = useTranslations(platformCopy)
   const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const { locale } = useLocale()
   const [overview, setOverview] = useState<Load<PlatformKnowledgeOverview>>({ state: 'loading' })
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -137,7 +140,10 @@ export function CountryKnowledge(): JSX.Element {
             <TableBody>
               {ready.countries.map((country) => (
                 <TableRow key={country.countryId}>
-                  <TableCell className="font-medium">{country.countryId}</TableCell>
+                  <TableCell>
+                    <span className="font-medium">{countryName(country.countryId, locale)}</span>{' '}
+                    <span className="text-muted-foreground font-mono text-xs">{country.countryId}</span>
+                  </TableCell>
                   <TableCell>{released(country.released, t)}</TableCell>
                   <TableCell className="text-right tabular-nums">{country.openRequests}</TableCell>
                   <TableCell className="text-right tabular-nums">
@@ -181,7 +187,7 @@ export function CountryKnowledge(): JSX.Element {
               {ready.queue.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell className="font-medium">{request.title}</TableCell>
-                  <TableCell>{request.countryId}</TableCell>
+                  <TableCell>{countryName(request.countryId, locale)}</TableCell>
                   <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => setOpenId(request.id)}>
@@ -202,206 +208,10 @@ export function CountryKnowledge(): JSX.Element {
           closeLabel={t('countryKnowledge.close')}
         >
           {openId ? (
-            <ChangeRequestPanel id={openId} canManage={canManage} onChanged={() => void load()} />
+            <ChangeRequestReview id={openId} canManage={canManage} onChanged={() => void load()} />
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-type Step = 'approve' | 'preview' | 'stable' | 'rollback'
-
-function ChangeRequestPanel({
-  id,
-  canManage,
-  onChanged,
-}: {
-  id: string
-  canManage: boolean
-  onChanged: () => void
-}): JSX.Element {
-  const t = useTranslations(platformCopy)
-  const [request, setRequest] = useState<Load<ChangeRequestView>>({ state: 'loading' })
-  const [confirming, setConfirming] = useState<Step | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  const load = useCallback(async () => {
-    const response = await fetch(`${BASE}/change-requests/${id}`).catch(() => null)
-    if (!response || !response.ok)
-      return setRequest({ state: 'error', status: response?.status ?? 0 })
-    setRequest({ state: 'ready', value: (await response.json()) as ChangeRequestView })
-  }, [id])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const act = async (path: string, body: unknown, done: string) => {
-    setBusy(true)
-    try {
-      const response = await postJson(`${BASE}/change-requests/${id}/${path}`, body)
-      if (!response.ok) {
-        toast.error(t('countryKnowledge.failed', { reason: await refusal(response) }))
-        return
-      }
-      toast.success(done)
-      await load()
-      onChanged()
-    } finally {
-      setBusy(false)
-      setConfirming(null)
-    }
-  }
-
-  const decide = (revisionId: string, claimPath: string, decision: 'accepted' | 'rejected') =>
-    act(
-      'review',
-      { decisions: [{ revisionId, claimPath, decision }] },
-      t('countryKnowledge.recorded')
-    )
-
-  if (request.state !== 'ready') {
-    return (
-      <SectionCard
-        loading={request.state === 'loading'}
-        error={request.state === 'error'}
-        onRetry={() => void load()}
-      />
-    )
-  }
-  const view = request.value
-  const submitted = view.status === 'submitted'
-  const previewed = view.releases.some(
-    (move) => move.channel === 'preview' && move.action === 'publish'
-  )
-  const steps: { step: Step; label: string; show: boolean }[] = [
-    { step: 'approve', label: t('countryKnowledge.steps.approve'), show: submitted },
-    {
-      step: 'preview',
-      label: t('countryKnowledge.steps.preview'),
-      show: view.status === 'approved' && !previewed,
-    },
-    {
-      step: 'stable',
-      label: t('countryKnowledge.steps.stable'),
-      show: view.status === 'approved' && previewed,
-    },
-    {
-      step: 'rollback',
-      label: t('countryKnowledge.steps.rollback'),
-      show: view.status === 'published',
-    },
-  ]
-  const run = (step: Step) => {
-    if (step === 'approve')
-      return act(
-        'decision',
-        { decision: 'approve', role: 'domain_expert' },
-        t('countryKnowledge.done.approve')
-      )
-    if (step === 'rollback')
-      return act(
-        'rollback',
-        { reason: t('countryKnowledge.rollbackReason') },
-        t('countryKnowledge.done.rollback')
-      )
-    return act('publish', { channel: step }, t(`countryKnowledge.done.${step}`))
-  }
-
-  return (
-    <div className="flex flex-col gap-4" data-testid="change-request-panel">
-      <DialogHeader>
-        <DialogTitle>{view.title}</DialogTitle>
-        <DialogDescription>
-          {view.countryId} · {t(`countryKnowledge.status.${view.status}`)}
-        </DialogDescription>
-      </DialogHeader>
-      {canManage ? (
-        <div className="flex flex-wrap gap-2">
-          {steps
-            .filter((entry) => entry.show)
-            .map((entry) => (
-              <Button
-                key={entry.step}
-                size="sm"
-                disabled={busy}
-                onClick={() => setConfirming(entry.step)}
-              >
-                {entry.label}
-              </Button>
-            ))}
-        </div>
-      ) : null}
-      {view.revisions.map((revision) => (
-        <SectionCard
-          key={revision.revisionId}
-          title={revision.recordId}
-          description={t(`countryKnowledge.types.${revision.type}`)}
-        >
-          <Table>
-            <TableBody>
-              {revision.claims.map((claim) => (
-                <TableRow key={claim.path}>
-                  <TableCell className="text-muted-foreground w-40 align-top">
-                    {claim.path}
-                  </TableCell>
-                  <TableCell className="align-top break-words whitespace-normal">
-                    {claimValue(claim.value)}
-                  </TableCell>
-                  <TableCell className="w-48 align-top">
-                    <span className="flex items-center justify-end gap-1">
-                      {claim.decision ? (
-                        <Badge variant="outline">
-                          {t(`countryKnowledge.verdicts.${claim.decision}`)}
-                        </Badge>
-                      ) : null}
-                      {canManage && submitted ? (
-                        <span className="inline-flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={t('countryKnowledge.accept')}
-                            disabled={busy}
-                            onClick={() => void decide(revision.revisionId, claim.path, 'accepted')}
-                          >
-                            <Check />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={t('countryKnowledge.reject')}
-                            disabled={busy}
-                            onClick={() => void decide(revision.revisionId, claim.path, 'rejected')}
-                          >
-                            <X />
-                          </Button>
-                        </span>
-                      ) : null}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {revision.citations.length > 0 ? (
-            <p className="text-muted-foreground mt-2 text-xs">
-              {t('countryKnowledge.sources')}:{' '}
-              {revision.citations.map((citation) => citation.url ?? citation.note).join(' · ')}
-            </p>
-          ) : null}
-        </SectionCard>
-      ))}
-      <ConfirmDialog
-        open={confirming !== null}
-        onOpenChange={(open) => (open ? null : setConfirming(null))}
-        title={confirming ? t(`countryKnowledge.confirm.${confirming}.title`) : ''}
-        description={confirming ? t(`countryKnowledge.confirm.${confirming}.body`) : ''}
-        confirmLabel={confirming ? t(`countryKnowledge.steps.${confirming}`) : ''}
-        cancelLabel={t('countryKnowledge.cancel')}
-        tone={confirming === 'rollback' || confirming === 'stable' ? 'warning' : 'default'}
-        onConfirm={() => (confirming ? void run(confirming) : undefined)}
-      />
     </div>
   )
 }

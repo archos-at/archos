@@ -45,13 +45,20 @@ const REQUEST = {
 
 const fetchMock = vi.fn()
 
+/** The routes as a stateful stand-in: a verdict the review route takes is on the request read next. */
 function serve(overviewStatus = 200) {
+  let decision: string | null = null
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === '/api/platform/knowledge') {
       return overviewStatus === 200 ? Response.json(OVERVIEW) : new Response('{}', { status: overviewStatus })
     }
+    if (init?.method === 'POST' && url.endsWith('/review')) {
+      decision = JSON.parse(String(init.body)).decisions[0].decision
+      return Response.json({ recorded: 1 })
+    }
     if (init?.method === 'POST') return Response.json({ status: 'approved' })
-    return Response.json(REQUEST)
+    const [revision] = REQUEST.revisions
+    return Response.json({ ...REQUEST, revisions: [{ ...revision, claims: revision.claims.map((claim) => ({ ...claim, decision })) }] })
   })
 }
 
@@ -71,7 +78,7 @@ describe('CountryKnowledge', () => {
     serve()
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
     const countries = await screen.findByTestId('country-knowledge-countries')
-    expect(within(countries).getByText('AT')).toBeInTheDocument()
+    expect(within(countries).getByText('Austria')).toBeInTheDocument()
     expect(within(countries).getByText('2 authorities · 3 works')).toBeInTheDocument()
     expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
   })
@@ -82,12 +89,29 @@ describe('CountryKnowledge', () => {
     expect(await screen.findByText('Platform knowledge is not switched on')).toBeInTheDocument()
   })
 
-  test('asks before approving, and approves only on the yes', async () => {
+  test('names the record and its fields in words, and says what to do now', async () => {
     serve()
     const user = userEvent.setup()
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
-    await user.click(await screen.findByRole('button', { name: 'Open' }))
-    await user.click(await screen.findByRole('button', { name: 'Approve' }))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const record = await screen.findByTestId('change-request-record')
+    expect(within(record).getByText('Authority')).toBeInTheDocument()
+    expect(within(record).getByText('Decides for')).toBeInTheDocument()
+    expect(within(record).getByText('Wien')).toBeInTheDocument()
+    expect(within(record).queryByText('competenceTerritoryIds')).not.toBeInTheDocument()
+    expect(screen.getByTestId('change-request-next')).toHaveTextContent('Check each entry against its source')
+  })
+
+  test('keeps approval closed until every entry is correct, then asks before approving', async () => {
+    serve()
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeDisabled()
+    expect(screen.getByText('Entries still to check: 1')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'All correct' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Approve' }))
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/decision'), expect.anything())
     const dialog = await screen.findByRole('dialog', { name: 'Approve this change request?' })
     await user.click(within(dialog).getByRole('button', { name: 'Approve' }))
@@ -99,13 +123,24 @@ describe('CountryKnowledge', () => {
     )
   })
 
+  test('offers to reject, not approve, a request with a wrong entry', async () => {
+    serve()
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    await user.click(await screen.findByRole('button', { name: 'Not correct' }))
+    expect(await screen.findByRole('button', { name: 'Reject request' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+  })
+
   test('shows read-only staff no write control', async () => {
     serve()
     const user = userEvent.setup()
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
-    await user.click(await screen.findByRole('button', { name: 'Open' }))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
     await screen.findByTestId('change-request-panel')
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Accept this claim' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Correct' })).not.toBeInTheDocument()
+    expect(screen.getByText('not checked')).toBeInTheDocument()
   })
 })
