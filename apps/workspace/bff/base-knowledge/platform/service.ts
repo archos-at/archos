@@ -39,7 +39,6 @@ import type {
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
 import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
-import { readOrganizationPlacements } from './organization-countries'
 import { requestSourceChecks, runKit, validateRequest } from './onboarding'
 import { sourceChecksOf } from './source-checks'
 import { requirePlatform } from './service-gate'
@@ -71,7 +70,6 @@ import {
   type IndexStatusView,
   type OrganizationCountriesView,
   type PlatformKnowledgeOverview,
-  type PlatformOrganizationCountries,
   type ProposalRecordResult,
   type ProposalView,
   type ProposedRecord,
@@ -488,15 +486,6 @@ export async function setOrganizationHomeCountry(
     metadata: { homeCountry: home.data, previous: previous ?? '', decisionSource },
   })
   return { homeCountry: home.data, previous }
-}
-
-/** Where every office is placed: its home country or why it has none, and its entitlements (read only). */
-export async function listOrganizationPlacements(
-  session: UserSession | null,
-  page: { limit?: number; cursor?: string } = {},
-): Promise<PlatformOrganizationCountries> {
-  await requirePlatform(session, PLATFORM_PERMISSIONS.organizationsView)
-  return readOrganizationPlacements(page)
 }
 
 /** An office's own countries: any member reads them. */

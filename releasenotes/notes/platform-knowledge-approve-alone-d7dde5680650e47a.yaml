@@ -3,5 +3,3 @@
 operators:
   - >
     The platform owner can now approve a country knowledge change request they wrote, with a reason, when nobody else can review it. The request and its releases are marked as approved without a second review, and it stays in the review queue until another person confirms or disputes it.
-  - >
-    Operators can now list where every office is placed: its home country, or why it has none, and each country it is entitled to.

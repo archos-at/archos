@@ -34,7 +34,6 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-source-status': PLATFORM_PUBLIC,
   'platform-knowledge-source-test': PLATFORM_PUBLIC,
   'platform-knowledge-validate': PLATFORM_PUBLIC,
-  'platform-org-countries-list': PLATFORM_PUBLIC,
   'platform-org-country-entitle': PLATFORM_PUBLIC,
   'platform-organization-home-country-set': PLATFORM_PUBLIC,
   'platform-territory-import': PLATFORM_PUBLIC,
