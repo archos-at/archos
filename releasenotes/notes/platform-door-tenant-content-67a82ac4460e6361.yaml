@@ -9,9 +9,8 @@ security:
     Langfuse route offers configuration tools only, never traces.
 operators:
   - >
-    Platform staff who triaged feedback or read conversation profiles through
-    Claude on the platform door now do it in the platform console in the
-    browser, where nothing changed. Langfuse traces stay readable in Langfuse's
+    Feedback triage, conversation profiles, the kill switch and the vector
+    reconcile are no longer on the platform door: do them in the platform
+    console, where nothing changed. Langfuse traces stay readable in Langfuse's
     own UI. After the next deploy, list the Langfuse route's tools once through
-    a signed-in client: it should show the configuration tools and no trace,
-    score or comment tool.
+    a signed-in client: it should show no trace, score or comment tool.

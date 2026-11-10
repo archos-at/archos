@@ -38,7 +38,7 @@ const PLATFORM_OPERATIONS = AGENT_OPERATIONS.filter((op) => op.domain === 'platf
 const TENANT_CONTENT = PLATFORM_OPERATIONS.filter((op) => isTenantContent(op.name)).map((op) => op.name)
 
 /**
- * The console operations that read what offices wrote, as of ADR-0158. Pinned
+ * The console operations that read what offices wrote, or change their state, as of ADR-0158. Pinned
  * here, so that flipping one to platform-public is a change to this spec too,
  * read in review, never a one-word edit of the config alone.
  */
@@ -53,6 +53,7 @@ const KNOWN_TENANT_CONTENT = [
   'platform-feedback-get',
   'platform-feedback-list',
   'platform-feedback-triage',
+  'platform-kill-runs',
   'platform-lesson-get',
   'platform-lesson-list',
   'platform-lesson-sweep-run',
@@ -61,6 +62,7 @@ const KNOWN_TENANT_CONTENT = [
   'platform-profiler-conversation-get',
   'platform-profiler-conversation-list',
   'platform-quality-scope-options',
+  'platform-vectors-reconcile',
 ]
 
 /**
@@ -198,5 +200,14 @@ describe('the platform door, through the real MCP server', () => {
       for (const text of [described, called, direct]) expect(mentionsTenantContent(text.replaceAll(name, '')), name).toEqual([])
     }
     expect(callOperation).not.toHaveBeenCalled()
+  })
+
+  // Positive controls: the door is not simply refusing everything.
+  it('finds and runs a platform-public operation on the same paths', async () => {
+    const found = await rpc('search', 'tools/call', { name: 'search-operations', arguments: { query: 'norm registry' } })
+    expect(found).toContain('platform-norm-registry-get')
+    const called = await rpc('search', 'tools/call', { name: 'call-operation', arguments: { name: 'platform-norm-registry-get', input: {} } })
+    expect(called).not.toContain('Unknown operation')
+    expect(vi.mocked(callOperation).mock.calls.map(([op]) => op.name)).toEqual(['platform-norm-registry-get'])
   })
 })

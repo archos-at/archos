@@ -203,6 +203,7 @@ platform organization's own, and how to switch it off before one is set:
 The door no longer offers the whole `platform` domain. Each console operation is
 platform-public or tenant content (`bff/agent-api/exposure/platform.ts`), and
 tenant content (cross-office conversations, feedback, ratings, lessons, project
-names, spend per named person) is withheld from every door. Staff read it in the
+names, spend per named person, and the writes that change offices' state: the
+kill switch and the vector reconcile) is withheld from every door. Staff read it in the
 console in the browser. The operator's agent vendor is no processor of tenant
 content: [ADR-0158](0158-an-operators-agent-reaches-platform-content-never-tenant-content.md).

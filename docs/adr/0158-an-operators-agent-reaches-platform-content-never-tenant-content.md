@@ -13,8 +13,9 @@ Amends ADR-0126 (the platform door) and ADR-0154 (the platform MCP gateway).
 ## Context and Problem Statement
 
 Countries will be onboarded by an operator's own agent, Claude or any MCP client,
-through the platform door (design `docs/design/international/design.md` on
-`claude/intl-design`, sections 4.3 and 4.5). The product contains no onboarding
+through the platform door (design `docs/design/international/design.md`, sections
+4.3 and 4.5; the design lives on branch `claude/intl-design`, PR #1534, and is
+not on `develop` yet). The product contains no onboarding
 agent of its own. The operator's agent vendor is a processor for the platform's
 operations, not for any office's content (design 6.1, "Platform door:
 `platform_public` only").
@@ -67,10 +68,15 @@ enforces it server-side. Nothing new has to be built on the request path.
 
 * **The classification.** `apps/workspace/bff/agent-api/exposure/platform.ts`
   gives each console operation either `PLATFORM_PUBLIC` (on the platform door)
-  or `tenantContent(reason)`. The second is a `withheld` entry of the new
-  category `tenant-content`, so it is on no door at all, for every audience.
-  The entry's type admits nothing else. 18 operations are tenant content and
-  37 are platform-public. Organization names (`platform-overview-get`) stay
+  or `tenantContent(reason)`. Tenant content is what offices or their people
+  wrote or are, read across offices, and also any write that changes offices'
+  own state: the kill switch stops every office's running turns, and the vector
+  reconcile deletes chunks from offices' collections. An onboarding agent has no
+  business with either, and staff run both from the console. A tenant-content
+  entry is `withheld` under the new category `tenant-content`, so it is on no
+  door at all, for every audience. The entry's type admits nothing else: its
+  category is the literal `tenant-content`. 20 operations are tenant content and
+  35 are platform-public. Organization names (`platform-overview-get`) stay
   platform-public: they are the customer's account record, needed to address an
   organization, not something written in the workspace.
 * **The gateway.** Each server in `mcpServers` (`deploy/pulumi/src/platform/mcp-gateway.ts`)
@@ -118,6 +124,14 @@ enforces it server-side. Nothing new has to be built on the request path.
   missing-source candidates name sources answers failed to cite), but those
   candidates can name an office's own documents. A platform-public rollup that
   keeps only public-source targets is a separate operation, if wanted.
+* Bad, because lessons are tenant content on the door, yet their text reaches
+  every office's turn another way. `buildPlatformLessonsInjection`
+  (`bff/platform-lessons/service.ts`) puts every active lesson into every turn,
+  and a lesson goes active as soon as a model auditor passes it; only a flagged
+  one waits for a person. That is a cross-office flow outside the doors, named
+  here as an open risk for the residency work (design 6.1, "Lessons distiller":
+  refuse turns that used office or licensed text, a shingle check), not
+  decided by this record.
 * Neutral: tenant-content reads in the console are covered by the platform
   bypass's reason, not by one WorkOS audit event per read. Adding that is a
   separate change.
@@ -131,7 +145,9 @@ enforces it server-side. Nothing new has to be built on the request path.
   stay tenant content; none is on any door or visible to an operator's agent, an
   office's agent or the in-product agent; and through the real MCP server on the platform door,
   none is listed, found by search, described or called, and no route runs.
-  A platform-public operation is listed (positive control).
+  As positive controls, a platform-public operation is listed, found by search
+  and called (its route runs), and the OpenAPI document describes no
+  tenant-content operation to staff.
 * `deploy/pulumi/index-mcp-gateway.spec.ts`: the Langfuse route's
   `mcpAuthorization` names exactly `LANGFUSE_PLATFORM_TOOLS`, which holds none of
   Langfuse's trace, score, comment, dataset, queue, media or metrics tools; the

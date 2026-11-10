@@ -6,9 +6,10 @@
  *    the base corpus, platform skills, limits per organization by id). Offered
  *    on the platform door, so an operator's agent (Claude onboarding a country)
  *    reaches it.
- *  - `tenantContent(reason)`: what an office or its people wrote or are,
- *    read across offices (conversations, feedback, lessons, ratings, the people
- *    behind a spend). On no door: the operator's agent vendor is no processor of
+ *  - `tenantContent(reason)`: what an office or its people wrote or are, read
+ *    across offices (conversations, feedback, lessons, ratings, the people
+ *    behind a spend), and the writes that change offices' own state (stopping
+ *    their running turns, deleting chunks from their collections). On no door: the operator's agent vendor is no processor of
  *    tenant content. Platform staff keep it in the console in the browser,
  *    where the route's own `platform:*` permission decides, as before.
  *
@@ -26,7 +27,6 @@
 
 import type { Exposure } from '../exposure.config'
 import type { platformOperations } from '../catalog/platform'
-import { withheldAs } from '../exposure-presets'
 
 /** The operator console's own data: the platform door only (ADR-0126, ADR-0158). */
 export const PLATFORM_PUBLIC = {
@@ -36,11 +36,22 @@ export const PLATFORM_PUBLIC = {
   reason: 'the operator console is the platform operator’s, not an office’s: every write there reaches every tenant',
 } as const satisfies Exposure
 
-/** Content of offices, read across them: on no door, for staff in the console only (ADR-0158). */
-export const tenantContent = (reason: string) => withheldAs('tenant-content', reason)
+/** A tenant-content entry: on no door, withheld under exactly this category. */
+export interface TenantContentExposure extends Exposure {
+  readonly external: false
+  readonly agent: false
+  readonly withheld: { readonly category: 'tenant-content'; readonly reason: string }
+}
+
+/** Content of offices, read or changed across them: on no door, for staff in the console only (ADR-0158). */
+export const tenantContent = (reason: string): TenantContentExposure => ({
+  external: false,
+  agent: false,
+  withheld: { category: 'tenant-content', reason },
+})
 
 /** A console operation's entry: one of the two classes, never anything else. */
-export type PlatformExposure = typeof PLATFORM_PUBLIC | ReturnType<typeof tenantContent>
+export type PlatformExposure = typeof PLATFORM_PUBLIC | TenantContentExposure
 
 type PlatformOperationName = (typeof platformOperations)[number]['name']
 
@@ -62,7 +73,7 @@ export const PLATFORM_EXPOSURE = {
   'platform-feedback-get': tenantContent(FEEDBACK),
   'platform-feedback-list': tenantContent(FEEDBACK),
   'platform-feedback-triage': tenantContent(`a write that answers with the report: ${FEEDBACK}`),
-  'platform-kill-runs': PLATFORM_PUBLIC,
+  'platform-kill-runs': tenantContent('stops every office’s running turns and research: a write on what offices are doing, for staff in an incident'),
   'platform-knowledge-doc-class-update': PLATFORM_PUBLIC,
   'platform-knowledge-document-delete': PLATFORM_PUBLIC,
   'platform-knowledge-document-upload': PLATFORM_PUBLIC,
@@ -104,5 +115,5 @@ export const PLATFORM_EXPOSURE = {
   'platform-skill-list': PLATFORM_PUBLIC,
   'platform-skill-update': PLATFORM_PUBLIC,
   'platform-storage-overview': PLATFORM_PUBLIC,
-  'platform-vectors-reconcile': PLATFORM_PUBLIC,
+  'platform-vectors-reconcile': tenantContent('deletes chunks from offices’ own search collections, and its failures can name what they held'),
 } as const satisfies Record<PlatformOperationName, PlatformExposure>

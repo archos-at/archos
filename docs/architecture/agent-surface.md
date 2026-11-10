@@ -415,6 +415,7 @@ exposure config (`withheld: { category, reason }`, [below](#the-exposure-config)
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact (titles, citation formatting, skill review) |
 | `ui-state` | This person's own screen or device (push devices and preferences, the preference bag, read and unread marks) |
 | `evidence` | Bytes kept as proof, which no model reads (a held or filed mail's original `.eml`, ADR-0137) |
+| `tenant-content` | A console operation that reads what offices wrote, or changes their own state, across offices: conversations, feedback, ratings, lessons, spend per person, the kill switch, the vector reconcile. Staff use it in the console; no agent does (ADR-0158) |
 
 A withheld operation reads as an unknown name everywhere: `tools/list`,
 `search-operations` (and no hint that it exists), `describe-operation`,
@@ -459,7 +460,8 @@ wrote. So every console operation is classified in
 base corpus, platform skills, limits by organization id, organization names) is
 on the platform door; `tenantContent(reason)` (cross-office conversations and
 their search, product feedback, ratings and their comments, lessons, flagged
-turns, project names, spend per named person) is `withheld`, category
+turns, project names, spend per named person, and the writes that change
+offices' own state: the kill switch and the vector reconcile) is `withheld`, category
 `tenant-content`, on no door for anyone. Every caller of the platform door is an
 outside agent, so this one rule is the whole split, read server-side by
 `isExposedTo`. Staff read tenant content in the console in the browser, where the
@@ -496,8 +498,9 @@ and the reverse. The server names itself
 
 Fleet-wide writes carry `destructive: true` so the client asks the operator
 before each: default models, reasoning efforts, retrieval settings, the price
-list (also `idempotent: false`), the norm registry, a forced re-ingest, the kill
-switch, the vector reconcile and the deletes. None gained a `sensitivity`;
+list (also `idempotent: false`), the norm registry, a forced re-ingest and the
+deletes. The kill switch and the vector reconcile are destructive too, and are on
+no door at all (tenant content, above). None gained a `sensitivity`;
 `platform-audit-portal-link` keeps its `secret` and stays hidden while the
 step-up scope is not enforced. The OpenAPI document describes the console's
 platform-public operations to platform staff (`documentedOperations` asks
@@ -567,9 +570,9 @@ ceiling.
 | `external: true` | 261 |
 | `agent: true` | 217 |
 | `agent: 'native:…'` | 16 |
-| `agent: false` | 138 (73 withheld, 37 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
-| `platform: true` | 37 (of the 55 console operations; the other 18 are `tenant-content`) |
-| `withheld` | 73 (29 `product-config`, 18 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `agent: false` | 138 (75 withheld, 35 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
+| `platform: true` | 35 (of the 55 console operations; the other 20 are `tenant-content`) |
+| `withheld` | 75 (29 `product-config`, 20 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
 | `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |

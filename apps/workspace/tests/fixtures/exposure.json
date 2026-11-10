@@ -3412,9 +3412,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "stops every office’s running turns and research: a write on what offices are doing, for staff in an incident"
+   },
+   "reason": null
   },
   "platform-knowledge-doc-class-update": {
    "kind": "catalog",
@@ -3856,9 +3859,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "tenant-content",
+    "reason": "deletes chunks from offices’ own search collections, and its failures can name what they held"
+   },
+   "reason": null
   },
   "knowledge-search": {
    "kind": "backend",
