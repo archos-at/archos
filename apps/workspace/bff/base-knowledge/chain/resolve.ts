@@ -29,9 +29,6 @@
  * or a law whose editions are all out of force at the date, yields no use.
  */
 
-import { applicabilityOf, type Applicability, type BuildingInputs } from '../rulesets/applicability'
-import type { StoredRuleset } from '../rulesets/select'
-import type { FactDefinition } from '../wire/setup-facts'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import type {
   Displacement,
@@ -246,7 +243,7 @@ function editionUse(
   displaced: readonly Displacement[] = [],
   relatedEditionId: string | null = null,
 ): EditionUse {
-  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId, applicability: null }
+  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId }
 }
 
 /** Whether a work that nothing makes binding concerns this site. */
@@ -323,33 +320,7 @@ function unroutedUses(
 const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
 /** Resolve a site on a date: the chain, and what each edition is to it. */
-/** What narrows the chain by the project's buildings (ADR-0176): the applicability tables in force on it, and the buildings. */
-export interface BuildingScope {
-  rulesets: readonly StoredRuleset[]
-  buildings: readonly BuildingInputs[]
-  /** The country's fact definitions: how each input is read off the profile. */
-  definitions?: readonly FactDefinition[]
-}
-
-/** Each use with whether its work applies to the buildings; a work no building needs is dropped, every edition of it. */
-function narrowed(uses: readonly EditionUse[], chain: readonly string[], date: string, scope: BuildingScope): EditionUse[] {
-  const verdicts = new Map<string, Applicability | null>()
-  const verdictOf = (workId: string): Applicability | null => {
-    if (!verdicts.has(workId)) verdicts.set(workId, applicabilityOf(scope.rulesets, workId, { chain, on: date, buildings: scope.buildings, definitions: scope.definitions }))
-    return verdicts.get(workId) ?? null
-  }
-  return uses.flatMap((use) => {
-    const applicability = verdictOf(use.workId)
-    return applicability?.verdict === 'not_applicable' ? [] : [{ ...use, applicability }]
-  })
-}
-
-/**
- * The uses at a site on a date. With a building scope, a work whose
- * applicability table excludes it for every building is not named, and each
- * other use says whether it applies (ADR-0176); without one, nothing is narrowed.
- */
-export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string, building: BuildingScope | null = null): ResolvedChain {
+export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string): ResolvedChain {
   const chain = chainAt(leafId, date, graph)
   const relations = effectiveRelations(graph, date)
   const superseded = supersededWorks(graph, relations)
@@ -368,13 +339,12 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
     uses.push(...unroutedUses(graph, work, { chain, date, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
-  const named = building ? narrowed(uses, chain, date, building) : uses
-  named.sort(
+  uses.sort(
     (a, b) =>
       roleRank(a.role) - roleRank(b.role) ||
       a.route.length - b.route.length ||
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES }
+  return { date, chain, uses: uses.slice(0, MAX_USES), truncated: uses.length > MAX_USES }
 }

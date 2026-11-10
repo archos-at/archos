@@ -32,7 +32,6 @@ export const INHERITANCE_BY_PURPOSE: Record<RulesetPurpose, 'nearest' | 'explici
   classification: 'nearest',
   derivation: 'nearest',
   competence: 'nearest',
-  applicability: 'nearest',
   reference_date: 'explicit',
   fact_definitions: 'nearest',
   fact_sources: 'nearest',

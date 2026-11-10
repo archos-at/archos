@@ -3073,65 +3073,6 @@
                       "string",
                       "null"
                     ]
-                  },
-                  "applicability": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "verdict": {
-                            "type": "string",
-                            "enum": [
-                              "applies",
-                              "check",
-                              "not_applicable"
-                            ]
-                          },
-                          "basis": {
-                            "maxItems": 32,
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "open": {
-                            "maxItems": 32,
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "provision": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "verdict",
-                          "basis",
-                          "open",
-                          "provision"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sourceUrl": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 2000,
-                        "format": "uri"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   }
                 },
                 "required": [
@@ -3140,24 +3081,15 @@
                   "role",
                   "qualifier",
                   "designation",
-                  "editionLabel",
-                  "applicability",
-                  "sourceUrl"
+                  "editionLabel"
                 ],
                 "additionalProperties": false
-              }
-            },
-            "factLabels": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
               }
             }
           },
           "required": [
             "gate",
-            "uses",
-            "factLabels"
+            "uses"
           ],
           "additionalProperties": false
         },

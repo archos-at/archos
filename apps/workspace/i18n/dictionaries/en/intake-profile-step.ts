@@ -86,14 +86,6 @@ export const intakeProfileStep = {
     disclaimer: 'Not legal advice.',
     ask: 'Ask {productName}',
     askQuestion: 'What does {name} require for this project?',
-    applicability: {
-      check: 'to check',
-      applies: 'Applies to this project because of: {facts}.',
-      open: 'Whether it applies to this project depends on: {facts}. Once that is known, it shows here.',
-      case: 'Whether its scope covers this project is a case-by-case call.',
-      provision: 'Basis: {provision}',
-    },
-    source: 'Open the text',
   },
   /** One table of what Piloti found: the decisive rows up front, the rest by topic. */
   findings: {

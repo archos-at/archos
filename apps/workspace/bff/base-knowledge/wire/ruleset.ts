@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
 import { advicePolicySchema, terminologySchema } from './advice'
 import { factDefinitionsSchema, factSourcesSchema } from './setup-facts'
-import { APPLICABILITY_VERDICTS, DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
+import { DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
 
 /** A fact key as the project profile stores it: English snake case (`storeys_above_ground`). */
 export const factKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/, 'a snake_case fact key')
@@ -187,29 +187,6 @@ export type DecisionTable = z.infer<typeof decisionTableSchema>
 export type DecisionTableInput = z.input<typeof decisionTableSchema>
 
 /**
- * An applicability table (ADR-0176) speaks for the works it names and answers
- * a verdict: a table for every work would narrow law nobody wrote it for.
- */
-function applicabilityIssues(
-  values: { workIds: readonly string[]; body: { kind: string; payload?: unknown } },
-  context: z.RefinementCtx
-): void {
-  if (values.workIds.length === 0) {
-    context.addIssue({ code: 'custom', path: ['workIds'], message: 'an applicability table names the works it speaks for' })
-  }
-  if (values.body.kind !== 'table') return
-  const output = (values.body.payload as DecisionTable).output
-  const verdicts: readonly string[] = APPLICABILITY_VERDICTS
-  if (output.type !== 'code' || !output.codes.every((code) => verdicts.includes(code))) {
-    context.addIssue({
-      code: 'custom',
-      path: ['body', 'payload', 'output'],
-      message: `an applicability table answers a code among ${APPLICABILITY_VERDICTS.join(', ')}`,
-    })
-  }
-}
-
-/**
  * A ruleset's values. Either it carries a table, or it says the node defers to
  * its parent (`inherits: 'parent'`); a node with neither has no rule, and its
  * answer is `undetermined: no_rule`, never a code default (design §3.6).
@@ -283,7 +260,6 @@ export const rulesetValuesSchema = z
         message: `${values.purpose} has no decision table schema yet`,
       })
     }
-    if (values.purpose === 'applicability') applicabilityIssues(values, context)
     // Every body but a table or a deferral serves the purpose of its own name, and no other.
     const recordKind = values.body.kind !== 'table' && values.body.kind !== 'inherits'
     if (recordKind && values.body.kind !== values.purpose) {

@@ -5,7 +5,6 @@
  * by hand ("paper" fixtures).
  */
 
-import type { Applicability } from '../rulesets/applicability'
 import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
@@ -53,8 +52,6 @@ export interface GraphEdition {
   corpusFiles: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
-  /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
-  sourceUrl?: string | null
 }
 
 export interface RelationAnchorPair {
@@ -119,8 +116,6 @@ export interface EditionUse {
   displaced: readonly Displacement[]
   /** For a norm that guides here, the edition that binds where one does; for a commentary, the edition it interprets. */
   relatedEditionId: string | null
-  /** Whether the work applies to the project's buildings (ADR-0176); null where no applicability table speaks for it. */
-  applicability: Applicability | null
 }
 
 export interface ResolvedChain {

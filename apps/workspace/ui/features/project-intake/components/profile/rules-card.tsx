@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { ExternalLink, MessageSquareText } from 'lucide-react'
+import { MessageSquareText } from 'lucide-react'
 import { Chip } from '@/components/ui/chip'
 import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
@@ -74,7 +74,7 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
         <ul className="mt-3 flex flex-wrap gap-2">
           {uses.map((use) => (
             <li key={`${use.workId}/${use.editionId ?? 'live'}`}>
-              <LawChip projectId={view.projectId} use={use} factLabels={law.factLabels} />
+              <LawChip projectId={view.projectId} use={use} />
             </li>
           ))}
         </ul>
@@ -88,44 +88,12 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
   )
 }
 
-/**
- * Why a work applies to this project, or what would decide it (ADR-0176): the
- * building facts in the country's terms, then the provision the record cites.
- */
-function ApplicabilityNote({ use, factLabels }: { use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element | null {
-  const t = useTranslations(intakeProfileStepCopy)
-  const applicability = use.applicability
-  if (!applicability) return null
-  const facts = (keys: readonly string[]) => keys.map((key) => factLabels[key] ?? key).join(', ')
-  const why =
-    applicability.verdict === 'applies'
-      ? applicability.basis.length > 0 ? t('rules.applicability.applies', { facts: facts(applicability.basis) }) : null
-      : applicability.open.length > 0
-        ? t('rules.applicability.open', { facts: facts(applicability.open) })
-        : t('rules.applicability.case')
-  return (
-    <div className="space-y-1 text-xs" data-testid="profile-rule-applicability">
-      {why && <p>{why}</p>}
-      {applicability.provision && (
-        <p className="text-muted-foreground">{t('rules.applicability.provision', { provision: applicability.provision })}</p>
-      )}
-    </div>
-  )
-}
-
-function LawChip({ projectId, use, factLabels }: { projectId: string; use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element {
+function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const peek = useHoverPopover()
   const name = nameOf(use)
-  const toCheck = use.applicability?.verdict === 'check'
-  // The qualifier the turn reads goes with the role: „verbindlich, nicht kuratiert“; an open scope says „zu prüfen“.
-  const role = [
-    t(`rules.role.${use.role}`),
-    use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null,
-    toCheck ? t('rules.applicability.check') : null,
-  ]
-    .filter(Boolean)
-    .join(', ')
+  // The qualifier the turn reads goes with the role: „verbindlich, nicht kuratiert“.
+  const role = [t(`rules.role.${use.role}`), use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null].filter(Boolean).join(', ')
   const question = t('rules.askQuestion', { name })
   return (
     <>
@@ -140,14 +108,13 @@ function LawChip({ projectId, use, factLabels }: { projectId: string; use: Proje
           aria-label={t('rules.chipAria', { name, role })}
           data-role={use.role}
           data-qualifier={use.qualifier ?? undefined}
-          data-applicability={use.applicability?.verdict}
           data-testid={`profile-rule-${use.workId}-${use.editionId ?? 'live'}`}
           {...peek.triggerProps}
         >
           <RoleDot role={use.role} />
           <span>
             {name}
-            {(use.role !== 'binding' || use.qualifier || toCheck) && <span className="text-muted-foreground">, {role}</span>}
+            {(use.role !== 'binding' || use.qualifier) && <span className="text-muted-foreground">, {role}</span>}
           </span>
         </button>
       </Chip>
@@ -157,16 +124,7 @@ function LawChip({ projectId, use, factLabels }: { projectId: string; use: Proje
           <RoleDot role={use.role} />
           {role}
         </p>
-        <ApplicabilityNote use={use} factLabels={factLabels} />
         <div className="flex flex-wrap gap-2 pt-1">
-          {use.sourceUrl && (
-            <Chip asChild interactive variant="outline" size="sm">
-              <a href={use.sourceUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink aria-hidden />
-                {t('rules.source')}
-              </a>
-            </Chip>
-          )}
           <Chip asChild interactive variant="outline" size="sm">
             <Link href={`/app/projects/${projectId}/chat?ask=${encodeURIComponent(question)}`}>
               <MessageSquareText aria-hidden />

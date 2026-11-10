@@ -186,7 +186,7 @@ describe('buildIntakeView', () => {
   it('carries the law the service read, and derives no list of its own (ADR-0175)', () => {
     expect(buildIntakeView(input())).not.toHaveProperty('applicableLaw')
     expect(buildIntakeView(input())).not.toHaveProperty('applicableStandards')
-    const law = { gate: 'core' as const, uses: [{ workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, designation: 'X', editionLabel: null, applicability: null, sourceUrl: null }], factLabels: {} }
+    const law = { gate: 'core' as const, uses: [{ workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, designation: 'X', editionLabel: null }] }
     expect(buildIntakeView({ ...input(), applicableLaw: law }).applicableLaw).toEqual(law)
   })
 })

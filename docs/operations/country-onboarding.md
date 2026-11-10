@@ -54,18 +54,6 @@ Two kinds of configured source:
   (`door/index.spec.ts` holds the guide to the door's operations; review holds
   its list of sources).
 
-## Saying which buildings a work is for
-
-A work the chain reaches binds every project at the site until an
-`applicability` ruleset says otherwise (ADR-0176). Propose one per work whose
-scope turns on the building: a `decision_table.v1` over facts the country's
-`fact_definitions` define, answering `applies`, `check` or `not_applicable`,
-with `workIds` naming the work and a `provision` on each row (the chip shows
-it). Give it examples; the kit runs them. Austria's are
-`configs/knowledge-packs/at-applicability.json`, a request of its own after
-`at.json`, whose works they name. A fact the intake does not ask can only
-answer `check`.
-
 ## Keeping a country current
 
 The `source-monitor` sweep (every 15 minutes) checks each published source

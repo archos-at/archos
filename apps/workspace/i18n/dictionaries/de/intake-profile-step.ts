@@ -81,14 +81,6 @@ export const intakeProfileStep: typeof en.intakeProfileStep = {
     disclaimer: 'Keine Rechtsberatung.',
     ask: '{productName} fragen',
     askQuestion: 'Was regelt {name} für dieses Projekt?',
-    applicability: {
-      check: 'zu prüfen',
-      applies: 'Gilt für dieses Projekt wegen: {facts}.',
-      open: 'Ob sie für dieses Projekt gilt, hängt ab von: {facts}. Sobald das bekannt ist, steht es hier.',
-      case: 'Ob ihr Anwendungsbereich dieses Projekt erfasst, entscheidet der Einzelfall.',
-      provision: 'Grundlage: {provision}',
-    },
-    source: 'Text öffnen',
   },
   findings: {
     heading: 'Was {productName} gefunden hat',

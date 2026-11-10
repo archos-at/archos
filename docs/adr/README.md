@@ -240,7 +240,6 @@ Consequences, where a reader looks for them.
 | [0173](0173-a-turn-learns-its-country-coverage-and-editions-from-one-knowledge-context.md) | A turn learns its country, coverage and editions from one knowledge context resolved in the BFF | Proposed |
 | [0174](0174-public-sources-are-platform-records-kept-current-by-monitors.md) | Public sources are platform records, kept current by monitors that open change requests | Proposed |
 | [0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) | The cut-over removes the Austria-only paths and their switches | Proposed |
-| [0176](0176-a-work-applies-to-a-project-by-its-buildings-as-records.md) | A work applies to a project by its buildings, decided by applicability rulesets the chain runs | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

@@ -10,8 +10,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { readRulesetsInForce } = vi.hoisted(() => ({ readRulesetsInForce: vi.fn(async () => ({ rulesets: [], unreadable: [], truncated: false })) }))
-vi.mock('../store/rulesets', () => ({ readRulesetsInForce }))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries, cache, getCached } =
   vi.hoisted(() => {
     const cache = new Map<string, unknown>()
@@ -54,7 +52,7 @@ describe('knowledgeContextForTurn', () => {
     cache.clear()
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
     loadGraph.mockResolvedValue({ graph: AUSTRIA, truncated: false })
   })
 

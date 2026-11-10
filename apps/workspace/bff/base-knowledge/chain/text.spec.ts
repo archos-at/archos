@@ -8,8 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from './from-proposals'
-import { rulesetValuesSchema } from '../wire/ruleset'
-import { resolveChain, type BuildingScope } from './resolve'
+import { resolveChain } from './resolve'
 import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
 const records = [
@@ -93,39 +92,6 @@ describe('the chain text', () => {
 
   it('a Land without any route reads the model code as guidance with no binding edition', () => {
     expect(text('AT-7')).toContain("edition Ausgabe Mai 2023: guidance only; the records name no binding edition here; check the Land's ordinance")
-  })
-
-  it('says when whether a work applies waits for a building fact, and leaves out a work no building needs (ADR-0176)', () => {
-    const rulesets = [
-      {
-        id: 'ruleset:high-rise',
-        values: rulesetValuesSchema.parse({
-          purpose: 'applicability',
-          territoryIds: ['AT'],
-          workIds: ['work:oib-rl-2'],
-          validFrom: '2019-04-12',
-          body: {
-            kind: 'table',
-            payloadSchema: 'decision_table.v1',
-            payload: {
-              inputs: [{ key: 'escape_level_m', type: 'number' }],
-              output: { type: 'code', codes: ['applies', 'not_applicable'] },
-              rows: [{ id: 'over-22', when: { '>': [{ var: 'escape_level_m' }, 22] }, then: 'applies' }],
-              otherwise: { then: 'not_applicable' },
-            },
-          },
-        }),
-      },
-    ]
-    const at = (inputs: Record<string, number>) => {
-      const scope: BuildingScope = { rulesets, buildings: [{ buildingId: 'bldg1', inputs }] }
-      return renderChainText(graph, resolveChain(graph, 'AT-9', '2026-11-10', scope), 'AT-9')
-    }
-    expect(at({})).toContain(
-      '(§ 1 WBTV 2023); whether it applies to this project depends on escape_level_m, not yet known: ask before relying on it',
-    )
-    expect(at({ escape_level_m: 30 })).toContain("(§ 1 WBTV 2023); applies to this project by its building's escape_level_m")
-    expect(at({ escape_level_m: 9 })).not.toContain('OIB-Richtlinie 2')
   })
 
   it('keeps a planted instruction in a record name from becoming markup or a second line', () => {

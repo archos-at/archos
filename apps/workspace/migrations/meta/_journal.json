@@ -1499,13 +1499,6 @@
       "when": 1793080000000,
       "tag": "0213_knowledge_context",
       "breakpoints": true
-    },
-    {
-      "idx": 214,
-      "version": "7",
-      "when": 1793090000000,
-      "tag": "0214_ruleset_applicability",
-      "breakpoints": true
     }
   ]
 }

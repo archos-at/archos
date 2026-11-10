@@ -7,7 +7,7 @@
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
  * digest, and the resolved context is cached, with the names a person reads
- * for its uses (never on the wire), under `knowledge-context-v3:<org>:<project>:<digest>`: the organization and the
+ * for its uses (never on the wire), under `knowledge-context-v2:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -28,18 +28,15 @@ import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import type { PhaseTimer } from '../chain/turn'
-import { buildingScopeFor, projectBuildings, type ProjectBuildings } from '../chain/building'
 import { loadGraph } from '../chain/load'
 import type { KnowledgeGraph } from '../chain/graph'
 import { nameOf } from '../chain/text'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
-import { chainAt } from '../chain/resolve'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
-import type { FactDefinition } from '../wire/setup-facts'
 import type { KnowledgeContext, ProcedureContext } from './wire'
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
@@ -69,8 +66,6 @@ export interface ContextDigestInputs {
   procedures: readonly ProcedureContext[]
   /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
   recordsStamp?: string
-  /** The project's buildings by its country's facts: what the applicability tables read (ADR-0176). */
-  buildings?: ProjectBuildings
 }
 
 /** A stable hash of the inputs: same inputs, same digest, in any key order. */
@@ -89,7 +84,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v3:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v2:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -141,20 +136,14 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
 }
 
 /**
- * The names a person reads for a context's uses: each work's designation, each
- * edition's label and the page its text opens at, from the graph the context
- * was resolved on, and the label of each building fact an applicability names
- * (ADR-0176), from the country's fact definitions. Kept beside
+ * The names a person reads for a context's uses: each work's designation and
+ * each edition's label, from the graph the context was resolved on. Kept beside
  * the context, never on its wire, so the page names exactly the uses the turn
  * reads without reading the graph again.
  */
 export interface UseNames {
   works: Record<string, string | null>
   editions: Record<string, string | null>
-  /** Per edition, where a person opens its text. */
-  sources: Record<string, string | null>
-  /** Per building fact a use's applicability names, its label in the country's terms. */
-  facts: Record<string, string>
 }
 
 /** A resolved context and the names of its uses: what the cache holds. */
@@ -163,22 +152,17 @@ export interface ContextResolution {
   names: UseNames
 }
 
-const NO_NAMES: UseNames = { works: {}, editions: {}, sources: {}, facts: {} }
+const NO_NAMES: UseNames = { works: {}, editions: {} }
 
 /** The names of the uses `context` carries, read from `graph`. Pure. */
-export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext, definitions: readonly FactDefinition[] = []): UseNames {
-  const names: UseNames = { works: {}, editions: {}, sources: {}, facts: {} }
-  const labels = new Map(definitions.map((definition) => [definition.key, definition.label]))
+export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext): UseNames {
+  const names: UseNames = { works: {}, editions: {} }
   for (const use of context.uses) {
     const designation = graph.works.get(use.workId)?.designation
     names.works[use.workId] = designation ? nameOf(designation) : null
     if (use.editionId) {
-      const edition = graph.editions.get(use.editionId)
-      names.editions[use.editionId] = edition?.label ? nameOf(edition.label) : null
-      names.sources[use.editionId] = edition?.sourceUrl ?? null
-    }
-    for (const key of [...(use.applicability?.basis ?? []), ...(use.applicability?.open ?? [])]) {
-      names.facts[key] = nameOf(labels.get(key) ?? key)
+      const label = graph.editions.get(use.editionId)?.label
+      names.editions[use.editionId] = label ? nameOf(label) : null
     }
   }
   return names
@@ -191,11 +175,6 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
-  const project = inputs.buildings
-  const building =
-    loaded && first && project
-      ? await time('applicability', () => buildingScopeFor(organizationId, chainAt(first.territoryId, inputs.date, loaded.graph), project))
-      : null
   const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
@@ -206,9 +185,8 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
-    building,
   })
-  return { context, names: graph ? namesOf(graph, context, project?.definitions) : NO_NAMES }
+  return { context, names: graph ? namesOf(graph, context) : NO_NAMES }
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */
@@ -248,17 +226,15 @@ export async function readContextInputs(organizationId: string, projectId: strin
   const entitled = countries.entitled.map((entry) => entry.countryId)
   const sites = siteLeaves(profile?.profile)
   const facts = profile?.profile?.facts ?? {}
-  const date = calendarDayIn(zone)
   return {
     homeCountry: countries.homeCountry,
     entitled,
     sites,
-    date,
+    date: calendarDayIn(zone),
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites),
     recordsStamp: stamp,
-    buildings: projectBuildings(profile?.profile, date),
   }
 }
 
