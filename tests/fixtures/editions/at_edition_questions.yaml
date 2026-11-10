@@ -113,17 +113,7 @@ questions:
   family: OIB-RL 6
   suite: core
   question: Welche Ausgabe der OIB-Richtlinie 6 ist im Burgenland für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
-  disputed_source:
-    pack:
-      relation: at-1-oib-rl-6-2019
-      edition: '2019'
-      lgbl: 22/2021
-      in_force: '2021-04-10'
-    ris:
-      document: LGBLA_BU_20261104_75
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_BU_20261104_75/LGBLA_BU_20261104_75.xml
-      quote: '§ 36 Abs. 1: Richtlinie 6, Energieeinsparung und Wärmeschutz, ... in der Fassung 2025; § 43 Abs. 10: treten mit dem der Kundmachung folgenden Tag in Kraft (ausgegeben am 4. November 2026)'
-    note: 'RIS: LGBl 75/2026 binds OIB-RL 6 Ausgabe 2025 from the day after its publication on 4.11.2026; the OIB table still shows ''-'' and the pack holds only the 2019 edition'
+  relation: at-1-oib-rl-6-2025
   expect:
     edition: '2025'
     lgbl: 75/2026
@@ -221,17 +211,7 @@ questions:
   family: OIB-RL 1
   suite: core
   question: Welche Ausgabe der OIB-Richtlinie 1 ist in Niederösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-1-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-1-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -245,17 +225,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Wir reichen am 10. November 2026 in Niederösterreich ein. Welche Fassung der OIB-RL 2 müssen wir einhalten, und seit wann gilt sie dort?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-2-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -269,17 +239,7 @@ questions:
   family: OIB-RL 3
   suite: core
   question: Gilt in Niederösterreich bei Einreichung am 10. November 2026 die OIB-RL 3 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-3-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-3-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -293,17 +253,7 @@ questions:
   family: OIB-RL 4
   suite: core
   question: Welche Ausgabe der OIB-Richtlinie 4 ist in Niederösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-4-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-4-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -317,17 +267,7 @@ questions:
   family: OIB-RL 5
   suite: core
   question: Wir reichen am 10. November 2026 in Niederösterreich ein. Welche Fassung der OIB-RL 5 müssen wir einhalten, und seit wann gilt sie dort?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-5-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-5-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -341,17 +281,7 @@ questions:
   family: OIB-RL 6
   suite: core
   question: Gilt in Niederösterreich bei Einreichung am 10. November 2026 die OIB-RL 6 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-6-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-6-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -448,17 +378,7 @@ questions:
   family: OIB-RL 1
   suite: core
   question: Gilt in Salzburg bei Einreichung am 10. November 2026 die OIB-RL 1 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-1-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-1-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -472,17 +392,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Welche Ausgabe der OIB-Richtlinie 2 ist in Salzburg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-2-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -496,17 +406,7 @@ questions:
   family: OIB-RL 3
   suite: core
   question: Wir reichen am 10. November 2026 in Salzburg ein. Welche Fassung der OIB-RL 3 müssen wir einhalten, und seit wann gilt sie dort?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-3-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-3-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -520,17 +420,7 @@ questions:
   family: OIB-RL 4
   suite: core
   question: Gilt in Salzburg bei Einreichung am 10. November 2026 die OIB-RL 4 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-4-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-4-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -544,17 +434,7 @@ questions:
   family: OIB-RL 5
   suite: core
   question: Welche Ausgabe der OIB-Richtlinie 5 ist in Salzburg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-5-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-5-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -568,17 +448,7 @@ questions:
   family: OIB-RL 6
   suite: core
   question: Wir reichen am 10. November 2026 in Salzburg ein. Welche Fassung der OIB-RL 6 müssen wir einhalten, und seit wann gilt sie dort?
-  disputed_source:
-    pack:
-      relation: null
-      edition: null
-      lgbl: null
-      in_force: null
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 1, Zeile 6: Energieeinsparung und Wärmeschutz | März 2015 | gemäß Teil E der Anlage 1; § 9 Abs 1: tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 binds OIB-RL 6 Ausgabe März 2015 (with the deviations of Teil E); the pack holds no RL 6 adoption for Salzburg'
+  relation: at-5-oib-rl-6-2015
   expect:
     edition: '2015'
     lgbl: 83/2026
@@ -1001,17 +871,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 6. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table''s 06.08.2026 is the publication day, so the 2019 edition still binds'
+  relation: at-5-oib-rl-2-2019
   pair: sbg-rl2
   expect:
     edition: '2019'
@@ -1026,17 +886,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table''s 06.08.2026 is the publication day, so the 2019 edition still binds'
+  relation: at-5-oib-rl-2-2019
   pair: sbg-rl2
   expect:
     edition: '2019'
@@ -1051,17 +901,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-2-2023
   pair: sbg-rl2
   expect:
     edition: '2023'
@@ -1077,17 +917,7 @@ questions:
   family: OIB-RL 3
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-3-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table''s 06.08.2026 is the publication day, so the 2019 edition still binds'
+  relation: at-5-oib-rl-3-2019
   pair: sbg-rl3
   expect:
     edition: '2019'
@@ -1102,17 +932,7 @@ questions:
   family: OIB-RL 3
   suite: core
   question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-3-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-3-2023
   pair: sbg-rl3
   expect:
     edition: '2023'
@@ -1236,23 +1056,12 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Unser Bauansuchen in Niederösterreich wird am 18. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-2-2019
   pair: noe-rl2
   expect:
-    edition: '2023'
-    other_edition: '2019'
-    lgbl: 41/2025
-    in_force: '2025-03-20'
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-07-01'
     ris_link: true
 - id: r2-noe-rl2-2025-03-20
   group: r2
@@ -1262,17 +1071,7 @@ questions:
   family: OIB-RL 2
   suite: core
   question: Unser Bauansuchen in Niederösterreich wird am 20. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-2-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-2-2023
   pair: noe-rl2
   expect:
     edition: '2023'
@@ -1335,17 +1134,7 @@ questions:
   family: OIB-RL 6
   suite: core
   question: Unser Bauansuchen im Burgenland wird am 5. November 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
-  disputed_source:
-    pack:
-      relation: at-1-oib-rl-6-2019
-      edition: '2019'
-      lgbl: 22/2021
-      in_force: '2021-04-10'
-    ris:
-      document: LGBLA_BU_20261104_75
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_BU_20261104_75/LGBLA_BU_20261104_75.xml
-      quote: '§ 36 Abs. 1: Richtlinie 6, Energieeinsparung und Wärmeschutz, ... in der Fassung 2025; § 43 Abs. 10: treten mit dem der Kundmachung folgenden Tag in Kraft (ausgegeben am 4. November 2026)'
-    note: 'RIS: LGBl 75/2026 binds OIB-RL 6 Ausgabe 2025 from the day after its publication on 4.11.2026; the OIB table still shows ''-'' and the pack holds only the 2019 edition'
+  relation: at-1-oib-rl-6-2025
   pair: bgld-rl6
   expect:
     edition: '2025'
@@ -1800,17 +1589,7 @@ questions:
   family: OIB-RL 4
   suite: core
   question: 'Für St. Pölten: Was sagt die OIB-RL 4 Ausgabe 2019 zur Mindestbreite von Gängen?'
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-4-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-4-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -1825,17 +1604,7 @@ questions:
   family: OIB-RL 6
   suite: core
   question: In Niederösterreich gilt die OIB-RL 6 2025. Welche Anforderungen gelten für den Gesamtenergieeffizienz-Faktor?
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-6-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-6-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
@@ -1880,17 +1649,7 @@ questions:
   family: OIB-RL 4
   suite: core
   question: 'Salzburg, Einreichung November 2026: Welche Geländerhöhen verlangt die OIB-RL 4 Ausgabe 2019?'
-  disputed_source:
-    pack:
-      relation: at-5-oib-rl-4-2023
-      edition: '2023'
-      lgbl: 83/2026
-      in_force: '2026-08-06'
-    ris:
-      document: LGBLA_SA_20260806_83
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_SA_20260806_83/LGBLA_SA_20260806_83.xml
-      quote: '§ 9 Abs 1: Diese Verordnung tritt mit 1. September 2026 in Kraft'
-    note: 'RIS: LGBl 83/2026 is in force from 1.9.2026 (§ 9); the OIB table lists 06.08.2026'
+  relation: at-5-oib-rl-4-2023
   expect:
     edition: '2023'
     lgbl: 83/2026
@@ -2084,20 +1843,68 @@ questions:
   family: OIB-RL 1
   suite: core
   question: 'Niederösterreich, Einreichung im Mai 2025: Es gilt die OIB-RL 1 Ausgabe 2019, richtig?'
-  disputed_source:
-    pack:
-      relation: at-3-oib-rl-1-2023
-      edition: '2023'
-      lgbl: 41/2025
-      in_force: '2025-03-18'
-    ris:
-      document: LGBLA_NI_20250319_41
-      url: https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_NI_20250319_41/LGBLA_NI_20250319_41.xml
-      quote: treten am Tag der Kundmachung folgenden Tag in Kraft (Ausgegeben am 19. März 2025)
-    note: 'RIS: the amendment is in force from the day after its publication on 19.03.2025; the OIB table''s 18.03.2025 is the adoption date'
+  relation: at-3-oib-rl-1-2023
   expect:
     edition: '2023'
     lgbl: 41/2025
     in_force: '2025-03-20'
     ris_link: true
     premise: '2019'
+- id: r5-sbg-rl2
+  group: r5
+  land: AT-5
+  guideline: '2'
+  day: '2026-08-20'
+  family: OIB-RL 2
+  suite: core
+  question: Laut OIB-Tabelle gelten in Salzburg die OIB-Richtlinien 2023 seit 06.08.2026. Für unsere Einreichung am 20. August 2026 gilt also die OIB-RL 2 Ausgabe 2023?
+  relation: at-5-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    in_force: '2021-10-01'
+    ris_link: true
+    premise: 06.08.2026
+- id: r5-noe-rl4-2
+  group: r5
+  land: AT-3
+  guideline: '4'
+  day: '2025-03-19'
+  family: OIB-RL 4
+  suite: core
+  question: Die NÖ BTV mit den OIB-Richtlinien 2023 gilt seit 18.03.2025. Für eine Einreichung am 19. März 2025 gilt also schon die OIB-RL 4 Ausgabe 2023?
+  relation: at-3-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    in_force: '2021-07-01'
+    ris_link: true
+    premise: 18.03.2025
+- id: r5-bgld-rl6
+  group: r5
+  land: AT-1
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Die OIB-Tabelle zeigt für das Burgenland keine Übernahme der OIB-RL 6 2025. Für eine Einreichung am 10. November 2026 gilt dort also weiter die Ausgabe 2019?
+  relation: at-1-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 75/2026
+    in_force: '2026-11-05'
+    ris_link: true
+    premise: '2019'
+- id: r5-sbg-rl6
+  group: r5
+  land: AT-5
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Salzburg hat keine OIB-RL 6 verbindlich erklärt, die gilt dort nur als Empfehlung. Was heißt das für den Wärmeschutz bei einer Einreichung am 10. November 2026?
+  relation: at-5-oib-rl-6-2015
+  expect:
+    edition: '2015'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    premise: keine OIB-RL 6

@@ -195,11 +195,16 @@ class TestChecks:
         run = SimpleNamespace(kind="", cited_families=[], answer="Nicht vorhanden.", signals=[])
         assert "family_cited" not in suite.check(row, run, {"cards": []})
 
-    def test_the_report_counts_disputed_rows_apart(self):
+    def test_the_report_counts_disputed_rows_apart(self, monkeypatch):
+        rows = [
+            {"id": "r1-a", "group": "r1", "disputed_source": {"note": "RIS: differs"}},
+            {"id": "r1-b", "group": "r1"},
+        ]
+        monkeypatch.setattr(edition_eval, "load_questions", lambda: rows)
         runs = [
-            SimpleNamespace(question_id="r1-sbg-rl1", error="", checks={"a": True}),
-            SimpleNamespace(question_id="r1-wien-rl1", error="", checks={"a": False}),
+            SimpleNamespace(question_id="r1-a", error="", checks={"a": True}),
+            SimpleNamespace(question_id="r1-b", error="", checks={"a": False}),
         ]
         lines = edition_eval.report_lines(runs)
         assert "| r1 | 2 | 0/1 (0%) | 1/1 (100%) |" in lines
-        assert any("r1-sbg-rl1" in line for line in lines)
+        assert any("r1-a" in line for line in lines)

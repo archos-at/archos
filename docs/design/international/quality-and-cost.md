@@ -52,7 +52,7 @@ A test pins the size of the static prefix, so it cannot creep back. Modelled: ab
 - 20 abstention items;
 - at least 30 false premises.
 
-The expected values come from the published records and their RIS captures, never from memory. Where the OIB table and RIS disagree, RIS wins and the item cites it. Built as `--set editions` (`tests/fixtures/editions/at_edition_questions.yaml`, 130 items, 25 of them marked `disputed_source`). The research found no building-code QA benchmark published in its window, so this set would be the first public one we know of.
+The expected values come from the published records and their RIS captures, never from memory. Where the OIB table and RIS disagree, RIS wins and the item cites it. Built as `--set editions` (`tests/fixtures/editions/at_edition_questions.yaml`, 134 items). The pack was corrected to RIS for Salzburg, Niederösterreich and Burgenland, and the OIB table's values became false premises. The research found no building-code QA benchmark published in its window, so this set would be the first public one we know of.
 
 **Q3: model choice per role, confirmed by the suite** (serves cost without giving up quality). Keep `gpt-6.1-terra` at medium for the answer. Test Haiku 5.5 against `gpt-6-luna` for the clarifier, router, memory and follow-up roles. Test Sonnet 5.5 against `gpt-6.1-sol` for ingest vision. Each is one variable per run, with the exact overrides in the token report, (d). A model moves only through Platform → Models after the suite shows no question got worse. The YAML is never the place to move it.
 

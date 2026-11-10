@@ -625,8 +625,8 @@ task be:eval:answer-suite -- --out /tmp/suite/after --baseline /tmp/suite/before
 **The edition set** (`-- --set editions`, `--only r1 r3` for groups) asks which
 OIB-RL edition binds in an Austrian Land on a given day: market requirements R1,
 R2, R3 and R5 (`docs/design/international/research/market-2026-11.md`, (d)). The
-130 rows are in `tests/fixtures/editions/at_edition_questions.yaml`: 54 Land × RL
-items, 24 changeover days, 20 abstentions and 32 false premises. The checks
+134 rows are in `tests/fixtures/editions/at_edition_questions.yaml`: 54 Land × RL
+items, 24 changeover days, 20 abstentions and 36 false premises. The checks
 (`scripts/turn_census/edition_eval.py`) are patterns for the edition, the LGBl, the
 in-force day and a link to `ris.bka.gv.at`, `no_substitute` (no Richtlinie cited
 by an abstention), and two judge rubrics, `abstains` and `corrects_premise`. Every
