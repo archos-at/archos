@@ -11,17 +11,23 @@
         "manifestation",
         "ruleset",
         "territory",
-        "authority"
+        "authority",
+        "relation"
       ]
     },
     "knowledge_work_revisions.kind": {
       "type": "string",
       "enum": [
+        "statute",
+        "ordinance",
+        "administrative_regulation",
+        "directive",
+        "intergovernmental_agreement",
+        "model_code",
         "technical_standard",
         "guideline",
         "commentary",
-        "authority_directive",
-        "statute"
+        "authority_directive"
       ]
     },
     "knowledge_manifestation_revisions.form": {
@@ -150,6 +156,37 @@
         "requested",
         "queued",
         "failed"
+      ]
+    },
+    "knowledge_relation_revisions.relation_type": {
+      "type": "string",
+      "enum": [
+        "makes_binding",
+        "supersedes",
+        "deviates_from",
+        "interprets"
+      ]
+    },
+    "knowledge_relation_revisions.mode": {
+      "type": "string",
+      "enum": [
+        "declared",
+        "static_reference",
+        "dynamic_reference"
+      ]
+    },
+    "knowledge_relation_revisions.from_type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition"
+      ]
+    },
+    "knowledge_relation_revisions.to_type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition"
       ]
     }
   }

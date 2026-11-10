@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import replace
 
+from agent.citations.roles import BuildingLaw
+from agent.citations.roles import parse_building_law
 from agent.common import bff_http
 from agent.project_context import MEMORY_HEADER_MAX_CHARS
 from agent.project_context import RequestContext
@@ -50,6 +52,11 @@ class ContextBlocks:
     #: designation, edition, role, last check, text use. Tokens for the answer's
     #: renderer (S2) to word; empty from an older BFF or with the flag off.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
+    #: The building law of the project's site from the platform's records
+    #: (ADR-0168, ``lib/base-knowledge/chain/wire.ts``): the chain text and every
+    #: edition's role. None from an older BFF, with the flag off, or when nothing
+    #: binds at the site by the records.
+    building_law: BuildingLaw | None = None
     #: Where the BFF spent its time, read off the route's ``Server-Timing``
     #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
     #: waited for the query embed). Scalars only, never content; empty from an
@@ -186,6 +193,7 @@ def _parse_blocks(body: object) -> ContextBlocks:
             BASE_KNOWLEDGE_MAX_CHARS,
         ),
         base_knowledge_labels=_labels(data.get("baseKnowledgeLabels")),
+        building_law=parse_building_law(data.get("buildingLaw")),
     )
 
 

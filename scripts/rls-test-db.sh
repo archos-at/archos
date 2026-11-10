@@ -261,13 +261,16 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # scheduler's due-scan is the same shape over task_definitions, every tenant's.
 # `orchestrator.integration.spec.ts` also needs an engine (HATCHET_CLIENT_TOKEN and
 # HATCHET_CLIENT_HOST_PORT, CI's hatchet-lite); without one it skips.
+# The country-pack suite publishes Austria's real territory ids, which the
+# platform suite above publishes too: alone, so neither publish meets the other's.
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
     bff/jobs-queue/repository.integration.spec.ts \
     bff/jobs-queue/task-run.integration.spec.ts \
     bff/jobs-queue/orchestrator.integration.spec.ts \
-    bff/scheduling/repository.integration.spec.ts
+    bff/scheduling/repository.integration.spec.ts \
+    bff/base-knowledge/chain/chain.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -3646,3 +3649,31 @@ check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_n
 apply_in addr_0210 0210_address_register.sql
 check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0210 applies again after its down"
 echo "==> 0210 address register and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0211: relations are records (ADR-0168): a relation names two records of its
+# owner, a mode only for makes_binding; the down removes relations and their
+# records and the record type, and 0211 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0211 country pack and its down migration on cp_0211"
+migrate_until cp_0211 0211_country_pack
+sql_in cp_0211 <<'SQL'
+INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
+  ('work:t0211-ordinance', 'org_0211', 'work', 'user_author'),
+  ('work:t0211-norm', 'org_0211', 'work', 'user_author'),
+  ('relation:t0211', 'org_0211', 'relation', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'relation', 'org_0211', 'user_author');
+INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'org_0211', 'makes_binding', 'declared',
+          'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work');
+SQL
+refused_in cp_0211 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0211', 'org_0211', 'supersedes', 'declared', 'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
+refused_in cp_0211 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
+apply_in cp_0211 0211_country_pack.down.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0211 down drops the relation bodies"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0211 down removes the relation records"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0211-%'" "2" "0211 down keeps the works"
+apply_in cp_0211 0211_country_pack.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0211 applies again after its down"
+echo "==> 0211 country pack and its down migration verified"

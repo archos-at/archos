@@ -367,3 +367,39 @@ def test_vienna_still_names_its_own_laws():
     context = _jurisdiction_context("- federal_state=vienna\n")
     assert "Wiener Kleingartengesetz" in context
     assert "Wiener Garagengesetz" in context
+
+
+class TestBuildingLaw:
+    """ADR-0168: the records' chain reaches the turn context only once the static prompt drops the block."""
+
+    CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."
+    VIENNA = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n"
+
+    @pytest.fixture(autouse=True)
+    def _turn_building_law(self):
+        from agent.citations.roles import BuildingLaw
+        from agent.citations.roles import set_turn_building_law
+
+        set_turn_building_law(BuildingLaw(text=self.CHAIN, chain=("AT-9", "AT", "EU"), date="2026-11-10", uses=()))
+        yield
+        set_turn_building_law(None)
+
+    def _state(self) -> ResearchAgentState:
+        return ResearchAgentState(
+            messages=[HumanMessage(content="Welche Brandschutzklasse brauche ich?")], project_context=self.VIENNA
+        )
+
+    def test_the_turn_context_is_byte_identical_while_the_static_prompt_holds_the_block(self):
+        from agent.citations.roles import set_turn_building_law
+
+        template = system_prompt_template()
+        static = (prompt_module.PROMPTS_DIR / prompt_module.STATIC_PROMPT_FILE).read_text(encoding="utf-8")
+        with_chain = prompt_module.render_turn_context(template, self._state(), [], static_text=static)
+        set_turn_building_law(None)
+        assert prompt_module.render_turn_context(template, self._state(), []) == with_chain
+        assert "<building_law>" not in with_chain
+
+    def test_after_the_neutral_push_the_turn_context_carries_the_records_chain(self):
+        neutral = "<role>a static prompt without the block</role>"
+        rendered = prompt_module.render_turn_context(system_prompt_template(), self._state(), [], static_text=neutral)
+        assert f"<building_law>\n{self.CHAIN}" in rendered

@@ -1,0 +1,4064 @@
+{
+  "$comment": "The Austria pack (ADR-0168): proposed through records-propose in one change request for AT, reviewed and published like any platform change; never seeded. Each record cites a capture of that change request with a quote before it can be proposed (ADR-0170, KC-6): the file holds the records, not their captures. Generated once from the OIB's in-force table; edit the records, not a generator.",
+  "countryId": "AT",
+  "title": "Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land",
+  "records": [
+    {
+      "type": "territory",
+      "id": "AT",
+      "kind": "country",
+      "name": "Österreich",
+      "parentIds": [],
+      "datedParents": [
+        {
+          "id": "EU",
+          "validFrom": "1995-01-01",
+          "validTo": null
+        }
+      ],
+      "citations": [
+        {
+          "note": "Member of the European Union since 1995-01-01 (Accession Treaty 1994)."
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-1",
+      "kind": "state",
+      "name": "Burgenland",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-2",
+      "kind": "state",
+      "name": "Kärnten",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-3",
+      "kind": "state",
+      "name": "Niederösterreich",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-4",
+      "kind": "state",
+      "name": "Oberösterreich",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-5",
+      "kind": "state",
+      "name": "Salzburg",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-6",
+      "kind": "state",
+      "name": "Steiermark",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-7",
+      "kind": "state",
+      "name": "Tirol",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-8",
+      "kind": "state",
+      "name": "Vorarlberg",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "territory",
+      "id": "AT-9",
+      "kind": "state",
+      "name": "Wien",
+      "parentIds": [
+        "AT"
+      ],
+      "citations": [
+        {
+          "note": "ISO 3166-2:AT"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-bgld",
+      "kind": "statute",
+      "title": "Burgenländisches Baugesetz 1997",
+      "designation": "Bgld. BauG",
+      "territoryIds": [
+        "AT-1"
+      ],
+      "issuer": "Land Burgenland",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LBG40028940"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bgld-bauvo",
+      "kind": "ordinance",
+      "title": "Burgenländische Bauverordnung 2008",
+      "designation": "Bgld. BauVO 2008",
+      "territoryIds": [
+        "AT-1"
+      ],
+      "issuer": "Landesregierung Burgenland",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-ktn",
+      "kind": "statute",
+      "title": "Kärntner Bauordnung 1996",
+      "designation": "K-BO 1996",
+      "territoryIds": [
+        "AT-2"
+      ],
+      "issuer": "Land Kärnten",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LKT11000201"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "ktn-btv",
+      "kind": "ordinance",
+      "title": "Kärntner Bautechnikverordnung",
+      "designation": "K-BTV",
+      "territoryIds": [
+        "AT-2"
+      ],
+      "issuer": "Landesregierung Kärnten",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-noe",
+      "kind": "statute",
+      "title": "NÖ Bauordnung 2014",
+      "designation": "NÖ BO 2014",
+      "territoryIds": [
+        "AT-3"
+      ],
+      "issuer": "Land Niederösterreich",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LNO40085504"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "noe-btv",
+      "kind": "ordinance",
+      "title": "NÖ Bautechnikverordnung 2014",
+      "designation": "NÖ BTV 2014",
+      "territoryIds": [
+        "AT-3"
+      ],
+      "issuer": "Landesregierung Niederösterreich",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-ooe",
+      "kind": "statute",
+      "title": "Oö. Bauordnung 1994",
+      "designation": "Oö. BauO 1994",
+      "territoryIds": [
+        "AT-4"
+      ],
+      "issuer": "Land Oberösterreich",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LOO11000699"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "ooe-bautv",
+      "kind": "ordinance",
+      "title": "Oö. Bautechnikverordnung",
+      "designation": "Oö. BauTV",
+      "territoryIds": [
+        "AT-4"
+      ],
+      "issuer": "Landesregierung Oberösterreich",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "btg-sbg",
+      "kind": "statute",
+      "title": "Salzburger Bautechnikgesetz 2015",
+      "designation": "Sbg. BTG 2015",
+      "territoryIds": [
+        "AT-5"
+      ],
+      "issuer": "Land Salzburg",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LSB40029658"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "sbg-btv",
+      "kind": "ordinance",
+      "title": "Bautechnikverordnung (Salzburg)",
+      "designation": "Sbg. BTV",
+      "territoryIds": [
+        "AT-5"
+      ],
+      "issuer": "Landesregierung Salzburg",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-stmk",
+      "kind": "statute",
+      "title": "Steiermärkisches Baugesetz",
+      "designation": "Stmk. BauG",
+      "territoryIds": [
+        "AT-6"
+      ],
+      "issuer": "Land Steiermark",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LST40035828"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "stmk-btv",
+      "kind": "ordinance",
+      "title": "Steiermärkische Bautechnikverordnung",
+      "designation": "StBTV",
+      "territoryIds": [
+        "AT-6"
+      ],
+      "issuer": "Landesregierung Steiermark",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-tirol",
+      "kind": "statute",
+      "title": "Tiroler Bauordnung 2022",
+      "designation": "TBO 2022",
+      "territoryIds": [
+        "AT-7"
+      ],
+      "issuer": "Land Tirol",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LTI40047551"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "tirol-tbv",
+      "kind": "ordinance",
+      "title": "Technische Bauvorschriften (Tirol)",
+      "designation": "TBV",
+      "territoryIds": [
+        "AT-7"
+      ],
+      "issuer": "Landesregierung Tirol",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-vbg",
+      "kind": "statute",
+      "title": "Baugesetz (Vorarlberg)",
+      "designation": "Vbg. BauG",
+      "territoryIds": [
+        "AT-8"
+      ],
+      "issuer": "Land Vorarlberg",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LVB40009302"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "vbg-btv",
+      "kind": "ordinance",
+      "title": "Bautechnikverordnung (Vorarlberg)",
+      "designation": "Vbg. BTV",
+      "territoryIds": [
+        "AT-8"
+      ],
+      "issuer": "Landesregierung Vorarlberg",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "bo-wien",
+      "kind": "statute",
+      "title": "Bauordnung für Wien",
+      "designation": "BO für Wien",
+      "territoryIds": [
+        "AT-9"
+      ],
+      "issuer": "Land Wien",
+      "citations": [
+        {
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LWI40000225"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "wbtv",
+      "kind": "ordinance",
+      "title": "Wiener Bautechnikverordnung",
+      "designation": "WBTV",
+      "territoryIds": [
+        "AT-9"
+      ],
+      "issuer": "Landesregierung Wien",
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-1",
+      "kind": "model_code",
+      "title": "Mechanische Festigkeit und Standsicherheit",
+      "designation": "OIB-Richtlinie 1",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-1-2019",
+      "workKey": "oib-rl-1",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-1-2023",
+      "workKey": "oib-rl-1",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-1-2023-text",
+      "editionKey": "oib-rl-1-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_1_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-2",
+      "kind": "model_code",
+      "title": "Brandschutz",
+      "designation": "OIB-Richtlinie 2",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2019",
+      "workKey": "oib-rl-2",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2023",
+      "workKey": "oib-rl-2",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-2023-text",
+      "editionKey": "oib-rl-2-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_2_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-2-1",
+      "kind": "model_code",
+      "title": "Brandschutz bei Betriebsbauten",
+      "designation": "OIB-Richtlinie 2.1",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-1-2019",
+      "workKey": "oib-rl-2-1",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-1-2023",
+      "workKey": "oib-rl-2-1",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-1-2023-text",
+      "editionKey": "oib-rl-2-1-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_2.1_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-2-2",
+      "kind": "model_code",
+      "title": "Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks",
+      "designation": "OIB-Richtlinie 2.2",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2-2019",
+      "workKey": "oib-rl-2-2",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-2-2023",
+      "workKey": "oib-rl-2-2",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-2-2023-text",
+      "editionKey": "oib-rl-2-2-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-richtlinie_2.2_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-2-3",
+      "kind": "model_code",
+      "title": "Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m",
+      "designation": "OIB-Richtlinie 2.3",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-3-2019",
+      "workKey": "oib-rl-2-3",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-2-3-2023",
+      "workKey": "oib-rl-2-3",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-3-2023-text",
+      "editionKey": "oib-rl-2-3-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_2.3_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-3",
+      "kind": "model_code",
+      "title": "Hygiene, Gesundheit und Umweltschutz",
+      "designation": "OIB-Richtlinie 3",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-3-2019",
+      "workKey": "oib-rl-3",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-3-2023",
+      "workKey": "oib-rl-3",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-3-2023-text",
+      "editionKey": "oib-rl-3-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_3_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-4",
+      "kind": "model_code",
+      "title": "Nutzungssicherheit und Barrierefreiheit",
+      "designation": "OIB-Richtlinie 4",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-4-2019",
+      "workKey": "oib-rl-4",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-4-2023",
+      "workKey": "oib-rl-4",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-4-2023-text",
+      "editionKey": "oib-rl-4-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_4_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-5",
+      "kind": "model_code",
+      "title": "Schallschutz",
+      "designation": "OIB-Richtlinie 5",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-5-2019",
+      "workKey": "oib-rl-5",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-5-2023",
+      "workKey": "oib-rl-5",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-5-2023-text",
+      "editionKey": "oib-rl-5-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_5_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "work",
+      "key": "oib-rl-6",
+      "kind": "model_code",
+      "title": "Energieeinsparung und Wärmeschutz",
+      "designation": "OIB-Richtlinie 6",
+      "territoryIds": [
+        "AT"
+      ],
+      "issuer": "Österreichisches Institut für Bautechnik",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien, overview of editions"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-6-2019",
+      "workKey": "oib-rl-6",
+      "label": "Ausgabe April 2019",
+      "issuedOn": "2019-04-12",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2019-04-12"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-6-2023",
+      "workKey": "oib-rl-6",
+      "label": "Ausgabe Mai 2023",
+      "issuedOn": "2023-05-25",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly on 2023-05-25"
+        }
+      ]
+    },
+    {
+      "type": "edition",
+      "key": "oib-rl-6-2025",
+      "workKey": "oib-rl-6",
+      "label": "Ausgabe 2025",
+      "issuedOn": "2025-08-29",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "adopted by the OIB general assembly (circular resolution) on 2025-08-29"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-6-2023-text",
+      "editionKey": "oib-rl-6-2023",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_6_ausgabe_mai_2023.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-1-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "bgld-bauvo"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": "Bgld. BauVO 2008 idF LGBl. 22/2021",
+      "validFrom": "2021-04-10",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-12",
+      "validTo": "2024-12-31",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-2-oib-rl-6-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ktn-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2023"
+      },
+      "provision": "K-BTV 2024, LGBl. 105/2024",
+      "validFrom": "2024-12-31",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-07-01",
+      "validTo": "2025-03-18",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-3-oib-rl-6-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "noe-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2023"
+      },
+      "provision": "NÖ BTV 2014 idF LGBl. 41/2025",
+      "validFrom": "2025-03-18",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": "2025-10-01",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "Oö. BauTV-Novelle 2025, LGBl. 70/2025",
+      "validFrom": "2025-10-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-4-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "ooe-bautv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2021-10-01",
+      "validTo": "2026-08-06",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-5-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "sbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "LGBl. 83/2026",
+      "validFrom": "2026-08-06",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-6-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "stmk-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": "StBTV 2020",
+      "validFrom": "2020-09-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-06-01",
+      "validTo": "2026-07-16",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-6-2025",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2025"
+      },
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-8-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "vbg-btv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": "Vbg. BTV idF LGBl. 67/2021",
+      "validFrom": "2022-01-01",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-1-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-1-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-1-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-1-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-2-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-2-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-2-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-2-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-2-3-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-3-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-3-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-3-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-4-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-4-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-4-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-5-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-5-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-5-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-6-2019",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2019"
+      },
+      "provision": null,
+      "validFrom": "2020-02-01",
+      "validTo": "2024-02-23",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-6-2023",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2023"
+      },
+      "provision": "WBTV 2023, LGBl. 14/2024",
+      "validFrom": "2024-02-23",
+      "validTo": "2026-07-15",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-9-oib-rl-6-2025",
+      "relationType": "makes_binding",
+      "mode": "declared",
+      "from": {
+        "type": "work",
+        "key": "wbtv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2025"
+      },
+      "provision": "LGBl. 26/2026",
+      "validFrom": "2026-07-15",
+      "validTo": null,
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
+          "note": "OIB, Inkrafttreten der OIB-Richtlinien (Stand Oktober 2026; RL 6 2025: Stand Juli 2026), read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "relation",
+      "key": "at-7-oib-rl-6-2025-without",
+      "relationType": "deviates_from",
+      "mode": null,
+      "from": {
+        "type": "work",
+        "key": "tirol-tbv"
+      },
+      "to": {
+        "type": "edition",
+        "key": "oib-rl-6-2025"
+      },
+      "anchors": [
+        {
+          "to": "pkt_2.2"
+        },
+        {
+          "to": "pkt_2.3.1"
+        }
+      ],
+      "provision": "§ 43 TBV 2026, LGBl. 59/2026",
+      "validFrom": "2026-07-16",
+      "validTo": null,
+      "citations": [
+        {
+          "note": "docs/architecture/country-extensibility.md, OIB editions per Land (checked 2026-11-06); re-check the LGBl. on RIS before quoting it"
+        }
+      ]
+    }
+  ]
+}

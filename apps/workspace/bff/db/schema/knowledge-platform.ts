@@ -20,10 +20,26 @@ import type {
   PersonDecisionSource,
   ReleaseAction,
   ReleaseChannel,
+  BindingMode,
+  RelationEndType,
+  RelationType,
   ReviewDecision,
   ReviewDecisionSource,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
+
+/** A parent for an interval only (migration 0211): `AT` lies in `EU` from 1995-01-01. Half-open. */
+export interface DatedParent {
+  id: string
+  validFrom?: string | null
+  validTo?: string | null
+}
+
+/** Paired clauses of a relation, AKN eIds (design §3.4): `{ from: 'par_4', to: 'pkt_3.1' }`. */
+export interface RelationAnchor {
+  from?: string
+  to?: string
+}
 
 export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revisions', {
   revisionId: uuid('revision_id').primaryKey(),
@@ -32,7 +48,25 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   kind: text('kind').$type<TerritoryKind>().notNull(),
   name: text('name').notNull(),
   parentIds: text('parent_ids').array().notNull().default([]),
+  datedParents: jsonb('dated_parents').$type<DatedParent[]>().notNull().default([]),
   aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
+  validFrom: date('valid_from'),
+  validTo: date('valid_to'),
+})
+
+/** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */
+export const knowledgeRelationRevisions = pgTable('knowledge_relation_revisions', {
+  revisionId: uuid('revision_id').primaryKey(),
+  recordId: text('record_id').notNull(),
+  organizationId: text('organization_id'),
+  relationType: text('relation_type').$type<RelationType>().notNull(),
+  mode: text('mode').$type<BindingMode>(),
+  fromId: text('from_id').notNull(),
+  fromType: text('from_type').$type<RelationEndType>().notNull(),
+  toId: text('to_id').notNull(),
+  toType: text('to_type').$type<RelationEndType>().notNull(),
+  anchors: jsonb('anchors').$type<RelationAnchor[]>().notNull().default([]),
+  provision: text('provision'),
   validFrom: date('valid_from'),
   validTo: date('valid_to'),
 })

@@ -25,6 +25,7 @@ import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
 import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { buildingLawForTurn } from '@/lib/base-knowledge/chain/turn'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -138,7 +139,7 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
 
-  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge] = await Promise.all([
+  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, buildingLaw] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
@@ -160,6 +161,9 @@ export async function loadTurnContext(
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query))),
     // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
     timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
+    // Which edition binds at the project's site, and why, from the platform's records (ADR-0168).
+    // Timed inside, once its flag is on: a turn without it records no new phase.
+    advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null, timed)),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
@@ -172,5 +176,6 @@ export async function loadTurnContext(
     workspace,
     baseKnowledge: baseKnowledge?.block ?? null,
     baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
+    buildingLaw: buildingLaw ?? null,
   }
 }

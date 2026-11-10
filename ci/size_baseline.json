@@ -261,7 +261,7 @@
     "packages/agent/src/agent/agents/piloti/conversation_register.py::_turn_runner._run": 93,
     "packages/agent/src/agent/agents/piloti/decisions.py::prefetch_calls": 66,
     "packages/agent/src/agent/agents/piloti/decisions.py::questions_for": 67,
-    "packages/agent/src/agent/agents/piloti/prompt.py::render_turn_context": 72,
+    "packages/agent/src/agent/agents/piloti/prompt.py::render_turn_context": 69,
     "packages/agent/src/agent/agents/piloti/register.py::_run_turn": 67,
     "packages/agent/src/agent/cards/catalog.py::render_card_catalog": 68,
     "packages/agent/src/agent/cards/register.py::emit_card": 140,

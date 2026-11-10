@@ -47,6 +47,7 @@ describe('the registry', () => {
         'agent-mcp-access',
         'agent-mcp-controls',
         'agent-mcp-secrets',
+        'building-law-chain',
         'byok-llm',
         'collaboration',
         'deep-research',

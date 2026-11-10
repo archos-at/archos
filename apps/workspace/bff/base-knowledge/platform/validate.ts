@@ -98,8 +98,12 @@ function intervalProblems(record: ProposedRecord): Problem[] {
   if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo < record.inForceFrom) {
     return [problem('KC-3', record, '/inForceTo', 'inForceTo lies before inForceFrom.')]
   }
-  if (record.type === 'territory' && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
+  if ((record.type === 'territory' || record.type === 'relation') && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
     return [problem('KC-3', record, '/validTo', 'validTo must lie after validFrom (intervals are half-open).')]
+  }
+  if (record.type === 'territory') {
+    const index = record.datedParents.findIndex((parent) => parent.validFrom && parent.validTo && parent.validTo <= parent.validFrom)
+    if (index >= 0) return [problem('KC-3', record, `/datedParents/${index}`, `the interval of parent ${record.datedParents[index]!.id} is empty or reversed.`)]
   }
   return []
 }
@@ -164,7 +168,9 @@ export function namedTerritories(record: ProposedRecord): string[] {
 
 function namedTerritoryFields(record: ProposedRecord): [string, string][] {
   const each = (ids: readonly string[], at: string): [string, string][] => ids.map((id, i) => [id, `${at}/${i}`])
-  if (record.type === 'territory') return each(record.parentIds, '/parentIds')
+  if (record.type === 'territory') {
+    return [...each(record.parentIds, '/parentIds'), ...record.datedParents.map((parent, i): [string, string] => [parent.id, `/datedParents/${i}/id`])]
+  }
   if (record.type === 'authority') return [[record.seatTerritoryId, '/seatTerritoryId'], ...each(record.competenceTerritoryIds, '/competenceTerritoryIds')]
   if (record.type === 'work') {
     return [

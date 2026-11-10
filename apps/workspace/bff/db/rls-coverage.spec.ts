@@ -234,6 +234,10 @@ const BOUNDARY_MIGRATIONS = [
   // data, the same for every office, so PLATFORM tables: every tenant reads,
   // only the platform role writes (the importer).
   '0210_address_register.sql',
+  // Adds relations as a base knowledge record type (ADR-0168): the relation body
+  // table, layered like 0202's and append-only; and re-secures knowledge_records,
+  // whose platform read now also follows a released relation across packs.
+  '0211_country_pack.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

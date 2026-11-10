@@ -1,23 +1,64 @@
 /**
- * Every closed vocabulary of the base knowledge records (migrations 0202 and
- * 0204 and 0205, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
+ * Every closed vocabulary of the base knowledge records (migrations 0202,
+ * 0204, 0205 and 0209, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority'] as const
+export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
-/** The kinds an office can hold today (design §3.5); the platform widens the CHECK later. */
+/**
+ * Every kind of instrument (design §3.5, migration 0211): how far it binds is
+ * its kind and its routes, never a flag on the record. Law binds in its
+ * territory while in force; a model code, a standard or a guideline only where
+ * a `makes_binding` route reaches it; a directive never binds a project
+ * directly; a commentary never binds.
+ */
 export const KNOWLEDGE_WORK_KINDS = [
+  'statute',
+  'ordinance',
+  'administrative_regulation',
+  'directive',
+  'intergovernmental_agreement',
+  'model_code',
+  'technical_standard',
+  'guideline',
+  'commentary',
+  'authority_directive',
+] as const
+export type KnowledgeWorkKind = (typeof KNOWLEDGE_WORK_KINDS)[number]
+
+/** The kinds an office holds a copy of (ADR-0163); the platform holds all of {@link KNOWLEDGE_WORK_KINDS}. */
+export const OFFICE_WORK_KINDS = [
   'technical_standard',
   'guideline',
   'commentary',
   'authority_directive',
   'statute',
-] as const
-export type KnowledgeWorkKind = (typeof KNOWLEDGE_WORK_KINDS)[number]
+] as const satisfies readonly KnowledgeWorkKind[]
+export type OfficeWorkKind = (typeof OFFICE_WORK_KINDS)[number]
+
+/** How one instrument bears on another (design §3.5). */
+export const RELATION_TYPES = ['makes_binding', 'supersedes', 'deviates_from', 'interprets'] as const
+export type RelationType = (typeof RELATION_TYPES)[number]
+
+/** How a `makes_binding` reaches its target: declared, or a static or dynamic reference. */
+export const BINDING_MODES = ['declared', 'static_reference', 'dynamic_reference'] as const
+export type BindingMode = (typeof BINDING_MODES)[number]
+
+/** What a relation's ends may be. */
+export const RELATION_END_TYPES = ['work', 'edition'] as const
+export type RelationEndType = (typeof RELATION_END_TYPES)[number]
+
+/**
+ * What an edition is to a project, computed from its route, never stored
+ * (design §3.5): it binds; it guides (no route reaches it); it interprets; it
+ * is an authority's practice; or it is information only.
+ */
+export const EDITION_ROLES = ['binding', 'guidance', 'interpretation', 'authority_practice', 'information'] as const
+export type EditionRole = (typeof EDITION_ROLES)[number]
 
 /** The licence classes the licensed seam keys on (design §3.4). */
 export const LICENCE_CLASSES = ['public_open', 'public_restricted', 'licensed'] as const
@@ -86,7 +127,7 @@ export type SetupDeterminant = (typeof SETUP_DETERMINANTS)[number]
 export const FACT_TYPES = ['number', 'boolean', 'code', 'codes', 'date'] as const
 export type FactType = (typeof FACT_TYPES)[number]
 
-/** The record types an office may own; territories and authorities are the platform's (migration 0205). */
+/** The record types an office may own; territories and authorities are the platform's (migration 0205). An office relation is allowed by the SQL and has no writer yet. */
 export const OFFICE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset'] as const satisfies readonly KnowledgeRecordType[]
 
 /** A territory's level (design §3.2); ids are ISO 3166 (`AT-6`) or `<CC>:<scheme>:<code>`. */
@@ -143,4 +184,8 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_release_moves.channel': RELEASE_CHANNELS,
   'knowledge_release_moves.action': RELEASE_ACTIONS,
   'knowledge_index_runs.state': INDEX_RUN_STATES,
+  'knowledge_relation_revisions.relation_type': RELATION_TYPES,
+  'knowledge_relation_revisions.mode': BINDING_MODES,
+  'knowledge_relation_revisions.from_type': RELATION_END_TYPES,
+  'knowledge_relation_revisions.to_type': RELATION_END_TYPES,
 } as const satisfies Record<string, readonly string[]>

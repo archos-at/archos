@@ -232,6 +232,7 @@ Consequences, where a reader looks for them.
 | [0165](0165-platform-knowledge-changes-through-reviewed-change-requests.md) | The platform's own base knowledge lives in the office layer's records and changes only through a reviewed change request | Proposed |
 | [0166](0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md) | Country rules are rulesets, decision tables in the base knowledge records, run by one three-valued evaluator | Proposed |
 | [0167](0167-residency-is-decided-at-the-model-seam-per-cell.md) | Residency is decided at the model seam, per cell, and every generation records where it ran | Proposed |
+| [0168](0168-which-edition-binds-is-a-route-through-relation-records.md) | Which edition binds where is a route through relation records, and Austria is the first pack | Proposed |
 | [0169](0169-setup-facts-are-country-records.md) | Setup facts are country records: what a project's setup asks, derives and requests comes from its site's records | Proposed |
 | [0170](0170-the-platform-door-is-agent-grade-for-onboarding-a-country.md) | The platform door is agent-grade for onboarding a country: captured citations, dry runs, idempotent writes, problem details and the person's yes | Proposed |
 | [0171](0171-the-law-of-a-procedure-is-the-edition-its-reference-date-and-transitions-name.md) | The law of a procedure is the edition its node's reference-date rule and the amending editions' transitions name | Proposed |
