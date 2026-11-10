@@ -251,3 +251,12 @@ def test_a_latent_vendor_switched_on_in_a_shipped_config_fails(tmp_path: Path) -
         ]
     )
     assert any("switches on Modal" in error for error in check.latent_config_errors(register, tmp_path))
+
+
+def test_an_endpoint_must_be_placed_in_iso_codes_on_one_of_the_rows_hosts(register) -> None:
+    """Residency reads where a host processes from `endpoints` (ADR-0167): a vague or foreign entry fails."""
+    row = next(row for row in register.rows if row["id"] == "openrouter")
+    planted = {**row, "endpoints": [{"host": "elsewhere.example", "processing_location": ["per_model"]}]}
+    errors = check._endpoint_errors(planted, "openrouter.yaml")
+    assert len(errors) == 2
+    assert check._endpoint_errors(row, "openrouter.yaml") == []

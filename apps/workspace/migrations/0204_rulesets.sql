@@ -1,4 +1,4 @@
--- 0203: rulesets, a base knowledge record whose payload is a decision table (ADR-0166).
+-- 0204: rulesets, a base knowledge record whose payload is a decision table (ADR-0166).
 --
 -- ## What was missing
 --

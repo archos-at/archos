@@ -1,4 +1,4 @@
--- Reverse 0203. ORDER: roll the frontend back first; the newer build reads and
+-- Reverse 0204. ORDER: roll the frontend back first; the newer build reads and
 -- writes rulesets.
 --
 -- Lossy: every ruleset record and its history goes. Nothing in the product

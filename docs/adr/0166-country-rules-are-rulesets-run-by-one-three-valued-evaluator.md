@@ -49,7 +49,7 @@ name the facts that could still change it and no others.
 Chosen option 3.
 
 - **Record.** A ruleset is a fourth base knowledge record type beside work,
-  edition and manifestation (migration 0203): a header in `knowledge_records`,
+  edition and manifestation (migration 0204): a header in `knowledge_records`,
   revisions in `knowledge_revisions`, and its body in
   `knowledge_ruleset_revisions`: `purpose`, `territory_ids`, `work_ids`,
   `valid_from` and an exclusive `valid_to`, `basis_edition_id`, and either a

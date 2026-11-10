@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Rulesets against a REAL Postgres (migration 0203, ADR-0166), through the
+ * Rulesets against a REAL Postgres (migration 0204, ADR-0166), through the
  * restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

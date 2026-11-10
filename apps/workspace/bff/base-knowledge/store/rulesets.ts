@@ -1,5 +1,5 @@
 /**
- * The SQL of rulesets (migration 0203, ADR-0166): a ruleset is a base knowledge
+ * The SQL of rulesets (migration 0204, ADR-0166): a ruleset is a base knowledge
  * record like a work or an edition, with its body in
  * `knowledge_ruleset_revisions`. No authorization here; callers decide first,
  * and every statement runs under its organization, so the layered RLS holds.

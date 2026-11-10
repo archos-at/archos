@@ -22,6 +22,7 @@ import os
 import urllib.error
 import urllib.request
 
+from agent.common import residency
 from agent.common.openrouter import PLATFORM_FIXED
 
 JUDGE_MODEL = os.environ.get("SUITE_JUDGE_MODEL", "openai/gpt-6-luna")
@@ -120,15 +121,17 @@ def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool
             ],
         }
     )
+    # Into the residency cell's zone, or refused outside it, like every model call (ADR-0167).
+    url, _route = residency.enforce(OPENROUTER_URL)
     request = urllib.request.Request(
-        OPENROUTER_URL,
+        url,
         data=json.dumps(body).encode("utf-8"),
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
-        # The URL is the fixed OPENROUTER_URL constant above; nothing a caller
-        # passes reaches it, so no file:// or other scheme can be smuggled in.
+        # The URL is the fixed OPENROUTER_URL constant above, at most moved to its zone's host; nothing a
+        # caller passes reaches it, so no file:// or other scheme can be smuggled in.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=timeout) as response:
             reply = json.loads(response.read().decode("utf-8"))

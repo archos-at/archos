@@ -26,6 +26,7 @@ import logging
 import os
 
 from agent.common.data_flow_register import assert_no_latent_vendor
+from agent.common.residency import assert_residency
 from agent.knowledge.leader_lock import require_direct_dsns
 
 from . import payload_crypto
@@ -175,6 +176,7 @@ def main() -> None:
     # (ADR-0083). It never LISTENs. Fail the boot, not the first lock.
     require_direct_dsns(listen=False)
     assert_no_latent_vendor()
+    assert_residency()  # no model call outside the cell's zone (ADR-0167)
     from .research_workflow import run_worker
 
     run_worker()

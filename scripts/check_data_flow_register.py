@@ -296,6 +296,23 @@ def _flow_errors(row: dict, where: str) -> list[str]:
             errors.append(f"{where}: flow {name} has a purpose the row does not list")
         if not flow.get("processing_location"):
             errors.append(f"{where}: flow {name} needs `processing_location`")
+    return errors + _endpoint_errors(row, where)
+
+
+def _endpoint_errors(row: dict, where: str) -> list[str]:
+    """Each optional ``endpoints`` entry places one of the row's hosts: ISO 3166 codes, never ``per_model``.
+
+    Residency enforcement (``agent.common.residency``) reads where a host processes from here, so a host
+    placed vaguely would be one the seam cannot judge.
+    """
+    errors = []
+    for endpoint in row.get("endpoints") or []:
+        host = endpoint.get("host", "?")
+        if host not in (row.get("hosts") or []):
+            errors.append(f"{where}: endpoint {host} is not one of the row's `hosts`")
+        locations = endpoint.get("processing_location") or []
+        if not locations or not all(isinstance(code, str) and len(code) == 2 and code.isupper() for code in locations):
+            errors.append(f"{where}: endpoint {host} needs `processing_location` as ISO 3166 codes")
     return errors
 
 

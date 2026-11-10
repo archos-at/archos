@@ -127,7 +127,7 @@ llms:
   research_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -191,7 +191,7 @@ llms:
   clarifier_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -204,7 +204,7 @@ llms:
   deep_orchestrator_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -221,7 +221,7 @@ llms:
   deep_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -234,7 +234,7 @@ llms:
   deep_researcher_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -247,7 +247,7 @@ llms:
   deep_router_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -263,7 +263,7 @@ llms:
   ris_planner_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -276,7 +276,7 @@ llms:
   card_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -298,7 +298,7 @@ llms:
   follow_ups_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -311,7 +311,7 @@ llms:
   summary_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 1.0
     top_p: 0.95
@@ -346,7 +346,7 @@ llms:
   rerank_llm:
     _type: openai
     model_name: ${DEFAULT_MODEL:-openai/gpt-6-luna}
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
     api_key: ${OPENROUTER_API_KEY}
     temperature: 0
     seed: 1

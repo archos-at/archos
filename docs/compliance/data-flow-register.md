@@ -75,6 +75,12 @@ set its row to `active` with the copy the page needs, which lists it publicly,
 and the boot passes. A latent row whose switch no process can see (Datadog's
 browser SDK, injected by an overlay) says why in `no_boot_check`.
 
+Beside it, `agent.common.residency.assert_residency` runs in the same three
+places. With `RESIDENCY_CELL` set it refuses a cell `configs/residency/cells.yaml`
+does not know, an unset `OPENROUTER_BASE_URL`, and every model base URL whose
+host, after the zone's rewrite, the `endpoints` of this register place outside
+the cell's zone (ADR-0167). Without a cell it passes.
+
 ## A row
 
 One file per recipient, named by its `id`. The four list files (`in-cluster.yaml`,
@@ -99,7 +105,8 @@ cannot ship unlisted.
 | `holds_tenant_text`, `deletion` | whether an office's text rests there, and `deletion.status` (`covered`, `partial`, `gap`, `unknown`, `not_retained`, `no_tenant_text`, `vendor_retention`, `controller_designated`, `not_used`) with German and English text |
 | `hosts`, `env`, `activation_env`, `hog_files`, `posthog_destinations`, `sdks`, `model_vendors` | what the scan matches against; `no_signal` with a reason where there is nothing |
 | `activation_files`, `activation_config` | latent rows only: files whose existence (boot) and config patterns (scan) switch the vendor on |
-| `flows` | optional, one per purpose a recipient serves: `id`, `what` (de/en), `data_classes` and `purposes` from the row's, and `processing_location` (ISO 3166 codes, or `per_model`). Residency enforcement reads it; the annex lists it |
+| `flows` | optional, one per purpose a recipient serves: `id`, `what` (de/en), `data_classes` and `purposes` from the row's, and `processing_location` (ISO 3166 codes, or `per_model`). The annex lists it |
+| `endpoints` | optional, one per host of the row's `hosts` that the model seam may call: `host` and `processing_location` (ISO 3166 codes, `EU` for the Union; never `per_model`). Residency enforcement reads it (`agent.common.residency`, ADR-0167): a model call to a host no row places has location `unknown`, which no zone allows, and every generation records the location and the row's `id` as its `subprocessor` |
 | `copy` | `name`, `purpose`, `data`, `location`, `required`, each `de` and `en`: the page's cells. `{productName}` is filled in. `transfer` overrides the safeguard cell, and a listed third-country row without a contract must have it: SCCs are a contract |
 | `evidence` | files that show the flow; each must exist |
 

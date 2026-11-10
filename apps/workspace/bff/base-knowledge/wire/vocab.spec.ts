@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0203_rulesets.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
 /** Oldest first: a later migration that redefines a CHECK wins. */
-const MIGRATIONS = ['migrations/0202_base_knowledge.sql', 'migrations/0203_rulesets.sql'].map((path) =>
+const MIGRATIONS = ['migrations/0202_base_knowledge.sql', 'migrations/0204_rulesets.sql'].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
 )
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')

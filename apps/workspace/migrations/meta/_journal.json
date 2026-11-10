@@ -1427,7 +1427,14 @@
       "idx": 203,
       "version": "7",
       "when": 1792880000000,
-      "tag": "0203_rulesets",
+      "tag": "0203_residency",
+      "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1792890000000,
+      "tag": "0204_rulesets",
       "breakpoints": true
     }
   ]

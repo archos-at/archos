@@ -43,6 +43,7 @@ from typing import Any
 from .base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS
 from .card_scores import card_validity_score  # noqa: F401  (re-exported)
 from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+from .residency_scores import RESIDENCY_SCORE_DEFINITIONS
 from .score_definition import DataType
 from .score_definition import ScoreDefinition
 
@@ -361,7 +362,7 @@ REVIEW_AND_JUDGE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ),
 )
 
-SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS
+SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS + RESIDENCY_SCORE_DEFINITIONS
 
 _DEFINITIONS_BY_NAME = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
