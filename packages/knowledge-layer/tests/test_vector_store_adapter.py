@@ -21,6 +21,7 @@ from knowledge_layer.search import bm25_text
 from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
+from knowledge_layer_testing.vector_store import TEST_OFFICE
 from knowledge_layer_testing.vector_store import record as _record
 from knowledge_layer_testing.vector_store import vector as _vector
 
@@ -68,7 +69,8 @@ async def test_retrieve_answers_from_qdrant_with_the_chunk_contract(retriever):
         _row("Die Fluchtwege sind in Gebäudeklasse 4 rauchfrei auszuführen.", "brandschutz.pdf"),
         _row("Die Tragwerksplanung berücksichtigt die Holzbauweise.", "statik.pdf"),
     ]
-    _ingest(retriever, "proj_a", rows, organization_id="org_1", project_id="p1", document_id="d1")
+    # Written for the office the module reads as (``reads_as_an_office``): another office's points stay out.
+    _ingest(retriever, "proj_a", rows, organization_id=TEST_OFFICE, project_id="p1", document_id="d1")
 
     result = await retriever.retrieve("Fluchtweg", "proj_a", top_k=2)
 
