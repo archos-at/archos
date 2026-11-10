@@ -20,7 +20,9 @@ status the citation chip shows stays the one the UI knows:
   registry's ``authority_info`` rank always was;
 - an edition that only guides or interprets is ``interpretive``: OIB-RL
   2:2023 in Steiermark, where the 2019 edition binds (defect 7);
-- information is ``unknown``: the UI shows no chip rather than a false one.
+- information is ``unknown``: the UI shows no chip rather than a false one;
+- so is any edition whose own scope (``applicability``) is open for this project: a person's check, or a
+  building fact not yet known. The chain text says it neither binds nor does not bind; so does the chip.
 
 Fail closed: no context bound, or a gate that carries no uses, maps every passage to nothing.
 A base-corpus passage maps to an edition by its corpus file, and a passage
@@ -124,7 +126,13 @@ def use_for_entry(entry: SourceEntry) -> EditionUse | None:
 
 
 def binding_status_for(use: EditionUse) -> str:
-    """The coarse status the citation chip shows for a role (module docstring). Pure."""
+    """The coarse status the citation chip shows for a role (module docstring). Pure.
+
+    An edition whose own scope is open for this project (a person's check, a building fact not yet known)
+    is ``unknown`` whatever its role: the chain text says it neither binds nor does not bind until then.
+    """
+    if use.scope_unsettled:
+        return "unknown"
     if use.role == "binding":
         return "binding" if use.via == "territory" else "declared_binding"
     if use.role == "authority_practice":

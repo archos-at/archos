@@ -76,6 +76,11 @@ class EditionUse:
     edition_label: str | None = None
     #: The edition's identities in a legal database: what a RIS passage is matched by (``citations/roles.py``).
     source_refs: tuple[SourceRef, ...] = ()
+    #: Whether the edition's own scope (``applicability``) leaves it open for this project: a person's check
+    #: (``check``), a building fact not yet known (``open``), or ``not_applicable``. False when the edition
+    #: states no scope or its scope applies. The chain text then says neither binds nor does not bind, and so
+    #: does the citation chip (``citations/roles.binding_status_for``).
+    scope_unsettled: bool = False
 
 
 @dataclass(frozen=True)
@@ -127,6 +132,19 @@ def _source_refs(raw: object) -> tuple[SourceRef, ...]:
     )
 
 
+def _scope_unsettled(raw: object) -> bool:
+    """Whether a use's ``applicability`` leaves its scope open here; absent or null states no scope. Pure.
+
+    Anything but ``verdict: "applies"`` with no ``open`` fact is unsettled, an unknown verdict included:
+    a scope the agent cannot read never lets a badge claim more than the text.
+    """
+    if raw is None:
+        return False
+    if not isinstance(raw, dict):
+        return True
+    return raw.get("verdict") != "applies" or bool(_strings(raw.get("open")))
+
+
 def _use(raw: object) -> EditionUse | None:
     """One ``uses`` item; None when it is not the shape the BFF sends (dropped, never guessed). Pure."""
     if not isinstance(raw, dict):
@@ -145,6 +163,7 @@ def _use(raw: object) -> EditionUse | None:
         designation=_text(raw.get("designation")),
         edition_label=_text(raw.get("editionLabel")),
         source_refs=_source_refs(raw.get("sourceRefs")),
+        scope_unsettled=_scope_unsettled(raw.get("applicability")),
     )
 
 

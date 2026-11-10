@@ -258,3 +258,28 @@ def test_an_eli_matches_as_the_url_s_prefix_only():
 
 
 BO_WIEN_ELI = next(ref["value"] for ref in BO_WIEN["sourceRefs"] if ref["scheme"] == "eli")
+
+
+GESETZ_URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006"
+
+
+@pytest.mark.parametrize(
+    ("applicability", "status"),
+    [
+        (None, "binding"),
+        ({"verdict": "applies", "basis": ["building_class"], "open": [], "provision": "§ 1"}, "binding"),
+        ({"verdict": "check", "basis": [], "open": ["building_height"], "provision": None}, "unknown"),
+        ({"verdict": "check", "basis": [], "open": [], "provision": None}, "unknown"),
+        ({"verdict": "applies", "basis": [], "open": ["building_height"], "provision": None}, "unknown"),
+        ({"verdict": "not_applicable", "basis": [], "open": [], "provision": None}, "unknown"),
+        ({"verdict": "gilt", "basis": [], "open": [], "provision": None}, "unknown"),
+        ("applies", "unknown"),
+    ],
+)
+def test_an_edition_whose_scope_is_open_here_claims_neither_way(applicability, status):
+    """ADR-0177: until a building fact is known or a person has checked the scope, the chain text says the work
+    neither binds nor does not bind, and so does the chip. A use stating no scope keeps its role's status."""
+    _bind(_with(VIENNA, [{**BO_WIEN, "applicability": applicability}]))
+    wire = source_entry_to_wire(_ris(GESETZ_URL))
+    assert wire["binding_status"] == status
+    assert wire["role"] == "binding"

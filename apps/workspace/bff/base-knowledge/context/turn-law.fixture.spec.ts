@@ -31,10 +31,15 @@ const SCHEMA = join(process.cwd(), 'tests', 'fixtures', 'knowledge-context.schem
 const DATE = '2026-11-10'
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9'] as const
 
-const pack = (name: string) =>
-  proposeRecordsBodySchema.parse({
-    records: (JSON.parse(readFileSync(join(ROOT, 'configs', 'knowledge-packs', name), 'utf8')) as { records: unknown[] }).records,
-  }).records
+/** The most records one proposal body takes (`proposeRecordsBodySchema`); a pack is read in batches of it. */
+const PROPOSAL_BATCH = 200
+
+const pack = (name: string) => {
+  const { records } = JSON.parse(readFileSync(join(ROOT, 'configs', 'knowledge-packs', name), 'utf8')) as { records: unknown[] }
+  return Array.from({ length: Math.ceil(records.length / PROPOSAL_BATCH) }, (_, batch) =>
+    proposeRecordsBodySchema.parse({ records: records.slice(batch * PROPOSAL_BATCH, (batch + 1) * PROPOSAL_BATCH) }).records,
+  ).flat()
+}
 const graph = graphFromProposals([...pack('eu.json'), ...pack('at.json')])
 
 const contextAt = (territoryId: string) =>
