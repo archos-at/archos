@@ -27,5 +27,7 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   'base-knowledge-remove': OFFERED,
   'base-knowledge-update': OFFERED,
   'base-knowledge-upload': OFFERED,
+  // A read of the project's own facts under Piloti's classification records: domain knowledge the door offers.
+  'classification-evaluate': OFFERED,
   'organization-countries-get': OFFERED,
 } as const satisfies Record<string, Exposure>

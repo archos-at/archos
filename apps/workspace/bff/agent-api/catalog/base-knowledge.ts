@@ -20,6 +20,7 @@ import {
   recordCheckBodySchema,
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
+import { classificationEvaluateRequestSchema } from '@/lib/project-intake/classification-wire'
 import type { AgentOperation } from '../operation'
 import { uploadBodySchemaWith } from '../upload-wire'
 
@@ -155,6 +156,21 @@ export const baseKnowledgeOperations = [
     method: 'GET',
     path: '/api/organization/countries',
     load: () => import('@/app/api/organization/countries/route'),
+  },
+  {
+    name: 'classification-evaluate',
+    domain: 'projects',
+    links: 'project',
+    summary: 'Evaluate a building’s class under its site’s rules',
+    description:
+      'One building’s class under its site’s classification (in Austria the OIB class), planned and, for a Bestand, today: the shift, ' +
+      'the open inputs and the document settling each. `planned` or `existing` values try a variant; nothing is written. Needs project:view.',
+    method: 'POST',
+    path: '/api/projects/[id]/classification-evaluations',
+    params: z.object({ id: z.string().describe('The project id, from project-list.') }),
+    body: classificationEvaluateRequestSchema,
+    readOnly: true,
+    load: () => import('@/app/api/projects/[id]/classification-evaluations/route'),
   },
 ] as const satisfies readonly AgentOperation[]
 

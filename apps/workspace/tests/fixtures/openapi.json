@@ -58,6 +58,142 @@
     }
   ],
   "paths": {
+    "/api/projects/{id}/classification-evaluations": {
+      "post": {
+        "operationId": "classification-evaluate",
+        "summary": "Evaluate a building’s class under its site’s rules",
+        "description": "One building’s class under its site’s classification (in Austria the OIB class), planned and, for a Bestand, today: the shift, the open inputs and the document settling each. `planned` or `existing` values try a variant; nothing is written. Needs project:view.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "buildingId": {
+                    "default": "bldg1",
+                    "type": "string",
+                    "maxLength": 12
+                  },
+                  "planned": {
+                    "description": "Planned values to try (`storeys_above_ground`).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "existing": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "on": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Evaluate a building’s class under its site’s rules",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/cleanup": {
       "post": {
         "operationId": "project-cleanup-confirm",
