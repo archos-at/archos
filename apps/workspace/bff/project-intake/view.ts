@@ -20,7 +20,7 @@ import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { getApplicableStandards } from '@/lib/oib/applicable-standards'
 import { deriveAll } from './derivation-view'
 import { locationRegisterFor } from './location-register'
-import { BUILDING_CLASS_DERIVATION } from './derivations'
+import { BUILDING_CLASS_RULE } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
 import {
   MAX_INTAKE_NEEDS,
@@ -55,7 +55,7 @@ export function keyHomes(definition: ProjectIntakeDefinition): Map<string, KeyHo
     for (const question of stageQuestions(stage)) {
       const written = /^\/facts\/([^/]+)/.exec(question.writesTo ?? '')?.[1]
       if (written && !homes.has(written)) homes.set(written, { stage, question })
-      if (question.derives === BUILDING_CLASS_DERIVATION.rule && !homes.has(question.derives)) {
+      if (question.derives === BUILDING_CLASS_RULE && !homes.has(question.derives)) {
         homes.set(question.derives, { stage, question })
       }
     }
@@ -65,7 +65,7 @@ export function keyHomes(definition: ProjectIntakeDefinition): Map<string, KeyHo
 
 function displayOf(home: KeyHome, value: ProjectFact['value']): string {
   const { question } = home
-  if (question?.derives === BUILDING_CLASS_DERIVATION.rule) return `GK ${String(value)}`
+  if (question?.derives === BUILDING_CLASS_RULE) return `GK ${String(value)}`
   return question ? formatIntakeAnswer(question, value) : String(value)
 }
 
@@ -119,7 +119,7 @@ function profileItems(
 }
 
 /** The derived class: shown and decided in `derivations`, so not again in its module. */
-const isDerivedClass = (item: Suggestion) => item.baseKey === BUILDING_CLASS_DERIVATION.rule
+const isDerivedClass = (item: Suggestion) => item.baseKey === BUILDING_CLASS_RULE
 
 /** Every value on the profile under a key the definition knows, grouped by module in the wizard's order; the derived class is not among them. */
 export function suggestionGroups(
@@ -150,7 +150,7 @@ function derivationReviews(
   )
   return deriveAll(profile, definition).map((derivation) => ({
     ...derivation,
-    suggestion: classes.get(`${BUILDING_CLASS_DERIVATION.rule}@${derivation.buildingId}`) ?? null,
+    suggestion: classes.get(`${BUILDING_CLASS_RULE}@${derivation.buildingId}`) ?? null,
   }))
 }
 
@@ -266,13 +266,20 @@ export function readingDocumentProgress(
 
 type SiteSource = NonNullable<ReadingProgress['site']['source']>
 
-/** Where a Bundesland came from: the address search at creation, a document, or a person. */
+/** Where a Bundesland came from: an address register in the cell, the address search at creation, a document, or a person. */
 function siteSource(entry: ProjectFact | ProjectAssumption, confirmed: boolean, row: ProjectIntakeRow): SiteSource {
-  if (confirmed && row.location?.federalState === entry.value) return 'geocoder'
   const kinds = new Set((entry.evidence ?? []).map((evidence) => evidence.kind))
+  if (kinds.has('register')) return 'register'
+  if (confirmed && row.location?.federalState === entry.value) return 'geocoder'
   if (kinds.has('document')) return 'document'
   if (kinds.has('geocoder')) return 'geocoder'
   return 'person'
+}
+
+/** The Gemeinde an address register confirmed (ADR-0172), or null: a `municipality` fact from anywhere else is not read here. */
+function registerMunicipality(profile: ProjectProfile): string | null {
+  const fact = profile.facts.municipality
+  return fact?.evidence?.some((evidence) => evidence.kind === 'register') ? String(fact.value) : null
 }
 
 /**
@@ -297,7 +304,7 @@ export function readingSite(
   const addressText = address ? String(address.value) : (row.location?.label ?? null)
   return {
     federalState: entry ? shown('federal_state', entry.value).slice(0, 200) : null,
-    municipality: row.location?.municipality?.slice(0, 200) ?? null,
+    municipality: (registerMunicipality(profile) ?? row.location?.municipality)?.slice(0, 200) ?? null,
     address: addressText ? addressText.slice(0, 500) : null,
     source: entry ? siteSource(entry, Boolean(fact), row) : null,
     confirmed: Boolean(fact),

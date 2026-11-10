@@ -44,6 +44,13 @@ NOT_REQUESTED: dict[str, str] = {
     "NormEntry.source_url": "a publisher's link (wien.gv.at, oib.or.at) stored and shown; never requested here",
 }
 
+#: URLs this tier requests through the public-source gate instead (ADR-0162): only on the named configured
+#: source's hosts, at every redirect hop, from a public address, GET only (``public_sources.capture``). Not an
+#: object-store URL, and no SSRF: the gate is the source's host list, checked before anything is sent.
+GATED_BY_SOURCE: dict[str, str] = {
+    "CaptureRequest.url": "a public source's page, fetched only through public_sources source_transport (ADR-0170)",
+}
+
 #: Fields the walk must reach, or it is walking the wrong thing.
 _KNOWN_GATED = {"IngestRequest.file_ref", "ArchiveRef.url"}
 
@@ -140,7 +147,10 @@ def test_every_url_a_request_names_is_an_object_store_url():
     plain = sorted(
         name
         for name, field in fields.items()
-        if not _is_gated(field) and _says_str(field.annotation) and name not in NOT_REQUESTED
+        if not _is_gated(field)
+        and _says_str(field.annotation)
+        and name not in NOT_REQUESTED
+        and name not in GATED_BY_SOURCE
     )
 
     assert plain == [], (
@@ -179,3 +189,4 @@ def test_the_walk_reaches_the_gated_fields():
 def test_every_exemption_still_names_a_field():
     """An exemption whose field was renamed or removed would excuse the next one to take its name."""
     assert set(NOT_REQUESTED) <= _url_fields().keys()
+    assert set(GATED_BY_SOURCE) <= _url_fields().keys()

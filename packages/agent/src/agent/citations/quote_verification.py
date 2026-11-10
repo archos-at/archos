@@ -222,6 +222,21 @@ def _quoted_spans(body: str, min_quote_len: int) -> Iterator[tuple[re.Match[str]
             yield match, inner, norm_quote
 
 
+def _verification_chunks(registry: SourceRegistry) -> list[tuple[str, SourceEntry]]:
+    """Every source's text a quote is matched against, normalised, with its source.
+
+    A licensed source's stored excerpt stops at its quote cap; the turn holds its passage whole
+    (``SourceRegistry.licensed_text``, ADR-0164), so a correct quote from later in it still verifies.
+    """
+    licensed = getattr(registry, "licensed_text", {})
+    return [
+        (norm, source)
+        for source in registry.all_sources()
+        if (text := licensed.get(source.citation_key) or source.chunk_text)
+        if (norm := normalize_for_quote_match(text))
+    ]
+
+
 def verify_quoted_spans(
     answer_text: str,
     registry: SourceRegistry,
@@ -252,12 +267,7 @@ def verify_quoted_spans(
     never patches (deep research) passes ``False``.
     """
     body = _answer_body_before_sources(answer_text)
-    normalized_chunks = [
-        (norm, source)
-        for source in registry.all_sources()
-        if source.chunk_text
-        if (norm := normalize_for_quote_match(source.chunk_text))
-    ]
+    normalized_chunks = _verification_chunks(registry)
     if not normalized_chunks:
         return []
 

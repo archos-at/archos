@@ -138,6 +138,7 @@ export const intakeProfileStep = {
     document: '{name} · p. {page}',
     documentNoPage: '{name}',
     geocoder: 'Address search',
+    register: 'Address register',
     derivation: 'Derived',
     person: 'Your answer',
     none: 'No source',

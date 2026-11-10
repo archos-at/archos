@@ -1,0 +1,37 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# langsmith is installed transitively; LANGCHAIN_TRACING_V2=true would export full prompts and completions.
+id: langsmith
+kind: processor
+status: latent
+order: 150
+name: LangChain, Inc. (LangSmith)
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [model_io]
+purposes: [operations]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Dienst konfiguriert ist.
+  en: Not in use; a deployment people sign in to does not start while the service is configured.
+hosts: [api.smith.langchain.com]
+env: [LANGCHAIN_API_KEY, LANGSMITH_API_KEY]
+activation_env: [LANGCHAIN_TRACING_V2, LANGCHAIN_API_KEY, LANGSMITH_TRACING, LANGSMITH_API_KEY]
+# langchain-core ships LangSmith tracing, off unless activation_env switches it on.
+sdks:
+  - 'py:langchain-core'
+evidence:
+  - uv.lock
+copy:
+  name:
+    de: LangSmith (LangChain)
+    en: LangSmith (LangChain)
+  data:
+    de: vollständige KI-Eingaben und -Antworten, falls Tracing aktiviert wird
+    en: full AI prompts and responses, if tracing is enabled
+  location:
+    de: USA
+    en: USA

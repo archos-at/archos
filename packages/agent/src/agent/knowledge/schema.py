@@ -205,7 +205,7 @@ class QuarantineReason(BaseModel):
     """One reason the upload screen held a file back (ADR-0086, ADR-0113).
 
     A term the office listed, or a detector (``iban``, ``at_svnr``,
-    ``credit_card``); never a matched value. A detector's ``sample`` is masked
+    ``credit_card``, ``de_svnr``, ``de_tax_id``); never a matched value. A detector's ``sample`` is masked
     before it gets here (``AT61 •••• •••• •••• 3201``). ``kind`` is open: a
     detector the job learns first reaches a reader as a kind it does not know,
     which it reads as ``other`` rather than failing the whole verdict.

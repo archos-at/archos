@@ -52,6 +52,12 @@ from contextlib import nullcontext
 from typing import Any
 
 from agent.common import provider_limiter
+from agent.common import residency
+from agent.common.licensed_reply import ChunkCap
+from agent.common.licensed_reply import capped_result
+from agent.common.licensed_text import expand_messages
+from agent.common.licensed_text import licensed_scope_active
+from agent.common.licensed_text import refuse_unattested_model_read
 from agent.common.message_contract import normalize_chat_request
 from agent.common.openrouter import targets_openrouter
 from nat.plugin_api import LLMFrameworkEnum
@@ -293,6 +299,170 @@ def _needs_reasoning_floor(llm: Any, target: Any, error: BaseException) -> bool:
     return True
 
 
+def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any]:
+    """The request's licensed references expanded, when the call is pinned to zero-retention endpoints.
+
+    Read after :func:`prepare_request` has merged the instance's ``extra_body`` with the call's, so the
+    provider routing the request will carry is what decides (``openrouter.DataPolicy.is_applied_to``).
+    """
+    from agent.common.openrouter import ZERO_DATA_RETENTION
+
+    body = {**(getattr(llm, "extra_body", None) or {}), **(kwargs.get("extra_body") or {})}
+    on_openrouter = llm_targets_openrouter(llm)
+    if licensed_scope_active():  # work on a licensed document goes to zero retention, whatever the org chose
+        refuse_unattested_model_read(_llm_base_url(llm), openrouter=on_openrouter)
+        body = kwargs["extra_body"] = ZERO_DATA_RETENTION.apply(body)
+    pinned = on_openrouter and ZERO_DATA_RETENTION.is_applied_to(body)
+    return expand_messages(messages, zero_retention=pinned)
+
+
+def _route(llm: Any) -> residency.Route:
+    """Where a chat call to ``llm`` is processed; refused outside the cell's zone (``common/residency``).
+
+    A chat model's client is bound to its base URL at construction, so nothing is rewritten here: a cell's
+    chat models are built on the zone's endpoint (``OPENROUTER_BASE_URL``, held by the boot check). The
+    organization's placement is checked by the caller: blocking in ``_generate``, off the loop in ``_agenerate``.
+    """
+    return residency.enforce(_llm_base_url(llm), rewrite=False)[1]
+
+
+def _capped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
+    """``chunk`` as the stream may yield it: unchanged without a cap, else capped and then reported."""
+    if cap is None:
+        return chunk
+    capper = _chunk_capper(cap)
+    capped = capper.chunk(chunk)
+    if run_manager is not None:
+        run_manager.on_llm_new_token(capped.text, chunk=capped)
+    return capped
+
+
+async def _acapped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
+    """:func:`_capped_chunk` for the async stream."""
+    if cap is None:
+        return chunk
+    capped = _chunk_capper(cap).chunk(chunk)
+    if run_manager is not None:
+        await run_manager.on_llm_new_token(capped.text, chunk=capped)
+    return capped
+
+
+def _chunk_capper(cap: Any) -> ChunkCap:
+    """The one :class:`ChunkCap` a stream's chunks share, kept on its :class:`QuoteCap` (one per call)."""
+    capper = getattr(cap, "chunk_capper", None)
+    if capper is None:
+        capper = cap.chunk_capper = ChunkCap(cap)
+    return capper
+
+
+# Each entry point sends once more at the reasoning floor when the provider
+# refuses reasoning-off (`_needs_reasoning_floor`). A stream is re-sent only
+# if nothing of it was yielded yet; the refusal comes before the first chunk.
+# Licensed text (``common/licensed_text.py``) is expanded here, after LangChain has
+# reported the messages to every callback, and a call that expanded any returns
+# capped. langchain-core reports each streamed chunk after ``_astream`` yields it
+# (it passes no run manager down), so callbacks see the capped chunk. A caller that
+# does pass one down would have the implementation report before the cap, so a
+# capped stream withholds it and reports the capped chunk itself (``_capped_chunk``).
+def _contract_generate(base: type) -> Any:
+    """The contract's ``_generate``, over ``base``'s."""
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
+        route = _route(self)
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
+        target = _with_reasoning_floor(self)
+        with _provider_slot(self):
+            try:
+                result = base._generate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
+                return residency.stamp_result(capped_result(result, cap), route)
+            except Exception as exc:
+                if not _needs_reasoning_floor(self, target, exc):
+                    raise
+            floored = _with_reasoning_floor(self)
+            result = base._generate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs)
+            return residency.stamp_result(capped_result(result, cap), route)
+
+    return _generate
+
+
+def _contract_agenerate(base: type) -> Any:
+    """The contract's ``_agenerate``, over ``base``'s."""
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
+        route = _route(self)
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
+        target = _with_reasoning_floor(self)
+        async with _provider_slot_async(self):
+            try:
+                result = await base._agenerate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
+                return residency.stamp_result(capped_result(result, cap), route)
+            except Exception as exc:
+                if not _needs_reasoning_floor(self, target, exc):
+                    raise
+            floored = _with_reasoning_floor(self)
+            result = await base._agenerate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs)
+            return residency.stamp_result(capped_result(result, cap), route)
+
+    return _agenerate
+
+
+def _contract_stream(base: type) -> Any:
+    """The contract's ``_stream``, over ``base``'s."""
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        residency.check_current_organization()
+        route = _route(self)
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
+        target = _with_reasoning_floor(self)
+        inner_manager = None if cap is not None else run_manager
+        with _provider_slot(self):
+            started = False
+            try:
+                for chunk in base._stream(target, prepared, stop=stop, run_manager=inner_manager, **kwargs):
+                    first, started = not started, True
+                    yield residency.stamp_chunk(_capped_chunk(chunk, cap, run_manager), route if first else None)
+                return
+            except Exception as exc:
+                if started or not _needs_reasoning_floor(self, target, exc):
+                    raise
+            floored = _with_reasoning_floor(self)
+            for chunk in base._stream(floored, prepared, stop=stop, run_manager=inner_manager, **kwargs):
+                yield residency.stamp_chunk(_capped_chunk(chunk, cap, run_manager), route)
+                route = None
+
+    return _stream
+
+
+def _contract_astream(base: type) -> Any:
+    """The contract's ``_astream``, over ``base``'s."""
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        await residency.acheck_current_organization()
+        route = _route(self)
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
+        target = _with_reasoning_floor(self)
+        inner_manager = None if cap is not None else run_manager
+        async with _provider_slot_async(self):
+            started = False
+            try:
+                async for chunk in base._astream(target, prepared, stop=stop, run_manager=inner_manager, **kwargs):
+                    first, started = not started, True
+                    capped = await _acapped_chunk(chunk, cap, run_manager)
+                    yield residency.stamp_chunk(capped, route if first else None)
+                return
+            except Exception as exc:
+                if started or not _needs_reasoning_floor(self, target, exc):
+                    raise
+            floored = _with_reasoning_floor(self)
+            async for chunk in base._astream(floored, prepared, stop=stop, run_manager=inner_manager, **kwargs):
+                yield residency.stamp_chunk(await _acapped_chunk(chunk, cap, run_manager), route)
+                route = None
+
+    return _astream
+
+
 def _contract_subclass(base: type) -> type:
     """Build (once per base class) a subclass that normalizes outgoing requests.
 
@@ -314,63 +484,10 @@ def _contract_subclass(base: type) -> type:
 
     from langchain_core.language_models.chat_models import BaseChatModel
 
-    # Each entry point sends once more at the reasoning floor when the provider
-    # refuses reasoning-off (`_needs_reasoning_floor`). A stream is re-sent only
-    # if nothing of it was yielded yet; the refusal comes before the first chunk.
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared = prepare_request(self, messages, kwargs)
-        target = _with_reasoning_floor(self)
-        with _provider_slot(self):
-            try:
-                return base._generate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
-            except Exception as exc:
-                if not _needs_reasoning_floor(self, target, exc):
-                    raise
-            return base._generate(_with_reasoning_floor(self), prepared, stop=stop, run_manager=run_manager, **kwargs)
-
-    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared = prepare_request(self, messages, kwargs)
-        target = _with_reasoning_floor(self)
-        async with _provider_slot_async(self):
-            try:
-                return await base._agenerate(target, prepared, stop=stop, run_manager=run_manager, **kwargs)
-            except Exception as exc:
-                if not _needs_reasoning_floor(self, target, exc):
-                    raise
-            floored = _with_reasoning_floor(self)
-            return await base._agenerate(floored, prepared, stop=stop, run_manager=run_manager, **kwargs)
-
-    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared = prepare_request(self, messages, kwargs)
-        target = _with_reasoning_floor(self)
-        with _provider_slot(self):
-            started = False
-            try:
-                for chunk in base._stream(target, prepared, stop=stop, run_manager=run_manager, **kwargs):
-                    started = True
-                    yield chunk
-                return
-            except Exception as exc:
-                if started or not _needs_reasoning_floor(self, target, exc):
-                    raise
-            yield from base._stream(_with_reasoning_floor(self), prepared, stop=stop, run_manager=run_manager, **kwargs)
-
-    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared = prepare_request(self, messages, kwargs)
-        target = _with_reasoning_floor(self)
-        async with _provider_slot_async(self):
-            started = False
-            try:
-                async for chunk in base._astream(target, prepared, stop=stop, run_manager=run_manager, **kwargs):
-                    started = True
-                    yield chunk
-                return
-            except Exception as exc:
-                if started or not _needs_reasoning_floor(self, target, exc):
-                    raise
-            floored = _with_reasoning_floor(self)
-            async for chunk in base._astream(floored, prepared, stop=stop, run_manager=run_manager, **kwargs):
-                yield chunk
+    _generate = _contract_generate(base)
+    _agenerate = _contract_agenerate(base)
+    _stream = _contract_stream(base)
+    _astream = _contract_astream(base)
 
     namespace: dict[str, Any] = {_CONTRACT_MARKER: True, "_generate": _generate, "_agenerate": _agenerate}
     # LangChain decides whether a model can stream by comparing these attributes

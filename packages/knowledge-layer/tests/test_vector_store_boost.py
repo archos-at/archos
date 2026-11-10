@@ -296,6 +296,7 @@ def test_fact_and_tag_filters_narrow_inside_the_one_query(store):
             groups=5,
             group_size=5,
             filters=filters,
+            office_id="org_test",
         )
 
     assert set(_order(search(None))) == {"proj_holz", "proj_beton"}
@@ -330,6 +331,7 @@ def _grouped(store, query, boost, scopes):
         groups=len(scopes),
         group_size=1,
         boost=parse_boost(boost),
+        office_id="org_test",
     )
 
 
@@ -429,7 +431,15 @@ def test_grouped_search_keeps_the_flat_fused_order(store):
     scopes = _many_projects(store)
     query = _unit("question")
     groups = grouped_search(
-        store, scopes, vector=query, lexical_text="", group_by="scope", groups=8, group_size=2, candidates=60
+        store,
+        scopes,
+        vector=query,
+        lexical_text="",
+        group_by="scope",
+        groups=8,
+        group_size=2,
+        candidates=60,
+        office_id="org_test",
     )
     fused = [hit.fused for _, hits in groups for hit in hits[:1]]
     assert fused == sorted(fused, reverse=True)
@@ -481,6 +491,7 @@ def _boosted_order(store: QdrantStore, scopes: list[str], query: list[float]) ->
         group_size=2,
         boost=parse_boost({"facts": CURRENT, "weights": WEIGHTS}),
         candidates=120,
+        office_id="org_test",
     )
     return [hit.chunk_id for _, hits in groups for hit in hits]
 

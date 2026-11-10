@@ -275,6 +275,18 @@ export const FEATURE_FLAGS = {
    */
   folderCards: 'folder-cards',
   /**
+   * Public sources through the sandboxed fetcher (ADR-0162): the agent's RIS
+   * requests leave from the `public-source-fetcher` Deployment, which reaches
+   * public hosts and nothing in the cluster, instead of from the agent's own
+   * pod. The requests are the same either way. Read per organization by the
+   * agent tier through `GET /api/internal/stages` (`features.sourceRouting`).
+   *
+   * Kind `entitlement` only for its default: off until an operator targets an
+   * organization, and off in a deployment that signs nobody in, because off is
+   * what shipped before it. It costs nothing and changes no one's access.
+   */
+  sourceRouting: 'source-routing',
+  /**
    * The office's conventions (ADR-0129): Piloti counts how the office files
    * (folders its projects keep, where each Dokumentart goes, the Plannummer
    * shape) and tells a turn that asks about filing or finding. Read per
@@ -286,6 +298,18 @@ export const FEATURE_FLAGS = {
    * agent. With it off, nothing is counted and the turn context is unchanged.
    */
   officeConventions: 'office-conventions',
+  /**
+   * Licensed text an office holds (its own ÖNORM or DIN copy, a paid
+   * commentary) reaches the model inside the call (the licensed seam,
+   * `packages/agent/src/agent/common/licensed_text.py`). Read per turn by the
+   * agent tier through `GET /api/internal/stages` (`features.licensedSeam`).
+   *
+   * An entitlement, off until an operator targets the organization. Off is not
+   * unguarded: a passage marked licensed is then listed with its document, page
+   * and clause and no text. On, its text is expanded only inside the model call,
+   * never in a trace, checkpoint or log, and every quote of it is capped.
+   */
+  licensedSeam: 'licensed-seam',
   /**
    * Mail sent to a project's address (ADR-0137, ADR-0138): the project shows
    * its address, mail to it waits in the project's E-Mail-Eingang until a
@@ -303,6 +327,82 @@ export const FEATURE_FLAGS = {
    * held until it is filed, dismissed or expires.
    */
   inboundMail: 'inbound-mail',
+  /**
+   * The office's base knowledge (ADR-0163, ticket 32): an Archiv document can be
+   * recorded as a licensed standard, a commentary, an authority directive, a
+   * guideline or a law, with its edition, territory, authority and last check,
+   * and a turn tells the agent which of them the office holds and how far each
+   * binds. Read from the session by the routes (`requireFeature`) and per
+   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
+   *
+   * An entitlement, off until an operator targets the organization: licensed
+   * text reaches answers only once the licensed seam is in place. With it off
+   * the routes answer 403, the turn carries no base-knowledge block, and records
+   * already written stay untouched.
+   */
+  officeBaseKnowledge: 'office-base-knowledge',
+  /**
+   * The platform's own base knowledge (ADR-0165, migration 0205): territories,
+   * authorities, listed norms and texts as records that change only through a
+   * reviewed change request. For an office, its turn reads the norms the platform
+   * lists that it holds no copy of ("gelistet, kein Text") and the platform's
+   * authority directives that apply to the project, for the countries it is
+   * entitled to (`isOrgFeatureEnabled`). For the platform organization, its
+   * operators' view and routes answer (`isFeatureEnabled` on the session), and
+   * the norm registry stops taking edits (409): its pointers move into change
+   * requests.
+   *
+   * An entitlement, off until an operator targets the organization. With it off
+   * an office's turn is what it was (the stub's empty answers), the platform
+   * routes answer 403, the registry takes edits, and records already written
+   * stay untouched.
+   */
+  platformBaseKnowledge: 'platform-base-knowledge',
+  /**
+   * The building law of a project's site from the platform's records
+   * (ADR-0168): the chain text that says which edition binds in its Land and
+   * why, in the turn context, and each edition's role on the sources an answer
+   * cites (`bff/base-knowledge/chain/`). With it on, an office entitled to
+   * Austria reads OIB-RL 2:2019 as binding in Steiermark and 2023 as guidance
+   * there, where the static prompt and the host regex called 2023 binding in
+   * every Land.
+   *
+   * An entitlement, off until an operator targets the organization. With it
+   * off the turn context carries no chain and every source keeps the status
+   * `citations/binding.py` gave it before, byte for byte. The chain text only
+   * reaches a prompt once the static prompt no longer carries `<building_law>`
+   * (the country-neutral push); until then it rides along unread.
+   */
+  buildingLawChain: 'building-law-chain',
+  /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
+  /**
+   * Base knowledge in time (ADR-0171, migration 0206): which edition of a work
+   * applied on a date or to a permit procedure, by the legislating node's
+   * reference-date ruleset and the amending editions' transitions
+   * (`base-knowledge-edition-as-of`), and `asOf` on `law-lookup`.
+   *
+   * An entitlement, off until an operator targets the organization: it widens
+   * what an answer claims (an edition for a past date). With it off the as-of
+   * route answers 403, and `law-lookup` is offered without `as_of`: the agent's
+   * tool and the door's schema are byte for byte what they were before the flag
+   * (`ris_adapter.lookup.tool`). A call that names `as_of` anyway is refused by
+   * the backend, never answered with today's text. With it on, the chat agent's
+   * turn is offered `as_of`; the door's schema still hides it.
+   */
+  timeEditions: 'time-editions',
+  /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
+  sourceMonitors: 'source-monitors',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -331,8 +431,16 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'platform-agent-mcp': 'entitlement',
   'piloti-ask': 'entitlement',
   'folder-cards': 'entitlement',
+  'source-routing': 'entitlement',
   'office-conventions': 'entitlement',
+  'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
+  'office-base-knowledge': 'entitlement',
+  'platform-base-knowledge': 'entitlement',
+  'building-law-chain': 'entitlement',
+  'site-resolution': 'rollout',
+  'time-editions': 'entitlement',
+  'source-monitors': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

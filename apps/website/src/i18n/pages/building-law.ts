@@ -3,10 +3,13 @@
  * `withName`. Text only: images, links and structure live in `src/views/BuildingLawView.astro`.
  *
  * Name no edition or date of the legal corpus here: nothing on the site's side verifies it.
+ * Claim neither Germany nor older versions of a law: the corpus holds Austria only, in the
+ * version in force today (configs/norms/ holds only at/; nothing stores an edition's validity).
+ * Generated from real coverage once that exists (design §1.3, international foundation S15).
  * Evidence for each claim (Belegpflicht):
  * - corpus: OIB-Richtlinien, Austrian law via RIS, a curated norm register, norms an office
  *   uploads itself, cited at the passage: VISION.md ("Building law and norms"); the nine states:
- *   packages/ris-adapter/src/register.py (Landesrecht filter);
+ *   configs/sources/at/ris/source.yml (the Landesrecht filter, table federal_state);
  * - one click opens the passage: owner decision D16;
  * - the project's facts (Bundesland, Gebäudeklasse, uses) asked at setup, OIB-Richtlinien derived:
  *   VISION.md ("Starting a project");
@@ -56,7 +59,7 @@ const de = {
   coverage: {
     title: 'Was heute abgedeckt ist.',
     items: [
-      { key: 'Landesrecht', value: 'Das Baurecht der neun österreichischen Bundesländer, aus dem Rechtsinformationssystem des Bundes (RIS).' },
+      { key: 'Landesrecht', value: 'Das Baurecht der neun österreichischen Bundesländer, aus dem Rechtsinformationssystem des Bundes (RIS), in der heute geltenden Fassung. Welche Fassung an einem früheren Stichtag galt, zeigt {name} noch nicht.' },
       { key: 'OIB-Richtlinien', value: 'Die OIB-Richtlinien mit ihren Begriffsbestimmungen.' },
       { key: 'Normen', value: 'Ein kuratiertes Normenverzeichnis und die Normen, die Ihr Büro selbst hochlädt.' },
       { key: 'Deutschland und Schweiz', value: 'Die Rechtstexte noch nicht. Pläne, Modelle, Unterlagen und Bürowissen nutzt {name} unabhängig vom Land.' },
@@ -138,7 +141,7 @@ const en: typeof de = {
   coverage: {
     title: 'What is covered today.',
     items: [
-      { key: 'State law', value: 'The building law of the nine Austrian states, from the federal legal information system (RIS).' },
+      { key: 'State law', value: 'The building law of the nine Austrian states, from the federal legal information system (RIS), as in force today. {name} does not yet show which version applied on an earlier reference date.' },
       { key: 'OIB guidelines', value: 'The OIB guidelines with their definitions.' },
       { key: 'Standards', value: 'A curated register of standards and the standards your office uploads itself.' },
       { key: 'Germany and Switzerland', value: 'Not the legal texts yet. {name} works with plans, models, documents and office knowledge in any country.' },

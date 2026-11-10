@@ -374,6 +374,24 @@ export const INTAKE_COMPLETED: IntakeView = {
   canComplete: false,
 }
 
+/** The address confirmed by the address register in the cell (ADR-0172) instead of the geocoder: `?site=register`. */
+const REGISTER_EVIDENCE: ProfileEvidence = {
+  kind: 'register',
+  addressId: 'at-bev:6744151',
+  label: FIXTURE_LOCATION.label,
+  referenceDate: '2025-10-01',
+  resolvedAt: AT,
+}
+
+export const INTAKE_REGISTER: IntakeView = {
+  ...INTAKE_READY,
+  groups: INTAKE_READY.groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => (item.key === 'site_address' ? { ...item, evidence: [REGISTER_EVIDENCE] } : item)),
+  })),
+  readingProgress: { ...INTAKE_READY.readingProgress, site: { ...INTAKE_READY.readingProgress.site, source: 'register' } },
+}
+
 export const INTAKE_FIXTURES = {
   waiting: INTAKE_WAITING,
   reading: INTAKE_READING,

@@ -44,17 +44,24 @@ from dataclasses import field
 from pathlib import Path
 from typing import Any
 
+from agent.common.residency import active_cell
 from agent.observability.langfuse_catalog import GOLDEN_DATASET_NAME
 from agent.observability.langfuse_catalog import JUDGES
 from agent.observability.langfuse_catalog import QUEUES
-from agent.observability.langfuse_catalog import RULES
 from agent.observability.langfuse_catalog import JudgeDefinition
+from agent.observability.langfuse_catalog import RuleDefinition
 from agent.observability.langfuse_catalog import golden_dataset_items
+from agent.observability.langfuse_catalog import judge_rules
 from agent.observability.langfuse_scores import SCORE_DEFINITIONS
 from agent.observability.langfuse_scores import ScoreDefinition
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFINITIONS = {definition.name: definition for definition in SCORE_DEFINITIONS}
+
+
+def _rules() -> tuple[RuleDefinition, ...]:
+    """The judge rules for the cell this runs in: ``RESIDENCY_CELL`` set, the include-only filter (ADR-0167)."""
+    return judge_rules(active_cell() is not None)
 
 
 @dataclass
@@ -145,7 +152,7 @@ def plan_against(state: dict[str, Any]) -> Plan:
     evaluator_names = {evaluator.name for evaluator in state["evaluators"]}
     plan.judges = [judge.name for judge in JUDGES if judge.name not in evaluator_names]
     rule_names = {rule.name for rule in state["rules"]}
-    plan.rules = [rule.name for rule in RULES if rule.name not in rule_names]
+    plan.rules = [rule.name for rule in _rules() if rule.name not in rule_names]
     if not state["llm_connections"] and (plan.judges or plan.rules):
         plan.notes.append(
             "No LLM connection in this project: the judges are created but cannot run until one is added "
@@ -244,7 +251,7 @@ def _create_rule(api: Any, name: str) -> None:
     )
     from pydantic import TypeAdapter
 
-    rule = next(rule for rule in RULES if rule.name == name)
+    rule = next(rule for rule in _rules() if rule.name == name)
     evaluator_ids = {evaluator.name: evaluator.id for evaluator in _cursored(api.evaluators.list)}
     api.evaluation_rules.create(
         name=rule.name,

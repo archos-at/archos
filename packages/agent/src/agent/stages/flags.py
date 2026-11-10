@@ -75,6 +75,19 @@ class TurnFlags:
     #: unless the BFF says yes: an older BFF, a failed call or a missing field
     #: all read as no.
     folder_cards_allowed: bool = False
+    #: Whether this tenant's public-source requests (RIS today) go through the
+    #: sandboxed fetcher (the ``source-routing`` WorkOS flag, ADR-0162;
+    #: ``ris_adapter.routing``). OFF unless the BFF says yes, like
+    #: :attr:`folder_cards_allowed`: off is the behaviour that shipped before it.
+    source_routing_allowed: bool = False
+    #: Whether licensed text an office holds may reach the model inside the call (the ``licensed-seam``
+    #: flag, ``common/licensed_text.py``). An entitlement like the one above: off unless the BFF says yes,
+    #: and off means a licensed passage is listed without its text, never that it is sent unguarded.
+    licensed_text_allowed: bool = False
+    #: Whether ``law-lookup`` may answer for a past day (``as_of``, the ``time-editions`` flag, ADR-0171).
+    #: An entitlement: off unless the BFF says yes, and off means an ``as_of`` call is refused, never
+    #: answered with today's text.
+    time_editions_allowed: bool = False
 
 
 #: The evaluation runs on the per-turn critical path, in the same gather as the
@@ -130,6 +143,9 @@ def fetch_turn_flags(*, organization_id: str | None, project_id: str | None = No
         deep_research_allowed=features.get("deepResearch") is not False,
         tasks_allowed=features.get("tasks") is not False,
         folder_cards_allowed=features.get("folderCards") is True,
+        source_routing_allowed=features.get("sourceRouting") is True,
+        licensed_text_allowed=features.get("licensedSeam") is True,
+        time_editions_allowed=features.get("timeEditions") is True,
     )
 
 

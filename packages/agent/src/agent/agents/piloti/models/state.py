@@ -86,6 +86,11 @@ class ResearchAgentState(BaseModel):
     #: the tool payload — and the prompt-cache shard keyed on it — is identical
     #: for every tenant. What changes per org is one sentence of prose.
     tasks_allowed: bool = True
+    #: Whether this turn may expand licensed passages inside the model call (``common/licensed_text.py``).
+    licensed_text_allowed: bool = False
+    #: Whether this turn's ``law-lookup`` is offered ``as_of`` (the ``time-editions`` flag, ADR-0171).
+    #: Off, the tool keeps the payload it had before; on, the turn binds the copy that shows it.
+    time_editions_allowed: bool = False
     #: The turn's signed scope holds a restricted folder's collection (ADR-0087).
     #: Rendered as the block that keeps the run, task, profile and filing doors
     #: shut for this conversation, and picks the reason the reader is given.

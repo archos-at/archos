@@ -46,6 +46,18 @@ import { isProjectClosed } from '@/lib/projects/project-status'
  * build or show cards, so it needs no WorkOS client of its own. It is not
  * withdrawn by a closed project.
  *
+ * `sourceRouting` (ADR-0162) tells the RIS adapter whether this organization's
+ * public-source requests go through the sandboxed fetcher; read per turn, not
+ * withdrawn by a closed project.
+ *
+ * `licensedSeam` is the same per-organization read for the licensed seam: whether
+ * an office's licensed text may reach the model inside the call
+ * (`packages/agent/src/agent/common/licensed_text.py`). Off lists a licensed
+ * passage without its text. Not withdrawn by a closed project.
+ *
+ * `timeEditions` (ADR-0171) tells `law-lookup` whether it may answer for a past
+ * day (`as_of`); off, such a call is refused. Not withdrawn by a closed project.
+ *
  * Token-guarded like every other internal route.
  */
 
@@ -61,15 +73,29 @@ export const GET = internalApiRoute(
   'post-answer-stages',
   async ({ request }) => {
     const { organizationId, projectId } = parseQuery(request, querySchema)
-    const [enabled, deepResearch, tasks, folderCards, project] = await Promise.all([
+    const [enabled, deepResearch, tasks, folderCards, sourceRouting, licensedSeam, timeEditions, project] = await Promise.all([
       enabledPostAnswerStages(organizationId),
       isDeepResearchEnabledForOrg(organizationId),
       isTaskAutomationEnabledForOrg(organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.folderCards, organizationId),
+      isOrgFeatureEnabled(FEATURE_FLAGS.sourceRouting, organizationId),
+      isOrgFeatureEnabled(FEATURE_FLAGS.licensedSeam, organizationId),
+      isOrgFeatureEnabled(FEATURE_FLAGS.timeEditions, organizationId),
       projectId ? findProjectTenancy(projectId) : Promise.resolve(null),
     ])
-    const closed = project !== null && project.organizationId === organizationId && isProjectClosed(project)
-    return { enabled, features: { deepResearch: deepResearch && !closed, tasks: tasks && !closed, folderCards } }
+    const closed =
+      project !== null && project.organizationId === organizationId && isProjectClosed(project)
+    return {
+      enabled,
+      features: {
+        deepResearch: deepResearch && !closed,
+        tasks: tasks && !closed,
+        folderCards,
+        sourceRouting,
+        licensedSeam,
+        timeEditions,
+      },
+    }
   },
   // `?organizationId` names the tenant the flags are evaluated for. The one
   // query, the project's tenancy probe, states its own platform scope and is

@@ -7,14 +7,66 @@ definitions but schedules them differently, and two required checks sit outside
 
 ```bash
 task verify        # everything CI runs
-task verify:fast   # the same, minus the slow production build
+task verify:fast   # the tiers and UI specs your change reaches, no production build
 task setup         # first-time toolchain install
 ```
 
-Both run `lint:repo` first, then the tiers side by side (`task --parallel
---output=group`), so a tier's output arrives whole when it finishes. They skip
+`verify` runs `lint:repo` first, then the tiers side by side (`task --parallel
+--output=group`), so a tier's output arrives whole when it finishes;
+`verify:fast` runs `lint:repo` beside the tiers. They skip
 the hooks a tier repeats (ruff, the English-names test: `VERIFY_SKIP` in
 `Taskfile.yml`) and run the UI suite without coverage, as CI does.
+
+### What `verify:fast` runs
+
+`verify` runs every tier whole. On four cores that is about a quarter of an
+hour, and the tiers are far from equal (each task alone, 2026-11-10):
+
+| Task | Wall clock | CPU seconds |
+|---|---|---|
+| `workspace:test` (1,872 spec files; 13m 24s and 2,310 CPU seconds before the vm pool) | 5m 51s | 946 |
+| `be:test:ci` (138s as `be:test`, without coverage) | 2m 48s | 463 |
+| `infra:test` | 1m 05s | 191 |
+| `be:test:api` | 44s | 127 |
+| `lint:repo` (pre-commit 28s, `agents:audit` 9s; 79s on a cold cache) | 37s | |
+| `workspace:lint` | 25s | 30 |
+| everything else together | under 1m | |
+
+So `verify:fast` does not run every tier. [`ci/verify_plan.py`](../../ci/verify_plan.py)
+takes every path that differs from the merge base with `origin/develop`
+(committed or not, untracked files included) and decides as CI's Plan job does
+for a pull request, from the same two definitions:
+
+- a tier runs when [`.github/filters.yml`](../../.github/filters.yml) names a changed path;
+- the UI tier runs the specs `ci/pr_selection.py` selects (`vitest related`),
+  or the whole suite when the change reaches what every spec loads;
+- the backend tier runs whole, without coverage (`be:verify:fast`), until you
+  record this checkout's testmon databases once with `task be:test:testmon`.
+  With them, a change testmon can see runs only the tests it reaches
+  (`be:verify:affected`); a lockfile, a conftest or Python outside the tested
+  packages still runs the suites whole, by the rules of `decide_python`. An
+  old recording only widens the selection, since testmon compares each file
+  with what it recorded. The databases CI selects from live in CI's cache and
+  are not fetched;
+- the harness tests (`be:test:harness`) run when the backend tier does not, as
+  CI's Repo checks job runs them on every pull request.
+
+It prints the plan first, and names a gate outside `verify` (`db:test:rls`,
+`pkg:test`, `cms:test:db`) when the change touches what that gate guards. A
+one-file UI change is about a minute and a half. A change to
+`Taskfile.yml` or `.github/filters.yml` reaches every tier and costs the whole
+run.
+
+```bash
+task verify:fast -- --dry-run   # the plan, nothing run
+task verify:fast -- --all       # every tier whole, as before 2026-11
+task verify:fast -- --base origin/release   # another base
+```
+
+Without a merge base (no `origin/develop` fetched) it runs every tier. What it
+leaves to `verify` and to CI: the production builds, the 65% coverage gate, and
+any spec the selection cannot connect to the change, which the full run on the
+push to `develop` catches.
 
 `Taskfile.yml` and the per-tier files in `taskfiles/` (included flat, so task names
 are unchanged) are the source of truth for what each check actually runs, and
@@ -43,6 +95,26 @@ Reach for the narrow task rather than the whole gate:
 Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
+
+**The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
+process runs many spec files, each in a fresh vm context, instead of one
+process per file (`pool: 'vmForks'` in `apps/workspace/vitest.config.ts`; the
+whole suite went from 800s to 351s on four cores, 2026-11-10). A context is a
+realm of its own, so specs still do not share globals, modules or mocks. Three
+things follow from the realm:
+
+- An object from Node itself (a `Buffer` off a socket, a `URL`, a
+  `DOMException` raised by a built-in) is not an `instanceof` the context's own
+  class. Test by shape, or list the spec in `PROCESS_PER_FILE` in the config
+  with the reason; those specs keep a process each (the `process` project).
+- `process.env` is shared by every spec a worker runs.
+  `config/vitest/polyfills.ts` puts it back to the worker's starting
+  environment before each spec file, so a spec may set a variable without
+  restoring it. Anything else a spec changes on `process` (`chdir`, a listener)
+  it must undo itself.
+- A worker's heap grows with every context; `vmMemoryLimit` replaces a worker
+  past 1.2 GB. Without it the first full run lost eleven workers to the heap
+  limit.
 
 **`next build` does not typecheck the specs; `task workspace:types` does.** The build
 reads `apps/workspace/tsconfig.build.json` (`typescript.tsconfigPath` in
@@ -821,6 +893,27 @@ presents the unconfirmed sender's claim as the Behörde's.
 The suite starts each run from the working tree: edit nothing under `packages/agent/src/`
 while it runs, or run it from an exported copy of the commit
 (`git archive <sha> | tar -x -C /tmp/copy`).
+
+## The licensed-seam eval
+
+`task be:eval:licensed` (`scripts/licensed_eval.py`) asks how well answers use
+text an office licensed, and whether any of it leaks (ADR-0164). The documents in
+`tests/fixtures/licensed_eval/norms.yaml` are norm-like pages with tables, written
+for the eval; some cells are unreadable on purpose (`1?5 cm`, `■■ m`), and a
+question about one expects the answer to name the page or the table and state no
+value. Each question runs as one turn through the real chat-request contract on
+OpenRouter, with the bundled static prompt and the grounding block as the tool
+result, in four arms: `public` (unmarked, the ceiling), `seam` (licensed, flag
+on), `off` (licensed, flag off: listed, no text; the floor) and `unattested` (a
+licensed copy whose office has not confirmed AI processing: listed, no text). The report counts
+values stated, unreadable values pointed to, guesses, the longest licensed stretch
+in an answer against the cap, and the longest a LangChain callback or the
+checkpointed messages held. It exits 1 when any run but a `public` one leaked past the
+cap, and 3 when a run errored (a model call that failed, a 402 among them), so a broken
+run never reads as a clean one. `--calls N` sends each turn N times, as an agent loop re-sends it, and reports
+the share of prompt tokens read from the provider's cache, the cost and the later
+calls' seconds; `--no-cache-marker` drops the `cache_control` breakpoint for the
+comparison (it matters for a model that caches only when asked, Claude). Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
 
 ## The socket-level streaming harness
 

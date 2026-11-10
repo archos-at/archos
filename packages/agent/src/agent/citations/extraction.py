@@ -19,6 +19,7 @@ from agent.citations.registry import MAX_REGIONS_PER_SOURCE
 from agent.citations.text_parsers import parser_for
 from agent.common.grounding_block import GroundingHit
 from agent.common.grounding_block import get_grounding_block
+from agent.common.licensed_text import quotable
 from agent.common.source_kinds import TOOL_RESULT_SOURCE_TYPE
 
 logger = logging.getLogger(__name__)
@@ -189,6 +190,15 @@ def _entry_from_hit(hit: GroundingHit, tool_name: str) -> SourceEntry:
     return _entry_from_hit_fields(hit, tool_name)
 
 
+def _keep_licensed_text(hit: GroundingHit) -> None:
+    """File an attested licensed passage whole on the turn's registry, so a quote of it verifies past its excerpt."""
+    from agent.citations.session import get_session_registry
+
+    registry = get_session_registry()
+    if registry is not None and hit.licence is not None and hit.licence.licensed and hit.licence.ai_processing:
+        registry.keep_licensed_text(hit.citation_key.strip(), hit.body.strip())
+
+
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     """One captured grounding hit as a registry entry, by field copy.
 
@@ -202,6 +212,7 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     key, not by its link. Giving it one would move it onto the registry's URL
     identity and out of the document dedup.
     """
+    _keep_licensed_text(hit)
     return SourceEntry(
         citation_key=hit.citation_key.strip(),
         title=hit.display_title.strip() or None,
@@ -215,7 +226,8 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         # The body as EVIDENCE: no truncation marker (the renderer adds it) and
         # no surrounding blank lines, so ``verify_quoted_spans`` matches an
         # answer's quote against the passage and nothing else.
-        chunk_text=hit.body.strip() or None,
+        # A licensed body persists with the answer's sources only as far as a quote may reach.
+        chunk_text=quotable(hit.body.strip(), hit.licence),
         clause=(hit.clause or "").strip() or None,
         score=hit.score,
         regions=list(hit.regions[:MAX_REGIONS_PER_SOURCE]),

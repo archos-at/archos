@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 from agent.observability.langfuse_catalog import JUDGES
 from agent.observability.langfuse_catalog import QUEUES
-from agent.observability.langfuse_catalog import RULES
 from agent.observability.langfuse_catalog import golden_dataset_items
+from agent.observability.langfuse_catalog import judge_rules
 from agent.observability.langfuse_scores import SCORE_DEFINITIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -60,7 +60,7 @@ class TestPlan:
         assert [definition.name for definition in plan.score_configs] == list(DEFINED)
         assert plan.queues == [queue.name for queue in QUEUES]
         assert plan.judges == [judge.name for judge in JUDGES]
-        assert plan.rules == [rule.name for rule in RULES]
+        assert plan.rules == [rule.name for rule in judge_rules(False)]
         assert plan.dataset
         assert len(plan.dataset_items) == len(golden_dataset_items(REPO_ROOT))
 
@@ -69,7 +69,7 @@ class TestPlan:
             score_configs=[_config(definition) for definition in SCORE_DEFINITIONS],
             queues=[SimpleNamespace(name=queue.name) for queue in QUEUES],
             evaluators=[SimpleNamespace(name=judge.name) for judge in JUDGES],
-            rules=[SimpleNamespace(name=rule.name) for rule in RULES],
+            rules=[SimpleNamespace(name=rule.name) for rule in judge_rules(False)],
             dataset=True,
             dataset_item_ids=[item["id"] for item in golden_dataset_items(REPO_ROOT)],
         )
@@ -115,7 +115,7 @@ class TestCatalog:
         from langfuse.api.evaluation_commons.types.evaluation_rule_filter import EvaluationRuleFilter
         from pydantic import TypeAdapter
 
-        for rule in RULES:
+        for rule in judge_rules(False) + judge_rules(True):
             for condition in rule.filter:
                 TypeAdapter(EvaluationRuleFilter).validate_python(condition)
 
@@ -129,3 +129,37 @@ class TestCatalog:
 
         assert len({item["id"] for item in items}) == len(items)
         assert all(item["input"]["text"] for item in items)
+
+
+def test_the_rule_provisioned_follows_the_cell_it_runs_in(monkeypatch):
+    """Include-only on purpose_ok:quality_evaluation inside a cell; without one, as before ADR-0167."""
+    from agent.common import residency
+
+    condition = {
+        "type": "arrayOptions",
+        "column": "tags",
+        "operator": "any of",
+        "value": [residency.QUALITY_EVALUATION_TAG],
+    }
+    monkeypatch.delenv(residency.RESIDENCY_CELL_ENV, raising=False)
+    assert condition not in provision._rules()[0].filter
+    monkeypatch.setenv(residency.RESIDENCY_CELL_ENV, "eu-at-1")
+    assert condition in provision._rules()[0].filter
+
+
+def test_the_advice_policy_judge_runs_only_on_turns_that_carried_a_policy_and_keeps_every_other_filter():
+    """ADR-0174: its own rule, so a turn without hedges is never graded against a policy."""
+    from agent.observability.onboarding_scores import ADVICE_POLICY_TRACE_TAG
+
+    for residency_on in (False, True):
+        rules = {rule.name: rule for rule in judge_rules(residency_on)}
+        chat, advice = rules["chat-turn-judges"], rules["advice-policy-judges"]
+        assert "advice-policy-held" not in chat.judge_names
+        assert advice.judge_names == ("advice-policy-held",)
+        assert all(condition in advice.filter for condition in chat.filter)
+        assert {
+            "type": "arrayOptions",
+            "column": "tags",
+            "operator": "any of",
+            "value": [ADVICE_POLICY_TRACE_TAG],
+        } in advice.filter

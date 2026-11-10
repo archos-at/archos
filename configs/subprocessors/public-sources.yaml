@@ -1,0 +1,30 @@
+# Public authorities and publishers we fetch from. Not processors: they receive a
+# query for a law or a page, never an office's documents. The query text can be
+# derived from a person's question, so the page lists them.
+sources:
+  - id: ris
+    name: Bundeskanzleramt (RIS, Rechtsinformationssystem des Bundes)
+    country: AT
+    hosts: [ris.bka.gv.at, www.ris.bka.gv.at, ogd.ris.bka.gv.at, data.bka.gv.at]
+    env: []
+    copy:
+      de: 'Rechtsinformationssystem des Bundes (Bundeskanzleramt, Österreich): Suchbegriffe und Kennungen von Rechtsvorschriften, die aus Ihren Fragen abgeleitet sind'
+      en: 'Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions'
+  - id: bev-address-register
+    name: Bundesamt für Eich- und Vermessungswesen (BEV, Österreichisches Adressregister)
+    country: AT
+    hosts: [data.bev.gv.at]
+    env: []
+    copy:
+      de: 'Bundesamt für Eich- und Vermessungswesen (Österreich): das öffentliche Adressregister wird zweimal im Jahr als Ganzes heruntergeladen und bei uns gespeichert; eine eingegebene Adresse wird nur in unserer Datenbank gesucht und nie an das BEV gesendet'
+      en: 'Federal Office of Metrology and Surveying (Austria): the public address register is downloaded whole twice a year and stored with us; an address you type is looked up in our database only and never sent to the BEV'
+  - id: fedlex
+    name: Bundeskanzlei (Fedlex, Publikationsplattform des Bundesrechts)
+    country: CH
+    status: unused
+    unused_reason: configured in configs/sources/ch/fedlex/ to prove the http_eli access type (ADR-0162); no country pack entitles an office to it, so nothing is fetched for anyone. Set it active, which lists it on the page, when a pack uses it.
+    hosts: [fedlex.data.admin.ch, www.fedlex.admin.ch]
+    env: []
+    copy:
+      de: 'Fedlex (Schweizerische Bundeskanzlei): Kennungen von Bundeserlassen und Stichtage, die aus Ihren Fragen abgeleitet sind'
+      en: 'Fedlex (Swiss Federal Chancellery): identifiers of federal acts and dates derived from your questions'

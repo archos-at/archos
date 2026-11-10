@@ -427,6 +427,14 @@ export const collaboration: typeof en.collaboration = {
             body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
           },
+          de_svnr: {
+            body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
+          },
+          de_tax_id: {
+            body: '„{subject}“ enthält eine Steuer-ID. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Steuer-ID. Prüfen Sie sie: zulassen oder löschen.',
+          },
           credit_card: {
             body: '„{subject}“ enthält eine Kreditkartennummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Kreditkartennummer. Prüfen Sie sie: zulassen oder löschen.',
@@ -447,6 +455,8 @@ export const collaboration: typeof en.collaboration = {
           term: { body: 'Sie enthält einen Begriff aus der Liste sensibler Daten. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           iban: { body: 'Sie enthält eine IBAN. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           at_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_tax_id: { body: 'Sie enthält eine Steuer-ID. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           credit_card: { body: 'Sie enthält eine Kreditkartennummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           transcript: { body: 'Gefunden im Text gescannter Seiten, die ein Bildmodell gelesen hat. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
         },
@@ -819,6 +829,10 @@ export const collaboration: typeof en.collaboration = {
       inboundMailWaiting: {
         titleOne: 'Eine E-Mail an „{subject}“ wartet auf Ablage',
         titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
+        // Die Zeile zählt, was jetzt wartet (`lib/inbox/live-counts.ts`): keine, bis sie erledigt ist.
+        titleNone: 'Keine E-Mail an „{subject}“ wartet mehr auf Ablage',
+        // Ohne Zugriff auf das Projekt: kein Name und keine Zahl, die die Zeile nicht mehr kennt.
+        titleRedacted: 'E-Mails warteten in einem Projekt auf Ablage',
         title: 'E-Mails an „{subject}“ warten auf Ablage',
         body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
         variants: {

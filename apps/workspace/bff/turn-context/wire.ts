@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { buildingLawTurnSchema } from '@/lib/base-knowledge/chain/wire'
 
 export const turnContextRequestSchema = z.object({
   query: z.string().trim().max(2000).optional(),
@@ -28,6 +29,29 @@ export const turnContextResponseSchema = z.object({
    * not be read; an older agent ignores it.
    */
   workspace: z.string().nullable(),
+  /**
+   * The office's confirmed base knowledge (`lib/base-knowledge/office/turn-block.ts`,
+   * ADR-0163): one line per licensed standard, commentary, directive, guideline
+   * or law it holds, with edition, role, the project's directive verdict and the
+   * last check. Null when the `office-base-knowledge` flag is off or the office
+   * holds none; an older agent ignores it.
+   */
+  baseKnowledge: z.string().nullable(),
+  /**
+   * The data of the label an answer puts on a passage from each confirmed
+   * office copy (`lib/base-knowledge/office/answer-label.ts`): kind,
+   * designation, edition, role, last check, text use, a directive's verdict.
+   * Tokens, no prose; the answer's renderer words it. Empty with the flag off.
+   */
+  baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
+  /**
+   * The building law of the project's site from the platform's records
+   * (`lib/base-knowledge/chain/`, ADR-0168): the chain text and each
+   * edition's role. Null when the `building-law-chain` flag is off, the
+   * project states no Land, or nothing binds there by the records; an older
+   * agent ignores it.
+   */
+  buildingLaw: buildingLawTurnSchema.nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

@@ -21,8 +21,14 @@ from knowledge_layer.search import bm25_text
 from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
+from knowledge_layer_testing.vector_store import TEST_OFFICE
 from knowledge_layer_testing.vector_store import record as _record
 from knowledge_layer_testing.vector_store import vector as _vector
+
+from agent import project_context
+
+# A search over a project or session scope reads as an office, as every request does (ADR-0163).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 #: The real reader, before ``retriever`` stubs it for the tests that need no metadata store.
 FACTS_BY_FILE = writes.facts_by_file
@@ -36,6 +42,8 @@ def _cosine(a: list[float], b: list[float]) -> float:
 @pytest.fixture
 def retriever(qdrant_store, monkeypatch) -> LlamaIndexRetriever:
     monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {})
+    # The request's office, as a chat turn carries it (``knowledge_layer.search.office_for``).
+    monkeypatch.setattr(project_context, "get_organization_id_from_context", lambda: "org_test")
     instance = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     instance._initialized = True
     monkeypatch.setattr(instance, "_embed_query_cached", lambda query: _vector(query))
@@ -61,7 +69,8 @@ async def test_retrieve_answers_from_qdrant_with_the_chunk_contract(retriever):
         _row("Die Fluchtwege sind in Gebäudeklasse 4 rauchfrei auszuführen.", "brandschutz.pdf"),
         _row("Die Tragwerksplanung berücksichtigt die Holzbauweise.", "statik.pdf"),
     ]
-    _ingest(retriever, "proj_a", rows, organization_id="org_1", project_id="p1", document_id="d1")
+    # Written for the office the module reads as (``reads_as_an_office``): another office's points stay out.
+    _ingest(retriever, "proj_a", rows, organization_id=TEST_OFFICE, project_id="p1", document_id="d1")
 
     result = await retriever.retrieve("Fluchtweg", "proj_a", top_k=2)
 
@@ -187,6 +196,24 @@ def test_deletes_go_by_chunk_file_and_scope(retriever):
     store.delete_scope("proj_a")
     assert store.count("proj_a") == 0
     assert store.count("proj_b") == 1, "a delete names its scope and never reaches another"
+
+
+def test_removing_an_office_copy_leaves_no_point_of_it(retriever):
+    """Zero residue for a base-knowledge removal (ADR-0163): every point of the
+    file goes, its mark included; the positive control is that the points were
+    there before and another file of the same office stays."""
+    scope = "office_shelf_org_test"
+    mark = {"licence_class": "licensed", "ai_processing_attested": True, "knowledge_edition_id": "ed-1"}
+    _ingest(retriever, scope, [_row("Abschnitt 1", "OENORM.pdf"), _row("Abschnitt 2", "OENORM.pdf")], **mark)
+    _ingest(retriever, scope, [_row("Andere", "Kommentar.pdf")])
+    store = store_module.get_store()
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 2, "the control: the copy was indexed"
+
+    store.delete_file(scope, "OENORM.pdf")
+
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 0
+    assert store.count(scope, {"knowledge_edition_id": "ed-1"}) == 0
+    assert store.count(scope, {"file_name": "Kommentar.pdf"}) == 1, "a removal names its file and never reaches another"
 
 
 def test_a_long_delete_goes_in_bounded_requests(retriever, monkeypatch):
@@ -339,6 +366,7 @@ async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
         filters=None,
         exact_terms=["§ 3"],
         identity=retriever._identity(),
+        office_id="org_test",
     )
     assert {hit.payload["file_name"] for hit in hits[:2]} == {"0.pdf", "1.pdf"}
 
@@ -403,7 +431,7 @@ async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_
 
     def run(pattern: str) -> tuple[list[str], int]:
         scanned["n"] = 0
-        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100)
+        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100, office_id="org_test")
         return [hit.chunk_id for hit in hits], scanned["n"]
 
     narrowed_patterns = 0

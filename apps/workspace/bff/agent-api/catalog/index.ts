@@ -7,6 +7,8 @@
  */
 
 import { AGENT_DOMAINS, type AgentOperation, type OperationExample } from '../operation'
+import { baseKnowledgeOperations } from './base-knowledge'
+import { baseKnowledgeTimeOperations } from './base-knowledge-time'
 import { bimOperations } from './bim'
 import { collaborationOperations } from './collaboration'
 import { consultOperations } from './consult'
@@ -17,6 +19,9 @@ import { knowledgeOperations } from './knowledge'
 import { mailOperations } from './mail'
 import { organizationOperations } from './organization'
 import { platformOperations } from './platform'
+import { platformKnowledgeOperations } from './platform-knowledge'
+import { platformSkillOperations } from './platform-skills'
+import { platformSourceOperations } from './platform-sources'
 import { projectsOperations } from './projects'
 import { releaseNotesOperations } from './release-notes'
 import { reviewOperations } from './review'
@@ -41,10 +46,15 @@ export type OperationName = (
   | typeof tasksOperations
   | typeof skillsOperations
   | typeof knowledgeOperations
+  | typeof baseKnowledgeOperations
+  | typeof baseKnowledgeTimeOperations
   | typeof bimOperations
   | typeof organizationOperations
   | typeof releaseNotesOperations
   | typeof platformOperations
+  | typeof platformKnowledgeOperations
+  | typeof platformSkillOperations
+  | typeof platformSourceOperations
 )[number]['name']
 
 const unordered: readonly AgentOperation[] = [
@@ -60,10 +70,15 @@ const unordered: readonly AgentOperation[] = [
   ...tasksOperations,
   ...skillsOperations,
   ...knowledgeOperations,
+  ...baseKnowledgeOperations,
+  ...baseKnowledgeTimeOperations,
   ...bimOperations,
   ...organizationOperations,
   ...releaseNotesOperations,
   ...platformOperations,
+  ...platformKnowledgeOperations,
+  ...platformSkillOperations,
+  ...platformSourceOperations,
 ]
 
 /**

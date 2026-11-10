@@ -18,7 +18,7 @@ what kept the previous country abstraction honest-free and got it deleted).
 |---|---|---|
 | `states` / `state_probe_order` | data (registry-overridable) | jurisdiction resolution (`extract_federal_state`/`resolve_federal_state`) |
 | `language` | data | classification/prompt language (consumer grows with i18n work below) |
-| `doctrine` | data | `{{ norm_doctrine }}` in researcher/planner/writer prompts. Piloti holds the AT text inline in its system prompt `prompts/chat_static.md` (`<building_law>`), because only `at` is registered and the text is therefore constant per deployment. **Registering a second country moves it back to a rendered variable in the turn context (`piloti.j2`)** — ADR-0060 amendment |
+| `doctrine` | data | `{{ norm_doctrine }}` in researcher/planner/writer prompts. Piloti holds the AT text inline in its system prompt `prompts/chat_static.md` (`<building_law>`), because only `at` is registered and the text is therefore constant per deployment. The renderer that moves it into the turn context exists (`turn/building_law.py`, ADR-0168): the block renders there, for an Austrian site or from the platform records' chain, once the static prompt no longer holds it — ADR-0060 amendment |
 | `corpus_collection` | data | retrieval base-collection routing; admin store |
 | `corpus_note` | data | catalog prompt block corpus section |
 | `parcel_tags` | data | `parcel_note` per-parcel source-of-truth signal |
@@ -65,7 +65,8 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    (`country_name`, `legal_source_tools`) when country #2 ships.
 8. Request envelope: its `federal_state` is AT-vocabulary; add a
    `country` envelope field alongside it (the structured `country=<cc>` prompt
-   fact is already parsed by `resolve_country`).
+   fact is already parsed by `country_profile.resolve_site`, which never
+   defaults to Austria: an unplaced project is `site_unknown`).
 
 ## Known duplications (consolidate opportunistically, never let them drift)
 
@@ -87,3 +88,35 @@ mechanisms confirmed country-agnostic by inventory: collection layering &
 merging, scoping headers, the request-envelope machinery, the classification
 and compliance pipelines (mechanism, not vocabulary), "answer in the user's
 language" prompt rules.
+
+## OIB editions per Land
+
+Which edition of the OIB-Richtlinien each Land has declared binding. The
+source of truth is now the Austria pack's relation records
+(`configs/knowledge-packs/at.json`, ADR-0168), proposed and published as a
+change request and checked Land by Land against the OIB's own table of in-force
+dates (<https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten>,
+Stand Oktober 2026, read 2026-11-10) in
+`apps/workspace/bff/base-knowledge/chain/packs.spec.ts`. The pack also holds
+the 2019 adoptions each 2023 one replaced, so an earlier date resolves too. This
+table is the summary; the LGBl. numbers come from RIS and secondary
+consolidations: re-check each on RIS before quoting it.
+
+- Niederösterreich's day is 2025-03-18 (the OIB's table).
+- Salzburg: the OIB lists 2026-08-06, RIS 2026-09-01; the pack takes the OIB's
+  day. Salzburg adopted no RL 6 in 2019 or 2023, and the OIB's 2015 table lists
+  RL 6:2015 in force there since 2016-07-01, never replaced. The pack holds no
+  2015 edition, so RL 6 reads as guidance in Salzburg, not as the 2015 edition
+  that may still bind: add it before quoting RL 6 for a Salzburg project.
+
+| Land | Binding edition | In force since | Instrument |
+|---|---|---|---|
+| Wien | RL 1–5: 2023, RL 6: 2025 | 2024-02-23; RL 6 2026-07-15 | WBTV 2023 (LGBl. 14/2024), RL 6 by LGBl. 26/2026 |
+| Niederösterreich | RL 1–6: 2023 | 2025-03-18 | NÖ BTV 2014 as amended by LGBl. 41/2025 |
+| Oberösterreich | RL 1–5: 2023, RL 6: 2019 | 2025-10-01; RL 6 2020-09-01 | Oö. BauTV-Novelle 2025 (LGBl. 70/2025) |
+| Steiermark | RL 1–6: 2019 | 2020-09-01 | StBTV 2020 |
+| Kärnten | RL 1–6: 2023 | 2024-12-31 | K-BTV 2024 (LGBl. 105/2024) |
+| Salzburg | RL 1–5: 2023; RL 6: no adoption listed | 2026 (OIB: 2026-08-06; RIS: 2026-09-01) | Bautechnikverordnung LGBl. 83/2026 |
+| Tirol | RL 1–5: 2023, RL 6: 2025 without Pkt 2.2 and 2.3.1 | 2026-07-16 | TBV 2026 § 43 (LGBl. 59/2026) |
+| Vorarlberg | RL 1–6: 2019 | 2022-01-01 | BTV as amended by LGBl. 67/2021 |
+| Burgenland | RL 1–6: 2019 | 2021-04-10 | Bgld. BauVO 2008 as amended by LGBl. 22/2021 |

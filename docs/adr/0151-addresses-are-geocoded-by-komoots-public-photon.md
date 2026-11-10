@@ -144,6 +144,10 @@ specs and fixtures already speak its API (the fixtures were captured from it).
 
 ## More Information
 
+Amended by [ADR-0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md): a
+site address is confirmed against official registers hosted in the cell
+(`site-resolve`), not by the geocoder, which stays as this record leaves it.
+
 Revisit when:
 
 * the frontend logs `[geocode] photon answered 429` (or 403) more than now and

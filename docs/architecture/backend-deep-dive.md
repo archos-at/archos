@@ -652,10 +652,13 @@ the folder.
 
 Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`src/lib/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`).
+`REQUIRE_AUTH=false`). `oib_knowledge` is in it only for a turn without a
+project or a project placed in Austria (`loadProjectSiteCountry`, ADR-0158); the
+knowledge layer's `scoped_collections_for_site` holds the same rule for a scope
+nobody stated, and RIS is a switched-off source for such a project.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,
@@ -1474,13 +1477,38 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   the cacheable prefix. Piloti renders the applicability section alone
   (`prompt.oib_applicability`, derived from this project's `confirmed:` facts)
   and keeps the doctrine in its system prompt, `chat_static.md`
-  (`<building_law>`). See the ADR-0060 amendment.
-- **Jurisdiction** — `resolve_country(project_context)` regexes the structured
-   `country=<cc>` fact from the prompt text (`at`/`de`/`ch`/`other`, authored
-   by the intake wizard's new A2_country question); absent → `"at"`. Every
-   prompt now carries a **Jurisdiction & Country Handling** block that instructs
-   the agent: for `at` → full OIB/RIS pipeline, binding precision; for non-AT →
-   Austrian corpus only, comparative guidance, recommend local verification.
+  (`<building_law>`), until the country-neutral static prompt moves it into the
+  turn context for Austrian sites only (ADR-0168, below). See the ADR-0060 amendment.
+- **Jurisdiction** — `country_profile.resolve_site(project_context)` places
+   the project by its own profile lines: a `country=<cc>` line (`at`/`de`/`ch`/
+   `other`, the intake's A2_country), else a Land token (`federal_state`,
+   `outside_austria` → `other`), the `confirmed:` section first and then
+   `assumptions:` (an unverified site still places it). Nothing places it by
+   default: no line is `site_unknown`, never Austria, and the office's seat
+   (`organizations.home_country`) never places a project (design
+   `docs/design/international/design.md` 3.1, A1). `norm_registry.resolve_country`
+   returns its country or None. A project abroad gets `UNCOVERED_SITE_NOTE`
+   (deep research's doctrine, the chat agent's turn context) and no OIB verdicts,
+   catalogue or derived class; an unplaced project gets `SITE_UNKNOWN_NOTE` and
+   no verdicts; an Austrian project's prompt is unchanged except the OIB
+   edition line below. The TypeScript twin is `bff/project-profile/site.ts`
+   (`siteCountry`), read by the OIB list and the
+   building-class derivation. Deep research's **Jurisdiction & Country
+   Handling** block (`country_profile.JURISDICTION_GROUNDING`) states the same.
+- **OIB edition per Land** — relation records of the Austria pack
+   (`configs/knowledge-packs/at.json`, ADR-0168). Behind the
+   `building-law-chain` flag the BFF resolves the project's Land against the
+   platform's records (`bff/base-knowledge/chain/`) and the turn context
+   carries `buildingLaw`: the chain text and each edition's role. The agent
+   binds it per turn (`citations/roles.py`, beside `set_turn_documents`); a
+   cited base-corpus passage maps to its edition by its corpus file, and its
+   role decides the chip's `binding_status` (OIB-RL 2:2023 is `interpretive`
+   in Steiermark). Without the flag `citations/binding.py` decides as before.
+   The `<building_law>` block moves into the turn context only once the static
+   prompt drops it (`turn/building_law.py`): an Austrian site then reads the
+   records' chain or the bundled block, any other site none. The summary per
+   Land is in
+   [`country-extensibility.md`](country-extensibility.md#oib-editions-per-land).
 - **Bundesland** — `resolve_federal_state`: the validated envelope token wins
    (`ausserhalb_oesterreichs` → None is final), then the structured
    `federal_state=<token>` prompt fact, then free-text state-name probing.
@@ -1497,8 +1525,10 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
 - **Applicability** — `common/applicability.py` is a small hand-written module
   (no DSL): OIB verdicts from project facts (mirrors the UI's
   `applicable-standards.ts`), German trigger hints for the four boolean intake
-  facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz), and the
-  prompt section Piloti renders from the project context.
+  facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz; the Viennese
+  Kleingarten- and Garagengesetz only for a project in Wien), and the
+  prompt section Piloti renders from the project context, only for a project
+  placed in Austria.
 - **Display tagging** — `lane_for_hit` / `citations/binding.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
@@ -2272,7 +2302,8 @@ office's skills (`resolve_served_skills`) under `/skills/office/`. Full design a
 `task verify` is the local gate: host-native, defined once in the root
 `Taskfile.yml`. CI calls the same definitions but schedules them differently, so
 a local pass is strong evidence rather than a guarantee. `task verify:fast`
-skips two production builds, `workspace:build` and `website:build`. Full command list, the
+runs only the tiers and UI specs the diff against `origin/develop` reaches, without
+the two production builds and without coverage. Full command list, the
 checks that sit outside `verify`, and the traps `task --list` does not carry:
 `docs/contributing/testing-and-verification.md`.
 

@@ -13,8 +13,11 @@ vi.mock('@/lib/documents/document-details', () => ({
   documentStillExists: vi.fn(),
 }))
 
+vi.mock('@/lib/base-knowledge/text-guard', () => ({ isTextHeld: vi.fn(async () => false) }))
+
 import { GET } from './route'
 import { documentStillExists } from '@/lib/documents/document-details'
+import { isTextHeld } from '@/lib/base-knowledge/text-guard'
 
 const DOC_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 
@@ -78,5 +81,20 @@ describe('GET /api/internal/document-exists', () => {
   it('does not answer "no" when the lookup fails', async () => {
     vi.mocked(documentStillExists).mockRejectedValue(new Error('db down'))
     expect((await GET(request())).status).toBe(500)
+  })
+
+  it('answers no for a base-knowledge copy whose text is held, so a job that wrote after the proposal discards its chunks', async () => {
+    vi.mocked(documentStillExists).mockResolvedValue(true)
+    vi.mocked(isTextHeld).mockResolvedValueOnce(true)
+    const response = await GET(request(`?documentId=${DOC_ID}&collection=office_shelf_org_1`))
+    expect(await response.json()).toEqual({ exists: false })
+    expect(isTextHeld).toHaveBeenCalledWith('org_1', DOC_ID)
+  })
+
+  it('asks no base-knowledge question of a project document', async () => {
+    vi.mocked(documentStillExists).mockResolvedValue(true)
+    const response = await GET(request())
+    expect(await response.json()).toEqual({ exists: true })
+    expect(isTextHeld).not.toHaveBeenCalled()
   })
 })

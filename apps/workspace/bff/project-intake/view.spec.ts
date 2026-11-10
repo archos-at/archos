@@ -307,6 +307,30 @@ describe('step 3, Erfassung: the reading’s live milestones', () => {
     })
   })
 
+  it('says an address register placed it, with the Gemeinde the register named (ADR-0172)', () => {
+    const register = { kind: 'register' as const, addressId: 'at-bev:5734380', label: 'Herrengasse 16, 8010 Graz', referenceDate: '2025-10-01', resolvedAt: NOW }
+    const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'user_confirmed' as const, updatedAt: NOW, evidence: [register] })
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { federal_state: fact('styria'), site_address: fact('Herrengasse 16, 8010 Graz'), municipality: fact('Graz') },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1)).toEqual({
+      federalState: 'Steiermark',
+      municipality: 'Graz',
+      address: 'Herrengasse 16, 8010 Graz',
+      source: 'register',
+      confirmed: true,
+    })
+  })
+
+  it('reads no Gemeinde from a municipality fact no register confirmed', () => {
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { municipality: { value: 'Graz', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW } },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1).municipality).toBeNull()
+  })
+
   it('is on every view', () => {
     expect(view().readingProgress).toMatchObject({ documentsOpened: 0, documentsTotal: 0, site: { federalState: 'Wien' } })
   })

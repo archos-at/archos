@@ -6,6 +6,7 @@ import { getNavFlags, type NavFlags } from '@/lib/authz/nav'
 import { isIfcModelsEnabled, isInboundMailEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
+import { ensureOrganizationRow } from '@/lib/organizations/home-country-row'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { resolveTourEligibility } from '@/lib/onboarding/tour-eligibility'
@@ -136,6 +137,8 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
 
   let organizationName: string | null = null
   try {
+    // Every organization has its row (ADR-0158); a dashboard-made one gets it here, once.
+    if (session.organizationId) void ensureOrganizationRow(session.organizationId)
     organizationName = await getOrganizationDisplayName(session.organizationId)
   } catch {
     organizationName = null

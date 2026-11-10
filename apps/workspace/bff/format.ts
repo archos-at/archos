@@ -347,9 +347,14 @@ export const localCalendarDay = (date: Date = new Date()): string => {
 }
 
 /**
- * The office's day and clock, Austria first like the rest of the product: a
- * server in UTC would date a late-evening export to the next morning, and
- * remind of tomorrow's Frist a day early.
+ * The clock of an office that has none of its own, and of what runs for every
+ * office at once: a server in UTC would date a late-evening export to the next
+ * morning, and remind of tomorrow's Frist a day early. Where an organization is
+ * in scope, read its own clock instead: `officeTimeZone` in
+ * `@/lib/organizations/time-zone` (`organizations.time_zone`, migration 0200).
+ * Still read here, for want of an organization in scope: the protocol export's
+ * formatters, the due-reminder sweep's day, mail and forward dates, and the
+ * client's `TimeAgo` and protocol file names.
  */
 export const OFFICE_TIME_ZONE = 'Europe/Vienna'
 

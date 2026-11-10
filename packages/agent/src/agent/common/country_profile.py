@@ -31,18 +31,42 @@ Consumers (kept current — update when re-pointing):
 - ``legal_source_tools`` → tool-name references in rendered prompt blocks/docs
 - ``applicability`` → ``applicability.render_project_block``
 - ``corpus_doc_class`` → ``norm_registry.lane_for_hit`` display tagging
+
+Where the project is (``resolve_site``) is a separate axis from which profile
+exists (design ``docs/design/international/design.md`` 3.1, invariant A1). A
+project is placed by its own facts: a ``country`` line, else a Land token. A
+project nothing places has NO country, never the default one, and no country's
+law is presented as applying to it: no OIB verdicts, and the chat turn reads
+``SITE_UNKNOWN_NOTE`` (deep research reads it as its doctrine). Neither it nor
+a project placed outside the covered countries (``UNCOVERED_SITE_NOTE``) gets
+the Austrian doctrine, the catalogue, the corpus or RIS
+(``austrian_corpus_applies``). The office's own seat never places a project.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+#: The country whose profile keys the norm store and the configured corpus. It
+#: is never a project's country by default: see ``resolve_site``.
 DEFAULT_COUNTRY = "at"
+
+#: The intake's token for a country without a profile of its own (``A2_country``).
+OTHER_COUNTRY = "other"
+
+#: Country names for the notes the model reads, by the intake's tokens.
+_COUNTRY_NAMES: dict[str, str] = {
+    "at": "Austria",
+    "de": "Germany",
+    "ch": "Switzerland",
+    OTHER_COUNTRY: "a country outside Austria",
+}
 
 
 @dataclass(frozen=True)
@@ -84,10 +108,12 @@ def get_country_profile(country: str | None = None) -> CountryProfile | None:
     Data overrides (states/doctrine/corpus_note/parcel_tags/language/
     corpus_collection) come from the country's registry file so admins can
     evolve them without a deploy; the code hooks always come from the
-    registered instance. Unknown country → None (callers fail open to the
-    default profile or skip the feature).
+    registered instance. No country, or one without a profile → None: the
+    caller says the site is not covered, never falls back to Austria.
     """
-    code = (country or DEFAULT_COUNTRY).lower()
+    if not country:
+        return None
+    code = country.lower()
     base = _PROFILES.get(code)
     if base is None:
         return None
@@ -133,3 +159,231 @@ def _register_austria() -> None:
 
 
 _register_austria()
+
+
+# The jurisdiction + project-hard-limits grounding, injected into every deep-research
+# prompt as {{ jurisdiction_grounding }} — ONE copy, rendered by the prompt factories
+# (same pattern as norm_registry.NORM_DOCTRINE). Keep the rendered prompts long and specific; only
+# the authorship is deduplicated here so the four prompts cannot drift apart.
+JURISDICTION_GROUNDING = """## Jurisdiction & Country Handling
+
+The project context (injected at the bottom of this prompt) places the project with a `country=<cc>` line: an
+ISO-2 country code (e.g. `at`, `de`, `ch`) or the sentinel `other` for a country without a dedicated
+pipeline. For Austrian projects a `federal_state=<token>` line names the Land. A line under `assumptions:`
+places the project too, as unverified.
+
+- **country=at**: The Austrian building-regulation pipeline applies. OIB-Richtlinien, Landesbauordnung and
+  RIS are authoritative; cite ÖNORM only as a reference unless its binding incorporation and applicable text
+  are verified; never reproduce ÖNORM full text as binding. Answer with binding-law precision, name the exact
+  regulation, the edition the Land declared binding and the Punkt, and state the applicable Land.
+- **country != at** (any other ISO-2 code, the `other` sentinel, or `federal_state=outside_austria`): the
+  OIB corpus and the RIS tools are Austrian only, and this workspace does not yet cover that country's law.
+  The norm doctrine below says so for this project. Never present an Austrian rule, OIB-Richtlinie or
+  Austrian building class as applicable; say plainly that the site's law is not covered and what the answer
+  would need. An Austrian rule appears only as a comparison the person asked for, labelled as Austrian.
+- **No country and no Land** (the site is not stated): no country's law is known to apply, and the Austrian
+  corpus and the RIS tools are not used for this project until its site is stated. Nothing is presented as
+  binding. When the answer turns on the jurisdiction, say that the site is missing and ask for it.
+
+## Project Hard Limits & Grounding
+
+The project context includes confirmed facts (hard constraints), unknowns (gaps), and assumptions
+(provisional). Use them as follows:
+
+- **Confirmed facts** are binding — never contradict them. If research sources conflict with a confirmed
+  fact, flag the conflict and explain.
+- **Unknowns** are known gaps — if a critical fact for the answer (especially building-class relevant:
+  escape_level_m, storeys, gfa, uses, federal_state) is flagged unknown, the answer must either ask for
+  it or state the gap clearly.
+- **Assumptions** are provisional estimates — treat as likely but note the uncertainty.
+- Wizard facts that constrain building-regulation outputs: **escape_level_m** → Gebäudeklasse per OIB-RL 2;
+  **storeys_above_ground / storeys_below_ground**; **max_building_height**; **gfa_above_ground**;
+  **work_type** (new_build/extension/conversion/refurbishment/...); **uses** (residential/office/retail/...);
+  **construction_method**; **elevator**; **conditioning**; **fireplaces**; **public_access**; **hazard_zones**;
+  **fire_safety_systems**; **heat_supply**; **further_technology** (pv/ventilation/cooling/infiltration).
+- Keys with `@bldgN` suffix apply to a specific building; keys with `@zone` suffix to a use zone.
+- When the plan or synthesis concerns a building-regulation question, cross-check the projected output
+  against the project's hard limits. If the research produces a requirement that contradicts a confirmed
+  fact, note the contradiction in the output rather than blindly repeating both."""
+
+
+# ---------------------------------------------------------------------------
+# Where the project is: the site, read from the project's own facts.
+# ---------------------------------------------------------------------------
+
+_SECTION_HEADER = re.compile(r"^(confirmed|assumptions):\s*$")
+# Case-blind on the value, as the TypeScript twin (`site.ts`) lowercases it: `country=DE` places in Germany.
+_SITE_LINE = re.compile(r"^-\s*(country|federal_state)=([a-z_]+)\b", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Site:
+    """Where the project's site is, as far as its profile says.
+
+    ``country`` is an ISO-2 code (lower case), ``other`` for a country the
+    intake does not name, or None when nothing places the project (design
+    ``site_unknown``). ``federal_state`` is the Austrian Land token, if any.
+    ``confirmed`` is False when the placing line is only an assumption (a
+    typed address, a reading's suggestion): it still places the project, as
+    unverified (design A1).
+    """
+
+    country: str | None
+    federal_state: str | None = None
+    confirmed: bool = False
+
+    @property
+    def covered(self) -> bool:
+        """Whether a country profile answers for this site's law."""
+        return self.country is not None and self.country in _PROFILES
+
+
+SITE_UNKNOWN = Site(country=None)
+
+
+def _site_lines(project_context: str) -> dict[str, dict[str, str]]:
+    """The ``country`` and ``federal_state`` lines of the confirmed and assumptions sections. Pure."""
+    from agent.profile_names import normalize_prompt_view
+
+    found: dict[str, dict[str, str]] = {"confirmed": {}, "assumptions": {}}
+    section: str | None = None
+    for raw in normalize_prompt_view(project_context).splitlines():
+        section = _section_after(raw, section)
+        match = _SITE_LINE.match(raw.strip()) if section else None
+        if section and match:
+            found[section].setdefault(match.group(1).lower(), match.group(2).lower())
+    return found
+
+
+def _section_after(raw: str, section: str | None) -> str | None:
+    """The profile section a line leaves the reader in: a header opens one, an unindented line ends it. Pure."""
+    header = _SECTION_HEADER.match(raw.rstrip())
+    if header:
+        return header.group(1)
+    if section and raw and not raw.startswith((" ", "-")):
+        return None
+    return section
+
+
+def _site_from(lines: dict[str, str], confirmed: bool) -> Site | None:
+    """The site one section places, or None when it places nothing. Pure."""
+    from agent.common.norm_registry import FEDERAL_STATE_TOKENS
+
+    country = lines.get("country")
+    state = lines.get("federal_state")
+    state = state if state in FEDERAL_STATE_TOKENS else None
+    if country and (len(country) == 2 or country == OTHER_COUNTRY):
+        return Site(country=country, federal_state=state if country == "at" else None, confirmed=confirmed)
+    if state == "outside_austria":
+        return Site(country=OTHER_COUNTRY, confirmed=confirmed)
+    if state:
+        return Site(country="at", federal_state=state, confirmed=confirmed)
+    return None
+
+
+def resolve_site(project_context: str | None) -> Site:
+    """Where the project is: confirmed facts first, then assumptions, else ``SITE_UNKNOWN``.
+
+    Reads the profile's own lines and nothing else: not the office's seat, not
+    a default. The signed envelope's ``federal_state`` places a project whose
+    text carries no line (a caller that sends the envelope and no view).
+    """
+    lines = _site_lines(project_context) if project_context else {"confirmed": {}, "assumptions": {}}
+    site = _site_from(lines["confirmed"], True) or _site_from(lines["assumptions"], False)
+    if site is not None:
+        return site
+    try:
+        from agent.project_context import RequestContext
+
+        token = RequestContext.from_context().federal_state
+    except Exception:  # noqa: BLE001 — no live request context
+        token = None
+    if token:
+        return _site_from({"federal_state": token}, True) or SITE_UNKNOWN
+    return SITE_UNKNOWN
+
+
+def record_site(project_context: str | None) -> None:
+    """Put where this turn's project is on its trace: ``site_country`` and ``site_confirmed``.
+
+    ``site_country`` is the ISO code, ``other``, or ``unknown`` for a project nothing
+    places; no project context records nothing. Best-effort, like all trace metadata.
+    """
+    if not project_context or not project_context.strip():
+        return
+    from agent.observability.langfuse_trace_attributes import record_trace_metadata
+
+    site = resolve_site(project_context)
+    record_trace_metadata(
+        site_country=site.country or "unknown", site_confirmed=site.confirmed if site.country else None
+    )
+
+
+def country_name(country: str | None) -> str:
+    """The country's English name for a note the model reads."""
+    if not country:
+        return "unknown"
+    return _COUNTRY_NAMES.get(country, country.upper())
+
+
+#: What the model reads for a project placed in a country no profile covers. It
+#: replaces the Austrian doctrine and project block for that project.
+UNCOVERED_SITE_NOTE = """## Jurisdiction: {country}, not covered
+
+This project's site is in {country} (`country={code}`). The legal corpus, the norm catalogue and the
+legal-database tools of this workspace cover Austrian law only. For this project:
+- No Austrian law, OIB-Richtlinie, Austrian Gebäudeklasse, authority practice or ÖNORM applies. Do not
+  present one as applicable, do not derive a building class or a fire-safety level from Austrian rules,
+  and do not cite an Austrian passage as a requirement for this site.
+- Say once, plainly, that the building law of {country} is not yet covered here, and name what the
+  answer would need (the Land's or canton's building code, its technical rules, the local plan).
+- The project's own documents still answer, and so does general planning knowledge. An Austrian rule
+  may be named only as a comparison the person asked for, labelled as Austrian and not binding here."""
+
+#: What the model reads for a project whose site nothing states.
+SITE_UNKNOWN_NOTE = """## Jurisdiction: site not stated
+
+This project's profile does not say where the site is (no country, no Land). No country's building
+law is known to apply, so no requirement is presented as binding for this project, and the Austrian
+legal corpus and legal-database tools are not used for it until the site is stated. When the answer
+turns on the jurisdiction, say that the site is missing and ask for the country and Land."""
+
+
+def site_note(project_context: str | None) -> str | None:
+    """The jurisdiction note for the turn context, or None for a covered site or no project.
+
+    A project placed in Austria reads nothing new: its prompt stays as it was.
+    """
+    if not project_context or not project_context.strip():
+        return None
+    site = resolve_site(project_context)
+    if site.covered:
+        return None
+    if site.country is None:
+        return SITE_UNKNOWN_NOTE
+    return UNCOVERED_SITE_NOTE.format(country=country_name(site.country), code=site.country)
+
+
+def austrian_corpus_applies(project_context: str | None) -> bool:
+    """Whether the Austrian corpus and legal-database tools serve this turn: no project, or one placed in Austria.
+
+    The retrieval scope (`collection-scope-request.ts`), the round-0 prefetch and
+    the RIS tools ask this one question (ADR-0158): a project abroad or one
+    nothing places does not search Austrian law. A turn without a project does.
+    """
+    if not project_context or not project_context.strip():
+        return True
+    return resolve_site(project_context).country == "at"
+
+
+#: The data sources that hold Austrian law only (`configs/*.yml` `data_sources` ids): the RIS tools.
+AUSTRIAN_SOURCE_IDS = frozenset({"ris"})
+
+
+def austrian_only_sources(project_context: str | None) -> frozenset[str]:
+    """The sources this turn may not consult for the site: the Austrian ones, unless the corpus applies.
+
+    Joined to the switched-off sources, so a call is refused at the tools node with the same
+    notice (the chat agent) or the tool is not offered (deep research), and the jurisdiction note says why.
+    """
+    return frozenset() if austrian_corpus_applies(project_context) else AUSTRIAN_SOURCE_IDS

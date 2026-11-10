@@ -413,6 +413,7 @@ export const files: typeof en.files = {
     reasonTerm: '„{term}“ im Text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Sozialversicherungsnummer {sample}',
+    reasonTaxId: 'Steuer-ID {sample}',
     reasonCard: 'Kreditkartennummer {sample}',
     reasonPages: '{count, plural, one {Seite {pages}} other {Seiten {pages}}}',
     // Tabellenblätter und Textdateien haben keine Seiten: der Treffer hat dann
@@ -429,6 +430,10 @@ export const files: typeof en.files = {
       'Die Zahl hat den Aufbau einer IBAN und ist rechnerisch gültig, also keine zufällige Ziffernfolge. Ihr Büro hat Kontonummern als sensibel eingestuft.',
     basisSvnr:
       'Die Zahl hat den Aufbau einer österreichischen Sozialversicherungsnummer und ist rechnerisch gültig. Ihr Büro hat sie als sensibel eingestuft.',
+    basisDeSvnr:
+      'Die Zahl hat den Aufbau einer deutschen Rentenversicherungsnummer und ist rechnerisch gültig. Ihr Büro hat sie als sensibel eingestuft.',
+    basisTaxId:
+      'Die Zahl hat den Aufbau einer deutschen Steuer-Identifikationsnummer, ist rechnerisch gültig und steht auf einer Seite, die eine Steuer-ID nennt. Ihr Büro hat sie als sensibel eingestuft.',
     basisCard:
       'Die Zahl hat den Aufbau einer Kartennummer und ist rechnerisch gültig. Ihr Büro hat Kartennummern als sensibel eingestuft.',
     basisOther: 'Die Inhaltsprüfung hat eine Regel angewandt, die hier nicht näher beschrieben ist.',

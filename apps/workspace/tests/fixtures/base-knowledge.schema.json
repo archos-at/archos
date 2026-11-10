@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "base-knowledge.schema.json",
+  "description": "The closed vocabularies of the base knowledge records (ADR-0163). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.",
+  "$defs": {
+    "knowledge_records.type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition",
+        "manifestation",
+        "ruleset",
+        "territory",
+        "authority",
+        "relation",
+        "source"
+      ]
+    },
+    "knowledge_work_revisions.kind": {
+      "type": "string",
+      "enum": [
+        "statute",
+        "ordinance",
+        "administrative_regulation",
+        "directive",
+        "intergovernmental_agreement",
+        "model_code",
+        "technical_standard",
+        "guideline",
+        "commentary",
+        "authority_directive"
+      ]
+    },
+    "knowledge_manifestation_revisions.form": {
+      "type": "string",
+      "enum": [
+        "text",
+        "dataset",
+        "link"
+      ]
+    },
+    "knowledge_manifestation_revisions.text_status": {
+      "type": "string",
+      "enum": [
+        "authentic",
+        "official_non_prevailing",
+        "translation"
+      ]
+    },
+    "knowledge_manifestation_revisions.licence_class": {
+      "type": "string",
+      "enum": [
+        "public_open",
+        "public_restricted",
+        "licensed"
+      ]
+    },
+    "knowledge_checks.target_type": {
+      "type": "string",
+      "enum": [
+        "edition",
+        "manifestation"
+      ]
+    },
+    "knowledge_checks.result": {
+      "type": "string",
+      "enum": [
+        "current",
+        "newer_known",
+        "withdrawn",
+        "source_unreachable"
+      ]
+    },
+    "knowledge_ruleset_revisions.purpose": {
+      "type": "string",
+      "enum": [
+        "classification",
+        "derivation",
+        "reference_date",
+        "competence",
+        "fact_definitions",
+        "fact_sources",
+        "advice_policy",
+        "terminology"
+      ]
+    },
+    "knowledge_ruleset_revisions.payload_schema": {
+      "type": "string",
+      "enum": [
+        "decision_table.v1",
+        "fact_definitions.v1",
+        "fact_sources.v1",
+        "advice_policy.v1",
+        "terminology.v1"
+      ]
+    },
+    "knowledge_territory_revisions.kind": {
+      "type": "string",
+      "enum": [
+        "union",
+        "country",
+        "state",
+        "district",
+        "municipality",
+        "city_district"
+      ]
+    },
+    "knowledge_change_requests.status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected",
+        "published",
+        "rolled_back"
+      ]
+    },
+    "knowledge_review_decisions.decision": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "edited",
+        "rejected"
+      ]
+    },
+    "knowledge_approvals.role": {
+      "type": "string",
+      "enum": [
+        "domain_expert",
+        "counsel",
+        "second_reviewer",
+        "privacy_reviewer"
+      ]
+    },
+    "knowledge_approvals.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation"
+      ]
+    },
+    "knowledge_release_moves.channel": {
+      "type": "string",
+      "enum": [
+        "preview",
+        "stable"
+      ]
+    },
+    "knowledge_release_moves.action": {
+      "type": "string",
+      "enum": [
+        "publish",
+        "rollback"
+      ]
+    },
+    "knowledge_index_runs.state": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "queued",
+        "failed"
+      ]
+    },
+    "knowledge_relation_revisions.relation_type": {
+      "type": "string",
+      "enum": [
+        "makes_binding",
+        "supersedes",
+        "deviates_from",
+        "interprets"
+      ]
+    },
+    "knowledge_relation_revisions.mode": {
+      "type": "string",
+      "enum": [
+        "declared",
+        "static_reference",
+        "dynamic_reference"
+      ]
+    },
+    "knowledge_relation_revisions.from_type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition"
+      ]
+    },
+    "knowledge_relation_revisions.to_type": {
+      "type": "string",
+      "enum": [
+        "work",
+        "edition"
+      ]
+    },
+    "knowledge_change_requests.origin": {
+      "type": "string",
+      "enum": [
+        "operator",
+        "monitor"
+      ]
+    },
+    "knowledge_source_revisions.protocol": {
+      "type": "string",
+      "enum": [
+        "rest",
+        "http_eli",
+        "web_document",
+        "ogc"
+      ]
+    },
+    "knowledge_source_revisions.format": {
+      "type": "string",
+      "enum": [
+        "ris_xml",
+        "akn",
+        "html_statute",
+        "geojson"
+      ]
+    },
+    "knowledge_source_revisions.data_flow": {
+      "type": "string",
+      "enum": [
+        "public_only",
+        "site_keyed"
+      ]
+    },
+    "knowledge_source_revisions.monitor_kind": {
+      "type": "string",
+      "enum": [
+        "none",
+        "sha256",
+        "etag",
+        "version"
+      ]
+    }
+  }
+}

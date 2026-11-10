@@ -71,6 +71,26 @@ def resolve_base_collection(config: KnowledgeRetrievalConfig) -> str:
     return config.collection_name
 
 
+def scoped_collections_for_site(
+    config: KnowledgeRetrievalConfig, session_id: str | None, base_collection: str | None = None
+):
+    """The collections to search (:func:`resolve_scoped_collections`), less the Austrian corpus where it does not serve.
+
+    The BFF already leaves the base corpus out of a project's scope unless its
+    site is in Austria (ADR-0158, `collection-scope-request.ts`); this holds the
+    same rule for a path that states no scope (the legacy config fallback, a
+    worker) and for a scope built before that rule. Possibly empty.
+    """
+    entries = resolve_scoped_collections(config, session_id, base_collection)
+    from agent.common.country_profile import austrian_corpus_applies
+    from agent.project_context import get_profile_context_from_context
+
+    if austrian_corpus_applies(get_profile_context_from_context()):
+        return entries
+    base = base_collection if base_collection is not None else config.collection_name
+    return [entry for entry in entries if _shelf_name(entry) != "base" and entry.collection != base]
+
+
 def resolve_scoped_collections(
     config: KnowledgeRetrievalConfig, session_id: str | None, base_collection: str | None = None
 ):
@@ -187,9 +207,9 @@ def _resolve_target_collections(
     """Names-only projection of :func:`resolve_scoped_collections`.
 
     Returns:
-        Ordered, de-duplicated list of collection names (never empty).
+        Ordered, de-duplicated list of collection names (empty only for a project the base corpus does not serve).
     """
-    return [entry.collection for entry in resolve_scoped_collections(config, session_id, base_collection)]
+    return [entry.collection for entry in scoped_collections_for_site(config, session_id, base_collection)]
 
 
 #: The ``chunking`` value the base corpus uses for text that is not evidence.

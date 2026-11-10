@@ -1,0 +1,16 @@
+---
+# area: office-knowledge
+features:
+  - >
+    For a project in Austria, answers can now say which edition of the
+    OIB-Richtlinien its Land declared binding and since when: the 2019 edition
+    in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land
+    adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition
+    that a Land has not adopted is marked as guidance in the sources, no longer
+    as binding.
+operators:
+  - >
+    Off until the building-law-chain flag is set for an organization, and the
+    Austria and EU packs are published as change requests, the EU pack first. Migration 0211 adds relation records. The country-neutral
+    static prompt may be published once this is deployed; until then turns
+    read the building-law block from the static prompt as before.

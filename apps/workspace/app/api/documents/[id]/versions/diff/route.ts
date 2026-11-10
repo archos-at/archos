@@ -9,6 +9,7 @@
 
 import { apiRoute } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
+import { refuseLicensedFileForAgent } from '@/lib/base-knowledge/door-guard'
 import { getDocumentVersionView } from '@/lib/documents/lifecycle'
 import { readVersionContent } from '@/lib/documents/version-content'
 
@@ -20,6 +21,8 @@ export const GET = apiRoute<Params>(
     const from = url.searchParams.get('from')
     const to = url.searchParams.get('to')
     if (!from || !to) throw new BadRequestError('from and to are required')
+    // Two versions of a licensed copy are the whole norm twice: not sent to an agent (ADR-0159).
+    await refuseLicensedFileForAgent(session, params.id)
 
     const [fromVersion, toVersion, fromContent, toContent] = await Promise.all([
       getDocumentVersionView(session, params.id, from),

@@ -139,19 +139,32 @@ def _names_a_live_directory(file: str, old: str) -> bool:
     return any((ROOT / parent / old).is_dir() for parent in Path(file).parents if parent != Path("."))
 
 
+def _git_grep(mode: str, patterns: list[str], within: list[str]) -> list[str]:
+    """Tracked files under `within`, history aside, that match one of `patterns` (`-F` literal, `-E` regex)."""
+    expressions = [argument for pattern in patterns for argument in ("-e", pattern)]
+    found = subprocess.run(
+        ["git", "grep", "-l", mode, *expressions, "--", *within, *HISTORY, ":!tests/test_repo_layout.py"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return found.stdout.split()
+
+
 def test_nothing_but_history_names_a_moved_path():
-    named = {}
     # A one-segment name (`plans/`) is also a word in prose and test data; the
     # tracked-path check above covers it.
-    for old in (path for path in MOVED if path.count("/") > 1):
-        found = subprocess.run(
-            ["git", "grep", "-l", "-E", _at_path_start(old), "--", ".", *HISTORY, ":!tests/test_repo_layout.py"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if files := [file for file in found.stdout.split() if not _names_a_live_directory(file, old)]:
+    moved = [path for path in MOVED if path.count("/") > 1]
+    # The files that contain a moved path as plain text, in one pass (0.1s);
+    # the path-start regex then reads only those. A regex pass over the whole
+    # tree per path was 17 seconds for sixteen paths, and one pass with all
+    # sixteen regexes 20 (2026-11-10): git's regex matcher, not the tree, is slow.
+    candidates = _git_grep("-F", moved, ["."])
+    named = {}
+    for old in moved if candidates else ():
+        found = _git_grep("-E", [_at_path_start(old)], candidates)
+        if files := [file for file in found if not _names_a_live_directory(file, old)]:
             named[old] = files
 
     assert named == {}, f"these still name a moved path; point them at where it went: {named}"

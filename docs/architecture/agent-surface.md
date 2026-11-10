@@ -131,6 +131,18 @@ changed" (`structuredContent.decision: 'declined'`). Either answer is an audit
 event `agent.operation.decided`, actor the person, `decisionSource:
 elicitation`, and a tool-call trace with `decision_source: elicitation`.
 
+The route holds the same line a second time where the decision is one only a
+person makes (ADR-0165): it calls `requirePersonDecision`
+(`lib/agent-api/person-decision.ts`), which reads the yes the call carries in
+its acting session. The door passes on how it got the person's answer, and the
+route counts only `elicitation` and `app` (a client that declared MCP Apps),
+never `app-unverified`; a person's own request reads as `app`, and so does a
+proposal the person accepted. Any other agent call is refused 403
+`PERSON_DECISION_REQUIRED`, so a missed `personDecides` flag or a new door cannot
+run it on a model's word. The platform's approve, publish, rollback, entitlement
+and home-country operations use it, and record the decision source with the
+decision.
+
 The call travels between the two rounds in `requestState`, signed with the
 SDK's `createRequestStateCodec` under a key derived from
 `INTERNAL_API_TOKEN` (HMAC over `grid:mcp-request-state:v1`), bound to the
@@ -415,6 +427,7 @@ exposure config (`withheld: { category, reason }`, [below](#the-exposure-config)
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact (titles, citation formatting, skill review) |
 | `ui-state` | This person's own screen or device (push devices and preferences, the preference bag, read and unread marks) |
 | `evidence` | Bytes kept as proof, which no model reads (a held or filed mail's original `.eml`, ADR-0137) |
+| `tenant-content` | A console operation that reads what offices wrote, or changes their own state, across offices: conversations, feedback, ratings, lessons, spend per person, the kill switch, the vector reconcile. Staff use it in the console; no agent does (ADR-0160) |
 
 A withheld operation reads as an unknown name everywhere: `tools/list`,
 `search-operations` (and no hint that it exists), `describe-operation`,
@@ -445,15 +458,37 @@ The operator console (`platform` domain, `/api/platform/…`) is GRID's, not an
 office's, and is on no office door, for platform staff neither. It has a second
 MCP server of its own, `POST /api/platform/mcp` (ADR-0126), for platform staff.
 
-The platform door offers the console's own operations. MCP servers that run
-inside the cluster for the team (Langfuse's, and those that follow) are on
-neither door: platform staff reach them through the platform MCP gateway at
-`platform-mcp.<baseDomain>/<server>/mcp`, agentgateway behind Envoy (ADR-0154,
+The platform door offers the console's own operations, and of those only the
+platform-public ones. MCP servers that run inside the cluster for the team
+(Langfuse's, and those that follow) are on neither door: platform staff reach
+them through the platform MCP gateway at `platform-mcp.<baseDomain>/<server>/mcp`,
+agentgateway behind Envoy (ADR-0154,
 [`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
+
+**Tenant content is on no door** (ADR-0160). The operator's agent (Claude
+onboarding a country) runs at a vendor that is no processor of what offices
+wrote. So every console operation is classified in
+`bff/agent-api/exposure/platform.ts`: `PLATFORM_PUBLIC` (models, prices, the
+base corpus, platform skills, limits by organization id, organization names) is
+on the platform door; `tenantContent(reason)` (cross-office conversations and
+their search, product feedback, ratings and their comments, lessons, flagged
+turns, project names, spend per named person, and the writes that change
+offices' own state: the kill switch and the vector reconcile) is `withheld`, category
+`tenant-content`, on no door for anyone. Every caller of the platform door is an
+outside agent, so this one rule is the whole split, read server-side by
+`isExposedTo`. Staff read tenant content in the console in the browser, where the
+route's `platform:*` permission decides, as before. The gateway holds the same
+line per server: `tools` in `mcpServers` is `"all"` or an allowlist that
+agentgateway enforces (`mcpAuthorization`), and Langfuse's route offers its
+configuration tools only, because traces carry every office's turns, and
+reads only for prompts and evaluators, because a write there would move them.
+`exposure/platform.spec.ts` holds the door: no tenant-content operation is
+listed, found, described or called there, and a pinned list and a path pattern
+keep the ones known to read tenant content classified as such.
 
 | | Office doors (`/api/mcp`, `/api/a2a`) | Platform door (`/api/platform/mcp`) |
 |---|---|---|
-| Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |
+| Offers | every domain but `platform`, the agent read tools | the `platform` domain's platform-public operations only (`platform: true` in the exposure config); tenant content on no door |
 | Token audience | either office door's resource | its own resource only; neither side accepts the other's |
 | Organization | any, with `agent-mcp` on | the GRID Platform organization's live membership, whichever organization the sign-in picked, with `platform-agent-mcp` on there |
 | Person | a live member | a live member who is platform staff (`isPlatformStaff`) |
@@ -475,16 +510,42 @@ and the reverse. The server names itself
 
 Fleet-wide writes carry `destructive: true` so the client asks the operator
 before each: default models, reasoning efforts, retrieval settings, the price
-list (also `idempotent: false`), the norm registry, a forced re-ingest, the kill
-switch, the vector reconcile and the deletes. None gained a `sensitivity`;
+list (also `idempotent: false`), the norm registry, a forced re-ingest and the
+deletes. The kill switch and the vector reconcile are destructive too, and are on
+no door at all (tenant content, above). None gained a `sensitivity`;
 `platform-audit-portal-link` keeps its `secret` and stays hidden while the
-step-up scope is not enforced. The OpenAPI document still describes the
-console's operations to platform staff.
+step-up scope is not enforced. The OpenAPI document describes the console's
+platform-public operations to platform staff (`documentedOperations` asks
+`isExposedTo('platform', …)`), never the tenant-content ones.
 
 Connecting: the server's URL is `https://<app-host>/api/platform/mcp`, and the
 client must sign in **in the GRID Platform organization**. The client steps are
 the office door's (below), with that URL; a short guide for operators is
 [`../deployment/platform-agent-door-runbook.md`](../deployment/platform-agent-door-runbook.md).
+
+### Onboarding a country through the door
+
+The platform door is agent-grade for one job: an operator's agent bringing a
+country's knowledge in as a reviewed data release (ADR-0165, ADR-0170). What
+makes it so, and where it lives:
+
+| Guarantee | Where |
+|---|---|
+| A guide the agent reads first, a resource on the platform door only, while `platform-base-knowledge` is on | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
+| Each record type's JSON Schema, the batch limit, the kit's checks | `platform-knowledge-schema-get` |
+| `idempotencyKey` on **every** door write, both doors: the first answer again (a 2xx, 400, 404 or 422; a refusal of the moment is not kept), 422 for the key with other input, 503 (nothing run) when the cache cannot be read; per replica without `REDIS_URL` | `door-idempotency.ts`, around the route call in `dispatch.ts` |
+| Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |
+| Per-record results and `dryRun`; problems with an RFC 6901 `pointer`, a `code` and a `hint`; the same proposal again is `unchanged` | `platform-knowledge-records-propose`, `bff/base-knowledge/platform/validate.ts` |
+| The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
+| Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
+| The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
+
+A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)
+because the public-source fetcher admits only the backend roles. The measure is
+`onboarding-door.integration.spec.ts`: a scripted client with no model takes AT-9
+through all of it. The operator's runbook is
+[`../operations/country-onboarding.md`](../operations/country-onboarding.md).
 
 ## The exposure config
 
@@ -503,11 +564,11 @@ is no operation, or an operation without an entry, does not compile (the object
 | `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
-| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence` |
+| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence`, `tenant-content` (a console operation that reads what offices wrote, ADR-0160) |
 | `reason` | the reviewer | why the entry is not simply offered to both office audiences |
 
 The constants at the top name the common rows: `OFFERED` (both office
-audiences), `PLATFORM`, `SENSITIVE` (outside agents behind the guards, never
+audiences), `PLATFORM_PUBLIC` and `tenantContent` (in `exposure/platform.ts`), `SENSITIVE` (outside agents behind the guards, never
 Piloti), `DECISION` (a proposal's own decision, never Piloti) and `ASK` (the
 recursion lock). A `native:<tool>` is the name the model binds: a function of
 `shallow_research_agent.tools` in `configs/config_oib_openrouter.yml`, or a
@@ -528,7 +589,7 @@ ceiling.
 **Changing an entry.**
 
 1. Edit the entry, with a `reason` unless it becomes `OFFERED`.
-2. `UPDATE_FIXTURES=1 bunx vitest run src/lib/agent-api/exposure.config.spec.ts src/app/api/mcp/workspace-eval.fixture.spec.ts`
+2. `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts app/api/mcp/workspace-eval.fixture.spec.ts`
    rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
    workspace eval's catalog (what Piloti sees).
 3. `.venv/bin/pytest packages/agent/tests/tools/test_exposure_config.py` checks that
@@ -538,16 +599,16 @@ ceiling.
    ([testing-and-verification.md](../contributing/testing-and-verification.md#the-workspace-set));
    its `uses` rows check the job got done with the native tool.
 
-**What it holds today** (365 entries: 358 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
+**What it holds today** (371 entries: 364 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
 
 | Column | Count |
 |---|---|
-| `external: true` | 259 |
-| `agent: true` | 216 |
+| `external: true` | 261 |
+| `agent: true` | 217 |
 | `agent: 'native:…'` | 16 |
-| `agent: false` | 133 (51 withheld, 55 platform, 13 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
-| `platform: true` | 55 |
-| `withheld` | 51 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `agent: false` | 138 (75 withheld, 35 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
+| `platform: true` | 35 (of the 55 console operations; the other 20 are `tenant-content`) |
+| `withheld` | 75 (29 `product-config`, 20 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
 | `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |
@@ -973,6 +1034,24 @@ a time-limited link. A route that redirects (3xx with `Location`) is handed on a
 answer JSON holding such a URL, so they are plain reads, and never run for Piloti in a shared
 conversation (`LINK_BEARING_OPERATIONS`, never in `AUDIENCE_READS`).
 
+**An office's licensed copy** (a base-knowledge copy marked `licensed`, ADR-0159) is held apart for an
+agent, never for the person (`bff/base-knowledge/door-guard.ts`, keyed on `actingReaderIsAgent`). A
+copy the person cannot open is a 404 first, so no refusal says it exists. Its file, download, preview,
+thumbnail, version content and version diff are refused (`LICENSED_COPY_NOT_SENT`). Any base-knowledge
+copy whose text is held (`textHeldFor`: no person confirmed it, whatever its class, or licensed and
+unattested) gives an agent no text and no bytes on any of these routes (`BASE_COPY_HELD`, one code), and
+no search snippet. `document-text-get` gives of a confirmed, attested licensed copy at most three times its
+`quoteMaxChars` per person, edition and calendar day (UTC)
+(`LICENSED_QUOTE_CAP_REACHED` past that; design E19). The counter is added to atomically in the shared
+cache (`incrementCounter`: INCRBY, with an expiry set once), so two calls in flight cannot both spend the
+rest, and it is keyed by the edition, so a second upload of the copy does not reset it. `workspace-search`
+and `passage-similar-search` keep a licensed copy's hit and page and replace its snippet with a note, so
+repeated queries cannot collect the norm a snippet at a time. A licence that cannot be read is refused
+(`LICENSED_COPY_UNKNOWN`) or, for a snippet, withheld. The door has no session id, so the person and the
+day are its session. The person's own text pane and viewer read the copy whole.
+`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`. The backend read tools the door forwards (`knowledge-search`, `passage-read`, `document-look`) run without a turn capture, so a licensed passage reaches an outside agent listed only (document, page, clause, a note) and a licensed page goes to no model and sends no image; `apps/agent-host/tests/test_internal_tools_licensed.py` drives the door route with the real renderers to hold it. A held mail attachment kept past its erasure for a legal hold (`erasureDeferredAt`) is read by a person
+only: `inbound-mail-part-content-get` refuses it to an agent (`legal_hold`).
+
 A JSON or text answer is streamed with a cap too, `MAX_TEXT_BYTES` (5 MiB): past it nothing more
 is read and the agent is told to narrow the call. The backend operations' answers are read by the
 same reader (`readResponseBody`), and their refusals are normalised once, in
@@ -1030,6 +1109,26 @@ own field, not the route's: the UI navigates with its own relative paths and rea
 these routes, so ADR-0131's "fix the route" does not apply. A per-operation declaration rather
 than guessing from the shape, because `{ id }` is a project in one answer and a document in the
 next. The backend operations (`files-list`, `knowledge-search`) carry no links yet.
+
+### The AI mark on a generated answer
+
+Article 50(2) AI Act asks that text a model generates be marked in a machine-readable way. An
+operation whose answer carries such text says how much of it with `generatedContent`
+(`lib/agent-api/ai-generated-meta.ts`): `generatedAt('answer')` for `agent-ask-create` and
+`agent-ask-get`, `generatedAt('summary')` for `project-summary-generate`, and
+`generatedRows('messages', …)` for `conversation-message-list`, whose assistant messages a model
+wrote and whose people's messages it did not. `fromOperationResult` then adds
+`_meta: { aiGenerated: true, digitalSourceType }`, IPTC `trainedAlgorithmicMedia` when a model
+wrote all the text the answer carries and `compositeWithTrainedAlgorithmicMedia` when it carries
+a person's too. Every ask path goes through that seam: the single call, the progress stream and
+the tasks extension's inline result. An ask still `working`, an empty summary and a page of a
+person's messages carry no mark, and a stored document read back is not marked here: it carries
+its own marking (`@/lib/ai-provenance`). The A2A door marks the answer artifact the same way, in
+the artifact's `metadata` (`bff/a2a/task-mapping.ts`).
+
+The key carries no vendor prefix: MCP reserves prefixes for itself and allows a plain key, a
+prefix of ours would put the product's name into a wire name (ADR-0149), and no standard key for
+this exists yet. `digitalSourceType` beside it is the standard's own word.
 
 ### Sensitive operations
 

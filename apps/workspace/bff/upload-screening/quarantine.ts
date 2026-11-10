@@ -46,7 +46,7 @@ const reasonSchema = z.object({
    * `other` rather than failing the parse: one new reason must not blank the
    * ones that can be read.
    */
-  kind: z.enum(['term', 'iban', 'at_svnr', 'credit_card']).or(z.string().transform((): 'other' => 'other')),
+  kind: z.enum(['term', 'iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id']).or(z.string().transform((): 'other' => 'other')),
   term: z.string().optional(),
   count: z.number().int().nonnegative().optional(),
   pages: z.array(z.number().int()).optional(),
@@ -164,7 +164,7 @@ export function heldSentenceKey(
 }
 
 /** The kinds of reason an inbox notice words on its own (`collaboration.inbox.types.*.variants`). */
-export type QuarantineNoticeVariant = 'term' | 'iban' | 'at_svnr' | 'credit_card' | 'transcript'
+export type QuarantineNoticeVariant = 'term' | 'iban' | 'at_svnr' | 'credit_card' | 'de_svnr' | 'de_tax_id' | 'transcript'
 
 /**
  * Which wording a reviewer's notice about a held file reads: `transcript` when
@@ -236,8 +236,10 @@ export function quarantineReasonHead(reason: QuarantineReason, t: Translator): s
       ? t('screening.reasonTerm', { term: reason.term ?? '' })
       : reason.kind === 'iban'
         ? t('screening.reasonIban', { sample: reason.sample ?? '' })
-        : reason.kind === 'at_svnr'
+        : reason.kind === 'at_svnr' || reason.kind === 'de_svnr'
           ? t('screening.reasonSvnr', { sample: reason.sample ?? '' })
+          : reason.kind === 'de_tax_id'
+            ? t('screening.reasonTaxId', { sample: reason.sample ?? '' })
           : reason.kind === 'credit_card'
             ? t('screening.reasonCard', { sample: reason.sample ?? '' })
             : t('screening.reasonOther')
@@ -260,6 +262,10 @@ export function explainQuarantineReason(reason: QuarantineReason, t: Translator)
       return t('screening.basisSvnr')
     case 'credit_card':
       return t('screening.basisCard')
+    case 'de_svnr':
+      return t('screening.basisDeSvnr')
+    case 'de_tax_id':
+      return t('screening.basisTaxId')
     default:
       return t('screening.basisOther')
   }

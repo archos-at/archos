@@ -9,11 +9,13 @@ vi.mock('@/lib/backend-proxy', () => ({
   getBackendUrl: vi.fn().mockReturnValue('http://backend:8000'),
 }))
 
-const { recordAuditEvent, getPlatformOrganizationId } = vi.hoisted(() => ({
+const { recordAuditEvent, getPlatformOrganizationId, isOrgFeatureEnabled } = vi.hoisted(() => ({
   recordAuditEvent: vi.fn(),
   getPlatformOrganizationId: vi.fn(),
+  isOrgFeatureEnabled: vi.fn(),
 }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent }))
+vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled }))
 vi.mock('@/lib/authz/platform', () => ({ getPlatformOrganizationId }))
 
 import { ConflictError, UpstreamError } from '@/lib/api/errors'
@@ -71,6 +73,8 @@ describe('norm registry service', () => {
     recordAuditEvent.mockResolvedValue(undefined)
     getPlatformOrganizationId.mockReset()
     getPlatformOrganizationId.mockResolvedValue('org_platform')
+    isOrgFeatureEnabled.mockReset()
+    isOrgFeatureEnabled.mockResolvedValue(false)
     vi.stubEnv('ADMIN_TOKEN', 'admin-secret')
   })
 
@@ -117,6 +121,14 @@ describe('norm registry service', () => {
     expect(audited.organizationId).toBe('org_platform')
     expect(audited.action).toBe('platform.norm_registry.updated')
     expect(audited.metadata).toEqual({ entries: 1, version: 5 })
+  })
+
+  it('putNormRegistry answers 409 once platform knowledge owns the norms, and sends nothing', async () => {
+    isOrgFeatureEnabled.mockResolvedValue(true)
+    await expect(putNormRegistry(session, { version: 4, registry })).rejects.toThrow(/platform change request/)
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-base-knowledge', 'org_platform')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
   })
 
   it('putNormRegistry maps a 409 to ConflictError (no audit)', async () => {
