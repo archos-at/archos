@@ -156,7 +156,8 @@ export const platform = {
     progress: '{checked} of {total} entries checked',
     wrongCount: 'not correct: {count}',
     why: {
-      own: 'You wrote in this request, so another person approves it. A page pasted rather than fetched is checked against its source by another person before you may approve alone.',
+      own: 'You wrote in this request, so another person approves it.',
+      ownUnchecked: 'You wrote in this request, so another person approves it. A page pasted rather than fetched is checked against its source by another person before you may approve alone.',
       open: 'Entries still to check: {count}',
       alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',

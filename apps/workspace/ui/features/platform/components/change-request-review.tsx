@@ -322,7 +322,7 @@ export function ChangeRequestReview({
             wrong > 0
               ? t('countryKnowledge.why.wrong', { count: wrong })
               : authored
-                ? t('countryKnowledge.why.own')
+                ? t(view.sourcesUnchecked ? 'countryKnowledge.why.ownUnchecked' : 'countryKnowledge.why.own')
                 : open > 0
                   ? t('countryKnowledge.why.open', { count: open })
                   : undefined,

@@ -3804,6 +3804,7 @@ SQL
 refused_in fe_0218 "$(cat migrations/0218_knowledge_four_eyes_in_the_database.sql)" "approved without a domain expert; reject them first" "0218 runs over a request approved without a domain expert"
 sql_in fe_0218 <<<"UPDATE knowledge_change_requests SET status = 'rejected', decided_at = now() WHERE id = '$STUCK';"
 apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.sql
+apply_in fe_0218 0218_knowledge_four_eyes_in_the_database.sql   # up twice: idempotent, the trigger included
 refused_in fe_0218 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, status) VALUES (gen_random_uuid(), 'born published', 'AT', 'user_author', 'published')" "starts as a draft" "a request inserted as published"
 DRAFT=c1000000-0000-4000-8000-000000000218
 sql_in fe_0218 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$DRAFT', 'a draft', 'AT', 'user_author');"

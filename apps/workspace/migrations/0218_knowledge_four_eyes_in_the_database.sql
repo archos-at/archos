@@ -97,6 +97,8 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS knowledge_change_requests_status_moves ON "knowledge_change_requests";
+--> statement-breakpoint
 CREATE TRIGGER knowledge_change_requests_status_moves BEFORE INSERT OR UPDATE OF "status" ON "knowledge_change_requests"
   FOR EACH ROW EXECUTE FUNCTION knowledge_change_request_status_moves();
 --> statement-breakpoint
