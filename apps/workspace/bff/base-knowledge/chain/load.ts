@@ -81,6 +81,7 @@ interface EditionRow extends Record<string, unknown> {
   in_force_from: string | null
   in_force_to: string | null
   corpus_files: string[] | null
+  source_refs: string[] | null
   checked_at: string | Date | null
   check_result: string | null
 }
@@ -156,6 +157,10 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
+      (SELECT array_agg(DISTINCT i.key || ':' || i.value ORDER BY i.key || ':' || i.value)
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         CROSS JOIN LATERAL jsonb_each_text(m.identifiers) AS i(key, value)
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id) AS source_refs,
       c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
     -- The platform's newest check of a platform edition: what its freshness reads (design §4.6).
@@ -225,6 +230,7 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceFrom: dateText(row.in_force_from),
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
+    sourceRefs: row.source_refs ?? [],
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
 }

@@ -38,7 +38,7 @@ const STYRIA_LAW = {
   text: 'In der Steiermark gilt …',
   chain: ['AT-6', 'AT', 'EU'],
   date: '2026-11-10',
-  uses: [{ workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2019', role: 'binding', qualifier: null, via: 'relation', corpusFiles: ['oib-rl-2-2019.pdf'], designation: 'OIB-RL 2', editionLabel: '2019' }],
+  uses: [{ workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2019', role: 'binding', qualifier: null, via: 'relation', corpusFiles: ['oib-rl-2-2019.pdf'], sourceRefs: [], designation: 'OIB-RL 2', editionLabel: '2019' }],
 }
 
 const submit = () =>
@@ -50,7 +50,7 @@ const submit = () =>
     output: 'deep-research',
     conversationId: null,
     dataSources: null,
-    priority: 'normal',
+    priority: 'bulk',
     context: { collectionScope: null, projectContext: null, projectMemory: null, memoryReflectionEnabled: false, modelOverrides: null, budget: null } as unknown as RunContext,
   })
 

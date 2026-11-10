@@ -205,6 +205,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_records.country_id', consumer: PLATFORM_READ, test: LISTING },
   { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },
+  { element: 'knowledge_manifestation_revisions.identifiers', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads a manifestation’s source identifiers as the edition’s sourceRefs (0214)' } },
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },

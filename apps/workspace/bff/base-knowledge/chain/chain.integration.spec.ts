@@ -138,6 +138,23 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
+  it('reads a manifestation’s source identifiers as the edition’s sourceRefs (0214)', async () => {
+    await published('AT', 'OIB-RL 2:2019 at its source', [
+      {
+        type: 'manifestation',
+        key: `oib-rl-2-2019-link-${RUN}`,
+        editionKey: 'oib-rl-2-2019',
+        form: 'link',
+        licenceClass: 'public_open',
+        identifiers: { eli: `https://example.test/eli/oib-rl-2-2019/${RUN}` },
+        citations: [{ url: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/', note: 'fixture' }],
+      },
+    ])
+    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-6')
+    expect(graph.editions.get('edition:oib-rl-2-2019')?.sourceRefs).toContain(`eli:https://example.test/eli/oib-rl-2-2019/${RUN}`)
+    expect(graph.editions.get('edition:oib-rl-2-2023')?.sourceRefs).toEqual([])
+  })
+
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {
     expect(await bindingOf(AUSTRIAN, 'AT-9', 'work:eu-cpr')).toEqual([['edition:eu-cpr-305-2011', 'binding']])
     // Positive control above; the same reads for an office not entitled to Austria.

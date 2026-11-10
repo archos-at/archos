@@ -2511,7 +2511,7 @@ owner's.
 | `knowledge_revisions` | One version of a record's values: who, when, `provenance` (`reading`, `person`, `agent`) | Append-only (`knowledge_append_only`); goes only with its record |
 | `knowledge_work_revisions` | `kind` (`statute`, `technical_standard`, `guideline`, `commentary`, `authority_directive`), title, `identifiers.designation` (indexed), `territory_ids`, issuer, `addressees` | Append-only |
 | `knowledge_edition_revisions` | The edition's `label`, `issued_on`, `in_force_from`/`to`, `outline` | Append-only; dates ordered |
-| `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256` | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
+| `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256`, `identifiers` (the source's own ids of the text, `ris_gesetzesnummer`, `eli`; a JSON object, 0214) | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
 | `knowledge_checks` | That somebody checked a work, edition or copy is still in force, and the `result` | Append-only; target and owner checked by trigger (`knowledge_refuse_cross_owner`) |
 
 RLS: an office reads its own rows and, since 0205, a platform row only as below;

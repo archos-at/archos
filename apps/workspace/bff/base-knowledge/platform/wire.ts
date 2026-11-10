@@ -132,6 +132,12 @@ const manifestationRecord = z.object({
     .nullable()
     .default(null)
     .describe('The text, as a file uploaded to the base corpus; null for a listing without text.'),
+  identifiers: z
+    .record(z.string().regex(/^[a-z_]{2,30}$/), z.string().trim().min(1).max(300))
+    .default({})
+    .describe(
+      'The source’s own identifiers of this text, e.g. {"ris_gesetzesnummer": "20000006", "eli": "https://www.ris.bka.gv.at/eli/…"}: how a passage the agent reads live at the source finds this edition and its role.',
+    ),
   ...common,
 })
 

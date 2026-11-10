@@ -83,6 +83,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         language: record.language,
         licenceClass: record.licenceClass,
         corpusFile: record.corpusFile,
+        identifiers: record.identifiers,
       }
     case 'territory':
       return {

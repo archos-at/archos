@@ -25,6 +25,8 @@ export const buildingLawUseSchema = z
     via: z.enum(['territory', 'relation', 'none']),
     /** The base-corpus files of the edition: the id map from a retrieved passage to its edition. */
     corpusFiles: z.array(z.string()),
+    /** The source's own identifiers of the edition's text, as `key:value` (`ris_gesetzesnummer:20000006`, `eli:https://…`): the id map from a passage read live at its source to its edition. */
+    sourceRefs: z.array(z.string()),
     designation: z.string().nullable(),
     editionLabel: z.string().nullable(),
   })
@@ -65,6 +67,7 @@ export function buildingLawTurn(graph: KnowledgeGraph, leafId: string, date: str
         qualifier: use.qualifier,
         via: use.route.at(-1)?.via ?? 'none',
         corpusFiles: [...(edition?.corpusFiles ?? [])],
+        sourceRefs: [...(edition?.sourceRefs ?? [])],
         designation: work?.designation ? nameOf(work.designation) : null,
         editionLabel: edition ? nameOf(edition.label) : null,
       }

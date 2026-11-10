@@ -50,6 +50,8 @@ export interface GraphEdition {
   inForceTo: string | null
   /** The base-corpus files that hold its text: how a retrieved passage finds its edition. */
   corpusFiles: readonly string[]
+  /** The source's own identifiers of its text, as `key:value` (`ris_gesetzesnummer:20000006`): how a passage read live finds its edition. */
+  sourceRefs?: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
 }

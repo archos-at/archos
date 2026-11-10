@@ -43,6 +43,22 @@ describe('buildingLawTurn', () => {
     expect(buildingLawTurn(graphOf(records), 'AT-9', DATE, 'Wien')).toBeNull()
   })
 
+  it('names each edition’s source identifiers, so a passage read live at its source finds its role (ADR-0175)', () => {
+    const link = {
+      type: 'manifestation',
+      key: 'bo-wien-2024-ris',
+      editionKey: 'bo-wien-2024',
+      form: 'link',
+      licenceClass: 'public_open',
+      identifiers: { ris_gesetzesnummer: '20000006', eli: 'https://www.ris.bka.gv.at/eli/lgbl/W/1930/11' },
+    }
+    const turn = buildingLawTurn(graphOf([...territories, ...law, link]), 'AT-9', DATE, 'Wien')
+    expect(turn?.uses.find((use) => use.workId === 'work:bo-wien')?.sourceRefs).toEqual([
+      'eli:https://www.ris.bka.gv.at/eli/lgbl/W/1930/11',
+      'ris_gesetzesnummer:20000006',
+    ])
+  })
+
   it('carries nothing where no law of its territory binds, only guidance', () => {
     expect(buildingLawTurn(graphOf([...territories, ...modelCodes(2)]), 'AT-9', DATE, 'Wien')).toBeNull()
   })
