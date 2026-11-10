@@ -381,38 +381,39 @@ describe('exportAnnotationProtocol', () => {
   })
 
   /**
-   * Art. 50(2) AI Act: Piloti's marks and replies are in this file, so it is
+   * Art. 50(2) AI Act: the agent's marks and replies are in this file, so it is
    * marked, as a person's document with a model's part in it. The control is
    * the same export of the office's own marks alone, which carries no marking
    * at all: nothing in it was generated.
    */
   describe('the AI marking', () => {
     const COMPOSITE = 'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'
-    const officeOnly = () =>
+    const officeOnly = async () => {
+      const listing = await listAnnotations(SESSION, 'doc_1')
       vi.mocked(listAnnotations).mockResolvedValue({
+        ...listing,
         annotations: [mark({ number: 1 }), mark({ number: 2, replies: [reply()] })],
-        canAnnotate: true,
-        pilotiWakes: false,
       })
+    }
 
-    it('marks a PDF holding Piloti’s text composite, in XMP and in Keywords', async () => {
+    it('marks a PDF holding the agent’s text composite, in XMP and in Keywords', async () => {
       const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
       expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(COMPOSITE)
       expect(String(pdf.info.Keywords)).toContain(`DigitalSourceType=${COMPOSITE}`)
     })
 
-    it('marks a Word file holding Piloti’s text composite', async () => {
+    it('marks a Word file holding the agent’s text composite', async () => {
       const file = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
       const custom = readZipEntries(file.bytes).get('docProps/custom.xml') ?? ''
       expect(custom).toContain(`name="DigitalSourceType"><vt:lpwstr>${COMPOSITE}`)
     })
 
     it('leaves the office’s own marks unmarked, in both formats', async () => {
-      officeOnly()
+      await officeOnly()
       const pdf = await readPdf((await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'pdf' })).bytes)
       expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBeUndefined()
       expect(pdf.info.Keywords).toBeUndefined()
-      officeOnly()
+      await officeOnly()
       const docx = await exportAnnotationProtocol(SESSION, 'doc_1', { ...OPTIONS, format: 'docx' })
       expect(readZipEntries(docx.bytes).has('docProps/custom.xml')).toBe(false)
     })

@@ -81,7 +81,7 @@ export const IPTC_TRAINED_ALGORITHMIC_MEDIA =
 
 /**
  * IPTC's term for a file that a person made and a model wrote PART of: an
- * Anmerkungen-Protokoll holds the office's own marks beside Piloti's marks and
+ * Anmerkungen-Protokoll holds the office's own marks beside the agent's marks and
  * replies. Calling that whole file `trainedAlgorithmicMedia` would say a model
  * wrote the office's words; saying nothing would hide the part it did write.
  */

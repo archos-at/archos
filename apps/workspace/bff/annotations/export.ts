@@ -106,7 +106,7 @@ export interface Protocol {
   facts: CoverFact[]
   body: DocBlock[]
   /**
-   * Set when the Protokoll holds text Piloti wrote (a mark it set, a reply, a
+   * Set when the Protokoll holds text the agent wrote (a mark it set, a reply, a
    * proposal): the file is then marked `compositeWithTrainedAlgorithmicMedia`
    * (Art. 50(2) AI Act). Null for the office's own words alone, which no model
    * generated and which a marking would misdescribe.
@@ -114,11 +114,12 @@ export interface Protocol {
   aiProvenance: AiProvenance | null
 }
 
-/** Whether any text in the selection is Piloti's: a mark or proposal it set, or a reply it wrote. */
+/** Whether any text in the selection is the agent's: a mark or proposal it set, or a reply it wrote. */
 export function holdsAgentText(selection: ProtocolSelection): boolean {
   return [...selection.marks, ...selection.proposals].some(
     (annotation) =>
-      annotation.authorKind === 'piloti' || annotation.replies.some((reply) => reply.authorKind === 'piloti')
+      // Two authors exist (`ANNOTATION_AUTHORS`): whatever is not a person's is the agent's.
+      annotation.authorKind !== 'person' || annotation.replies.some((reply) => reply.authorKind !== 'person')
   )
 }
 

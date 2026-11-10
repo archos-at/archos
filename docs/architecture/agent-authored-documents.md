@@ -593,7 +593,7 @@ watermark is the model provider's layer.
 A file a person made with a model's part in it is marked IPTC
 `compositeWithTrainedAlgorithmicMedia` instead (`AiProvenance.composite`): the
 Anmerkungen-Protokoll (`bff/annotations/export.ts`, `holdsAgentText`) when it
-holds Piloti's marks, replies or proposals, and nothing when it holds only the
+holds the agent's marks, replies or proposals, and nothing when it holds only the
 office's own.
 
 Every agent-written document also opens with the Art. 50(1) disclosure,

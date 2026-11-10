@@ -127,11 +127,11 @@ describe('the project Protokoll', () => {
     expect(text).toContain('**Zuständig:** Bernd Huber')
   })
 
-  it('marks the file composite when Piloti’s proposals are in it, and not when only the office’s marks are', () => {
+  it('marks the file composite when the agent’s proposals are in it, and not when only the office’s marks are', () => {
     const header = { projectName: 'Wohnhaus Lend', selection: 'Offene Anmerkungen', exportedAt: new Date(), exportedBy: 'Anna Berger' }
-    const withPiloti = groupByDocument(marks)
-    expect(withPiloti.some((group) => group.selection.proposals.length > 0)).toBe(true)
-    expect(buildProjectProtocol(header, withPiloti, t, 'de').aiProvenance).toEqual({ composite: true })
+    const withAgent = groupByDocument(marks)
+    expect(withAgent.some((group) => group.selection.proposals.length > 0)).toBe(true)
+    expect(buildProjectProtocol(header, withAgent, t, 'de').aiProvenance).toEqual({ composite: true })
 
     const officeOnly = groupByDocument(marks.filter((annotation) => annotation.authorKind === 'person'))
     expect(buildProjectProtocol(header, officeOnly, t, 'de').aiProvenance).toBeNull()

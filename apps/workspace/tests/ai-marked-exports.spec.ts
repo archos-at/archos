@@ -24,7 +24,7 @@ const WRITERS: Readonly<Record<string, string>> = {
   'bff/diagrams/svg-to-pdf.tsx': 'diagram PDF: Keywords + XMP (svg-to-pdf.spec.tsx)',
   'bff/answer-export/service.ts': 'answer .docx: custom properties incl. DigitalSourceType (service.spec.ts)',
   'bff/annotations/export.ts':
-    'Protokoll PDF and .docx: composite when it holds Piloti’s text, unmarked when only the office’s (export.spec.ts)',
+    'Protokoll PDF and .docx: composite when it holds the agent’s text, unmarked when only the office’s (export.spec.ts)',
 }
 
 const WRITER_CALL = /\b(renderToBuffer|renderToStream|renderToFile|renderDocx)\(/

@@ -114,7 +114,7 @@ export function buildProjectProtocol(
     title: t('openPoints.export.title', { name: header.projectName }),
     facts,
     body: groups.length > 0 ? groups.flatMap(documentBlocks) : [paragraph(t('review.export.document.none'))],
-    // The same rule as one document's Protokoll: Piloti's text anywhere in it marks the file composite.
+    // The same rule as one document's Protokoll: the agent's text anywhere in it marks the file composite.
     aiProvenance: groups.some((group) => holdsAgentText(group.selection)) ? { composite: true } : null,
   }
 }
