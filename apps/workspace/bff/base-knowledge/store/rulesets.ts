@@ -62,6 +62,8 @@ const KIND_OF_SCHEMA = {
   'decision_table.v1': 'table',
   'fact_definitions.v1': 'fact_definitions',
   'fact_sources.v1': 'fact_sources',
+  'advice_policy.v1': 'advice_policy',
+  'terminology.v1': 'terminology',
 } as const satisfies Record<RulesetPayloadSchema, string>
 
 /**

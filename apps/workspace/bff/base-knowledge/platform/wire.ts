@@ -12,6 +12,7 @@
 import { z } from 'zod'
 import {
   APPROVAL_ROLES,
+  CHANGE_REQUEST_ORIGINS,
   CHANGE_REQUEST_STATUSES,
   KNOWLEDGE_WORK_KINDS,
   type KnowledgeRecordType,
@@ -20,6 +21,7 @@ import {
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
+import { sourceRecordFields } from '@/lib/base-knowledge/wire/source'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
@@ -152,6 +154,13 @@ const rulesetRecord = z.object({
   ...common,
 })
 
+/** A public source (ADR-0174): its key is the source id the fetcher, captures and monitors name. */
+const sourceRecord = z.object({
+  type: z.literal('source'),
+  ...sourceRecordFields,
+  ...common,
+})
+
 export const proposedRecordSchema = z.discriminatedUnion('type', [
   workRecord,
   editionRecord,
@@ -159,6 +168,7 @@ export const proposedRecordSchema = z.discriminatedUnion('type', [
   territoryRecord,
   authorityRecord,
   rulesetRecord,
+  sourceRecord,
 ])
 export type ProposedRecord = z.infer<typeof proposedRecordSchema>
 
@@ -251,7 +261,7 @@ export interface CaptureView {
 }
 
 /** The record types `platform-knowledge-schema-get` describes. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset'] as const
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset', 'source'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
@@ -321,6 +331,10 @@ export const MAX_CHANGE_REQUEST_PAGE = 200
 
 export const listChangeRequestsQuerySchema = z.object({
   status: z.enum(CHANGE_REQUEST_STATUSES).optional(),
+  origin: z
+    .enum(CHANGE_REQUEST_ORIGINS)
+    .optional()
+    .describe('monitor: the requests a source monitor opened because its source changed (ADR-0174).'),
   limit: z.coerce.number().int().min(1).max(MAX_CHANGE_REQUEST_PAGE).optional(),
   cursor: z.string().regex(/^\d{1,6}$/).optional().describe('nextCursor of the previous page.'),
 })
@@ -348,13 +362,7 @@ export interface RevisionView {
   claims: ClaimView[]
 }
 
-export interface ChangeRequestView {
-  id: string
-  title: string
-  countryId: string
-  status: (typeof CHANGE_REQUEST_STATUSES)[number]
-  createdBy: string
-  createdAt: string
+export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionCount'> {
   submittedAt: string | null
   publishedAt: string | null
   revisions: RevisionView[]
@@ -372,6 +380,12 @@ export interface ChangeRequestSummary {
   createdBy: string
   createdAt: string
   revisionCount: number
+  /** operator, or monitor: a source monitor found its source changed (ADR-0174). */
+  origin: (typeof CHANGE_REQUEST_ORIGINS)[number]
+  /** The source a monitor's request is about; null for an operator's. */
+  sourceRecordId: string | null
+  /** What the monitor found: the previous and current etag, sha256 and version, the terms, and needs[]. */
+  monitorFinding: Record<string, unknown> | null
 }
 
 export interface CountryCoverage {

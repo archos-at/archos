@@ -68,3 +68,41 @@ HTML_PAGE = (
     "<p>Duplicate of the table of contents.</p></div>\n"
     "</body></html>"
 ).encode()
+
+
+#: The synthetic test country's gazette (ADR-0174): a web_document source as the BFF hands a configured source over.
+SYNTHETIC_PAGE = (
+    "<html><body><h1>Building Code of Xanadu</h1>"
+    '<section><span class="nr">§ 1</span><h2>Scope</h2><p>This code applies to every building in Xanadu.</p></section>'
+    "</body></html>"
+)
+SYNTHETIC_URL = "https://gazette.xa.example/building-code"
+SYNTHETIC_TERMS = "https://gazette.xa.example/terms"
+
+
+def synthetic_source(**overrides) -> dict:
+    """The synthetic gazette's record in ``public_sources.source.Source``'s shape, responses inline."""
+    record = {
+        "id": "xa-gazette",
+        "title": "Gazette of Xanadu",
+        "territory": "XA",
+        "protocol": "web_document",
+        "format": "html_statute",
+        "hosts": ["gazette.xa.example"],
+        "data_flow": "public_only",
+        "terms": {"url": SYNTHETIC_TERMS, "licence": "public_open", "attribution": "", "checked": "2026-11-01"},
+        "monitor": {"kind": "sha256", "interval_hours": 24, "probe": {"operation": "document", "args": {"id": "code"}}},
+        "access": {"documents": [{"id": "code", "url": SYNTHETIC_URL, "title": "Building Code"}]},
+        "engine": {"unit": "//section", "number": "./span[@class='nr']", "heading": "./h2", "title": "//h1"},
+        "fixtures": [
+            {
+                "name": "code",
+                "operation": "document",
+                "args": {"id": "code"},
+                "responses": {SYNTHETIC_URL: {"content_type": "text/html; charset=utf-8", "text": SYNTHETIC_PAGE}},
+                "expect": {"title": "Building Code of Xanadu", "anchors": ["para_1"], "contains": ["every building"]},
+            }
+        ],
+    }
+    record.update(overrides)
+    return record

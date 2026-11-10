@@ -82,6 +82,8 @@ export const PLATFORM_PERMISSIONS = {
   knowledgeApproveAsDomainExpert: 'platform:knowledge:approve_as_domain_expert',
   knowledgeApproveAsCounsel: 'platform:knowledge:approve_as_counsel',
   knowledgeApproveAsSecondReviewer: 'platform:knowledge:approve_as_second_reviewer',
+  /** A source that receives a site point needs a privacy review before it is published (ADR-0174). */
+  knowledgeApproveAsPrivacyReviewer: 'platform:knowledge:approve_as_privacy_reviewer',
 } as const
 
 /** Project-tier permissions, checked per project via WorkOS FGA. */

@@ -19,7 +19,9 @@ import { ConflictError, NotFoundError, ServiceUnavailableError, UnprocessableErr
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
-import { CaptureFetchError, fetchSourcePage } from './capture-fetch'
+import { CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
+import { sourceChecksOf } from './source-checks'
+import { revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
 import { requirePlatform } from './service-gate'
@@ -46,8 +48,16 @@ import {
   type ValidationView,
 } from './wire'
 
-/** The kit on `records` as they would stand in `request`: KC-1, KC-3 and KC-6. */
-export async function runKit(tx: Tx, request: ChangeRequestRow, records: readonly ProposedRecord[]): Promise<Problem[]> {
+/**
+ * The kit on `records` as they would stand in `request`: KC-1, KC-3, KC-5, KC-6, and KC-7 as
+ * `sourceChecks` hands it in (run before the transaction, `source-checks.ts`).
+ */
+export async function runKit(
+  tx: Tx,
+  request: ChangeRequestRow,
+  records: readonly ProposedRecord[],
+  sourceChecks: ReadonlyMap<string, readonly Problem[]> = new Map(),
+): Promise<Problem[]> {
   const named = (record: ProposedRecord) => [...referencesOf(record).map((reference) => reference.id), ...namedTerritories(record)]
   const workIds = [...new Set(records.flatMap((record) => (record.type === 'edition' ? [`work:${record.workKey}`] : [])))]
   const [known, captures, existing] = await Promise.all([
@@ -55,7 +65,7 @@ export async function runKit(tx: Tx, request: ChangeRequestRow, records: readonl
     capturesOf(tx, request.id, citedCaptureIds(records)),
     platformEditionsOf(tx, workIds),
   ])
-  return validateProposal(records, request.countryId, known, captures, existing)
+  return validateProposal(records, request.countryId, known, captures, existing, sourceChecks)
 }
 
 /**
@@ -85,10 +95,20 @@ async function storedProposals(tx: Tx, requestId: string): Promise<{ records: Pr
   return { records, unreadable }
 }
 
+/** KC-7 on the source records a request holds, read in a short transaction of its own: what {@link validateRequest} takes. */
+export async function requestSourceChecks(requestId: string): Promise<Map<string, Problem[]>> {
+  const { records } = await platformTransaction((tx) => storedProposals(tx, requestId))
+  return sourceChecksOf(records)
+}
+
 /** The kit on everything a request holds: what submit runs, and what an agent runs before it. */
-export async function validateRequest(tx: Tx, request: ChangeRequestRow): Promise<ValidationView> {
+export async function validateRequest(
+  tx: Tx,
+  request: ChangeRequestRow,
+  sourceChecks: ReadonlyMap<string, readonly Problem[]> = new Map(),
+): Promise<ValidationView> {
   const { records, unreadable } = await storedProposals(tx, request.id)
-  const problems = [...unreadable, ...(await runKit(tx, request, records))].map(({ index: _index, ...problem }) => problem)
+  const problems = [...unreadable, ...(await runKit(tx, request, records, sourceChecks))].map(({ index: _index, ...problem }) => problem)
   return {
     changeRequestId: request.id,
     valid: problems.length === 0 && records.length + unreadable.length > 0,
@@ -100,15 +120,16 @@ export async function validateRequest(tx: Tx, request: ChangeRequestRow): Promis
 
 export async function validatePlatformChangeRequest(session: UserSession | null, requestId: string): Promise<ValidationView> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
+  const sourceChecks = await requestSourceChecks(requestId)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
-    return validateRequest(tx, request)
+    return validateRequest(tx, request, sourceChecks)
   })
 }
 
 /** Fetch the page now, or take the operator's text: the bytes' digest and the text the quote check reads. */
-async function captured(body: CaptureBody) {
+async function captured(body: CaptureBody, configured: ConfiguredSource | undefined) {
   if (body.basis === 'operator_supplied') {
     return {
       sourceId: null,
@@ -123,7 +144,7 @@ async function captured(body: CaptureBody) {
     }
   }
   try {
-    const page = await fetchSourcePage(body.sourceId, body.url)
+    const page = await fetchSourcePage(body.sourceId, body.url, configured)
     return { ...page, sourceId: body.sourceId, note: null, retrievedAt: new Date(page.retrievedAt) }
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
@@ -134,14 +155,26 @@ async function captured(body: CaptureBody) {
   }
 }
 
+/** A registered source as the api tier takes it: its configuration, and its key when one is set. */
+export async function configuredSource(tx: Tx, source: RegisteredSource): Promise<ConfiguredSource> {
+  const credential = await revealedCredential(tx, source.recordId)
+  return { config: source.config, ...(credential ? { credential } : {}) }
+}
+
 /** Capture a page into a draft request: what records then cite, and KC-6 checks quotes against. */
 export async function capturePlatformCitation(session: UserSession | null, requestId: string, body: CaptureBody): Promise<CaptureView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
-  const draft = await platformTransaction((tx) => lockChangeRequest(tx, requestId))
+  const { draft, configured } = await platformTransaction(async (tx) => {
+    const request = await lockChangeRequest(tx, requestId)
+    // A configured source (ADR-0174): its testing revision in this request, else its released one. A repository
+    // record is not one, and the api tier answers for it by its id; a key nothing registers is refused there.
+    const source = body.basis === 'fetched' && request ? await usableSource(tx, body.sourceId, requestId) : null
+    return { draft: request, configured: source ? await configuredSource(tx, source) : undefined }
+  })
   if (!draft) throw new NotFoundError('No change request with this id; list them first.')
   if (draft.status !== 'draft') throw new ConflictError(`The change request is ${draft.status}; captures go into a draft.`)
   // Fetched outside the transaction: a slow source must not hold the request's lock.
-  const page = await captured(body)
+  const page = await captured(body, configured)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (request?.status !== 'draft') throw new ConflictError('The change request left draft while the page was fetched.')

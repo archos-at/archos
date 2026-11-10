@@ -24,15 +24,17 @@ import { getPlatformOrganizationId, requirePlatformPermission } from '@/lib/auth
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import { callDecisionSource, requirePersonDecision } from '@/lib/agent-api/person-decision'
 import { homeCountrySchema } from '@/lib/organizations/home-country'
-import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
+import type { ApprovalRole, ChangeRequestOrigin, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
 import { enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
-import { runKit, validateRequest } from './onboarding'
+import { requestSourceChecks, runKit, validateRequest } from './onboarding'
+import { sourceChecksOf } from './source-checks'
 import { requirePlatform } from './service-gate'
 import { proposalKey as keyOf, recordIdOf } from './records'
 import { publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
 import {
+  awaitedApprovalRoles,
   findChangeRequest,
   insertApproval,
   insertChangeRequest,
@@ -64,6 +66,7 @@ const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermissio
   domain_expert: PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert,
   counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
   second_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer,
+  privacy_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer,
 }
 
 type KnowledgeAuditAction =
@@ -102,13 +105,13 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
 
 export async function listPlatformChangeRequests(
   session: UserSession | null,
-  query: { status?: ChangeRequestStatus; limit?: number; cursor?: string },
+  query: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; limit?: number; cursor?: string },
 ): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const offset = query.cursor ? Number(query.cursor) : 0
   const limit = query.limit ?? CHANGE_REQUEST_PAGE
   // One more than the page says whether another follows.
-  const rows = await listChangeRequests(query.status, { offset, limit: limit + 1 })
+  const rows = await listChangeRequests({ status: query.status, origin: query.origin }, { offset, limit: limit + 1 })
   return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 
@@ -141,11 +144,13 @@ export async function proposePlatformRecords(
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
+  const sourceChecks = await sourceChecksOf(body.records)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'draft') throw new ConflictError(`The change request is ${request.status}; records go into a draft.`)
-    const problems = await runKit(tx, request, body.records)
+    const problems = await runKit(tx, request, body.records, sourceChecks)
     const results = body.records.map((record, index): ProposalRecordResult => {
       const own = problems.filter((problem) => problem.index === index)
       const status = own.length > 0 ? 'invalid' : 'valid'
@@ -167,12 +172,13 @@ export async function proposePlatformRecords(
 
 export async function submitPlatformChangeRequest(session: UserSession | null, requestId: string): Promise<{ status: 'submitted' }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const sourceChecks = await requestSourceChecks(requestId)
   await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'draft') throw new ConflictError(`The change request is ${request.status}; only a draft is submitted.`)
     if ((await reviewedRevisions(tx, requestId)).length === 0) throw new UnprocessableError('The change request holds no records yet.')
-    const validation = await validateRequest(tx, request)
+    const validation = await validateRequest(tx, request, sourceChecks)
     if (!validation.valid) {
       throw new UnprocessableError(`The change request fails ${validation.problems.length} check(s); run platform-knowledge-validate and repair them.`, { problems: validation.problems })
     }
@@ -217,19 +223,19 @@ export async function reviewPlatformChangeRequest(
 export async function decidePlatformChangeRequest(
   session: UserSession | null,
   requestId: string,
-  body: { decision: 'approve' | 'reject'; role: 'domain_expert' | 'counsel' | 'second_reviewer' },
-): Promise<{ status: ChangeRequestStatus }> {
+  body: { decision: 'approve' | 'reject'; role: ApprovalRole },
+): Promise<{ status: ChangeRequestStatus; awaiting: ApprovalRole[] }> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
   // The role is the approver's, not the client's word: WorkOS says who holds it.
   if (body.decision === 'approve') await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[body.role])
   const decisionSource = requirePersonDecision(`${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`)
-  const status = await platformTransaction(async (tx) => {
+  const outcome = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is decided.`)
     if (body.decision === 'reject') {
       await setChangeRequestStatus(tx, requestId, 'rejected', 'decidedAt')
-      return 'rejected' as const
+      return { status: 'rejected' as const, awaiting: [] }
     }
     const open = (await reviewedRevisions(tx, requestId)).flatMap((revision) =>
       revision.claims.filter((claim) => claim.decision !== 'accepted').map((claim) => `${revision.recordId}.${claim.path}`),
@@ -238,15 +244,21 @@ export async function decidePlatformChangeRequest(
       throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them first.`)
     }
     await insertApproval(tx, { changeRequestId: requestId, approver: person.userId, role: body.role, decisionSource })
+    // Counsel for an advice policy, a privacy reviewer for a site-keyed source (ADR-0174): until each has said
+    // yes the request stays submitted, and the publish trigger refuses it whatever path reaches it.
+    const awaiting = await awaitedApprovalRoles(tx, requestId)
+    if (awaiting.length > 0) return { status: 'submitted' as const, awaiting }
     await setChangeRequestStatus(tx, requestId, 'approved', 'decidedAt')
-    return 'approved' as const
+    return { status: 'approved' as const, awaiting }
   })
-  await audit(person, {
-    action: status === 'approved' ? 'platform.knowledge.change_request_approved' : 'platform.knowledge.change_request_rejected',
-    targetId: requestId,
-    metadata: { role: body.role, decisionSource },
-  })
-  return { status }
+  if (outcome.status !== 'submitted') {
+    await audit(person, {
+      action: outcome.status === 'approved' ? 'platform.knowledge.change_request_approved' : 'platform.knowledge.change_request_rejected',
+      targetId: requestId,
+      metadata: { role: body.role, decisionSource },
+    })
+  }
+  return outcome
 }
 
 export interface PublishReceipt extends PublishOutcome {

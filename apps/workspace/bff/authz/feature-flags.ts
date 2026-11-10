@@ -373,6 +373,19 @@ export const FEATURE_FLAGS = {
    * turn is offered `as_of`; the door's schema still hides it.
    */
   timeEditions: 'time-editions',
+  /**
+   * Source monitors (ADR-0174, migration 0210): the `source-monitor` sweep
+   * checks every published public source whose monitor names a probe and, when
+   * one changed, opens a change request (origin `monitor`) holding a capture of
+   * the new page for a reviewer. It never publishes. Read on the platform
+   * organization (`isOrgFeatureEnabled`), together with `platform-base-knowledge`.
+   *
+   * Off until an operator targets the platform organization. With it off the
+   * sweep reads nothing, fetches nothing and writes nothing: the platform is
+   * byte for byte what it was. Source records, `source-test` and
+   * `source-status` do not need it; they need `platform-base-knowledge`.
+   */
+  sourceMonitors: 'source-monitors',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -408,6 +421,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
   'time-editions': 'entitlement',
+  'source-monitors': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

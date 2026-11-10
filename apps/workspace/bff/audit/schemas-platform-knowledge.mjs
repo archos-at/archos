@@ -25,6 +25,11 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { restored: 'number', decisionSource: 'string' },
   },
+  // A public source's key (ADR-0174): who set it and how they said yes; never the key.
+  'platform.knowledge.source_credential_set': {
+    targets: [{ type: 'knowledge_source' }],
+    metadata: { decisionSource: 'string' },
+  },
   'platform.organization.country_entitled': {
     targets: [{ type: 'organization' }],
     metadata: { countryId: 'string', changed: 'boolean', decisionSource: 'string' },

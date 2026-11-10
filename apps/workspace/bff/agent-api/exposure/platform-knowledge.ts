@@ -8,9 +8,10 @@
  */
 
 import type { platformKnowledgeOperations } from '../catalog/platform-knowledge'
+import type { platformSourceOperations } from '../catalog/platform-sources'
 import { PLATFORM_PUBLIC, type PlatformExposure } from './platform'
 
-type PlatformKnowledgeOperationName = (typeof platformKnowledgeOperations)[number]['name']
+type PlatformKnowledgeOperationName = (typeof platformKnowledgeOperations | typeof platformSourceOperations)[number]['name']
 
 export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-change-request-create': PLATFORM_PUBLIC,
@@ -27,6 +28,11 @@ export const PLATFORM_KNOWLEDGE_EXPOSURE = {
   'platform-knowledge-records-propose': PLATFORM_PUBLIC,
   'platform-knowledge-rollback': PLATFORM_PUBLIC,
   'platform-knowledge-schema-get': PLATFORM_PUBLIC,
+  // A country's public sources (ADR-0174): platform configuration of public pages, never a tenant's content.
+  // The key is the person's own yes (`personDecides`) and is never returned.
+  'platform-knowledge-source-credential-set': PLATFORM_PUBLIC,
+  'platform-knowledge-source-status': PLATFORM_PUBLIC,
+  'platform-knowledge-source-test': PLATFORM_PUBLIC,
   'platform-knowledge-validate': PLATFORM_PUBLIC,
   'platform-org-country-entitle': PLATFORM_PUBLIC,
   'platform-organization-home-country-set': PLATFORM_PUBLIC,

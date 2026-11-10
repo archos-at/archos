@@ -12,6 +12,10 @@
  *   platform (the as-of resolver refuses that as ambiguous, so it is refused
  *   here first).
  * - KC-5: a ruleset's and a transition's own examples hold on the evaluator.
+ * - KC-7: a source record parses as its access type and engine read it, and
+ *   every recorded fixture passes with no live call (ADR-0174). The api tier
+ *   runs it, so its problems are handed in (`sourceChecks`); an api tier that
+ *   cannot answer is a problem, never a pass.
  * - KC-6: every record cites at least one capture of its change request, and
  *   every quote it gives is found in that capture's stored text, is long
  *   enough to say something, and one names what the record claims (its name,
@@ -48,7 +52,7 @@ export interface KnownCapture {
   basis: 'fetched' | 'operator_supplied'
 }
 
-export const KIT_CHECKS = ['KC-1', 'KC-3', 'KC-5', 'KC-6'] as const
+export const KIT_CHECKS = ['KC-1', 'KC-3', 'KC-5', 'KC-6', 'KC-7'] as const
 export type KitCheck = (typeof KIT_CHECKS)[number]
 
 /** Where each check is described: one problem type per check, as RFC 9457 asks. */
@@ -62,6 +66,9 @@ export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
   'KC-6':
     'Capture the page with platform-knowledge-citation-capture, cite its captureId, and quote at least three words ' +
     'exactly as the capture has them, including what the record names (its name, designation or label).',
+  'KC-7':
+    'Repair the source record so it parses, its hosts cover every URL it names, and each recorded fixture passes; ' +
+    'platform-knowledge-source-test shows what each fixture requested and found.',
 }
 
 export interface Problem {
@@ -76,6 +83,11 @@ export interface Problem {
   hint: string
   /** The record's position in the proposed batch; absent when a stored request is validated. */
   index?: number
+}
+
+/** A problem of the kit about `record`: for checks that run outside this module (KC-7). */
+export function kitProblem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string): Problem {
+  return problem(code, record, pointer, detail)
 }
 
 function problem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string): Problem {
@@ -173,6 +185,7 @@ function namedTerritoryFields(record: ProposedRecord): [string, string][] {
     ]
   }
   if (record.type === 'ruleset') return each(record.values.territoryIds, '/values/territoryIds')
+  if (record.type === 'source') return [[record.territoryId, '/territoryId']]
   return []
 }
 
@@ -237,6 +250,7 @@ export function validateProposal(
   known: ReadonlyMap<string, KnownRecord>,
   captures: ReadonlyMap<string, KnownCapture>,
   existing: readonly DatedPlatformEdition[] = [],
+  sourceChecks: ReadonlyMap<string, readonly Problem[]> = new Map(),
 ): Problem[] {
   const batch = new Map<string, KnowledgeRecordType>()
   const problems: Problem[][] = records.map(() => [])
@@ -255,6 +269,9 @@ export function validateProposal(
     if (record.type === 'territory' && record.kind !== 'union' && territoryCountry(record.id) !== countryId) {
       own.push(problem('KC-1', record, '/id', `${record.id} lies outside ${countryId}, the country of this request.`))
     }
+    if (record.type === 'source' && territoryCountry(record.territoryId) !== countryId) {
+      own.push(problem('KC-1', record, '/territoryId', `${record.territoryId} lies outside ${countryId}, the country of this request.`))
+    }
   })
   const exists = (id: string, type: KnowledgeRecordType) => batch.get(id) === type || known.get(id)?.type === type
   records.forEach((record, index) => {
@@ -270,6 +287,10 @@ export function validateProposal(
       }
     }
     own.push(...intervalProblems(record), ...exampleProblems(record), ...citationProblems(record, captures))
+    if (record.type === 'source') {
+      // Unknown fails closed: a source the api tier did not check is a problem.
+      own.push(...(sourceChecks.get(recordIdOf(record)) ?? [problem('KC-7', record, '', 'was not checked; run the proposal again.')]))
+    }
   })
   for (const [index, found] of overlapProblems(records, existing)) problems[index]?.push(found)
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))

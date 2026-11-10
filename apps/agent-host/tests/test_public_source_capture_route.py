@@ -39,7 +39,7 @@ async def test_refuses_a_call_without_the_internal_token(client):
 async def test_answers_the_capture_of_a_page(client, monkeypatch):
     from public_sources.capture import CapturedPage
 
-    async def captured(source_id: str, url: str) -> CapturedPage:
+    async def captured(source_id, url: str, **_: object) -> CapturedPage:
         return CapturedPage(url, url, "text/html", "a" * 64, 12, "Bauordnung", "2026-11-10T00:00:00+00:00")
 
     monkeypatch.setattr("public_sources.capture.capture_page", captured)
@@ -67,3 +67,48 @@ async def test_an_unknown_source_is_not_found_and_a_foreign_host_refused(client)
         "/v1/public-sources/capture", headers=HEADERS, json={"source": "at-ris", "url": "https://example.org/x"}
     )
     assert foreign.status_code == 403
+
+
+async def test_checks_a_configured_source_by_its_inline_fixtures(client, monkeypatch):
+    from public_sources_testing import SOURCES_DIR
+    from public_sources_testing import synthetic_source
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", str(SOURCES_DIR))
+    good = await client.post("/v1/public-sources/check", headers=HEADERS, json={"config": synthetic_source()})
+    assert good.status_code == 200 and good.json()["valid"] is True
+
+    broken = synthetic_source()
+    broken["hosts"] = ["elsewhere.example"]
+    bad = await client.post("/v1/public-sources/check", headers=HEADERS, json={"config": broken})
+    assert bad.json()["valid"] is False and bad.json()["problems"]
+
+    shadow = await client.post(
+        "/v1/public-sources/check", headers=HEADERS, json={"config": synthetic_source(id="at-ris", territory="AT")}
+    )
+    assert shadow.json()["valid"] is False
+
+
+async def test_probes_a_configured_source(client, monkeypatch):
+    from public_sources.monitor import ProbeResult
+    from public_sources.monitor import Seen
+    from public_sources_testing import SOURCES_DIR
+    from public_sources_testing import synthetic_source
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", str(SOURCES_DIR))
+    asked: list[Seen] = []
+
+    async def probed(source, previous: Seen, **_: object) -> ProbeResult:
+        asked.append(previous)
+        return ProbeResult(True, False, Seen(sha256="b" * 64), "https://gazette.xa.example/x", "text/html", "new", 3)
+
+    monkeypatch.setattr("public_sources.monitor.probe", probed)
+    answer = await client.post(
+        "/v1/public-sources/probe",
+        headers=HEADERS,
+        json={"config": synthetic_source(), "previous": {"sha256": "a" * 64}},
+    )
+    assert answer.status_code == 200
+    assert answer.json()["changed"] is True and answer.json()["current"]["sha256"] == "b" * 64
+    assert asked[0].sha256 == "a" * 64
+    refused = await client.post("/v1/public-sources/probe", json={"config": synthetic_source()})
+    assert refused.status_code in (401, 403)

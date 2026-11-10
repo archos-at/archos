@@ -15,6 +15,7 @@
 import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
+  ChangeRequestOrigin,
   ChangeRequestStatus,
   IndexRunState,
   PersonDecisionSource,
@@ -59,6 +60,10 @@ export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
   decidedAt: timestamp('decided_at', { withTimezone: true }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
+  /** An operator's, or a source monitor's (migration 0210, ADR-0174). */
+  origin: text('origin').$type<ChangeRequestOrigin>().notNull().default('operator'),
+  sourceRecordId: text('source_record_id'),
+  monitorFinding: jsonb('monitor_finding').$type<Record<string, unknown>>(),
 })
 
 export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {

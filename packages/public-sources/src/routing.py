@@ -19,7 +19,9 @@ import httpx
 from public_sources.egress import FORWARDED_HEADERS
 from public_sources.egress import EgressRefused
 from public_sources.egress import GuardedTransport
+from public_sources.egress import attach_credential
 from public_sources.egress import strip_headers
+from public_sources.source import Source
 from public_sources.source import get_source
 
 ENV_FETCHER_URL = "PUBLIC_SOURCE_FETCHER_URL"
@@ -32,14 +34,16 @@ RETURNED_HEADERS = ("content-type", "etag", "last-modified")
 class _SourceCheck(httpx.AsyncBaseTransport):
     """Refuse a URL off the source's hosts, strip the headers, then delegate."""
 
-    def __init__(self, source, inner: httpx.AsyncBaseTransport) -> None:
+    def __init__(self, source, inner: httpx.AsyncBaseTransport, credential: tuple[str, str] | None = None) -> None:
         self.source = source
         self.inner = inner
+        self.credential = credential
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         if not self.source.allows(str(request.url)):
             raise EgressRefused(f"{request.url} is not on a host of source {self.source.id!r}", request=request)
         strip_headers(request.headers)
+        attach_credential(request.headers, self.credential)
         return await self.inner.handle_async_request(request)
 
     async def aclose(self) -> None:
@@ -49,20 +53,35 @@ class _SourceCheck(httpx.AsyncBaseTransport):
 class FetcherTransport(httpx.AsyncBaseTransport):
     """Sends each request to the sandboxed fetcher instead of the network."""
 
-    def __init__(self, source_id: str, fetcher_url: str, inner: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self,
+        source_id: str,
+        fetcher_url: str,
+        inner: httpx.AsyncBaseTransport | None = None,
+        *,
+        hosts: tuple[str, ...] | None = None,
+        credential: tuple[str, str] | None = None,
+    ) -> None:
         self.source_id = source_id
+        #: A configured (database) source's hosts; the fetcher has no record of it (ADR-0174).
+        self.hosts = hosts
+        self.credential = credential
         self.endpoint = fetcher_url.rstrip("/") + "/v1/fetch"
         self._client = httpx.AsyncClient(transport=inner, timeout=60.0, trust_env=False)
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         body = await request.aread()
-        payload = {
+        payload: dict = {
             "source": self.source_id,
             "method": request.method,
             "url": str(request.url),
             "headers": {k: v for k, v in request.headers.items() if k.lower() in FORWARDED_HEADERS},
             "body": body.decode("utf-8") if body else "",
         }
+        if self.hosts is not None:
+            payload["hosts"] = list(self.hosts)
+        if self.credential is not None:
+            payload["credential"] = {"header": self.credential[0], "value": self.credential[1]}
         answer = await self._client.post(self.endpoint, json=payload)
         if REFUSED_HEADER in answer.headers:
             raise EgressRefused(answer.headers[REFUSED_HEADER], request=request)
@@ -73,13 +92,29 @@ class FetcherTransport(httpx.AsyncBaseTransport):
         await self._client.aclose()
 
 
-def source_transport(source_id: str, *, inner: httpx.AsyncBaseTransport | None = None) -> httpx.AsyncBaseTransport:
-    """The transport for ``source_id``'s requests: the fetcher when one is configured, else the guard here.
+def source_transport(
+    source: str | Source,
+    *,
+    inner: httpx.AsyncBaseTransport | None = None,
+    credential: str | None = None,
+) -> httpx.AsyncBaseTransport:
+    """The transport for a source's requests: the fetcher when one is configured, else the guard here.
 
-    ``inner`` stands in for the network in tests only.
+    ``source`` is a repository record's id, or a configured source (ADR-0174)
+    parsed with :func:`public_sources.source.parse_inline_source`, whose hosts
+    travel with each request because the fetcher holds no record of it.
+    ``credential`` is a keyed source's key, set after the strip under the
+    header its record names. ``inner`` stands in for the network in tests only.
     """
-    source = get_source(source_id)
+    record = get_source(source) if isinstance(source, str) else source
+    header = None
+    if credential is not None:
+        if record.credential is None:
+            raise EgressRefused(f"source {record.id!r} names no credential header, so it takes no key")
+        header = (record.credential.header, record.credential.prefix + credential)
     fetcher_url = os.environ.get(ENV_FETCHER_URL, "").strip()
     if fetcher_url:
-        return _SourceCheck(source, FetcherTransport(source_id, fetcher_url, inner=inner))
-    return _SourceCheck(source, inner or GuardedTransport())
+        hosts = None if isinstance(source, str) else tuple(record.hosts)
+        fetcher = FetcherTransport(record.id, fetcher_url, inner=inner, hosts=hosts, credential=header)
+        return _SourceCheck(record, fetcher, credential=header)
+    return _SourceCheck(record, inner or GuardedTransport(), credential=header)

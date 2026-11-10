@@ -58,31 +58,62 @@ function pageOf(body: unknown): FetchedPage {
   }
 }
 
-/** Fetch `url` as source `sourceId` allows it. Fails closed: no token, no reader, a refusal, all throw. */
-export async function fetchSourcePage(sourceId: string, url: string): Promise<FetchedPage> {
+/** A source configured in the database (ADR-0174), whole, with its key when it is keyed. */
+export interface ConfiguredSource {
+  config: Record<string, unknown>
+  credential?: string
+}
+
+/**
+ * POST to one of the api tier's public-source routes. Fails closed: no token,
+ * no reader, no answer, all throw a {@link CaptureFetchError}; a refusal keeps
+ * the status the route gave.
+ */
+export async function callPublicSources(path: string, body: unknown, timeoutMs = CAPTURE_TIMEOUT_MS): Promise<{ status: number; body: unknown }> {
   const base = getBackendUrl()
   let headers: Record<string, string>
   try {
     headers = internalServiceHeaders(base)
   } catch (error) {
     if (!(error instanceof InternalServiceUnavailableError)) throw error
-    throw new CaptureFetchError('The public-source reader is not reachable from here; upload the page as operator_supplied.', 503)
+    throw new CaptureFetchError('The public-source reader is not reachable from here.', 503)
   }
   let response: Response
   try {
-    response = await fetch(`${base}/v1/public-sources/capture`, {
+    response = await fetch(`${base}${path}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ source: sourceId, url }),
-      signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch {
-    throw new CaptureFetchError('The public-source reader did not answer; try again, or upload the page as operator_supplied.', 503)
+    throw new CaptureFetchError('The public-source reader did not answer; try again.', 503)
   }
-  const body = (await response.json().catch(() => null)) as unknown
-  if (response.ok) return pageOf(body)
-  const detail = isRecord(body) && typeof body.detail === 'string' ? body.detail : `HTTP ${response.status}`
-  if (response.status === 403 || response.status === 400) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
-  if (response.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
+  return { status: response.status, body: (await response.json().catch(() => null)) as unknown }
+}
+
+/** The detail an api-tier refusal carries (FastAPI's `detail`), or its status. */
+export function refusalDetail(answer: { status: number; body: unknown }): string {
+  return isRecord(answer.body) && typeof answer.body.detail === 'string' ? answer.body.detail : `HTTP ${answer.status}`
+}
+
+/**
+ * Fetch `url` as the source allows it: a repository record by its id, or a
+ * configured source (`configured`, ADR-0174) whose hosts the caller has
+ * already found registered for this use. Fails closed: no token, no reader, a
+ * refusal, all throw.
+ */
+export async function fetchSourcePage(sourceId: string, url: string, configured?: ConfiguredSource): Promise<FetchedPage> {
+  let answer: { status: number; body: unknown }
+  try {
+    answer = await callPublicSources('/v1/public-sources/capture', { source: sourceId, url, ...(configured ?? {}) })
+  } catch (error) {
+    if (error instanceof CaptureFetchError) throw new CaptureFetchError(`${error.message} Or upload the page as operator_supplied.`, error.status)
+    throw error
+  }
+  if (answer.status >= 200 && answer.status < 300) return pageOf(answer.body)
+  const detail = refusalDetail(answer)
+  if (answer.status === 403 || answer.status === 400 || answer.status === 422) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
+  if (answer.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
   throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or upload the page as operator_supplied.`, 502)
 }
