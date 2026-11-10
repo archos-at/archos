@@ -617,8 +617,9 @@ describe('a folder row in the table’s columns', () => {
   it('every row is 40px: a chip in a name line is 20px, the actions cell holds its 32px trigger in 40', () => {
     const list = read('file-list-view')
     expect(list).toMatch(/<DocumentStatusBadge [^>]*className="h-5 /)
-    expect(list).toMatch(/className="w-10 px-1 py-1 text-right"/)
-    expect(read('folder-table-row')).toMatch(/className="w-10 px-1 py-1 text-right"/)
+    // Under a finger the cell is the trigger's 44px, flush: in 40 with its padding the ⋯ ran 8px past a phone's table.
+    expect(list).toMatch(/className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0"/)
+    expect(read('folder-table-row')).toMatch(/className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0"/)
   })
 })
 
@@ -853,5 +854,36 @@ describe('the row ⋯ hides nothing', () => {
     const menu = withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components/document-actions/document-object-menu.tsx'), 'utf8'))
     expect(menu).toContain("className: 'size-8 shrink-0 rounded-full',")
     expect(menu).not.toMatch(/bg-background\/\d+ backdrop-blur/)
+  })
+})
+
+describe('Dateien in a real project (round 6)', () => {
+  // The previews drew a project of seven loose files and four folders; dev's first real project (2026-11-10) showed
+  // what they hid. Each line below holds one thing that went wrong there.
+  const doc = (component: string): string => source(`ui/features/documents/components/${component}.tsx`)
+
+  it('draws no upload tile among the files: Hochladen and the whole page take files, its menu says so', () => {
+    expect(doc('file-browser-pane')).not.toMatch(/uploadCard/)
+    expect(doc('project-uppy-upload')).not.toMatch(/dropcard/)
+    expect(doc('project-uppy-upload')).toMatch(/data-testid="project-upload-limits"/)
+  })
+
+  it('lays the upload tray on the listing’s column as a sheet, not a band across the page', () => {
+    expect(doc('file-workspace')).toMatch(/<div className="listing-container shrink-0 px-4 md:px-8">\s*<UploadTray[\s\S]*?className=\{UPLOAD_TRAY_SHEET\}/)
+    expect(readFileSync(join(ROOT, 'ui/features/documents/components/upload-tray-sheet.ts'), 'utf8')).toMatch(/UPLOAD_TRAY_SHEET = '[^']*\bbg-sheet shadow-sm\b/)
+  })
+
+  it('never cuts the selection’s count, and lets the brief’s line wrap rather than cut', () => {
+    const bar = doc('selection-bar')
+    expect(bar).toMatch(/className="flex-1 whitespace-nowrap text-sm font-medium tabular-nums"/)
+    expect(bar).not.toMatch(/selection-count[\s\S]{0,40}truncate|truncate[^"]*"\s*role="status"/)
+    expect(doc('folder-brief')).not.toMatch(/folder-brief-toggle[\s\S]{0,900}?\btruncate\b/)
+  })
+
+  it('gives the places their room on a narrow section: the level’s presses keep their glyph, the tabs their glyph, the header stacks', () => {
+    const frame = source('ui/components/shell/project-section-frame.tsx')
+    expect(frame).toMatch(/@max-\[60rem\]\/section:\[&_\[data-slot=button\]>span\]:sr-only/)
+    expect(frame).toMatch(/@max-\[60rem\]\/section:flex-col!/)
+    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/compactOnPhone && !active && 'phone:sr-only @max-\[44rem\]\/section:sr-only'/)
   })
 })

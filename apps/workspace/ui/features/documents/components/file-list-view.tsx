@@ -510,7 +510,7 @@ const FileListRowItem = memo(function FileListRowItem({
       {renderActions && (
         <TableCell
           // 40px wide, and its 32px trigger 4px off the row's top and foot: 44px here made a file row taller than a folder's.
-          className="w-10 px-1 py-1 text-right"
+          className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0" /* a finger's ⋯ is 44px: in 32px it ran 8px past the table and the list scrolled sideways */
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >

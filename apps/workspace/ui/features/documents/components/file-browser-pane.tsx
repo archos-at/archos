@@ -9,7 +9,7 @@ import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
-import { useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
+import { useSectionPlaceSlot, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -134,8 +134,6 @@ interface FileBrowserPaneProps {
   onFileAim?: (aim: FileDropAim | null) => void
   /** Upload control rendered inside the first-run empty state. */
   uploadControl?: ReactNode
-  /** Dashed upload card rendered as the last tile of the grid (project corpus). */
-  uploadCard?: ReactNode
   /**
    * Folder drill-down: breadcrumb path on top, folder cards/rows beside the
    * files, create/rename/delete in place. Omitted by callers that have no
@@ -296,7 +294,6 @@ export function FileBrowserPane({
   onSelectFile,
   isLoading,
   uploadControl,
-  uploadCard,
   folderNav,
   searchFiles,
   showOlderRevisions = false,
@@ -328,9 +325,12 @@ export function FileBrowserPane({
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const { semantic } = search
-  // Whether the root's path row went elsewhere (the tabs row, a phone's ⋯): the brief then rises to the tabs.
+  // Whether the path row went elsewhere (its tools to the tabs row or a phone's ⋯; inside a folder its path to the
+  // header's title and crumb): the brief then rises to the tabs.
   const tabSlot = useSectionTabActionsSlot()
-  const rootRowGone = (folderNav?.currentFolderId ?? null) === null && (tabSlot || rootToolsInMenu)
+  const placeSlot = useSectionPlaceSlot()
+  const toolsGone = tabSlot || rootToolsInMenu
+  const rootRowGone = toolsGone && ((folderNav?.currentFolderId ?? null) === null || placeSlot)
   // The field answers every keystroke; the filter over the whole corpus, and
   // everything drawn from it, follows a beat behind and is dropped for a newer
   // keystroke. Typing stays immediate at five thousand documents.
@@ -599,7 +599,7 @@ export function FileBrowserPane({
 
   if (isLoading) {
     return (
-      <FileBrowserSkeleton view={view} withFolders={folderNav !== undefined} uploadCard={uploadCard} />
+      <FileBrowserSkeleton view={view} withFolders={folderNav !== undefined} />
     )
   }
 
@@ -703,6 +703,7 @@ export function FileBrowserPane({
               size="sm"
               className="gap-1.5"
               onClick={selection.onStart}
+              title={t('selection.start')}
               data-testid="selection-start"
             >
               <CheckSquare className="size-4" aria-hidden />
@@ -715,8 +716,10 @@ export function FileBrowserPane({
       {/* What Piloti knows about the level's whole subtree. Hidden while a
           query runs for the same reason the breadcrumb is: the query is the
           context then, and its results span the corpus. */}
-      {currentFolder && !semantic.active && !searching && (
-        <div className={`${CONTENT_MAX} px-4 pt-3`}>
+      {/* The folder's description, where it has one, as the first line under the tabs; „Beschreiben …“ is in the
+          folder's ⋯ one level up. An empty line with its ghost press alone at the column's end was a row of nothing. */}
+      {currentFolder?.description && !semantic.active && !searching && (
+        <div className={cn(CONTENT_MAX, 'px-4', rootRowGone ? 'pt-0' : 'pt-3')}>
           <FolderDescriptionLine
             folder={currentFolder}
             canEdit={Boolean(folderNav?.onDescribeFolder) && writableHere}
@@ -726,7 +729,7 @@ export function FileBrowserPane({
       )}
       {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
       {brief && !semantic.active && !searching && (
-        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone ? 'pt-0' : 'pt-4')}>{brief}</div>
+        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-0' : 'pt-4')}>{brief}</div>
       )}
       {/* Piloti's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
@@ -921,9 +924,11 @@ export function FileBrowserPane({
         <motion.div
           key={`empty-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 16)}
-          className="flex flex-1 items-center justify-center p-8"
+          // On the column's left edge with the press under it (paper on a desk, „an empty state's object“), not centred
+          // in the pane at an edge of its own.
+          className={cn(CONTENT_MAX, 'px-4 pt-6')}
         >
-          <EmptyState variant="bare"
+          <EmptyState variant="bare" className="items-start py-0 text-left"
             icon={FolderOpen}
             title={t('browser.folderEmptyTitle')}
             description={t('browser.folderEmptyDescription')}
@@ -986,9 +991,6 @@ export function FileBrowserPane({
               {orderedFiles.map((file) => (
                 <Fragment key={file.id}>{fileCard(file)}</Fragment>
               ))}
-              {/* A drop zone is a mouse affordance: there is no dragging a file
-                  onto a phone, and the Hochladen button is under the thumb. */}
-              {writableHere && !picking && uploadCard && <div className="contents pointer-coarse:hidden">{uploadCard}</div>}
             </FileGrid>
             {pagingFooter}
         </motion.div>
@@ -1052,8 +1054,7 @@ const levelTransition = (direction: number, distance: number) =>
  *   - the breadcrumb row, at its real height, when this surface has folders;
  *   - the content cap, so the grid does not start full-width and then narrow;
  *   - the „Zuletzt hochgeladen" eyebrow, which is always there at the root;
- *   - folder tiles BEFORE file tiles, which is the order the grid fills in;
- *   - the dashed upload tile, which is the last cell of a project's grid.
+ *   - folder tiles BEFORE file tiles, which is the order the grid fills in.
  *
  * It cannot know how many of each are coming. It draws a plausible few — the
  * point of a skeleton is the shape of the page, not a forecast of its contents.
@@ -1061,21 +1062,12 @@ const levelTransition = (direction: number, distance: number) =>
 export function FileBrowserSkeleton({
   view = 'cards',
   withFolders = false,
-  uploadCard,
   /** Placeholder folder tiles. Two: enough to read as "folders come first". */
   folders = 2,
   files = 6,
 }: {
   view?: 'cards' | 'list'
   withFolders?: boolean
-  /**
-   * The REAL dashed upload tile, not a grey stand-in for it.
-   *
-   * It is the one cell of this grid whose content does not depend on the answer
-   * being fetched, and it opens a file picker: greying it out would hide a
-   * working control and make the grid one tile shorter than it is about to be.
-   */
-  uploadCard?: ReactNode
   folders?: number
   files?: number
 }): JSX.Element {
@@ -1106,7 +1098,6 @@ export function FileBrowserSkeleton({
             {Array.from({ length: files }).map((_, index) => (
               <FileCardSkeleton key={`file-${index}`} />
             ))}
-            {uploadCard}
           </FileGrid>
         </div>
       )}

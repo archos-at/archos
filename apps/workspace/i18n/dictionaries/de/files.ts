@@ -7,7 +7,7 @@ export const files: typeof en.files = {
     orDragAndDrop: ' oder per Drag-and-drop ablegen',
     maxSize: 'Bis zu {size} pro Datei',
     accepts: 'Zulässig: {types}',
-    dragOrBrowse: 'Dateien hierher ziehen oder auswählen',
+    dropAnywhere: 'Oder Dateien irgendwo auf die Seite ziehen.',
     maxSizeShort: 'max. {size} pro Datei',
   },
   // Die Upload-Leiste. Die Formulierungen folgen der Regel der Oberfläche:
@@ -454,8 +454,7 @@ export const files: typeof en.files = {
   },
   browser: {
     folderEmptyTitle: 'Dieser Ordner ist leer',
-    folderEmptyDescription:
-      'Laden Sie hier Dokumente hoch oder wählen Sie einen anderen Ordner in der Seitenleiste.',
+    folderEmptyDescription: 'Laden Sie hier Dokumente hoch oder ziehen Sie sie irgendwo auf die Seite.',
     noDocumentsTitle: 'Noch keine Dokumente',
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
@@ -523,6 +522,7 @@ export const files: typeof en.files = {
     items: '{count, plural, one {# Element} other {# Elemente}}',
     openFolder: 'Ordner „{name}“ öffnen',
     breadcrumb: 'Ordnerpfad',
+    hiddenLevels: '{count, plural, one {# weitere Ebene} other {# weitere Ebenen}}',
     movedFolder: '„{name}“ nach „{parent}“ verschoben.',
     moveFolderError: 'Der Ordner konnte nicht verschoben werden. Bitte erneut versuchen.',
     /** Ordnerzugriff (ADR-0088, ADR-0097): einen Ordner auf Personen einschränken. */
@@ -1108,7 +1108,8 @@ export const files: typeof en.files = {
    */
   // Der Ordnerbrief: was Piloti über einen Ordner und alles darunter weiß.
   brief: {
-    scopeFolder: 'in „{name}“ und seinen Unterordnern',
+    scopeFolder: 'in diesem Ordner',
+    scopeFolderTree: 'in diesem Ordner und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',

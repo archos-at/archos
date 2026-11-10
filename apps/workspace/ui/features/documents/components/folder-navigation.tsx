@@ -24,11 +24,12 @@ import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Item } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileName } from './file-name'
 import { Spinner } from '@/components/ui/spinner'
 import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { BackControl } from '@/components/shell/back-link'
-import { ProjectSectionTabActions, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
+import { ProjectSectionTabActions, useSectionPlaceSlot, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
+import { FolderPlaceInHeader, folderPath } from './folder-trail'
+import { FileName } from './file-name'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
@@ -50,19 +51,6 @@ import type { FolderItem } from './project-file-workspace'
  * and the breadcrumb up top names the path and walks back out. Same flat
  * `FolderItem[]` data, same server API — only the presentation changed.
  */
-
-/** The chain of ancestors from the root to `folderId`, oldest first. */
-export function folderPath(folders: FolderItem[], folderId: string | null): FolderItem[] {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]))
-  const path: FolderItem[] = []
-  let cursor = folderId === null ? undefined : byId.get(folderId)
-  // Defensive bound: a corrupt parent chain must not hang the render.
-  while (cursor && path.length <= folders.length) {
-    path.unshift(cursor)
-    cursor = cursor.parentId === null ? undefined : byId.get(cursor.parentId)
-  }
-  return path
-}
 
 export interface FolderNavProps {
   folders: FolderItem[]
@@ -147,6 +135,7 @@ export function FolderBreadcrumbRow({
   const parent = currentFolderId === null ? undefined : path[path.length - 2]
   const parentLabel = parent ? parent.name : t('folders.allFiles')
   const tabSlot = useSectionTabActionsSlot()
+  const placeSlot = useSectionPlaceSlot()
   const tools = (
     <>
       {children}
@@ -162,6 +151,16 @@ export function FolderBreadcrumbRow({
   // on a desk, and to the ⋯ on a phone, and the brief rises by the row.
   if (currentFolderId === null && tabSlot) return <ProjectSectionTabActions>{tools}</ProjectSectionTabActions>
   if (currentFolderId === null && rootToolsElsewhere) return null
+  // Inside a folder within the section's frame, the header names it (title, crumb, the phone's ←) and the level's
+  // tools join the tabs as at the root (a phone's go to its ⋯): the row would say the path a second time.
+  if (placeSlot && (tabSlot || rootToolsElsewhere)) {
+    return (
+      <>
+        <FolderPlaceInHeader path={path} onNavigate={onNavigate} wrapStep={(folderId, label, step) => crumb(folderId, label, step)} />
+        {tabSlot && <ProjectSectionTabActions>{tools}</ProjectSectionTabActions>}
+      </>
+    )
+  }
 
   return (
     <div
@@ -194,7 +193,7 @@ export function FolderBreadcrumbRow({
             <BackControl
               label={t('folders.backTo', { name: parentLabel })}
               onClick={() => onNavigate(parent?.id ?? null)}
-              className="shrink-0 pr-3"
+              className="shrink-0 whitespace-nowrap pr-3"
               testId="folder-back"
             />
           )}
@@ -211,7 +210,7 @@ export function FolderBreadcrumbRow({
                   <button data-attr="files-navigate"
                     type="button"
                     onClick={() => onNavigate(null)}
-                    className="hover:text-foreground transition-colors rounded-inline px-1"
+                    className="hover:text-foreground transition-colors rounded-inline whitespace-nowrap px-1"
                   >
                     {t('folders.allFiles')}
                   </button>
@@ -240,7 +239,7 @@ export function FolderBreadcrumbRow({
                     transition={motionQuick}
                   >
                     {index === path.length - 1 ? (
-                      <BreadcrumbPage className="max-w-48 truncate text-sm font-medium">{folder.name}</BreadcrumbPage>
+                      <BreadcrumbPage className="block max-w-80 truncate text-sm font-medium" title={folder.name}>{folder.name}</BreadcrumbPage>
                     ) : (
                       crumb(
                         folder.id,
@@ -249,6 +248,7 @@ export function FolderBreadcrumbRow({
                           <button data-attr="files-navigate"
                             type="button"
                             className="max-w-48 truncate hover:text-foreground transition-colors px-1"
+                            title={folder.name}
                             onClick={() => onNavigate(folder.id)}
                           >
                             {folder.name}
@@ -264,7 +264,7 @@ export function FolderBreadcrumbRow({
         </BreadcrumbList>
       </Breadcrumb>
       </div>
-      <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>
+      {!rootToolsElsewhere /* a phone's are in its ⋯: here they were the same two a second time */ && <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>}
     </div>
   )
 }
@@ -299,7 +299,7 @@ function NewFolderControl({
     <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
       <PopoverTrigger asChild>
         {/* Tonal: it creates, and as bare words „Ordner anlegen“ read as a label. Its fill ends on the column's edge, under Hochladen's. */}
-        <Button type="button" variant="secondary" size="sm" className="gap-1.5">
+        <Button type="button" variant="secondary" size="sm" className="gap-1.5" title={t('folders.newFolder')}>
           <FolderPlus className="size-4" aria-hidden />
           {/* A glyph on a phone inside a folder, where the path needs the width; at the root, its words. */}
           <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{t('folders.newFolder')}</span>
@@ -678,8 +678,8 @@ export function FolderCard({
             ) : (
               <div className="flex min-w-0 items-center gap-1.5">
                 {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-                <p className="min-w-0 truncate text-name text-foreground">
-                  <FileName text={folder.name} />
+                <p className="min-w-0 hyphens-auto text-name text-foreground">
+                  <FileName text={folder.name} wrap />
                 </p>
                 {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
               </div>

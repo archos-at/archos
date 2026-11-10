@@ -122,6 +122,9 @@ vi.mock('@/components/shell/project-section-frame', () => ({
   // No tabs row in the spec: the root's tools stay on the path row, where the specs look for them.
   ProjectSectionTabActions: () => null,
   useSectionTabActionsSlot: () => false,
+  // No header in the spec either: a folder keeps its path row, where the specs look for the way back.
+  ProjectSectionPlace: () => null,
+  useSectionPlaceSlot: () => false,
 }))
 
 // useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.

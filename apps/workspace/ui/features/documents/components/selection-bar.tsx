@@ -57,7 +57,8 @@ export function SelectionBar({
         <X aria-hidden />
       </Button>
       <p
-        className="min-w-0 flex-1 truncate text-sm font-medium tabular-nums"
+        // Never cut: on a phone the count was „2 a…“ beside two labelled presses; the move press gives way instead.
+        className="flex-1 whitespace-nowrap text-sm font-medium tabular-nums"
         role="status"
         data-testid="selection-count"
       >
@@ -80,10 +81,11 @@ export function SelectionBar({
           className="gap-2"
           onClick={onMove}
           disabled={count === 0}
+          title={t('selection.move')}
           data-testid="selection-move"
         >
           <FolderInput className="size-4" aria-hidden />
-          {t('selection.move')}
+          <span className="phone:sr-only">{t('selection.move')}</span>
         </Button>
       )}
       </div>

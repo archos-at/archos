@@ -153,9 +153,11 @@ describe('FileBrowserPane — card grid', () => {
     expect(selected).not.toHaveAttribute('aria-pressed')
   })
 
-  it('renders the upload card as the last tile of the grid', () => {
-    renderPane({ uploadCard: <div data-testid="upload-card-stub" /> })
-    expect(screen.getByTestId('upload-card-stub')).toBeInTheDocument()
+  it('draws no upload tile among the files: the header uploads and the whole page takes a drop', () => {
+    // A dashed „Drag files here or browse“ cell stood in the grid as a file that was not one (dev, 2026-11-10).
+    renderPane({})
+    expect(screen.queryByTestId('project-upload-dropcard')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('file-card')).toHaveLength(files.length)
   })
 })
 
@@ -594,19 +596,12 @@ describe('FileBrowserPane — loading', () => {
     onDeleteFolder: vi.fn(),
   }
 
-  it('draws the folder tiles and the upload cell it is about to be replaced by, and no path row the root no longer has', () => {
-    renderPane({
-      isLoading: true,
-      folderNav,
-      uploadCard: <button type="button">Drop files</button>,
-    })
+  it('draws the folder tiles it is about to be replaced by, and no path row the root no longer has', () => {
+    renderPane({ isLoading: true, folderNav })
 
     const skeleton = screen.getByTestId('file-browser-skeleton')
     expect(within(skeleton).queryByTestId('folder-breadcrumb-skeleton')).not.toBeInTheDocument()
     expect(within(skeleton).getAllByTestId('folder-card-skeleton').length).toBeGreaterThan(0)
-    // The dashed cell is the last tile of a project's grid; a skeleton without
-    // it is one tile shorter than the answer.
-    expect(within(skeleton).getByText('Drop files')).toBeInTheDocument()
   })
 
   it('leaves the folder tiles out on a surface that has no folders', () => {

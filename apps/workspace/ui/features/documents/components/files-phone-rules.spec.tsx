@@ -28,17 +28,18 @@ describe('Dateien on a phone', () => {
     expect(everythingRead({ ...read, total: 3, unindexed: 1 })).toBe(true)
   })
 
-  it('the brief stays while something still needs a person: unplaced or missing documents', () => {
+  it('the brief stays while something still needs a person: unplaced or missing documents, or a finding', () => {
     const read = { ...emptyTally(), total: 2, readable: 2 }
     expect(briefHasNothingToSay(read, null)).toBe(true)
     expect(briefHasNothingToSay(read, [])).toBe(true)
     expect(briefHasNothingToSay({ ...read, unplaced: 1 }, null)).toBe(false)
     expect(briefHasNothingToSay(read, [{ role: DOCUMENT_ROLES[0], label: 'Energieausweis', buildingName: null }])).toBe(false)
+    expect(briefHasNothingToSay(read, null, 1)).toBe(false)
   })
 
   it('the brief renders nothing on a phone only when it has nothing to say (gate is in the component)', () => {
     const src = source('folder-brief.tsx')
-    expect(src).toMatch(/if \(phone && briefHasNothingToSay\(tally, folderName === null \? missing : null\)\) return null/)
+    expect(src).toMatch(/if \(phone && briefHasNothingToSay\(tally, folderName === null \? missing : null, foundCount\)\) return null/)
   })
 
   it('the list ends 6rem above the floor so the last row scrolls clear of the floating Hochladen', () => {

@@ -55,6 +55,7 @@ import { useShelfSummary } from '../hooks/use-shelf-summary'
 import { useShelfUpload } from '../hooks/use-shelf-upload'
 import { fileViewFor, useViewPreference } from '../hooks/use-view-preference'
 import { useBriefCollapsed } from '../hooks/use-brief-collapsed'
+import { useDocumentFindings } from '../hooks/use-document-findings'
 import { useBulkReingest } from '../hooks/use-bulk-reingest'
 import { useCompareParam } from '../hooks/use-compare-param'
 import { useMissingDocuments } from '../hooks/use-missing-documents'
@@ -105,6 +106,7 @@ import type { ProposalListQuery } from '@/lib/proposals/types'
 import { FolderUploadDialog } from './folder-upload-dialog'
 import { ProjectUppyUpload } from './project-uppy-upload'
 import { UploadTray } from './upload-tray'
+import { UPLOAD_TRAY_SHEET } from './upload-tray-sheet'
 import { UploadProblemAlert } from './upload-anyway'
 
 /**
@@ -154,12 +156,6 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
-  /**
-   * What sits above the list and scrolls with it: a project's findings panel.
-   * `readyCount` is how many documents of the listing are read, so a panel
-   * derived from them re-reads when another one finishes.
-   */
-  aboveList?: (state: { readyCount: number }) => ReactNode
 }
 
 /** The ⋯ slot every card and row renders; the row's {@link DocumentObjectMenu} fills it. */
@@ -188,7 +184,6 @@ export function FileWorkspace({
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
-  aboveList,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -820,11 +815,12 @@ export function FileWorkspace({
       ]
     : undefined
 
-  const rootToolsInMenu = phone && selectedFolderId === null && !tree.error
+  // A phone's level tools are in its ⋯ at every level: inside a folder the header names it, so no row holds them.
+  const rootToolsInMenu = phone && !tree.error
   const rootTools = usePhoneRootTools({
     active: rootToolsInMenu,
     onStartSelection: mayPick && !selection.active && !sliceOpen && !searchingNow && levelFiles.length > 0 ? () => startSelection() : undefined,
-    onCreateFolder: canManage && writableHere ? (name) => tree.create(name, undefined) : undefined,
+    onCreateFolder: canManage && writableHere ? (name) => tree.create(name, selectedFolderId ?? undefined) : undefined,
   })
 
   const controls = (
@@ -951,14 +947,17 @@ export function FileWorkspace({
 
       {error && <UploadProblemAlert message={error} onDismiss={upload.clearError} />}
 
-      <UploadTray
-        files={activeUploads}
-        onRetry={upload.retryFile}
-        onCancel={upload.cancelFile}
-        onCancelAll={upload.cancelUpload}
-        onDismiss={upload.dismissFiles}
-        onOpenDocument={handlers.onOpenDocument}
-      />
+      <div className="listing-container shrink-0 px-4 md:px-8">
+        <UploadTray
+          files={activeUploads}
+          onRetry={upload.retryFile}
+          onCancel={upload.cancelFile}
+          onCancelAll={upload.cancelUpload}
+          onDismiss={upload.dismissFiles}
+          onOpenDocument={handlers.onOpenDocument}
+          className={UPLOAD_TRAY_SHEET}
+        />
+      </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Folder listing failed: say so once, above a browser that falls open
@@ -1000,7 +999,6 @@ export function FileWorkspace({
             uploadFab && (inSheet ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-24')
           )}
         >
-          {aboveList?.({ readyCount: files.filter((file) => file.status === 'completed').length })}
           {listingError ? (
             <PaneLoadError message={t('workspace.documentsLoadError')} onRetry={retryListing} />
           ) : (
@@ -1062,7 +1060,6 @@ export function FileWorkspace({
                 size: 'default',
                 label: t('workspace.uploadDocuments'),
               })}
-              uploadCard={uploader({ variant: 'dropcard' })}
               brief={briefSurface.brief}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
@@ -1230,6 +1227,9 @@ function useFolderBriefSurface({
   const [selection, setSelection] = useState<{ folderId: string | null; selection: BriefSelection } | null>(null)
   const bulk = useBulkReingest(onReingested)
   const missing = useMissingDocuments(shelf.projectId)
+  // What the project's documents say about each other, as the root's brief shows it; read again as another document is read.
+  const findingsResponse = useDocumentFindings(shelf.projectId ?? undefined, { refreshKey: String(brief?.tally.readable ?? 0) })
+  const findings = shelf.projectId && findingsResponse ? { projectId: shelf.projectId, response: findingsResponse } : null
   const folderName = selectedFolderId
     ? (folders.find((folder) => folder.id === selectedFolderId)?.name ?? null)
     : null
@@ -1282,6 +1282,8 @@ function useFolderBriefSurface({
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
         missing={missing}
+        findings={findings}
+        hasSubfolders={folders.some((folder) => folder.parentId === selectedFolderId)}
         onLoadDetails={partial ? onRequestDetails : undefined}
         detailsLoading={detailsLoading}
       />

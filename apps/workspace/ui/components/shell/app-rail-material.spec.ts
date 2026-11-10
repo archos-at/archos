@@ -116,12 +116,14 @@ describe('the app rail’s material', () => {
       expect(text).not.toMatch(/\bprojectName\b|\bactiveProject\b|project\.name|projects\.find|ProjectCrumb|ProjectPill|PhoneProjectList|data-project-selector|projectSwitcher\.switch/)
     }
     // The page's header shows the project only in Dateien's crumb, and that crumb is the desk's alone.
-    expect(frame.match(/\{projectName\}/g)).toHaveLength(1)
-    expect(frame).toMatch(/<span className="min-w-0 truncate">\{projectName\}<\/span>/)
+    // Once as the crumb's text and once as its title: cut on a deep path, the whole name stays in reach.
+    expect(frame.match(/\{projectName\}/g)).toHaveLength(2)
+    expect(frame).toMatch(/<span className="[^"]*\btruncate\b[^"]*" title=\{projectName\}>\{projectName\}<\/span>/)
     expect(frame).toMatch(/crumbClassName="max-md:hidden"/)
     expect(frame).not.toMatch(/ProjectCrumb|MiddleTruncate|PhoneProjectList|data-project-selector/)
     // The title's line holds what a phone's top holds: one way back, and the app's search (not beside a page's own).
-    expect(frame).toMatch(/titleStart=\{\s*back && \(\s*<Link/)
+    // Inside a folder of Alle Dateien the way back is the folder's way up; elsewhere the page's link.
+    expect(frame).toMatch(/titleStart=\{\s*place \? \([\s\S]*?\) : back && \(\s*<Link/)
     expect(frame.match(/<ShellSearchButton\b/g)).toHaveLength(1)
     expect(frame).toMatch(/\{!ownSearch && <ShellSearchButton className="-mr-2\.5 md:hidden" \/>\}/)
     // The shell draws a line of its own only where the page has no header (a bare flow): a way back and the search.

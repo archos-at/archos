@@ -29,11 +29,8 @@ interface ProjectUppyUploadProps {
   folderId?: string | null
   onUpload: (files: File[]) => void
   isUploading: boolean
-  /**
-   * Visual variant of the trigger: a button (`default`/`outline`) or the
-   * dashed drop-card tile rendered inside the file card grid (`dropcard`).
-   */
-  variant?: 'default' | 'outline' | 'dropcard'
+  /** Visual variant of the trigger. */
+  variant?: 'default' | 'outline'
   size?: 'sm' | 'default'
   label?: string
   /** The glyph alone, its label for a screen reader only (the phone's floating 56px Hochladen). */
@@ -143,9 +140,7 @@ export function ProjectUppyUpload({
         accept={filesAccept}
         className="hidden"
         onChange={handleChange()}
-        data-testid={
-          variant === 'dropcard' ? 'project-upload-dropcard-input' : 'project-upload-input'
-        }
+        data-testid="project-upload-input"
       />
       {allowFolders && (
         <input
@@ -191,38 +186,12 @@ export function ProjectUppyUpload({
     </>
   )
 
-  if (variant === 'dropcard') {
-    // The REAL accepted extensions/limit, prettified ("PDF, DOCX, TXT, MD").
-    const typesLabel = acceptedTypes
-      .split(',')
-      .map((ext) => ext.trim().replace(/^\./, '').toUpperCase())
-      .filter(Boolean)
-      .join(', ')
-    return (
-      <>
-        {input}
-        <button data-attr="project-upload-dropcard"
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={isUploading}
-          data-testid="project-upload-dropcard"
-          className="flex min-h-[132px] w-full flex-col items-center justify-center gap-2 rounded-control border-2 border-dashed border-border bg-card p-4 text-center transition-colors duration-quick ease-out hover:border-ring hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isUploading ? (
-            <Spinner size="default" className="text-muted-foreground" />
-          ) : (
-            <Upload className="size-5 text-muted-foreground" aria-hidden />
-          )}
-          <span className="text-sm font-medium text-foreground">
-            {isUploading ? t('upload.uploading') : t('uploadZone.dragOrBrowse')}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
-          </span>
-        </button>
-      </>
-    )
-  }
+  // The REAL accepted extensions and limit, prettified („PDF, DOCX, TXT, MD“), as the menu's foot says them.
+  const typesLabel = acceptedTypes
+    .split(',')
+    .map((ext) => ext.trim().replace(/^\./, '').toUpperCase())
+    .filter(Boolean)
+    .join(', ')
 
   const trigger = (
     <Button
@@ -270,7 +239,7 @@ export function ProjectUppyUpload({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className={photoEntries || onSendByMail ? 'w-72 max-w-[calc(100vw-2rem)]' : 'w-48'}
+          className="w-72 max-w-[calc(100vw-2rem)]"
         >
           {photoEntries && (
             <>
@@ -338,6 +307,13 @@ export function ProjectUppyUpload({
               </DropdownMenuItem>
             </>
           )}
+          {/* What the grid's dashed „Dateien hierher ziehen“ tile said, where the hand already is: the page takes a drop
+              anywhere, and the formats and the limit are what a person asks before they pick. */}
+          <DropdownMenuSeparator />
+          <p className="text-muted-foreground px-2.5 pb-1.5 pt-1 text-xs leading-snug" role="note" data-testid="project-upload-limits">
+            {!touch && <span className="block">{t('uploadZone.dropAnywhere')}</span>}
+            {typesLabel} · {t('uploadZone.maxSizeShort', { size: formatBytes(maxFileSize, locale) })}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
     </>

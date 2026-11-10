@@ -57,12 +57,12 @@ interface UploadTrayProps {
   onRetry: (id: string) => void
   /** Abort one in-flight upload. Omitted where cancellation is not wired up. */
   onCancel?: (id: string) => void
-  /** Abort everything still in flight. */
-  onCancelAll?: () => void
+  onCancelAll?: () => void /* abort everything still in flight */
   /** Take rows off the tray. Dismissing a NOTICE — never a document delete. */
   onDismiss?: (ids: string[]) => void
   /** Open one of the shelf's documents in the preview, where the surface has one. */
   onOpenDocument?: (documentId: string) => void
+  className?: string /* its plane where it lies: in Dateien a sheet on the column (`UPLOAD_TRAY_SHEET`) */
 }
 
 /** Phases that belong on a live upload surface. */
@@ -114,7 +114,7 @@ function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
 }
 
-export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument }: UploadTrayProps) {
+export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument, className }: UploadTrayProps) {
   // Height and opacity are not covered by MotionConfig's reduced motion.
   const foldTransition = useMotionToken(motionBase)
   const t = useTranslations(filesCopy)
@@ -228,7 +228,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
       transition={foldTransition}
       aria-label={t('uploads.region')}
       data-testid="upload-tray"
-      className="shrink-0 overflow-hidden border-b bg-card"
+      className={cn('shrink-0 overflow-hidden border-b bg-card', className)}
       onMouseEnter={() => setIsHeld(true)}
       onMouseLeave={() => setIsHeld(false)}
       onFocusCapture={() => setIsHeld(true)}

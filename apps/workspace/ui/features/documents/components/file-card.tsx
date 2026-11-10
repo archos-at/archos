@@ -527,7 +527,8 @@ export const FileCard = memo(function FileCard({
           {/* Left, under the name: one edge for everything on the tile. */}
           <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
-            {footerLead}
+            {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
+            {footerLead}{footerLead && <FactDot />}
           </span>
           {/* On a 156px card the size and the age are about 125px, so the
               phone's card keeps 10px of padding (the title's too) and a tighter

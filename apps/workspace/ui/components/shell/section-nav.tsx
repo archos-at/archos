@@ -223,6 +223,7 @@ function SectionNavLink({
       href={item.href}
       replace
       aria-current={active ? 'page' : undefined}
+      title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
         // `relative isolate` + pill `-z-10` is the app-sidebar rail pattern:
         // the active surface glides on `springGlide` below the ink.
@@ -252,7 +253,9 @@ function SectionNavLink({
         />
       )}
       <Icon className="size-4 shrink-0" aria-hidden />
-      <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
+      {/* Below a 44rem section too (a tablet beside the rail: „Offene Punkte“ was cut and „Papierkorb“ gone), its name
+          its title. Outside a section container the query never matches. */}
+      <span className={cn(compactOnPhone && !active && 'phone:sr-only @max-[44rem]/section:sr-only')}>{item.label}</span>
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}
       {item.count === null && (

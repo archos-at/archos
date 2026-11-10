@@ -27,6 +27,11 @@ describe('a file name keeps its end', () => {
     expect(read(file)).toMatch(new RegExp(`<FileName\\s+text=\\{${subject.replace('.', '\\.')}`))
   })
 
+  it('a folder tile wraps its name before any cut, as a file tile does', () => {
+    // One line cut „Besprechungsprotokolle“ to „B…chungsprotokolle“ on a 225px tile (dev, 2026-11-10).
+    expect(read('folder-navigation.tsx')).toMatch(/<FileName text=\{folder\.name\} wrap \/>/)
+  })
+
   it('FileName cuts in the middle and is read once', () => {
     // The read-once lives in the atom, so every name it draws is read once.
     expect(read('file-name.tsx')).toContain('<MiddleTruncate')

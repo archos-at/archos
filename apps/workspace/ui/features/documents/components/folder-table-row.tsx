@@ -123,7 +123,7 @@ export function FolderRow({
         {changedAt && <TimeAgo date={changedAt} locale={locale} />}
       </TableCell>
       {layout.actions && (
-        <TableCell className="w-10 px-1 py-1 text-right" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        <TableCell className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0" /* a finger's ⋯ is 44px: in 32px it ran 8px past the table and the list scrolled sideways */ onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
           {layout.picking ? null : (actions ?? <FolderActionsMenu folder={folder} onStartRename={() => setEditing(true)} onDeleteFolder={onDeleteFolder} />)}
         </TableCell>
       )}

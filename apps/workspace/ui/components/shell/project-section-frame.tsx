@@ -180,6 +180,37 @@ export function ProjectSectionBack({ href, to }: SectionBack): null {
   return null
 }
 
+/**
+ * Where the reader stands inside a place, when it is deeper than the place itself: Alle Dateien's open folder. The
+ * title names it („Index C“, not „Alle Dateien“ over a folder's contents), the crumb carries the way there after the
+ * project („Projekt › Dateien › Abgabepläne › …“, `trail`, each step a way up), and on a phone, which has no crumb,
+ * the title's line starts with the way one level up (`up`). The tab still names the place.
+ */
+export interface SectionPlace {
+  title: string
+  /** The crumb after the project's name: the section's own step and the levels between it and `title`. */
+  trail: ReactNode
+  /** One level up, for the phone's ← („Zurück zu Abgabepläne“). */
+  up: { label: string; onSelect: () => void }
+}
+const PlaceContext = createContext<((place: SectionPlace | null) => void) | null>(null)
+
+/** Whether the frame draws {@link ProjectSectionPlace}; outside it (the Büroablage, a preview) the page keeps its own path row. */
+export function useSectionPlaceSlot(): boolean {
+  return useContext(PlaceContext) !== null
+}
+
+/** Hand the frame's title and crumb the level the reader stands in. Renders nothing at the call site. */
+export function ProjectSectionPlace({ title, trail, up }: SectionPlace): null {
+  const setPlace = useContext(PlaceContext)
+  useLayoutEffect(() => {
+    if (!setPlace) return
+    setPlace({ title, trail, up })
+    return () => setPlace(null)
+  }, [title, trail, up, setPlace])
+  return null
+}
+
 /** Whether {@link ProjectSectionTabActions} has a row to go to; where not, the caller renders its tools itself. */
 export function useSectionTabActionsSlot(): boolean {
   return useContext(TabActionsContext) !== null
@@ -277,6 +308,7 @@ export function ProjectSectionFrame({
   const setActions = useCallback((node: ReactNode, onTitleLine = false) => setActionsState({ node, onTitleLine }), [])
   const [tabActions, setTabActions] = useState<ReactNode>(null)
   const [pageBack, setPageBack] = useState<SectionBack | null>(null)
+  const [placeState, setPlace] = useState<SectionPlace | null>(null)
   const phone = useMediaQuery(PHONE_QUERY)
 
   if (isProjectChatPath(pathname, projectId)) {
@@ -307,9 +339,12 @@ export function ProjectSectionFrame({
   // The app's search is in „Mehr“ on every page.
   const ownSearch = files && (subpage ?? 'files/all') === 'files/all'
   const opened = files && pathname.split('/').filter(Boolean).length > 5
+  const allFiles = files && (subpage ?? 'files/all') === 'files/all'
+  const place = allFiles ? placeState : null
 
   return (
     <BackContext.Provider value={setPageBack}>
+    <PlaceContext.Provider value={allFiles ? setPlace : null}>
     <ActionsContext.Provider value={setActions}>
     <TabActionsContext.Provider value={segment === 'files' && !phone ? setTabActions : null}>
       <div className="@container/section flex h-full min-h-0 flex-col">
@@ -320,13 +355,16 @@ export function ProjectSectionFrame({
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}
           <PageHeader
-            title={files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
+            // Below a 60rem section Dateien's tools (≈680px) stand under the title, not in three rows beside it.
+            className={files ? '@max-[60rem]/section:flex-col! @max-[60rem]/section:items-stretch!' : undefined}
+            // Inside a folder the title is the folder („Index C“); „Alle Dateien“ names only the shelf's root.
+            title={place ? place.title : files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
             crumb={
               files ? (
                 <>
-                  <span className="min-w-0 truncate">{projectName}</span>
+                  <span className="min-w-0 max-w-[16rem] shrink truncate" title={projectName}>{projectName}</span>
                   <ChevronRight className="size-3 shrink-0" aria-hidden />
-                  <span className="shrink-0">{sectionLabel}</span>
+                  {place ? place.trail : <span className="shrink-0">{sectionLabel}</span>}
                 </>
               ) : undefined
             }
@@ -335,9 +373,21 @@ export function ProjectSectionFrame({
             subtitle={sectionSubtitle}
             // One way back, on the title's line and its arrow on the title's edge: a page under the Übersicht goes
             // back to it, an opened mail to its list (`ProjectSectionBack`).
-            titleStartClassName={pageBack ? 'hidden phone:flex' : 'md:hidden'}
+            titleStartClassName={pageBack || place ? 'hidden phone:flex' : 'md:hidden'}
             titleStart={
-              back && (
+              place ? (
+                // A folder's way up, on the phone's title line: the crumb says it at desk width.
+                <button
+                  type="button"
+                  onClick={place.up.onSelect}
+                  aria-label={place.up.label}
+                  title={place.up.label}
+                  data-testid="page-header-up"
+                  className="text-foreground active:bg-desk -ml-3 -mr-2 flex size-11 items-center justify-center rounded-control"
+                >
+                  <ArrowLeft className="size-4" aria-hidden />
+                </button>
+              ) : back && (
                 <Link
                   href={back.href}
                   aria-label={t('backTo', { label: back.to })}
@@ -371,7 +421,13 @@ export function ProjectSectionFrame({
               {/* The tabs' own 8px under the track, so the tools stand on the track's line. */}
               {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
               {/* Tonal presses 12px apart, as every bar's, the last one's fill on the content edge. */}
-              {tabActions && <div className="flex shrink-0 items-center gap-3 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+              {/* Below a 60rem section the presses keep their glyph and give the tabs the room (their names stay their
+                  accessible names and titles): at 1024px „Offene Punkte“ was cut and „Papierkorb“ gone under them. */}
+              {tabActions && (
+                <div className="flex shrink-0 items-center gap-3 pb-2 [&_[data-slot=button]]:text-sm @max-[60rem]/section:[&_[data-slot=button]>span]:sr-only">
+                  {tabActions}
+                </div>
+              )}
             </div>
           )}
           {segment === 'files' && phone && actions && !actionsOnTitle && <div className="mt-4 min-w-0">{actions}</div>}
@@ -380,6 +436,7 @@ export function ProjectSectionFrame({
       </div>
     </TabActionsContext.Provider>
     </ActionsContext.Provider>
+    </PlaceContext.Provider>
     </BackContext.Provider>
   )
 }
