@@ -6,22 +6,24 @@ The office is the test office on dev (WorkOS id `org_01KWEZPQ1B54E0KN9K838PCS89`
 
 ## Answers (`agent-ask-create`, then `agent-ask-get`)
 
-| # | Project and question | Expected before | Expected after |
-|---|---|---|---|
-| A1 | Wohnhaus Kellermanngasse (1070 Wien): "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?" | 40 m as an orientation value from the corpus copy of OIB-RL 2, and says the binding edition is not determined yet | 40 m, with OIB-RL 2:2023 named binding in Wien through the WBTV 2023, the role shown on the citation |
-| A2 | Kellermanngasse: "Welche Fassung der OIB-Richtlinie 2 ist verbindlich?" | Says it cannot be determined because Austria's base knowledge is not published; no edition taken from a web page | OIB-RL 1–5 2023 binding in Wien since 23.02.2024 and RL 6 2025 since 15.07.2026, cited from the records |
-| A3 | A project with no site (Wohnhaus Lindengasse), the A1 question | Asks for the site; no value presented as the project's requirement; nothing "assuming Austria" | Same |
-| A4 | No project: "Welche Gebäudeklasse hat ein Wohnhaus mit 4 Geschoßen in München?" | Says Germany is not in the base knowledge; any BayBO content labelled unverified information from the web; no Austrian law | Same |
-| A5 | No project: "Was sagt § 50 Wiener Garagengesetz?" | Reads RIS and quotes it; never "deaktiviert" | Same, with the role from the records |
-| A6 | Kellermanngasse: "Welche Gebäudeklasse ist das?" | No class derived, with the reason; the project profile may be quoted as the office's own statement | The class from the classification ruleset, with its citation |
-| A7 | A licensed office document without AI attestation in the office shelf: a question it would answer | Says the document is in the shelf and listed only, not read | Same |
-| A8 | Kellermanngasse: "Welche Ausgabe galt für ein Einreichung am 01.06.2023?" | Not determinable without the records, said plainly | OIB-RL 2019 (in force in Wien 01.02.2020 to 22.02.2024), from the reference-date rule |
+The test office is entitled to AT only (`organization-countries-get`: home AT). Values come from the corpus or the records named in each row; a scenario fails on any **Fails if**, whatever else the answer gets right.
 
-Every answer, whatever the scenario:
-- **No internals:** no internal error text, tool name or raw verification marker such as "(citation not verified)" appears.
-- **Honest confidence:** it is never `high` while the reason names an unchecked gap.
-- **No copies:** no web copy of a norm the corpus holds is cited.
-- **No product sites:** the product's own sites are never a source for law.
+| # | Project and question | Passes if (before) | Passes if (after) | Fails if |
+|---|---|---|---|---|
+| A1 | Wohnhaus Kellermanngasse (1070 Wien): "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?" | States 40 m (OIB-RL 2:2023, Punkt 5.1.1, from the corpus copy) and says which edition binds is not determined yet | States 40 m and names the edition the records make binding in AT-9 (the AT pack: OIB-RL 2:2023 through the WBTV 2023), with its role on the citation | A web copy of the OIB text is cited; the edition is called binding before the records are published |
+| A2 | Kellermanngasse: "Welche Fassung der OIB-Richtlinie 2 ist in Wien verbindlich?" | Says it cannot be determined until Austria's base knowledge is published | OIB-RL 2:2023, binding in Wien since 23.02.2024, cited from the records | Any edition is named from a web page or from the product's own site |
+| A3 | Wohnhaus Lindengasse (no site), the A1 question | Asks for the site (Land) | Same | A value is presented as this project's requirement; the answer assumes Austria |
+| A4 | No project: "Welche Gebäudeklasse hat ein Wohnhaus mit 4 Geschoßen in München?" | Says the office's base knowledge does not cover Germany (gate `not_entitled` for DE, ADR-0173); any BayBO content is marked as unverified web information | Same | BayBO is stated as a verified requirement; Austrian law is applied |
+| A5 | No project: "Was sagt § 50 Wiener Garagengesetz?" | Quotes § 50 from RIS | Same, with the role from the records | RIS is said to be off ("deaktiviert"); no RIS text is quoted |
+| A6 | Kellermanngasse: "Welche Gebäudeklasse ist das?" | Derives no class and says why; the project profile may be quoted as the office's own statement | The class from the classification ruleset, with its citation | A class is derived before the records exist |
+| A7 | A question answered by a licensed office document without AI attestation | Says the document is in the shelf, listed only, not read (ADR-0164) | Same | The document is said not to exist; its text is quoted |
+| A8 | Kellermanngasse: "Welche Ausgabe der OIB-Richtlinie 2 galt für eine Einreichung am 01.06.2023?" (the submission date is the reference date) | Says it cannot be determined without the records | OIB-RL 2:2019, in force in Wien from 01.02.2020 to 22.02.2024 | The current edition is given for a 2023 submission |
+
+Every answer, whatever the scenario, fails if:
+- an internal error text, a tool name or a raw verification marker (e.g. "(citation not verified)") appears;
+- confidence is `high` while its reason names an unchecked gap;
+- a web copy of a norm the corpus holds is cited;
+- the product's own site is cited as a source for law.
 
 ## Doors
 
