@@ -112,25 +112,6 @@ def _parsed(source: str) -> ast.Module:
     return ast.parse(source)
 
 
-#: The fields a statement keeps its nested statements in. An import is a
-#: statement, so it is found without descending into any expression.
-_STATEMENT_FIELDS = ("body", "orelse", "finalbody", "handlers", "cases")
-
-
-def _statements(tree: ast.AST) -> list[ast.AST]:
-    """Every statement of ``tree``, nested ones included (also the handlers and cases that hold them)."""
-    found: list[ast.AST] = []
-    pending = [tree]
-    while pending:
-        node = pending.pop()
-        for name in _STATEMENT_FIELDS:
-            children = getattr(node, name, None)
-            if isinstance(children, list):
-                found += children
-                pending += children
-    return found
-
-
 def function_lengths(source: str) -> dict[str, int]:
     """Each function's span in lines, keyed by its qualified name (`Class.method`, `outer.inner`).
 
@@ -180,7 +161,7 @@ def import_lines(path: str, source: str) -> set[int]:
             return set()
         return {
             line
-            for node in _statements(tree)
+            for node in ast.walk(tree)
             if isinstance(node, ast.Import | ast.ImportFrom)
             for line in range(node.lineno, (node.end_lineno or node.lineno) + 1)
         }
