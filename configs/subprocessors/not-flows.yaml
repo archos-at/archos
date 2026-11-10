@@ -1,6 +1,10 @@
 # Hosts and variables the scan finds that carry no data out of the cluster,
 # each with the reason. An entry that no longer occurs fails the check.
 hosts:
+  cv.iptc.org: an IPTC digital-source-type vocabulary term in AI provenance metadata, never fetched
+  iptc.org: an XMP namespace in AI provenance metadata, never fetched
+  ns.adobe.com: an XMP namespace in AI provenance metadata, never fetched
+  www.geonames.org: the attribution of the bundled postal-code data (CC BY 4.0), never fetched
   1.2.0.3: a version-like example in a comment
   aspmx.l.google.com: an example in a comment (another domain's MX, which project mail never touches)
   budurl.com: a URL shortener the citation sanitizer strips, never fetched
