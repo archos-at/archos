@@ -150,6 +150,14 @@
             "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
             "de": "Die Modellprüfung ordnet ein Projekt – wie die Projekteinstellung – dem Bundesland zu, das die Adresssuche ermittelt hat: Bei einem österreichischen Projekt, dessen Bundesland nie manuell eingetragen wurde, werden nicht mehr alle OIB-Richtlinien als offen angezeigt."
           }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
+            "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
+          }
         }
       ]
     },
