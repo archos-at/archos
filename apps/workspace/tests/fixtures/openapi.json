@@ -151,6 +151,152 @@
         }
       }
     },
+    "/api/projects/{id}/base/confirmations": {
+      "post": {
+        "operationId": "project-base-confirm",
+        "summary": "Confirm a project’s base knowledge as it reads now",
+        "description": "Stores the base project-base-get shows, resolved again on the server, on the person’s own yes. Send the packs you read; a newer release since refuses it (409) so the person confirms what is current. Needs project:edit.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "packs": {
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "packId": {
+                          "type": "string"
+                        },
+                        "seq": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "packId",
+                        "seq"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "The packs and sequences of the base the person saw, from project-base-get; a newer release refuses the confirmation (409)."
+                  }
+                },
+                "required": [
+                  "packs"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Confirm a project’s base knowledge as it reads now",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/projects/{id}/base": {
+      "get": {
+        "operationId": "project-base-get",
+        "summary": "Read a project’s base knowledge: gate, chain, editions and their roles",
+        "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation. Needs project:view.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a project’s base knowledge: gate, chain, editions and their roles",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/cleanup": {
       "post": {
         "operationId": "project-cleanup-confirm",
@@ -22182,6 +22328,91 @@
         }
       }
     },
+    "/api/base-knowledge/reports": {
+      "post": {
+        "operationId": "base-knowledge-report",
+        "summary": "Report wrong law in the base knowledge to the platform",
+        "description": "Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, and what is wrong in one sentence. Only for a country the office is entitled to. Changes nothing an answer reads.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countryId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "workId": {
+                    "description": "The work the report is about, e.g. work:baybo.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "editionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "messageId": {
+                    "description": "The answer that showed the wrong law, from the conversation.",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 150,
+                    "description": "What is wrong, in a sentence: the platform reads it on the draft change request."
+                  }
+                },
+                "required": [
+                  "countryId",
+                  "note"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Report wrong law in the base knowledge to the platform",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/upload": {
       "post": {
         "operationId": "base-knowledge-upload",
@@ -22244,6 +22475,61 @@
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/coverage": {
+      "get": {
+        "operationId": "coverage-get",
+        "summary": "Read how far the base knowledge goes in each country the office is entitled to",
+        "description": "Per entitled country its coverage level (none, open, core, full) and every territory that states its own. `open` is official sources nobody curated; `core` reviewed codes; `full` adds classification and reference dates. Any member may read.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "countryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "One country, e.g. DE; omitted, every country the office is entitled to.",
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "description": "One country, e.g. DE; omitted, every country the office is entitled to."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read how far the base knowledge goes in each country the office is entitled to",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }
@@ -29621,6 +29907,23 @@
                                 }
                               ]
                             },
+                            "connectsBy": {
+                              "default": [
+                                "site"
+                              ],
+                              "description": "What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.",
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "site",
+                                  "office_seat",
+                                  "client"
+                                ]
+                              }
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
@@ -30228,6 +30531,32 @@
                                 {
                                   "type": "null"
                                 }
+                              ]
+                            },
+                            "coverageLevel": {
+                              "default": null,
+                              "description": "How far the records go here (none, open, core, full); null inherits from the parent. Only a publish changes it.",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "open",
+                                    "core",
+                                    "full"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "municipalLaw": {
+                              "default": null,
+                              "description": "Whether this node’s own municipal law is held.",
+                              "type": [
+                                "boolean",
+                                "null"
                               ]
                             },
                             "citations": {

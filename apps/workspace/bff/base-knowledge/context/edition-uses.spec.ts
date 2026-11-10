@@ -20,20 +20,19 @@ import { citedFiles, editionUsesOf, recordEditionUses } from './edition-uses'
 import { packsUpdatedSince } from './last-answer'
 import type { KnowledgeContext } from './wire'
 
-const use = (workId: string, editionId: string | null, corpusFiles: string[]) =>
-  ({
-    workId,
-    editionId,
-    role: 'binding',
-    qualifier: null,
-    via: 'relation',
-    date: '2026-12-14',
-    freshness: 'current',
-    lastCheckedAt: null,
-    connectsBy: ['site'],
-    labels: [],
-    corpusFiles,
-  }) as const
+const use = (workId: string, editionId: string | null, corpusFiles: string[]): KnowledgeContext['uses'][number] => ({
+  workId,
+  editionId,
+  role: 'binding',
+  qualifier: null,
+  via: 'relation',
+  date: '2026-12-14',
+  freshness: 'current',
+  lastCheckedAt: null,
+  connectsBy: ['site'],
+  labels: [],
+  corpusFiles,
+})
 
 const CONTEXT: KnowledgeContext = {
   gate: { state: 'core', reason: null, leaves: [] },

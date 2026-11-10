@@ -311,6 +311,7 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'office-conventions-list': 'the office’s conventions, counted as patterns over several projects and shown as shapes; every member reads them',
   'organization-storage-get': 'storage totals of the organization',
   'organization-countries-get': 'the organization’s home country and the countries it is entitled to',
+  'coverage-get': 'how far the platform’s base knowledge goes per entitled country, records that belong to no project',
   'skill-list': 'the organization’s skills',
   'skill-invocable-list': 'the skills the person may invoke',
   'skill-category-list': 'the skill categories',
