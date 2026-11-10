@@ -358,6 +358,18 @@ export const FEATURE_FLAGS = {
    * stay untouched.
    */
   platformBaseKnowledge: 'platform-base-knowledge',
+  /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -392,6 +404,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
+  'site-resolution': 'rollout',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

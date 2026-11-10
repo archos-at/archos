@@ -75,7 +75,7 @@ export const TYPED_ADDRESS_REASON = 'Adresse eingetippt, von keinem Register bes
 export const POSTAL_CODE_REASON = 'Aus der Postleitzahl der eingetippten Adresse abgeleitet'
 
 /** The Bundesland a typed address suggests, as an assumption with its derivation. Null when its PLZ names none. */
-function postalCodeSuggestion(typed: string, now: Date): ProjectAssumption | null {
+export function postalCodeSuggestion(typed: string, now: Date): ProjectAssumption | null {
   const place = postalPlaceOf(typed)
   if (!place) return null
   return {

@@ -266,10 +266,11 @@ export function readingDocumentProgress(
 
 type SiteSource = NonNullable<ReadingProgress['site']['source']>
 
-/** Where a Bundesland came from: the address search at creation, a document, or a person. */
+/** Where a Bundesland came from: an address register in the cell, the address search at creation, a document, or a person. */
 function siteSource(entry: ProjectFact | ProjectAssumption, confirmed: boolean, row: ProjectIntakeRow): SiteSource {
   if (confirmed && row.location?.federalState === entry.value) return 'geocoder'
   const kinds = new Set((entry.evidence ?? []).map((evidence) => evidence.kind))
+  if (kinds.has('register')) return 'register'
   if (kinds.has('document')) return 'document'
   if (kinds.has('geocoder')) return 'geocoder'
   return 'person'
@@ -297,7 +298,7 @@ export function readingSite(
   const addressText = address ? String(address.value) : (row.location?.label ?? null)
   return {
     federalState: entry ? shown('federal_state', entry.value).slice(0, 200) : null,
-    municipality: row.location?.municipality?.slice(0, 200) ?? null,
+    municipality: (profile.facts.municipality ? String(profile.facts.municipality.value) : row.location?.municipality)?.slice(0, 200) ?? null,
     address: addressText ? addressText.slice(0, 500) : null,
     source: entry ? siteSource(entry, Boolean(fact), row) : null,
     confirmed: Boolean(fact),

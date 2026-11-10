@@ -229,6 +229,10 @@ const BOUNDARY_MIGRATIONS = [
   // force, writes only its own), append-only, and the record type CHECK widened.
   '0204_rulesets.sql',
   '0205_platform_base_knowledge.sql',
+  // Adds the official address registers hosted in the cell (ADR-0172): public
+  // data, the same for every office, so PLATFORM tables: every tenant reads,
+  // only the platform role writes (the importer).
+  '0206_address_register.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>
@@ -367,6 +371,8 @@ describe('row-level security coverage', () => {
     // role; securing one with an organization predicate would silently make it
     // unreadable for every tenant instead.
     expect(platform).toEqual([
+      'address_register_entries',
+      'address_register_releases',
       'analytics_export_cursors',
       'platform_lesson_events',
       'platform_lesson_reports',

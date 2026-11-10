@@ -1,0 +1,134 @@
+/**
+ * Site resolution (ADR-0172): a typed address against the official registers
+ * hosted in the cell, placed in the territory tree, with the competent
+ * authority. Replaces the withheld `address-search`, whose public geocoder saw
+ * every keystroke; nothing here leaves the cell.
+ *
+ * Fail closed. `verified` needs exactly one register address. No register for
+ * the stated country, no imported release, no hit, several hits: `unverified`,
+ * with the reason and the register's candidates. A verified site's authority
+ * is still `undetermined` until a competence ruleset covers its chain.
+ */
+
+import 'server-only'
+import type { AuthorizedSession } from '@/lib/auth/types'
+import { BadRequestError, NotFoundError } from '@/lib/api/errors'
+import { patchProjectProfile } from '@/lib/project-profile/profile-service'
+import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
+import { competentAuthorities } from './competence'
+import { houseKeysOf, narrow, outcomeOf } from './match'
+import { parseAddress, type ParsedAddress } from './parse'
+import { streetKey } from './normalize'
+import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor, territoryChain } from './registers'
+import { siteProfileOperations } from './profile'
+import { activeReleases, findByAddressId, findByKeys, type RegisterRow } from './store'
+import {
+  SITE_RESOLVE_MAX_CANDIDATES,
+  type ProjectSiteSetBody,
+  type ProjectSiteSetResponse,
+  type RegisterSite,
+  type SiteResolution,
+} from './wire'
+
+type Session = Pick<AuthorizedSession, 'organizationId'>
+
+function today(now: Date): string {
+  return now.toISOString().slice(0, 10)
+}
+
+/** A register row as a site, without its authority. Pure. */
+export function siteOf(row: RegisterRow): Omit<RegisterSite, 'authority'> {
+  const register = ADDRESS_REGISTERS[row.release.register]
+  const chain = territoryChain(register, row.municipalityCode)
+  const state = register.stateOf(row.municipalityCode)
+  return {
+    addressId: `${register.id}:${row.addressId}`,
+    label: `${row.streetName} ${row.houseNumber}, ${row.postcode} ${row.municipalityName}`,
+    country: register.country,
+    state: state ? { territoryId: state, name: STATE_NAMES[state] ?? state, federalState: federalStateToken(state) } : null,
+    municipality: { territoryId: chain[0], name: row.municipalityName, code: row.municipalityCode },
+    locality: row.localityName,
+    postcode: row.postcode,
+    chain,
+    register: { id: register.id, referenceDate: row.release.referenceDate, attribution: row.release.attribution },
+  }
+}
+
+async function withAuthorities(session: Session, rows: readonly RegisterRow[], now: Date): Promise<RegisterSite[]> {
+  const sites = rows.slice(0, SITE_RESOLVE_MAX_CANDIDATES).map(siteOf)
+  const authorities = await competentAuthorities(session.organizationId, sites.map((site) => site.chain), today(now))
+  return sites.map((site, index) => ({ ...site, authority: authorities[index] }))
+}
+
+/** The registers a parsed line is looked up in: its stated country's, else every one the cell hosts. */
+function registersFor(parsed: ParsedAddress): string[] {
+  if (!parsed.statedCountry) return Object.keys(ADDRESS_REGISTERS)
+  const register = registerFor(parsed.statedCountry)
+  return register ? [register.id] : []
+}
+
+/** Resolve a typed address. Reads only. */
+export async function resolveSite(session: Session, typed: string, now = new Date()): Promise<SiteResolution> {
+  const parsed = parseAddress(typed)
+  const unverified = (reason: Extract<SiteResolution, { status: 'unverified' }>['reason'], candidates: RegisterSite[] = []): SiteResolution => ({
+    status: 'unverified',
+    typed,
+    reason,
+    statedCountry: parsed?.statedCountry ?? null,
+    candidates,
+  })
+  if (!parsed) return unverified('incomplete')
+  const releases = await activeReleases(session.organizationId, registersFor(parsed))
+  if (releases.length === 0) return unverified('no_register')
+  const rows = await findByKeys(session.organizationId, {
+    registers: releases.map((release) => release.register),
+    streetKey: streetKey(parsed.street),
+    houseKeys: houseKeysOf(parsed),
+  })
+  const byRegister = new Map<string, RegisterRow[]>()
+  for (const row of rows) byRegister.set(row.release.register, [...(byRegister.get(row.release.register) ?? []), row])
+  const narrowed = [...byRegister].flatMap(([register, found]) => narrow(parsed, found, ADDRESS_REGISTERS[register].postcodeShape))
+  const outcome = outcomeOf(narrowed)
+  if (outcome.status === 'one') {
+    const [site] = await withAuthorities(session, [outcome.row], now)
+    return { status: 'verified', typed, site }
+  }
+  return unverified(outcome.reason, await withAuthorities(session, outcome.rows, now))
+}
+
+/** A register address by the id `resolveSite` gave, or null when the active release holds none. */
+async function siteById(session: Session, addressId: string, now: Date): Promise<RegisterSite | null> {
+  const separator = addressId.indexOf(':')
+  const register = ADDRESS_REGISTERS[addressId.slice(0, separator)]
+  if (!register) return null
+  const row = await findByAddressId(session.organizationId, register.id, addressId.slice(separator + 1))
+  if (!row) return null
+  const [site] = await withAuthorities(session, [row], now)
+  return site
+}
+
+/**
+ * Set a project's site from a register address or a typed line, through the
+ * profile's one door (`patchProjectProfile`, project:edit). A register address
+ * becomes confirmed facts with the register as evidence; anything else is kept
+ * as an unverified assumption, as a typed address always was (ADR-0158).
+ */
+export async function setProjectSite(
+  session: AuthorizedSession,
+  projectId: string,
+  body: ProjectSiteSetBody,
+  now = new Date()
+): Promise<ProjectSiteSetResponse> {
+  if (Boolean(body.addressId) === Boolean(body.typed)) throw new BadRequestError('Give exactly one of addressId and typed.')
+  let resolution: SiteResolution
+  if (body.addressId) {
+    const site = await siteById(session, body.addressId, now)
+    if (!site) throw new NotFoundError('No address with that id in the register this cell holds.')
+    resolution = { status: 'verified', typed: site.label, site }
+  } else {
+    resolution = await resolveSite(session, body.typed ?? '', now)
+  }
+  const operations: ProjectProfilePatchOperation[] = siteProfileOperations(resolution, session.userId, now)
+  const patched = await patchProjectProfile(session, projectId, operations)
+  return { resolution, profileVersion: patched.profileVersion }
+}

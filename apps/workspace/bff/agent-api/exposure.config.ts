@@ -145,6 +145,7 @@ export const EXPOSURE = {
   'project-person-update': OFFERED,
   'project-profile-get': OFFERED,
   'project-profile-patch': OFFERED,
+  'project-site-set': OFFERED,
   'project-profile-replace': OFFERED,
   'project-record-get': OFFERED,
   'project-reindex': OFFERED,
@@ -373,6 +374,7 @@ export const EXPOSURE = {
   'skill-update': OFFERED,
 
   // knowledge
+  'site-resolve': OFFERED,
   'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
   'knowledge-base-get': OFFERED,
   'norm-list': OFFERED,
