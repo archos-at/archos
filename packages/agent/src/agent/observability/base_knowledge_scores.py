@@ -1,4 +1,4 @@
-"""The scores the office's base knowledge produces (ADR-0158), declared into ``SCORE_DEFINITIONS``.
+"""The scores the office's base knowledge produces (ADR-0163), declared into ``SCORE_DEFINITIONS``.
 
 Its own module, spread into ``SCORE_DEFINITIONS`` with one line, so the list
 does not grow with every part that declares scores. The builder is pure: the
@@ -17,7 +17,7 @@ BASE_KNOWLEDGE_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         name="base-knowledge-overdue",
         data_type="NUMERIC",
         description=(
-            "On a turn that carried the office's base knowledge (ADR-0158): how many of its confirmed copies were "
+            "On a turn that carried the office's base knowledge (ADR-0163): how many of its confirmed copies were "
             "overdue for a check (365 days, 180 for a directive, or a check that found a problem). Zero is a "
             "measurement. Each one is a copy the answer must say is stale when it rests on it."
         ),

@@ -739,7 +739,7 @@ class TestDeepResearcherAgent:
 
             kwargs = create.call_args.kwargs
             subagents = {subagent["name"]: subagent for subagent in kwargs["subagents"]}
-            colleague = f"{PRODUCT_NAME} — a colleague in an Austrian architecture and planning office"
+            colleague = f"{PRODUCT_NAME} — a colleague in an architecture and planning office"
             assert colleague in kwargs["system_prompt"]
             assert "Grid OIB" not in kwargs["system_prompt"]
             assert "Austrian building regulations" in kwargs["system_prompt"]

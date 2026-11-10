@@ -18,7 +18,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { readPdf, normalizePdfText } from '@/test-utils/read-pdf'
-import { AI_GENERATOR_NAME, aiProvenanceMarking } from '@/lib/ai-provenance'
+import {
+  AI_GENERATOR_NAME,
+  IPTC_TRAINED_ALGORITHMIC_MEDIA,
+  aiProvenanceMarking,
+} from '@/lib/ai-provenance'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import {
   MAX_MARKDOWN_PDF_CHARS,
@@ -46,7 +50,6 @@ const de = answerExportCopy.messages.de
 const en = answerExportCopy.messages.en
 
 const DIAGRAM_PLACEHOLDER = 'Zeichnung hier nicht wiedergegeben.'
-const BASE = { diagramPlaceholder: DIAGRAM_PLACEHOLDER }
 
 /**
  * A marking, which is now what turns the notice on.
@@ -57,6 +60,8 @@ const BASE = { diagramPlaceholder: DIAGRAM_PLACEHOLDER }
  * both, so that state is no longer reachable.
  */
 const MARKING = aiProvenanceMarking({ runId: 'run_7' })
+
+const BASE = { diagramPlaceholder: DIAGRAM_PLACEHOLDER, marking: MARKING }
 
 const REPORT = '# Brandschutz Straßenhäuser\n\nDie Fluchtwegbreite beträgt 1,20 m.\n'
 
@@ -86,28 +91,20 @@ describe('renderMarkdownPdf', () => {
   })
 
   /**
-   * The default path — `POST /api/generate-pdf`, a person downloading prose
-   * they have read on screen. A marking on every PDF marks nothing, so the
-   * absence here is the feature, and it is asserted rather than assumed.
+   * There is no unmarked path: `marking` is required, so a caller that forgets
+   * it does not compile (`task workspace:types` checks this spec). The plain
+   * render with no marking at all is `xmp-metadata.spec.tsx`'s positive control.
    */
-  it('marks nothing when the caller asks for no marking', async () => {
-    const pdf = await readPdf(await renderMarkdownPdf(REPORT, BASE))
-
-    expect(pdf.text).not.toContain(de.aiNotice.title)
-    expect(pdf.info.Keywords).toBeUndefined()
-    expect(pdf.info.Subject).toBeUndefined()
-    // react-pdf's own default, i.e. nothing this repo wrote. Asserted so that a
-    // Every document the product prints is branded now — `BlocksDocument` sets
-    // author, creator and producer to `Piloti`. This used to assert react-pdf's
-    // default precisely so a change like that could not arrive unnoticed; it
-    // arrived, deliberately, so the assertion follows it rather than the other
-    // way round.
-    expect(pdf.info.Creator).toBe(PRODUCT_NAME)
+  it('cannot be called without a marking', () => {
+    const unmarked = () =>
+      // @ts-expect-error -- `marking` is required: an unmarked PDF is not a call this module offers.
+      renderMarkdownPdf(REPORT, { diagramPlaceholder: DIAGRAM_PLACEHOLDER })
+    expect(typeof unmarked).toBe('function')
   })
 
   it('prints the notice the caller supplied, on the first page', async () => {
     const bytes = await renderMarkdownPdf(REPORT, {
-        ...BASE,
+      ...BASE,
       marking: MARKING,
       locale: 'de',
     })
@@ -159,16 +156,14 @@ describe('renderMarkdownPdf', () => {
 
     // A cover sheet and the body: the document the product prints now.
     expect(pdf.pageCount).toBe(2)
-    expect(pdf.text).toBe(
-      normalizePdfText(
-        // The cover (lockup + title), then the running header, the page footer
-        // and the body. No facts, no marking, no findings — which is what "the
-        // caller supplied neither" means now that the chrome is always there.
-        // The lockup sets the name in capitals (the wordmark); the footer is the same lockup.
-        `${WORDMARK} Brandschutz Straßenhäuser ${WORDMARK} Brandschutz Straßenhäuser ${WORDMARK} 2 / 2 ` +
-          'Die Fluchtwegbreite beträgt 1,20 m.'
-      )
-    )
+    // The cover (lockup, the marking's notice, the title), then the running
+    // header, the page footer and the body. No facts and no findings, which is
+    // what "the caller supplied neither" means now that the chrome and the
+    // marking are always there.
+    expect(pdf.text.startsWith(WORDMARK)).toBe(true)
+    expect(pdf.text).toContain(normalizePdfText(en.aiNotice.title))
+    expect(pdf.text).toContain(`${WORDMARK} 2 / 2`)
+    expect(pdf.text.endsWith('Die Fluchtwegbreite beträgt 1,20 m.')).toBe(true)
   })
 
 // The identification block moved. It is the document COVER now
@@ -202,9 +197,13 @@ describe('renderMarkdownPdf', () => {
       const pdf = await readPdf(bytes)
 
       expect(pdf.info.Keywords).toBe(
-        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; AIRunId=run_7`
+        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia; AIRunId=run_7`
       )
       expect(pdf.info.Creator).toBe(AI_GENERATOR_NAME)
+      // The standard's term, in XMP: what a detector not built for us reads
+      // (AI Act Art. 50(2); the Code of Practice's Measure 1.1.1).
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(IPTC_TRAINED_ALGORITHMIC_MEDIA)
+      expect(pdf.xmp['pdf:keywords']).toBe(pdf.info.Keywords)
       expect(pdf.info.Title).toBe('Brandschutz Straßenhäuser')
       // The one Info field a person sees in a viewer's properties panel, so the
       // marking survives for a reader who never scrolls to page one.
@@ -221,7 +220,7 @@ describe('renderMarkdownPdf', () => {
       )
 
       expect(pdf.info.Keywords).toBe(
-        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false`
+        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`
       )
     })
   })

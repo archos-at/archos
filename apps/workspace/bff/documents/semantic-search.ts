@@ -78,7 +78,7 @@ export async function fetchGroupedSemanticHits(
   const unique = [...new Set(collections)]
   if (unique.length === 0) return []
   const scopeHeaders = buildRequestContextWireHeaders(
-    // The office the backend filters every tenant collection's points by (ADR-0116, ADR-0158).
+    // The office the backend filters every tenant collection's points by (ADR-0116, ADR-0163).
     { collectionScope: unique, organizationId },
     process.env.INTERNAL_API_TOKEN
   )

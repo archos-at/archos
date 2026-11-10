@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0200_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -14,7 +14,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KNOWLEDGE_VOCABULARIES } from './vocab'
 
-const MIGRATION = readFileSync(join(process.cwd(), 'migrations/0200_base_knowledge.sql'), 'utf8')
+const MIGRATION = readFileSync(join(process.cwd(), 'migrations/0202_base_knowledge.sql'), 'utf8')
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
 /** The values a CHECK on `column` lists: `"column" IN ('a', 'b')`, across line breaks. */
@@ -29,7 +29,7 @@ function vocabularySchema() {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     $id: 'base-knowledge.schema.json',
     description:
-      'The closed vocabularies of the base knowledge records (ADR-0158). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.',
+      'The closed vocabularies of the base knowledge records (ADR-0163). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.',
     $defs: Object.fromEntries(
       Object.entries(KNOWLEDGE_VOCABULARIES).map(([column, values]) => [column, { type: 'string', enum: [...values] }]),
     ),

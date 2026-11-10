@@ -27,7 +27,7 @@ from knowledge_layer_testing.vector_store import vector as _vector
 
 from agent import project_context
 
-# A search over a project or session scope reads as an office, as every request does (ADR-0158).
+# A search over a project or session scope reads as an office, as every request does (ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 #: The real reader, before ``retriever`` stubs it for the tests that need no metadata store.
@@ -199,7 +199,7 @@ def test_deletes_go_by_chunk_file_and_scope(retriever):
 
 
 def test_removing_an_office_copy_leaves_no_point_of_it(retriever):
-    """Zero residue for a base-knowledge removal (ADR-0158): every point of the
+    """Zero residue for a base-knowledge removal (ADR-0163): every point of the
     file goes, its mark included; the positive control is that the points were
     there before and another file of the same office stays."""
     scope = "office_shelf_org_test"

@@ -1,6 +1,6 @@
 /**
  * Whether an authority directive belongs to a project's building authority
- * (ADR-0158). Pure.
+ * (ADR-0163). Pure.
  *
  * The interim path of design §8.1: until competence rulesets resolve the
  * authority from a confirmed site, the project's Land from its intake profile

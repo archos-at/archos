@@ -1,5 +1,5 @@
 /**
- * The wire of the office's base knowledge (ADR-0158): the entry a person or an
+ * The wire of the office's base knowledge (ADR-0163): the entry a person or an
  * agent reads, and the bodies that propose, confirm, edit and check one. Pure
  * zod, shared by the routes, the agent operations and the UI client.
  *
@@ -85,7 +85,7 @@ export type ConfirmEntryBody = z.infer<typeof confirmEntryBodySchema>
  * A change to a confirmed entry's descriptive values. The licence class and the
  * office's statements are not among them: they decide whether the text reaches
  * a model, so they change only through `licenceEntryBodySchema`, the person's
- * own call (ADR-0158).
+ * own call (ADR-0163).
  */
 export const updateEntryBodySchema = entryValuesSchema.omit({ licenceClass: true }).partial().strict()
 export type UpdateEntryBody = z.infer<typeof updateEntryBodySchema>

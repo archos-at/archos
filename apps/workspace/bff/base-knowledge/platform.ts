@@ -1,5 +1,5 @@
 /**
- * What the office layer asks of the platform's own base knowledge (ADR-0158),
+ * What the office layer asks of the platform's own base knowledge (ADR-0163),
  * behind one interface. Until the platform records land (S7: listings,
  * releases), the stub answers nothing, so no office sees a listing yet; S7
  * replaces `platformKnowledge` and nothing else changes here.

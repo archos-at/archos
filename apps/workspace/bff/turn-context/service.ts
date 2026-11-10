@@ -158,7 +158,7 @@ export async function loadTurnContext(
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     // Who asks, where, and what is open now: the state office work starts from (ADR-0123).
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query))),
-    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0158).
+    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
     timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.

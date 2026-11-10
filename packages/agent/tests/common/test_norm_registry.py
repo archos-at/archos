@@ -687,13 +687,21 @@ class TestParcelNote:
             {"file_name": "fwp_wien.pdf", "tags": ["Flächenwidmungsplan"]},
             {"file_name": "gutachten.pdf", "tags": ["Gutachten"]},
         ]
-        note = nr.parcel_note(docs)
+        note = nr.parcel_note(docs, "at")
         assert note is not None
         assert "Bebauungsplan: bplan_7602.pdf" in note
         assert "Flächenwidmungsplan: fwp_wien.pdf" in note
         # The heading names what these documents govern; that is the whole claim.
         assert "authoritative for zoning, building class, building height, building lines" in note
         assert "gutachten.pdf" not in note
+
+    @pytest.mark.parametrize("country", ["de", "other", None])
+    def test_the_austrian_building_class_is_named_only_in_austria(self, country):
+        """The Bauklasse is an Austrian zoning class; a plan abroad, or of an unplaced project, settles the rest."""
+        note = nr.parcel_note([{"file_name": "bplan.pdf", "tags": ["Bebauungsplan"]}], country)
+        assert note is not None
+        assert "building class" not in note
+        assert "authoritative for zoning, building height, building lines" in note
 
     def test_the_note_is_the_file_list_and_not_the_doctrine(self):
         """What to DO with a parcel document is standing doctrine and lives

@@ -1,5 +1,5 @@
 /**
- * How fresh an entry's last check is (ADR-0158, design §8.1). Pure.
+ * How fresh an entry's last check is (ADR-0163, design §8.1). Pure.
  *
  * A standard, guideline, commentary or law is checked once a year; a directive,
  * which an authority rewrites without notice, twice. An entry never checked, or

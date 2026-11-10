@@ -76,9 +76,9 @@ class ScreeningPolicy(BaseModel):
             "characters after stripping; empty entries are dropped."
         ),
     )
-    detectors: list[Literal["iban", "at_svnr", "credit_card"]] = Field(
+    detectors: list[Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]] = Field(
         default_factory=list,
-        description="Identifiers that quarantine a document: IBAN, Austrian social-security number, card number.",
+        description="Identifiers that quarantine a document: IBAN, AT and DE social-insurance number, card, DE tax ID.",
     )
 
     @field_validator("content_terms")

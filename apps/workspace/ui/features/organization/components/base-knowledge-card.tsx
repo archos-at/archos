@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Organisation → Grundlagen des Büros (ADR-0158): the office's licensed
+ * Organisation → Grundlagen des Büros (ADR-0163): the office's licensed
  * standards, commentaries and directives. Each entry shows what it is, its
  * edition, where it applies, its licence and when it was last checked, with a
  * warning once the check is overdue. A proposal shows what was read from the

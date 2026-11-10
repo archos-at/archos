@@ -1,5 +1,5 @@
 /**
- * Whether a copy's text may be used (ADR-0158, design §4.7). Pure.
+ * Whether a copy's text may be used (ADR-0163, design §4.7). Pure.
  *
  * An office licence for office-wide use does not by itself allow AI
  * processing. A licensed copy's text enters the index, a model's read or a

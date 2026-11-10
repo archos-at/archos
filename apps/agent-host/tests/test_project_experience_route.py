@@ -177,7 +177,7 @@ async def test_a_knowledge_backend_that_cannot_be_reached_is_answered_as_extract
 
 
 async def test_the_project_is_read_as_its_office(app, monkeypatch) -> None:
-    """No office in the test setup: the route reads as the request's organization (ADR-0158)."""
+    """No office in the test setup: the route reads as the request's organization (ADR-0163)."""
     from knowledge_layer.vector_store import office_for
 
     from agent.knowledge import collection_pages

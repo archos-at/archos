@@ -438,7 +438,7 @@ async def get_document_visual_details_route(
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict:
     """The drawing, image and chart descriptions ingestion produced for a document, read as the office the
-    BFF names (ADR-0158). Fail-open: an empty list when the lookup fails or there are no visual chunks."""
+    BFF names (ADR-0163). Fail-open: an empty list when the lookup fails or there are no visual chunks."""
     from .internal_auth import read_as_internal_office
 
     try:

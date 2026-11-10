@@ -181,6 +181,8 @@ export const inboundMail: typeof en.inboundMail = {
     kinds: {
       iban: 'IBAN',
       at_svnr: 'Sozialversicherungsnummer',
+      de_svnr: 'Sozialversicherungsnummer (DE)',
+      de_tax_id: 'Steuer-ID',
       credit_card: 'Kreditkartennummer',
       term: 'ein Begriff der Inhaltsprüfung',
     },

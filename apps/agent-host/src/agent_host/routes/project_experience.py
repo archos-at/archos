@@ -64,6 +64,6 @@ def add_project_experience_routes(router: APIRouter) -> None:
         _require_internal_token(http_request)
         from knowledge_layer.search import reading_as
 
-        # The project's office reads its scope (ADR-0158); ``to_thread`` carries the context over.
+        # The project's office reads its scope (ADR-0163); ``to_thread`` carries the context over.
         with reading_as(request.organization_id):
             return await asyncio.to_thread(_read_project, request)

@@ -1,5 +1,5 @@
 /**
- * The office's base knowledge as the agent reads it in a turn (ADR-0158): one
+ * The office's base knowledge as the agent reads it in a turn (ADR-0163): one
  * bounded line per confirmed entry, under a header that says how far each kind
  * binds. English, because the agent reads it; titles, designations, editions
  * and authority names are the office's own domain data. Pure.

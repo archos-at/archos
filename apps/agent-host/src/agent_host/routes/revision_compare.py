@@ -292,7 +292,7 @@ async def _ingested_or_409(collection_name: str, older: str, newer: str) -> None
 
 
 async def _changed_pages(collection: str, request: RevisionPagesRequest, office: str | None) -> RevisionPagesResponse:
-    """The two Fassungen's stored chunks, read as ``office`` (ADR-0158; ``to_thread`` carries the context), diffed."""
+    """The two Fassungen's stored chunks, read as ``office`` (ADR-0163; ``to_thread`` carries the context), diffed."""
     from knowledge_layer.search import reading_as
 
     try:
@@ -373,7 +373,7 @@ def add_revision_compare_routes(router: APIRouter) -> None:
         """The newer Fassung's changed and new pages, from the chunks both Fassungen have in the index.
 
         ``409`` when either file is not ingested in this collection, ``503`` when the index cannot be read.
-        Read as the office the BFF names (``internal_office``, ADR-0158).
+        Read as the office the BFF names (``internal_office``, ADR-0163).
         """
         from .internal_auth import internal_office
 

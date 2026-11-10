@@ -27,7 +27,7 @@ from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 

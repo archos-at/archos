@@ -1,5 +1,5 @@
 /**
- * One base-knowledge entry (ADR-0158).
+ * One base-knowledge entry (ADR-0163).
  *
  * GET    — any member.
  * PATCH  — change a confirmed entry's values; appends a revision, never rewrites one.

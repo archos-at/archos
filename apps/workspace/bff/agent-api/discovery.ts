@@ -16,6 +16,7 @@ import 'server-only'
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/server'
+import { withAiGeneratedMeta } from './ai-generated-meta'
 import { z } from 'zod'
 import { ApiError } from '@/lib/api/errors'
 import { type JsonSchemaNode, toJsonSchema } from '@/lib/api/zod-json-schema'
@@ -229,12 +230,12 @@ export function fromOperationResult(
   /** The caller draws MCP Apps views: a view's data is kept whole (`VIEW_DATA_OPERATIONS`). */
   forView = false,
 ): CallToolResult {
-  const opName = op.name
   if (isOversizedBody(result.body)) return oversizedResult(op, result.body)
   if (!result.ok) return refusalResult(result)
-  if (isBinaryBody(result.body)) return binaryResult(opName, result.body)
-  if (isRedirectBody(result.body)) return redirectResult(opName, result.body.location)
-  return success(withLinks(op, input, result.body, origin), narrowingHint(op), forView && VIEW_DATA_OPERATIONS.has(opName))
+  if (isBinaryBody(result.body)) return binaryResult(op.name, result.body)
+  if (isRedirectBody(result.body)) return redirectResult(op.name, result.body.location)
+  const keep = forView && VIEW_DATA_OPERATIONS.has(op.name)
+  return withAiGeneratedMeta(op, result.body, success(withLinks(op, input, result.body, origin), narrowingHint(op), keep))
 }
 
 /**

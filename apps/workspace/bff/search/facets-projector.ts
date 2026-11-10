@@ -21,7 +21,7 @@ export interface DocumentReading {
 
 /**
  * Project `readings` into their search rows; how many rows changed. A base-knowledge
- * copy whose text is held (ADR-0158) gets no row: its summary and facets are a
+ * copy whose text is held (ADR-0163) gets no row: its summary and facets are a
  * reading of text nobody may read yet.
  */
 export async function projectReadings(organizationId: string, readings: readonly DocumentReading[]): Promise<number> {

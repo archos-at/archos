@@ -22,7 +22,7 @@ from agent.knowledge.collection_pages import read_pages
 from agent.knowledge.revision_diff import chunk_from_store
 from agent.knowledge.revision_diff import diff_revisions
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 LINES = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i in range(12)]

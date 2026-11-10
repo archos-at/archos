@@ -228,7 +228,7 @@ export interface AgentDocumentProvenance {
 }
 
 /**
- * The base-knowledge mark of a document, as ingest job fields (ADR-0158): empty
+ * The base-knowledge mark of a document, as ingest job fields (ADR-0163): empty
  * unless it is a confirmed copy. A failed read sends no mark rather than failing
  * the dispatch; the next confirm or edit marks the points again.
  */
@@ -335,7 +335,7 @@ export async function dispatchIngest(
     // only the bytes read differ, never the identity.
     extraction_ref: extras.extractionRef ?? null,
     folder_path: folderPath,
-    // A confirmed base-knowledge copy's licence mark and edition (ADR-0158, ADR-0159),
+    // A confirmed base-knowledge copy's licence mark and edition (ADR-0163, ADR-0159),
     // stamped on every point so a re-ingest keeps the mark the licensed seam
     // keys on. Absent for every other document.
     ...(await knowledgeMarkForIngest(organizationId, documentId)),

@@ -1,5 +1,5 @@
 /**
- * The SQL of the base knowledge records (migration 0200, ADR-0158), owner-neutral:
+ * The SQL of the base knowledge records (migration 0202, ADR-0163), owner-neutral:
  * a record, its append-only revisions with a typed body each, its head, and the
  * checks against it. No authorization here; the office service checks before it
  * calls, and every statement runs under its organization (`withTenant`), so the

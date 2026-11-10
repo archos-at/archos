@@ -1,4 +1,4 @@
-"""The licence classes a search-index point may carry are the base knowledge records' own (ADR-0158).
+"""The licence classes a search-index point may carry are the base knowledge records' own (ADR-0163).
 
 The one source is ``apps/workspace/bff/base-knowledge/wire/vocab.ts``; its spec
 writes ``apps/workspace/tests/fixtures/base-knowledge.schema.json``, which this

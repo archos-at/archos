@@ -1,6 +1,6 @@
 /**
  * The data of the label an answer puts on a passage from the office's own copy
- * (ADR-0158, design §0: "Norm, Büroexemplar Ausgabe 2017, zuletzt geprüft am
+ * (ADR-0163, design §0: "Norm, Büroexemplar Ausgabe 2017, zuletzt geprüft am
  * 12.09.2026"). This layer supplies the data; the answer's renderer (S2) words
  * it. Pure. Tokens only, no prose: the renderer chooses the language.
  */

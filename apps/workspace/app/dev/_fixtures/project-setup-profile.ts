@@ -33,11 +33,14 @@ import {
 
 const AT = '2026-10-14T08:30:00.000Z'
 
-/** A profile holding exactly these confirmed values, for the Ampel the server would compute from it. */
+/**
+ * A profile holding exactly these confirmed values, for the Ampel the server would compute from it.
+ * The project is in Austria (`country=at`): only a project placed there gets OIB verdicts.
+ */
 function standardsFor(confirmed: Record<string, Suggestion['value']>): IntakeView['applicableStandards'] {
   const profile: ProjectProfile = {
     facts: Object.fromEntries(
-      Object.entries(confirmed).map(([key, value]) => [
+      Object.entries({ country: 'at', ...confirmed }).map(([key, value]) => [
         key,
         { value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: AT },
       ])

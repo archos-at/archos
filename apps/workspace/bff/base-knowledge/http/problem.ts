@@ -1,6 +1,6 @@
 /**
  * RFC 9457 problem details for the office's base-knowledge operations
- * (ADR-0158; S10 extends it to every door operation). A refusal reaches a
+ * (ADR-0163; S10 extends it to every door operation). A refusal reaches a
  * person, an agent through the door, or another client as
  * `application/problem+json` with `type`, `title`, `status`, `detail`, and the
  * extension members `code` (the stable machine word) and `error` (the message,

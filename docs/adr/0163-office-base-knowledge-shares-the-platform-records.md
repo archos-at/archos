@@ -46,7 +46,7 @@ already holds.
 Chosen option 2, without packs or release moves (option 3's parts come with the
 platform layer, as additions).
 
-- **Tables (migration 0200).** `knowledge_records` (header: id, `organization_id`
+- **Tables (migration 0202).** `knowledge_records` (header: id, `organization_id`
   NULL for the platform, generated `owner_key`, type, `head_revision_id`,
   `document_id`), `knowledge_revisions` (append-only, provenance), one typed body
   per record type (`knowledge_work_revisions`, `knowledge_edition_revisions`,

@@ -1,5 +1,5 @@
 /**
- * `Idempotency-Key` for the office's base-knowledge writes (ADR-0158, the
+ * `Idempotency-Key` for the office's base-knowledge writes (ADR-0163, the
  * IETF httpapi draft's header; S10 extends it to every door operation). A
  * client that repeats a write with the same key and the same body gets the first
  * answer again instead of a second effect or a 409; the same key with another

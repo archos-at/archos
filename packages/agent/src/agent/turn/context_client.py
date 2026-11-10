@@ -40,7 +40,7 @@ class ContextBlocks:
     #: The WORKSPACE block (ADR-0123): who asks, where, and what is open now,
     #: this conversation's proposals included. None from an older BFF.
     workspace: str | None = None
-    #: The office's confirmed base knowledge (ADR-0158): its licensed standards,
+    #: The office's confirmed base knowledge (ADR-0163): its licensed standards,
     #: commentaries, directives, guidelines and laws, one line each with edition,
     #: role and last check (``lib/base-knowledge/office/turn-block.ts``). None
     #: from an older BFF, with the flag off, or when the office holds none.

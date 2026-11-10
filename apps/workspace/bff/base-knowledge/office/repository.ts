@@ -1,5 +1,5 @@
 /**
- * The Archiv documents base-knowledge entries describe (ADR-0158): which of
+ * The Archiv documents base-knowledge entries describe (ADR-0163): which of
  * them the reader may see, under which name, and what the ingest read of one.
  * Every read of `documents` states its reader (`documentVisibleTo`, ADR-0086):
  * a held upload stays out of the list and out of the turn until it is screened.
@@ -58,7 +58,7 @@ export async function visibleOfficeDocuments(
 /**
  * One Archiv document as an entry names it, or null when the reader may not see
  * it. Its name only: a proposal reads nothing the ingest wrote about the text
- * (ADR-0158), since the copy may turn out to be licensed.
+ * (ADR-0163), since the copy may turn out to be licensed.
  */
 export async function readShelfDocument(
   organizationId: string,

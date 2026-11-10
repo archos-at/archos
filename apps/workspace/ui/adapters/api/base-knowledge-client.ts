@@ -1,5 +1,5 @@
 /**
- * Base knowledge API client (ADR-0158): the office's standards, commentaries
+ * Base knowledge API client (ADR-0163): the office's standards, commentaries
  * and directives (`/api/base-knowledge`), and the office shelf documents one
  * can be recorded from. Same-origin BFF routes; the shapes are the service's
  * own wire types (`lib/base-knowledge/wire`). A non-OK answer throws

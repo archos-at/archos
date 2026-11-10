@@ -125,7 +125,7 @@ describe('policy', () => {
   it('sends content rules to ingest unless off, empty or released', () => {
     expect(toIngestScreening(policy(), { released: false })).toEqual({
       content_terms: SUGGESTED_SCREENING_POLICY.contentTerms,
-      detectors: ['iban', 'at_svnr', 'credit_card'],
+      detectors: ['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'],
     })
     expect(toIngestScreening(policy(), { released: true })).toBeNull()
     expect(toIngestScreening(policy({ enabled: false }), { released: false })).toBeNull()

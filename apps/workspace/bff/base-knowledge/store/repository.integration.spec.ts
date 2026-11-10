@@ -1,8 +1,8 @@
 /**
  * @vitest-environment node
  *
- * The base knowledge records against a REAL Postgres (migration 0200,
- * ADR-0158), through the restricted runtime role:
+ * The base knowledge records against a REAL Postgres (migration 0202,
+ * ADR-0163), through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run bff/base-knowledge/store/repository.integration.spec.ts

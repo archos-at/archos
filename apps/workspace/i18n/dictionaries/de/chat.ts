@@ -2206,6 +2206,9 @@ export const chat: typeof en.chat = {
     iban: '{count, plural, one {eine IBAN} other {# IBANs}}',
     at_svnr:
       '{count, plural, one {eine Sozialversicherungsnummer} other {# Sozialversicherungsnummern}}',
+    de_svnr:
+      '{count, plural, one {eine Rentenversicherungsnummer} other {# Rentenversicherungsnummern}}',
+    de_tax_id: '{count, plural, one {eine Steuer-ID} other {# Steuer-IDs}}',
     credit_card: '{count, plural, one {eine Kartennummer} other {# Kartennummern}}',
     term: 'den Begriff „{term}“',
     withSample: '{item} {sample}',
