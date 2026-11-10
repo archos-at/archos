@@ -13,7 +13,8 @@
 #
 # Mirrors `Taskfile.yml`'s `setup` target step for step, deliberately: when that
 # target changes this file has to change with it, and a reader comparing the two
-# should see the same list in the same order.
+# should see the same list in the same order. One step is the hook's own: the
+# git hooks (`pre-commit install`), which AGENTS.md leaves to a contributor.
 #
 # IDEMPOTENT and cheap on a warm container: each dependency step records a hash
 # of its lockfile and skips itself when the hash and its output are unchanged,
