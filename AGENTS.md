@@ -212,8 +212,10 @@ ones that will fail your PR.
 
 `task verify` is the local gate: host-native, defined once in `Taskfile.yml`. CI
 calls the same definitions but schedules them differently, so a local pass is
-strong evidence rather than a guarantee. `task verify:fast` skips two production
-builds, `workspace:build` and `website:build`.
+strong evidence rather than a guarantee. `task verify:fast` is the gate before a
+push: it runs the tiers and the UI specs your diff against `origin/develop`
+reaches, as CI's Plan job does for a pull request, without the two production
+builds and without coverage. `-- --all` runs every tier.
 
 Four gates sit outside `task verify` and are still required: `task db:test:rls`
 whenever you touch the tenant boundary, `task be:test:postgres` whenever you touch

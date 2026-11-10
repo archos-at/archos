@@ -55,6 +55,8 @@ import { BlocksDocument } from '@/lib/pdf/blocks-to-pdf'
 import type { CoverFact } from '@/lib/pdf/branding'
 import { MAX_MARKDOWN_PDF_CHARS, PDF_MEDIA_TYPE, TABLE_CELL_COST_CHARS } from '@/lib/pdf/markdown-pdf'
 import { DOCX_MEDIA_TYPE, renderDocx } from '@/lib/answer-export/docx'
+import { aiProvenanceMarking, type AiProvenance } from '@/lib/ai-provenance'
+import { withAiProvenanceXmp } from '@/lib/pdf/xmp-metadata'
 import { labelled, paragraph, type DocBlock, type DocRun } from '@/lib/answer-export/blocks'
 import { getLocale, getTranslations } from '@/i18n/server'
 import type { Translator } from '@/i18n/translate'
@@ -103,6 +105,22 @@ export interface Protocol {
   title: string
   facts: CoverFact[]
   body: DocBlock[]
+  /**
+   * Set when the Protokoll holds text the agent wrote (a mark it set, a reply, a
+   * proposal): the file is then marked `compositeWithTrainedAlgorithmicMedia`
+   * (Art. 50(2) AI Act). Null for the office's own words alone, which no model
+   * generated and which a marking would misdescribe.
+   */
+  aiProvenance: AiProvenance | null
+}
+
+/** Whether any text in the selection is the agent's: a mark or proposal it set, or a reply it wrote. */
+export function holdsAgentText(selection: ProtocolSelection): boolean {
+  return [...selection.marks, ...selection.proposals].some(
+    (annotation) =>
+      // Two authors exist (`ANNOTATION_AUTHORS`): whatever is not a person's is the agent's.
+      annotation.authorKind !== 'person' || annotation.replies.some((reply) => reply.authorKind !== 'person')
+  )
 }
 
 /** Piloti's mark that no person took over: a proposal still, or one dismissed as one. */
@@ -337,6 +355,7 @@ export function buildProtocol(
     title: t('review.export.document.title', { name: stem }),
     facts: headerFacts(header, selection, options, t, f),
     body: [{ kind: 'heading', level: 2, text: t('review.export.document.marks') }, ...marks, ...proposals],
+    aiProvenance: holdsAgentText(selection) ? { composite: true } : null,
   }
 }
 
@@ -429,11 +448,14 @@ async function renderPdf(protocol: Protocol): Promise<Uint8Array> {
       reason: 'too-long-for-pdf',
     })
   }
+  const marking = protocol.aiProvenance ? aiProvenanceMarking(protocol.aiProvenance) : undefined
   const element = React.createElement(BlocksDocument, {
     cover: { title: protocol.title, facts: protocol.facts },
     blocks: protocol.body,
+    keywords: marking,
   })
-  return new Uint8Array(await renderToBuffer(element as unknown as PdfDocumentElement))
+  const bytes = new Uint8Array(await renderToBuffer(element as unknown as PdfDocumentElement))
+  return marking ? withAiProvenanceXmp(bytes, marking) : bytes
 }
 
 /** „Anmerkungen – Grundriss EG – Fassung 3.pdf": what the office files it under. */
@@ -454,7 +476,10 @@ export function protocolFileName(
 
 export async function renderProtocol(protocol: Protocol, format: AnnotationExportOptions['format']) {
   if (format === 'pdf') return { bytes: await renderPdf(protocol), mediaType: PDF_MEDIA_TYPE }
-  if (format === 'docx') return { bytes: renderDocx(withHeader(protocol)), mediaType: DOCX_MEDIA_TYPE }
+  if (format === 'docx') {
+    const aiProvenance = protocol.aiProvenance ?? undefined
+    return { bytes: renderDocx(withHeader(protocol), { aiProvenance }), mediaType: DOCX_MEDIA_TYPE }
+  }
   return { bytes: new TextEncoder().encode(blocksToMarkdown(withHeader(protocol))), mediaType: MARKDOWN_MEDIA_TYPE }
 }
 

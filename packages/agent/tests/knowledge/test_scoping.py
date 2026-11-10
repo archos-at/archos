@@ -413,6 +413,8 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
+            # The mock answers every header with the scope; no project profile rides this turn.
+            patch("agent.project_context.get_profile_context_from_context", return_value=None),
             patch.object(
                 scope_module,
                 "resolve_scoped_collections",

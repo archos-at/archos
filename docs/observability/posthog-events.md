@@ -31,7 +31,10 @@ events. `tests/test_posthog_boundaries.py` enforces that.
   `GIT_SHA`, so a front-end regression ties to a deploy.
   Staging and production share the project and both run `APP_ENV=production`,
   so `app_host` is what tells their server events apart; before 2026-10-20
-  nothing did. `service` is the process that SENT the event, not the one that
+  nothing did. A browser event carries neither: its deployment is `$host`. A
+  query for production therefore filters `$host` on browser events and
+  `app_host` on server events, and a filter on one alone reads the other half as
+  zero (the first weekly report did, `deploy/posthog/README.md`). `service` is the process that SENT the event, not the one that
   did the work: `document_ingest_finished` is sent by the BFF read that noticed
   (any process running `reconcileDocumentStatuses`), never by the Python ingest
   worker. A process with `OTEL_SERVICE_NAME` unset or blank reports the web UI's default service name

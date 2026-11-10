@@ -28,8 +28,11 @@ export const MAX_DERIVATION_INPUTS = 20
 export const PROFILE_EVIDENCE_KINDS = ['document', 'geocoder', 'derivation', 'person'] as const
 export type ProfileEvidenceKind = (typeof PROFILE_EVIDENCE_KINDS)[number]
 
-/** The derivations the intake computes. One today; each more is a row. */
-export const DERIVATION_RULES = ['building_class'] as const
+/**
+ * The derivations the intake computes; each more is a row. `postal_code`: the
+ * Bundesland a typed address's Postleitzahl and place name (`postal-place.ts`).
+ */
+export const DERIVATION_RULES = ['building_class', 'postal_code'] as const
 export type DerivationRule = (typeof DERIVATION_RULES)[number]
 
 const instant = z.string().datetime({ offset: true })

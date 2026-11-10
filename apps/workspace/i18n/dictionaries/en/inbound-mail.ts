@@ -175,6 +175,8 @@ export const inboundMail = {
     kinds: {
       iban: 'IBAN',
       at_svnr: 'social security number',
+      de_svnr: 'German social insurance number',
+      de_tax_id: 'tax ID',
       credit_card: 'credit card number',
       term: 'a term of the content check',
     },

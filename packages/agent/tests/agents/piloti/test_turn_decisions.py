@@ -253,6 +253,13 @@ class TestThePrefetch:
             {"name": "knowledge_search", "args": {"query": "OIB-Richtlinie 2"}},
         ]
 
+    def test_a_project_abroad_reads_no_oib_family(self):
+        # Review of #1545, fix 1: the corpus a Bavarian project's scope no longer holds is not prefetched either.
+        calls = prefetch_calls(self._decided("baurecht"), "Wie lang darf der Fluchtweg sein?", austrian_law=False)
+        assert calls == [{"name": "knowledge_search", "args": {"query": "Wie lang darf der Fluchtweg sein?"}}]
+        undecided = TurnDecisions()
+        assert prefetch_calls(undecided, "Was weißt du über die OIB 2?", austrian_law=False) == []
+
     def test_a_family_question_is_its_own_overview_and_prefetches_once(self):
         calls = prefetch_calls(self._decided("baurecht"), "Was weißt du über die OIB 2?")
         assert calls == [{"name": "knowledge_search", "args": {"query": "Was weißt du über die OIB 2?"}}]

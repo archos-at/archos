@@ -583,6 +583,14 @@ export const collaboration = {
             body: '“{subject}” contains a social security number. No model has read it. Allow or delete?',
             bodyMany: 'Latest: “{subject}”, with a social security number. Review them: allow or delete.',
           },
+          de_svnr: {
+            body: '“{subject}” contains a social insurance number. No model has read it. Allow or delete?',
+            bodyMany: 'Latest: “{subject}”, with a social insurance number. Review them: allow or delete.',
+          },
+          de_tax_id: {
+            body: '“{subject}” contains a tax ID. No model has read it. Allow or delete?',
+            bodyMany: 'Latest: “{subject}”, with a tax ID. Review them: allow or delete.',
+          },
           credit_card: {
             body: '“{subject}” contains a card number. No model has read it. Allow or delete?',
             bodyMany: 'Latest: “{subject}”, with a card number. Review them: allow or delete.',
@@ -601,6 +609,8 @@ export const collaboration = {
           term: { body: 'It contains a term from the list of sensitive data. Look at it, then allow or delete it.' },
           iban: { body: 'It contains an IBAN. Look at it, then allow or delete it.' },
           at_svnr: { body: 'It contains a social security number. Look at it, then allow or delete it.' },
+          de_svnr: { body: 'It contains a social insurance number. Look at it, then allow or delete it.' },
+          de_tax_id: { body: 'It contains a tax ID. Look at it, then allow or delete it.' },
           credit_card: { body: 'It contains a card number. Look at it, then allow or delete it.' },
           transcript: { body: 'Found in the text of scanned pages a vision model read. Look at it, then allow or delete it.' },
         },
