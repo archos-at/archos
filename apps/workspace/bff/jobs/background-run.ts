@@ -60,7 +60,8 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
   // law of its project itself (ADR-0175): its knowledge context, chain text
   // included. It never throws: a read that fails is the gate's
   // `knowledge_unavailable`, so the run fails closed and is still submitted.
-  const knowledgeContext = await knowledgeContextForTurn(subject.organizationId, subject.projectId)
+  // Its failed read is the run's, never the turn alert's (ADR-0173).
+  const knowledgeContext = await knowledgeContextForTurn(subject.organizationId, subject.projectId, undefined, null, 'run')
 
   const payload: JobSubmitPayload = {
     input: run.prompt,

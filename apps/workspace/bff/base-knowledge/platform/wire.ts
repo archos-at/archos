@@ -354,7 +354,6 @@ export interface CaptureView {
   retrievedAt: string
 }
 
-/** The record types `platform-knowledge-schema-get` describes. */
 /** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
 export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
 

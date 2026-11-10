@@ -1,3 +1,4 @@
+// @disk-inputs: app/**, bff/**
 /**
  * @vitest-environment node
  */

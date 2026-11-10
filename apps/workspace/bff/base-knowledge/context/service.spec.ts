@@ -94,10 +94,10 @@ describe('knowledgeContextForTurn', () => {
     expect(unavailableAdd).toHaveBeenCalledWith(1)
   })
 
-  it('counts only a turn’s failed read toward the alert, not an operation’s', async () => {
+  it.each(['operation', 'run'] as const)('counts only a turn’s failed read toward the alert, not an %s’s', async (reader) => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, 'operation')
+    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, reader)
     expect(context?.gate.state).toBe('knowledge_unavailable')
     expect(unavailableAdd).not.toHaveBeenCalled()
   })

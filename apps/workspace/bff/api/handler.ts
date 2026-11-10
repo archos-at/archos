@@ -79,6 +79,7 @@ import { requestBodyLimitBytes } from '@/shared/config/request-body-limit'
 import { REQUEST_ID_HEADER, resolveRequestId } from './request-id'
 import { tagSpanWithBrowserSession } from './trace-session'
 import { databaseUnavailableCode } from '@/lib/db/errors'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled'
 import { captureUpstreamError, upstreamContext } from '@/lib/analytics/upstream-error'
 import {
   LEGAL_HOLD_MESSAGE,
@@ -310,6 +311,10 @@ export function errorResponse(error: unknown, request: Request): Response {
   // for no organization (see `SessionRequiredError`).
   if (error instanceof SessionRequiredError || error instanceof NoOrganizationError) {
     return errorPayload({ error: 'Forbidden', code: 'FORBIDDEN' }, 403, requestId)
+  }
+  // A switched-off feature found in a service refuses as `requireFeature` does: one RFC 9457 problem.
+  if (error instanceof FeatureDisabledError) {
+    return errorPayload(error.problem, error.status, requestId, { 'Content-Type': 'application/problem+json' })
   }
   if (error instanceof ApiError) {
     const body: Record<string, unknown> = { error: error.message, code: error.code }

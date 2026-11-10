@@ -37,7 +37,7 @@
     "apps/workspace/bff/conversations/message-provenance.ts": 812,
     "apps/workspace/bff/conversations/repository.ts": 977,
     "apps/workspace/bff/conversations/restricted-use.ts": 805,
-    "apps/workspace/bff/conversations/service.ts": 1441,
+    "apps/workspace/bff/conversations/service.ts": 1415,
     "apps/workspace/bff/db/schema/documents.ts": 679,
     "apps/workspace/bff/diagrams/svg-to-pdf.tsx": 693,
     "apps/workspace/bff/diagrams/svg.ts": 994,
