@@ -47,7 +47,7 @@ export function AssignPopover({
    */
   self?: FileAssignee | null
   triggerLabel?: string
-  /** Viewport-dressed trigger. Default is the Files ghost button. */
+  /** Viewport-dressed trigger. Default is the tonal „Ändern“ / „Zuweisen“: it changes who is responsible. */
   trigger?: ReactElement
 }) {
   const t = useTranslations(filesCopy)
@@ -138,7 +138,7 @@ export function AssignPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {trigger ?? (
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
+          <Button type="button" variant="secondary" size="sm">
             {triggerLabel ?? (assignees.length > 0 ? t('assignment.edit') : t('assignment.assign'))}
           </Button>
         )}
@@ -174,7 +174,7 @@ export function AssignPopover({
         {!pickOnly && actorId && !alreadyMine && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="w-full"
             disabled={busy}
@@ -186,7 +186,7 @@ export function AssignPopover({
         {pickOnly && onPick && self && !assignees.some((person) => person.userId === self.userId) && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="w-full"
             data-testid="assign-pick-self"
@@ -207,7 +207,7 @@ export function AssignPopover({
             </FieldError>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-7"
               disabled={busy}
@@ -239,7 +239,7 @@ export function AssignPopover({
               <FieldError>{t('assignment.peopleLoadError')}</FieldError>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-7"
                 onClick={() => setAttempt((current) => current + 1)}

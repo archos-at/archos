@@ -20,6 +20,7 @@ import {
   recordCheckBodySchema,
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
+import { classificationEvaluateRequestSchema } from '@/lib/project-intake/classification-wire'
 import type { AgentOperation } from '../operation'
 import { uploadBodySchemaWith } from '../upload-wire'
 
@@ -144,6 +145,32 @@ export const baseKnowledgeOperations = [
     path: '/api/base-knowledge/[entryId]',
     params: entryParamsSchema,
     load: () => import('@/app/api/base-knowledge/[entryId]/route'),
+  },
+  {
+    name: 'organization-countries-get',
+    domain: 'organization',
+    summary: 'Read the office’s home country and the countries it is entitled to',
+    description:
+      'Its home country, and each country the platform entitled it to: the countries whose platform base knowledge ' +
+      '(listed norms, authorities, directives) its answers draw on. Any member may read.',
+    method: 'GET',
+    path: '/api/organization/countries',
+    load: () => import('@/app/api/organization/countries/route'),
+  },
+  {
+    name: 'classification-evaluate',
+    domain: 'projects',
+    links: 'project',
+    summary: 'Evaluate a building’s class under its site’s rules',
+    description:
+      'One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document ' +
+      'settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.',
+    method: 'POST',
+    path: '/api/projects/[id]/classification-evaluations',
+    params: z.object({ id: z.string().describe('The project id, from project-list.') }),
+    body: classificationEvaluateRequestSchema,
+    readOnly: true,
+    load: () => import('@/app/api/projects/[id]/classification-evaluations/route'),
   },
 ] as const satisfies readonly AgentOperation[]
 

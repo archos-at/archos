@@ -26,6 +26,7 @@ from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
 from agent.auth.request_identity import skip_clarifier_requested
+from agent.citations.roles import set_turn_building_law
 from agent.common import AgentGroup
 from agent.common import filter_tools_by_sources
 from agent.common import format_tool_unavailability_error
@@ -35,6 +36,8 @@ from agent.common import get_langchain_llm
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
+from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -54,6 +57,7 @@ from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import get_scoped_collections_from_context
 from agent.memory.shown_notes import ShownNotes
+from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.observability.turn_outcome import record_turn_facts
 from agent.project_context import RequestContext
 from agent.stages import schedule_post_answer_stages
@@ -282,6 +286,8 @@ def _turn_state(
         workspace_block=context.workspace,
         deep_research_allowed=context.deep_research_allowed,
         tasks_allowed=context.tasks_allowed,
+        licensed_text_allowed=context.licensed_text_allowed,
+        time_editions_allowed=context.time_editions_allowed,
         confined=context.confined,
     )
 
@@ -451,6 +457,19 @@ async def _prepare_turn(
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
+    # Each edition's role at the site (ADR-0168), for the citation wire; None
+    # included, so a turn never keys a source on the last turn's records.
+    set_turn_building_law(context.building_law)
+    # Which country, coverage and editions apply, and what the turn may retrieve
+    # (ADR-0173); None included, so a turn never reads the last turn's gate.
+    set_turn_knowledge_context(context.knowledge_context)
+    if context.knowledge_context is not None:
+        record_trace_metadata(**knowledge_trace_metadata(context.knowledge_context))
+    if context.building_law is not None:
+        record_trace_metadata(
+            building_law_chain=",".join(context.building_law.chain),
+            building_law_uses=len(context.building_law.uses),
+        )
     state = _turn_state(inputs, context, inventory, header_scope, request=request, skip_clarifier=skip_clarifier)
     yield _Turn(agent, state, session_registry, context, inputs, request, runtime, shown_notes)
 

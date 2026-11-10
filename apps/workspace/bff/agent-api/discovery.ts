@@ -59,6 +59,8 @@ import {
 } from './policy'
 import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
+import { READ_GATE_DETAIL, problemFailure, refusalResult } from './door-problem'
+import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -205,20 +207,6 @@ function oversizedResult(op: AgentOperation | BackendOperation, body: OversizedB
 }
 
 /**
- * A refusal in the error envelope every route answers with (`{ error, code,
- * details }`, `errorResponse` in `lib/api/handler.ts`), which the backend's
- * refusals are normalised to as well (`callBackendOperation`). The refuser's own
- * words: errors teach.
- */
-function refusalResult(result: OperationResult): CallToolResult {
-  const body = isRecord(result.body) ? result.body : null
-  const message = typeof body?.error === 'string' ? body.error : `The server answered HTTP ${result.status}.`
-  const code = typeof body?.code === 'string' ? `, ${body.code}` : ''
-  const details = body?.details === undefined ? '' : `\nDetails: ${JSON.stringify(body.details)}`
-  return failure(`${message} (HTTP ${result.status}${code})${details}`)
-}
-
-/**
  * A route's answer as the tool result. `input` is the call's, for the project a
  * link needs when the answer does not say it (a run under `/api/projects/[id]`).
  */
@@ -298,6 +286,8 @@ export function inputSchemaOf(op: AgentOperation): JsonSchemaNode {
   }
   // Only where the route reads the header: offered anywhere else, it would be a version check nobody makes.
   if (op.ifMatchHeader) properties.ifMatch = IF_MATCH_SCHEMA
+  // Every write takes a key (ADR-0170), described once in the server's instructions; a read is idempotent by itself.
+  if (!annotationsOf(op).readOnlyHint) properties.idempotencyKey = IDEMPOTENCY_KEY_SCHEMA
   const schema: JsonSchemaNode = { type: 'object', properties, additionalProperties: false }
   if (required.length > 0) schema.required = required
   // JSON Schema's own keyword for sample instances (2020-12, `examples`).
@@ -330,7 +320,7 @@ export async function runBackendOperation(
   } catch (error) {
     console.error('[mcp] backend operation failed', op.name, error)
     record(500)
-    return failure(`${op.name} failed on the server. Try again; if it persists, report it.`)
+    return problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -344,13 +334,13 @@ export function nativeToolRefusal(name: string, tool: string): string {
 
 function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
   const native = ctx.principal.actor === 'piloti' ? nativeToolOf(name) : undefined
-  if (native) return failure(nativeToolRefusal(name, native))
+  if (native) return problemFailure(nativeToolRefusal(name, native), 404, 'UNKNOWN_OPERATION')
   // The search schema bounds a query; a name the agent typed is bounded here, the one unchecked text ranked.
   const near = rank(ctx, name.slice(0, MAX_SEARCH_QUERY_LENGTH), undefined)
     .slice(0, 5)
     .map((hit) => hit.name)
   const hint = near.length > 0 ? ` Closest: ${near.join(', ')}.` : ''
-  return failure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`)
+  return problemFailure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`, 404, 'UNKNOWN_OPERATION')
 }
 
 /**
@@ -471,14 +461,14 @@ export async function executeOperation(
     const refused = await gate.beforeRead(op, input)
     if (refused) {
       record(403)
-      return { refusal: failure(refused), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
-    const result = await callOperation(op, input, ctx.principal.session, 'agent')
+    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined })
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
-      return { refusal: failure(sharedConversationReadRefusal()), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     return { result }
   } catch (error) {
@@ -494,15 +484,15 @@ function operationFailure(op: AgentOperation, error: unknown, record: (status: n
 function failureOf(op: AgentOperation, error: unknown, record: (status: number) => void): OperationRefusal {
   if (error instanceof OperationInputError) {
     record(400)
-    return { refusal: failure(inputRefusal(op, error)), status: 400, code: 'VALIDATION_ERROR' }
+    return { refusal: problemFailure(inputRefusal(op, error), 400, 'VALIDATION_ERROR'), status: 400, code: 'VALIDATION_ERROR' }
   }
   if (error instanceof ApiError) {
     record(error.status)
-    return { refusal: failure(`${error.message} (HTTP ${error.status}, ${error.code})`), status: error.status, code: error.code }
+    return { refusal: problemFailure(`${error.message} (HTTP ${error.status}, ${error.code})`, error.status, error.code), status: error.status, code: error.code }
   }
   console.error('[mcp] operation failed', op.name, error)
   record(500)
-  return { refusal: failure(`${op.name} failed on the server. Try again; if it persists, report it.`), status: 500 }
+  return { refusal: problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR'), status: 500 }
 }
 
 /** Longest input schema quoted in a refusal; a larger one is a describe-operation away. */
@@ -713,6 +703,7 @@ const callInput = z.object({
       query: z.record(z.string(), z.unknown()).optional(),
       body: z.unknown().optional(),
       ifMatch: z.string().min(1).max(IF_MATCH_MAX_LENGTH).optional(),
+      idempotencyKey: z.string().min(1).max(255).optional(),
     })
     .optional(),
 })

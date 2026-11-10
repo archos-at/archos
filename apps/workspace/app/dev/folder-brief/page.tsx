@@ -29,9 +29,10 @@ import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
 import type { JSX, ReactNode } from 'react'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
-import { ItemList } from '@/components/ui/item'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
-import { FolderCard, FolderRow } from '@/features/documents/components/folder-navigation'
+import { FolderCard } from '@/features/documents/components/folder-navigation'
+import { FolderRow } from '@/features/documents/components/folder-table-row'
+import { FileListView } from '@/features/documents/components/file-list-view'
 import {
   buildFolderBrief,
   buildFolderBriefFromSummary,
@@ -205,11 +206,14 @@ function FolderTiles(): JSX.Element {
           <FolderCard key={folder.id} {...tileProps(folder)} />
         ))}
       </div>
-      <ItemList className="bg-muted/40">
-        {ROOT_FOLDERS.map((folder) => (
+      <FileListView
+        files={[]}
+        selectedFileId={null}
+        onSelectFile={noop}
+        folderRows={ROOT_FOLDERS.map((folder) => (
           <FolderRow key={folder.id} {...tileProps(folder)} />
         ))}
-      </ItemList>
+      />
     </div>
   )
 }
@@ -225,7 +229,7 @@ function FolderBriefPreview(): JSX.Element {
         {only === null && (
           <header className="flex flex-col gap-1">
             <p className="text-muted-foreground text-xs">Dev-Vorschau · {PROJECT_NAME}</p>
-            <h1 className="text-foreground text-xl font-semibold tracking-[-0.01em]">Ordner-Überblick</h1>
+            <h1 className="text-foreground text-xl font-semibold">Ordner-Überblick</h1>
           </header>
         )}
 
@@ -266,7 +270,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('d') && (
-          <Section id="d" title="Everything read">
+          <Section id="d" title="Everything read (a desk only: on a phone a brief with nothing to act on is not drawn)">
             <FolderBrief
               brief={BASIS_BRIEF}
               folderName="01_Grundlagen"
@@ -280,7 +284,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('h') && (
-          <Section id="h" title="Everything read, beside documents never read (the quiet case)">
+          <Section id="h" title="Everything read, beside documents never read (the quiet case; a desk only, as above)">
             <FolderBrief
               brief={QUIET_BRIEF}
               folderName={null}

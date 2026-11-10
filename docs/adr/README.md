@@ -225,8 +225,22 @@ Consequences, where a reader looks for them.
 | [0158](0158-a-projects-site-decides-its-law-the-offices-home-its-clock.md) | A project's site decides its law, and the office's home country only its own defaults; no project is placed by default | Accepted |
 | [0159](0159-address-search-is-off-until-a-deployment-opts-in.md) | Address search is off until a deployment opts in; amends 0151 | Accepted |
 | [0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md) | An operator's agent reaches the platform's own content, never what offices wrote: tenant-content console operations are on no door, and the platform MCP gateway allowlists each server's tools | Proposed |
+| [0161](0161-every-outbound-flow-is-a-row-in-one-data-flow-register.md) | Every outbound flow is a row in one data-flow register, and the legal page and DPA annex are generated from it | Proposed |
 | [0162](0162-public-sources-are-configured-records-over-protocol-access-types.md) | Public sources are configured records over protocol access types and format engines, fetched from a sandbox | Proposed |
 | [0163](0163-office-base-knowledge-shares-the-platform-records.md) | An office's own standards, commentaries and directives are base knowledge records with an owner, the same records the platform will hold | Proposed |
+| [0164](0164-licensed-text-is-a-reference-outside-the-model-call.md) | Licensed text is a reference everywhere but inside the model call, and leaves it only as capped quotes | Proposed |
+| [0165](0165-platform-knowledge-changes-through-reviewed-change-requests.md) | The platform's own base knowledge lives in the office layer's records and changes only through a reviewed change request | Proposed |
+| [0166](0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md) | Country rules are rulesets, decision tables in the base knowledge records, run by one three-valued evaluator | Proposed |
+| [0167](0167-residency-is-decided-at-the-model-seam-per-cell.md) | Residency is decided at the model seam, per cell, and every generation records where it ran | Proposed |
+| [0168](0168-which-edition-binds-is-a-route-through-relation-records.md) | Which edition binds where is a route through relation records, and Austria is the first pack | Proposed |
+| [0169](0169-setup-facts-are-country-records.md) | Setup facts are country records: what a project's setup asks, derives and requests comes from its site's records | Proposed |
+| [0170](0170-the-platform-door-is-agent-grade-for-onboarding-a-country.md) | The platform door is agent-grade for onboarding a country: captured citations, dry runs, idempotent writes, problem details and the person's yes | Proposed |
+| [0171](0171-the-law-of-a-procedure-is-the-edition-its-reference-date-and-transitions-name.md) | The law of a procedure is the edition its node's reference-date rule and the amending editions' transitions name | Proposed |
+| [0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md) | A site address resolves against official registers hosted in the cell, and stays unverified without a register hit; amends 0122, 0151 and 0159 | Proposed |
+| [0173](0173-a-turn-learns-its-country-coverage-and-editions-from-one-knowledge-context.md) | A turn learns its country, coverage and editions from one knowledge context resolved in the BFF | Proposed |
+| [0174](0174-public-sources-are-platform-records-kept-current-by-monitors.md) | Public sources are platform records, kept current by monitors that open change requests | Proposed |
+| [0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) | The cut-over removes the Austria-only paths and their switches | Proposed |
+| [0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) | A platform change request may be approved alone, with its second review deferred | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

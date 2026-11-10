@@ -51,7 +51,6 @@ import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
 import { forgetKeysFor } from '../http/idempotency'
 import {
-  BaseKnowledgeDisabledError,
   baseKnowledgeForTurn,
   confirmBaseKnowledge,
   listBaseKnowledge,
@@ -74,10 +73,9 @@ const MANAGER: AuthorizedSession = {
   organizationMembershipId: 'om-1',
   role: 'member',
   permissions: [ORG_PERMISSIONS.officeShelfManage],
-  featureFlags: ['office-base-knowledge'],
+  featureFlags: [],
 }
 const MEMBER: AuthorizedSession = { ...MANAGER, permissions: [] }
-const FLAG_OFF: AuthorizedSession = { ...MANAGER, featureFlags: [] }
 
 const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf' }
 
@@ -113,14 +111,11 @@ beforeEach(() => {
   vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
   vi.mocked(documentHasEntry).mockResolvedValue(false)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
+  // The platform's records are their own spec's (`platform/*.integration.spec.ts`); here the platform answers nothing.
+  usePlatformKnowledge(STUB_PLATFORM_KNOWLEDGE)
 })
 
 describe('who may do what', () => {
-  it('lists nothing and refuses every write while the flag is off', async () => {
-    expect(await listBaseKnowledge(FLAG_OFF)).toEqual({ enabled: false, canManage: false, entries: [], nextCursor: null })
-    await expect(proposeBaseKnowledge(FLAG_OFF, { documentId: 'doc-1' })).rejects.toBeInstanceOf(BaseKnowledgeDisabledError)
-  })
-
   it('lets any member read and only a shelf manager write', async () => {
     const list = await listBaseKnowledge(MEMBER)
     expect(list.canManage).toBe(false)
@@ -332,10 +327,10 @@ describe('removing', () => {
 })
 
 describe('the turn', () => {
-  it('carries nothing while the organization does not have the flag', async () => {
+  it('reads the office’s entries for every organization, with no switch to ask (ADR-0175)', async () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
-    expect(await baseKnowledgeForTurn('org-1', 'proj-1')).toBeNull()
-    expect(readOfficeEntries).not.toHaveBeenCalled()
+    await baseKnowledgeForTurn('org-1', 'proj-1')
+    expect(readOfficeEntries).toHaveBeenCalledWith('org-1')
   })
 
   it('carries confirmed entries only, with the project’s territory for directives', async () => {
@@ -357,7 +352,7 @@ describe('the turn', () => {
   it('names what the platform lists and the office does not hold, through the one platform interface', async () => {
     const previous = usePlatformKnowledge({
       ...STUB_PLATFORM_KNOWLEDGE,
-      listedNotHeld: async (held) =>
+      listedNotHeld: async (_organizationId, held) =>
         held.includes('ÖNORM B 5371:2021')
           ? []
           : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15', hasText: false }],
@@ -368,6 +363,39 @@ describe('the turn', () => {
       expect(turn?.block).toContain('ÖNORM B 5371:2021 „Treppen“: listed by the platform')
       expect(turn?.block).toContain('gelistet, kein Text')
       expect(turn?.labels).toEqual([])
+    } finally {
+      usePlatformKnowledge(previous)
+    }
+  })
+})
+
+describe('the platform directives in a turn', () => {
+  it('carries a platform directive that applies, and none that is excluded for the project', async () => {
+    const seen: (string | null)[] = []
+    const previous = usePlatformKnowledge({
+      ...STUB_PLATFORM_KNOWLEDGE,
+      directivesFor: async (_organizationId, territoryId) => {
+        seen.push(territoryId)
+        return [
+          {
+            title: 'Stellplatzregulativ',
+            designation: null,
+            editionLabel: '2024',
+            authorities: ['Bau- und Anlagenbehörde Graz'],
+            verdict: { verdict: 'applies', authority: 'Bau- und Anlagenbehörde Graz', territoryId: 'AT-6' },
+          },
+        ]
+      },
+    })
+    try {
+      vi.mocked(readOfficeEntries).mockResolvedValue([])
+      vi.mocked(findProjectProfileInOrg).mockResolvedValue({
+        profile: { facts: { federal_state: { value: 'styria' } } },
+      } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
+      const turn = await baseKnowledgeForTurn('org-2', 'project-graz')
+      expect(seen).toEqual(['AT-6'])
+      expect(turn?.block).toContain('„Stellplatzregulativ“: authority practice of Bau- und Anlagenbehörde Graz, published by the platform')
+      expect(turn?.block).toContain('applies to this project')
     } finally {
       usePlatformKnowledge(previous)
     }

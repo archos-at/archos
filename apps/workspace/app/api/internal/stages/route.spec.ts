@@ -52,3 +52,26 @@ describe('/api/internal/stages features.sourceRouting', () => {
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('source-routing', 'org_off')
   })
 })
+
+describe('/api/internal/stages features.licensedSeam', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('is the licensed-seam flag of the organization asked about, off unless WorkOS says yes', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockImplementation(async (flag, org) => flag === 'licensed-seam' && org === 'org_on')
+
+    expect(await call('org_on')).toMatchObject({ features: { licensedSeam: true, folderCards: false } })
+    expect(await call('org_off')).toMatchObject({ features: { licensedSeam: false } })
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('licensed-seam', 'org_off')
+  })
+})
+
+describe('/api/internal/stages features.timeEditions', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('is true for every office, and asks WorkOS nothing about it: the time-editions switch is gone (ADR-0175)', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
+
+    expect(await call('org_any')).toMatchObject({ features: { timeEditions: true } })
+    expect(vi.mocked(isOrgFeatureEnabled).mock.calls.map(([flag]) => flag)).not.toContain('time-editions')
+  })
+})

@@ -6,11 +6,12 @@ from public_sources.access.base import AccessError
 from public_sources.access.base import AccessType
 from public_sources.access.base import Fetched
 from public_sources.access.http_eli import HttpEli
+from public_sources.access.ogc import Ogc
 from public_sources.access.rest import Rest
 from public_sources.access.web_document import WebDocument
 
 #: Every protocol a source record may name. A new one is code, written once.
-ACCESS_TYPES: dict[str, type[AccessType]] = {cls.name: cls for cls in (Rest, HttpEli, WebDocument)}
+ACCESS_TYPES: dict[str, type[AccessType]] = {cls.name: cls for cls in (Rest, HttpEli, WebDocument, Ogc)}
 
 
 def access_type(name: str) -> type[AccessType]:

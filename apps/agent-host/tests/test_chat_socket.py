@@ -1725,6 +1725,36 @@ async def test_the_row_goes_to_the_internal_route_under_the_answer_s_id(persiste
     ]
 
 
+async def test_a_turn_that_read_licensed_text_marks_its_row_from_the_workflow_s_tag(persisted):
+    """E44: the lessons distiller reads this mark. The tag is set inside the workflow (a copied context) and read
+    where the socket persists, through the turn-outcome box the two share."""
+    import contextvars
+
+    from agent.common.licensed_text import LICENSED_TRACE_TAG
+    from agent.observability import turn_outcome
+    from agent_host.chat_socket import _persist_in_background
+
+    box = turn_outcome.begin_turn_outcome()
+    try:
+        contextvars.copy_context().run(turn_outcome.record_turn_tag, LICENSED_TRACE_TAG)
+        await _persist_in_background(CONV, "org-1", RunFinishedBody(outcome="answered", result=_result()))
+        await _persist_in_background(
+            CONV,
+            "org-1",
+            RunFinishedBody(outcome="answered", result=_result().model_copy(update={"message_id": "m-2"})),
+        )
+    finally:
+        turn_outcome.end_turn_outcome(box)
+    await persist_turn_result(
+        conversation_id=CONV,
+        organization_id="org-1",
+        finished=RunFinishedBody(outcome="answered", result=_result().model_copy(update={"message_id": "m-3"})),
+    )
+
+    marks = {row["message_id"]: row["metadata"].get("licensed_text") for row in persisted}
+    assert marks == {"m-1": True, "m-2": True, "m-3": None}, "a turn without the tag carries no mark"
+
+
 @pytest.mark.parametrize(
     ("after_settle", "text", "numbers"),
     [("", "Neu [1].", [1]), (" weiter [2]", "Neu. weiter", [])],

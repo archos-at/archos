@@ -21,8 +21,15 @@
  *     journey that matters it is collapsed when `open` flips: `resize()` alone
  *     leaves a collapsed panel at zero, rendered and invisible.
  *   - BOUNDS ARE CONSTANT. Bounds derived from `open` were zero at the moment
- *     the panel was asked to open, and a mount-time default never gets a
- *     second chance.
+ *     the panel was asked to open.
+ *   - THE DEFAULT IS THE STATE IT MOUNTS IN. The library lays a group out
+ *     again from its defaults (on the commit after its panels register, or
+ *     when a hidden group first measures), and only a layout it changed since
+ *     is kept. A panel mounted shut in a group too narrow for it (the file
+ *     peek inside the Postfach's split on a phone, 30px before the outer
+ *     group laid itself out) is clamped shut, so `collapse()` changes nothing,
+ *     and it came back at the open width it declared: every project page on a
+ *     phone was a 140px column beside an empty 250px panel.
  *   - THE WIDTH IS COMMITTED ONCE PER GESTURE (`onLayoutChanged`, after the
  *     pointer is released). Writing it per frame fed back into the layout and
  *     stopped the seam twenty pixels into every drag.
@@ -136,7 +143,9 @@ export function DockedSplit({
   widthRef.current = width
   // A mount-time value, captured once: `defaultSize` is the library's mount
   // input, and feeding it the live width recomputed the layout under the drag.
-  const mountWidthRef = useRef(width)
+  // Zero when it mounts shut (the default is the state it mounts in, see
+  // above); opening expands and resizes it either way.
+  const mountWidthRef = useRef(open ? width : 0)
 
   // The remembered width, adopted before the panel is first sized; the `open`
   // effect below, same commit, then sizes to it rather than to the default.

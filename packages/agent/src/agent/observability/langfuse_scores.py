@@ -43,6 +43,7 @@ from typing import Any
 from .base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS
 from .card_scores import card_validity_score  # noqa: F401  (re-exported)
 from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+from .residency_scores import RESIDENCY_SCORE_DEFINITIONS
 from .score_definition import DataType
 from .score_definition import ScoreDefinition
 
@@ -185,6 +186,12 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "quotes-patched",
         "NUMERIC",
         "Misremembered quotes the repair pass corrected in place (ADR-0067).",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "licensed-quote-capped",
+        "NUMERIC",
+        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0164); only on turns that read some.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -355,7 +362,7 @@ REVIEW_AND_JUDGE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ),
 )
 
-SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS
+SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS + RESIDENCY_SCORE_DEFINITIONS
 
 _DEFINITIONS_BY_NAME = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
@@ -516,15 +523,6 @@ def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[Ru
     if literal:
         named.add("knowledge_search (literal)")
     return [RuntimeScore("file-tools-used", value, comment=", ".join(sorted(named)) or None)]
-
-
-def steer_scores(inbox: Any) -> list[RuntimeScore]:
-    """A steered turn's count of notes (``common.steering.SteerInbox``): taken, and how many the turn read."""
-    received = int(getattr(inbox, "received", 0) or 0)
-    if received <= 0:
-        return []
-    applied = len(getattr(inbox, "applied", None) or [])
-    return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:

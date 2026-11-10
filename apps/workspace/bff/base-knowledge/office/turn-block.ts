@@ -16,7 +16,7 @@
  */
 
 import type { BaseKnowledgeEntry } from '../wire'
-import type { ListedEdition } from '../platform'
+import type { ListedEdition, PlatformDirective } from '../platform'
 import { directiveApplicability, type ProjectTerritory } from './authority'
 
 /** Most entries the block carries; the rest are named by count. */
@@ -83,7 +83,6 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
   return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
 }
 
-/** The block, or null when the office holds no confirmed entry. */
 /** A norm the platform lists that the office holds no copy of: named, never quoted. */
 function listedLine(listed: ListedEdition): string {
   const text = listed.hasText ? 'the platform holds its text' : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
@@ -92,17 +91,38 @@ function listedLine(listed: ListedEdition): string {
   return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
-/** The block, or null when the office holds no confirmed entry and the platform lists nothing it lacks. */
+/**
+ * A platform authority directive that is not excluded for the project. One
+ * whose authority is not competent where the project is never reaches here
+ * (`directiveVerdict` in `platform.ts`, by the competence rulesets): MA 37's
+ * directives stay out of a Graz turn.
+ */
+function directiveLine(directive: PlatformDirective): string {
+  const name = directive.designation ? `${directive.designation} „${directive.title}“` : `„${directive.title}“`
+  const of = directive.authorities.join(', ') || 'no authority recorded'
+  const edition = directive.editionLabel ? `, edition ${directive.editionLabel}` : ''
+  const role =
+    directive.verdict.verdict === 'applies'
+      ? `applies to this project (${directive.verdict.authority} is competent for ${directive.verdict.territoryId}, from the project's details, not verified)`
+      : "authority unknown for this project (its Land is not recorded), so do not apply it as settled"
+  const result = `- ${name}: authority practice of ${of}, published by the platform${edition}; ${role}`
+  return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
+}
+
+/** The block, or null when the office holds no confirmed entry and the platform has nothing for the turn. */
 export function renderBaseKnowledgeBlock(
   entries: readonly BaseKnowledgeEntry[],
   project: ProjectTerritory,
   listed: readonly ListedEdition[] = [],
+  directives: readonly PlatformDirective[] = [],
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
-  if (confirmed.length === 0 && listed.length === 0) return null
+  if (confirmed.length === 0 && listed.length === 0 && directives.length === 0) return null
   const shown = confirmed.slice(0, MAX_TURN_ENTRIES).map((entry) => line(entry, project))
   const rest = confirmed.length - shown.length
   const more = rest > 0 ? [`- … and ${rest} more not listed here.`] : []
   const listedLines = listed.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length)).map(listedLine)
-  return [BASE_KNOWLEDGE_HEADER, ...shown, ...more, ...listedLines].join('\n')
+  const room = Math.max(0, MAX_TURN_ENTRIES - shown.length - listedLines.length)
+  const directiveLines = directives.slice(0, room).map(directiveLine)
+  return [BASE_KNOWLEDGE_HEADER, ...shown, ...more, ...listedLines, ...directiveLines].join('\n')
 }

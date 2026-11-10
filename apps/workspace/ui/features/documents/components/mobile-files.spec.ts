@@ -67,7 +67,8 @@ describe('the phone header', () => {
 
   it('keeps one upload control, and moves it rather than copying it', () => {
     // Two instances are two hidden inputs and two owners of the pick refs.
-    const uses = workspace.match(/uploader\(\{ allowFolders: true, pickFilesRef, pickFolderRef \}\)/g) ?? []
+    // The phone's instance is the same control, drawn as its 56px glyph (`glyphOnly`).
+    const uses = workspace.match(/uploader\(\{ allowFolders: true, pickFilesRef, pickFolderRef(, glyphOnly: true)? \}\)/g) ?? []
     expect(uses).toHaveLength(2)
     expect(workspace).toContain('phone && !selection.active')
   })
@@ -76,17 +77,27 @@ describe('the phone header', () => {
 describe('the folder tile on a phone', () => {
   const folders = read('folder-navigation.tsx')
 
-  it('spans the row, so folders read as a list ahead of the files', () => {
+  // Round 4 of Paper on a desk: three full-width folder rows put the first thumbnail at y=475 on a 390px phone. A
+  // folder is a 48px sheet in the grid's two columns (glyph, name, count), its menu a long press away.
+  it('is a 48px sheet in the grid’s two columns, its ⋯ and chevron left to the long press', () => {
     expect(folders.match(/data-folder-tile=""/g)?.length).toBeGreaterThanOrEqual(2)
-    expect(folders).toContain("phone:[&>*:has([data-folder-tile])]:col-span-full")
+    expect(folders).not.toContain('col-span-full')
+    expect(folders).toMatch(/phone:min-h-12/)
+    expect(folders).toMatch(/-translate-y-1\/2 phone:hidden/)
+    expect(folders).toMatch(/data-slot="folder-opens"/)
   })
 })
 
 describe('the Papierkorb', () => {
   const bin = read('folder-bin-panel.tsx')
 
-  it('puts the permanent action at the far end of the row, away from restore', () => {
-    expect(bin).toMatch(/justify-between/)
-    expect(bin).toMatch(/text-destructive ml-auto|ml-auto text-destructive/)
+  it('keeps the permanent action two deliberate steps from restore: a menu, then a confirm', () => {
+    // Round 3 of Paper on a desk: restore is the raised press on the column's right edge, and the ⋯ beside it opens a
+    // menu whose one row („Endgültig löschen“) asks again in a dialog. Distance on the row was the guard while the
+    // delete was a press of its own; behind a menu and a confirm, a slipped thumb opens a menu and nothing is lost.
+    expect(bin).toContain('bin-actions-')
+    expect(bin).toContain('ROW_REVEAL')
+    expect(bin).toMatch(/variant: 'destructive'/)
+    expect(bin).toMatch(/<ConfirmDialog[\s\S]*?onConfirm=\{purge\}/)
   })
 })

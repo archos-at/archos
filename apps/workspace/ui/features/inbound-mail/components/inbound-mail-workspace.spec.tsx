@@ -70,10 +70,19 @@ beforeEach(() => {
 })
 
 describe('InboundMailWorkspace', () => {
+  it('steps the group presses back while mails are picked: the bar under the list files them', () => {
+    renderWorkspace('selected')
+    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis”\s· 4 new mails/ })
+    expect(within(group).queryByTestId('thread-group-file')).toBeNull()
+    expect(screen.queryByTestId('readiness-file-all')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-selection-bar')).toBeInTheDocument()
+  })
+
   it('groups a conversation with one button that files it as suggested', async () => {
     renderWorkspace('selected')
-    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
-    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File all 4 (becomes revisions 4–7)')
+    await userEvent.click(screen.getByTestId('selection-clear'))
+    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis”\s· 4 new mails/ })
+    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–7')
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     const destinations = await screen.findByTestId('bulk-destinations')
     expect(destinations).toHaveTextContent('In mail thread “Stellplatznachweis”: 4')
@@ -83,7 +92,7 @@ describe('InboundMailWorkspace', () => {
   it('splits a conversation: its ready replies go in one press, the ones that need a look are gone through in order', () => {
     renderWorkspace('thread-group')
     const ready = screen.getByRole('region', { name: /3 new mails/ })
-    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File all 3 (becomes revisions 4–6)')
+    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–6')
     const waiting = screen.getByRole('region', { name: /2 new mails/ })
     expect(within(waiting).queryByTestId('thread-group-file')).toBeNull()
     expect(within(waiting).getByTestId('thread-group-open')).toHaveAttribute('href', expect.stringContaining('/files/mail/'))
@@ -95,6 +104,7 @@ describe('InboundMailWorkspace', () => {
     const { client } = renderWorkspace('selected')
     const get = client.get.bind(client)
     vi.spyOn(client, 'get').mockImplementation(async (projectId, mailId) => ({ ...(await get(projectId, mailId)), incompleteReason: 'scanning' }))
+    await userEvent.click(screen.getByTestId('selection-clear'))
     const group = screen.getByRole('region', { name: /4 new mails/ })
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(expect.stringContaining('/files/mail/')))
@@ -105,8 +115,9 @@ describe('InboundMailWorkspace', () => {
     const { client } = renderWorkspace('worst-case')
     const file = vi.spyOn(client, 'file')
     const press = screen.getByTestId('thread-group-file')
-    expect(press).toHaveTextContent('File the first 20 (becomes revisions 4–23)')
-    expect(screen.getByTestId('readiness-file-all')).toHaveTextContent('File the first 20 as suggested')
+    expect(press).toHaveTextContent('File the first 20 as revisions 4–23')
+    // The section is this one thread: its press would file the same mails, so only the thread's is offered.
+    expect(screen.queryByTestId('readiness-file-all')).toBeNull()
     await userEvent.click(press)
     await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
     await waitFor(() => expect(file).toHaveBeenCalledTimes(1))
@@ -115,8 +126,8 @@ describe('InboundMailWorkspace', () => {
 
   it('heads the list with „Bereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
     renderWorkspace('many')
-    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready (3)')
-    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you (4)')
+    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready3')
+    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you4')
     const nameStop = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['name-stop'].view.id}`)
     expect(within(nameStop).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Check an attachment')
     // The server's first reason: the Statik the sender cannot vouch for as the next Fassung comes before the thread.
@@ -135,7 +146,7 @@ describe('InboundMailWorkspace', () => {
     const claimed = within(row('claimed-by-colleague')).getByTestId('inbound-mail-row-reason')
     expect(claimed).toHaveAttribute('data-reason', 'claimed')
     expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
-    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others (1)')).toBeInTheDocument()
+    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others')).toBeInTheDocument()
     // The forgery stays where the reader acts on it: dismissing it is theirs to do.
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
     expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')
@@ -163,7 +174,7 @@ describe('InboundMailWorkspace', () => {
     expect(body.mails[0]).not.toHaveProperty('acknowledgeRisk')
     expect(screen.queryByTestId('bulk-destinations')).not.toBeInTheDocument()
     expect(toast.success).toHaveBeenCalledWith('1 mail is being filed as suggested', {
-      description: 'In mail thread “Verfahren MA 37”: 1 · In “Behörde”: 1',
+      description: 'In mail thread “Verfahren MA 37”: 1\u00A0· In “Behörde”: 1',
     })
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_filed_as_suggested', { surface: 'row', mails: 1, files: 1, texts: 1 })
   })
@@ -204,7 +215,9 @@ describe('InboundMailWorkspace', () => {
   it('teaches the address when nothing ever arrived, and says „all done“ otherwise', async () => {
     renderWorkspace('empty')
     expect(await screen.findByTestId('inbound-mail-never')).toHaveTextContent('No mail to this project yet')
+    // Never used, the page is about the address: it stands in the empty list with one press that copies it.
     expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(screen.getByTestId('address-copy')).toBeInTheDocument()
   })
 
   it('says „nothing waits“ for a project that had mail', async () => {

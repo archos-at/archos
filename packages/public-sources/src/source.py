@@ -21,6 +21,8 @@ fixtures through its own access type and engine on every commit.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import functools
 import os
 import re
@@ -53,6 +55,16 @@ _TERRITORY_RE = re.compile(r"^[A-Z]{2}(-[A-Z0-9]{1,3})?$")
 _HOST_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
+def url_on_hosts(url: str, hosts: tuple[str, ...] | list[str]) -> bool:
+    """Whether ``url`` is https on one of ``hosts``, on the default port, with no user part."""
+    parsed = urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError:  # a port that is not a number
+        return False
+    return parsed.scheme == "https" and (parsed.hostname or "") in hosts and not parsed.username and port in (None, 443)
+
+
 class SourceError(ValueError):
     """A source record that cannot be used: unknown, invalid, or without fixtures."""
 
@@ -72,6 +84,13 @@ class Terms(_Strict):
     checked: date
 
 
+class Probe(_Strict):
+    """What a monitor fetches to notice a change: one operation of the source's access type."""
+
+    operation: str
+    args: dict[str, str] = Field(default_factory=dict)
+
+
 class Monitor(_Strict):
     """How a change at the source is noticed. Deterministic: no model call (design 4.2)."""
 
@@ -80,6 +99,83 @@ class Monitor(_Strict):
     #: consolidation date). ``none`` for a source nobody watches yet.
     kind: Literal["none", "sha256", "etag", "version"] = "sha256"
     interval_hours: int = Field(default=24, ge=1, le=24 * 31)
+    #: What :mod:`public_sources.monitor` fetches; a source without one is not watched (ADR-0174).
+    probe: Probe | None = None
+
+
+class InlineResponse(_Strict):
+    """A recorded response carried in the record itself, as a source configured in the database keeps it.
+
+    A text body is carried as it came (``encoding: utf-8``); a binary one, a
+    PDF above all, as base64 (``encoding: base64``), within the same length.
+    """
+
+    content_type: str
+    text: str = Field(max_length=500_000)
+    encoding: Literal["utf-8", "base64"] = "utf-8"
+
+    @model_validator(mode="after")
+    def _decodes(self) -> InlineResponse:
+        if self.encoding == "base64":
+            try:
+                base64.b64decode(self.text, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ValueError(f"a base64 response body does not decode: {exc}") from exc
+        return self
+
+    def content(self) -> bytes:
+        """The body's bytes, as the source served them."""
+        return base64.b64decode(self.text) if self.encoding == "base64" else self.text.encode("utf-8")
+
+
+#: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).
+REFUSED_CREDENTIAL_HEADERS = frozenset(
+    {
+        "host",
+        "cookie",
+        "set-cookie",
+        "connection",
+        "keep-alive",
+        "content-length",
+        "content-type",
+        "transfer-encoding",
+        "te",
+        "trailer",
+        "upgrade",
+        "via",
+        "forwarded",
+        "proxy-authorization",
+        "proxy-authenticate",
+        "proxy-connection",
+        "accept",
+        "accept-language",
+        "if-none-match",
+        "if-modified-since",
+        "user-agent",
+    }
+)
+
+
+class Credential(_Strict):
+    """Where a keyed source wants its key (ADR-0174). The key itself is never in the record.
+
+    The BFF keeps it write-only and hands it over per request; only the fetch
+    attaches it, after every other header is stripped, and only on the source's hosts.
+    """
+
+    header: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9-]{1,40}$")
+    #: Written before the key, e.g. ``Bearer `` (with its space); empty for a bare key.
+    prefix: str = Field(default="", max_length=20)
+
+    @field_validator("header")
+    @classmethod
+    def _carries_a_key(cls, value: str) -> str:
+        name = value.lower()
+        if name in REFUSED_CREDENTIAL_HEADERS or name.startswith(("x-forwarded-", "proxy-")):
+            raise ValueError(
+                f"{value} routes, frames or proxies the request, or the guard sets it itself: it carries no key"
+            )
+        return value
 
 
 class Fixture(_Strict):
@@ -93,7 +189,8 @@ class Fixture(_Strict):
     name: str
     operation: str
     args: dict[str, str] = Field(default_factory=dict)
-    responses: dict[str, str]
+    #: A file under ``fixtures/`` (a repository record), or the response itself (a database record).
+    responses: dict[str, str | InlineResponse]
     #: What the engine's result must show: ``kind`` (``search`` or ``document``),
     #: ``title``, ``min_hits``/``min_passages``, ``anchors`` (present, in order),
     #: ``contains`` (substrings of the text), ``version``.
@@ -120,6 +217,8 @@ class Source(_Strict):
     #: The format engine's configuration, validated by that engine's model.
     engine: dict[str, Any] = Field(default_factory=dict)
     fixtures: tuple[Fixture, ...]
+    #: Where a keyed source takes its key; ``None`` for an open one.
+    credential: Credential | None = None
 
     _directory: Path | None = PrivateAttr(default=None)
 
@@ -177,17 +276,7 @@ class Source(_Strict):
 
     def allows(self, url: str) -> bool:
         """Whether ``url`` is https on one of this source's hosts, on the default port."""
-        parsed = urlparse(url)
-        try:
-            port = parsed.port
-        except ValueError:  # a port that is not a number
-            return False
-        return (
-            parsed.scheme == "https"
-            and (parsed.hostname or "") in self.hosts
-            and not parsed.username
-            and port in (None, 443)
-        )
+        return url_on_hosts(url, self.hosts)
 
     def require_allowed(self, url: str) -> None:
         if not self.allows(url):
@@ -216,6 +305,32 @@ def parse_source(raw: dict[str, Any], directory: Path | None = None) -> Source:
         name = raw.get("id", "?") if isinstance(raw, dict) else "?"
         raise SourceError(f"source {name!r} is invalid: {exc}") from exc
     source._directory = directory
+    return source
+
+
+def parse_inline_source(raw: dict[str, Any]) -> Source:
+    """A source configured in the database (ADR-0174), as the BFF hands it over.
+
+    Its recorded responses are inline (it has no directory), and its id may not
+    be a repository record's: a database row must never stand in for a reviewed
+    file of the same name.
+    """
+    source = parse_source(raw)
+    if source.terms.licence == "licensed":
+        raise SourceError(
+            f"source {source.id!r} is licensed: its text may not be kept in a configured record (ADR-0164)"
+        )
+    files = [name for fixture in source.fixtures for name in fixture.responses.values() if isinstance(name, str)]
+    if files:
+        raise SourceError(
+            f"source {source.id!r} is configured in the database, so its fixtures carry responses inline: {files}"
+        )
+    try:
+        repository = _cached_sources(str(sources_dir().resolve()))
+    except SourceError:
+        repository = {}
+    if source.id in repository:
+        raise SourceError(f"source id {source.id!r} is a repository record; a configured source takes another id")
     return source
 
 

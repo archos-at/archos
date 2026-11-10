@@ -2,8 +2,11 @@
 
 - **Date:** 2026-07-10 (repo tip `322ec65`); companion to
   [`compliance-audit-2026-07.md`](compliance-audit-2026-07.md).
-- Feeds the public subprocessor page (`/legal/subprocessors`,
-  `apps/workspace/bff/legal/content/{de,en}.ts`) — update both together.
+- **Superseded as the source of the subprocessor page** (2026-11-06): the public
+  page and the DPA annex are generated from the data-flow register,
+  `configs/subprocessors/` ([how it works](data-flow-register.md)). This audit
+  stays as the record of July 2026; a flow it names that no code reaches any more
+  (NVIDIA, Moonshot, Exa, DuckDuckGo, Polymarket) is no longer on the page.
 
 ## Statement on runtime AI-model switching (OpenRouter)
 

@@ -34,6 +34,7 @@
     "provision:authz": "bun scripts/provision-workos-authz.ts",
     "migrate:folder-grants": "bun scripts/migrate-folder-grants-to-workos.ts",
     "regrant:office-shelf": "bun scripts/regrant-office-shelf-permission.ts",
+    "register:import": "bun scripts/import-address-register.ts",
     "provision:workos-env": "bun scripts/provision-workos-environment.ts"
   },
   "dependencies": {
@@ -162,6 +163,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.8",
     "@types/fontkit": "2.0.9",
+    "@types/json-logic-js": "2.0.8",
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.0",
@@ -175,9 +177,11 @@
     "axe-core": "4.14.0",
     "concurrently": "^10.0.6",
     "dependency-cruiser": "18.7.0",
+    "fast-check": "4.10.2",
     "fontkit": "2.0.4",
     "happy-dom": "^20.11.15",
     "husky": "^9.1.7",
+    "json-logic-js": "2.0.5",
     "json-schema-to-zod": "^2.8.1",
     "msw": "^2.15.0",
     "oxlint": "1.89.0",
@@ -189,7 +193,8 @@
     "tailwindcss": "^4.3.2",
     "typescript-api": "npm:typescript@6.0.3",
     "unified": "^11.0.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "yaml": "2.9.1"
   },
   "overrides": {
     "esbuild": "^0.25.12",

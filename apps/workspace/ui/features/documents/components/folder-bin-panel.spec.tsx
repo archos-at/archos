@@ -41,9 +41,11 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
-    expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
-    expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/Permanently deleted on/)).toBeDefined()
+    // At desk width one meta line says it all; a phone says it in two lines that break only between clauses.
+    const desk = screen.getByTestId('bin-meta-f-vertraege')
+    expect(desk).toHaveTextContent(/14 documents · 2 folders · deleted by Gerda Fischer on .* · kept until/)
+    const phone = screen.getAllByTestId('bin-meta-phone-f-vertraege').map((line) => line.textContent?.replace(/\s+/g, ' '))
+    expect(phone).toEqual(['14 documents · 2 folders', expect.stringMatching(/^kept until .* · Gerda Fischer$/)])
   })
 
   test('says the bin is empty', () => {
@@ -53,10 +55,12 @@ describe('FolderBinPanel (the Papierkorb)', () => {
 
   test('offers restore only where the reader may restore, and purge only to a project admin', () => {
     render(
-      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false })])} />
+      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])} />
     )
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-restore-f-ro')).toBeNull()
+    // Where the press is missing, the row says why.
+    expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('you may only read this folder')
     expect(screen.queryByTestId('bin-purge-f-vertraege')).toBeNull()
   })
 
@@ -88,7 +92,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     const binned = entry({ folderId: 'f-holder', name: 'Plan.pdf', document: { id: 'd1', name: 'Plan.pdf' } })
     render(<FolderBinPanel projectId="p1" initial={listing([binned])} />)
 
-    expect(screen.getByText('Document · goes back to its folder when restored')).toBeDefined()
+    expect(screen.getByText('Plan.pdf')).toBeDefined()
     await userEvent.click(screen.getByTestId('bin-restore-f-holder'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
@@ -125,7 +129,8 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       vi.fn().mockResolvedValue(answer(409, { error: 'held', details: { reason: 'legal_hold' } }))
     )
     render(<FolderBinPanel projectId="p1" initial={listing([entry()], { canPurge: true })} />)
-    await userEvent.click(screen.getByTestId('bin-purge-f-vertraege'))
+    await userEvent.click(screen.getByTestId('bin-actions-f-vertraege'))
+    await userEvent.click(await screen.findByTestId('bin-purge-f-vertraege'))
     await userEvent.click(await screen.findByTestId('bin-purge-confirm'))
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('This folder is under a retention obligation and cannot be deleted right now.')

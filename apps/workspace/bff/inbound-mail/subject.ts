@@ -40,3 +40,21 @@ export function isForwardSubject(subject: string | null | undefined): boolean {
   }
   return false
 }
+
+/** What separates a thread's name from the rest of a subject („Stellplatznachweis – Nachreichung“, „…: Index C“). */
+const AFTER_NAME = /^\s*[–—\-:|·/]\s*/u
+
+/**
+ * A subject under its thread's heading, which already names the thread: the
+ * part that tells its mails apart („Nachreichung Statik“), so three rows do not
+ * all read „Stellplatznachweis – Nachreic…“. The display subject when it does
+ * not start with the name, or when nothing would be left.
+ */
+export function subjectWithinThread(subject: string | null, threadName: string): string | null {
+  const name = threadName.trim()
+  if (subject === null || name === '' || !subject.toLocaleLowerCase('de').startsWith(name.toLocaleLowerCase('de'))) return subject
+  const rest = subject.slice(name.length)
+  if (!AFTER_NAME.test(rest)) return subject
+  const remainder = rest.replace(AFTER_NAME, '').trim()
+  return remainder === '' ? subject : remainder
+}

@@ -122,6 +122,22 @@ class TestSync:
         assert isinstance(download, corpus_store.CorpusObjectDownload)
         assert (download.storage_key, download.sha256) == ("base-corpus/a.pdf", _sha(b"alpha"))
 
+    def test_the_job_carries_the_country_and_edition_the_platform_recorded(self, ingestor):
+        corpus_store.put("a.pdf", b"alpha")
+        corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="DE", edition_id="edition:baybo-2025"))
+        _sync()
+
+        job = ingest_dispatch.decode(take_run().input.payload)
+        assert job.config["country_id"] == "DE"
+        assert job.config["knowledge_edition_id"] == "edition:baybo-2025"
+
+    def test_a_file_without_a_mark_carries_no_country(self, ingestor):
+        corpus_store.put("a.pdf", b"alpha")
+        _sync()
+
+        job = ingest_dispatch.decode(take_run().input.payload)
+        assert "country_id" not in job.config and "knowledge_edition_id" not in job.config
+
     def test_the_worker_reads_the_object_itself_and_checks_its_hash(self, ingestor, bucket):
         corpus_store.put("a.pdf", b"alpha")
         _sync()
@@ -613,3 +629,39 @@ def test_the_job_id_is_a_function_of_name_hash_and_version(monkeypatch):
     before = oib_sync.job_id_for(row)
     monkeypatch.setattr(oib_sync, "CHUNK_FORMAT_VERSION", oib_sync.CHUNK_FORMAT_VERSION + 1)
     assert oib_sync.job_id_for(row) != before
+
+
+class _PayloadStore:
+    """The vector store as the legacy backfill sees it: whether the corpus exists, and the payloads it sets."""
+
+    def __init__(self) -> None:
+        self.payloads: list[tuple[str, dict]] = []
+
+    def mark(self, payloads: dict) -> None:
+        self.payloads.append((oib_sync.COLLECTION_NAME, payloads))
+
+
+class TestLegacyCountryBackfill:
+    """ADR-0173: the corpus that predates ``country_id`` is Austria's, marked once; later files are not."""
+
+    def test_the_first_cycle_marks_every_unmarked_file_austrian_and_never_runs_again(self, ingestor):
+        store = _PayloadStore()
+        corpus_store.put("old.pdf", b"alpha")
+        corpus_store.set_mark("marked.pdf", corpus_store.FileMark(country_id="DE"))
+
+        assert oib_sync.backfill_legacy_marks(store.mark) == 1
+        assert corpus_store.get_mark("old.pdf") == corpus_store.FileMark(country_id="AT")
+        assert store.payloads == [(oib_sync.COLLECTION_NAME, {"old.pdf": {"country_id": "AT"}})]
+
+        corpus_store.put("new.pdf", b"beta")
+        assert oib_sync.backfill_legacy_marks(store.mark) == 0
+        assert corpus_store.get_mark("new.pdf") is None
+
+    def test_a_store_that_cannot_be_reached_leaves_the_backfill_for_the_next_cycle(self, ingestor):
+        def down(payloads):
+            raise RuntimeError("qdrant down")
+
+        corpus_store.put("old.pdf", b"alpha")
+        assert oib_sync.backfill_legacy_marks(down) == 0
+        assert corpus_store.get_mark("old.pdf") is None
+        assert corpus_store.legacy_unmarked() == ["old.pdf"]

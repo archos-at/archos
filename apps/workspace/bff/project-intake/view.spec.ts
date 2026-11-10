@@ -182,28 +182,12 @@ describe('buildIntakeView', () => {
     expect(derivation.missing.length).toBeGreaterThan(0)
   })
 
-  // Step 5, Steckbrief: the rule set's Ampel reads what a person confirmed, never a suggestion.
-  it('computes the applicable Richtlinien from the confirmed values only', () => {
-    const highRise = { value: 25, status: 'unconfirmed' as const, reason: 'r', source: 'agent_suggested' as const, updatedAt: NOW }
-    const suggested = buildIntakeView({
-      ...input(),
-      profile: { ...profile, assumptions: { ...profile.assumptions, 'escape_level_m@bldg1': highRise } },
-    })
-    expect(suggested.applicableStandards?.map((standard) => standard.code)).not.toContain('OIB 2.3')
-
-    const confirmed = buildIntakeView({
-      ...input(),
-      profile: {
-        ...profile,
-        facts: {
-          ...profile.facts,
-          'escape_level_m@bldg1': { value: 25, confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
-        },
-      },
-    })
-    expect(confirmed.applicableStandards).toContainEqual(
-      expect.objectContaining({ code: 'OIB 2.3', status: 'required' })
-    )
+  // Step 5, Steckbrief: the law at the site is the records' (`projectLawFor`), passed through, never derived here.
+  it('carries the law the service read, and derives no list of its own (ADR-0175)', () => {
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableLaw')
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableStandards')
+    const law = { gate: 'core' as const, uses: [{ workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, designation: 'X', editionLabel: null }] }
+    expect(buildIntakeView({ ...input(), applicableLaw: law }).applicableLaw).toEqual(law)
   })
 })
 
@@ -305,6 +289,30 @@ describe('step 3, Erfassung: the reading’s live milestones', () => {
       source: null,
       confirmed: false,
     })
+  })
+
+  it('says an address register placed it, with the Gemeinde the register named (ADR-0172)', () => {
+    const register = { kind: 'register' as const, addressId: 'at-bev:5734380', label: 'Herrengasse 16, 8010 Graz', referenceDate: '2025-10-01', resolvedAt: NOW }
+    const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'user_confirmed' as const, updatedAt: NOW, evidence: [register] })
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { federal_state: fact('styria'), site_address: fact('Herrengasse 16, 8010 Graz'), municipality: fact('Graz') },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1)).toEqual({
+      federalState: 'Steiermark',
+      municipality: 'Graz',
+      address: 'Herrengasse 16, 8010 Graz',
+      source: 'register',
+      confirmed: true,
+    })
+  })
+
+  it('reads no Gemeinde from a municipality fact no register confirmed', () => {
+    const profile: ProjectProfile = {
+      ...empty,
+      facts: { municipality: { value: 'Graz', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW } },
+    }
+    expect(readingSite(row, profile, projectIntakeDefinitionV1).municipality).toBeNull()
   })
 
   it('is on every view', () => {

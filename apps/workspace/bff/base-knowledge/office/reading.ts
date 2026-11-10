@@ -11,8 +11,10 @@
  * operation with its own values, which win over these.
  */
 
-import type { KnowledgeWorkKind, LicenceClass } from '@/lib/db/schema/knowledge-records'
+import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
+import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import type { Addressee, EntryValues } from '../wire'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
 export interface DocumentReading {
   fileName: string
@@ -23,18 +25,10 @@ export interface DocumentReading {
   federalState?: string | null
 }
 
-/** The intake's `federal_state` tokens as ISO 3166-2 codes. */
-export const FEDERAL_STATE_TERRITORIES: Readonly<Record<string, string>> = {
-  burgenland: 'AT-1',
-  carinthia: 'AT-2',
-  lower_austria: 'AT-3',
-  upper_austria: 'AT-4',
-  salzburg: 'AT-5',
-  styria: 'AT-6',
-  tyrol: 'AT-7',
-  vorarlberg: 'AT-8',
-  vienna: 'AT-9',
-}
+/** The intake's `federal_state` tokens as ISO 3166-2 codes, from the country's `fact_definitions` record (`SITE_SUBDIVISIONS`). */
+export const FEDERAL_STATE_TERRITORIES: Readonly<Record<string, string>> = Object.fromEntries(
+  SITE_SUBDIVISIONS.options.map((option) => [option.token, option.territoryId]),
+)
 
 /** Authorities a directive names, with the territory they decide for (the interim path, design §8.1). */
 const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = [
@@ -89,7 +83,7 @@ export function readDesignation(text: string): Designation | null {
   return { designation: edition ? `${base}:${edition.slice(0, 4)}` : base, prefix, edition }
 }
 
-export function readKind(text: string, designation: Designation | null): KnowledgeWorkKind {
+export function readKind(text: string, designation: Designation | null): OfficeWorkKind {
   if (/\bWeisung|Erlass|Rundschreiben|Dienstanweisung/i.test(text)) return 'authority_directive'
   if (/\bKommentar|Kommentierung|Erläuterungen\s+zu|commentary/i.test(text)) return 'commentary'
   if (designation?.prefix === 'OIB-Richtlinie' || /\bLeitfaden|Richtlinie|Merkblatt|guideline/i.test(text)) {
@@ -101,7 +95,7 @@ export function readKind(text: string, designation: Designation | null): Knowled
 }
 
 /** Standards and commentaries are bought; a directive or a law is published by its author. */
-export function defaultLicence(kind: KnowledgeWorkKind): LicenceClass {
+export function defaultLicence(kind: OfficeWorkKind): LicenceClass {
   return kind === 'authority_directive' || kind === 'statute' ? 'public_open' : 'licensed'
 }
 
@@ -118,7 +112,7 @@ function readAddressees(text: string): Addressee[] {
   return KNOWN_AUTHORITIES.filter(({ pattern }) => pattern.test(text)).map(({ addressee }) => addressee)
 }
 
-function readTerritories(kind: KnowledgeWorkKind, reading: DocumentReading, addressees: Addressee[]): string[] {
+function readTerritories(kind: OfficeWorkKind, reading: DocumentReading, addressees: Addressee[]): string[] {
   if (kind === 'technical_standard' || kind === 'commentary') return []
   const fromAuthorities = addressees.map((addressee) => addressee.territoryId)
   const fromReading = reading.federalState ? FEDERAL_STATE_TERRITORIES[reading.federalState] : undefined

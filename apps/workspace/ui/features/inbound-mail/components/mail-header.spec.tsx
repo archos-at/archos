@@ -43,10 +43,10 @@ function renderDetail(name: string) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('MailHeader', () => {
-  it('says who, how far confirmed and when in one line, and folds the evidence behind „Details“', async () => {
+  it('says who, then how far confirmed and when, and folds the evidence behind „Details“', async () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
-    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber ‹m.huber@huber-architektur.at›')
+    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber m.huber@huber-architektur.at')
     // Trust is never folded away.
     expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Domain verified: huber-architektur.at')
     expect(within(line).getByTestId('mail-header-received')).toBeInTheDocument()
@@ -179,6 +179,6 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('it expires after 14 days and cannot be restored')
     unmount()
     renderDetail('member-verified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('the sender may not file in this project. Check the mail and file what belongs in the project.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you to file it, because the sender may not file in this project.')
   })
 })

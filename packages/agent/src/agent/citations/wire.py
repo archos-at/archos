@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agent.citations.binding import BindingClassification
 from agent.citations.binding import binding_classification_for_entry
 from agent.citations.binding import binding_note_for_entry
 from agent.citations.binding import document_key
@@ -15,6 +14,9 @@ from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_place
+from agent.citations.roles import role_fields
+from agent.citations.roles import use_for_entry
+from agent.citations.roles import with_role
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import kind_for_lane
 
@@ -89,9 +91,8 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         federal_state = resolve_federal_state(None)
     except Exception:  # federal_state resolution must never break wire serialization
         federal_state = None
-    classification = binding_classification_for_entry(entry, registry, federal_state)
-    if place:
-        classification = BindingClassification(rank=None, binding_status="unknown")
+    use = None if place else use_for_entry(entry)
+    classification = with_role(binding_classification_for_entry(entry, registry, federal_state), use, place=place)
 
     payload: dict[str, Any] = {
         # The [N] marker this source carries in the answer prose (when known).
@@ -126,6 +127,7 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         # honest "we don't know" is a signal the UI needs, not an absence.
         "rank": classification.rank,
         "binding_status": classification.binding_status,
+        **role_fields(use),
         "file_name": file_name,
         "page": page,
         # WHERE within the document, in the law's own numbering, and HOW NEARLY

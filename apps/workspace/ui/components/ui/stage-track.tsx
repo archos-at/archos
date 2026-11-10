@@ -137,7 +137,7 @@ export function StageTrack({
               data-stage-label={stage}
               data-current={index === current || undefined}
               className={cn(
-                'truncate text-[10.5px] leading-tight tracking-tight whitespace-nowrap',
+                'truncate text-[10.5px] leading-tight whitespace-nowrap',
                 index === current ? 'text-foreground font-medium' : 'text-muted-foreground',
               )}
             >

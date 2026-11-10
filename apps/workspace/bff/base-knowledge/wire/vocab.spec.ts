@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -12,14 +12,35 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { KNOWLEDGE_VOCABULARIES } from './vocab'
+import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
-const MIGRATION = readFileSync(join(process.cwd(), 'migrations/0202_base_knowledge.sql'), 'utf8')
+/** Oldest first: a later migration that redefines a CHECK wins. */
+const MIGRATIONS = [
+  'migrations/0202_base_knowledge.sql',
+  'migrations/0204_rulesets.sql',
+  'migrations/0205_platform_base_knowledge.sql',
+  'migrations/0207_setup_fact_records.sql',
+  'migrations/0211_country_pack.sql',
+  'migrations/0212_country_onboarding_tooling.sql',
+  'migrations/0213_knowledge_context.sql',
+  'migrations/0214_knowledge_approve_alone.sql',
+  'migrations/0215_pdf_document_sources.sql',
+].map((path) =>
+  readFileSync(join(process.cwd(), path), 'utf8'),
+)
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
-/** The values a CHECK on `column` lists: `"column" IN ('a', 'b')`, across line breaks. */
-function checkedValues(column: string): string[] {
-  const match = new RegExp(`"${column}"\\s+IN\\s*\\(([^)]*)\\)`).exec(MIGRATION)
+/**
+ * The values a CHECK of `table` on `column` lists: `CONSTRAINT <table>_… CHECK
+ * (… "column" IN ('a', 'b'))`, across line breaks. The table is named because
+ * two tables share a column name (`kind` of a work and of a territory). The
+ * newest migration that names it decides, and within one the first CHECK, which
+ * is the column's own `_known` constraint. With `source`, that text alone.
+ */
+function checkedValues(table: string, column: string, source?: string): string[] {
+  const owner = source ? '' : `CONSTRAINT ${table}_\\w+\\s+CHECK \\([^)]*?`
+  const pattern = new RegExp(`${owner}"${column}"\\s+IN\\s*\\(([^)]*)\\)`)
+  const match = (source ? [source] : [...MIGRATIONS].reverse()).map((text) => pattern.exec(text)).find(Boolean)
   if (!match) return []
   return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1])
 }
@@ -38,8 +59,13 @@ function vocabularySchema() {
 
 describe('the base knowledge vocabularies', () => {
   it.each(Object.entries(KNOWLEDGE_VOCABULARIES))('%s is what its CHECK lists', (qualified, values) => {
-    const column = qualified.split('.')[1]
-    expect(checkedValues(column).sort()).toEqual([...values].sort())
+    const [table, column] = qualified.split('.')
+    expect(checkedValues(table, column).sort()).toEqual([...values].sort())
+  })
+
+  it('allows a decision table only for the purposes the wire gives one', () => {
+    const constraint = /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\),\n/.exec(MIGRATIONS[1])?.[1] ?? ''
+    expect(checkedValues('knowledge_ruleset_revisions', 'purpose', constraint).sort()).toEqual([...DECISION_TABLE_PURPOSES].sort())
   })
 
   it('matches the committed fixture the Python tier reads', () => {

@@ -13,11 +13,14 @@
  *
  * GET  — the whole catalogue, drafts included.
  * POST — add one. Created as a DRAFT unless told otherwise, so the dashboard is
- *        usable as a writing surface rather than a publish-on-save wire.
+ *        usable as a writing surface rather than a publish-on-save wire. A
+ *        create that publishes is the person's own decision (ADR-0170): an
+ *        agent's call without their yes is refused, and a draft needs none.
  */
 
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
+import { requirePersonDecision } from '@/lib/agent-api/person-decision'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { createPlatformSkill, listPlatformSkills } from '@/lib/skills/platform-service'
 import { createPlatformSkillSchema } from '@/lib/skills/types'
@@ -29,6 +32,7 @@ export const GET = platformApiRoute(async () => listPlatformSkills(), {
 export const POST = platformApiRoute(
   async ({ request, session }) => {
     const input = await parseJsonBody(request, createPlatformSkillSchema)
+    if (input.published) requirePersonDecision('Publishing a platform skill to every office')
     return createPlatformSkill(input, {
       userId: session.userId,
       email: session.email ?? null,

@@ -33,6 +33,7 @@ import { PLATFORM_EXPOSURE, PLATFORM_PUBLIC } from './platform'
 
 const entries = EXPOSURE as Readonly<Record<string, Exposure>>
 const isTenantContent = (name: string) => entries[name]?.withheld?.category === 'tenant-content'
+const isRetired = (name: string) => entries[name]?.withheld?.category === 'product-config'
 
 const PLATFORM_OPERATIONS = AGENT_OPERATIONS.filter((op) => op.domain === 'platform')
 const TENANT_CONTENT = PLATFORM_OPERATIONS.filter((op) => isTenantContent(op.name)).map((op) => op.name)
@@ -95,9 +96,9 @@ const officeAgent: AgentPrincipal = { ...operatorAgent, door: undefined }
 const AUDIENCES: readonly Audience[] = ['external', 'agent', 'platform']
 
 describe('every console operation is classified', () => {
-  it('as platform-public or tenant content, and as nothing else', () => {
-    const unclassified = PLATFORM_OPERATIONS.filter((op) => entries[op.name] !== PLATFORM_PUBLIC && !isTenantContent(op.name))
-    expect(unclassified.map((op) => op.name), 'give each PLATFORM_PUBLIC or tenantContent(reason)').toEqual([])
+  it('as platform-public, tenant content or retired, and as nothing else', () => {
+    const unclassified = PLATFORM_OPERATIONS.filter((op) => entries[op.name] !== PLATFORM_PUBLIC && !isTenantContent(op.name) && !isRetired(op.name))
+    expect(unclassified.map((op) => op.name), 'give each PLATFORM_PUBLIC, tenantContent(reason) or retired(reason)').toEqual([])
     expect(Object.keys(PLATFORM_EXPOSURE).sort()).toEqual(PLATFORM_OPERATIONS.map((op) => op.name).filter((n) => n in PLATFORM_EXPOSURE).sort())
   })
 
@@ -116,10 +117,19 @@ describe('every console operation is classified', () => {
   })
 
   it('offers the operator’s agent the platform’s own data (positive control)', () => {
-    const offered = PLATFORM_OPERATIONS.filter((op) => !isTenantContent(op.name)).map((op) => op.name)
+    const offered = PLATFORM_OPERATIONS.filter((op) => !isTenantContent(op.name) && !isRetired(op.name)).map((op) => op.name)
     expect(offered).toContain('platform-knowledge-document-upload')
     expect(offered).toContain('platform-norm-registry-get')
     for (const name of offered) expect(isOnDoor(name, 'platform'), name).toBe(true)
+  })
+})
+
+describe('a retired console write is on no door (ADR-0175)', () => {
+  it('withholds the norm registry update, which only answers 409 now', () => {
+    expect(isRetired('platform-norm-registry-update')).toBe(true)
+    expect(isOnDoor('platform-norm-registry-update', 'platform')).toBe(false)
+    // Reading the registry still is the platform's own data.
+    expect(isOnDoor('platform-norm-registry-get', 'platform')).toBe(true)
   })
 })
 

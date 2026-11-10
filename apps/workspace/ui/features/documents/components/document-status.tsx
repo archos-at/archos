@@ -191,8 +191,11 @@ export function DocumentStatusBadge({ status, className, title, queueAhead }: Do
     <Badge
       // A failed read is a fact in a row, so it takes the tinted error, the
       // material of every other status; the solid red plate shouted over the
-      // documents beside it. `data-variant` keeps naming the status family.
-      variant={variant === 'destructive' ? 'danger' : variant}
+      // documents beside it. Reading and uploading are the normal course, so
+      // they are ink, not blue (colour is red and ochre; the glyph names the
+      // state, as the folder brief's grey does). `data-variant` keeps naming
+      // the status family.
+      variant={variant === 'destructive' ? 'danger' : variant === 'info' ? 'secondary' : variant}
       // Lets a caller that repaints the ground (the card's frosted overlay)
       // repaint the ink for the one variant whose ink is white.
       data-variant={variant}
@@ -205,8 +208,8 @@ export function DocumentStatusBadge({ status, className, title, queueAhead }: Do
       // status's CONSEQUENCE, which is more than the word.
       title={title ?? label}
     >
-      {/* Icon + word + colour: the glyph is what tells „Wartet" from „Wird
-          gelesen" (one blue) and „Abgelegt" from „Unbekannt" (one grey). */}
+      {/* Icon + word: the glyph is what tells „Wartet" from „Wird gelesen"
+          and „Abgelegt" from „Unbekannt" (each pair one grey). */}
       <IngestionGlyph mark={waiting ? 'queued' : state} />
       {/* The word gives way, the glyph never does. A caller that caps the
           badge (the Files list's status column) gets an ellipsis at the end

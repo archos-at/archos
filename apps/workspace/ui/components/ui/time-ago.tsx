@@ -15,12 +15,23 @@ import { OFFICE_TIME_ZONE, formatAbsoluteTime, formatRelativeTime } from '@/lib/
  * browser in the reader's zone, so an unpinned `Intl` string differs between
  * the two (React error #418).
  */
-export function TimeAgo({ date, locale, className }: { date: string; locale: string; className?: string }): JSX.Element {
+export function TimeAgo({
+  date,
+  locale,
+  className,
+  short = false,
+}: {
+  date: string
+  locale: string
+  className?: string
+  /** „vor 3 Std.“ for a narrow column (a mail row's time), where „vor 3 Stunden“ pushed the subject onto two lines. */
+  short?: boolean
+}): JSX.Element {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   return (
     <time dateTime={date} title={formatAbsoluteTime(date, locale, OFFICE_TIME_ZONE)} className={className}>
-      {mounted ? formatRelativeTime(date, locale) : formatAbsoluteTime(date, locale, OFFICE_TIME_ZONE)}
+      {mounted ? formatRelativeTime(date, locale, Date.now(), short ? 'short' : 'long') : formatAbsoluteTime(date, locale, OFFICE_TIME_ZONE)}
     </time>
   )
 }

@@ -299,6 +299,18 @@ export const FEATURE_FLAGS = {
    */
   officeConventions: 'office-conventions',
   /**
+   * Licensed text an office holds (its own ÖNORM or DIN copy, a paid
+   * commentary) reaches the model inside the call (the licensed seam,
+   * `packages/agent/src/agent/common/licensed_text.py`). Read per turn by the
+   * agent tier through `GET /api/internal/stages` (`features.licensedSeam`).
+   *
+   * An entitlement, off until an operator targets the organization. Off is not
+   * unguarded: a passage marked licensed is then listed with its document, page
+   * and clause and no text. On, its text is expanded only inside the model call,
+   * never in a trace, checkpoint or log, and every quote of it is capped.
+   */
+  licensedSeam: 'licensed-seam',
+  /**
    * Mail sent to a project's address (ADR-0137, ADR-0138): the project shows
    * its address, mail to it waits in the project's E-Mail-Eingang until a
    * person files each part, and a person may follow a conversation. Read per
@@ -316,19 +328,19 @@ export const FEATURE_FLAGS = {
    */
   inboundMail: 'inbound-mail',
   /**
-   * The office's base knowledge (ADR-0163, ticket 32): an Archiv document can be
-   * recorded as a licensed standard, a commentary, an authority directive, a
-   * guideline or a law, with its edition, territory, authority and last check,
-   * and a turn tells the agent which of them the office holds and how far each
-   * binds. Read from the session by the routes (`requireFeature`) and per
-   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
    *
-   * An entitlement, off until an operator targets the organization: licensed
-   * text reaches answers only once the licensed seam is in place. With it off
-   * the routes answer 403, the turn carries no base-knowledge block, and records
-   * already written stay untouched.
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
    */
-  officeBaseKnowledge: 'office-base-knowledge',
+  siteResolution: 'site-resolution',
+  /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
+  sourceMonitors: 'source-monitors',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -359,8 +371,10 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'folder-cards': 'entitlement',
   'source-routing': 'entitlement',
   'office-conventions': 'entitlement',
+  'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
-  'office-base-knowledge': 'entitlement',
+  'site-resolution': 'rollout',
+  'source-monitors': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

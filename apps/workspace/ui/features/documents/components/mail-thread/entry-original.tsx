@@ -87,9 +87,8 @@ export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Elem
     <span className="inline-flex">
       <BusyButton
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
-        className="h-7 px-2 text-xs"
         busy={busy}
         busyLabel={t('original.downloading')}
         icon={<Download aria-hidden />}

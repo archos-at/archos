@@ -131,6 +131,18 @@ changed" (`structuredContent.decision: 'declined'`). Either answer is an audit
 event `agent.operation.decided`, actor the person, `decisionSource:
 elicitation`, and a tool-call trace with `decision_source: elicitation`.
 
+The route holds the same line a second time where the decision is one only a
+person makes (ADR-0165): it calls `requirePersonDecision`
+(`lib/agent-api/person-decision.ts`), which reads the yes the call carries in
+its acting session. The door passes on how it got the person's answer, and the
+route counts only `elicitation` and `app` (a client that declared MCP Apps),
+never `app-unverified`; a person's own request reads as `app`, and so does a
+proposal the person accepted. Any other agent call is refused 403
+`PERSON_DECISION_REQUIRED`, so a missed `personDecides` flag or a new door cannot
+run it on a model's word. The platform's approve, publish, rollback, entitlement
+and home-country operations use it, and record the decision source with the
+decision.
+
 The call travels between the two rounds in `requestState`, signed with the
 SDK's `createRequestStateCodec` under a key derived from
 `INTERNAL_API_TOKEN` (HMAC over `grid:mcp-request-state:v1`), bound to the
@@ -510,6 +522,31 @@ Connecting: the server's URL is `https://<app-host>/api/platform/mcp`, and the
 client must sign in **in the GRID Platform organization**. The client steps are
 the office door's (below), with that URL; a short guide for operators is
 [`../deployment/platform-agent-door-runbook.md`](../deployment/platform-agent-door-runbook.md).
+
+### Onboarding a country through the door
+
+The platform door is agent-grade for one job: an operator's agent bringing a
+country's knowledge in as a reviewed data release (ADR-0165, ADR-0170). What
+makes it so, and where it lives:
+
+| Guarantee | Where |
+|---|---|
+| A guide the agent reads first, a resource on the platform door only, for a caller who sees its operations | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
+| Each record type's JSON Schema, the batch limit, the kit's checks | `platform-knowledge-schema-get` |
+| `idempotencyKey` on **every** door write, both doors: the first answer again (a 2xx, 400, 404 or 422; a refusal of the moment is not kept), 422 for the key with other input, 503 (nothing run) when the cache cannot be read; per replica without `REDIS_URL` | `door-idempotency.ts`, around the route call in `dispatch.ts` |
+| Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |
+| Per-record results and `dryRun`; problems with an RFC 6901 `pointer`, a `code` and a `hint`; the same proposal again is `unchanged` | `platform-knowledge-records-propose`, `bff/base-knowledge/platform/validate.ts` |
+| The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
+| Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
+| The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| Four eyes with one deferral (ADR-0176): an author approves alone only with `override: {reason}`, `platform:knowledge:approve_alone` and the person's own yes, never on an agent's word; the request is marked `approval: single`, stays in the overview's `queue` until another person's review confirms or disputes it, and a disputed one is not published further (rollback stays the person's decision) | `decidePlatformChangeRequest` in `bff/base-knowledge/platform/service.ts`; the 0214 triggers; `approve-alone.integration.spec.ts` |
+| A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
+
+A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)
+because the public-source fetcher admits only the backend roles. The measure is
+`onboarding-door.integration.spec.ts`: a scripted client with no model takes AT-9
+through all of it. The operator's runbook is
+[`../operations/country-onboarding.md`](../operations/country-onboarding.md).
 
 ## The exposure config
 
@@ -997,6 +1034,24 @@ a time-limited link. A route that redirects (3xx with `Location`) is handed on a
 `document-download`, `document-preview-get`, `document-thumbnail-get` and `bim-model-source-get`
 answer JSON holding such a URL, so they are plain reads, and never run for Piloti in a shared
 conversation (`LINK_BEARING_OPERATIONS`, never in `AUDIENCE_READS`).
+
+**An office's licensed copy** (a base-knowledge copy marked `licensed`, ADR-0159) is held apart for an
+agent, never for the person (`bff/base-knowledge/door-guard.ts`, keyed on `actingReaderIsAgent`). A
+copy the person cannot open is a 404 first, so no refusal says it exists. Its file, download, preview,
+thumbnail, version content and version diff are refused (`LICENSED_COPY_NOT_SENT`). Any base-knowledge
+copy whose text is held (`textHeldFor`: no person confirmed it, whatever its class, or licensed and
+unattested) gives an agent no text and no bytes on any of these routes (`BASE_COPY_HELD`, one code), and
+no search snippet. `document-text-get` gives of a confirmed, attested licensed copy at most three times its
+`quoteMaxChars` per person, edition and calendar day (UTC)
+(`LICENSED_QUOTE_CAP_REACHED` past that; design E19). The counter is added to atomically in the shared
+cache (`incrementCounter`: INCRBY, with an expiry set once), so two calls in flight cannot both spend the
+rest, and it is keyed by the edition, so a second upload of the copy does not reset it. `workspace-search`
+and `passage-similar-search` keep a licensed copy's hit and page and replace its snippet with a note, so
+repeated queries cannot collect the norm a snippet at a time. A licence that cannot be read is refused
+(`LICENSED_COPY_UNKNOWN`) or, for a snippet, withheld. The door has no session id, so the person and the
+day are its session. The person's own text pane and viewer read the copy whole.
+`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`. The backend read tools the door forwards (`knowledge-search`, `passage-read`, `document-look`) run without a turn capture, so a licensed passage reaches an outside agent listed only (document, page, clause, a note) and a licensed page goes to no model and sends no image; `apps/agent-host/tests/test_internal_tools_licensed.py` drives the door route with the real renderers to hold it. A held mail attachment kept past its erasure for a legal hold (`erasureDeferredAt`) is read by a person
+only: `inbound-mail-part-content-get` refuses it to an agent (`legal_hold`).
 
 A JSON or text answer is streamed with a cap too, `MAX_TEXT_BYTES` (5 MiB): past it nothing more
 is read and the agent is told to narrow the call. The backend operations' answers are read by the

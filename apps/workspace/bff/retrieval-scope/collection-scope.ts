@@ -27,6 +27,8 @@ export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
 export interface ScopedCollection {
   collection: string
   shelf?: CollectionShelf
+  /** On the base corpus only, the countries whose chunks this request may read (ADR-0173). */
+  countries?: string[]
 }
 
 /**

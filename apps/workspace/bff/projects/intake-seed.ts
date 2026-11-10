@@ -43,6 +43,7 @@ import { emptyProjectProfile, pruneResolvedAssumptions } from '@/lib/project-pro
 import { postalPlaceOf } from '@/lib/project-profile/postal-place'
 import { seedProjectProfile } from '@/lib/project-profile/profile-service'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import { inProjectTransaction } from './repository'
 
@@ -75,7 +76,7 @@ export const TYPED_ADDRESS_REASON = 'Adresse eingetippt, von keinem Register bes
 export const POSTAL_CODE_REASON = 'Aus der Postleitzahl der eingetippten Adresse abgeleitet'
 
 /** The Bundesland a typed address suggests, as an assumption with its derivation. Null when its PLZ names none. */
-function postalCodeSuggestion(typed: string, now: Date): ProjectAssumption | null {
+export function postalCodeSuggestion(typed: string, now: Date): ProjectAssumption | null {
   const place = postalPlaceOf(typed)
   if (!place) return null
   return {
@@ -112,9 +113,10 @@ export function intakeSeed(
 ): IntakeSeed {
   const { location } = input
   const typed = input.address?.trim()
-  // A country other than Austria, chosen by hand, outranks any Austrian Land the same body names.
-  const abroad = !location && input.country !== undefined && input.country !== 'at'
-  const federalState = abroad ? 'outside_austria' : (location?.federalState ?? input.federalState ?? null)
+  // A country other than the one the subdivisions belong to, chosen by hand, outranks any Land the same body names.
+  const { country: subdivided, outside } = SITE_SUBDIVISIONS
+  const abroad = !location && input.country !== undefined && input.country !== subdivided
+  const federalState = abroad ? outside : (location?.federalState ?? input.federalState ?? null)
   const facts: Record<string, ProjectFact> = {}
   const assumptions: Record<string, ProjectAssumption> = {}
   if (location) {
@@ -133,9 +135,9 @@ export function intakeSeed(
     const suggested = federalState ? null : postalCodeSuggestion(typed, now)
     if (suggested) assumptions.federal_state = suggested
   }
-  const austrianState = federalState !== null && federalState !== 'outside_austria'
+  const inSubdivision = federalState !== null && federalState !== outside
   if (abroad && input.country) facts.country = fact(input.country, now)
-  else if (location || austrianState || input.country === 'at') facts.country = fact('at', now)
+  else if (location || inSubdivision || input.country === subdivided) facts.country = fact(subdivided, now)
   if (federalState) facts.federal_state = fact(federalState, now)
   return { facts, assumptions }
 }

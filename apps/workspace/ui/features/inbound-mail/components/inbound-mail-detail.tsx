@@ -29,10 +29,11 @@ import { Item, ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useInView } from '@/hooks/use-in-view'
 import { documentFilesHref } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
 import {
@@ -108,6 +109,8 @@ export interface InboundMailDetailProps {
   pollMs?: number
   /** Start with „decided by someone else“ said (a preview of that state). */
   decidedByOther?: boolean
+  /** Mails are picked and the list's batch bar holds the pane's primary: the reader's primary steps back to the raised press. */
+  yieldPrimary?: boolean
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
@@ -125,6 +128,7 @@ export function InboundMailDetail({
   now,
   pollMs = 1500,
   decidedByOther: decidedByOtherInitially = false,
+  yieldPrimary = false,
 }: InboundMailDetailProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
@@ -317,6 +321,7 @@ export function InboundMailDetail({
     }
   }
 
+  const [choiceRef, choiceInView] = useInView<HTMLElement>({ rootMargin: '0px 0px -96px 0px' }) // the choice the foot's sentence repeats
   const attachments = useMemo(
     () => (view ? view.parts.filter((part) => part.kind === 'attachment').map((part) => attachmentCase(part, view)) : []),
     [view]
@@ -334,7 +339,7 @@ export function InboundMailDetail({
   if (state.kind === 'loading') return <DetailSkeleton back={back} />
   if (state.kind === 'error' || !view) {
     return (
-      <div className="flex flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3">
         {back}
         <LoadError title={t('detailLoadError')} onRetry={() => load()} />
       </div>
@@ -359,7 +364,11 @@ export function InboundMailDetail({
 
   return (
     <article className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
-      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
+      {/* The section head's 32px, one right edge with it and the bar; on a phone the way back sits 4px under the title. */}
+      {/* The subject on the list's filter line. On a desk the decision bar follows the content (sticky only once it
+          overflows), not 180px below it at the pane's foot; on a phone it stays at the foot, under the thumb. */}
+      {/* It grows at every width: the decision bar stands at the sheet's foot, not mid-sheet under a short mail. */}
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3">
         {back}
         {view.projectClosed && !closedNoticeHidden && (
           <Alert data-testid="detail-closed">
@@ -416,7 +425,7 @@ export function InboundMailDetail({
             <BusyButton
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               busy={restoring}
               busyLabel={t('state.restoreBusy')}
               icon={<ArchiveRestore aria-hidden />}
@@ -437,8 +446,6 @@ export function InboundMailDetail({
           originalUrl={client.originalUrl(projectId, view.id)}
           now={now}
         />
-
-
         <MailText state={text} onRetry={() => void loadText()} />
 
         {/* After the text, beside the choice it shapes: on a phone the mail itself is the first screen. */}
@@ -456,7 +463,7 @@ export function InboundMailDetail({
           <div className="flex flex-col items-start gap-1">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               aria-expanded={filingOpen}
               onClick={() => setFilingOpen((open) => !open)}
@@ -469,8 +476,8 @@ export function InboundMailDetail({
         )}
 
         {!stopped && !readOnly && messagePart && draft?.message && (
-          <section className="flex flex-col gap-2" aria-label={t('message.label')}>
-            <ItemList className="bg-card">
+          <section ref={choiceRef} className="flex flex-col gap-2" aria-label={t('message.label')}>
+            <ItemList data-surface="sunken" className={DETAIL_PANEL}>
               <MessageRow
                 projectId={projectId}
                 view={view}
@@ -488,7 +495,7 @@ export function InboundMailDetail({
           <section className="flex flex-col gap-2" aria-label={t('attachments.label')}>
             <SectionLabel as="h3">{t('attachments.label')}</SectionLabel>
             {attachments.length > 0 && (
-              <ItemList as="ul" className="bg-card">
+              <ItemList as="ul" data-surface="sunken" className={DETAIL_PANEL}>
                 {attachments.map((entry) => {
                   const attachmentDraft = draft.attachments.find((candidate) => candidate.partId === entry.part.id)
                   if (!attachmentDraft) return null
@@ -568,6 +575,8 @@ export function InboundMailDetail({
           onDismiss={() => void dismiss()}
           filing={filing}
           dismissing={dismissing}
+          yieldPrimary={yieldPrimary}
+          choiceInView={choiceInView}
         />
       )}
       {previewEntry && (
@@ -591,7 +600,7 @@ function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
       {lines.map((line, index) => (
         <li key={`${line.kind}-${index}`} className="[overflow-wrap:anywhere]">
           {line.kind === 'message' ? t('toast.lineText', { name: line.place.name }) : t('toast.lineFile', { name: line.place.name, folder: line.place.folder })}
-          {line.place.version != null && ` · ${t('attachments.status.version', { version: line.place.version })}`}
+          {line.place.version != null && `${CLAUSE_JOIN}${t('attachments.status.version', { version: line.place.version })}`}
         </li>
       ))}
     </ul>
@@ -601,7 +610,7 @@ function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
 /** The detail's shape while it loads: the header, the text and three attachment rows. */
 export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6" aria-busy="true" data-testid="inbound-mail-detail-loading">
+    <div className="flex flex-col gap-6 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3" aria-busy="true" data-testid="inbound-mail-detail-loading">
       {back}
       <div className="flex flex-col gap-2">
         <Skeleton className="h-6 w-2/3" />
@@ -614,9 +623,9 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
         <Skeleton className="h-3.5 w-9/12" />
       </div>
       {/* The attachments' own list, so the rows land where their skeletons stood. */}
-      <ItemList className="bg-card">
+      <ItemList data-surface="sunken" className={DETAIL_PANEL}>
         {[0, 1, 2].map((row) => (
-          <Item key={row} className="px-3 sm:px-4">
+          <Item key={row} className="px-4">
             <Skeleton className="size-4" />
             <Skeleton className="size-10 rounded-control" />
             <div className="flex flex-1 flex-col gap-1.5">
@@ -629,3 +638,10 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
     </div>
   )
 }
+
+/**
+ * A list of the reader (the attachments, the text's own row): on the reader's sheet, no box, its rows bleeding by their
+ * 16px inset so their boxes stand on the text's edge, and between two of them the one inset hairline (`ROW_HAIRLINE`,
+ * set on the rows, from the name past the box and the thumbnail). Paper on a desk: lines for lists, no grey box.
+ */
+const DETAIL_PANEL = '-mx-4 rounded-none border-0 divide-y-0 bg-transparent'

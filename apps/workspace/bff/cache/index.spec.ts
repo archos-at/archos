@@ -21,8 +21,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const redis = vi.hoisted(() => ({ client: null as unknown }))
+vi.mock('@/lib/redis/connect.js', () => ({ createRedisClient: () => redis.client }))
 import {
   getCached,
+  incrementCounter,
+  RedisStore,
   invalidateCached,
   invalidateCachedPrefix,
   readCacheCounters,
@@ -242,5 +247,56 @@ describe('counters', () => {
     resetCacheCounters()
 
     expect(readCacheCounters()).toEqual({ hits: 0, misses: 0, errors: 0 })
+  })
+})
+
+describe('incrementCounter', () => {
+  it('answers null, never throws, for a store that has no counters or cannot be reached', async () => {
+    resetCacheCounters()
+    setCacheStore(new ThrowingStore())
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    setCacheStore(Object.assign(new ThrowingStore(), { increment: async () => Promise.reject(new Error('ECONNREFUSED')) }))
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    expect(readCacheCounters().errors).toBe(1)
+  })
+
+  it('returns the running total the store keeps', async () => {
+    const totals = new Map<string, number>()
+    const counting: CacheStore = Object.assign(new ThrowingStore(), {
+      increment: async (key: string, by: number) => totals.set(key, (totals.get(key) ?? 0) + by).get(key) as number,
+    })
+    setCacheStore(counting)
+    expect(await incrementCounter('door-quote:k', 0, 1000)).toBe(0)
+    expect(await incrementCounter('door-quote:k', 120, 1000)).toBe(120)
+    expect(await incrementCounter('door-quote:k', 60, 1000)).toBe(180)
+  })
+})
+
+describe('the shared store\'s counter', () => {
+  function client(expireError: Error | null, ttl: number) {
+    const chain = {
+      incrby: () => chain,
+      pexpire: () => chain,
+      exec: async () => [
+        [null, 7],
+        [expireError, expireError ? null : 1],
+      ],
+    }
+    return { multi: () => chain, pttl: vi.fn(async () => ttl), pexpire: vi.fn(async () => 1) }
+  }
+
+  it('sets the expiry itself when the store refuses PEXPIRE NX inside the transaction, so no counter is kept for good', async () => {
+    const refusing = client(new Error('ERR syntax error'), -1)
+    redis.client = refusing
+    expect(await new RedisStore('redis://cache').increment('door-quote:k', 7, 1000)).toBe(7)
+    expect(refusing.pexpire).toHaveBeenCalledWith('door-quote:k', 1000)
+  })
+
+  it('leaves an expiry alone that the transaction set', async () => {
+    const accepting = client(null, 900)
+    redis.client = accepting
+    expect(await new RedisStore('redis://cache').increment('door-quote:k', 7, 1000)).toBe(7)
+    expect(accepting.pttl).not.toHaveBeenCalled()
+    expect(accepting.pexpire).not.toHaveBeenCalled()
   })
 })

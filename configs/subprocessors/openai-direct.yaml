@@ -1,0 +1,42 @@
+id: openai-direct
+kind: processor
+status: conditional
+order: 100
+name: OpenAI, L.L.C. (direct)
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [model_io, voice_audio]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: controller_designated
+  de: >-
+    Nur erreicht, wenn eine Organisation einen eigenen OpenAI-Schlüssel hinterlegt oder der Betreiber eine
+    Basis-URL auf api.openai.com setzt; dann gelten OpenAIs Aufbewahrungsregeln unter dem Vertrag des
+    Schlüsselinhabers.
+  en: >-
+    Reached only when an organization stores its own OpenAI key or the operator sets a base URL to api.openai.com; then
+    OpenAI's retention applies under the key holder's contract.
+hosts: [api.openai.com]
+env: [OPENAI_API_KEY]
+evidence:
+  - packages/agent/src/agent/common/credential_resolution.py
+  - apps/agent-host/src/agent_host/routes/dictation.py
+copy:
+  name:
+    de: OpenAI, Inc. (direkt)
+    en: OpenAI, Inc. (direct)
+  purpose:
+    de: Nur mit einem eigenen OpenAI-Schlüssel Ihrer Organisation (BYOK) oder einer abweichenden Konfiguration des Betreibers
+    en: Only with your organization's own OpenAI key (BYOK) or an operator configuration that points there
+  data:
+    de: Gleiche Inhalte wie OpenRouter (siehe oben), einschließlich Audio von Diktaten
+    en: The same content OpenRouter receives (see above), including dictation audio
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Optional (nur falls konfiguriert)
+    en: Optional (only if configured)

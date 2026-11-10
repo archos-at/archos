@@ -54,6 +54,7 @@ import { isShared, requireResourceAccess } from '@/lib/sharing/access'
 import { countGrantsForResource } from '@/lib/sharing/repository'
 import { resolveParticipants } from '@/lib/sharing/service'
 import { normalizeAgentAnswerMetadata } from './agent-answer-metadata'
+import { recordPersistedAnswers } from './answer-records'
 import {
   resolveEngagement,
   resolveEngagementFor,
@@ -1452,8 +1453,8 @@ export async function markConversationRead(
  * upgrade as `x-grid-organization-id`): a mismatched/unknown org surfaces as a
  * 404, exactly like the session path, so the token grants no cross-org bypass.
  *
- * Idempotent: `insertMessages` uses `onConflictDoNothing` on `messages.id`, and
- * the backend derives a deterministic per-turn id, so a double-write no-ops.
+ * Idempotent: `insertMessages` no-ops on a known `messages.id` (the backend's per-turn id is deterministic);
+ * only the licensed-text mark is merged into a row the asking tab stored first (`markLicensedAnswers`).
  *
  * No author is stamped and no addressee set is resolved: this path exists to
  * store what the AGENT produced (spec CC-3), and mentions are a property of a
@@ -1477,12 +1478,10 @@ export async function persistInternalConversationMessages(
     screened.map((input) =>
       buildMessageRow(
         conversationId,
-        // The backend posts its answer metadata in WIRE spelling (`sources`,
-        // `answer_confidence`, …) while every reader of a message row looks for
-        // the browser's stored contract (`citations`, `provenance`). Translated
-        // here, at the one point the foreign dialect enters, so a turn persisted
-        // because the client dropped reads back with its sources, its confidence
-        // and its passage locators intact — see `agent-answer-metadata`.
+        // The backend posts its answer metadata in WIRE spelling (`sources`, `answer_confidence`, …) while every
+        // reader of a message row looks for the browser's stored contract (`citations`, `provenance`). Translated
+        // here, where the foreign dialect enters, so a turn persisted because the client dropped reads back with
+        // its sources, its confidence and its passage locators intact — see `agent-answer-metadata`.
         {
           input: { ...input, metadata: normalizeAgentAnswerMetadata(input.metadata) },
           addressees: null,
@@ -1493,6 +1492,7 @@ export async function persistInternalConversationMessages(
     )
   )
 
+  await recordPersistedAnswers(organizationId, conversation.projectId ?? null, conversationId, inputs, rows)
   await fanOutMessageActivity({
     organizationId,
     conversationId,

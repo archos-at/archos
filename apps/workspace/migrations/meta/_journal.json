@@ -1422,6 +1422,97 @@
       "when": 1792870000000,
       "tag": "0202_base_knowledge",
       "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1792880000000,
+      "tag": "0203_residency",
+      "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1792890000000,
+      "tag": "0204_rulesets",
+      "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1792900000000,
+      "tag": "0205_platform_base_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1792910000000,
+      "tag": "0206_editions_in_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1792920000000,
+      "tag": "0207_setup_fact_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "7",
+      "when": 1792930000000,
+      "tag": "0208_review_four_eyes",
+      "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "7",
+      "when": 1792940000000,
+      "tag": "0209_knowledge_citation_captures",
+      "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "7",
+      "when": 1793040000000,
+      "tag": "0210_address_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 211,
+      "version": "7",
+      "when": 1793050000000,
+      "tag": "0211_country_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1793070000000,
+      "tag": "0212_country_onboarding_tooling",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "7",
+      "when": 1793080000000,
+      "tag": "0213_knowledge_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 214,
+      "version": "7",
+      "when": 1793090000000,
+      "tag": "0214_knowledge_approve_alone",
+      "breakpoints": true
+    },
+    {
+      "idx": 215,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0215_pdf_document_sources",
+      "breakpoints": true
     }
   ]
 }

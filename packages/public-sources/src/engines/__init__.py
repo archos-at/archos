@@ -7,11 +7,13 @@ from public_sources.engines.base import Engine
 from public_sources.engines.base import EngineError
 from public_sources.engines.base import ParsedDocument
 from public_sources.engines.base import Passage
+from public_sources.engines.geojson import GeoJson
 from public_sources.engines.html_statute import HtmlStatute
+from public_sources.engines.pdf_document import PdfDocument
 from public_sources.engines.ris_xml import RisXml
 
 #: Every format a source record may name. A new one is code, written once.
-ENGINES: dict[str, type[Engine]] = {cls.name: cls for cls in (RisXml, Akn, HtmlStatute)}
+ENGINES: dict[str, type[Engine]] = {cls.name: cls for cls in (RisXml, Akn, HtmlStatute, GeoJson, PdfDocument)}
 
 
 def engine_type(name: str) -> type[Engine]:

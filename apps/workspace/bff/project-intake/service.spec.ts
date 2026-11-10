@@ -206,7 +206,7 @@ beforeEach(() => {
     need('building_position@bldg1', { type: 'single_select' }),
     need('storeys_above_ground@bldg1', { type: 'number_tri', decisive: true }),
   ])
-  vi.mocked(deriveBuildingClass).mockImplementation((inputs) =>
+  vi.mocked(deriveBuildingClass).mockImplementation((_classification, inputs) =>
     inputs.storeys_above_ground === undefined
       ? { value: null, hochhaus: false, applicable: true, missing: ['storeys_above_ground'] }
       : { value: 3, hochhaus: false, applicable: true, missing: [] }

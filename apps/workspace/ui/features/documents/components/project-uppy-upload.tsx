@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
+import { cn } from '@/lib/utils'
 import { Camera, ChevronDown, FolderUp, Images, Mail, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,6 +36,8 @@ interface ProjectUppyUploadProps {
   variant?: 'default' | 'outline' | 'dropcard'
   size?: 'sm' | 'default'
   label?: string
+  /** The glyph alone, its label for a screen reader only (the phone's floating 56px Hochladen). */
+  glyphOnly?: boolean
   /**
    * Offer a second trigger that picks a WHOLE FOLDER.
    *
@@ -69,6 +72,7 @@ export function ProjectUppyUpload({
   variant = 'default',
   size = 'sm',
   label,
+  glyphOnly = false,
   allowFolders = false,
   pickFilesRef,
   pickFolderRef,
@@ -230,8 +234,8 @@ export function ProjectUppyUpload({
       className="gap-2"
     >
       {isUploading ? <Spinner size="sm" /> : <Upload className="size-4" aria-hidden />}
-      {isUploading ? t('upload.uploading') : buttonLabel}
-      {allowFolders && <ChevronDown className="size-3.5 opacity-70" aria-hidden />}
+      <span className={cn(glyphOnly && 'sr-only')}>{isUploading ? t('upload.uploading') : buttonLabel}</span>
+      {allowFolders && !glyphOnly && <ChevronDown className="size-3.5 opacity-70" aria-hidden />}
     </Button>
   )
 

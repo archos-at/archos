@@ -136,7 +136,7 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
             </fieldset>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               {t('target.cancel')}
             </Button>
             <Button type="submit" disabled={trimmed === '' || !changed} data-testid="attachment-target-apply">

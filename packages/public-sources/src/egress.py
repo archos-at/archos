@@ -81,7 +81,12 @@ class PublicOnlyBackend(httpcore.AsyncNetworkBackend):
         local_address: str | None = None,
         socket_options: Iterable[Any] | None = None,
     ) -> httpcore.AsyncNetworkStream:
-        addresses = await self._resolver(host, port)
+        try:
+            addresses = await self._resolver(host, port)
+        except OSError as exc:  # socket.gaierror (EAI_AGAIN, EAI_NONAME): a lookup failed, nothing was refused
+            # The connect error httpcore would raise had it resolved the name itself, so every caller
+            # keeps its handling of a transport failure (the RIS client retries it, then answers RisError).
+            raise httpcore.ConnectError(f"{host} could not be resolved: {exc}") from exc
         if not addresses:
             raise EgressRefused(f"{host} does not resolve")
         private = [address for address in addresses if not is_public_address(address)]
@@ -134,16 +139,25 @@ def strip_headers(headers: httpx.Headers) -> None:
             del headers[name]
 
 
+def attach_credential(headers: httpx.Headers, credential: tuple[str, str] | None) -> None:
+    """Set a keyed source's key, after the strip (ADR-0174). ``credential`` is ``(header, value)``."""
+    if credential is not None:
+        headers[credential[0]] = credential[1]
+
+
 def guarded_client(
     source,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     timeout: float = 30.0,
+    credential: tuple[str, str] | None = None,
 ) -> httpx.AsyncClient:
     """A client that may reach ``source``'s hosts and nothing else.
 
     ``transport`` replaces the guarded one only in tests, which record the
     exchange instead of making it; the host check and the header strip still run.
+    ``credential`` (a header and its value) is set on every request after the
+    strip, so it goes to the source's hosts and to nothing else.
     """
 
     async def _check(request: httpx.Request) -> None:
@@ -153,6 +167,7 @@ def guarded_client(
         if request.method not in {"GET", "POST"}:
             raise EgressRefused(f"{request.method} is not a read", request=request)
         strip_headers(request.headers)
+        attach_credential(request.headers, credential)
 
     return httpx.AsyncClient(
         transport=transport or GuardedTransport(),

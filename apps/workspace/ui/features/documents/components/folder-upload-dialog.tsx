@@ -294,7 +294,7 @@ export function FolderUploadDialog({
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+              <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
                 {t('folderUpload.cancel')}
               </Button>
               <Button
@@ -492,7 +492,7 @@ function SoleFooter({
   return (
     <>
       <Button
-        variant={leadWithRevision ? 'outline' : 'default'}
+        variant={leadWithRevision ? 'secondary' : 'default'}
         onClick={() => onAnswer(false)}
         disabled={busy || separateBlocked}
         data-testid="folder-upload-sole-separate"
@@ -500,7 +500,7 @@ function SoleFooter({
         {t('folderUpload.single.confirmSeparate')}
       </Button>
       <Button
-        variant={leadWithRevision ? 'default' : 'outline'}
+        variant={leadWithRevision ? 'default' : 'secondary'}
         onClick={() => onAnswer(true)}
         disabled={busy || revisionBlocked}
         data-testid="folder-upload-sole-revision"

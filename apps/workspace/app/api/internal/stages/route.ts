@@ -50,6 +50,16 @@ import { isProjectClosed } from '@/lib/projects/project-status'
  * public-source requests go through the sandboxed fetcher; read per turn, not
  * withdrawn by a closed project.
  *
+ * `licensedSeam` is the same per-organization read for the licensed seam: whether
+ * an office's licensed text may reach the model inside the call
+ * (`packages/agent/src/agent/common/licensed_text.py`). Off lists a licensed
+ * passage without its text. Not withdrawn by a closed project.
+ *
+ * `timeEditions` is always true since the `time-editions` switch went (ADR-0175):
+ * `law-lookup` answers for a past day (`as_of`) for every office. It stays on
+ * the wire only so an agent built before the cut-over keeps offering `as_of`;
+ * it goes once no deployed agent reads it.
+ *
  * Token-guarded like every other internal route.
  */
 
@@ -65,12 +75,13 @@ export const GET = internalApiRoute(
   'post-answer-stages',
   async ({ request }) => {
     const { organizationId, projectId } = parseQuery(request, querySchema)
-    const [enabled, deepResearch, tasks, folderCards, sourceRouting, project] = await Promise.all([
+    const [enabled, deepResearch, tasks, folderCards, sourceRouting, licensedSeam, project] = await Promise.all([
       enabledPostAnswerStages(organizationId),
       isDeepResearchEnabledForOrg(organizationId),
       isTaskAutomationEnabledForOrg(organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.folderCards, organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.sourceRouting, organizationId),
+      isOrgFeatureEnabled(FEATURE_FLAGS.licensedSeam, organizationId),
       projectId ? findProjectTenancy(projectId) : Promise.resolve(null),
     ])
     const closed =
@@ -82,6 +93,8 @@ export const GET = internalApiRoute(
         tasks: tasks && !closed,
         folderCards,
         sourceRouting,
+        licensedSeam,
+        timeEditions: true,
       },
     }
   },

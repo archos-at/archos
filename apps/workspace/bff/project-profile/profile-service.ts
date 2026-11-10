@@ -46,6 +46,7 @@ import {
   invalidateProjectProfileCaches,
 } from './prompt-view'
 import { buildProjectSummaryText } from './brief-view'
+import { REGISTER_EVIDENCE_REFUSAL, addsRegisterEvidence } from './register-evidence'
 import { syncProjectFacts } from '@/lib/cross-project/project-facts-mirror'
 import {
   isPatchAlreadyApplied,
@@ -112,6 +113,8 @@ export async function saveProjectProfile(
   }
   // A tab that has not reloaded since the English names still sends the German ones.
   const named = normalizeLegacyProfile(profile) as ProjectProfile
+  if (addsRegisterEvidence(normalizeLegacyProfile(current.profile) as ProjectProfile, named))
+    throw new BadRequestError(REGISTER_EVIDENCE_REFUSAL)
   return persistProfile(projectId, session.organizationId, named, current, {
     resetSummary: true,
     // The wizard is where buildings are removed, and this is its save: the
@@ -159,7 +162,9 @@ export async function patchProjectProfile(
   session: AuthorizedSession,
   projectId: string,
   operations: ProjectProfilePatchOperation[],
-  origin?: ProfilePatchOrigin
+  origin?: ProfilePatchOrigin,
+  /** Site resolution's own write (ADR-0172), the one that may add `register` evidence. */
+  options?: { registerEvidence?: true }
 ): Promise<PatchedProjectProfile> {
   await requireProjectAccess(session, projectId, PROFILE_WRITE)
   if (origin) {
@@ -188,6 +193,7 @@ export async function patchProjectProfile(
     // of `site_address` left `standort_adresse` behind for the tile to show.
     const stored = normalizeLegacyProfile(current.profile) as ProjectProfile
     profile = pruneResolvedUnknowns(applyProjectProfilePatch(stored, normalized))
+    if (!options?.registerEvidence && addsRegisterEvidence(stored, profile)) throw new Error(REGISTER_EVIDENCE_REFUSAL)
   } catch (error) {
     throw new BadRequestError(
       error instanceof Error ? error.message : 'Invalid project profile patch.'

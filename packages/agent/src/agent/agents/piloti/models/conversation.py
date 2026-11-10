@@ -60,6 +60,10 @@ class ConversationState(BaseModel):
         deep_research_allowed: Whether the tenant may be offered a deep-research
             run at all (the `deep-research` flag, resolved per turn). False
             withdraws the hand-off before it is proposed.
+        licensed_text_allowed: Whether licensed text may reach the model inside
+            the call (the `licensed-seam` flag, resolved per turn).
+        time_editions_allowed: Whether `law-lookup` is offered `as_of`, a past
+            day (the `time-editions` flag, resolved per turn, ADR-0171).
         tasks_allowed: Whether the tenant may have work handed over via
             `create_task` (the `task-automation` flag, resolved per turn).
         confined: Whether this turn's signed scope holds a restricted folder's
@@ -138,6 +142,11 @@ class ConversationState(BaseModel):
     # allowed one and not the other, which is why `task-automation` is its own
     # WorkOS flag rather than a second reading of `deep-research` or of `skills`.
     tasks_allowed: bool = True
+    # PER TURN: whether licensed text may reach the model inside the call (the `licensed-seam` flag,
+    # `common/licensed_text.py`). Off lists a licensed passage without its text.
+    licensed_text_allowed: bool = False
+    # PER TURN: whether `law-lookup` is offered `as_of` (the `time-editions` flag, ADR-0171).
+    time_editions_allowed: bool = False
     # PER TURN: the turn's signed scope holds a restricted folder's collection
     # (ADR-0087). Nothing from such a conversation may reach a colleague not
     # cleared for the folder, so the register layer also withdraws deep research

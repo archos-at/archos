@@ -38,6 +38,7 @@ from dataclasses import replace
 from typing import Any
 from urllib.parse import urlsplit
 
+from agent.common import residency
 from agent.common.config_validation import NIM_API_HOST
 from agent.common.config_validation import NIM_UNSUPPORTED_MESSAGE
 from agent.common.openrouter import NO_RETENTION_LIMITS
@@ -191,7 +192,8 @@ def resolve_llm_credential(
         organization_id=organization_id,
     )
     policy = data_policy if data_policy is not None else data_policy_for(organization_id)
-    return replace(resolved, data_policy=policy)
+    base_url = residency.routed_url(resolved.base_url, residency.active_cell())
+    return replace(resolved, base_url=base_url, data_policy=policy)
 
 
 def _resolve(

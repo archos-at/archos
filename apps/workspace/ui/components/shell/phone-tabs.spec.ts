@@ -32,7 +32,7 @@ describe('inside a project', () => {
     ])
   })
 
-  it('on the chat route, "Mehr" is there: the door to the drawer, since chat has no menu button of its own', () => {
+  it('on the chat route, "Mehr" is there: the door to its sheet, since chat has no menu button of its own', () => {
     const more = projectPhoneTabs('p1', '/app/projects/p1/chat', NONE).find((tab) => tab.key === 'more')
     expect(more).toMatchObject({ href: null })
     expect(phoneTabBarHiddenOnRoute('/app/projects/p1/chat')).toBe(false)
@@ -76,7 +76,7 @@ describe('inside a project', () => {
     }
   })
 
-  it('lights "Mehr" where only the drawer reaches', () => {
+  it('lights "Mehr" where only its sheet reaches', () => {
     expect(lit(projectPhoneTabs('p1', '/app/projects/p1/automation', ALL))).toEqual(['more'])
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })
@@ -150,10 +150,9 @@ describe('where the bar stands down', () => {
 
 describe('the phone header back', () => {
   it('leads out of a page one level below a tab', () => {
-    expect(phoneBackTarget('/app/projects/p1/files/bin', 'p1')).toEqual({
-      href: '/app/projects/p1/files',
-      sectionKey: 'files',
-    })
+    // Dateien's places are tabs of its header, and an opened mail has its own way back: no second arrow.
+    expect(phoneBackTarget('/app/projects/p1/files/bin', 'p1')).toBeNull()
+    expect(phoneBackTarget('/app/projects/p1/files/mail/m1', 'p1')).toBeNull()
     expect(phoneBackTarget('/app/projects/p1/settings/members', 'p1')).toEqual({
       href: '/app/projects/p1/settings',
       sectionKey: 'settings',

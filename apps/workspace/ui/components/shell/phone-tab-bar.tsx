@@ -107,10 +107,13 @@ export function PhoneTabBar({
       data-slot="phone-tab-bar"
       data-scope={projectId ? 'project' : 'org'}
       className={cn(
-        'border-border w-full shrink-0 border-t md:hidden',
-        // The chrome takes its scope's surface, like the header above it:
-        // sunken inside a project (the rail's material), paper above one.
-        projectId ? 'bg-surface-sunken' : 'bg-background',
+        'w-full shrink-0 md:hidden',
+        // Inside a project the bar is the rail on its side: the desk, a
+        // track whose thumb is the current tab, and the step to the paper is
+        // its edge in both themes. Above a project the bar is paper on paper,
+        // and the rule is the only thing that says where the scrolling page
+        // ends and the fixed bar begins.
+        projectId ? 'bg-desk' : 'border-border bg-background border-t',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
       )}
@@ -175,23 +178,30 @@ function PhoneTabItem({
             layoutId={pillId}
             data-slot="phone-tab-pill"
             aria-hidden
-            // The rail's active chip, at the size of one glyph: the same
-            // material says the same thing on both shapes of the chrome.
-            className="border-border bg-card absolute inset-0 rounded-full border shadow-xs"
+            // The rail's current sheet, at the size of one glyph: white with
+            // its edge and the thumb's shadow on the project's desk bar; on
+            // the paper bar above a project, where there is no track, the
+            // desk's fill.
+            // `rounded-control`, as the rail's and the Dateien tabs' thumb:
+            // a capsule is for what is round (a count, an avatar).
+            className="bg-desk in-data-[scope=project]:bg-sheet in-data-[scope=project]:shadow-xs absolute inset-0 rounded-control"
             transition={springGlide}
           />
         )}
         <Icon aria-hidden className="relative size-[1.125rem]" />
-        <InboxBadge pending={badgeCount} className="absolute -right-0.5 -top-1.5" />
+        {/* Beside the glyph's top-right corner rather than over it. */}
+        <InboxBadge pending={badgeCount} tone="muted" className="absolute -top-1 left-[calc(50%+5px)]" />
         <AttentionDot show={newsLabel !== null} label={newsLabel ?? undefined} className="absolute top-0 right-2.5" />
-        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -right-0.5 -top-1.5" />}
+        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -top-1 left-[calc(50%+5px)]" />}
       </span>
       <span
         data-slot="phone-tab-label"
         className={cn(
-          'relative max-w-full truncate px-0.5 text-[11px] leading-none tracking-[0.005em]',
-          '[@media(max-height:31rem)]:text-xs',
-          tab.active ? 'font-medium' : 'font-medium'
+          // The 12px label, as every label in the app (design-language.md,
+          // „Type ramp“); 11px read as fine print under an 18px glyph.
+          'relative max-w-full truncate px-0.5 text-xs leading-none',
+          // 500 at rest and 600 when current, as the rail's rows.
+          tab.active ? 'font-semibold' : 'font-medium'
         )}
       >
         {label}

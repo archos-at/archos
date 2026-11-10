@@ -9,6 +9,15 @@ terms, what data may flow to it, and how a change is noticed.
 Adding a country's statute database or a Land's portal is a new record and its
 recorded fixtures. Code is written only for a new protocol or a new format.
 
+A record lives in one of two places. A **repository file** under
+`configs/sources/` (ADR-0162), or a **platform record** an operator's agent
+proposes through the platform door (ADR-0174): the same shape, its recorded
+responses inline, parsed with `parse_inline_source`, which refuses a repository
+record's id and file fixtures. The BFF keeps the database records, decides
+which may fetch (published, or a draft within its own request's 24 hours) and
+hands this package the configuration; the guard still holds the hosts and the
+public addresses.
+
 ## Where things are
 
 | Path | What |
@@ -16,8 +25,11 @@ recorded fixtures. Code is written only for a new protocol or a new format.
 | `configs/sources/<territory>/<name>/source.yml` | One record. `at/ris` (Austria, `rest` + `ris_xml`), `ch/fedlex` (Switzerland, `http_eli` + `akn`) |
 | `configs/sources/<territory>/<name>/fixtures/` | The recorded responses its fixtures replay |
 | `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused |
-| `src/access/` | `rest`, `http_eli`, `web_document`, and the template language (`base.py`) |
-| `src/engines/` | `ris_xml`, `akn`, `html_statute` |
+| `src/access/` | `rest`, `http_eli`, `web_document`, `ogc` (OGC API - Features, WFS 2.0), and the template language (`base.py`) |
+| `src/engines/` | `ris_xml`, `akn`, `html_statute`, `geojson` (a FeatureCollection, a passage per feature), `pdf_document` (a passage per page, `page_<n>`) |
+| `src/pdf.py` | A PDF's text for a capture and for `pdf_document`: ingestion's own text pass (`knowledge_layer.ingest.pdf_page_texts`), run in a child process (`src/pdf_reader.py`) with a deadline, a memory ceiling, a page and a text cap, a bare environment, and a problem code per refusal. One PDF pipeline, not a second reader |
+| `src/monitor.py` | One monitor check: the record's `monitor.probe` against what was seen last (`sha256`, `etag`, `version`) and the terms page's hash; no model call |
+| `src/capture.py` | One page for a citation capture (ADR-0170) |
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
 | `src/routing.py` | The transport a caller uses: through the fetcher when `PUBLIC_SOURCE_FETCHER_URL` is set, the guard in process when not |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
@@ -63,4 +75,10 @@ tests. That is the only code a new country can need.
 - **Nothing tenant-specific leaves.** The guard forwards only the headers in
   `egress.FORWARDED_HEADERS`; a `site_keyed` source needs a privacy review and a
   register row before it is published (design 6.4).
+- **A site point goes only to a site-keyed source.** `ogc` refuses a `bbox` on
+  a `public_only` source before the request is built.
+- **A key is never in a record.** A keyed source names the header
+  (`credential: {header, prefix}`); the BFF stores the key write-only and hands
+  it over per fetch, and the guard sets it after the strip, on the source's
+  hosts only. The fetcher never keeps it on a client another request reuses.
 - **Tests replay, never fetch.** No live call in a test.

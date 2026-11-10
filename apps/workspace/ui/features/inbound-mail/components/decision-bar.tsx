@@ -5,9 +5,12 @@
  * on the left, the one primary action on the right, and between them only
  * what the press still needs.
  *
- * The primary label is computed from the draft and says exactly what will
- * happen („2 Dateien und den E-Mail-Text ablegen“, „In E-Mail-Verlauf
- * „Stellplatznachweis“ ablegen (wird Fassung 4)“, „Nichts ablegen“). Above it:
+ * The primary is the verb, „Ablegen“; beside it a muted sentence computed from
+ * the draft says exactly what one press files („2 Dateien und den E-Mail-Text
+ * ablegen“, „In E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung
+ * 4)“), and is the press's accessible description. With nothing chosen the
+ * one press left is „Verwerfen“: the bar says it once, as the primary, not a
+ * ghost „Verwerfen“ beside a black „Nichts ablegen“ that did the same. Above it:
  * the sender confirmation where filing needs it („Domain nicht bestätigt.
  * Trotzdem ablegen“), what still blocks the press, and the one consequence a
  * person would not guess (without the text, the original is erased).
@@ -20,7 +23,7 @@
  * Busy is not disabled: a pressed button keeps its focus and its width.
  */
 
-import type { JSX } from 'react'
+import { useId, type JSX } from 'react'
 import { Info, ShieldAlert } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useTranslations } from '@/i18n'
@@ -45,6 +48,17 @@ export interface DecisionBarProps {
   onDismiss: () => void
   filing: boolean
   dismissing: boolean
+  /**
+   * A batch bar is up in the list (mails are picked): it holds its pane's one primary, so the reader's steps back to
+   * the raised press until the batch is cleared (one primary per area: a pane is an area, and a floating bar
+   * replaces its pane's primary while it is shown).
+   */
+  yieldPrimary?: boolean
+  /**
+   * The choice the sentence summarises is on screen (the message's E-Mail-Verlauf radios): the sentence would repeat
+   * it word for word 270px above, so it stays only as the press's accessible description until the choice scrolls away.
+   */
+  choiceInView?: boolean
   className?: string
 }
 
@@ -82,10 +96,15 @@ export function DecisionBar({
   onDismiss,
   filing,
   dismissing,
+  yieldPrimary = false,
+  choiceInView = false,
   className,
 }: DecisionBarProps): JSX.Element {
+  const summaryId = useId()
   const t = useTranslations(inboundMailCopy)
   const nothing = summary.files === 0 && !summary.text
+  // Nothing chosen: the one press left is „Verwerfen“, said once, as the primary (one primary action per surface).
+  const onlyDismiss = nothing && !impersonation
   const blockers = summary.blockers.filter((blocker) => blocker.kind !== 'sender')
   const blocked = !nothing && summary.blockers.length > 0
   const busy = filing || dismissing
@@ -120,32 +139,49 @@ export function DecisionBar({
       )}
       {/* DOM order is the phone's stacking order: „Verwerfen“ first, the primary last, nearest the thumb.
           For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
-      <div className={cn('flex flex-col gap-2 sm:flex-row sm:items-center', offersFiling ? 'sm:justify-between' : 'sm:justify-end')}>
-        <BusyButton
-          type="button"
-          variant={impersonation ? 'default' : 'ghost'}
-          busy={dismissing}
-          busyLabel={t('bar.dismissBusy')}
-          onClick={onDismiss}
-          blocked={filing}
-          className={cn('w-full sm:w-auto', impersonation && 'order-last')}
-          data-testid="decision-dismiss"
-        >
-          {t('bar.dismiss')}
-        </BusyButton>
+      {/* Paired at the end of the bar, „Verwerfen“ the tonal secondary beside the primary (D4), as in the selection bar:
+          a bare word beside the primary floated on the phone's full-width stack. */}
+      {/* What one press files, said once beside the presses: the primary itself is the verb („Ablegen“). The label that
+          said it all („In E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung 4)“) ran 380px wide and out-shouted
+          the mail; the sentence keeps it legible, and the press's description reads it to a screen reader. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        {offersFiling && !onlyDismiss && (
+          <p id={summaryId} className={cn('text-muted-foreground text-meta min-w-0 sm:mr-auto sm:truncate', choiceInView && 'hidden')} data-testid="decision-summary" title={primaryLabel(summary, t)}>
+            {primaryLabel(summary, t)}
+          </p>
+        )}
+        {/* While a batch bar is up its „Verwerfen“ is the one on screen: two raised „Verwerfen“ for two scopes, and a
+            reader foot of two identical white presses, was round 3. This mail is dismissed from the bar once ticked. */}
+        {!onlyDismiss && !(yieldPrimary && !impersonation) && (
+          <BusyButton
+            type="button"
+            size="sm"
+            variant={impersonation && !yieldPrimary ? 'default' : 'secondary'}
+            busy={dismissing}
+            busyLabel={t('bar.dismissBusy')}
+            onClick={onDismiss}
+            blocked={filing}
+            className={cn('w-full sm:w-auto', impersonation && 'order-last')}
+            data-testid="decision-dismiss"
+          >
+            {t('bar.dismiss')}
+          </BusyButton>
+        )}
         {offersFiling && (
           <BusyButton
             type="button"
-            variant={impersonation ? 'outline' : 'default'}
-            busy={filing}
-            busyLabel={t('bar.busy')}
+            size="sm"
+            variant={impersonation || yieldPrimary ? 'secondary' : 'default'}
+            busy={onlyDismiss ? dismissing : filing}
+            busyLabel={onlyDismiss ? t('bar.dismissBusy') : t('bar.busy')}
             onClick={nothing ? onDismiss : onFile}
-            blocked={dismissing}
+            blocked={onlyDismiss ? filing : dismissing}
             disabled={blocked}
-            className="w-full min-w-0 sm:w-auto sm:max-w-[min(32rem,100%)] [&_*]:truncate"
+            className="w-full min-w-0 shrink-0 sm:w-auto"
+            aria-describedby={onlyDismiss ? undefined : summaryId}
             data-testid="decision-file"
           >
-            {primaryLabel(summary, t)}
+            {onlyDismiss ? t('bar.dismiss') : t('bar.file')}
           </BusyButton>
         )}
       </div>

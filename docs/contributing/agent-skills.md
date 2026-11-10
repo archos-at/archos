@@ -166,7 +166,7 @@ repositories, use `bash archos/scripts/cloud-setup.sh --with-skills` (see
 | Piece | Runs | Does |
 |---|---|---|
 | [`scripts/cloud-setup.sh`](../../scripts/cloud-setup.sh) | once per environment snapshot, as root, before Claude starts | Installs go-task and `agent-browser` (one `npm i -g`, pinned), installs `uv` if missing, warms the `apm` CLI cache, reports `gh`. Needs no secrets |
-| `.claude/hooks/session-start.sh` | every `startup` and `resume` session (matcher `startup\|resume`, timeout 540 s), only when `CLAUDE_CODE_REMOTE=true` | Mirrors `task setup`: venv, the four bun installs, `apm install --frozen` (28 skills into `.claude/skills` and `.agents/skills`), and, if missing, the pinned `agent-browser`. Each step records a hash of its lockfile and skips itself when it and its output are unchanged, so a warm start takes about a second |
+| `.claude/hooks/session-start.sh` | every `startup` and `resume` session (matcher `startup\|resume`, timeout 540 s), only when `CLAUDE_CODE_REMOTE=true` | Mirrors `task setup`: venv, the git hooks (`pre-commit install`, when `.git/hooks/pre-commit` is not pre-commit's), the four bun installs, `apm install --frozen` (28 skills into `.claude/skills` and `.agents/skills`), and, if missing, the pinned `agent-browser`. Each step records a hash of its lockfile and skips itself when it and its output are unchanged, so a warm start takes about a second |
 
 The pins live in one place: `APM_VERSION` and `AGENT_BROWSER_VERSION` in
 `Taskfile.yml`, the go-task version in `.github/actions/setup-task`. Both

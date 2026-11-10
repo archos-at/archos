@@ -15,6 +15,7 @@ always accepted::
     {"field": {"$eq"|"$ne": v}}                   -> (not) equal
     {"field": {"$in"|"$nin": [v1, ...]}}          -> (not) in
     {"field": {"$gt"|"$gte"|"$lt"|"$lte": v}}     -> range (integer and datetime fields only)
+    {"field": {"$exists": true|false}}            -> the point carries the field, or lacks it (empty)
     {"$and": [node, ...]}  /  {"$or": [node, ...]} -> groups
 
 A read is over chunks unless it says otherwise. A folder card's point
@@ -55,6 +56,7 @@ from qdrant_client import models
 from agent.profile_names import legacy_profile_token
 
 from .payload import coerce_field
+from .schema import COUNTRY_FIELD
 from .schema import DATETIME_FIELDS
 from .schema import FOLDER_KIND
 from .schema import INDEXED_FIELDS
@@ -73,7 +75,7 @@ from .schema import TEXT_FIELDS
 PointKind = Literal["chunk", "folder", "any"]
 
 _RANGE_OPERATORS = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
-_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", *_RANGE_OPERATORS})
+_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", "$exists", *_RANGE_OPERATORS})
 
 
 def _range(field: str, op: str, value: Any) -> models.FieldCondition:
@@ -172,6 +174,11 @@ def _field_exact(field: str, condition: Any) -> models.Filter:
         return models.Filter(must=[_match_any(field, value)])
     if op in _RANGE_OPERATORS:
         return models.Filter(must=[_range(field, op, value)])
+    if op == "$exists":
+        if not isinstance(value, bool):
+            raise ValueError(f"Filter on {field!r}: $exists needs true or false, got {value!r}")
+        empty = models.IsEmptyCondition(is_empty=models.PayloadField(key=field))
+        return models.Filter(must_not=[empty]) if value else models.Filter(must=[empty])
     # $nin of nothing excludes nothing.
     return models.Filter(must_not=[_match_any(field, value)] if value else [])
 
@@ -229,12 +236,40 @@ def scope_filter(
     if kind not in ("chunk", "folder", "any"):
         raise ValueError(f"Unknown point kind {kind!r}")
     must: list[Any] = [scope_condition(scopes)]
+    country = corpus_country_condition(scopes)
+    if country is not None:
+        must.append(country)
     if filters:
         must.append(translate(filters))
     must.extend(extra)
     if kind == "folder":
         must.append(_is_folder())
     return models.Filter(must=must, must_not=[_is_folder()] if kind == "chunk" else None)
+
+
+def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
+    """The base corpus read only for the countries this request may see (ADR-0173); None when nothing says.
+
+    The one place every vector read passes (:func:`scope_filter`): a chat turn, a run, a door tool,
+    ``read_passage``, the estate's file reads. A point passes when it is in one of the read's tenant
+    scopes, or its ``country_id`` is one the request may read. A point without ``country_id`` passes
+    nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field is
+    marked Austrian by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``).
+    """
+    if all(is_tenant_scope(scope) for scope in scopes):
+        return None
+    from agent.common.knowledge_context import corpus_countries
+
+    countries = corpus_countries()
+    if countries is None:
+        return None
+    # An empty list matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
+    allowed = sorted(countries) or ["__none__"]
+    should: list[Any] = [models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))]
+    tenant = [scope for scope in scopes if is_tenant_scope(scope)]
+    if tenant:
+        should.append(scope_condition(tenant))
+    return models.Filter(should=should)
 
 
 def is_tenant_scope(scope: str) -> bool:

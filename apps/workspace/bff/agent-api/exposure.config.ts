@@ -59,6 +59,8 @@ import {
 import { MAIL_EXPOSURE } from './exposure-mail'
 import { BASE_KNOWLEDGE_EXPOSURE } from './exposure-base-knowledge'
 import { PLATFORM_EXPOSURE } from './exposure/platform'
+import { PLATFORM_KNOWLEDGE_EXPOSURE } from './exposure/platform-knowledge'
+import { PLATFORM_SKILL_EXPOSURE } from './exposure/platform-skills'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
@@ -144,13 +146,13 @@ export const EXPOSURE = {
   'project-person-update': OFFERED,
   'project-profile-get': OFFERED,
   'project-profile-patch': OFFERED,
+  'project-site-set': OFFERED,
   'project-profile-replace': OFFERED,
   'project-record-get': OFFERED,
   'project-reindex': OFFERED,
   'project-rename': OFFERED,
   'project-restore': OFFERED,
   'project-same-address-list': OFFERED,
-  'project-standards-get': OFFERED,
   'project-status-set': OFFERED,
   'project-summary-generate': OFFERED,
   'project-upload-screening-get': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
@@ -372,6 +374,7 @@ export const EXPOSURE = {
   'skill-update': OFFERED,
 
   // knowledge
+  'site-resolve': OFFERED,
   'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
   'knowledge-base-get': OFFERED,
   'norm-list': OFFERED,
@@ -445,6 +448,8 @@ export const EXPOSURE = {
 
   // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0160)
   ...PLATFORM_EXPOSURE,
+  ...PLATFORM_KNOWLEDGE_EXPOSURE,
+  ...PLATFORM_SKILL_EXPOSURE,
 
   // the agent’s read tools (`backend-operations.ts`)
   'knowledge-search': { external: true, agent: 'native:knowledge_search', reason: NATIVE_READ },

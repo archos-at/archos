@@ -59,7 +59,7 @@ export function AssignmentFaces({
   }))
   return (
     <span className={cn('flex min-w-0 items-center gap-1.5', className)} title={people.map((p) => p.name).join(', ')}>
-      <AvatarStack people={people} size="sm" max={3} />
+      <AvatarStack people={people} size="sm" max={3} tone="neutral" /* Dateien: a face is no verdict, so no hue */ />
     </span>
   )
 }

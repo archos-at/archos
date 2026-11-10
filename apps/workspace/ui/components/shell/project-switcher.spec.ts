@@ -6,7 +6,7 @@
  * and a closed one only while it is the one open.
  */
 import { describe, expect, it } from 'vitest'
-import { switchableProjects } from './project-switcher'
+import { switchableProjects } from './project-list'
 
 const projects = [
   { id: 'a', name: 'Seestadt', status: 'active' as const },

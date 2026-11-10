@@ -21,7 +21,7 @@ this design says so and builds the version that fits.
 | Replace the wizard | A second way into the same profile, offered at creation; the wizard stays the editor | The profile has one record and the wizard is its guided editor (`apps/workspace/AGENTS.md`). Two ways to fill one record keep a single truth; a replacement would throw away 2 300 lines of conditions and rationale this design reads from |
 | A new Determinanten-Register with rule, threshold, Ampel effect, where found, question | The intake definition **is** the register: its questions already carry conditions, rationale (`why`) and the profile key. This adds where a value is usually found (`foundIn`) and which derivation it feeds. The one derivation built is the Gebäudeklasse, as data with its Fundstelle | `compliance-derivation-graph.md` §2 counts five encodings of one rulebook already. A sixth table beside the wizard's would drift from it the first time someone edits a question |
 | „Nur fragen, was die Einstufung ändert" (C8 logic) | Computed, not listed: a gap is asked only when filling it with each band it could fall in gives different Gebäudeklassen | A hand-kept list of decisive questions is the C8 condition again, written once more. The computation is the rule itself |
-| Regelwerks-Ampel | Not built. The confirmed values feed the existing applicability panel (`applicable-standards.ts`), which says per Richtlinie required / likely / check; it now reads the keys the wizard and the intake write | No Ampel exists anywhere in the code. Inventing one is a product decision of its own; the panel is the shipped answer to "which rules apply" |
+| Regelwerks-Ampel | Since ADR-0175 the Steckbrief's „Was für dieses Projekt gilt“ shows the law the platform's records resolve at the site (`projectLawFor`, `bff/base-knowledge/context/project-law.ts`): each edition with its role, or why none is named. The OIB verdict list (`applicable-standards.ts`) is gone | No Ampel exists anywhere in the code. Inventing one is a product decision of its own; the panel is the shipped answer to "which rules apply" |
 | Geocoder for AT and DE, address autocomplete | Built for Austria only, behind one BFF route, with Photon (OSM) as the adapter; off unless `GEOCODER_URL` is set. The address is one text field either way: a chosen hit adds Gemeinde, Bundesland and position, a typed line is kept as the person's `site_address`, an unconfirmed assumption until someone confirms it (no register confirmed it). Its Postleitzahl and the place after it suggest the Bundesland, as an unconfirmed assumption with a `postal_code` derivation (`bff/project-profile/postal-place.ts`, a table from GeoNames' postal codes, https://www.geonames.org, CC BY 4.0, written by `scripts/generate_austrian_postal_codes.py`; no request leaves the cell). The code alone places nothing, because Swiss and Liechtenstein codes have four digits too, and a code serving two Länder answers only through a place in one. Beside the address the create form asks for the country first and then, in Austria, the Bundesland, both optional; a country other than Austria writes `federal_state=outside_austria`. Otherwise the Bundesland is the reading's to find or the review's to ask. `country=at` is written only for an Austrian site: never for `outside_austria`. (Until 2026-10 the field turned into a Bundesland select when no geocoder answered, which threw away what was typed in every deployment without one.) | Piloti supports Austria only. Buy, don't build. The provider is komoot's public Photon, no account and no workload of ours (ADR-0151, superseding the self-hosted Photon of ADR-0120); since ADR-0159 a deployment opts in by setting `GEOCODER_URL`, because every keystroke goes to it. A second country is a filter and a state mapping in the adapter |
 | A point on a map when there is no address (competitions) | The place or Gemeinde name through the same search | A map needs a map library and tiles; what the address decides (Land, Gemeinde) a place name decides too |
 | Projektbeteiligte with roles at creation | Not at creation. The Steckbrief already holds people (ADR-0091, ADR-0101) | People are kept apart from the profile and the prompt on purpose, and a step at creation breaks the one-minute target |
@@ -214,7 +214,11 @@ a pure function. The agent's `intake_needs` returns its result.
 `lib/project-intake/location-register.ts`, `locationRegisterFor(...)`, pure,
 carried on the view as `locationRegister` for step 4, Rückfragen. The ticket's
 „Der Standort bestimmt den Informationsbedarf" and its table „Standortinformationen
-aus den Unterlagen", as data (`LOCATION_REGISTER`): per determinant (Grundstück,
+aus den Unterlagen", as data: since ADR-0169 the `fact_sources` record of the
+country the site selects (`lib/project-intake/setup-scope.ts`; Austria's ships as
+`lib/base-knowledge/rulesets/seeds/at-setup-fact-sources.json`). A project nothing
+places is asked for its site and requested no document; a country without a
+record gets no request. Per determinant (Grundstück,
 Widmung und Bebauungsbestimmungen, Denkmal- und Ortsbildschutz, Naturgefahren
 und Altlasten, Lärm) the wizard keys it settles, when it applies (Vorhaben,
 Nutzungen, a Bestand; an unknown input counts as applying), the document to
@@ -232,7 +236,13 @@ and Standortdienste, as below.
 
 ## The Gebäudeklasse derivation
 
-`lib/project-intake/derivations.ts`. Nine inputs per Bauwerk: `building_type`
+`lib/project-intake/derivations.ts`, which since ADR-0169 runs the
+classification ruleset the project's site selects on the one evaluator
+(ADR-0166): Austria's is `lib/base-knowledge/rulesets/seeds/at-oib-2023-building-class.json`,
+read through Austria's `fact_definitions` record, and a country with no
+classification record derives no class. The band-enumerating code described
+below is kept as `derivations.oracle.ts`, the oracle the parity spec holds the
+ruleset to. Nine inputs per Bauwerk: `building_type`
 (only a Gebäude has a class), `building_position`, `access_three_sides` (asked
 by the wizard's question `C9_zugang`, added for this), `storeys_above_ground`,
 `escape_level_m`, `gfa_above_ground`, `use_units`, `units_over_400`

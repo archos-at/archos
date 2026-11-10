@@ -46,6 +46,12 @@ export interface MentionTextProps {
   mentions?: readonly DraftMention[]
   /** The reader, so a mention OF them can be emphasised. */
   currentUserId?: string | null
+  /**
+   * How a mention of the reader stands out. `warning` (the chat's): the ochre tint, „this concerns you“. `ink`: 600 on
+   * the desk grey, where ochre means something narrower than a mention (Offene Punkte: a point assigned to the reader
+   * or overdue, paper on a desk, principle 7), so a mention there wins by weight and not by a hue.
+   */
+  meTone?: 'warning' | 'ink'
   className?: string
 }
 
@@ -53,7 +59,7 @@ export interface MentionTextProps {
  * The pill's look, shared by the plain and the interactive variants so they cannot
  * drift into two different-looking mentions in one thread.
  */
-const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean): string =>
+const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean, meTone: 'warning' | 'ink' = 'warning'): string =>
   cn(
     // Padding kept to 3px and NO horizontal margin, because a mention sits inside
     // running prose: at `px-1 mx-px` the pill pushed the following character away
@@ -86,7 +92,9 @@ const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean): str
     // "Nicht in diesem Chat"), so this borrows an established meaning instead of
     // minting a louder one.
     isMe
-      ? 'bg-warning-subtle text-warning'
+      ? meTone === 'ink'
+        ? 'bg-desk text-foreground font-semibold'
+        : 'bg-warning-subtle text-warning'
       : isAgent
         ? 'bg-foreground/[0.08] text-foreground/85'
         : 'bg-muted text-foreground/80',
@@ -103,11 +111,13 @@ function MentionPill({
   text,
   label,
   isMe,
+  meTone,
 }: {
   targetId: string
   text: string
   label: string
   isMe: boolean
+  meTone?: 'warning' | 'ink'
 }): JSX.Element {
   const peek = useHoverPopover()
   const resolved = useMentionPerson(targetId)
@@ -121,7 +131,7 @@ function MentionPill({
         data-testid="mention-chip"
         data-mention-target={targetId}
         data-mention-me={isMe ? 'true' : 'false'}
-        className={pillClasses(isMe, isAgent, false)}
+        className={pillClasses(isMe, isAgent, false, meTone)}
         aria-label={label}
       >
         {text}
@@ -145,7 +155,7 @@ function MentionPill({
         whileTap={{ scale: 0.96 }}
         transition={springPress}
         {...peek.triggerProps}
-        className={pillClasses(isMe, resolved.isAgent, true)}
+        className={pillClasses(isMe, resolved.isAgent, true, meTone)}
         aria-label={label}
       >
         {text}
@@ -168,6 +178,7 @@ export function MentionText({
   content,
   mentions,
   currentUserId,
+  meTone,
   className,
 }: MentionTextProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
@@ -186,6 +197,7 @@ export function MentionText({
             targetId={segment.targetId}
             text={segment.text}
             isMe={isMe}
+            meTone={meTone}
             label={
               isMe
                 ? t('thread.mentionedYouAria')

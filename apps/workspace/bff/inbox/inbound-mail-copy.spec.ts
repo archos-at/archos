@@ -84,6 +84,12 @@ describe.each([
     expect(full.title).not.toBe(nearly.title)
   })
 
+  it('says no number and no name on a waiting row the reader can no longer reach', () => {
+    const { title } = inboxItemCopy(view('inbound_mail.waiting', null, { href: null, subject: null, count: 3 }), t, dictionary)
+    expect(title).not.toMatch(/\d|[{}]/)
+    expect(title).not.toContain('Wohnbau Hietzing')
+  })
+
   it('names a decided mail’s folder only when the row carries it', () => {
     const named = inboxItemCopy(view('inbound_mail.decided', null, { related: 'Behörde/Bescheide' }), t, dictionary)
     expect(named.title).toContain('Behörde/Bescheide')

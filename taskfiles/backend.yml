@@ -69,7 +69,7 @@ tasks:
       # test is here because it reads the first-impression docs, and a docs-only
       # change runs no filtered tier. The layout test is here because a new
       # top-level directory can come from any tier's change.
-      # On workers: 53s serial against 34s on four (2026-11-10), and in a UI
+      # On workers: 16s serial against 9s on four (2026-11-10), and in a UI
       # change's verify:fast this run is what the others wait for.
       - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.XDIST}} {{.HARNESS_TESTS}}'
 
@@ -195,6 +195,15 @@ tasks:
       # `-- --qdrant-url URL` points at another server (default $QDRANT_TEST_URL
       # or localhost:6333). Only uniquely named parity_* collections are touched.
       - '{{.PY}} -m oib_retrieval.qdrant_parity.runner {{.CLI_ARGS}}'
+
+  be:eval:licensed:
+    desc: 'Licensed-seam eval — answers from norm-like licensed tables, public / seam / off / unattested, with leak checks (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # The question the seam has to answer twice: do answers still read the
+      # office's licensed copy well, and does none of it reach a trace or a
+      # checkpoint. Exit 1 = a run other than public leaked past the quote cap;
+      # exit 3 = a run errored (a failed model call), so no broken run reads as clean.
+      - '{{.PY}} scripts/licensed_eval.py {{.CLI_ARGS}}'
 
   be:eval:decisions:
     desc: 'Decision-model eval — does Jev pick the right OIB family, corpus and evidence need on the loop-eval questions (NEEDS OPENROUTER_API_KEY; no backend)'

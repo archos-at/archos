@@ -1588,6 +1588,36 @@ describe("the backend's own persist path speaks a different dialect", () => {
    * the browser's stored contract. What this pins is that the service translates
    * — the module's own rules are in `agent-answer-metadata.spec.ts`.
    */
+  it('marks an answer that read licensed text, also when the asking tab stored the row first (E44)', async () => {
+    stubConversation()
+    const answer = (id: string) => ({
+      id,
+      role: 'assistant' as const,
+      content: 'Laut Büroexemplar 110 cm.',
+      messageType: 'agent_response',
+      metadata: { sources: [], licensed_text: true },
+    })
+
+    // The server's row wins the insert: the mark is in it, under the stored key.
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_server_first')])
+    expect(vi.mocked(insertMessages).mock.calls[0][0][0].metadata).toMatchObject({ licensedText: true })
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+
+    // The tab stored the answer first, so the insert no-ops: the mark is merged into the tab's row.
+    vi.mocked(insertMessages).mockResolvedValueOnce([])
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [answer('msg_tab_first')])
+    expect(mergeMessageMetadata).toHaveBeenCalledWith(CONVERSATION_ID, 'msg_tab_first', { licensedText: true })
+  })
+
+  it('merges nothing into a row the tab stored first when the turn read no licensed text', async () => {
+    stubConversation()
+    vi.mocked(insertMessages).mockResolvedValueOnce([])
+    await persistInternalConversationMessages('org_1', CONVERSATION_ID, [
+      { id: 'msg_plain', role: 'assistant', content: 'Laut OIB-RL 4 100 cm.', metadata: { sources: [] } },
+    ])
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+  })
+
   it('stores the backend answer metadata as citations + provenance', async () => {
     stubConversation()
 

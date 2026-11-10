@@ -321,3 +321,34 @@ def test_base_knowledge_labels_are_read_as_records_and_bounded(request_context, 
     blocks = client.fetch_turn_context(request_context)
     assert len(blocks.base_knowledge_labels) == client.BASE_KNOWLEDGE_MAX_LABELS
     assert blocks.base_knowledge_labels[0] == labels[0]
+
+
+def test_the_building_law_is_read_and_an_older_bff_reads_as_none(request_context, opener):
+    """ADR-0168: the chain text and each edition's role, from the platform's records."""
+    assert client.fetch_turn_context(request_context).building_law is None
+    building_law = {
+        "text": "Building law at this site, Wien (AT-9, AT, EU) …",
+        "chain": ["AT-9", "AT", "EU"],
+        "date": "2026-11-10",
+        "uses": [
+            {
+                "workId": "work:oib-rl-2",
+                "editionId": "edition:oib-rl-2-2023",
+                "role": "binding",
+                "qualifier": None,
+                "via": "relation",
+                "corpusFiles": ["oib-rl_2_ausgabe_mai_2023.pdf"],
+                "designation": "OIB-Richtlinie 2",
+                "editionLabel": "Ausgabe Mai 2023",
+            }
+        ],
+    }
+    opener.open.return_value.read.return_value = json.dumps(
+        {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None, "buildingLaw": building_law}}
+    ).encode("utf-8")
+    law = client.fetch_turn_context(request_context).building_law
+    assert law is not None
+    assert law.chain == ("AT-9", "AT", "EU")
+    assert [(use.edition_id, use.role, use.via) for use in law.uses] == [
+        ("edition:oib-rl-2-2023", "binding", "relation")
+    ]

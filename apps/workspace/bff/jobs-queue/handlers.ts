@@ -78,6 +78,12 @@ import {
   type JobRequester,
   type JobSliceResult,
 } from './types'
+import {
+  platformTextDeindexPayloadSchema,
+  platformTextIndexPayloadSchema,
+  runPlatformTextDeindex,
+  runPlatformTextIndex,
+} from '@/lib/base-knowledge/platform/indexing'
 
 /**
  * One bounded step of a job: the state it was saved with in, the state to save out.
@@ -231,4 +237,7 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   // mail's frozen verdict (`sender-file-job.ts`): a sender who left files nothing.
   inbound_mail_sender_file: systemSliceHandler(inboundMailSenderFilePayloadSchema, runInboundMailSenderFile),
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
+  platform_text_index: systemHandler(platformTextIndexPayloadSchema, runPlatformTextIndex),
+  // A rolled-back text's chunks, marked so no office reads them (ADR-0173).
+  platform_text_deindex: systemHandler(platformTextDeindexPayloadSchema, runPlatformTextDeindex),
 }
