@@ -29,9 +29,10 @@ import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
 import type { JSX, ReactNode } from 'react'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { notFound, useSearchParams } from 'next/navigation'
-import { ItemList } from '@/components/ui/item'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
-import { FolderCard, FolderRow } from '@/features/documents/components/folder-navigation'
+import { FolderCard } from '@/features/documents/components/folder-navigation'
+import { FolderRow } from '@/features/documents/components/folder-table-row'
+import { FileListView } from '@/features/documents/components/file-list-view'
 import {
   buildFolderBrief,
   buildFolderBriefFromSummary,
@@ -205,11 +206,14 @@ function FolderTiles(): JSX.Element {
           <FolderCard key={folder.id} {...tileProps(folder)} />
         ))}
       </div>
-      <ItemList className="bg-muted/40">
-        {ROOT_FOLDERS.map((folder) => (
+      <FileListView
+        files={[]}
+        selectedFileId={null}
+        onSelectFile={noop}
+        folderRows={ROOT_FOLDERS.map((folder) => (
           <FolderRow key={folder.id} {...tileProps(folder)} />
         ))}
-      </ItemList>
+      />
     </div>
   )
 }

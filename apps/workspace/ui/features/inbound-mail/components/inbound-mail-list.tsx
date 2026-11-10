@@ -92,8 +92,7 @@ export interface InboundMailListProps {
   notice: ReactNode
 }
 
-/** A thread group's press: quiet text at the line's end, a finger's 44px under touch. */
-/** A row-end press of a heading or a thread line: tonal, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
+/** A row-end press of a heading or a thread line: the raised press, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
 const GROUP_ACTION = 'shrink-0 gap-1.5'
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
@@ -107,7 +106,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           type="single"
           segmented
           // The track on the list's edge. 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
-          className="[&>button]:text-sm"
+          // A track is one step below the plane it lies on: on the split's desk that is the selected grey, or it vanished.
+          className="@3xl:bg-selected [&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -133,9 +133,9 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ListBody {...props} />
       </div>
-      {/* A band of the one grey under the list while mails are picked, as Dateien's: a mode, set apart by its tone. */}
+      {/* While mails are picked, a white bar floats 16px off the list's foot: elevation 2, the overlay radius (paper on a desk). */}
       {props.selectionBar && (
-        <div data-surface="sunken" className="bg-muted px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:-mx-4 md:px-8" /* the column's full width, its content on the list's edge */>{props.selectionBar}</div>
+        <div className="mx-3 mb-[max(1rem,env(safe-area-inset-bottom))] rounded-overlay bg-sheet p-3 shadow-md md:mx-0">{props.selectionBar}</div>
       )}
     </div>
   )
@@ -212,8 +212,9 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="mx-auto box-content flex max-w-lg flex-col gap-6 p-4 sm:p-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel, inside the padding */>
-          {/* One column, one edge: the words stand left on the panel's inner edge, 24px above it, not centred over a left-aligned sheet. */}
+        <div className="box-content flex max-w-lg flex-col gap-6 px-4 pb-4 pt-2 sm:pb-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel */>
+          {/* One column, one edge: the glyph, the words and the sheet stand on the column's left edge, where the title
+              and the tabs stand. Centred in the pane at 464px it was an edge of its own (round 3). */}
           <EmptyState
             variant="bare"
             className="items-start py-0 text-left phone:px-0 [&>p]:max-w-none"
@@ -266,8 +267,14 @@ function ListBody({
   return (
     <div className="flex flex-col">
       {sections.map((section, index) => {
-        // Rows sit apart by a gap and answer with a fill, not a rule under each.
-        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col px-1 py-0.5">{row(section.mail)}</ul>
+        // A run of mails outside any group is one list, so the hairline between two of them is drawn as in a thread:
+        // the run is rendered at its first mail and skipped after it.
+        if (section.kind === 'mail') {
+          if (sections[index - 1]?.kind === 'mail') return null
+          const run = sections.slice(index).findIndex((next) => next.kind !== 'mail')
+          const mails = sections.slice(index, run < 0 ? undefined : index + run).flatMap((next) => (next.kind === 'mail' ? [next.mail] : []))
+          return <ul key={section.mail.id} className="flex flex-col px-1 py-0.5">{mails.map((mail) => row(mail))}</ul>
+        }
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
@@ -290,7 +297,7 @@ function ListBody({
                 {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
                 {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}
-                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 text-[13px]">
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 !text-[length:var(--text-section)] !leading-6 !font-semibold">
                   {t(`readiness.${section.readiness}`)}
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
@@ -314,9 +321,9 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              {/* A line as tall as its tonal press (32px, 44px under touch), so the press's fill never reaches the first row;
-                  4px less above it keeps the label where the 24px line with an overhanging word press had it. */}
-              <div className="box-content flex h-8 items-center justify-between gap-2 px-4 pt-1 pointer-coarse:h-11 [[data-readiness]+section>&]:pt-0" /* fixed: one height with its press or without, so ticking a box moves nothing */>
+              {/* A 40px line (44px under touch) with the 32px press centred in it, and 8px under it before the first row:
+                  round 2 and 3 drew the line as tall as the press, and the press sat on the open row's sheet edge. */}
+              <div className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11" /* fixed: one height with its press or without, so ticking a box moves nothing */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}

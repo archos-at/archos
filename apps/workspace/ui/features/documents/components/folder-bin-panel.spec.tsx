@@ -41,9 +41,11 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
-    expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
-    expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/kept until/)).toBeDefined()
+    // At desk width one meta line says it all; a phone says it in two lines that break only between clauses.
+    const desk = screen.getByTestId('bin-meta-f-vertraege')
+    expect(desk).toHaveTextContent(/14 documents · 2 folders · deleted by Gerda Fischer on .* · kept until/)
+    const phone = screen.getAllByTestId('bin-meta-phone-f-vertraege').map((line) => line.textContent?.replace(/\s+/g, ' '))
+    expect(phone).toEqual(['14 documents · 2 folders', expect.stringMatching(/^kept until .* · Gerda Fischer$/)])
   })
 
   test('says the bin is empty', () => {
@@ -127,7 +129,8 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       vi.fn().mockResolvedValue(answer(409, { error: 'held', details: { reason: 'legal_hold' } }))
     )
     render(<FolderBinPanel projectId="p1" initial={listing([entry()], { canPurge: true })} />)
-    await userEvent.click(screen.getByTestId('bin-purge-f-vertraege'))
+    await userEvent.click(screen.getByTestId('bin-actions-f-vertraege'))
+    await userEvent.click(await screen.findByTestId('bin-purge-f-vertraege'))
     await userEvent.click(await screen.findByTestId('bin-purge-confirm'))
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('This folder is under a retention obligation and cannot be deleted right now.')

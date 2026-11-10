@@ -14,7 +14,8 @@ export function UploadFab({ inSheet, children }: { inSheet: boolean; children: R
   return (
     <div
       className={cn(
-        'pointer-events-none absolute right-4 z-20 [&_button]:pointer-events-auto [&_button]:h-12 [&_button]:rounded-overlay [&_button]:px-5 [&_button]:shadow-lg',
+        // A 56px round glyph at elevation 2 (a floating bar's; 3 is a dialog's): the worded 48px bar covered a thumbnail.
+        'pointer-events-none absolute right-4 z-20 [&_button]:pointer-events-auto [&_button]:size-14 [&_button]:rounded-full [&_button]:px-0 [&_button]:shadow-md [&_button_svg]:size-5',
         inSheet ? 'bottom-[max(1rem,env(safe-area-inset-bottom))]' : 'bottom-4'
       )}
       data-testid="files-upload-fab"

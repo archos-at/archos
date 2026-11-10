@@ -205,10 +205,11 @@ export function ReaderHeader({
       className="bg-card flex shrink-0 items-center gap-2 pt-[max(0.375rem,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pb-1.5 pl-[max(1rem,env(safe-area-inset-left))]"
     >
       <div className="min-w-0 flex-1 py-1">
-        <h3 className="text-foreground flex text-sm font-medium leading-tight" title={title}>
+        {/* The section step (16/24/600), as the dialog's own title: one title for one file, at every width. */}
+        <h3 className="text-foreground flex text-section" title={title}>
           <MiddleTruncate text={name} />
         </h3>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
           {facts && (
             <span
               className="text-muted-foreground min-w-0 shrink truncate text-xs tabular-nums"

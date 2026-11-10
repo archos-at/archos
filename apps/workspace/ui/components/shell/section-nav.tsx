@@ -68,6 +68,11 @@ export interface SectionNavProps {
    * the same grey read as one more press, and the presses as a second group of tabs (2026-11-10 review).
    */
   track?: boolean
+  /**
+   * On a phone an unchosen tab of the track is its glyph alone (its name stays its accessible name), and the open
+   * one names the place: four German labels ran 470px wide on a 358px line and the last was cut („Of“).
+   */
+  compactOnPhone?: boolean
   'data-testid'?: string
 }
 
@@ -91,6 +96,7 @@ export function SectionNav({
   railTopClassName = 'lg:top-24',
   pathname: pathnameOverride,
   track = false,
+  compactOnPhone = false,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
   const currentPathname = usePathname()
@@ -106,6 +112,7 @@ export function SectionNav({
         isActive={(href) => isSectionActive(pathname, href, rootHref)}
         className={cn(orientation === 'rail' && 'lg:hidden')}
         track={track}
+        compactOnPhone={compactOnPhone}
       />
 
       {/* Desktop: a sticky rail beside the content. */}
@@ -142,6 +149,7 @@ export function SectionStrip({
   isActive,
   className,
   track = false,
+  compactOnPhone = false,
 }: {
   label: string
   items: readonly SectionNavItem[]
@@ -150,6 +158,8 @@ export function SectionStrip({
   className?: string
   /** See {@link SectionNavProps.track}. */
   track?: boolean
+  /** See {@link SectionNavProps.compactOnPhone}. */
+  compactOnPhone?: boolean
 }): JSX.Element {
   const pathname = usePathname()
   const stripRef = useRef<HTMLDivElement>(null)
@@ -174,7 +184,7 @@ export function SectionStrip({
     <div ref={stripRef} className={className}>
       {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
       <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-muted p-0.5' : 'gap-1 pb-2')}>
+        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-desk p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink
@@ -182,6 +192,7 @@ export function SectionStrip({
                 active={isActive(item.href)}
                 pillId={pillId}
                 variant={track ? 'track' : 'strip'}
+                compactOnPhone={compactOnPhone}
               />
             </li>
           ))}
@@ -196,10 +207,12 @@ function SectionNavLink({
   active,
   pillId,
   variant,
+  compactOnPhone = false,
 }: {
   item: SectionNavItem
   active: boolean
   pillId: string
+  compactOnPhone?: boolean
   /** `track`: a strip entry on the grey track, 28px so the track is the row's 32px; the open one a white thumb. */
   variant: 'strip' | 'track' | 'rail'
 }): JSX.Element {
@@ -234,12 +247,12 @@ function SectionNavLink({
           layoutId={pillId}
           aria-hidden
           data-slot="section-nav-pill"
-          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-card shadow-xs' : 'bg-secondary')}
+          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-sheet shadow-xs' : 'bg-selected')}
           transition={springGlide}
         />
       )}
       <Icon className="size-4 shrink-0" aria-hidden />
-      {item.label}
+      <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}
       {item.count === null && (

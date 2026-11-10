@@ -8,13 +8,15 @@
  * `/dev/file-browser` the browser's states; this one is the composition a
  * person sees, at desk and phone width, for the reviews that score the page
  * as a whole. The fixtures are `/dev/file-browser`'s (`../file-browser/fixtures`).
+ * `?rail=1` stands the app rail (and, on a phone, its top band and tab bar)
+ * round the page, as the shell does: the rail and Dateien are judged together.
  * Not linked from anywhere; 404s outside development.
  */
 
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { CheckSquare, FolderPlus } from 'lucide-react'
-import { notFound } from 'next/navigation'
+import { notFound, useSearchParams } from 'next/navigation'
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents/components/document-actions'
 import { FileBrowserPane } from '@/features/documents/components/file-browser-pane'
@@ -32,9 +34,10 @@ import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-
 import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { I18nProvider } from '@/i18n'
+import { DevRailShell } from '../_fixtures/rail-shell'
 import { FILES, FOLDERS, useFixtureFolderNav } from '../file-browser/fixtures'
 
-function FilesPage(): JSX.Element {
+function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const phone = usePhoneLayout()
   const [view, setView] = useState<FileView>('cards')
   const [filters, setFilters] = useState<FileFilters>(NO_FILE_FILTERS)
@@ -49,7 +52,7 @@ function FilesPage(): JSX.Element {
   // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
-    <div className="relative h-dvh">
+    <div className={inShell ? 'relative h-full' : 'relative h-dvh'}>
       <ProjectSectionFrame projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files" inboundMail>
         <ProjectSectionActions>
           <FilesHeaderControls
@@ -109,7 +112,7 @@ function FilesPage(): JSX.Element {
       {/* The phone's Hochladen, floating at the foot as the workspace draws it (`uploadFab`). */}
       {phone && (
         <UploadFab inSheet={false}>
-          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />
+          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders glyphOnly onSendByMail={() => {}} />
         </UploadFab>
       )}
     </div>
@@ -121,7 +124,17 @@ export default function FilesPageDevPage(): JSX.Element {
   // German, pinned: the copy a person reads, and the widest.
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <FilesPage />
+      <FilesPageInShell />
     </I18nProvider>
+  )
+}
+
+function FilesPageInShell(): JSX.Element {
+  const inShell = useSearchParams()?.get('rail') === '1'
+  if (!inShell) return <FilesPage />
+  return (
+    <DevRailShell projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files">
+      <FilesPage inShell />
+    </DevRailShell>
   )
 }

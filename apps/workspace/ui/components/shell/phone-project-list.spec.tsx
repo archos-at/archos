@@ -1,11 +1,11 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { act, render, screen, within } from '@/test-utils'
+import { render, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { ProjectSwitcherSheet, switcherSheetSections } from './project-switcher-sheet'
+import { PhoneProjectList } from './phone-project-list'
+import { switcherSections as switcherSheetSections } from './project-list'
 import { RECENT_PROJECTS_STORAGE_KEY, withRecentProject } from './recent-projects'
-import { useShellOverlays } from './shell-overlays'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -84,65 +84,63 @@ describe('withRecentProject', () => {
   })
 })
 
-describe('ProjectSwitcherSheet', () => {
+describe('PhoneProjectList', () => {
+  const onDone = vi.fn()
   beforeEach(() => {
     window.localStorage.setItem(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(['b', 'a']))
   })
   afterEach(() => {
     window.localStorage.removeItem(RECENT_PROJECTS_STORAGE_KEY)
-    useShellOverlays.setState({ projectSheetOpen: false })
+    onDone.mockClear()
     push.mockClear()
   })
 
-  const open = async (): Promise<HTMLElement> => {
-    render(<ProjectSwitcherSheet projects={PROJECTS} activeProjectId="a" />)
-    act(() => useShellOverlays.getState().setProjectSheetOpen(true))
-    return screen.findByRole('dialog', { name: 'Switch project' })
+  const open = (): HTMLElement => {
+    const { container } = render(<PhoneProjectList projects={PROJECTS} activeProjectId="a" onDone={onDone} />)
+    return container.querySelector<HTMLElement>('[data-slot="phone-project-list"]')!
   }
 
-  test('opens from the shell store with the recents on top and 56px rows', async () => {
-    const sheet = await open()
-    const recent = within(sheet).getByRole('region', { name: 'Recently opened' })
+  test('lists the recents on top, by name alone, in 56px rows', () => {
+    const list = open()
+    const recent = within(list).getByRole('region', { name: 'Recently opened' })
     const rows = within(recent).getAllByRole('button')
+    // A row is the project's name alone: initials beside a name say nothing
+    // the name does not (they stand only in the icon rail, where no name fits).
     expect(rows.map((row) => row.textContent)).toEqual(['Bürohaus Lände', 'Amtshaus Favoriten'])
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     for (const row of rows) expect(row.className).toContain('min-h-14')
-    expect(within(sheet).getByRole('link', { name: 'View all projects' })).toHaveAttribute(
-      'href',
-      '/app/projects'
-    )
+    expect(within(list).getByRole('link', { name: 'View all projects' })).toHaveAttribute('href', '/app/projects')
   })
 
-  test('does not raise the keyboard on open: the field waits for a tap', async () => {
-    const sheet = await open()
-    expect(within(sheet).getByRole('searchbox', { name: 'Search projects' })).not.toHaveFocus()
+  test('does not raise the keyboard: the field waits for a tap', () => {
+    const list = open()
+    expect(within(list).getByRole('searchbox', { name: 'Search projects' })).not.toHaveFocus()
   })
 
-  test('choosing a project goes to its chat and closes the sheet', async () => {
+  test('choosing a project goes to its chat and closes the sheet that holds the list', async () => {
     const user = userEvent.setup()
-    const sheet = await open()
-    await user.click(within(sheet).getByRole('button', { name: 'Bürohaus Lände' }))
+    const list = open()
+    await user.click(within(list).getByRole('button', { name: 'Bürohaus Lände' }))
     expect(push).toHaveBeenCalledWith('/app/projects/b/chat')
-    expect(useShellOverlays.getState().projectSheetOpen).toBe(false)
+    expect(onDone).toHaveBeenCalledTimes(1)
   })
 
   test('choosing the project already open only closes the sheet', async () => {
     const user = userEvent.setup()
-    const sheet = await open()
-    await user.click(within(sheet).getByRole('button', { name: 'Amtshaus Favoriten' }))
+    const list = open()
+    await user.click(within(list).getByRole('button', { name: 'Amtshaus Favoriten' }))
     expect(push).not.toHaveBeenCalled()
+    expect(onDone).toHaveBeenCalledTimes(1)
   })
 
   test('typing narrows to matches, and says so when nothing matches', async () => {
     const user = userEvent.setup()
-    const sheet = await open()
-    const field = within(sheet).getByRole('searchbox', { name: 'Search projects' })
+    const list = open()
+    const field = within(list).getByRole('searchbox', { name: 'Search projects' })
     await user.type(field, 'seestadt')
-    expect(
-      within(within(sheet).getByRole('list', { name: 'Matching projects' })).getAllByRole('button')
-    ).toHaveLength(1)
+    expect(within(within(list).getByRole('list', { name: 'Matching projects' })).getAllByRole('button')).toHaveLength(1)
     await user.clear(field)
     await user.type(field, 'zzz')
-    expect(within(sheet).getByText('No running project has that name.')).toBeInTheDocument()
+    expect(within(list).getByText('No running project has that name.')).toBeInTheDocument()
   })
 })

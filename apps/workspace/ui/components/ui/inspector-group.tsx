@@ -59,11 +59,11 @@ export function InspectorGroup({
   return (
     <div
       data-slot="inspector-group"
-      data-surface="sunken"
+      data-surface="sheet"
       className={cn(
-        // The one grey on the rail's white, as an iOS inset group: the tone says where it ends, no border
-        // and no shadow. The first row's hairline would draw an edge at its top, so it is never drawn.
-        'bg-muted overflow-hidden rounded-surface',
+        // A white sheet on the rail's desk, with its edge and elevation 1 (paper on a desk), as an iOS inset group
+        // on its grey. The first row's hairline would draw an edge at its top, so it is never drawn.
+        'bg-sheet shadow-sm overflow-hidden rounded-surface',
         '[&>:first-child>[data-slot=inspector-row-body]]:border-t-0',
         className
       )}
@@ -98,7 +98,7 @@ export function InspectorRow({
       </span>
       <div
         data-slot="inspector-row-body"
-        className="border-border/60 flex min-w-0 flex-1 items-start justify-between gap-3 border-t py-2.5 pr-3"
+        className="border-hairline flex min-w-0 flex-1 items-start justify-between gap-3 border-t py-2.5 pr-3"
       >
         {/* The LABEL never truncates: it is the key, and „Proj…" tells the
             reader nothing. A long value wraps in its own column instead. */}

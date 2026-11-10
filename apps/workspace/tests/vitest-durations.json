@@ -258,7 +258,7 @@
  "ui/components/shell/phone-tab-bar.spec.tsx": 650,
  "ui/components/shell/phone-tabs.spec.ts": 20,
  "ui/components/shell/project-section-frame.spec.tsx": 190,
- "ui/components/shell/project-switcher-sheet.spec.tsx": 510,
+ "ui/components/shell/phone-project-list.spec.tsx": 510,
  "ui/components/shell/project-switcher.spec.ts": 10,
  "ui/components/shell/shortcuts.spec.ts": 30,
  "ui/components/shell/use-keyboard-up.spec.ts": 20,

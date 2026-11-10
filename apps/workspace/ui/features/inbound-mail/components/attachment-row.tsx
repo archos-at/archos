@@ -48,6 +48,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
 import { targetForPath, type AttachmentDraft, type FolderOption, type FolderTarget } from '../lib/draft'
 import { folderLeaf, readSuggestion } from '../lib/suggestion'
@@ -231,7 +232,7 @@ export function AttachmentRow({
   return (
     <Item
       as="li"
-      className="items-start px-4"
+      className={cn('items-start px-4 [--row-end:16px] [--row-text:96px]', ROW_HAIRLINE)}
       data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}

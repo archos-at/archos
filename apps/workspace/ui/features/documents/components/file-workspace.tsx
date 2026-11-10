@@ -53,7 +53,7 @@ import { useSettleTrackedUploads } from '../hooks/use-settle-tracked-uploads'
 import { useShelfLive, type ShelfChange } from '../hooks/use-shelf-live'
 import { useShelfSummary } from '../hooks/use-shelf-summary'
 import { useShelfUpload } from '../hooks/use-shelf-upload'
-import { useViewPreference } from '../hooks/use-view-preference'
+import { fileViewFor, useViewPreference } from '../hooks/use-view-preference'
 import { useBriefCollapsed } from '../hooks/use-brief-collapsed'
 import { useBulkReingest } from '../hooks/use-bulk-reingest'
 import { useCompareParam } from '../hooks/use-compare-param'
@@ -195,7 +195,7 @@ export function FileWorkspace({
   const { canManage, canCollaborate } = shelf
   const searchParams = useSearchParams()
 
-  const [view, selectView] = useViewPreference()
+  const [chosenView, selectView] = useViewPreference()
   const [selectedFolderId, selectFolder] = useFolderParam()
   const [filters, setFilters] = useState<FileFilters>(NO_FILE_FILTERS)
   /**
@@ -204,8 +204,7 @@ export function FileWorkspace({
    * to this same state.
    */
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
-  // The query lives here rather than in the browser pane: the field sits in the
-  // header beside the view toggles while the results are rendered below.
+  // The query lives here, not in the pane: the field sits in the header, the results below.
   const search = useFileSearch(shelf.endpoints)
   // The name search is asked of the server once the reader stops typing; the
   // pane narrows what it holds at every keystroke meanwhile.
@@ -674,6 +673,7 @@ export function FileWorkspace({
         : listedFiles.filter((file) => (file.folderId ?? null) === selectedFolderId),
     [listedFiles, selectedFolderId, tree.error]
   )
+  const view = fileViewFor(chosenView, levelFiles.length) // the reader's choice, else the list above fifty documents
   const tagOptions = useMemo(
     () => tagOptionsOf(paneFiles, locale, (tag) => tagLabel(tag, t)),
     [paneFiles, locale, t]
@@ -879,7 +879,7 @@ export function FileWorkspace({
    */
   const inSheet = shelf.source === 'office'
   const uploadFab =
-    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef }) : undefined
+    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef, glyphOnly: true }) : undefined
 
   /*
    * One menu per card and row, built lazily (`DocumentObjectMenu`) and handed

@@ -2,12 +2,12 @@
 
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
-import { Camera, ChevronDown, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
+import { Camera, ChevronDown, CircleAlert, CircleDashed, Clock, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Chip, ChipCount, ChipLabel } from '@/components/ui/chip'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { SegmentMeter, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
+import { SegmentMeter, TONE_INK, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
@@ -139,10 +139,8 @@ export function FolderBrief({
   const { tally } = brief
   const phone = usePhoneLayout()
   if (tally.total === 0) return null
-  // Nothing to act on, and a phone has no room for a line that only reassures:
-  // when every document is read the disclosure is gone. One unread, failed,
-  // held or unplaced document, or a missing one at the root, brings it back,
-  // folded to its one line.
+  // Nothing to act on, and a phone has no room for a line that only reassures: when every document is read the
+  // disclosure is gone. One unread, failed, held, unplaced or missing document brings it back, folded to one line.
   if (phone && briefHasNothingToSay(tally, folderName === null ? missing : null)) return null
 
   const scope = folderName
@@ -151,10 +149,8 @@ export function FolderBrief({
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 
-  // ONE ELEMENT THAT OPENS IN PLACE: folded, one quiet line above the listing; the line IS the card's header in
-  // both states, so it never moves, the fill fades in around it and the details open below. The `-mx-3` holds in
-  // both states, so the text stays on the listing's edge. On a phone the open card is a band across the screen
-  // (`-mx-4`, square, 16px inside): 12px of bleed into a 16px gutter left it 4px from the glass.
+  // ONE ELEMENT THAT OPENS IN PLACE: folded, one quiet line on the listing's edge; open, a sheet on the column's edge
+  // with its content 16px in, on a phone too (a 12px bleed left the sheet's edge at 220 under a 232 title).
   const open = !collapsed
   const allRead = everythingRead(tally)
   const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
@@ -162,7 +158,7 @@ export function FolderBrief({
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 border-0 bg-muted py-0 shadow-none phone:-mx-4 phone:rounded-none transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        'gap-0 border-0 bg-sheet py-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
         collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
@@ -178,8 +174,8 @@ export function FolderBrief({
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
-                open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent'
+                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */
               )}
               data-testid="folder-brief-toggle"
             >
@@ -200,17 +196,14 @@ export function FolderBrief({
         <CollapsibleContent id="folder-brief-body">
           {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
           {(!allRead || hasUnindexedAside(tally)) && (
-            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5 phone:px-4" data-testid="folder-brief-meter">
+            <div className="flex flex-col gap-2.5 px-4 pb-3 pt-0.5" data-testid="folder-brief-meter">
               {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
               <ReadStateLegend tally={tally} onSelect={onSelect} />
             </div>
           )}
 
-          {/* Ordered by what the reader has to do: what needs them first, open;
-              then what Piloti is missing, what the folder is about and where the
-              trouble sits, each folded to one line that already names its content.
-              Open in full, the brief was taller than a laptop screen and the
-              listing it introduces started below the fold. */}
+          {/* Ordered by what the reader has to do: what needs them first, open; then what is missing, what the folder
+              is about and where the trouble sits, each folded to one line (open in full it was taller than a laptop). */}
           <div className="flex flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
@@ -452,7 +445,7 @@ function BriefDisclosure({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
+              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
               <span className="text-muted-foreground min-w-28 shrink-0 text-xs" /* one column: summaries on one edge; muted, its value ink */>{title}</span>
@@ -465,7 +458,7 @@ function BriefDisclosure({
             </button>
           </CollapsibleTrigger>
         </h3>
-        <CollapsibleContent className="flex flex-col gap-2.5 px-3 pb-3 phone:px-4">{children}</CollapsibleContent>
+        <CollapsibleContent className="flex flex-col gap-2.5 px-4 pb-3">{children}</CollapsibleContent>
       </section>
     </Collapsible>
   )
@@ -520,8 +513,8 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-1 px-3 pb-3 pt-2 phone:px-4" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
-      <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium" /* a heading: 13px ink; row labels 12px muted */>
+    <section className="flex flex-col gap-1 px-4 pb-3 pt-2" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
+      <h3 id="folder-brief-needs" className="text-foreground text-name font-semibold" /* a heading by weight: 13/20/600 over 14/440 rows (rank by two channels) */>
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (
@@ -575,6 +568,12 @@ function NeedsYouSection({
   )
 }
 
+/** What needs the reader by its glyph: failed (red, alert), held (ochre, a clock), unplaced (muted, an open circle). */
+const AttentionGlyph = ({ tone }: { tone: MeterTone }): JSX.Element => {
+  const Glyph = tone === 'destructive' ? CircleAlert : tone === 'warning' ? Clock : CircleDashed
+  return <Glyph className={cn('mt-[5px] size-3.5 shrink-0', TONE_INK[tone === 'muted' ? 'ink' : tone])} aria-hidden />
+}
+
 function AttentionRow({
   tone,
   text,
@@ -596,7 +595,7 @@ function AttentionRow({
   const t = useTranslations(filesCopy)
   return (
     <div className="flex items-start gap-2" data-testid={testId}>
-      <ToneSwatch tone={tone} className="mt-[7px]" />
+      <AttentionGlyph tone={tone} /* a glyph with the colour and the words: a bare red dot was a hue alone */ />
       {/* The sentence, then its actions as one group: at the line's end where it fits, together below on a phone. */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

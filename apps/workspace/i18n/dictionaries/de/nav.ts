@@ -4,6 +4,9 @@ import type { en } from '../en'
 export const nav: typeof en.nav = {
   projectNavigation: 'Projektnavigation',
   projectSections: 'Projektbereiche',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Letzte Chats',
+  allChats: 'Alle Chats',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',
@@ -13,7 +16,6 @@ export const nav: typeof en.nav = {
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
   expandSidebarHint: 'Ziehen oder klicken zum Ausklappen',
   openNavigation: 'Navigation öffnen',
-  closeNavigation: 'Navigation schließen',
   sections: {
     chat: 'Chat',
     files: 'Dateien',
@@ -36,11 +38,9 @@ export const nav: typeof en.nav = {
     setup: 'Einrichtung',
   },
   sectionGroups: {
-    work: 'Arbeit',
     org: 'Organisation',
   },
   sectionSubtitles: {
-    files: 'Die Unterlagen dieses Projekts. {productName} liest sie und zitiert daraus.',
     automation:
       'Was {productName} erledigt hat, während Sie weg waren, was als Nächstes ansteht — und die Skills, mit denen es arbeitet.',
     knowledge: 'Was die Wissensbasis derzeit enthält.',
@@ -48,22 +48,19 @@ export const nav: typeof en.nav = {
     intake: 'Geführtes Briefing für dieses Projekt.',
     setup: 'Projekt, Ablage, Erfassung, Rückfragen, Steckbrief: {productName} liest, Sie prüfen und bestätigen.',
   },
-  /** A page inside a section (Dateien › E-Mail-Eingang): its title and subtitle; the section is the breadcrumb above. */
+  /** A page inside a section (Dateien › E-Mail-Eingang): its title, under the crumb „Projekt › Dateien“. */
   subpages: {
     'files/all': {
       title: 'Alle Dateien',
     },
     'files/mail': {
       title: 'E-Mail-Eingang',
-      subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
     },
     'files/bin': {
       title: 'Papierkorb',
-      subtitle: 'Gelöschte Dokumente und Ordner. Bis zur endgültigen Löschung lassen sie sich wiederherstellen.',
     },
     'files/open-points': {
       title: 'Offene Punkte',
-      subtitle: 'Was in den Dokumenten dieses Projekts offen ist: die Liste für den Jour fixe.',
     },
   },
   filesPlaces: 'Orte der Dateien',
@@ -103,7 +100,7 @@ export const nav: typeof en.nav = {
       title: 'Mehr',
       description: 'Weitere Bereiche und das Konto.',
       close: 'Schließen',
-      places: 'Bereiche',
+      project: 'Projekt',
       account: 'Konto',
     },
   },

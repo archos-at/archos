@@ -23,13 +23,16 @@ import { useState, type JSX } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, CheckCheck, FileText, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Check, CheckCheck, ChevronRight, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import {
@@ -64,6 +67,23 @@ function choicesOf(params: Pick<URLSearchParams, 'get'> | null): { assignee: Ass
     due: due && (PROJECT_MARK_DUE as readonly string[]).includes(due) ? (due as ProjectMarkDue) : 'all',
   }
 }
+
+/**
+ * The chips picked, as the two filters: „Für Sie“ on or off, and the one due chip, the newest when both are picked.
+ * „Alle“ is picked exactly when nothing else is, and pressing it clears the rest.
+ */
+function choicesFromChips(
+  next: readonly string[],
+  previous: { assignee: AssigneeChoice; due: DueChoice }
+): { assignee: AssigneeChoice; due: DueChoice } {
+  const filtered = previous.assignee !== 'all' || previous.due !== 'all'
+  if (filtered && next.includes(ALL_CHIP)) return { assignee: 'all', due: 'all' }
+  const dues = next.filter((value): value is ProjectMarkDue => (PROJECT_MARK_DUE as readonly string[]).includes(value))
+  return { assignee: next.includes('me') ? 'me' : 'all', due: dues.find((value) => value !== previous.due) ?? dues[0] ?? 'all' }
+}
+
+/** The chip that stands for no filter. */
+const ALL_CHIP = 'all'
 
 /**
  * This page's address with the filters on it, leaving out the defaults and
@@ -121,77 +141,55 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   const filters = filtersOf(assignee, due)
   const list = useProjectMarks(projectId, filters, { page: initial, filters: OPEN_POINTS_DEFAULT_FILTERS })
   const filtered = assignee !== 'all' || due !== 'all'
+  const phone = useMediaQuery(PHONE_QUERY)
 
   return (
     <div className="h-full overflow-y-auto">
       {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
           tab had a left edge of its own. */}
-      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:px-8" data-testid="open-points">
+      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:gap-8 md:px-8" data-testid="open-points" /* 32px between sections (paper on a desk, principle 5); 24 on a phone */>
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
-        <ProjectSectionActions>
+        <ProjectSectionActions onTitleLine>
           <ProjectProtocolMenu
             projectId={projectId}
             filters={filters}
             filing={filing}
             restricted={list.load === 'ready' ? list.restricted : null}
+            compact={phone}
           />
         </ProjectSectionActions>
 
-        {/* 32px between the two groups and 12px from a label to its first choice: „Frist“ read as a third choice of
-            „Zuständig“ when both gaps were the same. */}
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-2" data-testid="open-points-filters">
-          <div className="flex items-center gap-3">
-            {/* One column for both labels on a phone, where the groups stack and their choices start on one edge; on a
-                desk each label stands 12px from its own choices (a fixed column floated „Frist“ 47px from them). */}
-            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.assignee')}</span>
-            <ToggleGroup
-              type="single"
-              value={assignee}
-              onValueChange={(value) => {
-                if (value === 'all' || value === 'me') choose({ assignee: value, due })
-              }}
-              segmented
-              size="sm"
-              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
-              className="[&>button]:text-sm"
-              aria-label={t('openPoints.filters.assignee')}
-            >
-              <ToggleGroupItem value="all" data-testid="open-points-assignee-all">
-                {t('openPoints.filters.all')}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="me" data-testid="open-points-assignee-me">
-                {t('openPoints.filters.me')}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.due')}</span>
-            <ToggleGroup
-              type="single"
-              value={due}
-              onValueChange={(value) => {
-                if (value === 'all' || (PROJECT_MARK_DUE as readonly string[]).includes(value)) {
-                  choose({ assignee, due: value as DueChoice })
-                }
-              }}
-              segmented
-              size="sm"
-              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
-              className="[&>button]:text-sm"
-              aria-label={t('openPoints.filters.due')}
-            >
-              <ToggleGroupItem value="all" data-testid="open-points-due-all">
-                {t('openPoints.filters.all')}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="overdue" data-testid="open-points-due-overdue">
-                {t('openPoints.filters.overdue')}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="soon" title={t('openPoints.filters.soonHint')} data-testid="open-points-due-soon">
-                {t('openPoints.filters.soon')}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </div>
+        {/* The Jour fixe's two questions as one row of filter chips, „Alle“ picked while none of the others is. Two
+            tracks each showing „Alle“, under the tabs' track, were three choices stacked where one row answers both;
+            „Überfällig“ and „Bald“ exclude each other, „Für Sie“ goes with either. A chip is a 28px pill of the desk's
+            fill, picked the selected grey and its tick: never the press's shape, never a thumb (a thumb lives on a track). */}
+        <ToggleGroup
+          type="multiple"
+          value={filtered ? [...(assignee === 'me' ? ['me'] : []), ...(due === 'all' ? [] : [due])] : [ALL_CHIP]}
+          onValueChange={(next) => choose(choicesFromChips(next, { assignee, due }))}
+          variant="chip"
+          size="sm"
+          className="gap-2 [&>button]:text-name"
+          aria-label={t('openPoints.filters.label')}
+          data-testid="open-points-filters"
+        >
+          <ToggleGroupItem value={ALL_CHIP} data-testid="open-points-all">
+            <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+            {t('openPoints.filters.all')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="me" data-testid="open-points-assignee-me">
+            <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+            {t('openPoints.filters.me')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="overdue" data-testid="open-points-due-overdue">
+            <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+            {t('openPoints.filters.overdue')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="soon" title={t('openPoints.filters.soonHint')} data-testid="open-points-due-soon">
+            <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+            {t('openPoints.filters.soon')}
+          </ToggleGroupItem>
+        </ToggleGroup>
 
         {list.load === 'loading' ? (
           <div className="flex justify-center py-12" role="status" aria-label={t('openPoints.loading')}>
@@ -230,29 +228,31 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                   <span className="flex w-6 shrink-0 justify-start">
                     <FileText className="text-muted-foreground size-4" aria-hidden />
                   </span>
-                  <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
-                  <Button asChild variant="secondary" size="sm" className="shrink-0" /* tonal: a row-end press, not a label */>
+                  {/* The heading is the one action of the group: it opens the review. No second press beside it. */}
+                  <h2 className="min-w-0 flex-1 text-section">
                     <Link
                       href={reviewFilesHref(projectId, { documentId: group.documentId }, { back: here })}
                       aria-label={t('openPoints.openReviewOf', { name: group.documentName })}
+                      className="group/head inline-flex max-w-full items-center gap-1 rounded-control outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
-                      {t('openPoints.openReview')}
+                      <span className="truncate">{group.documentName}</span>
+                      <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
                     </Link>
-                  </Button>
+                  </h2>
                 </div>
-                <ul className="-mx-2.5 flex flex-col gap-0.5">
+                <ul className="-mx-2.5 flex flex-col">
                   {group.marks.map((mark) => (
-                    <li key={mark.id}>
+                    <li key={mark.id} className={ROW_HAIRLINE_MARKS}>
                       <Link
                         href={reviewFilesHref(
                           projectId,
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={cn(markRowClassName(), 'hover:bg-muted')}
+                        className={cn(markRowClassName(), 'hover:bg-desk')}
                         data-testid="open-point-row"
                       >
-                        <MarkRowContent annotation={mark} viewerId={currentUserId} showPage />
+                        <MarkRowContent annotation={mark} viewerId={currentUserId} showPage marker="verdict" columns />
                       </Link>
                     </li>
                   ))}
@@ -274,3 +274,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
     </div>
   )
 }
+
+/** A hairline under each point, the one inset rule: from its text (10px row inset + 24px marker + 12px gap) to the row's end. */
+const ROW_HAIRLINE_MARKS = `${ROW_HAIRLINE} [--row-text:46px] [--row-end:10px]`

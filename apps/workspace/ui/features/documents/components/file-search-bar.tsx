@@ -85,9 +85,9 @@ export function FileSearchField({
         label={searchLabel}
         clearLabel={resetLabel}
         size={size}
-        // A filled field, not a drawn box: one tone below the page until it has the focus, when the
-        // field's own focus (its border turning to ink) takes over. The header holds no outlines.
-        inputClassName="pr-10 md:pr-9 border-transparent bg-muted shadow-none hover:bg-accent focus-visible:bg-background"
+        // A field is a white field with the 3:1 field border (paper on a desk, lines): the desk well it was read as
+        // a grey press and nearly vanished into the paper (round 3). In dark it is cut into the paper, its border lit.
+        inputClassName="pr-10 md:pr-9 border-field-border bg-sheet shadow-none hover:border-foreground/60 focus-visible:border-foreground dark:bg-background"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
           size === 'sm' ? 'size-7' : 'size-9'

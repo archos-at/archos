@@ -286,12 +286,14 @@ function SelectionMark({ checked }: { checked: boolean }) {
 }
 
 /**
- * One document card in the raised "project-selector" anatomy: a white content
- * block (thumbnail, provenance/extension chips, name, one-line description or
- * match evidence) sitting proud of a subtle outer surface, a footer tab with
- * size · time, and a spring hover-lift. Shared by the Files browser and the chat
- * `document_grid` surfacing card. Chat passes {@link FileCardProps.hideFooter}
- * and no {@link FileCardProps.match} — ranking chrome stays in Files search.
+ * One document tile (paper on a desk): the document's first page as a white
+ * sheet with an edge and elevation 1, what is open on its pages and what is in
+ * progress on the sheet's foot, then the name (13/20/500, up to two lines, cut
+ * in the middle) and one meta line, format · size · age, on the page. No
+ * description: that is the list view's and the preview's. Shared by the Files
+ * browser and the chat `document_grid` surfacing card, which passes
+ * {@link FileCardProps.hideFooter} and keeps the summary as its second line;
+ * ranking chrome ({@link FileCardProps.match}) stays in Files search.
  *
  * Memoised: the Files grid holds thousands of these and re-renders on every
  * poll and selection. The thumbnail is asked for once the card has been on
@@ -329,11 +331,12 @@ export const FileCard = memo(function FileCard({
   // a status nobody browsing a folder was asking about. The list view's status
   // column is where every document's state is spelled out.
   const showStatus = !!file.status && !isCitableStatus(file.status)
-  // The AI summary is the last thing ingestion produces, so a document that is
-  // still being read has an empty description slot. Left blank it reads as a
-  // card that failed to render; skeleton lines say the sentence is on its way —
-  // the same promise the thumbnail well makes while its request is in flight.
-  const isAwaitingSummary = !match && !isFailed && !file.summary && isSettlingStatus(file.status)
+  // A Dateien tile is the sheet, the name and one meta line (paper on a desk, principle 8): the summary is the list
+  // view's second column and the preview's, and on a tile it made seven documents fill a 900px screen. Only a card
+  // without the meta line (the chat's `document_grid`, `hideFooter`) keeps it, as the line that says why it is shown.
+  // The summary is the last thing ingestion produces: there, skeleton lines hold its slot while it is on its way.
+  const showSummary = !match && !isFailed && Boolean(hideFooter)
+  const isAwaitingSummary = showSummary && !file.summary && isSettlingStatus(file.status)
   const [mediaRef, seen] = useSeenOnce<HTMLDivElement>()
   // A filing decision in view would move this file: outlined, nothing else, so the tile keeps its size.
   const lit = useFilingHighlighted(file.id)
@@ -385,20 +388,18 @@ export const FileCard = memo(function FileCard({
         aria-label={ariaLabel}
         aria-busy={isBusy}
         data-testid={testId}
-        className={cn("group relative flex w-full min-w-0 flex-col overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
+        className={cn("group relative flex w-full min-w-0 flex-col overflow-visible text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
       >
         {/* The tile is on the page, no white block: a row's leftover height goes
             BELOW the meta line (the footer grows), so every meta line of a row
             shares one baseline whatever each card carries above it. Without a
             footer the body takes it. */}
-        <FileTileBody className={cn('p-0', hideFooter && 'flex-1 rounded-none')}>
+        {/* Nothing above the sheet clips: its edge is a ring drawn 1px outside it, and a clip cut it to the corners. */}
+        <FileTileBody className={cn('overflow-visible p-0', hideFooter && 'flex-1 rounded-none')}>
           {/* Under the hover, the open and the picked tile's fill the sheet takes that fill: the one grey on the state grey was grey on grey. */}
           <FileTileMedia
             ref={mediaRef}
-            className={cn(
-              'h-[124px] transition-colors duration-quick ease-out group-hover/card:bg-transparent group-aria-[current=true]:bg-transparent motion-reduce:transition-none',
-              selection?.checked && 'bg-transparent'
-            )}
+            className="h-[124px]"
           >
             <ThumbnailWithFallback file={file} visible={seen} />
             {showStatus && (
@@ -421,11 +422,8 @@ export const FileCard = memo(function FileCard({
             )}
           </FileTileMedia>
 
-          {/* At least the name and two summary lines tall (10 + 17.9 + 4 + 36px, `leading-snug` and `-normal`): a row of one-line names needs no
-              slack. Where one tile runs longer (a name on two lines, „4 offen“) the footer's content sits at the cell's
-              foot, so the meta lines of a row still share one baseline. */}
-          {/* On the thumbnail's edge, no inset of its own: the name, the summary and the meta line start where the sheet does. */}
-          <div className="min-h-[68px] pt-2.5">
+          {/* On the sheet's edge, no inset of its own; the meta line follows right under the name. */}
+          <div className="pt-2.5">
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
               <span
@@ -441,7 +439,7 @@ export const FileCard = memo(function FileCard({
                 a rename changes the label, never the format. */}
             {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
             {/* Room at its end for the ⋯, which sits on this line (6 + 124 + 10px down), off the thumbnail. */}
-            <p className={cn('min-w-0 text-[13px] font-medium leading-snug text-foreground', actions && !selection && 'pointer-coarse:pr-8')}>
+            <p className={cn('text-name text-foreground min-w-0', actions && !selection && 'pointer-coarse:pr-8')}>
               <FileName text={name} wrap />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
@@ -485,7 +483,7 @@ export const FileCard = memo(function FileCard({
               <SemanticMatch snippet={match.snippet} page={match.page} query={match.query} />
             ) : isFailed ? (
               <p
-                className="mt-1 line-clamp-2 text-xs leading-normal text-destructive"
+                className="mt-1 line-clamp-1 text-xs leading-normal text-destructive"
                 title={failureText?.raw ?? failureReason}
                 data-testid="file-card-failure"
               >
@@ -500,7 +498,7 @@ export const FileCard = memo(function FileCard({
                 <Skeleton className="h-[7px] w-[58%] rounded-surface" />
               </div>
             ) : (
-              file.summary && (
+              showSummary && file.summary && (
                 <p className="mt-1 line-clamp-2 text-xs leading-normal text-muted-foreground" title={file.summary}>
                   {file.summary}
                 </p>
@@ -517,13 +515,13 @@ export const FileCard = memo(function FileCard({
           box is a line of text), so a row of tiles stays even when a
           suggestion arrives or goes. On a narrow tile the chip's folder name
           ellipsizes first, then the relative time drops; it never wraps.
-          The footer fills the cell and sets its lines at its foot (`content-end`),
-          so the meta line is the tile's last line in every tile of a row,
-          whichever of them runs longer (a name on two lines). */}
+          The meta line follows the name directly: a tile is one unit read top
+          down, and holding every meta line of a row on one baseline opened a
+          24px hole under each one-line name beside a two-line one. */}
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot mt-0 flex-1 cursor-pointer flex-wrap content-end items-start justify-start gap-1.5 text-xs text-muted-foreground"
+          className="@container/foot group/foot mt-0 cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}

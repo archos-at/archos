@@ -60,7 +60,7 @@ import { refusalOf } from '../lib/refusal'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
 import { contactCard, contactCardFileName } from '../lib/vcard'
 import { useInboundMailAddress, type AddressState } from '../hooks/use-inbound-mail-address'
-import { FactLine, QuietPanel } from './inbound-mail-atoms'
+import { FactLine } from './inbound-mail-atoms'
 import { OwnDomainDkimLine } from './own-domain-dkim-line'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { settingsCopy } from '@/i18n/namespaces/settings'
@@ -109,7 +109,7 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
   return (
     <CopyableValue
       value={value}
-      className={cn('text-foreground mx-0 text-left font-mono text-sm', className)}
+      className={cn('text-foreground mx-0 text-left font-mono text-[13px] leading-5 font-normal', className)}
       // Whether the address reaches anyone's Cc line: the first step of the funnel to the first mail.
       onCopied={() => capturePosthog('inbound_mail_address_copied', { surface })}
     >
@@ -148,8 +148,7 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
       type="button"
       variant="secondary"
       size="sm"
-      // A sheet on the quiet panel it sits in (the panel is the secondary tone itself).
-      className="bg-background hover:bg-accent"
+      // The kit's press, as every secondary: a grey override (from the tonal days) made it the one grey press on the sheet.
       onClick={() => {
         saveContact(value, projectName, t('address.contactName', { project: projectName }), t('address.contactNote'))
         capturePosthog('inbound_mail_address_contact_saved', { surface })
@@ -215,14 +214,15 @@ export function InboundMailAddressBlock({
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
-      {/* In a dialog's sheet the panel keeps its card: the sheet's own inset is its edge. */}
-      <QuietPanel className={cn(surface === 'dialog' && 'phone:mx-0 phone:rounded-surface')}>
+      {/* Never used, the address is the page's one object: a white sheet on the paper. In a dialog the dialog is the sheet. */}
+      <div className={cn('flex flex-col gap-2', surface === 'never_used' && 'bg-sheet rounded-surface p-4 shadow-sm')} data-testid="inbound-mail-address-panel">
         {/* The eyebrow names the value; in the dialog its title already does. */}
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&
           (surface === 'never_used' ? (
-            // Never used, the address is the page's focal point, read here and copied by the button below; 14px mono, under its heading's rank.
-            <p className="text-foreground font-mono text-sm [overflow-wrap:anywhere]" data-testid="address-value">
+            // Never used, the address is the page's focal point, read here and copied by the button below: a string to
+            // copy is mono 13/20/440 (the type scale), under its heading's rank.
+            <p className="text-foreground font-mono text-[13px] leading-5 font-normal [overflow-wrap:anywhere]" data-testid="address-value">
               <EmailAddress address={value} />
             </p>
           ) : (
@@ -243,7 +243,7 @@ export function InboundMailAddressBlock({
             <>{CLAUSE_JOIN}{t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
           )}
         </p>
-      </QuietPanel>
+      </div>
       {surface !== 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
       {guideUrl && (
         <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">

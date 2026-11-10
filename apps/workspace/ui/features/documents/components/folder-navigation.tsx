@@ -30,11 +30,10 @@ import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { BackControl } from '@/components/shell/back-link'
 import { ProjectSectionTabActions, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
-import { useLocale } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { cn } from '@/lib/utils'
-import { TimeAgo } from '@/components/ui/time-ago'
+import { FOLDER_SHEET, FOLDER_WELL, FolderCardFrame } from './folder-card-frame'
 import { FileTileBody, TileShell } from './file-tile'
 import { FolderAccessMark, FolderReadOnlyBadge, useFolderOwnAccessLabel } from './folder-access-mark'
 import { FolderReadState } from './folder-read-state'
@@ -335,7 +334,7 @@ function NewFolderControl({
   )
 }
 
-interface FolderTileProps {
+export interface FolderTileProps {
   folder: FolderItem
   /** Documents + subfolders directly inside, for the count line. */
   itemCount: number
@@ -386,7 +385,7 @@ export type DropFilesInFolder = (
 ) => void
 
 /** The ring a drop target wears: where it will land, or that it will not take it. */
-function dropRing(drop: { isOver: boolean; refuses: boolean }, inset = false): string | false {
+export function dropRing(drop: { isOver: boolean; refuses: boolean }, inset = false): string | false {
   if (drop.refuses) return cn('ring-destructive ring-2', inset && 'ring-inset')
   return drop.isOver && cn('bg-accent ring-ring ring-2', inset && 'ring-inset')
 }
@@ -454,7 +453,7 @@ function CrumbDropTarget({
  * its own access list (ADR-0088, `folder.ownAccess`): a restricted folder says
  * so in both. Null `lockLabel` draws no lock.
  */
-function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: string | null } {
+export function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: string | null } {
   const t = useTranslations(filesCopy)
   const ownAccessLabel = useFolderOwnAccessLabel()
   const lockLabel = folder.ownAccess ? ownAccessLabel(folder.ownAccess) : null
@@ -467,7 +466,7 @@ function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: st
 }
 
 /** Shared inline rename field — same in-place contract the tree pane had. */
-function FolderNameEditor({
+export function FolderNameEditor({
   folder,
   onRenameFolder,
   onDone,
@@ -525,7 +524,7 @@ function FolderNameEditor({
   )
 }
 
-function FolderActionsMenu({
+export function FolderActionsMenu({
   folder,
   onStartRename,
   onDeleteFolder,
@@ -542,7 +541,7 @@ function FolderActionsMenu({
           type="button"
           aria-label={t('folders.actionsFor', { name: folder.name })}
           title={t('folders.actions')}
-          className="hover:bg-accent focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
+          className="hover:bg-accent focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
           data-testid={`folder-actions-${folder.id}`}
         >
           <MoreHorizontal className="size-3.5" aria-hidden />
@@ -572,10 +571,9 @@ function FolderActionsMenu({
  * context menu wraps the tile in, which this file does not own, so the grid
  * finds it by the mark the tile carries.
  */
-export const FOLDER_ROWS_ON_PHONE = 'phone:[&>*:has([data-folder-tile])]:col-span-full'
 
 /** The folder glyph's slot: as tall as the name and its count, as wide as the glyph, so the glyph stands on the column's edge. */
-const FOLDER_WELL = 'flex h-9 shrink-0 items-center'
+
 
 /**
  * A folder as a grid tile — visually DISTINCT from {@link FileCard}.
@@ -631,15 +629,13 @@ export function FolderCard({
   return (
     <TileShell
       interactive
-      // A folder is a compact tile at every width, its glyph and name on the page,
-      // not a 230px card with an empty well: the first screen shows the files, and
-      // a folder reads apart from them by its shape (a line, not a sheet). It wore
-      // the one grey until 2026-11, three grey blocks above a grid of grey sheets;
-      // the hover's fill is its only surface. On a phone the grid spans it into a
-      // row (`FOLDER_ROWS_ON_PHONE`).
+      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px hover inset, its edge
+      // on the thumbnails' edge: apart from a document by its shape, a strip, not a page. On a phone it is a 48px
+      // sheet in the grid's two columns, glyph, name and count, its ⋯ a long press away (the object menu): three
+      // full-width sheets put the first thumbnail at y=475.
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -648,7 +644,7 @@ export function FolderCard({
       {...drop.dropProps}
     >
       <div
-        className="absolute right-1.5 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+        className="absolute right-8 top-1/2 z-[1] -translate-y-1/2 phone:hidden pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -670,7 +666,8 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-1.5 pr-10">
+        {/* 56px, radius 10, elevation 1, a chevron at its end (the ⋯ comes in left of it): a sheet that opens, not a press. */}
+        <FileTileBody className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-3 phone:min-h-12 phone:gap-2.5 phone:py-1.5">
           {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
@@ -681,7 +678,7 @@ export function FolderCard({
             ) : (
               <div className="flex min-w-0 items-center gap-1.5">
                 {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-                <p className="min-w-0 truncate text-[13px] font-medium leading-tight text-foreground">
+                <p className="min-w-0 truncate text-name text-foreground">
                   <FileName text={folder.name} />
                 </p>
                 {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
@@ -705,161 +702,10 @@ export function FolderCard({
               </p>
             )}
           </div>
+          {!editing && <ChevronRight className="text-muted-foreground ml-7 size-4 shrink-0 phone:hidden" aria-hidden data-slot="folder-opens" />}
         </FileTileBody>
       </FolderCardFrame>
     </TileShell>
-  )
-}
-
-/** The tile's open button, or a plain box with the same layout while the name is being edited. */
-function FolderCardFrame({
-  editing,
-  onOpen,
-  openLabel,
-  children,
-}: {
-  editing: boolean
-  onOpen: () => void
-  openLabel: string
-  children: ReactNode
-}): JSX.Element {
-  if (editing) return <div className="flex h-full w-full flex-row items-center text-left">{children}</div>
-  return (
-    <button data-attr="files-open"
-      type="button"
-      onClick={onOpen}
-      aria-label={openLabel}
-      className="flex h-full w-full flex-row items-center rounded-surface text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-    >
-      {children}
-    </button>
-  )
-}
-
-/**
- * A folder as a detail-view row — the list view's counterpart to
- * {@link FolderCard}, rendered as a block above the sortable file table (a
- * folder does not sort by size or status, so it does not sit inside it).
- */
-export function FolderRow({
-  folder,
-  itemCount,
-  lastModified,
-  knowledge,
-  onOpen,
-  onRenameFolder,
-  onDeleteFolder,
-  onDropDocument,
-  onDropFolder,
-  canAcceptFolder,
-  actions,
-  editing: editingProp,
-  onEditingChange,
-  readOnly = false,
-  onDropFiles,
-  onFileAim,
-}: FolderTileProps): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const { openLabel, lockLabel } = useFolderLabels(folder)
-  const { locale } = useLocale()
-  const [uncontrolledEditing, setUncontrolledEditing] = useState(false)
-  const editing = editingProp ?? uncontrolledEditing
-  const setEditing = onEditingChange ?? setUncontrolledEditing
-  const drop = useFolderDropTarget({
-    folderId: folder.id,
-    onDropDocument: onDropDocument ?? (() => {}),
-    onDropFolder,
-    canAcceptFolder,
-    disabled: !onDropDocument && !onDropFolder,
-    onDropFiles,
-    refusal: readOnly ? t('workspace.dropRefusedFolder', { name: folder.name }) : null,
-    onFileAim,
-    onSpringOpen: () => onOpen(folder.id),
-  })
-
-  if (editing) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2 px-2 py-1"
-      >
-        <FolderNameEditor
-          folder={folder}
-          onRenameFolder={onRenameFolder}
-          onDone={() => setEditing(false)}
-          className="max-w-96 flex-1"
-        />
-      </motion.div>
-    )
-  }
-
-  const changedAt = lastModified ?? folder.createdAt ?? null
-  // THE ROW THAT WAS YELLOW: its amber read as a warning, and that gold is a signal (`--source-office`). Neutral ramp;
-  // glyph and chevron say „folder“. No entrance of its own: the level's keyed transition owns it.
-  // A row of the table below it in all but its columns: on the page, the cells' 8px inset, a 24px round glyph
-  // where a file has its format, the name at 13px, the hover the one grey. It sat in a grey box with hairlines
-  // until 2026-11, a second list above the first. A drop target is marked inside its box (`ring-inset`).
-  return (
-    <Item
-      className={cn(
-        'group w-full gap-2 px-2 py-1.5 text-[13px] hover:bg-muted pointer-coarse:py-3',
-        dropRing(drop, true),
-      )}
-      data-testid={`folder-row-${folder.id}`}
-      data-drop-over={drop.isOver ? '' : undefined}
-      {...(onDropFolder && !readOnly ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
-      {...drop.dropProps}
-    >
-      <button data-attr="files-open"
-        type="button"
-        onClick={() => onOpen(folder.id)}
-        aria-label={openLabel}
-        className="focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2.5 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 pointer-coarse:min-h-11"
-      >
-        {/* One glyph, for the reason the card's comment gives. The row's own
-            background change is the hover feedback, and a finger gets it too. */}
-        {/* A bare glyph, as on the folder tile, in the 32px column where a file row writes its format. */}
-        <span className="flex w-8 shrink-0 items-center">
-          <Folder className="text-muted-foreground size-4" aria-hidden />
-        </span>
-        <FileName text={folder.name} className="text-foreground shrink font-medium" />
-        {folder.description && (
-          <span
-            className="text-muted-foreground hidden min-w-0 truncate text-xs sm:inline"
-            title={folder.description}
-            data-testid={`folder-description-${folder.id}`}
-          >
-            {folder.description}
-          </span>
-        )}
-        {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-        {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-        {/* Below the table's reference columns, what it holds stands after the name, as the folder tile says it. */}
-        <span className="text-muted-foreground shrink-0 text-xs tabular-nums @3xl/filelist:hidden">{t('folders.items', { count: itemCount })}</span>
-        <span className="flex-1" />
-        {/* Only what departs from „all read“, as on the tile: the normal case is quiet. */}
-        <FolderReadState tally={knowledge} exceptionsOnly />
-        {/* In the table's columns where it has them: what it holds under Größe, when it changed (or was made) under
-            Hinzugefügt, the widths and insets of the table's cells, so a folder's date stands where a file's does. */}
-        <span className="text-muted-foreground hidden w-[104px] shrink-0 px-2 text-right text-xs tabular-nums @3xl/filelist:block">{t('folders.items', { count: itemCount })}</span>
-        {changedAt ? (
-          <TimeAgo date={changedAt} locale={locale} className="text-muted-foreground hidden w-[120px] shrink-0 px-2 text-right text-xs tabular-nums @4xl/filelist:block" />
-        ) : (
-          <span className="hidden w-[120px] shrink-0 @4xl/filelist:block" />
-        )}
-      </button>
-      {/* The table's 40px actions column, flush with the row's end (gap and inset given back); no chevron, as a file row. */}
-      <span className="-ml-2 -mr-2 flex w-10 shrink-0 justify-center">
-        {actions ?? (
-          <FolderActionsMenu
-            folder={folder}
-            onStartRename={() => setEditing(true)}
-            onDeleteFolder={onDeleteFolder}
-          />
-        )}
-      </span>
-    </Item>
   )
 }
 
@@ -881,8 +727,8 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <TileShell interactive={false} data-folder-tile="" className="p-0" data-testid="folder-card-skeleton">
-      <FileTileBody className="flex flex-1 items-center gap-3 py-2.5 pl-1.5 pr-2.5">
+    <TileShell interactive={false} data-folder-tile="" data-testid="folder-card-skeleton">
+      <FileTileBody className={cn(FOLDER_SHEET, 'flex flex-1 items-center gap-3 py-2 pl-3 pr-2.5')}>
         <span className={FOLDER_WELL}>
           <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
         </span>

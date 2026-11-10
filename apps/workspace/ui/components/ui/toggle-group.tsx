@@ -115,7 +115,7 @@ const ToggleGroup = React.forwardRef<
               //
               // A track, not a box: the one grey with no border, and the
               // chosen segment a white thumb on it (the pill below).
-              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-muted p-0.5'
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-desk p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}
@@ -138,7 +138,8 @@ ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
  * element. Non-segmented groups never render it and are untouched.
  */
 const SEGMENTED_PILL_BG: Record<string, string> = {
-  default: 'bg-card shadow-xs',
+  // The thumb: white with the press's edge and its 1px shadow at rest, and only ever on a track.
+  default: 'bg-sheet shadow-xs',
   outline: 'bg-card',
   inverted: 'bg-foreground',
 }
@@ -197,7 +198,6 @@ const ToggleGroupItem = React.forwardRef<
           data-pill-id={context.pillId}
           className={cn(
             'absolute inset-0 -z-10 rounded-[inherit]',
-            'shadow-2xs',
             SEGMENTED_PILL_BG[resolvedVariant] ?? SEGMENTED_PILL_BG.default
           )}
           // Unbounded travel across the segment cluster is why this is

@@ -111,18 +111,22 @@ export function AgentReading({
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <p className="text-muted-foreground text-xs">
+          {/* The label and the type on one line: the type a name (13/20/500 ink, it decides what the document is), its
+              label the muted meta before it; the disciplines and the topics in the muted meta under it. Three styles in
+              the group (the summary's 14px body, the 13px name, the 12px meta): a 14px medium type under a 12px label
+              stood as a heading of its own, louder than the dialog's title. The middot is bound to the word before it,
+              so a wrapped line never starts with one. */}
+          <p className="text-muted-foreground text-meta">
             {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.classifiedAs') : t('preview.reading.noType')}
+            {types.length > 0 && (
+              <>
+                {' '}
+                <span className="text-foreground text-name" data-testid="agent-reading-type">
+                  {types.map((tag) => tagLabel(tag, t)).join(CLAUSE_JOIN)}
+                </span>
+              </>
+            )}
           </p>
-          {/* Two steps of the ramp, so the card has three styles in all (the summary's 14px, this 14px medium, the
-              12px muted meta): the type in ink and weight (it decides what the document is), the disciplines and the
-              topics in the muted meta. Seven styles in one card (ink 12px, ink 80 %, 15px …) read as unranked. The
-              middot is bound to the word before it, so a wrapped line never starts with one. */}
-          {types.length > 0 && (
-            <p className="text-foreground text-sm font-medium" data-testid="agent-reading-type">
-              {types.map((tag) => tagLabel(tag, t)).join(CLAUSE_JOIN)}
-            </p>
-          )}
           {disciplines.length > 0 && <WordRun words={disciplines.map((tag) => tagLabel(tag, t))} className="text-muted-foreground" />}
           {topics.length > 0 && (
             <p className="text-muted-foreground text-xs leading-relaxed" data-testid="agent-reading-topics">

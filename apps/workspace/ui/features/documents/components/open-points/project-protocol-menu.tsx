@@ -2,7 +2,7 @@
 
 import { useRef, useState, type JSX } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileDown, FolderInput } from 'lucide-react'
+import { FileDown, FolderInput, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +45,7 @@ export function ProjectProtocolMenu({
   filters,
   filing = null,
   restricted = null,
+  compact = false,
 }: {
   projectId: string
   filters: ProjectMarksFilters
@@ -52,6 +53,8 @@ export function ProjectProtocolMenu({
   filing?: { projectName: string } | null
   /** The list's answer: the selection quotes a document not every member may open. Null while unknown. */
   restricted?: boolean | null
+  /** A phone: the press is one ⋯ at the end of the tabs' line, the menu says what it exports. */
+  compact?: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const router = useRouter()
@@ -103,15 +106,22 @@ export function ProjectProtocolMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="secondary" size="sm" className="gap-1.5" disabled={busy}
-          title={t('openPoints.export.hint')}
-          data-testid="open-points-export"
-        >
-          <FileDown className="size-3.5" aria-hidden />
-          {t('openPoints.export.button')}
-        </Button>
+        {compact ? (
+          <Button type="button" variant="ghost" size="icon" disabled={busy} aria-label={t('openPoints.export.button')} data-testid="open-points-export">
+            <MoreHorizontal className="size-4" aria-hidden />
+          </Button>
+        ) : (
+          <Button type="button" variant="secondary" size="sm" className="gap-1.5" disabled={busy}
+            title={t('openPoints.export.hint')}
+            data-testid="open-points-export"
+          >
+            <FileDown className="size-3.5" aria-hidden />
+            {t('openPoints.export.button')}
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60" data-testid="open-points-export-menu">
+        {compact && <DropdownMenuLabel>{t('openPoints.export.button')}</DropdownMenuLabel>}
         <DropdownMenuLabel>{t('openPoints.export.formatLabel')}</DropdownMenuLabel>
         {ANNOTATION_EXPORT_FORMATS.map((format) => (
           <DropdownMenuItem key={format} onSelect={() => void download(format)} data-testid={`open-points-export-${format}`}>

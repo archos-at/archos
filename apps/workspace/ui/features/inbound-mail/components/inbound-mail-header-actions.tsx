@@ -14,7 +14,8 @@
  */
 
 import type { JSX } from 'react'
-import { Check, Copy, Info, MailPlus } from 'lucide-react'
+import { Check, Copy, Info, MailPlus, MoreHorizontal } from 'lucide-react'
+import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
@@ -23,7 +24,16 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 import type { AddressState } from '../hooks/use-inbound-mail-address'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-export function InboundMailHeaderActions({ state, onOpenAddress }: { state: AddressState; onOpenAddress: () => void }): JSX.Element | null {
+export function InboundMailHeaderActions({
+  state,
+  onOpenAddress,
+  compact = false,
+}: {
+  state: AddressState
+  onOpenAddress: () => void
+  /** A phone: the two presses behind one ⋯ at the end of the tabs' line, so the first mail starts under the tabs. */
+  compact?: boolean
+}): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   const [copied, raise] = useTransientFlag()
   if (state.kind === 'loading') return <Skeleton className="h-8 w-56" aria-hidden />
@@ -31,6 +41,33 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
   const { address } = state
   if (address.state === 'active' && address.address) {
     const value = address.address
+    const copy = () =>
+      void navigator.clipboard?.writeText(value).then(() => {
+        raise()
+        capturePosthog('inbound_mail_address_copied', { surface: 'header' })
+      }, () => {})
+    if (compact) {
+      return (
+        <>
+          <ActionMenu
+            mode="dropdown"
+            align="end"
+            trigger={
+              <Button type="button" variant="ghost" size="icon" aria-label={t('header.addressMenu')} data-testid="inbound-mail-address-menu">
+                <MoreHorizontal className="size-4" aria-hidden />
+              </Button>
+            }
+            entries={[
+              { type: 'item', id: 'copy', label: t('header.addressCopy'), icon: Copy, onSelect: copy, testId: 'inbound-mail-address-copy' },
+              { type: 'item', id: 'more', label: t('header.addressMore'), icon: Info, onSelect: onOpenAddress, testId: 'inbound-mail-address-open' },
+            ]}
+          />
+          <span className="sr-only" role="status" aria-live="polite">
+            {copied ? t('header.addressCopied') : ''}
+          </span>
+        </>
+      )
+    }
     return (
       // Two tonal presses 12px apart: each does something (copies, opens the address), so each looks pressable.
       <div className="flex min-w-0 items-center gap-3" data-testid="inbound-mail-header-address">
@@ -39,12 +76,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
           size="sm"
           variant="secondary"
           // Tonal at every width: the one press of this tab's tools looks the same on a desk and a phone.
-          onClick={() =>
-            void navigator.clipboard?.writeText(value).then(() => {
-              raise()
-              capturePosthog('inbound_mail_address_copied', { surface: 'header' })
-            }, () => {})
-          }
+          onClick={copy}
           data-testid="inbound-mail-address-copy"
         >
           {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
