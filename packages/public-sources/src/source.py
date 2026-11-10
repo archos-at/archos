@@ -176,9 +176,18 @@ class Source(_Strict):
         return self._directory
 
     def allows(self, url: str) -> bool:
-        """Whether ``url`` is https on one of this source's hosts."""
+        """Whether ``url`` is https on one of this source's hosts, on the default port."""
         parsed = urlparse(url)
-        return parsed.scheme == "https" and (parsed.hostname or "") in self.hosts and not parsed.username
+        try:
+            port = parsed.port
+        except ValueError:  # a port that is not a number
+            return False
+        return (
+            parsed.scheme == "https"
+            and (parsed.hostname or "") in self.hosts
+            and not parsed.username
+            and port in (None, 443)
+        )
 
     def require_allowed(self, url: str) -> None:
         if not self.allows(url):

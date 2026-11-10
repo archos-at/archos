@@ -44,11 +44,19 @@ class EgressRefused(httpx.TransportError):
     """A fetch the guard refused: a host off the list, or an address that is not public."""
 
 
+#: Prefixes that translate to IPv4 behind a gateway (RFC 6052 NAT64). Python counts the
+#: well-known one as global, but ``64:ff9b::a00:1`` reaches 10.0.0.1 wherever NAT64 runs.
+_TRANSLATED_V6 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+
+
 def is_public_address(address: str) -> bool:
     """Whether ``address`` is a globally routable unicast address."""
     ip = ipaddress.ip_address(address.split("%", 1)[0])
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif any(ip in prefix for prefix in _TRANSLATED_V6):
+            return False
     return ip.is_global and not ip.is_multicast and not ip.is_reserved
 
 
@@ -79,9 +87,20 @@ class PublicOnlyBackend(httpcore.AsyncNetworkBackend):
         private = [address for address in addresses if not is_public_address(address)]
         if private:
             raise EgressRefused(f"{host} resolves to a non-public address ({private[0]}); refused")
-        return await self._inner.connect_tcp(
-            addresses[0], port, timeout=timeout, local_address=local_address, socket_options=socket_options
-        )
+        return await self._first_that_answers(addresses, port, timeout, local_address, socket_options)
+
+    async def _first_that_answers(self, addresses, port, timeout, local_address, socket_options):
+        """Each checked address in resolver order (an AAAA first must not strand an IPv4-only pod)."""
+        last_error: Exception | None = None
+        for address in addresses:
+            try:
+                return await self._inner.connect_tcp(
+                    address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except httpcore.ConnectError as exc:
+                last_error = exc
+        assert last_error is not None
+        raise last_error
 
     async def connect_unix_socket(self, path: str, timeout: float | None = None, socket_options=None):
         raise EgressRefused("unix sockets are not a public source")

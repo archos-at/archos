@@ -95,3 +95,50 @@ def test_the_turn_flags_read_source_routing_as_an_entitlement(monkeypatch):
     assert flags.fetch_turn_flags(organization_id="org_x").source_routing_allowed is True
     monkeypatch.setattr(flags.bff_http, "get_json", lambda *a, **k: {"enabled": [], "features": {}})
     assert flags.fetch_turn_flags(organization_id="org_x").source_routing_allowed is False
+
+
+def test_a_failed_flag_read_is_kept_like_an_answer(monkeypatch):
+    calls: list[str] = []
+
+    def down(organization_id: str) -> bool:
+        calls.append(organization_id)
+        raise RuntimeError("BFF unavailable")
+
+    monkeypatch.setattr(routing, "_fetch", down)
+    assert [routing.enabled_for("org_down") for _ in range(5)] == [False] * 5
+    assert calls == ["org_down"], "a BFF that is down was asked once per request"
+
+
+async def test_the_flag_is_read_once_per_request_not_once_per_retry(monkeypatch):
+    reads: list[int] = []
+
+    async def counted() -> bool:
+        reads.append(1)
+        return False
+
+    monkeypatch.setattr("ris_adapter.client.routing_enabled", counted)
+    attempts: list[int] = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        return httpx.Response(503) if len(attempts) < 3 else httpx.Response(200, json=_SEARCH_BODY)
+
+    monkeypatch.setattr("ris_adapter.client.asyncio.sleep", _no_sleep)
+    client = RisClient(transport=httpx.MockTransport(flaky), max_retries=3)
+    await client.search("LrKons", params={"Suchworte": "x"})
+    await client.aclose()
+    assert (len(attempts), len(reads)) == (3, 1)
+
+
+async def _no_sleep(seconds: float) -> None:
+    return None
+
+
+async def test_the_answer_is_recorded_on_the_turns_trace(monkeypatch):
+    recorded: dict[str, object] = {}
+    from agent.observability import langfuse_trace_attributes
+
+    monkeypatch.setattr(langfuse_trace_attributes, "record_trace_metadata", lambda **pairs: recorded.update(pairs))
+    monkeypatch.setenv(routing.ENV_OVERRIDE, "on")
+    assert await routing.routing_enabled() is True
+    assert recorded == {"source_routing": True}

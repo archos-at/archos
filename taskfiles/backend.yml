@@ -29,7 +29,7 @@ vars:
     map:
       core: tests/ packages/agent/tests/ evals/
       api: apps/agent-host/tests/
-      sources: packages/knowledge-layer packages/ris-adapter packages/tavily-web-search --dist loadfile
+      sources: packages/knowledge-layer packages/public-sources packages/ris-adapter packages/tavily-web-search --dist loadfile
 
 tasks:
   # ── backend (src/, the Python packages, apps/agent-host) ───────────────────
@@ -71,7 +71,7 @@ tasks:
       - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.HARNESS_TESTS}}'
 
   be:test:sources:
-    desc: The Python packages' suites (packages/knowledge-layer, ris-adapter, tavily-web-search)
+    desc: The Python packages' suites (packages/knowledge-layer, public-sources, ris-adapter, tavily-web-search)
     cmds:
       # One run over every package. No package carries a `tests/__init__.py`, so
       # no two conftests claim the module name `tests.conftest`. A new package

@@ -63,7 +63,9 @@ def enabled_for(organization_id: str | None) -> bool:
     try:
         answer = _fetch(organization_id)
     except Exception:  # noqa: BLE001 - off is the safe answer: it is today's behaviour
-        return False
+        # Kept like a real answer: a BFF that is slow or down must cost one
+        # bounded call per organization per TTL, not one per RIS request.
+        answer = False
     with _lock:
         _answers.pop(organization_id, None)
         _answers[organization_id] = (answer, now)
@@ -73,14 +75,24 @@ def enabled_for(organization_id: str | None) -> bool:
 
 
 async def routing_enabled() -> bool:
-    """:func:`enabled_for` for this turn's organization, off the event loop."""
+    """:func:`enabled_for` for this turn's organization, off the event loop, recorded on the turn's trace."""
     override = os.environ.get(ENV_OVERRIDE, "").strip().lower()
     if override in {"on", "off"}:
-        return override == "on"
-    organization_id = _organization_id()
-    if not organization_id:
-        return False
-    return await asyncio.to_thread(enabled_for, organization_id)
+        answer = override == "on"
+    else:
+        organization_id = _organization_id()
+        answer = bool(organization_id) and await asyncio.to_thread(enabled_for, organization_id)
+    _record(answer)
+    return answer
+
+
+def _record(answer: bool) -> None:
+    """``source_routing`` as trace metadata, so answers can be split by it in Langfuse."""
+    try:
+        from agent.observability.langfuse_trace_attributes import record_trace_metadata
+    except ImportError:  # adapter used standalone
+        return
+    record_trace_metadata(source_routing=answer)
 
 
 def forget() -> None:

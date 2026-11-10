@@ -137,6 +137,11 @@ _REFUSED_AFTER_DNS = {
     "unspecified": "0.0.0.0",
     "v4_mapped_private": "::ffff:192.168.1.1",
     "multicast": "239.1.1.1",
+    "nat64_well_known": "64:ff9b::a00:1",
+    "nat64_local": "64:ff9b:1::a00:1",
+    "benchmarking": "198.18.0.1",
+    "ietf_protocol": "192.0.0.8",
+    "reserved_240": "240.0.0.1",
 }
 
 
@@ -202,3 +207,39 @@ async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():
     with pytest.raises(httpcore.ConnectError):
         await backend.connect_tcp("law.example.org", 443)
     assert inner.connected == ["93.184.216.34"]
+
+
+async def test_every_checked_address_is_tried_in_order_when_the_first_does_not_answer():
+    # An AAAA answered first must not strand a pod that has no IPv6 route.
+    tried: list[str] = []
+
+    class _V4Only(httpcore.AsyncNetworkBackend):
+        async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+            tried.append(host)
+            if ":" in host:
+                raise httpcore.ConnectError("network unreachable")
+            return httpcore.AsyncMockStream([])
+
+        async def sleep(self, seconds):
+            return None
+
+    backend = PublicOnlyBackend(
+        inner=_V4Only(), resolver=await _resolver_to("2a00:1450:4001:80b::200e", "93.184.216.34")
+    )
+    await backend.connect_tcp("law.example.org", 443)
+    assert tried == ["2a00:1450:4001:80b::200e", "93.184.216.34"]
+
+
+@pytest.mark.parametrize(
+    ("url", "allowed"),
+    [
+        ("https://law.example.org/bo.html", True),
+        ("https://law.example.org:443/bo.html", True),
+        ("https://law.example.org:8443/bo.html", False),
+        ("https://law.example.org:22/", False),
+        ("https://user@law.example.org/", False),
+        ("http://law.example.org/", False),
+    ],
+)
+def test_a_source_allows_its_hosts_on_https_and_the_default_port_only(url, allowed):
+    assert parse_source(html_source()).allows(url) is allowed

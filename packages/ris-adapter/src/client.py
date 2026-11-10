@@ -244,9 +244,10 @@ class RisClient:
         surface to the agent.
         """
         last_error: Exception | None = None
+        client = await self._client_for_turn()  # once per request, not per retry
         for attempt in range(self.max_retries):
             try:
-                response = await (await self._client_for_turn()).get(url, params=params)
+                response = await client.get(url, params=params)
                 if response.status_code >= 500:
                     try:
                         parse_search_response(response.json())

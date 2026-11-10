@@ -31,9 +31,13 @@ export const PUBLIC_SOURCE_FETCHER = {
   port: 8095,
   /** The roles whose tools fetch public sources: the chat turn, the api routes (the RIS reader, norm admin), research jobs. */
   callers: [...CHAT_TIERS, ...API_TIERS, "agent-worker"] as const,
-  /** Never routed to: the cluster's and the node network's own ranges, link-local metadata, CGNAT. */
-  privateV4: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "127.0.0.0/8"],
-  privateV6: ["fc00::/7", "fe80::/10", "::1/128"],
+  /** Never routed to: the cluster's and the node network's own ranges, link-local metadata, CGNAT, benchmarking, multicast, reserved. */
+  privateV4: [
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+    "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
+  ],
+  /** ULA, link-local, loopback, NAT64 (a gateway to IPv4, private ranges included) and IPv4-mapped. */
+  privateV6: ["fc00::/7", "fe80::/10", "::1/128", "64:ff9b::/96", "::ffff:0:0/96"],
   resources: {
     requests: { cpu: "50m", memory: "128Mi" },
     limits: { cpu: "500m", memory: "512Mi" },
