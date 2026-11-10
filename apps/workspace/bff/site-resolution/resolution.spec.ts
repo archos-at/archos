@@ -24,7 +24,7 @@ import { houseKeysOf, narrow, outcomeOf, placeKeysOf } from './match'
 import { streetKey } from './normalize'
 import { parseAddress } from './parse'
 import { siteProfileOperations } from './profile'
-import { BEV_ADDRESS_REGISTER, federalStateToken, registerFor, territoryChain } from './registers'
+import { BEV_ADDRESS_REGISTER, federalStateToken, registerFor } from './registers'
 import type { RegisterRow } from './store'
 import type { RegisterSite } from './wire'
 
@@ -86,9 +86,10 @@ describe('the BEV archive', () => {
 })
 
 describe('the territory chain of a register address', () => {
-  it('places a Gemeinde under its Land and Austria, by the Gemeindekennziffer', () => {
-    expect(territoryChain(BEV_ADDRESS_REGISTER, '60101')).toEqual(['AT:gkz:60101', 'AT-6', 'AT'])
-    expect(territoryChain(BEV_ADDRESS_REGISTER, '90001')).toEqual(['AT:gkz:90001', 'AT-9', 'AT'])
+  it('names a Gemeinde\'s territory and Land by the Gemeindekennziffer; the chain itself comes from the records', () => {
+    expect(BEV_ADDRESS_REGISTER.municipalityTerritory('60101')).toBe('AT:gkz:60101')
+    expect(BEV_ADDRESS_REGISTER.stateOf('90001')).toBe('AT-9')
+    expect(BEV_ADDRESS_REGISTER.stateOf('00001')).toBeNull()
     expect(federalStateToken('AT-6')).toBe('styria')
   })
 
@@ -251,8 +252,11 @@ describe('competence for a site', () => {
   const chain = ['AT:gkz:60101', 'AT-6', 'AT']
   const names = new Map([['authority:test-graz', 'Bürgermeister der Stadt Graz (Bau- und Anlagenbehörde)']])
 
-  it('hands the chain to the evaluator as facts', () => {
+  it('hands the chain to the evaluator as facts, a recorded Bezirk as the district', () => {
     expect(siteFacts(chain)).toEqual({ municipality: 'AT:gkz:60101', state: 'AT-6', country: 'AT' })
+    expect(siteFacts(['AT:gkz:61108', 'AT:bezirk:611', 'AT-6', 'AT'])).toEqual({
+      municipality: 'AT:gkz:61108', district: 'AT:bezirk:611', state: 'AT-6', country: 'AT',
+    })
   })
 
   it('names the authority a ruleset in force decides for the Gemeinde (positive control)', () => {

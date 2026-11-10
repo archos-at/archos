@@ -4,7 +4,10 @@
  * authority records they name (ADR-0165). Nothing here knows a country.
  *
  * The facts a competence table may read, all territory ids of the site's
- * chain: `municipality` (`AT:gkz:60101`), `state` (`AT-6`), `country` (`AT`).
+ * chain as the territory records hold it: `municipality` (`AT:gkz:60101`),
+ * `district` (a Bezirk, when recorded), `state` (`AT-6`), `country` (`AT`). A
+ * municipality with no territory record has no chain: `undetermined:
+ * no_territory`.
  * A table that reads another fact gets it as unknown and answers
  * `undetermined: unknown_inputs`, naming it. No ruleset for the chain is
  * `undetermined: no_rule`, never a guess; Austria's rulesets arrive with
@@ -19,11 +22,20 @@ import { readRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'
 import { decide, type StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import type { SiteAuthority } from './wire'
 
-/** The facts a competence table reads, from a chain (leaf first: municipality, state, country). */
+/**
+ * The facts a competence table reads, from a chain read from the territory
+ * records (leaf first): `municipality` the leaf, `state` its ISO 3166-2
+ * subdivision, `country` its ISO 3166-1 code, and `district` a node between the
+ * municipality and the state (a Bezirk), when the records hold one.
+ */
 export function siteFacts(chain: readonly string[]): Record<string, string> {
-  const [municipality, state, country] = chain.length >= 3 ? chain : [chain[0], undefined, chain[chain.length - 1]]
+  const [municipality, ...above] = chain
+  const state = above.find((id) => /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(id))
+  const country = above.find((id) => /^[A-Z]{2}$/.test(id))
+  const district = above.find((id) => id !== state && id !== country)
   return {
     ...(municipality ? { municipality } : {}),
+    ...(district ? { district } : {}),
     ...(state ? { state } : {}),
     ...(country ? { country } : {}),
   }
@@ -88,10 +100,13 @@ export async function competentAuthorities(
   on: string
 ): Promise<SiteAuthority[]> {
   if (chains.length === 0) return []
+  if (chains.every((chain) => chain.length === 0)) return chains.map(() => ({ status: 'undetermined', reason: 'no_territory' }))
   const territoryIds = [...new Set(chains.flat())]
   const read = await readRulesetsInForce(organizationId, { purpose: 'competence', territoryIds })
   if (read.truncated || read.unreadable.length > 0)
     return chains.map(() => ({ status: 'undetermined', reason: 'rules_unreadable' }))
   const names = await authorityNames(organizationId, namedAuthorities(read.rulesets))
-  return chains.map((chain) => authorityOf(read.rulesets, chain, on, names))
+  return chains.map((chain): SiteAuthority =>
+    chain.length === 0 ? { status: 'undetermined', reason: 'no_territory' } : authorityOf(read.rulesets, chain, on, names)
+  )
 }

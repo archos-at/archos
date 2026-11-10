@@ -3,7 +3,7 @@
  * answers `siteResolutionSchema`, `POST /api/projects/[id]/site` takes
  * `projectSiteSetBodySchema`. No `server-only`: the browser imports it.
  *
- * Fail closed: a site is `verified` only when exactly one address of an
+ * `verified` is about the address: exactly one address of an
  * official register in the cell matches. Anything else is `unverified`, with
  * the reason and the register's candidates, and nothing is guessed.
  */
@@ -40,7 +40,7 @@ export const siteAuthoritySchema = z.discriminatedUnion('status', [
   }),
   z.object({
     status: z.literal('undetermined'),
-    reason: z.enum(['no_rule', 'unknown_inputs', 'no_row_applies', 'ambiguous_rules', 'rules_unreadable']),
+    reason: z.enum(['no_territory', 'no_rule', 'unknown_inputs', 'no_row_applies', 'ambiguous_rules', 'rules_unreadable']),
     unknownInputs: z.array(z.string()).optional(),
   }),
 ])
@@ -63,8 +63,13 @@ export const registerSiteSchema = z.object({
   municipality: territorySchema.extend({ code: z.string() }),
   locality: z.string().nullable(),
   postcode: z.string(),
-  /** Leaf first: municipality, state, country. What the rulesets select by. */
-  chain: z.array(z.string()).min(1),
+  /**
+   * Leaf first, as the platform's territory records hold it (a Bezirk between
+   * municipality and state included). What the rulesets select by. Empty while
+   * no territory record holds the municipality: then the authority is
+   * `undetermined: no_territory`.
+   */
+  chain: z.array(z.string()),
   register: z.object({
     id: z.string(),
     referenceDate: z.string(),

@@ -62,7 +62,7 @@ function verifiedOperations(site: RegisterSite, now: Date): ProjectProfilePatchO
     ['country', site.country.toLowerCase()],
     ['federal_state', site.state?.federalState ?? null],
     ['municipality', site.municipality.name],
-    ['site_territory', site.municipality.territoryId],
+    ['site_territory', site.chain.length > 0 ? site.municipality.territoryId : null],
   ]
   return facts.flatMap(([key, value]) => (value ? [{ op: 'add' as const, path: `/facts/${key}`, value: fact(value, evidence, now) }] : []))
 }

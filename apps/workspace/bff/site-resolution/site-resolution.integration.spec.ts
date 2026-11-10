@@ -103,6 +103,8 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
       { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
       { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parentIds: ['AT-6'] },
+      { type: 'territory', id: 'AT:bezirk:611', kind: 'district', name: 'Leoben (Bezirk)', parentIds: ['AT-6'] },
+      { type: 'territory', id: 'AT:gkz:61108', kind: 'municipality', name: 'Leoben', parentIds: ['AT:bezirk:611'] },
       {
         type: 'authority',
         key: authorityKey,
@@ -216,7 +218,16 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(result.retiredReleaseIds).toEqual([])
   })
 
-  it('places a register hit in the territory chain, with the authority undetermined while no ruleset covers it', async () => {
+  it('verifies the address and places it nowhere while no territory record holds its Gemeinde (no_territory)', async () => {
+    const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
+    expect(resolution).toMatchObject({
+      status: 'verified',
+      site: { municipality: { territoryId: 'AT:gkz:60101', name: 'Graz' }, chain: [], authority: { status: 'undetermined', reason: 'no_territory' } },
+    })
+  })
+
+  it('places a register hit in the territory chain the records hold, with the authority undetermined while no ruleset covers it', async () => {
+    await publishGrazAuthority()
     const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
     expect(resolution).toMatchObject({
       status: 'verified',
@@ -234,7 +245,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   })
 
   it('names the competent authority once a ruleset decides it (positive control)', async () => {
-    await publishGrazAuthority()
     await grazCompetence()
     const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
     expect(resolution.status === 'verified' && resolution.site.authority).toEqual({
@@ -244,8 +254,9 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       territoryId: 'AT-6',
       citation: 'synthetic: § 95 Stmk. BauG',
     })
-    // The same ruleset decides nothing for Leoben, in the same Land.
+    // The same ruleset decides nothing for Leoben, in the same Land; its chain keeps the Bezirk the records name.
     const leoben = await service.resolveSite(session, 'Hauptplatz 1, 8700 Leoben', now)
+    expect(leoben.status === 'verified' && leoben.site.chain).toEqual(['AT:gkz:61108', 'AT:bezirk:611', 'AT-6', 'AT'])
     expect(leoben.status === 'verified' && leoben.site.authority).toEqual({ status: 'undetermined', reason: 'no_row_applies' })
   })
 

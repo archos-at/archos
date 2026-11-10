@@ -19,7 +19,11 @@ import { competentAuthorities } from './competence'
 import { houseKeysOf, narrow, outcomeOf, placeKeysOf, usablePostcode } from './match'
 import { parseAddress, type ParsedAddress } from './parse'
 import { streetKey } from './normalize'
-import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor, territoryChain } from './registers'
+import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor } from './registers'
+import { getDb } from '@/lib/db'
+import { withTenant } from '@/lib/db/tenant-context'
+import { territoryChain } from '@/lib/base-knowledge/platform/applicability'
+import { readTerritoryParents } from '@/lib/base-knowledge/platform/territories'
 import { siteProfileOperations } from './profile'
 import { activeReleases, findByAddressId, findByKeys, type RegisterRow } from './store'
 import {
@@ -36,26 +40,44 @@ function today(now: Date): string {
   return now.toISOString().slice(0, 10)
 }
 
-/** A register row as a site, without its authority. Pure. */
-export function siteOf(row: RegisterRow): Omit<RegisterSite, 'authority'> {
+/** A register row as a site, with the chain its municipality's territory records give, without its authority. Pure. */
+export function siteOf(row: RegisterRow, chain: readonly string[]): Omit<RegisterSite, 'authority'> {
   const register = ADDRESS_REGISTERS[row.release.register]
-  const chain = territoryChain(register, row.municipalityCode)
   const state = register.stateOf(row.municipalityCode)
   return {
     addressId: `${register.id}:${row.addressId}`,
     label: `${row.streetName} ${row.houseNumber}, ${row.postcode} ${row.municipalityName}`,
     country: register.country,
     state: state ? { territoryId: state, name: STATE_NAMES[state] ?? state, federalState: federalStateToken(state) } : null,
-    municipality: { territoryId: chain[0], name: row.municipalityName, code: row.municipalityCode },
+    municipality: { territoryId: register.municipalityTerritory(row.municipalityCode), name: row.municipalityName, code: row.municipalityCode },
     locality: row.localityName,
     postcode: row.postcode,
-    chain,
+    chain: [...chain],
     register: { id: register.id, referenceDate: row.release.referenceDate, attribution: row.release.attribution },
   }
 }
 
+/**
+ * The chain of a municipality's territory, read from the platform's territory
+ * records (ADR-0165), so a Bezirk between it and its Land is kept; empty when
+ * no record holds it. Never built from the code alone.
+ */
+async function recordedChains(session: Session, territoryIds: readonly string[]): Promise<Map<string, string[]>> {
+  const chains = new Map<string, string[]>()
+  await withTenant({ organizationId: session.organizationId }, async () => {
+    for (const territoryId of new Set(territoryIds)) {
+      const parents = await readTerritoryParents(getDb(), territoryId)
+      chains.set(territoryId, parents.has(territoryId) ? territoryChain(territoryId, parents) : [])
+    }
+  })
+  return chains
+}
+
 async function withAuthorities(session: Session, rows: readonly RegisterRow[], now: Date): Promise<RegisterSite[]> {
-  const sites = rows.slice(0, SITE_RESOLVE_MAX_CANDIDATES).map(siteOf)
+  const shown = rows.slice(0, SITE_RESOLVE_MAX_CANDIDATES)
+  const territoryOf = (row: RegisterRow) => ADDRESS_REGISTERS[row.release.register].municipalityTerritory(row.municipalityCode)
+  const chains = await recordedChains(session, shown.map(territoryOf))
+  const sites = shown.map((row) => siteOf(row, chains.get(territoryOf(row)) ?? []))
   const authorities = await competentAuthorities(session.organizationId, sites.map((site) => site.chain), today(now))
   return sites.map((site, index) => ({ ...site, authority: authorities[index] }))
 }

@@ -95,13 +95,19 @@ register itself and no typed text leaves the cell.
   (several Gemeinden, design §5.2), and up to eight register candidates. A
   stated country is kept as stated (A1): a line ending in "Deutschland" or
   prefixed `D-` is `no_register` until E31 brings Germany's.
+- **Chain.** The site's chain is read from the platform's territory records
+  (`readTerritoryParents`, ADR-0165), never built from the code: a Bezirk
+  between Gemeinde and Land is kept. A Gemeinde no record holds has no chain;
+  the address is still verified (the register's own Gemeinde and Land), and
+  its authority is `undetermined: no_territory`, and no `site_territory` fact
+  is written. The Gemeinde territories arrive with pack 1 (build split S8).
 - **Authority.** `competence.ts` reads the competence rulesets in force for the
-  site's chain (the office's own and the platform's) and decides with
-  `decide(...)` over the facts `municipality`, `state` and `country`, each a
-  territory id. The authority is named from its record. No ruleset is
-  `undetermined: no_rule`; Austria's competence rulesets arrive with pack 1
-  (build split S8), so until then a verified Austrian site says its Gemeinde
-  and Land and that its authority is not determined.
+  chain (the office's own and the platform's) and decides with `decide(...)`
+  over the facts `municipality`, `district` (a recorded Bezirk), `state` and
+  `country`, each a territory id. The authority is named from its record. No
+  ruleset is `undetermined: no_rule`; Austria's competence rulesets arrive with
+  pack 1 (S8), so until then a verified Austrian site says its Gemeinde and
+  Land and that its authority is not determined.
 - **Writing the site.** `project-site-set` (`POST /api/projects/[id]/site`)
   writes through the profile's one door (`patchProjectProfile`, project:edit).
   A register address becomes confirmed facts (`site_address`, `country`,

@@ -64,12 +64,6 @@ export function registerFor(country: string): AddressRegister | null {
   return Object.values(ADDRESS_REGISTERS).find((register) => register.country === country) ?? null
 }
 
-/** A site's chain, leaf first, as the rulesets evaluator selects by it: municipality, state, country. */
-export function territoryChain(register: AddressRegister, municipalityCode: string): string[] {
-  const state = register.stateOf(municipalityCode)
-  return [register.municipalityTerritory(municipalityCode), ...(state ? [state] : []), register.country]
-}
-
 const FEDERAL_STATE_TOKEN_BY_TERRITORY: Readonly<Record<string, string>> = Object.fromEntries(
   Object.entries(FEDERAL_STATE_TERRITORIES).map(([token, territory]) => [territory, token])
 )
