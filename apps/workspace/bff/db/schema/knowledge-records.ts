@@ -143,8 +143,6 @@ export const knowledgeManifestationRevisions = pgTable('knowledge_manifestation_
   sha256: text('sha256'),
   /** A platform text's file in the base corpus (0205); an office copy is its Archiv document instead. */
   corpusFile: text('corpus_file'),
-  /** The source's own identifiers of this text (0214): `ris_gesetzesnummer`, `eli`; how a passage read live finds its edition. */
-  identifiers: jsonb('identifiers').$type<Record<string, string>>().notNull().default({}),
 })
 
 export const knowledgeChecks = pgTable('knowledge_checks', {

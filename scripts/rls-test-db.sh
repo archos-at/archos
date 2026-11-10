@@ -3774,15 +3774,3 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
-# 0214: a manifestation's source identifiers (ADR-0175) are a JSON object;
-# the down drops the column, and 0214 applies again.
-# ---------------------------------------------------------------------------
-echo "==> verifying 0214 manifestation identifiers and its down migration on mi_0214"
-migrate_until mi_0214 0214_manifestation_identifiers
-check_in mi_0214 "SELECT column_default FROM information_schema.columns WHERE table_name = 'knowledge_manifestation_revisions' AND column_name = 'identifiers'" "'{}'::jsonb" "0214: identifiers default to an empty object"
-check_in mi_0214 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_manifestation_revisions_identifiers_object'" "CHECK ((jsonb_typeof(identifiers) = 'object'::text))" "0214: identifiers must be a JSON object"
-apply_in mi_0214 0214_manifestation_identifiers.down.sql
-check_in mi_0214 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_manifestation_revisions' AND column_name = 'identifiers'" "0" "0214 down drops the column"
-apply_in mi_0214 0214_manifestation_identifiers.sql
-check_in mi_0214 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_manifestation_revisions' AND column_name = 'identifiers'" "1" "0214 applies again after its down"
-echo "==> 0214 manifestation identifiers and its down migration verified"

@@ -29917,6 +29917,30 @@
                                 ]
                               }
                             },
+                            "identifiers": {
+                              "default": {},
+                              "description": "The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.",
+                              "type": "object",
+                              "properties": {
+                                "ris_gesetzesnummer": {
+                                  "description": "RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. \"20000006\".",
+                                  "type": "string",
+                                  "pattern": "^\\d{1,12}$"
+                                },
+                                "ris_dokumentnummer": {
+                                  "description": "RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.",
+                                  "type": "string",
+                                  "pattern": "^[A-Z0-9_]{4,60}$"
+                                },
+                                "eli": {
+                                  "description": "The European Legislation Identifier of the work, as a URL; a passage under it is this work.",
+                                  "type": "string",
+                                  "maxLength": 300,
+                                  "format": "uri"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
@@ -30366,20 +30390,6 @@
                                   "type": "null"
                                 }
                               ]
-                            },
-                            "identifiers": {
-                              "default": {},
-                              "description": "The source’s own identifiers of this text, by the source’s key, e.g. {\"eli\": \"https://www.ris.bka.gv.at/eli/…\"}: how a passage the agent reads live at the source finds this edition and its role.",
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string",
-                                "pattern": "^[a-z_]{2,30}$"
-                              },
-                              "additionalProperties": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 300
-                              }
                             },
                             "citations": {
                               "default": [],

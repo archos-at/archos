@@ -2,22 +2,20 @@
  * @vitest-environment node
  *
  * A background run never calls the turn context, so it carries the law of its
- * project itself (ADR-0175): the knowledge context and the chain, under the
- * keys the worker binds (`knowledge_context`, `building_law`). Without them a
- * research run for an Austrian project would read as `knowledge_unavailable`
- * and withhold the law the chat turn names.
+ * project itself (ADR-0175): one knowledge context, chain text included, under
+ * the key the worker binds (`knowledge_context`), and no second payload beside
+ * it. Without it a research run for an Austrian project would read as
+ * `knowledge_unavailable` and withhold the law the chat turn names.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { knowledgeContextForTurn, buildingLawForTurn, submitJob } = vi.hoisted(() => ({
+const { knowledgeContextForTurn, submitJob } = vi.hoisted(() => ({
   knowledgeContextForTurn: vi.fn(),
-  buildingLawForTurn: vi.fn(),
   submitJob: vi.fn(async () => ({ jobId: 'job_1', queued: true })),
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn }))
-vi.mock('@/lib/base-knowledge/chain/turn', () => ({ buildingLawForTurn }))
 vi.mock('./backend-client', () => ({ submitJob }))
 vi.mock('@/lib/request-context', () => ({ buildRequestContextWireHeaders: () => ({}), encodeBudgetHeader: () => null }))
 vi.mock('./run-context', () => ({ runRequestContextInput: () => ({}), warnIfRunEnvelopeLarge: () => undefined }))
@@ -31,14 +29,26 @@ const STYRIA_CONTEXT = {
   chains: { 'AT-6': ['AT-6', 'AT', 'EU'] },
   date: '2026-11-10',
   procedures: [],
-  uses: [],
+  uses: [
+    {
+      workId: 'work:oib-rl-2',
+      editionId: 'edition:oib-rl-2-2019',
+      role: 'binding',
+      qualifier: null,
+      via: 'relation',
+      date: '2026-11-10',
+      freshness: 'current',
+      lastCheckedAt: null,
+      connectsBy: ['site'],
+      labels: [],
+      corpusFiles: ['oib-rl-2-2019.pdf'],
+      designation: 'OIB-RL 2',
+      editionLabel: '2019',
+      sourceRefs: [],
+    },
+  ],
+  text: 'Building law at this site, Steiermark …',
   retrieval: { countries: ['AT', 'EU'] },
-}
-const STYRIA_LAW = {
-  text: 'In der Steiermark gilt …',
-  chain: ['AT-6', 'AT', 'EU'],
-  date: '2026-11-10',
-  uses: [{ workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2019', role: 'binding', qualifier: null, via: 'relation', corpusFiles: ['oib-rl-2-2019.pdf'], sourceRefs: [], designation: 'OIB-RL 2', editionLabel: '2019' }],
 }
 
 const submit = () =>
@@ -60,27 +70,23 @@ describe('submitBackgroundRun', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     knowledgeContextForTurn.mockResolvedValue(STYRIA_CONTEXT)
-    buildingLawForTurn.mockResolvedValue(STYRIA_LAW)
   })
 
-  it('carries the knowledge context and the chain of an entitled Austrian project, read for its office and project', async () => {
+  it('carries the knowledge context of an entitled Austrian project, chain text included, read for its office and project', async () => {
     await submit()
     expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_at', 'project_graz')
-    expect(buildingLawForTurn).toHaveBeenCalledWith('org_at', 'project_graz')
-    expect(payload()).toMatchObject({ knowledge_context: STYRIA_CONTEXT, building_law: STYRIA_LAW })
+    expect(payload()).toMatchObject({ knowledge_context: STYRIA_CONTEXT })
+  })
+
+  it('carries no second payload for the law beside the context (one answer, ADR-0175)', async () => {
+    await submit()
+    expect(payload()).not.toHaveProperty('building_law')
   })
 
   it('carries the unavailable gate as it is: the worker fails closed on it, never on a missing key', async () => {
-    const unavailable = { ...STYRIA_CONTEXT, gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, retrieval: { countries: [] } }
+    const unavailable = { ...STYRIA_CONTEXT, gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, uses: [], text: null, retrieval: { countries: [] } }
     knowledgeContextForTurn.mockResolvedValue(unavailable)
     await submit()
     expect(payload().knowledge_context).toEqual(unavailable)
-  })
-
-  it('still submits when the chain cannot be read, with no chain rather than none at all', async () => {
-    buildingLawForTurn.mockRejectedValue(new Error('graph read failed'))
-    vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await submit()
-    expect(payload()).toMatchObject({ building_law: null, knowledge_context: STYRIA_CONTEXT })
   })
 })

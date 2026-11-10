@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn() }))
-vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(), contextWithNames: vi.fn() }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(), contextForPage: vi.fn() }))
 
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'

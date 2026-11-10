@@ -138,21 +138,24 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(graph.editions.get('edition:oib-rl-2-2023')?.corpusFiles).toEqual(['oib-rl_2_ausgabe_mai_2023.pdf'])
   })
 
-  it('reads a manifestation’s source identifiers as the edition’s sourceRefs (0214)', async () => {
-    await published('AT', 'OIB-RL 2:2019 at its source', [
+  it('reads a work’s identifiers at its source as its sourceRefs, by scheme, and nothing else of them', async () => {
+    await published('AT', 'A Viennese statute read live at RIS', [
       {
-        type: 'manifestation',
-        key: `oib-rl-2-2019-link-${RUN}`,
-        editionKey: 'oib-rl-2-2019',
-        form: 'link',
-        licenceClass: 'public_open',
-        identifiers: { eli: `https://example.test/eli/oib-rl-2-2019/${RUN}` },
-        citations: [{ url: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/', note: 'fixture' }],
+        type: 'work',
+        key: `wien-statute-${RUN}`,
+        kind: 'statute',
+        title: 'Testgesetz für Wien',
+        designation: 'TG Wien',
+        territoryIds: ['AT-9'],
+        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}` },
+        citations: [{ url: 'https://www.ris.bka.gv.at/', note: 'fixture' }],
       },
     ])
-    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-6')
-    expect(graph.editions.get('edition:oib-rl-2-2019')?.sourceRefs).toContain(`eli:https://example.test/eli/oib-rl-2-2019/${RUN}`)
-    expect(graph.editions.get('edition:oib-rl-2-2023')?.sourceRefs).toEqual([])
+    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
+    expect(graph.works.get(`work:wien-statute-${RUN}`)?.sourceRefs).toEqual([
+      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}` },
+      { scheme: 'ris_gesetzesnummer', value: '20000006' },
+    ])
   })
 
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {

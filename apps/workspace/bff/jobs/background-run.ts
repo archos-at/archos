@@ -15,7 +15,6 @@
  */
 
 import 'server-only'
-import { buildingLawForTurn } from '@/lib/base-knowledge/chain/turn'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
 import type { JobOutput } from '@/lib/db/schema/jobs'
 import { buildRequestContextWireHeaders, encodeBudgetHeader } from '@/lib/request-context'
@@ -58,15 +57,10 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
   const { subject, context, conversationId } = run
   const budgetHeader = context.budget ? encodeBudgetHeader(context.budget) : null
   // A run is no chat turn and never calls the turn context, so it carries the
-  // law of its project itself (ADR-0175): the knowledge context (unreadable is
-  // the gate's `knowledge_unavailable`) and the chain with each edition's role.
-  const [knowledgeContext, buildingLaw] = await Promise.all([
-    knowledgeContextForTurn(subject.organizationId, subject.projectId),
-    buildingLawForTurn(subject.organizationId, subject.projectId).catch((error: unknown) => {
-      console.error('[background-run] the chain could not be read; the run carries none', { projectId: subject.projectId, error })
-      return null
-    }),
-  ])
+  // law of its project itself (ADR-0175): its knowledge context, chain text
+  // included. It never throws: a read that fails is the gate's
+  // `knowledge_unavailable`, so the run fails closed and is still submitted.
+  const knowledgeContext = await knowledgeContextForTurn(subject.organizationId, subject.projectId)
 
   const payload: JobSubmitPayload = {
     input: run.prompt,
@@ -92,8 +86,7 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
     budget_header: budgetHeader,
     model_overrides: context.modelOverrides,
     priority: run.priority,
-    ...(knowledgeContext ? { knowledge_context: knowledgeContext } : {}),
-    building_law: buildingLaw,
+    knowledge_context: knowledgeContext,
   }
 
   // The worker keeps this envelope with the job and echoes it to the BFF from

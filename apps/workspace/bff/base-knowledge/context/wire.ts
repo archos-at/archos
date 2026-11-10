@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS } from '../wire/vocab'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, SOURCE_REF_SCHEMES } from '../wire/vocab'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
@@ -53,6 +53,9 @@ export const gateSchema = z
   })
   .strict()
 
+/** One identifier of a work at its source, by scheme (`SOURCE_REF_SCHEMES`): how a passage read live finds its work. */
+export const sourceRefSchema = z.object({ scheme: z.enum(SOURCE_REF_SCHEMES), value: z.string().min(1).max(300) }).strict()
+
 export const contextUseSchema = z
   .object({
     workId: z.string(),
@@ -69,6 +72,12 @@ export const contextUseSchema = z
     connectsBy: z.array(z.enum(CONNECTING_FACTORS)).min(1),
     labels: z.array(z.enum(USE_LABELS)).max(USE_LABELS.length),
     corpusFiles: z.array(z.string()),
+    /** The work's designation (`BO für Wien`), a name for a person and a chip; null when the record states none. */
+    designation: z.string().nullable(),
+    /** The edition's label (`Ausgabe Mai 2023`); null for law read live at its source. */
+    editionLabel: z.string().nullable(),
+    /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
+    sourceRefs: z.array(sourceRefSchema).max(8),
   })
   .strict()
 
@@ -96,6 +105,12 @@ export const knowledgeContextSchema = z
     date: z.iso.date(),
     procedures: z.array(procedureContextSchema).max(4),
     uses: z.array(contextUseSchema).max(MAX_CONTEXT_USES),
+    /**
+     * The chain text the agent reads (the `<building_law>` block): what binds at
+     * the site and why, in the roles of `uses`. Null where no law binds there by
+     * the records, or where the gate names no law.
+     */
+    text: z.string().max(16_000).nullable(),
     /** What the turn may retrieve from the shared corpus: the countries whose chunks it may read. Empty reads none. */
     retrieval: z.object({ countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(300) }).strict(),
     /**
@@ -110,6 +125,7 @@ export const knowledgeContextSchema = z
 export type Leaf = z.infer<typeof leafSchema>
 export type Gate = z.infer<typeof gateSchema>
 export type ContextUse = z.infer<typeof contextUseSchema>
+export type SourceRef = z.infer<typeof sourceRefSchema>
 export type ProcedureContext = z.infer<typeof procedureContextSchema>
 export type KnowledgeContext = z.infer<typeof knowledgeContextSchema>
 export type UseLabel = (typeof USE_LABELS)[number]

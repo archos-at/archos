@@ -14,6 +14,7 @@
  * then uses none of it rather than a partial one.
  */
 
+import { sourceRefsOf } from './source-refs'
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -67,6 +68,7 @@ interface WorkRow extends Record<string, unknown> {
   kind: KnowledgeWorkKind
   title: string
   designation: string | null
+  identifiers: Record<string, unknown> | null
   territory_ids: string[]
   addressee_territory_ids: string[] | null
   connects_by: ConnectingFactor[] | null
@@ -81,7 +83,6 @@ interface EditionRow extends Record<string, unknown> {
   in_force_from: string | null
   in_force_to: string | null
   corpus_files: string[] | null
-  source_refs: string[] | null
   checked_at: string | Date | null
   check_result: string | null
 }
@@ -140,7 +141,7 @@ async function worksFor(organizationId: string, chain: readonly string[], named:
       SELECT e.work_id FROM knowledge_records er JOIN knowledge_edition_revisions e ON e.revision_id = er.head_revision_id
       WHERE er.id = ANY(${sqlTextArray(named)})
     )
-    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.territory_ids,
+    SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.identifiers, w.territory_ids,
       (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids,
       w.connects_by
     FROM knowledge_records r JOIN knowledge_work_revisions w ON w.revision_id = r.head_revision_id
@@ -157,10 +158,6 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
-      (SELECT array_agg(DISTINCT i.key || ':' || i.value ORDER BY i.key || ':' || i.value)
-         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
-         CROSS JOIN LATERAL jsonb_each_text(m.identifiers) AS i(key, value)
-         WHERE mr.organization_id IS NULL AND m.edition_id = r.id) AS source_refs,
       c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
     -- The platform's newest check of a platform edition: what its freshness reads (design §4.6).
@@ -217,6 +214,7 @@ function toWork(row: WorkRow): GraphWork {
     territoryIds: row.territory_ids,
     addresseeTerritoryIds: (row.addressee_territory_ids ?? []).filter((id): id is string => typeof id === 'string'),
     connectsBy: row.connects_by ?? ['site'],
+    sourceRefs: sourceRefsOf(row.identifiers),
   }
 }
 
@@ -230,7 +228,6 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceFrom: dateText(row.in_force_from),
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
-    sourceRefs: row.source_refs ?? [],
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
 }

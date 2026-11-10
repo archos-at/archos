@@ -56,7 +56,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
       return {
         kind: record.kind,
         title: record.title,
-        identifiers: record.designation ? { designation: record.designation } : {},
+        identifiers: { ...record.identifiers, ...(record.designation ? { designation: record.designation } : {}) },
         territoryIds: record.territoryIds,
         issuer: record.issuer,
         addressees: record.addressees.map(({ name, territoryId, authorityKey }) => ({
@@ -84,7 +84,6 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         language: record.language,
         licenceClass: record.licenceClass,
         corpusFile: record.corpusFile,
-        identifiers: record.identifiers,
       }
     case 'territory':
       return {

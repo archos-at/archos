@@ -104,6 +104,23 @@ const workRecord = z.object({
     .max(3)
     .default(['site'])
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
+  identifiers: z
+    .object({
+      'ris_gesetzesnummer': z
+        .string()
+        .regex(/^\d{1,12}$/)
+        .optional()
+        .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
+      'ris_dokumentnummer': z
+        .string()
+        .regex(/^[A-Z0-9_]{4,60}$/)
+        .optional()
+        .describe('RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.'),
+      eli: z.url().max(300).optional().describe('The European Legislation Identifier of the work, as a URL; a passage under it is this work.'),
+    })
+    .strict()
+    .default({})
+    .describe('The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.'),
   ...common,
 })
 
@@ -137,12 +154,6 @@ const manifestationRecord = z.object({
     .nullable()
     .default(null)
     .describe('The text, as a file uploaded to the base corpus; null for a listing without text.'),
-  identifiers: z
-    .record(z.string().regex(/^[a-z_]{2,30}$/), z.string().trim().min(1).max(300))
-    .default({})
-    .describe(
-      'The source’s own identifiers of this text, by the source’s key, e.g. {"eli": "https://www.ris.bka.gv.at/eli/…"}: how a passage the agent reads live at the source finds this edition and its role.',
-    ),
   ...common,
 })
 

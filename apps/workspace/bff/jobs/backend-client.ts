@@ -13,7 +13,6 @@
  *   - any other non-2xx / network failure → SubmitError → `error` run.
  */
 
-import type { BuildingLawTurn } from '@/lib/base-knowledge/chain/wire'
 import type { KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import 'server-only'
 // The leaf, not `@/lib/backend-proxy`: that module pulls
@@ -113,12 +112,10 @@ export interface JobSubmitPayload {
   priority?: JobPriority
   /**
    * The knowledge context of the run's project (ADR-0173, ADR-0175): the same
-   * JSON a chat turn's `knowledgeContext` carries. The worker binds it as a
-   * turn does; absent or malformed reads as `knowledge_unavailable`.
+   * JSON a chat turn's `knowledgeContext` carries, its chain text included.
+   * The worker binds it as a turn does; malformed reads as `knowledge_unavailable`.
    */
-  knowledge_context?: KnowledgeContext
-  /** The chain at the project's site with each edition's role (a turn's `buildingLaw`); null when none binds there by the records. */
-  building_law?: BuildingLawTurn | null
+  knowledge_context: KnowledgeContext
 }
 
 /** The agents a background run may name instead of its output kind's (`agent_host/registry.py`). */
