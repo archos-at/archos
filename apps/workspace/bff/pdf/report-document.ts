@@ -74,7 +74,7 @@ export const pdfRequestSchema = z
       .object({
         level: z.enum(['low', 'medium', 'high']),
         reason: z.string().nullish(),
-        cappedReason: z.enum(['ungrounded', 'quote_unverified']).nullish(),
+        cappedReason: z.enum(['ungrounded', 'quote_unverified', 'law_unsettled']).nullish(),
       })
       .nullish(),
     /** The language the reader read the answer in; defaults to the app default. */

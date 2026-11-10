@@ -174,6 +174,8 @@ def test_the_unknown_site_note_names_what_the_base_covers_and_keeps_the_web_to_i
     set_turn_knowledge_context(KnowledgeContext(gate="site_unknown", retrieval_countries=frozenset({"AT", "EU"})))
     note = jurisdiction_note() or ""
     assert "AT, EU" in note and "do not assume a" in note
+    # Baseline Q3: an unconfirmed München from project memory applied Bavarian law.
+    assert "project memory" in note and "not a confirmed site" in note
     assert "unverified information" in note and "never from a web copy" in note
 
 
@@ -246,3 +248,28 @@ def test_the_research_doctrine_names_no_country():
     set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="DE"))
     for austrian in ("ÖNORM", "OIB", "Wien", "Bundesland", "MA 37", "Flächenwidmung"):
         assert austrian not in research_doctrine(), austrian
+
+
+# --- the law gate on confidence (staging QC F6, ADR-0175) ---
+
+OIB_PASSAGE = {"citation_key": "oib-rl_2_ausgabe_mai_2023.pdf, p.12", "source_type": "knowledge_layer", "shelf": "base"}
+PROJECT_PASSAGE = {"citation_key": "Einreichplan.pdf, p.2", "source_type": "knowledge_layer", "shelf": "project"}
+
+
+@pytest.mark.parametrize(
+    ("gate", "passage", "unsettled"),
+    [
+        ("none", OIB_PASSAGE, True),
+        ("site_unknown", OIB_PASSAGE, True),
+        ("open", OIB_PASSAGE, True),
+        ("core", OIB_PASSAGE, False),
+        ("full", OIB_PASSAGE, False),
+        ("none", PROJECT_PASSAGE, False),
+    ],
+)
+def test_an_answer_on_law_the_records_do_not_settle_is_unsettled(gate, passage, unsettled):
+    from agent.citations.entries import SourceEntry
+    from agent.common.law_gate import law_unsettled
+
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
+    assert law_unsettled([SourceEntry(**passage)]) is unsettled

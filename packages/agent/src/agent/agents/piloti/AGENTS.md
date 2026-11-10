@@ -45,8 +45,10 @@ this turn's workspace records and the turn context's profile and inventory
 the readings, and which quotations the quote check found. The evidence is
 delimited data; an instruction inside it is ignored. The reply is a level and
 the statements the answer relies on that are unbacked or contradicted
-(`confidence_check`). The one rule on top is the quote gate
-(`markers._quote_cap`); the self-report sets no level. No model, a timeout, an
+(`confidence_check`). Two structural gates sit on top, never a word list: the
+quote gate (`markers._quote_cap`) and the law gate (`law_unsettled`: an answer
+citing building law the records do not settle is at most medium, ADR-0139's
+amendment); the self-report sets no level. No model, a timeout, an
 error or an unreadable reply surfaces NO level, never a guessed one. Do not put
 rules back in front of the grader: five rounds of word lists, sentence classes
 and aggregation each moved the errors to the other side (ADR-0139). Deep

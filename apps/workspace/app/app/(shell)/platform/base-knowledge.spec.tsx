@@ -148,8 +148,8 @@ describe('BaseKnowledge', () => {
     expect(screen.getByText('oenorm-b-1600.pdf')).toBeInTheDocument()
     expect(screen.getByText('sonstiges-notiz.pdf')).toBeInTheDocument()
     // The Dokumentart label surfaces per row, translated (it used to be German in every locale).
-    expect(screen.getAllByText(/OIB directive \(binding\)/).length).toBeGreaterThan(0)
-    expect(screen.queryByText(/OIB-Richtlinie \(verbindlich\)/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/^OIB directive$/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^OIB-Richtlinie$/)).not.toBeInTheDocument()
   })
 
   test('the binding-vs-other distinction survives in the type filter and the detail sheet', async () => {

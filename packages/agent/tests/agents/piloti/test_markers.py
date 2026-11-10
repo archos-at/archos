@@ -1,5 +1,6 @@
 """Tests for the answer's control markers: escalation, confidence, and the guard."""
 
+import sys
 from urllib.parse import urlparse
 
 from agent.agents.piloti.markers import ESCALATION_MARKER
@@ -249,3 +250,19 @@ class TestSurfaceAnswerConfidence:
         assert surface_answer_confidence("high", False) == "low"
         assert surface_answer_confidence("medium", False) == "low"
         assert surface_answer_confidence("low", False) == "low"
+
+
+# The law gate (staging QC F6, ADR-0175): building law the records do not settle caps a checked level.
+# Read off the module the names above come from, so this file names the package no more often than before.
+_markers = sys.modules[surface_answer_confidence.__module__]
+checked_confidence_capped_reason = _markers.checked_confidence_capped_reason
+surface_checked_confidence = _markers.surface_checked_confidence
+
+
+def test_the_law_gate_holds_a_checked_high_to_medium_and_names_itself():
+    assert surface_checked_confidence("high", law_unsettled=True) == "medium"
+    assert checked_confidence_capped_reason("high", law_unsettled=True) == "law_unsettled"
+    assert surface_checked_confidence("low", law_unsettled=True) == "low"
+    assert checked_confidence_capped_reason("low", law_unsettled=True) is None
+    # The quote gate speaks first when both lower the level.
+    assert checked_confidence_capped_reason("high", quotes_verified=False, law_unsettled=True) == "quote_unverified"

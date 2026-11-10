@@ -167,7 +167,8 @@ VIENNA_BO = {
             "via": "territory",
             "corpusFiles": [],
             "designation": "BO für Wien",
-            "sourceRefs": ["20000006", "https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11"],
+            # R2's exact wire: "<key>:<value>", sorted and deduplicated.
+            "sourceRefs": ["eli:https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11", "ris_gesetzesnummer:20000006"],
         }
     ],
 }
@@ -214,3 +215,17 @@ def test_a_web_page_carrying_a_ris_number_is_not_matched():
 
 def test_a_use_without_source_refs_reads_none():
     assert parse_building_law(STYRIA).uses[0].source_refs == ()
+
+
+def test_an_unknown_key_or_a_bare_value_never_matches():
+    law = {**VIENNA_BO, "uses": [{**VIENNA_BO["uses"][0], "sourceRefs": ["gesetz:20000006", "20000006"]}]}
+    set_turn_building_law(parse_building_law(law))
+    assert (
+        use_for_entry(_ris("https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006")) is None
+    )
+
+
+def test_an_eli_matches_as_the_url_s_prefix_only():
+    set_turn_building_law(parse_building_law(VIENNA_BO))
+    assert use_for_entry(_ris("https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11/P63")) is not None
+    assert use_for_entry(_ris("https://example.org/?u=https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11")) is None

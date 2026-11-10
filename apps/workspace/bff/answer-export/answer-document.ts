@@ -31,7 +31,7 @@ export interface AnswerConfidence {
   level: 'low' | 'medium' | 'high'
   /** The model's own one-clause justification, quoted verbatim. */
   reason?: string
-  cappedReason?: 'ungrounded' | 'quote_unverified'
+  cappedReason?: 'ungrounded' | 'quote_unverified' | 'law_unsettled'
 }
 
 export interface AnswerDocumentInput {
@@ -139,7 +139,9 @@ const confidenceBlocks = (confidence: AnswerConfidence, t: Translator): DocBlock
   const level = t(`confidenceLevels.${confidence.level}`)
   const blocks: DocBlock[] = [labelled(t('confidence'), level)]
   if (confidence.cappedReason) {
-    const key = confidence.cappedReason === 'ungrounded' ? 'ungrounded' : 'quoteUnverified'
+    const key = { ungrounded: 'ungrounded', quote_unverified: 'quoteUnverified', law_unsettled: 'lawUnsettled' }[
+      confidence.cappedReason
+    ]
     blocks.push({
       kind: 'paragraph',
       runs: [{ text: t(`confidenceCapped.${key}`) }],

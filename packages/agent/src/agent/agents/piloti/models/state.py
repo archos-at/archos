@@ -186,6 +186,10 @@ class ResearchAgentState(BaseModel):
     # ``answer_citation_grounded`` to cap confidence to "low" with the
     # ``quote_unverified`` reason. Fail-open default True.
     answer_quotes_verified: bool = True
+    # Whether the answer rests on building law the turn's records do not settle (ADR-0175): it cites a
+    # building-law source while the gate withholds a binding claim or the coverage is open. The law gate
+    # caps the surfaced level to medium with the ``law_unsettled`` reason (``markers``).
+    answer_law_unsettled: bool = False
     # The SECOND kind of grounding: whether THIS turn produced at least one
     # `declared`/`computed` answer from the IFC model (see
     # ``piloti.grounding``). An IFC measurement carries a provenance,
@@ -374,13 +378,15 @@ class ResearchAgentState(BaseModel):
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
+            law_unsettled=self.answer_law_unsettled,
         )
 
     @property
     def answer_confidence_capped_reason(self) -> CappedReason | None:
-        """``quote_unverified`` when the quote gate lowered the check's level; else None."""
+        """``quote_unverified`` or ``law_unsettled`` when a gate lowered the check's level; else None."""
         return checked_confidence_capped_reason(
             _checked_level(self.confidence_check),
             quotes_verified=self.answer_quotes_verified,
             citation_grounded=self.answer_citation_grounded,
+            law_unsettled=self.answer_law_unsettled,
         )

@@ -25,9 +25,10 @@ Per turn and fail closed: bound once before the graph starts, ``None``
 included (that is the reset), and a malformed use is dropped, never guessed.
 A base-corpus passage maps to an edition by its corpus file, and a passage
 read through a legal database (RIS) by an identity the edition's records carry
-(``sourceRefs``: a Gesetzesnummer, a document number, an ELI), matched as a
-whole token. An office's copy that happens to share a file name is the
-office's, and its label is the office layer's.
+(``sourceRefs``, ``"<key>:<value>"``: a Gesetzesnummer or document number as a
+whole token, an ELI as the URL's prefix; an unknown key never matches). An
+office's copy that happens to share a file name is the office's, and its label
+is the office layer's.
 """
 
 from __future__ import annotations
@@ -82,8 +83,8 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
-    #: The edition's identities in a legal database (a RIS Gesetzesnummer or document number, an ELI), from
-    #: its manifestation records: what a passage read through RIS is matched by (``use_for_entry``).
+    #: The edition's identities in a legal database, ``"<key>:<value>"`` (``ris_gesetzesnummer:20000006``,
+    #: ``eli:https://…``), from its manifestation records: what a RIS passage is matched by (``use_for_entry``).
     source_refs: tuple[str, ...] = ()
 
 
@@ -153,17 +154,28 @@ def get_turn_building_law() -> BuildingLaw | None:
     return _turn_building_law.get()
 
 
-def _ref_in(ref: str, text: str) -> bool:
-    """Whether a legal-database identity stands in ``text`` as a whole token, never inside a longer number."""
-    return bool(re.search(rf"(?<![0-9A-Za-z]){re.escape(ref)}(?![0-9A-Za-z])", text, re.IGNORECASE))
+#: How each kind of legal-database identity in ``sourceRefs`` (``"<key>:<value>"``, R2's wire) is found in a passage:
+#: a RIS number as a whole token, an ELI as the prefix of the passage's URL. A key not listed never matches.
+_TOKEN_KEYS = frozenset({"ris_gesetzesnummer", "ris_dokumentnummer"})
+_PREFIX_KEYS = frozenset({"eli"})
+
+
+def _ref_matches(ref: str, entry: SourceEntry) -> bool:
+    """Whether one ``"<key>:<value>"`` identity names the passage ``entry`` read. Pure."""
+    key, _, value = ref.partition(":")
+    if not value:
+        return False
+    if key in _PREFIX_KEYS:
+        return bool(entry.url) and entry.url.lower().startswith(value.lower())
+    if key not in _TOKEN_KEYS:
+        return False
+    where = " ".join(part for part in (entry.url, entry.citation_key, entry.collection) if part)
+    return bool(re.search(rf"(?<![0-9A-Za-z]){re.escape(value)}(?![0-9A-Za-z])", where, re.IGNORECASE))
 
 
 def _use_for_legal_database(law: BuildingLaw, entry: SourceEntry) -> EditionUse | None:
     """The edition a passage read through a legal database (RIS) is, by an identity its records carry."""
-    where = " ".join(part for part in (entry.url, entry.citation_key, entry.collection) if part)
-    if not where:
-        return None
-    return next((use for use in law.uses if any(_ref_in(ref, where) for ref in use.source_refs)), None)
+    return next((use for use in law.uses if any(_ref_matches(ref, entry) for ref in use.source_refs)), None)
 
 
 def use_for_entry(entry: SourceEntry) -> EditionUse | None:

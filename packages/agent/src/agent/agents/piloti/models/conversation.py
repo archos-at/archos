@@ -255,6 +255,7 @@ class ConversationState(BaseModel):
     # (``markers.CappedReason`` says which rule produces which). Five causes:
     #   "ungrounded"              nothing verified and nothing measured.
     #   "quote_unverified"        a quoted span matched no retrieved passage.
+    #   "law_unsettled"           rests on building law the records do not settle (ADR-0175).
     #   "normative_claim_uncited" the answer WAS measurement-grounded but also
     #                             asserts something normative with no verified
     #                             citation — the mixed case, held at "low" and
@@ -268,6 +269,7 @@ class ConversationState(BaseModel):
         Literal[
             "ungrounded",
             "quote_unverified",
+            "law_unsettled",
             "normative_claim_uncited",
             "measurement_only",
             "citation_fallback",

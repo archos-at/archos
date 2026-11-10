@@ -196,12 +196,15 @@ CONFIDENCE_RULE_VERSION = 2
 #:
 #: - ``ungrounded``             no verified citation (rule 1).
 #: - ``quote_unverified``       a quoted span matched no retrieved passage.
+#: - ``law_unsettled``          the answer rests on building law the turn's records do not settle: the gate
+#:   withholds a binding claim, or the coverage is open (ADR-0175). Capped to ``medium``.
 #: - ``normative_claim_uncited``, ``measurement_only``, ``citation_fallback``:
 #:   no longer produced (rules 1 and 2 as chat ran them). Kept because stored
 #:   turns carry them.
 CappedReason = Literal[
     "ungrounded",
     "quote_unverified",
+    "law_unsettled",
     "normative_claim_uncited",
     "measurement_only",
     "citation_fallback",
@@ -259,15 +262,36 @@ def _quote_cap(quotes_verified: bool, citation_grounded: bool) -> ConfidenceLeve
 
 
 def surface_checked_confidence(
-    checked: ConfidenceLevel | None, *, quotes_verified: bool = True, citation_grounded: bool = False
+    checked: ConfidenceLevel | None,
+    *,
+    quotes_verified: bool = True,
+    citation_grounded: bool = False,
+    law_unsettled: bool = False,
 ) -> ConfidenceLevel | None:
-    """The answer check's level under the quote gate; ``None`` when the check gave none (it was unavailable)."""
-    return _at_most(checked, _quote_cap(quotes_verified, citation_grounded)) if checked is not None else None
+    """The answer check's level under the quote gate and the law gate; ``None`` when the check gave none.
+
+    The law gate is structural, like the quote gate: an answer that rests on building law the records do
+    not settle (``law_unsettled``) is at most ``medium``, whatever the grader read (staging QC, F6).
+    """
+    if checked is None:
+        return None
+    quoted = _at_most(checked, _quote_cap(quotes_verified, citation_grounded))
+    return _at_most(quoted, MEASUREMENT_CONFIDENCE_CEILING) if law_unsettled else quoted
 
 
 def checked_confidence_capped_reason(
-    checked: ConfidenceLevel | None, *, quotes_verified: bool = True, citation_grounded: bool = False
+    checked: ConfidenceLevel | None,
+    *,
+    quotes_verified: bool = True,
+    citation_grounded: bool = False,
+    law_unsettled: bool = False,
 ) -> CappedReason | None:
-    """``quote_unverified`` when the quote gate lowered the check's level, else ``None``."""
-    surfaced = surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded)
-    return "quote_unverified" if surfaced != checked else None
+    """``quote_unverified`` or ``law_unsettled`` for the gate that lowered the check's level, else ``None``."""
+    if surface_checked_confidence(checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded) != (
+        checked
+    ):
+        return "quote_unverified"
+    surfaced = surface_checked_confidence(
+        checked, quotes_verified=quotes_verified, citation_grounded=citation_grounded, law_unsettled=law_unsettled
+    )
+    return "law_unsettled" if surfaced != checked else None

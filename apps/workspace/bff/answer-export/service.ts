@@ -40,7 +40,7 @@ export interface ExportedAnswer {
 }
 
 const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high'])
-const CAPPED_REASONS = new Set(['ungrounded', 'quote_unverified'])
+const CAPPED_REASONS = new Set(['ungrounded', 'quote_unverified', 'law_unsettled'])
 
 /**
  * Read the confidence self-assessment off the stored provenance.

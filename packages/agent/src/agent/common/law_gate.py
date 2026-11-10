@@ -13,14 +13,23 @@ own law, its editions and its doctrine are records in its pack, and reach the pr
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
 from agent.common.knowledge_context import gate_note
 from agent.common.knowledge_context import law_tools_allowed
 from agent.common.knowledge_context import turn_knowledge_context
+
+if TYPE_CHECKING:
+    from agent.citations.entries import SourceEntry
 
 #: The country whose law each legal-database adapter holds (``configs/*.yml`` ``data_sources`` ids).
 #: A fact about the source, like its URL: RIS is Austria's legal information system. A turn may call an
 #: adapter only where its knowledge context allows that country's law (:func:`law_sources_withheld`).
 LAW_SOURCE_COUNTRIES: dict[str, str] = {"ris": "AT"}
+
+#: The gates under which the records settle which edition binds: reviewed coverage.
+SETTLED_GATES: frozenset[str] = frozenset({"core", "full"})
 
 #: The tag that marks the turn's building law, in the turn context and in a research prompt.
 BUILDING_LAW_TAG = "<building_law>"
@@ -56,6 +65,21 @@ def withheld_notice(source_id: str, label: str) -> str | None:
         f"Not executed: {label} was not consulted because {reason}. Answer with what you already have, say in "
         "one sentence which source could not be read and why, and keep confidence below high."
     )
+
+
+def law_unsettled(cited: Iterable[SourceEntry]) -> bool:
+    """Whether an answer citing ``cited`` rests on building law the turn's records do not settle.
+
+    The gate withholds a binding claim, or the coverage is open (uncurated), and at least one cited source
+    is building law (``source_kinds``). The answer check's level is then capped (``markers``, staging QC F6):
+    structurally, so the grader is handed no new vocabulary.
+    """
+    if turn_knowledge_context().gate in SETTLED_GATES:
+        return False
+    from agent.citations.source_identity import source_lane
+    from agent.common.source_kinds import kind_for_lane
+
+    return any(kind_for_lane(source_lane(entry)[0]) == "building_law" for entry in cited)
 
 
 def jurisdiction_note() -> str | None:

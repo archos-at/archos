@@ -228,7 +228,8 @@ _GATE_NOTES: dict[str, str] = {
         "## Building law: site not stated\n\n"
         "Nothing places this project's site, so no country's building law is known to apply. Present no value as "
         "this project's requirement, derive no building class, name no edition as binding, and do not assume a "
-        "country. You may read and quote the primary law of {covered} as information. When the answer turns on "
+        "country: a place the project memory, a note or a document mentions is not a confirmed site and settles "
+        "nothing. You may read and quote the primary law of {covered} as information. When the answer turns on "
         "the jurisdiction, say that the site is missing and ask for the country and Land. A place the question "
         "names outside {covered} is not covered by this office's base: say so plainly."
     ),

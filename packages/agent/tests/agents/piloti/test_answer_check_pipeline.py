@@ -483,3 +483,32 @@ async def test_no_verification_marker_reaches_the_answer(case, retrieved):
 
     for spelling in VERIFICATION_MARKER_SPELLINGS:
         assert spelling not in final.content, (case, spelling)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("gate", "unsettled"), [("none", True), ("core", False)])
+async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate, unsettled):
+    """Staging QC F6: the law gate caps the level of an answer that cites building law the records do not settle."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    registry = SourceRegistry()
+    registry.add(
+        SourceEntry(
+            citation_key="oib-rl_3.pdf, p.7",
+            source_type="knowledge_layer",
+            tool_name="knowledge_search",
+            shelf="base",
+            chunk_text="11.2.1 Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.",
+        )
+    )
+    prose = "Die Raumhöhe beträgt mindestens 2,50 m [1].\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7"
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
+    try:
+        _, state = await _finalize(
+            [HumanMessage("Raumhöhe?"), AIMessage(ANSWER_ENVELOPE.format(prose=prose))], registry
+        )
+    finally:
+        set_turn_knowledge_context(None)
+
+    assert state.answer_law_unsettled is unsettled
