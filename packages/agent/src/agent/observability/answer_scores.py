@@ -40,3 +40,12 @@ def sketch_scores(checks: Iterable[Any]) -> list[RuntimeScore]:
 def quote_patch_scores(patched: int) -> list[RuntimeScore]:
     """How many quotes the repair pass corrected on one answer."""
     return [RuntimeScore("quotes-patched", float(max(0, patched)))]
+
+
+def steer_scores(inbox: Any) -> list[RuntimeScore]:
+    """A steered turn's count of notes (``common.steering.SteerInbox``): taken, and how many the turn read."""
+    received = int(getattr(inbox, "received", 0) or 0)
+    if received <= 0:
+        return []
+    applied = len(getattr(inbox, "applied", None) or [])
+    return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]

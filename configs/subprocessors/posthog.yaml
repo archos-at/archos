@@ -1,0 +1,93 @@
+id: posthog
+kind: processor
+status: active
+order: 50
+name: PostHog, Inc.
+entity_country: US
+processing_countries: [DE]
+transfer: eu_storage_us_access
+contract: unknown
+data_classes: [telemetry, operational_log, support_text, trace_metadata]
+purposes: [product_improvement, customer_support, operations]
+holds_tenant_text: true
+deletion:
+  status: gap
+  de: >-
+    Ereignisse bleiben bis zu 12 Monate, Sitzungsaufzeichnungen bis zu 30 Tage. Support-Tickets tragen den Text einer
+    Rückmeldung (maskiert durch die Inhaltsprüfung der Organisation) und bleiben, bis wir sie löschen. Bei Vertragsende
+    werden Personen, Ereignisse und Tickets einer Organisation nicht automatisch gelöscht.
+  en: >-
+    Events are kept up to 12 months, session recordings up to 30 days. Support tickets carry a report's text (masked by
+    the organization's content screening) and stay until we delete them. At contract end an organization's persons,
+    events and tickets are not deleted automatically.
+hosts: [eu.i.posthog.com, eu.posthog.com, posthog.com]
+env:
+  - NEXT_PUBLIC_POSTHOG_HOST
+  - POSTHOG_HOST
+  - PUBLIC_POSTHOG_HOST
+  - POSTHOG_PERSONAL_API_KEY
+posthog_destinations:
+  # „tell the app about a team reply“ (POSTs a ticket id to our own BFF) and the
+  # chat-message counter (writes a person property inside PostHog).
+  - 01a16498-573f-0000-1b68-8fb6438e0cc0
+  - 01a17ea6-7a0c-0000-b8fe-252e2147be8c
+hog_files:
+  - deploy/posthog/support/reply-poke.hog
+  - deploy/posthog/surveys/chat-message-count.hog
+sdks:
+  - 'js:posthog-js'
+  - 'js:posthog-node'
+  - 'js:@posthog/core'
+  - 'js:@posthog/next'
+  - 'py:posthog'
+evidence:
+  - docs/adr/0100-posthog-is-the-product-platform-and-langfuse-feeds-it.md
+  - docs/adr/0118-posthog-support-is-the-record-for-product-feedback.md
+  - apps/workspace/bff/product-feedback/service.ts
+  - deploy/pulumi/src/platform/otel-collector.ts
+copy:
+  name:
+    de: PostHog, Inc.
+    en: PostHog, Inc.
+  purpose:
+    de: Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Betriebsprotokolle (ab Warnstufe), Umfragen, Support
+    en: Product analytics, session replay, error tracking, operational logs (warning level and above), surveys, support
+  data:
+    de: >-
+      Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und
+      Browserangaben, Fehlerberichte und Betriebsprotokolle (ohne deren Text), maskierte Sitzungsaufzeichnungen, Umfrageantworten und
+      Support-Nachrichten (Text maskiert durch die Inhaltsprüfung Ihrer Organisation); KI-Metadaten und
+      Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name
+    en: >-
+      User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser
+      details, error reports and operational logs (without their text), masked session recordings, survey answers and support messages (text
+      masked by your organization's content screening); AI metadata and answer ratings from Langfuse. No email address,
+      no name
+  location:
+    de: EU (Frankfurt); Konzern mit Sitz in den USA
+    en: EU (Frankfurt); group headquartered in the USA
+  required:
+    de: Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen
+    en: Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings
+# PostHog's four flows (design §6.1).
+flows:
+  - id: product-analytics
+    what: {de: 'Ereignisse, maskierte Sitzungsaufzeichnungen, Fehler, Umfragen', en: 'Events, masked session recordings, errors, surveys'}
+    data_classes: [telemetry]
+    purposes: [product_improvement]
+    processing_location: [DE]
+  - id: operational-logs
+    what: {de: 'Protokolle ab Warnstufe ohne ihren Text, Spans und Metriken über den OTel-Collector', en: 'Warning-level logs without their text, spans and metrics through the OTel collector'}
+    data_classes: [operational_log]
+    purposes: [operations]
+    processing_location: [DE]
+  - id: support
+    what: {de: Support-Tickets mit dem maskierten Text einer Rückmeldung, en: Support tickets with a report's masked text}
+    data_classes: [support_text]
+    purposes: [customer_support]
+    processing_location: [DE]
+  - id: langfuse-export
+    what: {de: 'KI-Metadaten und Antwort-Bewertungen aus Langfuse', en: 'AI metadata and answer ratings from Langfuse'}
+    data_classes: [trace_metadata]
+    purposes: [product_improvement]
+    processing_location: [DE]

@@ -100,6 +100,18 @@ repos:
         pass_filenames: false
         files: ^(packages/agent/src/agent/cards/workspace_cards\.py|packages/agent/src/agent/common/source_kinds\.py|scripts/generate_vocabularies\.py|apps/workspace/shared/vocabularies\.generated\.ts)$
 
+      - id: data-flow-register
+        name: every outbound flow has a row in the data-flow register, and the pages generated from it are current
+        # configs/subprocessors/*.yaml is the one list of where data leaves the
+        # cluster (docs/compliance/data-flow-register.md). The check fails a host,
+        # key, base URL, Hog file or PostHog destination no row names; the
+        # generator rewrites the legal page's tables and the DPA annex, and a
+        # changed file fails the commit. The files are every tree the scan reads.
+        entry: bash -c '.venv/bin/python scripts/check_data_flow_register.py && .venv/bin/python scripts/generate_subprocessor_pages.py'
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml$|apps/|packages/|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
+
       - id: agent-docs
         name: every AGENTS.md is reachable by the agents that need it
         # Claude Code reads CLAUDE.md, never AGENTS.md, and bridges them with an

@@ -66,6 +66,9 @@ CHAT_MODEL_HOMES = {
     "scripts/turn_census/render_fixture_permits.py": (
         "runs outside NAT; its model goes through enforce_chat_request_contract, the slot seam"
     ),
+    "scripts/licensed_eval.py": (
+        "an eval outside NAT; its model goes through enforce_chat_request_contract, the seam it measures"
+    ),
 }
 
 #: Building an embedding client by hand. Its HTTP client must come from the seam.

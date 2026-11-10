@@ -18,9 +18,18 @@ The flow is described in
 
 | File | Destination in PostHog | Trigger | What it does |
 |---|---|---|---|
-| [`slack-alert.hog`](support/slack-alert.hog) | „Piloti feedback → Slack (per deployment)" `01a16483-aaa2-0000-9400-98b42243aa65` | `product_feedback_ticket_opened`, `product_feedback_reply_sent` (the BFF's server events) | Posts a new report to `#support-tickets` per kind, with the claim button pointing at the event's `app_host`; a reporter's reply goes into the alert's thread. Bugs page `@here` on production only |
-| [`claim-update.hog`](support/claim-update.hog) | „Piloti feedback: mark Slack alert claimed" `01a16445-c91c-0000-5f64-2f70e9c0e3b3` | `$conversation_ticket_assigned`, `assignee_type = user` | Rewrites every alert of the ticket, found in the channel history by the ticket id: the claim button goes, „✅ <taken_by> <Name>" appears |
+| [`slack-alert.hog`](support/slack-alert.hog) | „Piloti feedback → Slack (per deployment)" `01a16483-aaa2-0000-9400-98b42243aa65` | `product_feedback_ticket_opened`, `product_feedback_reply_sent` (the BFF's server events) | Posts a new report to `#support-tickets` per kind, with the claim button pointing at the event's `app_host`; a reporter's reply goes into the alert's thread. Bugs page `@here` on production only. Never the member's words: the team reads them in the ticket |
+| [`claim-update.hog`](support/claim-update.hog) | „Piloti feedback: mark Slack alert claimed" `01a16445-c91c-0000-5f64-2f70e9c0e3b3` | `$conversation_ticket_assigned`, `assignee_type = user` | Rewrites every alert of the ticket, found in the channel history by the ticket id: the claim button goes, „✅ <taken_by> <Name>" appears. No text of the report |
 | [`reply-poke.hog`](support/reply-poke.hog) | „Piloti feedback: tell Piloti about a team reply" `01a16498-573f-0000-1b68-8fb6438e0cc0` | `$conversation_message_sent`, `author_type = team` | POSTs `{ ticketId }` to `https://<origin>/api/webhooks/posthog-support`; the host comes from the ticket's `origin:<host>` tag and must be in the `allowed_hosts` input |
+
+**What reaches Slack is in the data-flow register.** Slack is a US processor
+([`configs/subprocessors/slack.yaml`](../../configs/subprocessors/slack.yaml)):
+ticket numbers, the kind, the deployment, the office's name, a closed-list
+reason and links, never the text of a report, a reply or a chat. Since
+2026-11-06 the two Slack destinations no longer quote the member's words; paste
+both files again to bring the live destinations in line. A new destination, a
+new `.hog` file or a new host one of them fetches fails
+`scripts/check_data_flow_register.py` until a row names it.
 
 Two things the live runtime does differently from the test runner
 (`cdp-functions-invocations-create`), both found the hard way:
@@ -58,7 +67,7 @@ fails with `not_in_channel`.
 
 | Channel | ID | The question it answers | What posts there |
 |---|---|---|---|
-| `#alerts-prod` | `C0CCG0Z1EKF` | Is production broken? | The „Platform health (prod)" alert; error-tracking spikes (`01a15d7e…`) and upstream outages, created and reopened (`01a159e8-d931…`, `01a159e8-dc54…`) |
+| `#alerts-prod` | `C0CCG0Z1EKF` | Is production broken? | The „Platform health (prod)" alert; error-tracking spikes (`01a15d7e-e622-0000-12c9-4226994d613e`) and upstream outages, created and reopened (`01a159e8-d931-0000-1e37-d70888119726`, `01a159e8-dc54-0000-ef13-a9083eabd27c`): each posts the issue's title, which is the exception message |
 | `#support-tickets` | `C0CBG0ZC0TB` | Does a member wait for us? | New reports and replies (`support/`), the 24-hour reminder |
 | `#answer-quality` | `C0CCKAS3TRC` | Where did Piloti answer badly? | Thumbs-down votes with a reason |
 | `#archos-metrics` (`#piloti-metrics` until 2026-10-30) | `C0CDFLKKYRE` | What does it cost, and how is the week going? | The „Costs and budgets (prod)" alert, the Monday report |
@@ -81,11 +90,11 @@ Fold a new rule in with the same wrapper:
 The inner columns are renamed because ClickHouse refuses an outer
 `countIf(breach > 0)` over an inner `breach` alias.
 
-| Alert | Insight | Checked | Rules |
+| Alert | Insight (Slack destination) | Checked | Rules |
 |---|---|---|---|
-| Platform health (prod) | `tqqimEor` | hourly | The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped |
-| Support: feedback ticket waiting 24h+ (prod) | `gsIfpLwh` | hourly | A prod ticket, contact allowed, where the reporter spoke last more than 24 h and less than 7 days ago. Read from `$conversation_message_*` events: PostHog emits no event when a ticket is resolved, so a ticket resolved without a reply stays listed until its 7 days pass |
-| Costs and budgets (prod) | `1GfF4oj1` | hourly | An office at 90 %+ of its monthly budget or blocked by it; today's LLM cost above 25 USD and above twice the 14-day daily average; Claude chat reading under 20 % of its input from the prompt cache over 24 h (it read 0 % for a month until 2026-10-27, `packages/agent/src/agent/common/prompt_caching.py`). Cost equals price on the price list today, so a negative-margin rule would never fire |
+| Platform health (prod) | `tqqimEor` (`01a17ea5-0076-0000-c725-3cd6187d926a`) | hourly | The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped |
+| Support: feedback ticket waiting 24h+ (prod) | `gsIfpLwh` (`01a17ea5-03eb-0000-0596-3dccfc406539`) | hourly | A prod ticket, contact allowed, where the reporter spoke last more than 24 h and less than 7 days ago. Read from `$conversation_message_*` events: PostHog emits no event when a ticket is resolved, so a ticket resolved without a reply stays listed until its 7 days pass |
+| Costs and budgets (prod) | `1GfF4oj1` (`01a17ea5-06b2-0000-a138-a2d2cd892bc5`) | hourly | An office at 90 %+ of its monthly budget or blocked by it; today's LLM cost above 25 USD and above twice the 14-day daily average; Claude chat reading under 20 % of its input from the prompt cache over 24 h (it read 0 % for a month until 2026-10-27, `packages/agent/src/agent/common/prompt_caching.py`). Cost equals price on the price list today, so a negative-margin rule would never fire |
 
 ## Destinations outside `support/`
 

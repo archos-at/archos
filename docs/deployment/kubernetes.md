@@ -2604,7 +2604,7 @@ filter:
 
 | Pipeline | Exporter | Filter | Switch |
 |---|---|---|---|
-| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to Piloti's project; an empty `posthogHost` opts the stack out) |
+| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to Piloti's project; an empty `posthogHost` opts the stack out) |
 
 PostHog Logs takes `{posthogHost}/i/v1/logs` with `Authorization: Bearer
 <project token>`. The token is PostHog's public `phc_` key, the same one the

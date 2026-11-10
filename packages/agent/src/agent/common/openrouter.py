@@ -71,6 +71,8 @@ import httpx
 
 from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common.licensed_text import licensed_scope_active
+from agent.common.licensed_text import refuse_unattested_model_read
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +121,10 @@ def targets_openrouter(url: object) -> bool:
     if not url:
         return False
     text = str(url)
-    host = urlsplit(text).hostname if "://" in text else None
-    return OPENROUTER_HOST in (host or text)
+    host = (urlsplit(text).hostname if "://" in text else text.split("/", 1)[0]) or ""
+    # The host itself or a subdomain of it (eu.openrouter.ai), never a host that merely contains the name:
+    # a BYOK base URL such as openrouter.ai.example.net is not OpenRouter, and licensed text never goes there.
+    return host == OPENROUTER_HOST or host.endswith(f".{OPENROUTER_HOST}")
 
 
 #: Reading a page is transcription, not deliberation: a reasoning model left at its default spent
@@ -283,7 +287,15 @@ def pin_chat_model(llm: object, policy: DataPolicy) -> object:
 
 
 def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request:
-    """``request`` with ``policy`` merged into its JSON body."""
+    """``request`` with ``policy`` merged into its JSON body.
+
+    Inside a licensed document's scope (``licensed_text.licensed_document_scope``) the policy is zero retention
+    whatever the caller passed, and a request it may not send (an unattested copy, a BYOK endpoint) is refused.
+    """
+    on_openrouter = targets_openrouter(str(request.url))
+    refuse_unattested_model_read(str(request.url.host), openrouter=on_openrouter)
+    if licensed_scope_active():
+        policy = ZERO_DATA_RETENTION
     if not policy.zdr or request.method != "POST" or not targets_openrouter(str(request.url)):
         return request
     try:

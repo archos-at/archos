@@ -39,8 +39,8 @@ Variables set in `docker-compose.yaml` under `environment:` take precedence over
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `TAVILY_API_KEY` | Yes | — | Tavily web search API key. Used by the `tavily_web_search` tool in the workflow config. Production key format: `tvly-...`, dev key format: `tvly-dev-...`. |
-| `SERPER_API_KEY` | No | — | Serper.dev API key for Google search. Optional — requires updating the workflow config to enable. |
-| `JINA_API_KEY` | No | — | Jina AI API key for evaluation. |
+| `SERPER_API_KEY` | No | — | Serper.dev API key for Google search. Optional — requires updating the workflow config to enable. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`configs/subprocessors/`, `docs/compliance/data-flow-register.md`). |
+| `JINA_API_KEY` | No | — | Jina AI API key for evaluation. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`configs/subprocessors/`, `docs/compliance/data-flow-register.md`). |
 
 ---
 
@@ -466,13 +466,17 @@ The submit path persists a deep-research job (`job_info`, `job_access`, the even
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MODAL_TOKEN_ID` | No | — | Modal sandbox token ID for skills execution. |
-| `MODAL_TOKEN_SECRET` | No | — | Modal sandbox token secret for skills execution. |
-| `LANGCHAIN_API_KEY` | No | — | LangSmith tracing API key. |
+| `MODAL_TOKEN_ID` | No | — | Modal sandbox token ID for skills execution. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `MODAL_TOKEN_SECRET` | No | — | Modal sandbox token secret for skills execution. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `LANGCHAIN_API_KEY` | No | — | LangSmith tracing API key. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
 | `LANGCHAIN_PROJECT` | No | — | LangSmith project name, read by LangChain itself when LangSmith tracing is on; nothing in this repo sets it. |
-| `LANGCHAIN_TRACING_V2` | No | — | Set to `true` to enable LangSmith tracing. |
-| `WANDB_API_KEY` | No | — | Weights & Biases API key for experiment tracking. |
-| `GEOCODER_URL` | No | _(unset)_ | Base URL of a [Photon](https://github.com/komoot/photon) (OSM) geocoder (`apps/workspace/bff/geocoding`). Behind `GET /api/geocode`, the address search of the project creation dialog: Austrian addresses and places in (the adapter asks for the Austrian bounding box and drops every hit whose `countrycode` is not `AT`), coordinates, Bundesland (the intake `A2_land` token) and Gemeinde out. Unset (or not an http(s) URL), the route answers `{ enabled: false, results: [] }` and the dialog's address stays a plain text field: the typed line is kept as the project's address, and the Bundesland is found in the documents or asked in the setup review. Every keystroke-driven search is sent to this host. Off by default (ADR-0159): komoot's public instance, `https://photon.komoot.io`, needs no account and has no SLA (ADR-0151), but receives every keystroke and is in no processor register, so a deployment opts in: on Kubernetes through `grid-oib:geocoderUrl` (empty by default; `deploy/pulumi/README.md`, "Geocoder"), in Compose as `${GEOCODER_URL-}`. The `bff-jobs` pool does not get it. Only same-origin redirects are followed; a search that fails, is throttled or takes over 4 s answers no results. Read per request. Frontend service. |
+| `LANGCHAIN_TRACING_V2` | No | — | Set to `true` to enable LangSmith tracing. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `WANDB_API_KEY` | No | — | Weights & Biases API key for experiment tracking. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `LANGSMITH_TRACING` | No | — | LangSmith's newer name for `LANGCHAIN_TRACING_V2`, read by the LangChain library. Nothing in this repo sets it. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `LANGSMITH_API_KEY` | No | — | LangSmith's newer name for `LANGCHAIN_API_KEY`. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `ANTHROPIC_API_KEY` | No | — | The key an `llms:` entry of `_type: anthropic` would need (`agent.common.config_validation`); the shipped config routes every model through OpenRouter. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `GOOGLE_API_KEY` | No | — | The key an `llms:` entry of `_type: google` or `gemini` would need; unused, as above. Latent in the data-flow register: a deployment with `REQUIRE_AUTH=true` refuses to start while it is set (`docs/compliance/data-flow-register.md`). |
+| `GEOCODER_URL` | No | _(unset)_ | Base URL of a [Photon](https://github.com/komoot/photon) (OSM) geocoder (`apps/workspace/bff/geocoding`). Behind `GET /api/geocode`, the address search of the project creation dialog: Austrian addresses and places in (the adapter asks for the Austrian bounding box and drops every hit whose `countrycode` is not `AT`), coordinates, Bundesland (the intake `A2_land` token) and Gemeinde out. Unset (or not an http(s) URL), the route answers `{ enabled: false, results: [] }` and the dialog's address stays a plain text field: the typed line is kept as the project's address, and the Bundesland is found in the documents or asked in the setup review. Every keystroke-driven search is sent to this host. Off by default (ADR-0159): komoot's public instance, `https://photon.komoot.io`, needs no account and has no SLA (ADR-0151), but receives every keystroke, so a deployment opts in (its row in the data-flow register says so): on Kubernetes through `grid-oib:geocoderUrl` (empty by default; `deploy/pulumi/README.md`, "Geocoder"), in Compose as `${GEOCODER_URL-}`. The `bff-jobs` pool does not get it. Only same-origin redirects are followed; a search that fails, is throttled or takes over 4 s answers no results. Read per request. Frontend service. |
 
 ## Observability (OTel collector, Kubernetes/Pulumi-injected)
 

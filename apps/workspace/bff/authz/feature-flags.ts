@@ -299,6 +299,18 @@ export const FEATURE_FLAGS = {
    */
   officeConventions: 'office-conventions',
   /**
+   * Licensed text an office holds (its own ÖNORM or DIN copy, a paid
+   * commentary) reaches the model inside the call (the licensed seam,
+   * `packages/agent/src/agent/common/licensed_text.py`). Read per turn by the
+   * agent tier through `GET /api/internal/stages` (`features.licensedSeam`).
+   *
+   * An entitlement, off until an operator targets the organization. Off is not
+   * unguarded: a passage marked licensed is then listed with its document, page
+   * and clause and no text. On, its text is expanded only inside the model call,
+   * never in a trace, checkpoint or log, and every quote of it is capped.
+   */
+  licensedSeam: 'licensed-seam',
+  /**
    * Mail sent to a project's address (ADR-0137, ADR-0138): the project shows
    * its address, mail to it waits in the project's E-Mail-Eingang until a
    * person files each part, and a person may follow a conversation. Read per
@@ -359,6 +371,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'folder-cards': 'entitlement',
   'source-routing': 'entitlement',
   'office-conventions': 'entitlement',
+  'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',
   'web-search': 'rollout',
