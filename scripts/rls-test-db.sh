@@ -3602,11 +3602,11 @@ refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_
 refused_in cc_0209 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
 sql_in cc_0209 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
 refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
-sql_in cc_0209 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert');"
+sql_in cc_0209 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'app');"
 refused_in cc_0209 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
 sql_in cc_0209 <<SQL
-INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked)
-  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true);
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true, 'app');
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
 SQL
 check_in cc_0209 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0209: the approval counts once the source was checked"
