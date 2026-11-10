@@ -24,6 +24,7 @@ import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
+import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -137,7 +138,7 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
 
-  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace] = await Promise.all([
+  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
@@ -157,6 +158,8 @@ export async function loadTurnContext(
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     // Who asks, where, and what is open now: the state office work starts from (ADR-0123).
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query))),
+    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
+    timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
@@ -167,5 +170,7 @@ export async function loadTurnContext(
     drewOnOtherProjects: drewOnOthers,
     referenceProjects,
     workspace,
+    baseKnowledge: baseKnowledge?.block ?? null,
+    baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
   }
 }

@@ -75,6 +75,7 @@ export const MCP_INSTRUCTIONS = [
 export const PLATFORM_MCP_INSTRUCTIONS = [
   `This is the ${PRODUCT_NAME} platform console: the platform operator runs ${PRODUCT_NAME} for every planning office here, and you act for a platform operator with exactly the platform permissions they hold.`,
   'Settings, prices, models and the base knowledge corpus here apply to every organization at once; nothing of an office\'s own workspace is here.',
+  'Nor is anything an office wrote (conversations, feedback, ratings, lessons): platform staff read that in the platform console in the browser, never through an agent.',
   'Start with platform-overview-get for the organizations, then search-operations to find what you need and call-operation to run it (describe-operation shows an input you do not know).',
   'Ask the person before every destructive operation: here one reaches every tenant. If nothing fits, say so and call report-missing-operation.',
 ].join(' ')

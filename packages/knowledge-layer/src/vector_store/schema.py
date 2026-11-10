@@ -119,6 +119,19 @@ def effective_bm25_length(length: dict[str, float] | None) -> dict[str, float]:
 
 #: Payload field holding the logical collection a point belongs to.
 SCOPE_FIELD = "scope"
+#: Payload field holding the organization whose office wrote the point; every tenant-scope search filters on it.
+OFFICE_FIELD = "office_id"
+#: Payload field holding how a point's source may be used: one of :data:`LICENCE_CLASSES`.
+LICENCE_CLASS_FIELD = "licence_class"
+#: The licence classes a point may carry: openly published, published with restrictions, or licensed.
+LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
+#: Payload field holding the id of the knowledge edition a point's source belongs to.
+KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
+#: Payload field holding whether the office stated its licence covers processing by the hosted AI services
+#: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
+AI_PROCESSING_FIELD = "ai_processing_attested"
+#: Payload field holding the longest quote of a licensed point's text a model may see (a positive int).
+QUOTE_MAX_CHARS_FIELD = "quote_max_chars"
 #: Payload field holding the chunk text: what BM25 reads, what the full-text
 #: index serves phrase queries from, and what a hit's content is.
 TEXT_FIELD = "text"
@@ -237,9 +250,12 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "content_type",
     "doc_class",
     "guideline",
-    "office_id",
+    OFFICE_FIELD,
     "project_id",
     "grid_document_id",
+    # The licence mark (``PUT /v1/collections/{c}/knowledge-mark``, ``writes.enrichment``).
+    LICENCE_CLASS_FIELD,
+    KNOWLEDGE_EDITION_FIELD,
     "folder_path",
     # Every folder a document is filed in or beneath, case-folded: "this
     # folder and below" is one exact match (``prefilter.folder_ancestors``).

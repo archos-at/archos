@@ -26,7 +26,9 @@ from agent.common import cache
 from agent.knowledge import revision_compare as compare
 from agent.knowledge.schema import AvailableDocument
 from agent.observability import direct_trace
+from agent.project_context import ORGANIZATION_ID_HEADER
 from agent_host.routes import revision_compare as route
+from agent_host.routes.internal_auth import _TOKEN_HEADERS
 from agent_host.routes.revision_compare import add_revision_compare_routes
 
 COLLECTION = "proj_a"
@@ -383,6 +385,26 @@ class TestChangedPages:
         response, _ = await self._pages()
 
         assert response.status_code == 409
+
+    async def test_the_index_is_read_as_the_office_the_bff_names(self, ingested, monkeypatch):
+        """No office in the test setup: the route takes it from the BFF's request (ADR-0163)."""
+        from knowledge_layer.vector_store import office_read
+
+        offices: list[object] = []
+
+        def read(collection, name):
+            offices.append(office_read(collection))  # the real refusal, had no office been named
+
+        monkeypatch.setattr("agent.knowledge.collection_pages.read_chunks", read)
+        monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
+        headers = {_TOKEN_HEADERS[0]: "test-token", ORGANIZATION_ID_HEADER: "org-1"}
+        async with _client() as client:
+            response = await client.post(
+                f"/v1/collections/{COLLECTION}/revision-pages", json={"older": OLDER, "newer": NEWER}, headers=headers
+            )
+
+        assert response.status_code == 200
+        assert len(offices) == 2 and all(offices)
 
     async def test_an_index_outage_is_a_503_never_nothing_changed(self, ingested, monkeypatch):
         def down(collection, name):

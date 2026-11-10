@@ -4704,6 +4704,10 @@
     "de": "Ihr Büro kann jetzt unter Organisation → Personen & Zugriff → Eigene Rollen eigene Rollen in Piloti anlegen und je Projektordner festlegen, welche Rollen ihn lesen und welche ihn bearbeiten dürfen. Eine Rolle, die nicht auf der Liste eines Ordners steht, sieht weder den Ordner noch seine Dateien noch das, was Piloti darin findet, und Organisations-Admins dürfen alles lesen und bearbeiten."
   },
   {
+    "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
+    "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
+  },
+  {
     "en": "Your office decides whether Piloti may change annotations when you ask it to. Until it is switched on for your organization, Piloti only proposes: an annotation you ask for arrives as a suggestion you take over, and a change or deletion is left for you to make in the document.",
     "de": "Ihr Büro entscheidet, ob Piloti Anmerkungen ändern darf, wenn Sie es dazu auffordern. Bis die Funktion für Ihre Organisation aktiviert ist, macht Piloti nur Vorschläge: Eine von Ihnen angeforderte Anmerkung wird als Vorschlag angezeigt, den Sie übernehmen können; Änderungen oder Löschungen im Dokument nehmen Sie selbst vor."
   },

@@ -123,14 +123,18 @@ def test_point_id_keeps_uuids_and_maps_others_stably():
 def test_german_bm25_finds_inflected_forms(store):
     store.upsert("proj_a", [_record("Die Fluchtwege sind rauchfrei auszuführen.", "bk.pdf")])
     store.upsert("proj_a", [_record("Die Statik berücksichtigt den Holzbau.", "statik.pdf")])
-    hits = hybrid_search(store, ["proj_a"], vector=_vector("unrelated"), lexical_text="Fluchtweg", limit=1)
+    hits = hybrid_search(
+        store, ["proj_a"], vector=_vector("unrelated"), lexical_text="Fluchtweg", limit=1, office_id="org_test"
+    )
     assert hits[0].payload["file_name"] == "bk.pdf"
 
 
 def test_search_never_crosses_scopes(store):
     store.upsert("proj_a", [_record("Fluchtweg in Projekt A", "a.pdf")])
     store.upsert("proj_b", [_record("Fluchtweg in Projekt B", "b.pdf")])
-    hits = hybrid_search(store, ["proj_a"], vector=_vector("Fluchtweg"), lexical_text="Fluchtweg", limit=10)
+    hits = hybrid_search(
+        store, ["proj_a"], vector=_vector("Fluchtweg"), lexical_text="Fluchtweg", limit=10, office_id="org_test"
+    )
     assert {hit.payload["scope"] for hit in hits} == {"proj_a"}
 
 
@@ -151,7 +155,15 @@ def test_exact_term_channel_lifts_the_chunk_with_the_phrase(store):
         ],
     )
     assert store.count("proj_a", None, phrase("§ 3 Abs. 2")) == 1
-    hits = hybrid_search(store, ["proj_a"], vector=_vector("x"), lexical_text="", exact_terms=["§ 3 Abs. 2"], limit=2)
+    hits = hybrid_search(
+        store,
+        ["proj_a"],
+        vector=_vector("x"),
+        lexical_text="",
+        exact_terms=["§ 3 Abs. 2"],
+        limit=2,
+        office_id="org_test",
+    )
     assert hits[0].payload["file_name"] == "bescheid.pdf"
 
 
@@ -181,7 +193,7 @@ def test_hit_cosine_is_the_true_dense_similarity(store):
     record = _record("Brandabschnitt", "a.pdf")
     store.upsert("proj_a", [record])
     query = _vector("query")
-    [hit] = hybrid_search(store, ["proj_a"], vector=query, lexical_text="", limit=1)
+    [hit] = hybrid_search(store, ["proj_a"], vector=query, lexical_text="", limit=1, office_id="org_test")
     assert hit.cosine == pytest.approx(_cosine(query, record.embedding), abs=1e-3)
 
 
@@ -250,6 +262,7 @@ def test_grouped_search_ranks_projects_in_one_call(store):
         group_by="scope",
         groups=3,
         group_size=2,
+        office_id="org_test",
     )
     by_scope = dict(groups)
     assert set(by_scope) >= {"proj_a", "proj_b"}
@@ -273,6 +286,7 @@ def test_grouped_search_says_which_hits_hold_the_words(store):
             groups=1,
             group_size=3,
             exact_terms=exact_terms,
+            office_id="org_test",
         )
         return {hit.payload["file_name"]: hit.lexical for _, hits in groups for hit in hits}
 
@@ -303,6 +317,7 @@ def test_a_document_filter_reaches_the_points_written_without_a_document_id(stor
             groups=1,
             group_size=5,
             filters=filters,
+            office_id="org_test",
         )
         return {hit.payload["file_name"] for _, hits in groups for hit in hits}
 
@@ -352,7 +367,13 @@ def test_isolation_property_random_scope_sets(store):
     for case in range(200):
         requested = rng.sample(scopes, rng.randint(1, len(scopes)))
         hits = hybrid_search(
-            store, requested, vector=_vector(str(case)), lexical_text=rng.choice(words), limit=20, candidates=40
+            store,
+            requested,
+            vector=_vector(str(case)),
+            lexical_text=rng.choice(words),
+            limit=20,
+            candidates=40,
+            office_id="org_test",
         )
         assert {hit.payload["scope"] for hit in hits} <= set(requested), case
         # Every requested scope holds 5 chunks and the dense channel admits
@@ -367,9 +388,19 @@ def test_no_scope_is_an_empty_answer_not_an_index_error(monkeypatch):
     from knowledge_layer.vector_store import retrieval
 
     monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: pytest.fail("store touched for no scope"))
-    assert retrieval.search_grouped([], vector=[0.1], lexical_text="x", groups=3, group_size=2, identity={}) == []
-    assert grouped_search(object(), [], vector=[0.1], lexical_text="x", group_by="scope", groups=3, group_size=2) == []
-    assert hybrid_search(object(), [], vector=[0.1], lexical_text="x", limit=3) == []
+    assert (
+        retrieval.search_grouped(
+            [], vector=[0.1], lexical_text="x", groups=3, group_size=2, identity={}, office_id="org_test"
+        )
+        == []
+    )
+    assert (
+        grouped_search(
+            object(), [], vector=[0.1], lexical_text="x", group_by="scope", groups=3, group_size=2, office_id="org_test"
+        )
+        == []
+    )
+    assert hybrid_search(object(), [], vector=[0.1], lexical_text="x", limit=3, office_id="org_test") == []
 
 
 # ---------------------------------------------------------------- the text index tokenizes digits

@@ -19,7 +19,12 @@ dependencies = [
     "httpx>=0.24.0",
     "pydantic>=2.0.0",
     "beautifulsoup4>=4.12.0",
+    # The source record (configs/sources/at/ris) and the ris_xml engine (ADR-0162).
+    "public-sources",
 ]
+
+[tool.uv.sources]
+public-sources = { workspace = true }
 
 [project.entry-points."nat.plugins"]
 ris_adapter = "ris_adapter.register"

@@ -172,7 +172,7 @@ describe('runSearch', () => {
 
     const answer = await runSearch(session, {}, { text: 'Fluchtweg', kinds: ['document'] })
 
-    expect(fetchGroupedSemanticHits).toHaveBeenCalledWith(['proj_a', 'office_org_1'], 'Fluchtweg', 20, 400, { purpose: 'workspace_search' })
+    expect(fetchGroupedSemanticHits).toHaveBeenCalledWith('org_1', ['proj_a', 'office_org_1'], 'Fluchtweg', 20, 400, { purpose: 'workspace_search' })
     expect(repository.listCandidateDocuments).not.toHaveBeenCalled()
     const query = repository.searchDocumentPage.mock.calls[0][1]
     expect(query.text).toEqual({ text: 'Fluchtweg', contentKeys: ['proj_a\u001fbsk.pdf'], contentIds: [''] })

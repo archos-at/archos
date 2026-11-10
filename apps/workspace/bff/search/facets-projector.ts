@@ -8,6 +8,7 @@
 
 import 'server-only'
 import type { DocumentMetadata } from '@/lib/documents/reconcile-status'
+import { heldAmong } from '@/lib/base-knowledge/text-guard'
 import { toSearchFacets } from './facets'
 import { upsertSearchFacets } from './facets-repository'
 
@@ -18,9 +19,15 @@ export interface DocumentReading {
   superseded: boolean
 }
 
-/** Project `readings` into their search rows; how many rows changed. */
+/**
+ * Project `readings` into their search rows; how many rows changed. A base-knowledge
+ * copy whose text is held (ADR-0163) gets no row: its summary and facets are a
+ * reading of text nobody may read yet.
+ */
 export async function projectReadings(organizationId: string, readings: readonly DocumentReading[]): Promise<number> {
+  const held = await heldAmong(organizationId, readings.map((reading) => reading.documentId))
   const rows = readings.flatMap((reading) => {
+    if (held.has(reading.documentId)) return []
     const row = toSearchFacets(
       { documentId: reading.documentId, organizationId, superseded: reading.superseded },
       reading.metadata

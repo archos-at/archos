@@ -48,6 +48,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
+            "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {
