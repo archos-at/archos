@@ -35,7 +35,8 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 | 2 | S7 Platform records, review, entitlements · S13 Rulesets and the evaluator · S14 Residency | S7 and S13 when S1 is merged; S14 when S2 and S5 are merged. **S14a AI Act marking starts now**, alone: it needs nothing else, and it is due 2026-12-02 | 4 – 6 h |
 | 3 | S8 Austria as pack 1 · S9 Setup facts · S10 Agent-grade door · S11 Time and editions · S12 Address resolution | S7 merged; S9 and S11 also need S13 | 4 – 6 h |
 | 4 | S15 Turn context and gate · S16 Onboarding tooling | S15 when S8, S9, S11 and S12 are merged; S16 when S6, S7, S10 and S13 are | 3 – 5 h |
-| end | The build ends with the tooling to onboard any country. Onboarding a country, Germany first, is run elsewhere (decided 2026-11-10) | S10, S15 and S16 merged | — |
+| 5 | Cut-over: Austria's data through the platform door, then R1 agent · R2 workspace (below) | S10, S15 and S16 merged and in production | data load plus 1 release |
+| end | The build ends with the old paths gone and the tooling to onboard any country. Onboarding a country, Germany first, is run elsewhere (decided 2026-11-10) | Wave 5 done: Austria's data stable in production, R1 and R2 merged | — |
 
 About 2 – 3 days of wall clock for the code if PRs are merged as they turn green. Your review and merge sit on the critical path, not the writing. The dated edge cases and the week table in `design.md` were written before this split; the waves replace them, and no date there is a commitment.
 
@@ -115,7 +116,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Outcome, measured by:** the ratchet test green, including a positive control that plants an unregistered flow; the check also finds outbound integrations that use a literal endpoint or an SDK's default host, not only named variables; the legal page lists every flow.
 
 ### S6 Connector types
-- **Fixed, safety:** the fetcher rejects internal, link-local, cluster and cloud-metadata addresses after DNS resolution, with tests for each, before any source test is enabled.
+- **Fixed, safety:** the fetcher rejects internal, link-local, cluster and cloud-metadata addresses after DNS resolution, on every connection and every redirect hop, and dials the address it checked (no second lookup, so DNS rebinding cannot pass), with tests for each, a redirect and a rebinding answer included, before any source test is enabled. As built: `PublicOnlyBackend` and `guarded_client` in `packages/public-sources/src/egress.py`, `test_egress.py`.
 - **Design suggests:** `packages/public-sources/` with access types `rest`, `http_eli`, `web_document` and engines `ris_xml`, `akn`, `html_statute`; a sandboxed fetcher Deployment with its NetworkPolicy; the RIS adapter re-expressed as one configured `rest` + `ris_xml` source behind `sourceRouting`, with the nine `_FEDERAL_STATE_PARAMS` moved into config.
 - **Fixed, ownership:** `packages/public-sources/` (new), `packages/ris-adapter/`, the fetcher Pulumi resource.
 - **Outcome, measured by:** the Austrian answer suite unchanged with `sourceRouting` on; `task pkg:test` green.
@@ -195,7 +196,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 Waves 1 to 4 built every new path beside the old one, behind a switch whose off state was byte-identical to before. The design says the new paths *replace* the old (the role engine replaces `citations/binding.py`, the chain text replaces the static `<building_law>` block), and no session was planned to delete the old ones; the user's goal was the old paths gone. Wave 5 does that. The data still enters only through `records-propose` (no seed path, design 7), so the order is fixed:
 
-1. **Production release of develop as it stands**: switches off, no behaviour change, and the platform door exists in production.
+1. **Production release of develop as it stands**: switches off, and the platform door exists in production. Not every change is behind a switch, so two things a person notices change with it, and the release names them: address search in the project dialog is off unless the stack sets `geocoderUrl` (S3, ADR-0159; recovery: set it, or `GEOCODER_URL` in Compose, and redeploy), and the platform door no longer offers the 18 tenant-content operations, the cross-office conversation and feedback reads among them (S4, #1548; platform staff keep them in the console in the browser, and there is no switch back by design).
 2. **Austria onto staging, then production**, through the platform door: an operator's agent proposes `eu.json` and `at.json` with captured sources (KC-6), a domain expert and a second approver approve, preview, stable. AT's coverage level core.
 3. **R1 and R2 merge** once staging has the data and the answer suite passes with the new path on; production gets them in the release after step 2 reached production. Merging them earlier leaves an environment with no Austrian law at all.
 
@@ -242,7 +243,7 @@ The user delegated the Wave 1 merge (2026-11-10): the orchestrator merges the wh
 - **Merging needs no approval from another person:** develop's ruleset asks for one approving review, which the owner's merge bypasses; CI OK is the gate, and branches need not be up to date.
 
 ## Human steps on the critical path
-1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S2 and S5 before S14; S7 and S13 before Wave 3; S8, S9, S11 and S12 before S15; S6, S7, S10 and S13 before S16. S14a merges whenever it is green. Wave 1 is merged by the orchestrator (above).
+1. Merge order: contract, then Wave 1 in any order; S1 before S7 and S13, S2 and S5 before S14; S7 and S13 before Wave 3; S8, S9, S11 and S12 before S15; S6, S7, S10 and S13 before S16; then Wave 5 in its own order (Austria's data on staging and production before R1 and R2). S14a merges whenever it is green. Wave 1 is merged by the orchestrator (above).
 2. Approve the ask-first steps each session prepares.
 3. Counsel for the German advice policy; an expert for anything past L0.
 
