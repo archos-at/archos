@@ -19,11 +19,11 @@ mcp-app-views/
 
 # Next.js
 .next/
-out/
+/out/
 
 # Production
-build/
-dist/
+/build/
+/dist/
 
 # Environment files
 .env
