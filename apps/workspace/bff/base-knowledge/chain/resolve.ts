@@ -34,7 +34,7 @@
 
 import type { DatedEdition } from '../wire/time'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
-import { editionInForce, type EditionOnDay } from '../time/editions'
+import { editionInForce, newestInForce, type EditionOnDay } from '../time/editions'
 import type {
   Displacement,
   EditionUse,
@@ -114,13 +114,14 @@ function editionsOf(graph: KnowledgeGraph, workId: string): GraphEdition[] {
 export type EditionFor = (workId: string) => EditionOnDay
 
 /**
- * A graph edition as the one in-force rule reads it. A law is in force from
- * its in-force date only, so a law edition without one is undated and its
- * work undetermined (ADR-0171). A norm, a guideline or a commentary has no
- * in-force date of its own: it counts from its issue.
+ * A graph edition as the in-force rules read it. A platform law edition is in
+ * force from its in-force date only (ADR-0171). An office's own law edition
+ * is entered with its issue date alone (`store/repository.ts`), so it counts
+ * from its issue, as do a norm, a guideline and a commentary, which have no
+ * in-force date of their own.
  */
 function datedEdition(edition: GraphEdition, work: GraphWork | undefined): DatedEdition {
-  const countsFromIssue = !work || !LAW_KINDS.has(work.kind)
+  const countsFromIssue = !work || !LAW_KINDS.has(work.kind) || edition.owner === 'office'
   return {
     id: edition.id,
     label: edition.label,
@@ -130,12 +131,19 @@ function datedEdition(edition: GraphEdition, work: GraphWork | undefined): Dated
   }
 }
 
-/** The edition of each work in force at `date`, by the one rule (`time/editions.ts`). */
+/**
+ * The edition of each work at `date` (`time/editions.ts`): law by the one
+ * in-force rule, where an undated edition beside dated ones is left out rather
+ * than undetermining the work; every other kind by its newest edition not
+ * withdrawn, since a new Ausgabe replaces the old one without an end date.
+ */
 export function editionsInForceAt(graph: KnowledgeGraph, date: string): EditionFor {
   return (workId) => {
     const work = graph.works.get(workId)
     const editions = editionsOf(graph, workId).map((edition) => datedEdition(edition, work))
-    return editionInForce(editions, date, work?.historyAvailableFrom ?? null)
+    if (work && !LAW_KINDS.has(work.kind)) return newestInForce(editions, date)
+    const dated = editions.filter((edition) => edition.inForceFrom !== null)
+    return editionInForce(dated.length > 0 ? dated : editions, date, work?.historyAvailableFrom ?? null)
   }
 }
 
@@ -144,11 +152,11 @@ function determined(graph: KnowledgeGraph, found: EditionOnDay): GraphEdition | 
   return found.status === 'determined' ? (graph.editions.get(found.edition.id) ?? null) : null
 }
 
-/** The newest edition by its dates, then its id; one that starts after `date`, or has no date at all, does not count. */
+/** The newest edition at `date` that has not ended, by `time/editions.ts`; one that starts later, ended, or has no date does not count. */
 function newestEdition(editions: readonly GraphEdition[], date: string): GraphEdition | null {
-  return [...editions]
-    .filter((edition) => editionDate(edition) !== '' && editionDate(edition) <= date)
-    .sort((a, b) => editionDate(b).localeCompare(editionDate(a)) || b.id.localeCompare(a.id))[0] ?? null
+  const dated = editions.map((edition) => ({ ...datedEdition(edition, undefined), inForceFrom: editionDate(edition) || null }))
+  const found = newestInForce(dated, date)
+  return found.status === 'determined' ? (editions.find((edition) => edition.id === found.edition.id) ?? null) : null
 }
 
 const anchorsKey = (relation: GraphRelation) =>

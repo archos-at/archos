@@ -8,7 +8,9 @@
  * other interval in base knowledge (relations, territories, rulesets), so a
  * successor's `inForceFrom` equals its predecessor's `inForceTo`. A source
  * that prints the last day in force (RIS's Außerkrafttretensdatum, ELI's
- * `date_no_longer_in_force`) is converted at read, one day later. Fail
+ * `date_no_longer_in_force`) is entered one day later: the RIS lookup reads
+ * its last day inclusive, and KC-3 refuses a proposal whose edition ends the
+ * day before its successor begins, the trace of a copied last day. Fail
  * closed at every gap in the data:
  * - a day before the history the platform holds is `history_not_held`, never
  *   the oldest edition it happens to have;
@@ -73,6 +75,30 @@ export function editionInForce(
   if (historyAvailableFrom === null && (oldest === undefined || day < oldest))
     return { status: 'undetermined', reason: 'history_not_held', historyAvailableFrom }
   return { status: 'undetermined', reason: 'no_edition_in_force' }
+}
+
+/**
+ * The newest edition on `day` of a work whose editions succeed each other
+ * without an end date of their own (a norm, a guideline, a commentary: a new
+ * Ausgabe replaces the old one): the latest that started on or before `day`
+ * and has not ended (`inForceTo`, exclusive, marks a withdrawal). Undated
+ * editions are ignored. Law asks {@link editionInForce}, where two editions
+ * in force on one day are a data error.
+ */
+export function newestInForce(editions: readonly DatedEdition[], day: string): EditionOnDay {
+  if (!isIsoDate(day)) throw new RangeError(`day is an ISO date, found ${day}`)
+  const [edition] = editions
+    .filter((candidate) => candidate.inForceFrom !== null && covers(candidate, day))
+    .sort((a, b) => (b.inForceFrom as string).localeCompare(a.inForceFrom as string) || b.id.localeCompare(a.id))
+  return edition ? { status: 'determined', edition } : { status: 'undetermined', reason: 'no_edition_in_force' }
+}
+
+/** The day after `day`, an ISO date. */
+export function dayAfter(day: string): string {
+  if (!isIsoDate(day)) throw new RangeError(`day is an ISO date, found ${day}`)
+  const next = new Date(`${day}T00:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return next.toISOString().slice(0, 10)
 }
 
 /** The editions that come into force after `after` and on or before `until` (null: no end), oldest first. */

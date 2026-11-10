@@ -213,6 +213,10 @@ describe('validateProposal', () => {
     expect(kit(overlapping, 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', key: 'e2018' }),
     ])
+    // RIS's last day in force copied as the end leaves one day between the editions: refused, with the day to enter.
+    expect(kit(parse([work, edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)]), 'AT', KNOWN)).toEqual([
+      expect.objectContaining({ code: 'KC-3', key: 'e2018', pointer: '/inForceTo', detail: expect.stringContaining('plus one') }),
+    ])
     // inForceTo is the first day no longer in force: an edition ending on the day it begins is in force on no day.
     expect(kit(parse([work, edition('e2024', '2024-01-01', '2024-01-01')]), 'AT', KNOWN)).toEqual([
       expect.objectContaining({ code: 'KC-3', pointer: '/inForceTo' }),

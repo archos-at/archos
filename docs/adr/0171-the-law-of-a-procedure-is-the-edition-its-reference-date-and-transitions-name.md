@@ -70,8 +70,17 @@ Chosen option 2.
   its edition's last day). A source that prints the last day in force (RIS's
   Außerkrafttretensdatum, verified on the OGD API: the Bauproduktegesetz 1997
   ends `2018-12-31`) is entered and read one day later. `time/editions.ts`
-  `editionInForce` is the one rule: the time path and the chain resolver
-  (`chain/resolve.ts`, through `editionFor`) both ask it. Undated editions
+  `editionInForce` is the rule for law: the time path and the chain resolver
+  (`chain/resolve.ts`, through `editionFor`) both ask it. A norm, a guideline
+  or a commentary has no in-force date of its own and a new Ausgabe replaces
+  the old one without an end date, so its edition at a date is the newest
+  issued and not withdrawn (`newestInForce`). An office's own law edition,
+  entered with its issue date only, counts from that date. An undated law
+  edition beside dated ones is left out. A law whose edition stays unknown
+  binds nothing and is named: `undetermined` in the knowledge context, a
+  "Not determined here" line in the chain text, `undetermined_editions` in
+  the trace metadata. KC-3 refuses an edition that ends the day before its
+  successor begins, the trace of a copied last day. Undated editions
   make the work `edition_dates_unknown`; overlap is `ambiguous_editions`; before
   `history_available_from` (or before the oldest edition when that is null) is
   `history_not_held` (`time/editions.ts`). KC-3 refuses two editions of one

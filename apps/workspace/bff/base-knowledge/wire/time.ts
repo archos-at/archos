@@ -87,6 +87,7 @@ export interface EditionRef {
   id: string
   label: string
   inForceFrom: string | null
+  /** The first day no longer in force (exclusive), not the last day in force; null while in force. */
   inForceTo: string | null
 }
 

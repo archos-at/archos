@@ -210,5 +210,5 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
     .map((use) => contextUse(graph, use, coverage, inputs))
     .filter((use): use is ContextUse => use !== null)
     .slice(0, MAX_CONTEXT_USES)
-  return { ...base, uses }
+  return { ...base, uses, undetermined: resolved.undetermined.slice(0, MAX_CONTEXT_USES).map(({ workId, reason }) => ({ workId, reason })) }
 }

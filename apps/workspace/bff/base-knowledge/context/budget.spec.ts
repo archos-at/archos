@@ -49,6 +49,8 @@ describe('the knowledge phase budget', () => {
         timings.push(performance.now() - started)
         expect(context.gate.state).toBe('core')
         expect(context.uses.length).toBeGreaterThan(0)
+        // The Austria pack dates every edition: nothing on its chains is undetermined, and the context says so.
+        expect(context.undetermined).toEqual([])
       }
     }
     const sorted = timings.sort((a, b) => a - b)
