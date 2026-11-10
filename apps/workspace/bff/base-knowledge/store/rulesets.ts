@@ -21,8 +21,9 @@ import {
   type KnowledgeProvenance,
 } from '@/lib/db/schema/knowledge-records'
 import { rulesetValuesSchema, type RulesetValuesInput } from '../wire/ruleset'
-import type { RulesetPurpose } from '../wire/vocab'
+import type { RulesetPayloadSchema, RulesetPurpose } from '../wire/vocab'
 import { failingExamples } from '../rulesets/decision-table'
+import { rulesetColumns } from '../rulesets/columns'
 import type { StoredRuleset } from '../rulesets/select'
 import { appendRevision, newRecordId, type RulesetBody } from './repository'
 
@@ -53,19 +54,15 @@ export function writableRuleset(input: RulesetValuesInput) {
 }
 
 function bodyOf(values: ReturnType<typeof writableRuleset>): RulesetBody {
-  const table = values.body.kind === 'table' ? values.body : null
-  return {
-    purpose: values.purpose,
-    territoryIds: values.territoryIds,
-    workIds: values.workIds,
-    validFrom: values.validFrom,
-    validTo: values.validTo,
-    basisEditionId: values.basisEditionId,
-    inherits: table ? null : 'parent',
-    payloadSchema: table ? table.payloadSchema : null,
-    payload: table ? table.payload : null,
-  }
+  return rulesetColumns(values)
 }
+
+/** The body kind each stored payload schema reads back as. */
+const KIND_OF_SCHEMA = {
+  'decision_table.v1': 'table',
+  'fact_definitions.v1': 'fact_definitions',
+  'fact_sources.v1': 'fact_sources',
+} as const satisfies Record<RulesetPayloadSchema, string>
 
 /**
  * An office's ruleset as one record with one revision. `inForce` moves the head
@@ -117,7 +114,11 @@ export function rulesetFromRow(row: RulesetRow): StoredRuleset | null {
     basisEditionId: row.basisEditionId,
     body: row.inherits
       ? { kind: 'inherits', inherits: row.inherits }
-      : { kind: 'table', payloadSchema: row.payloadSchema, payload: row.payload },
+      : {
+          kind: row.payloadSchema ? KIND_OF_SCHEMA[row.payloadSchema] : undefined,
+          payloadSchema: row.payloadSchema,
+          payload: row.payload,
+        },
   })
   return parsed.success ? { id: row.recordId, values: parsed.data } : null
 }

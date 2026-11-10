@@ -11,12 +11,8 @@
 
 import { z } from 'zod'
 import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
-import {
-  DECISION_TABLE_PURPOSES,
-  FACT_TYPES,
-  RULESET_PAYLOAD_SCHEMAS,
-  RULESET_PURPOSES,
-} from './vocab'
+import { factDefinitionsSchema, factSourcesSchema } from './setup-facts'
+import { DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
 
 /** A fact key as the project profile stores it: English snake case (`storeys_above_ground`). */
 export const factKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/, 'a snake_case fact key')
@@ -215,8 +211,22 @@ export const rulesetValuesSchema = z
       z
         .object({
           kind: z.literal('table'),
-          payloadSchema: z.enum(RULESET_PAYLOAD_SCHEMAS),
+          payloadSchema: z.literal('decision_table.v1'),
           payload: decisionTableSchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('fact_definitions'),
+          payloadSchema: z.literal('fact_definitions.v1'),
+          payload: factDefinitionsSchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('fact_sources'),
+          payloadSchema: z.literal('fact_sources.v1'),
+          payload: factSourcesSchema,
         })
         .strict(),
       z.object({ kind: z.literal('inherits'), inherits: z.literal('parent') }).strict(),
@@ -233,6 +243,14 @@ export const rulesetValuesSchema = z
         code: 'custom',
         path: ['body'],
         message: `${values.purpose} has no decision table schema yet`,
+      })
+    }
+    const setupKind = values.body.kind === 'fact_definitions' || values.body.kind === 'fact_sources'
+    if (setupKind && values.body.kind !== values.purpose) {
+      context.addIssue({
+        code: 'custom',
+        path: ['body', 'kind'],
+        message: `a ${values.body.kind} body serves the purpose ${values.body.kind}, not ${values.purpose}`,
       })
     }
   })

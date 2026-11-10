@@ -367,7 +367,13 @@ describe('an operation that runs only on the person’s own yes', () => {
   function expectRefused(result: Rpc['result']) {
     expect(result?.isError).toBe(true)
     expect(result?.content?.[0].text).toBe(REFUSAL)
-    expect(result?.structuredContent).toEqual({ decision: 'person_required', operation: 'held-item-file', changed: false, url: LINK })
+    expect(result?.structuredContent).toEqual({
+      decision: 'person_required',
+      operation: 'held-item-file',
+      changed: false,
+      url: LINK,
+      problem: expect.objectContaining({ status: 403, code: 'PERSON_DECISION_REQUIRED' }),
+    })
     expect(callOperation).not.toHaveBeenCalled()
     expect(vi.mocked(recordOperationCalled).mock.calls.map(([, call]) => call)).toEqual([
       expect.objectContaining({ operation: 'held-item-file', decision: 'person_required', status: 403 }),

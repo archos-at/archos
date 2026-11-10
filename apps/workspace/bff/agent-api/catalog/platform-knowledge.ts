@@ -205,12 +205,16 @@ export const platformKnowledgeOperations = [
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
       'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
-      'capture needs before approval. A verdict is not an approval and changes nothing offices read.',
+      'capture needs before approval and only someone other than its author may give. The person decides it. A verdict ' +
+      'is not an approval and changes nothing offices read.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
     body: reviewBodySchema,
     idempotent: false,
+    // A verdict vouches for a claim, and `sourceChecked` for a page nobody fetched: the person's own (ADR-0170).
+    personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/route'),
   },
   {

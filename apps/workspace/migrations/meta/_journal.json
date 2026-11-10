@@ -1447,8 +1447,22 @@
     {
       "idx": 206,
       "version": "7",
-      "when": 1793000000000,
-      "tag": "0206_knowledge_citation_captures",
+      "when": 1792910000000,
+      "tag": "0206_editions_in_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1792920000000,
+      "tag": "0207_setup_fact_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "7",
+      "when": 1792930000000,
+      "tag": "0208_knowledge_citation_captures",
       "breakpoints": true
     }
   ]

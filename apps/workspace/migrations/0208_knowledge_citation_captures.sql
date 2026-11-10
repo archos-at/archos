@@ -15,7 +15,9 @@
 -- - `knowledge_review_decisions.source_checked`: the reviewer checked the
 --   cited capture against its source. A trigger refuses an approval of a
 --   request with a revision that cites an operator-supplied capture until a
---   verdict on that revision says so: what nobody fetched, a person checked.
+--   verdict on that revision says so, from someone other than the revision's
+--   author: what nobody fetched, another person checked. A second trigger
+--   refuses an author's own `source_checked` verdict outright.
 --
 -- ## RLS
 --
@@ -88,7 +90,8 @@ BEGIN
     WHERE r.change_request_id = NEW.change_request_id
       AND k.basis = 'operator_supplied'
       AND NOT EXISTS (
-        SELECT 1 FROM knowledge_review_decisions d WHERE d.revision_id = r.revision_id AND d.source_checked
+        SELECT 1 FROM knowledge_review_decisions d
+        WHERE d.revision_id = r.revision_id AND d.source_checked AND d.reviewer <> r.created_by
       )
   ) THEN
     RAISE EXCEPTION 'a revision cites an operator-supplied capture whose source no reviewer checked' USING ERRCODE = 'check_violation';
@@ -99,5 +102,20 @@ $$;
 --> statement-breakpoint
 CREATE TRIGGER knowledge_approvals_sources_checked BEFORE INSERT ON "knowledge_approvals"
   FOR EACH ROW EXECUTE FUNCTION knowledge_approval_sources_checked();
+--> statement-breakpoint
+-- Nobody checks their own source: a `source_checked` verdict from the revision's author is refused.
+CREATE OR REPLACE FUNCTION knowledge_source_check_not_by_author() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.source_checked AND EXISTS (
+    SELECT 1 FROM knowledge_revisions WHERE revision_id = NEW.revision_id AND created_by = NEW.reviewer
+  ) THEN
+    RAISE EXCEPTION 'a source is checked by someone other than the revision''s author' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+CREATE TRIGGER knowledge_review_decisions_source_check_not_by_author BEFORE INSERT ON "knowledge_review_decisions"
+  FOR EACH ROW EXECUTE FUNCTION knowledge_source_check_not_by_author();
 --> statement-breakpoint
 SELECT secure_table('knowledge_citation_captures', 'false');

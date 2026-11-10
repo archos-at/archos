@@ -64,6 +64,30 @@
           }
         },
         {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
+            "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Ask in the chat how an existing building's class changes with the planned work: the answer gives the class today and after, what is still missing to decide it, and the document that settles it.",
+            "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Questions about an older submission can be answered with the law that applied then: give a procedure's filing and decision dates (or a date) and the answer names the edition in force, follows the Land's reference date and transitional rules, and says which date is still missing instead of assuming today. The law lookup can read the version of a past day from RIS.",
+            "de": "Fragen zu einer älteren Einreichung lassen sich mit dem damals geltenden Recht beantworten: Geben Sie das Einreichungs- und Entscheidungsdatum eines Verfahrens oder ein einzelnes Datum an. Die Antwort nennt die geltende Fassung, berücksichtigt den maßgeblichen Stichtag des Landes und die Übergangsbestimmungen und weist darauf hin, welches Datum noch fehlt, statt das heutige Datum anzunehmen. Die Rechtssuche kann die an einem vergangenen Tag geltende Fassung aus dem RIS abrufen."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {

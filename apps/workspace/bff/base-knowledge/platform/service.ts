@@ -181,16 +181,22 @@ export async function reviewPlatformChangeRequest(
   decisions: ReviewDecisionBody['decisions'],
 ): Promise<{ recorded: number }> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  // A source check vouches for a page nobody fetched: the person's own yes, never a model's (ADR-0170).
+  if (decisions.some((decision) => decision.sourceChecked)) requirePersonDecision('Marking a cited source as checked')
   await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is reviewed.`)
-    const claims = new Set(
-      (await reviewedRevisions(tx, requestId)).flatMap((revision) => revision.claims.map((claim) => `${revision.revisionId}|${claim.path}`)),
-    )
+    const revisions = await reviewedRevisions(tx, requestId)
+    const claims = new Set(revisions.flatMap((revision) => revision.claims.map((claim) => `${revision.revisionId}|${claim.path}`)))
     const unknown = decisions.filter((decision) => !claims.has(`${decision.revisionId}|${decision.claimPath}`))
     if (unknown.length > 0) {
       throw new UnprocessableError(`${unknown.length} decision(s) name no claim of this request; read the request for its claims.`)
+    }
+    // Nobody checks their own source (four eyes; the database refuses it too, 0208).
+    const ownRevisions = new Set(revisions.filter((revision) => revision.createdBy === person.userId).map((revision) => revision.revisionId))
+    if (decisions.some((decision) => decision.sourceChecked && ownRevisions.has(decision.revisionId))) {
+      throw new ConflictError('You wrote this revision, so another person checks its source (four eyes).')
     }
     await insertReviewDecisions(tx, requestId, person.userId, decisions)
   })

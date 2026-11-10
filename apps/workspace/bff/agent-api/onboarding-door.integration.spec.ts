@@ -254,12 +254,12 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(text).toContain('idempotencyKey')
 
     const shapes = await ok(author, 'platform-knowledge-schema-get', {})
-    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'territory', 'work'])
+    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'ruleset', 'territory', 'work'])
     expect(shapes.maxBatch).toBe(200)
-    expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-6'])
+    expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-5', 'KC-6'])
 
     // Fail closed on an unknown record type, as an RFC 9457 problem.
-    const unknownType = await door(author, 'platform-knowledge-schema-get', { query: { type: 'ruleset' } })
+    const unknownType = await door(author, 'platform-knowledge-schema-get', { query: { type: 'office_copy' } })
     expect(unknownType.ok).toBe(false)
     expect(unknownType.problem?.status).toBe(400)
 
@@ -378,7 +378,7 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
           sourceChecked: sourceChecked && revision.citations.some((citation) => supplied.has(citation.captureId)),
         })),
       )
-    await ok(expert, 'platform-knowledge-change-request-review', { params: { changeRequestId: requestId }, body: { decisions: verdicts(false) } })
+    await ok(expert, 'platform-knowledge-change-request-review', { params: { changeRequestId: requestId }, body: { decisions: verdicts(false) } }, { person: 'yes' })
     const approve = { params: { changeRequestId: requestId }, body: { decision: 'approve', role: 'domain_expert' } }
 
     // The author's yes is no approval: four eyes.
@@ -399,7 +399,20 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(unchecked.problem).toMatchObject({ status: 409 })
     expect(unchecked.problem?.detail).toContain('operator-supplied')
 
-    await ok(expert, 'platform-knowledge-change-request-review', { params: { changeRequestId: requestId }, body: { decisions: verdicts(true) } })
+    // Nobody checks their own source: the author's agent, even with the author's yes, is refused.
+    const review = { params: { changeRequestId: requestId }, body: { decisions: verdicts(true) } }
+    const ownCheck = await door(author, 'platform-knowledge-change-request-review', review, { person: 'yes' })
+    expect(ownCheck.problem).toMatchObject({ status: 409 })
+    // And a source check dispatched with no yes at all is refused at the route.
+    const { callOperation } = await import('./dispatch')
+    const { findOperation } = await import('./catalog')
+    const bare = await callOperation(findOperation('platform-knowledge-change-request-review')!, review, expert.session, 'agent', {})
+    expect(bare).toMatchObject({ status: 403, body: { code: 'PERSON_DECISION_REQUIRED' } })
+    expect(
+      await count(sql`SELECT count(*)::int AS n FROM knowledge_review_decisions WHERE change_request_id = ${requestId} AND source_checked`),
+    ).toBe(0)
+
+    await ok(expert, 'platform-knowledge-change-request-review', review, { person: 'yes' })
     const approved = await ok(expert, 'platform-knowledge-change-request-decide', approve, { person: 'yes' })
     expect(approved.status).toBe('approved')
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_approvals WHERE change_request_id = ${requestId} AND decision_source = 'elicitation'`)).toBe(1)
@@ -438,5 +451,16 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(created.problem).toMatchObject({ status: 403, code: 'PERSON_DECISION_REQUIRED' })
     const update = await door(expert, 'platform-skill-update', { params: { skillId: 'any' }, body: { published: true } }, { elicits: false })
     expect(update.body).toMatchObject({ decision: 'person_required', changed: false })
+
+    // The routes hold it whatever path the call took: an edit or a delete dispatched with no yes is refused.
+    const { callOperation } = await import('./dispatch')
+    const { findOperation } = await import('./catalog')
+    for (const [name, input] of [
+      ['platform-skill-update', { params: { skillId: 'any' }, body: { published: true } }],
+      ['platform-skill-delete', { params: { skillId: 'any' } }],
+    ] as const) {
+      const bare = await callOperation(findOperation(name)!, input, expert.session, 'agent', {})
+      expect(bare, name).toMatchObject({ status: 403, body: { code: 'PERSON_DECISION_REQUIRED' } })
+    }
   })
 })

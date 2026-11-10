@@ -29,7 +29,7 @@
     "refused_shared_conversation": {
       "status": 200,
       "contentType": "application/json",
-      "body": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"This conversation is shared, and that read answers with what the person may see, not with what everyone in the conversation may: in a shared conversation ARCHOS reads only a document or a project's facts, of a project every reader may open. Tell the person to open it themselves, or to ask in a conversation that is theirs alone.\"}],\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":1}"
+      "body": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"This conversation is shared, and that read answers with what the person may see, not with what everyone in the conversation may: in a shared conversation ARCHOS reads only a document or a project's facts, of a project every reader may open. Tell the person to open it themselves, or to ask in a conversation that is theirs alone.\"}],\"structuredContent\":{\"problem\":{\"type\":\"urn:problem-type:forbidden\",\"title\":\"Forbidden\",\"status\":403,\"detail\":\"The read gate refused this read in this conversation; the text says why.\",\"code\":\"FORBIDDEN\"}},\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":1}"
     },
     "refused_wrong_token": {
       "status": 403,
@@ -49,7 +49,7 @@
     "unknown_operation": {
       "status": 200,
       "contentType": "application/json",
-      "body": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Unknown operation \\\"nope\\\". Use search-operations to find the right name.\"}],\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":1}"
+      "body": "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Unknown operation \\\"nope\\\". Use search-operations to find the right name.\"}],\"structuredContent\":{\"problem\":{\"type\":\"urn:problem-type:unknown_operation\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"Unknown operation \\\"nope\\\". Use search-operations to find the right name.\",\"code\":\"UNKNOWN_OPERATION\"}},\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":1}"
     }
   }
 }

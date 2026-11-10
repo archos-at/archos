@@ -52,6 +52,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
   let otherBuildingId: string
   /** A model past both the count ceiling and the property-catalog scan limit. */
   let bigModelId: string
+  let PLACED_PROJECT: string
   let FIXTURE_PROJECT: string
   let index: BimModelIndex
   let runBimQuery: typeof import('./query').runBimQuery
@@ -160,10 +161,27 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
           }
         : element
     )
+    // The OIB rules bind in Austria only (ADR-0169): the model under test stands in a project placed in Vienna.
+    const placedRows = await withPlatformAccess('seed a BIM project placed in Austria', () =>
+      db.execute<{ id: string }>(sql`
+        INSERT INTO projects (organization_id, name, created_by, collection_name, profile)
+        VALUES (${ORG}, 'BIM fixture in Vienna', 'seed', 'seed', ${JSON.stringify({
+          facts: {
+            country: { value: 'at', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-11-10T00:00:00Z' },
+            federal_state: { value: 'vienna', confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-11-10T00:00:00Z' },
+          },
+          goals: {},
+          unknowns: [],
+          assumptions: {},
+        })}::jsonb)
+        RETURNING id
+      `)
+    )
+    PLACED_PROJECT = Array.from(placedRows)[0].id
     const documentId = await seedDocument(ORG, 'sample-building.ifc')
     modelId = await repository.startBimModel({
       organizationId: ORG,
-      projectId: null,
+      projectId: PLACED_PROJECT,
       documentId,
     })
     await repository.completeBimModel({
@@ -212,7 +230,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const revisionDocumentId = await seedDocument(ORG, 'sample-building-v2.ifc')
     revisionModelId = await repository.startBimModel({
       organizationId: ORG,
-      projectId: null,
+      projectId: PLACED_PROJECT,
       documentId: revisionDocumentId,
     })
     await repository.completeBimModel({

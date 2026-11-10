@@ -67,6 +67,7 @@ import { callDecision, findVisibleOperation } from './policy'
 import type { AgentPrincipal } from './principal'
 import { type McpCallContext, recordOperationCalled } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { problemOf } from './door-problem'
 
 /** The key of the one input request: the person's yes or no. */
 export const CONFIRM_INPUT = 'confirm'
@@ -180,7 +181,13 @@ export function personRequiredResult(op: string, url: string | null): CallToolRe
           `so nothing was changed.${where} Do not call it again unless they ask you to.`,
       },
     ],
-    structuredContent: { decision: 'person_required', operation: op, changed: false, url },
+    structuredContent: {
+      decision: 'person_required',
+      operation: op,
+      changed: false,
+      url,
+      problem: problemOf(403, { error: `${op} runs only on the person's own yes.`, code: 'PERSON_DECISION_REQUIRED' }),
+    },
   }
 }
 

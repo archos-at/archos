@@ -34,7 +34,7 @@ import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDeci
 import { appendRevision, type Tx } from '../store/repository'
 import { captureViews } from './captures'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
-import type { KnownRecord } from './validate'
+import type { DatedPlatformEdition, KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView } from './wire'
 
 const REASON = 'platform base knowledge: change requests'
@@ -118,6 +118,32 @@ export async function knownPlatformRecords(tx: Tx, ids: readonly string[]): Prom
     .from(knowledgeRecords)
     .where(and(inArray(knowledgeRecords.id, [...ids]), isNull(knowledgeRecords.organizationId)))
   return new Map(rows.map((row) => [row.id, { type: row.type, countryId: row.countryId ?? '' }]))
+}
+
+/**
+ * The platform's editions (at their heads) of the works a batch proposes
+ * editions for: what KC-3 holds a new edition's dates against. A platform
+ * head is a released revision (0205), so a draft elsewhere does not count.
+ */
+export async function platformEditionsOf(tx: Tx, workIds: readonly string[]): Promise<DatedPlatformEdition[]> {
+  if (workIds.length === 0) return []
+  return tx
+    .select({
+      id: knowledgeRecords.id,
+      workId: knowledgeEditionRevisions.workId,
+      inForceFrom: knowledgeEditionRevisions.inForceFrom,
+      inForceTo: knowledgeEditionRevisions.inForceTo,
+    })
+    .from(knowledgeRecords)
+    .innerJoin(knowledgeEditionRevisions, eq(knowledgeEditionRevisions.revisionId, knowledgeRecords.headRevisionId))
+    .where(
+      and(
+        isNull(knowledgeRecords.organizationId),
+        eq(knowledgeRecords.type, 'edition'),
+        inArray(knowledgeEditionRevisions.workId, [...workIds]),
+      ),
+    )
+    .limit(2000)
 }
 
 /** Every record id a batch is or names: what {@link knownPlatformRecords} looks up for validation. */
@@ -335,18 +361,27 @@ export async function insertReviewDecisions(
   reviewer: string,
   decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string; sourceChecked?: boolean }[],
 ): Promise<void> {
-  await tx.insert(knowledgeReviewDecisions).values(
-    decisions.map((decision) => ({
-      id: randomUUID(),
-      changeRequestId: requestId,
-      revisionId: decision.revisionId,
-      claimPath: decision.claimPath,
-      decision: decision.decision,
-      note: decision.note ?? null,
-      sourceChecked: decision.sourceChecked ?? false,
-      reviewer,
-    })),
-  )
+  try {
+    await tx.insert(knowledgeReviewDecisions).values(
+      decisions.map((decision) => ({
+        id: randomUUID(),
+        changeRequestId: requestId,
+        revisionId: decision.revisionId,
+        claimPath: decision.claimPath,
+        decision: decision.decision,
+        note: decision.note ?? null,
+        sourceChecked: decision.sourceChecked ?? false,
+        reviewer,
+      })),
+    )
+  } catch (error) {
+    // The 0208 trigger: nobody checks the source of a revision they wrote.
+    const message = error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : ''
+    if (/someone other than the revision/.test(message)) {
+      throw new ConflictError('You wrote this revision, so another person checks its source (four eyes).')
+    }
+    throw error
+  }
 }
 
 export async function insertApproval(

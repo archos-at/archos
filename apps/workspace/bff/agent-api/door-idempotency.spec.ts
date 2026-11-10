@@ -60,6 +60,20 @@ describe('oncePerKey', () => {
     expect(run).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps no refusal that depends on the moment: a missing yes, a conflict, a rate limit', async () => {
+    setCacheStore(memory())
+    for (const status of [403, 409, 412, 429]) {
+      const run = vi.fn(async () => ({ status, ok: false, body: {} }))
+      await oncePerKey(op, { idempotencyKey: `k${status}` }, session, false, run)
+      await oncePerKey(op, { idempotencyKey: `k${status}` }, session, false, run)
+      expect(run, String(status)).toHaveBeenCalledTimes(2)
+    }
+    const invalid = vi.fn(async () => ({ status: 422, ok: false, body: {} }))
+    await oncePerKey(op, { idempotencyKey: 'k422' }, session, false, invalid)
+    await oncePerKey(op, { idempotencyKey: 'k422' }, session, false, invalid)
+    expect(invalid).toHaveBeenCalledTimes(1)
+  })
+
   it('runs a read and a call without a key every time, and does not keep a server error', async () => {
     setCacheStore(memory())
     const run = vi.fn(async () => ({ status: 503, ok: false, body: {} }))

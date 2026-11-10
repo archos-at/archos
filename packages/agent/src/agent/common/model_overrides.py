@@ -306,7 +306,8 @@ def _resolve_org_config_locked(organization_id: str) -> _OverridesCacheEntry:
             # The BFF answered, so even ({}, False) is authoritative: an
             # unconfigured org is the DEFAULT state of most orgs, and refusing
             # to cache it sent every replica back to the BFF every L1 TTL for
-            # the majority case.
+            # the majority case. An unreadable processing policy is the one
+            # part that is no answer, and write_shared keeps it off L2.
             write_shared(organization_id, overrides, zdr_only, processing)
             annotate_current_span(cache_model_config="miss")
         except _NoTrustChannel:

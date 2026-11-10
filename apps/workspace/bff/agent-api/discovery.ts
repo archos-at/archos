@@ -59,7 +59,7 @@ import {
 } from './policy'
 import type { AgentPrincipal } from './principal'
 import { readGateFor, sharedConversationReadRefusal } from './read-gate'
-import { problemFailure, refusalResult } from './door-problem'
+import { READ_GATE_DETAIL, problemFailure, refusalResult } from './door-problem'
 import { IDEMPOTENCY_KEY_SCHEMA } from './door-idempotency'
 import { type McpCallContext, recordOperationCalled, recordOperationMissing } from './telemetry'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -320,7 +320,7 @@ export async function runBackendOperation(
   } catch (error) {
     console.error('[mcp] backend operation failed', op.name, error)
     record(500)
-    return failure(`${op.name} failed on the server. Try again; if it persists, report it.`)
+    return problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR')
   }
 }
 
@@ -334,13 +334,13 @@ export function nativeToolRefusal(name: string, tool: string): string {
 
 function unknownOperation(ctx: McpCallContext, name: string): CallToolResult {
   const native = ctx.principal.actor === 'piloti' ? nativeToolOf(name) : undefined
-  if (native) return failure(nativeToolRefusal(name, native))
+  if (native) return problemFailure(nativeToolRefusal(name, native), 404, 'UNKNOWN_OPERATION')
   // The search schema bounds a query; a name the agent typed is bounded here, the one unchecked text ranked.
   const near = rank(ctx, name.slice(0, MAX_SEARCH_QUERY_LENGTH), undefined)
     .slice(0, 5)
     .map((hit) => hit.name)
   const hint = near.length > 0 ? ` Closest: ${near.join(', ')}.` : ''
-  return failure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`)
+  return problemFailure(`Unknown operation "${name}".${hint} Use search-operations to find the right name.`, 404, 'UNKNOWN_OPERATION')
 }
 
 /**
@@ -461,14 +461,14 @@ export async function executeOperation(
     const refused = await gate.beforeRead(op, input)
     if (refused) {
       record(403)
-      return { refusal: failure(refused), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
     const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined })
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
-      return { refusal: failure(sharedConversationReadRefusal()), status: 403, code: 'FORBIDDEN' }
+      return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
     return { result }
   } catch (error) {
@@ -492,7 +492,7 @@ function failureOf(op: AgentOperation, error: unknown, record: (status: number) 
   }
   console.error('[mcp] operation failed', op.name, error)
   record(500)
-  return { refusal: failure(`${op.name} failed on the server. Try again; if it persists, report it.`), status: 500 }
+  return { refusal: problemFailure(`${op.name} failed on the server. Try again; if it persists, report it.`, 500, 'INTERNAL_ERROR'), status: 500 }
 }
 
 /** Longest input schema quoted in a refusal; a larger one is a describe-operation away. */

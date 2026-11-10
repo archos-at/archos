@@ -16,9 +16,17 @@ import { GUIDE_URI } from './index'
 /** Under the door guide's scheme: `<scheme>://platform/onboarding-guide`. */
 export const ONBOARDING_GUIDE_URI = GUIDE_URI.replace(/guide$/, 'platform/onboarding-guide')
 
-/** Whether `ctx`'s caller is offered the onboarding guide: the platform door, with the knowledge operations visible. */
+/**
+ * Whether `ctx`'s caller is offered the onboarding guide: the platform door,
+ * with platform knowledge on and its operations visible to them. Off, the
+ * guide would describe operations that answer 403.
+ */
 export function offersOnboardingGuide(ctx: McpCallContext): boolean {
-  return doorOfPrincipal(ctx.principal) === 'platform' && findVisibleOperation(ctx.principal, 'platform-knowledge-records-propose') !== undefined
+  return (
+    ctx.onboardingGuide === true &&
+    doorOfPrincipal(ctx.principal) === 'platform' &&
+    findVisibleOperation(ctx.principal, 'platform-knowledge-records-propose') !== undefined
+  )
 }
 
 export function registerOnboardingGuide(server: McpServer, ctx: McpCallContext): void {

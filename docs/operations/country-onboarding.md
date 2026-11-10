@@ -28,9 +28,10 @@ people around it.
 - A request is submitted only once `platform-knowledge-validate` is green.
 - The author of a revision cannot approve the request (four eyes, a trigger).
 - An operator-supplied capture blocks approval until a verdict on the record
-  that cites it says its source was checked (a trigger).
-- Approve, publish, rollback and entitlement run only on the person's yes; a
-  client that cannot ask them is sent to Platform → Countries.
+  that cites it says its source was checked, by someone other than the
+  record's author (two triggers).
+- A review verdict, approve, publish, rollback and entitlement run only on the
+  person's yes; a client that cannot ask them is sent to Platform → Countries.
 - Every write may be retried with the same `idempotencyKey`.
 
 ## Adding a source the agent can capture from

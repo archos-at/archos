@@ -64,3 +64,15 @@ describe('/api/internal/stages features.licensedSeam', () => {
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('licensed-seam', 'org_off')
   })
 })
+
+describe('/api/internal/stages features.timeEditions', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('is the time-editions flag of the organization asked about, off unless WorkOS says yes', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockImplementation(async (flag, org) => flag === 'time-editions' && org === 'org_on')
+
+    expect(await call('org_on')).toMatchObject({ features: { timeEditions: true, licensedSeam: false } })
+    expect(await call('org_off')).toMatchObject({ features: { timeEditions: false } })
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('time-editions', 'org_off')
+  })
+})

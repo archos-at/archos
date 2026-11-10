@@ -58,6 +58,99 @@
     }
   ],
   "paths": {
+    "/api/projects/{id}/classification-evaluations": {
+      "post": {
+        "operationId": "classification-evaluate",
+        "summary": "Evaluate a building’s class under its site’s rules",
+        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "buildingId": {
+                    "default": "bldg1",
+                    "type": "string",
+                    "maxLength": 12
+                  },
+                  "planned": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {}
+                  },
+                  "existing": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {}
+                  },
+                  "on": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Evaluate a building’s class under its site’s rules",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/cleanup": {
       "post": {
         "operationId": "project-cleanup-confirm",
@@ -21120,6 +21213,152 @@
         }
       }
     },
+    "/api/base-knowledge/editions/as-of": {
+      "get": {
+        "operationId": "base-knowledge-edition-as-of",
+        "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
+        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "workId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "e.g. work:at-wien-bo"
+            },
+            "description": "e.g. work:at-wien-bo"
+          },
+          {
+            "name": "territoryId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "The legislating node, e.g. AT-9."
+            },
+            "description": "The legislating node, e.g. AT-9."
+          },
+          {
+            "name": "asOf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "procedureId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^p[0-9]{1,3}$"
+            }
+          },
+          {
+            "name": "procedureType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          },
+          {
+            "name": "filedOn",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "decidedOn",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "const": "pending"
+                }
+              ]
+            }
+          },
+          {
+            "name": "worksStartedOn",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "const": "not_started"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Which edition of a law or norm applied on a date or to a permit procedure",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/{entryId}": {
       "get": {
         "operationId": "base-knowledge-get",
@@ -28316,7 +28555,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a submitted change request",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval. A verdict is not an approval and changes nothing offices read.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval and only someone other than its author may give. The person decides it. A verdict is not an approval and changes nothing offices read.",
         "tags": [
           "platform"
         ],
@@ -28418,7 +28657,7 @@
         "x-mcp-annotations": {
           "title": "Record verdicts on the claims of a submitted change request",
           "readOnlyHint": false,
-          "destructiveHint": false,
+          "destructiveHint": true,
           "idempotentHint": false,
           "openWorldHint": false
         }
@@ -29097,6 +29336,20 @@
                                 ]
                               }
                             },
+                            "historyAvailableFrom": {
+                              "default": null,
+                              "description": "The first day whose edition is held.",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
@@ -29186,11 +29439,273 @@
                             },
                             "inForceTo": {
                               "default": null,
+                              "description": "The last day in force, inclusive; null while in force.",
                               "anyOf": [
                                 {
                                   "type": "string",
                                   "format": "date",
                                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "transition": {
+                              "default": null,
+                              "description": "Its transitional rule: a decision table over the procedure and boundary_from giving old_law, new_law or choice.",
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "inputs": {
+                                      "minItems": 1,
+                                      "maxItems": 64,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "key": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                          },
+                                          "type": {
+                                            "type": "string",
+                                            "enum": [
+                                              "number",
+                                              "boolean",
+                                              "code",
+                                              "codes",
+                                              "date"
+                                            ],
+                                            "description": "date is an ISO date, compared as text; codes is a list of tokens."
+                                          }
+                                        },
+                                        "required": [
+                                          "key",
+                                          "type"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "output": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "code"
+                                            },
+                                            "codes": {
+                                              "minItems": 1,
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 80
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "codes"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "event"
+                                            },
+                                            "events": {
+                                              "minItems": 1,
+                                              "maxItems": 50,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "events"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "bodies"
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "const": "quantity"
+                                            },
+                                            "unit": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 40,
+                                              "description": "UCUM, e.g. m2."
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "unit"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ],
+                                      "discriminator": {
+                                        "propertyName": "type"
+                                      }
+                                    },
+                                    "rows": {
+                                      "maxItems": 500,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                                          },
+                                          "when": {
+                                            "description": "A JsonLogic condition over the inputs."
+                                          },
+                                          "then": {},
+                                          "provision": {
+                                            "type": "object",
+                                            "properties": {
+                                              "citation": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 300
+                                              },
+                                              "wording": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "verbatim",
+                                                  "paraphrase"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "citation"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": [
+                                          "id"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "otherwise": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "then": {}
+                                          },
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "undetermined": {
+                                              "const": true
+                                            }
+                                          },
+                                          "required": [
+                                            "undetermined"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    },
+                                    "examples": {
+                                      "default": [],
+                                      "maxItems": 200,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "facts": {
+                                            "type": "object",
+                                            "propertyNames": {
+                                              "type": "string",
+                                              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                            },
+                                            "additionalProperties": {}
+                                          },
+                                          "expect": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "then": {}
+                                                },
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "undeterminedBy": {
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "undeterminedBy"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "facts",
+                                          "expect"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "inputs",
+                                    "output",
+                                    "rows",
+                                    "otherwise"
+                                  ],
+                                  "additionalProperties": false
                                 },
                                 {
                                   "type": "null"
@@ -29530,6 +30045,911 @@
                             "seatTerritoryId",
                             "competenceTerritoryIds"
                           ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "ruleset"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "values": {
+                              "type": "object",
+                              "properties": {
+                                "purpose": {
+                                  "type": "string",
+                                  "enum": [
+                                    "classification",
+                                    "derivation",
+                                    "reference_date",
+                                    "competence",
+                                    "fact_definitions",
+                                    "fact_sources",
+                                    "advice_policy",
+                                    "terminology"
+                                  ]
+                                },
+                                "territoryIds": {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                  }
+                                },
+                                "workIds": {
+                                  "default": [],
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  }
+                                },
+                                "validFrom": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                "validTo": {
+                                  "default": null,
+                                  "description": "Exclusive: the first day it no longer applies.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "basisEditionId": {
+                                  "default": null,
+                                  "description": "The edition the table encodes.",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 120
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "body": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "table"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "decision_table.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "inputs": {
+                                              "minItems": 1,
+                                              "maxItems": 64,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "key": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "number",
+                                                      "boolean",
+                                                      "code",
+                                                      "codes",
+                                                      "date"
+                                                    ],
+                                                    "description": "date is an ISO date, compared as text; codes is a list of tokens."
+                                                  }
+                                                },
+                                                "required": [
+                                                  "key",
+                                                  "type"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "output": {
+                                              "oneOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "type": {
+                                                      "const": "code"
+                                                    },
+                                                    "codes": {
+                                                      "minItems": 1,
+                                                      "maxItems": 200,
+                                                      "type": "array",
+                                                      "items": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 80
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "type",
+                                                    "codes"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "type": {
+                                                      "const": "boolean"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "type"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "type": {
+                                                      "const": "event"
+                                                    },
+                                                    "events": {
+                                                      "minItems": 1,
+                                                      "maxItems": 50,
+                                                      "type": "array",
+                                                      "items": {
+                                                        "type": "string",
+                                                        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "type",
+                                                    "events"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "type": {
+                                                      "const": "bodies"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "type"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "type": {
+                                                      "const": "quantity"
+                                                    },
+                                                    "unit": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 40,
+                                                      "description": "UCUM, e.g. m2."
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "type",
+                                                    "unit"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ],
+                                              "discriminator": {
+                                                "propertyName": "type"
+                                              }
+                                            },
+                                            "rows": {
+                                              "maxItems": 500,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                                                  },
+                                                  "when": {
+                                                    "description": "A JsonLogic condition over the inputs."
+                                                  },
+                                                  "then": {},
+                                                  "provision": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "citation": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 300
+                                                      },
+                                                      "wording": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                          "verbatim",
+                                                          "paraphrase"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "citation"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                },
+                                                "required": [
+                                                  "id"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "otherwise": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "then": {}
+                                                  },
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "undetermined": {
+                                                      "const": true
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "undetermined"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ]
+                                            },
+                                            "examples": {
+                                              "default": [],
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "facts": {
+                                                    "type": "object",
+                                                    "propertyNames": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    },
+                                                    "additionalProperties": {}
+                                                  },
+                                                  "expect": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "then": {}
+                                                        },
+                                                        "additionalProperties": false
+                                                      },
+                                                      {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "undeterminedBy": {
+                                                            "type": "array",
+                                                            "items": {
+                                                              "type": "string",
+                                                              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                            }
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "undeterminedBy"
+                                                        ],
+                                                        "additionalProperties": false
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "facts",
+                                                  "expect"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "inputs",
+                                            "output",
+                                            "rows",
+                                            "otherwise"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "fact_definitions"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "fact_definitions.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "subdivisions": {
+                                              "type": "object",
+                                              "properties": {
+                                                "factKey": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                },
+                                                "label": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 200
+                                                },
+                                                "options": {
+                                                  "minItems": 1,
+                                                  "maxItems": 60,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "token": {
+                                                        "type": "string",
+                                                        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                      },
+                                                      "territoryId": {
+                                                        "type": "string",
+                                                        "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                      },
+                                                      "label": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "municipality": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "token",
+                                                      "territoryId",
+                                                      "label"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                },
+                                                "outside": {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "token": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    },
+                                                    "label": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 200
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "token",
+                                                    "label"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              },
+                                              "required": [
+                                                "factKey",
+                                                "label",
+                                                "options"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            "facts": {
+                                              "default": [],
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "key": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "number",
+                                                      "boolean",
+                                                      "code",
+                                                      "codes",
+                                                      "date"
+                                                    ]
+                                                  },
+                                                  "unit": {
+                                                    "description": "UCUM, e.g. m or m2.",
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 40
+                                                  },
+                                                  "codes": {
+                                                    "description": "For a code: the tokens it may take. Any other token reads as unknown, never as a value.",
+                                                    "minItems": 1,
+                                                    "maxItems": 100,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  },
+                                                  "existingKey": {
+                                                    "description": "The key the Bestand holds this fact under today: a classification runs once on these, once on the planned values.",
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "key",
+                                                  "label",
+                                                  "type"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "procedureTypes": {
+                                              "default": [],
+                                              "maxItems": 40,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "token": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  }
+                                                },
+                                                "required": [
+                                                  "token",
+                                                  "label"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "derivations": {
+                                              "default": [],
+                                              "maxItems": 20,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "rule": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "citation": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 300
+                                                  },
+                                                  "values": {
+                                                    "type": "object",
+                                                    "propertyNames": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 80
+                                                    },
+                                                    "additionalProperties": {
+                                                      "type": "integer",
+                                                      "minimum": 1,
+                                                      "maximum": 9
+                                                    }
+                                                  },
+                                                  "highRise": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  },
+                                                  "notApplicable": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                },
+                                                "required": [
+                                                  "rule",
+                                                  "citation",
+                                                  "values"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "fact_sources"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "fact_sources.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "entries": {
+                                              "minItems": 1,
+                                              "maxItems": 100,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "determinant": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "plot",
+                                                      "zoning",
+                                                      "heritage",
+                                                      "hazards",
+                                                      "noise"
+                                                    ]
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "factKeys": {
+                                                    "minItems": 1,
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  },
+                                                  "appliesWhen": {
+                                                    "default": {},
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "projectTypes": {
+                                                        "minItems": 1,
+                                                        "maxItems": 20,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                        }
+                                                      },
+                                                      "uses": {
+                                                        "minItems": 1,
+                                                        "maxItems": 40,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                        }
+                                                      },
+                                                      "existing": {
+                                                        "const": true
+                                                      }
+                                                    },
+                                                    "additionalProperties": false
+                                                  },
+                                                  "request": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "document": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "reason": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 1000
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "document",
+                                                      "reason"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "sources": {
+                                                    "minItems": 1,
+                                                    "maxItems": 6,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "title": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 300
+                                                        },
+                                                        "reference": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 300
+                                                        },
+                                                        "needsReview": {
+                                                          "type": "boolean"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "title",
+                                                        "needsReview"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "variants": {
+                                                    "default": {},
+                                                    "type": "object",
+                                                    "propertyNames": {
+                                                      "type": "string",
+                                                      "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                    },
+                                                    "additionalProperties": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "document": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "reason": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 1000
+                                                        },
+                                                        "sources": {
+                                                          "minItems": 1,
+                                                          "maxItems": 6,
+                                                          "type": "array",
+                                                          "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "title": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "reference": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "needsReview": {
+                                                                "type": "boolean"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "title",
+                                                              "needsReview"
+                                                            ],
+                                                            "additionalProperties": false
+                                                          }
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "sources"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "additions": {
+                                                    "default": [],
+                                                    "maxItems": 50,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "territoryId": {
+                                                          "type": "string",
+                                                          "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                        },
+                                                        "municipality": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "addition": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 1000
+                                                        },
+                                                        "sources": {
+                                                          "minItems": 1,
+                                                          "maxItems": 3,
+                                                          "type": "array",
+                                                          "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "title": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "reference": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "needsReview": {
+                                                                "type": "boolean"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "title",
+                                                              "needsReview"
+                                                            ],
+                                                            "additionalProperties": false
+                                                          }
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "territoryId",
+                                                        "municipality",
+                                                        "addition",
+                                                        "sources"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "id",
+                                                  "label",
+                                                  "factKeys",
+                                                  "request",
+                                                  "sources"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "entries"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "inherits"
+                                        },
+                                        "inherits": {
+                                          "const": "parent"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "inherits"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ],
+                                  "discriminator": {
+                                    "propertyName": "kind"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "purpose",
+                                "territoryIds",
+                                "validFrom",
+                                "body"
+                              ],
+                              "additionalProperties": false,
+                              "description": "A ruleset (ADR-0166); workIds are record ids such as work:at-wien-bo."
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
+                                  "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "values"
+                          ]
                         }
                       ],
                       "discriminator": {
@@ -29744,7 +31164,8 @@
                 "authority",
                 "work",
                 "edition",
-                "manifestation"
+                "manifestation",
+                "ruleset"
               ]
             },
             "description": "One record type; all of them when absent."
@@ -32695,6 +34116,12 @@
                         "parent": {
                           "type": "string",
                           "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                        },
+                        "quote": {
+                          "description": "Words of the captured list that name this row, at least three; \"<code> <name>\" when absent.",
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2000
                         }
                       },
                       "required": [

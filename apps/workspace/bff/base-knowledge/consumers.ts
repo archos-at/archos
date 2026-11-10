@@ -42,7 +42,12 @@ const PROPOSAL = { file: SERVICE_SPEC, name: 'takes what the caller read over wh
 const NAMED = { file: TURN_SPEC, name: 'names the standard, its edition, its file and its last check' }
 const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna, not in Graz, and says when the authority is unknown' }
 
-const STICHTAG = 'S11 (ticket 30): edition selection by the project’s reference date'
+const TIME_READ = 'apps/workspace/bff/base-knowledge/time/repository.ts'
+const PLATFORM_TERRITORIES = 'apps/workspace/bff/base-knowledge/platform/territories.ts'
+const TIME_READ_TEST = {
+  file: 'apps/workspace/bff/base-knowledge/time/time.integration.spec.ts',
+  name: 'reads the released editions with their dates, transition and history start',
+}
 
 const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts'
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
@@ -107,6 +112,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_work_revisions.territory_ids', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.issuer', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.addressees', consumer: TURN, test: DIRECTIVE },
+  { element: 'knowledge_work_revisions.history_available_from', consumer: TIME_READ, test: TIME_READ_TEST },
   // knowledge_edition_revisions
   { element: 'knowledge_edition_revisions.revision_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_edition_revisions.record_id', consumer: STORE, test: HEADS },
@@ -114,8 +120,9 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_edition_revisions.work_id', consumer: STORE, test: CROSS_OWNER },
   { element: 'knowledge_edition_revisions.label', consumer: TURN, test: NAMED },
   { element: 'knowledge_edition_revisions.issued_on', consumer: SERVICE, test: PROPOSAL },
-  { element: 'knowledge_edition_revisions.in_force_from', awaits: STICHTAG },
-  { element: 'knowledge_edition_revisions.in_force_to', awaits: STICHTAG },
+  { element: 'knowledge_edition_revisions.in_force_from', consumer: TIME_READ, test: TIME_READ_TEST },
+  { element: 'knowledge_edition_revisions.in_force_to', consumer: TIME_READ, test: TIME_READ_TEST },
+  { element: 'knowledge_edition_revisions.transition', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.outline', awaits: 'S8: clause anchors from the masthead outline' },
   // knowledge_manifestation_revisions
   { element: 'knowledge_manifestation_revisions.revision_id', consumer: STORE, test: HEADS },
@@ -160,7 +167,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
-  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_TERRITORIES, test: MA37 },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.aliases', awaits: ADDRESS },
@@ -242,8 +249,6 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
 
 /** The elements written before anything reads them, when this ledger was made. Remove a line when its reader lands; never add one. */
 export const AWAITING_BASELINE: readonly string[] = [
-  'knowledge_edition_revisions.in_force_from',
-  'knowledge_edition_revisions.in_force_to',
   'knowledge_edition_revisions.outline',
   'knowledge_manifestation_revisions.form',
   'knowledge_manifestation_revisions.language',

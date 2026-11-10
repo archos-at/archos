@@ -5,7 +5,7 @@
  * cases. One list, two implementations: a case added here tests both.
  */
 import type { ProjectPrimitiveValue } from '@/lib/project-profile/types'
-import { BUILDING_CLASS_INPUTS, type BuildingClassResult } from './derivations'
+import { BUILDING_CLASS_INPUTS, type BuildingClassResult } from './derivations.oracle'
 
 export type Inputs = Record<string, ProjectPrimitiveValue | undefined>
 

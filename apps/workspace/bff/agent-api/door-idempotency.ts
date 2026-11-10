@@ -13,8 +13,12 @@ import 'server-only'
  * Kept 24 hours in the shared cache per organization, person, operation and
  * key. Unlike the office routes' helper it fails CLOSED: when the cache cannot
  * be read, a call that carries a key is not run (503), because the caller asked
- * for at most one effect and nothing can promise it. A server error (5xx) is not
- * kept, so a retry with the same key runs again. Two concurrent first attempts
+ * for at most one effect and nothing can promise it. Only an answer the same
+ * input always gets is kept: a success, or a 400, 404 or 422. A refusal that
+ * depends on the moment (409, 412, 429, a 403 for a missing yes, a 5xx) is
+ * not, so a retry with the same key runs again once the moment has passed.
+ * Without a shared cache (no `REDIS_URL`) the keys live in each replica's
+ * memory, so a retry that reaches another replica runs again. Two concurrent first attempts
  * both run: the store has no claim-then-fill, and the domain's own guards (the
  * natural keys of a proposal, a draft's lock) answer the second.
  */
@@ -57,6 +61,10 @@ const fingerprintOf = (input: OperationInput): string =>
     .update(JSON.stringify({ params: input.params ?? null, query: input.query ?? null, body: input.body ?? null }))
     .digest('hex')
 
+/** The answers a repeat may be given again: what the same input always gets. */
+const DETERMINISTIC_REFUSALS: ReadonlySet<number> = new Set([400, 404, 422])
+export const keptStatus = (status: number): boolean => (status >= 200 && status < 300) || DETERMINISTIC_REFUSALS.has(status)
+
 /** A refusal as the route would have answered it: an RFC 9457 problem the door renders. */
 function refusal(status: number, code: string, detail: string): OperationResult {
   return { status, ok: false, body: { error: detail, code } }
@@ -87,7 +95,7 @@ export async function oncePerKey(
         ran = true
         return { fingerprint, result: await run() }
       },
-      (value) => value.result.status < 500,
+      (value) => keptStatus(value.result.status),
     )
   } catch (error) {
     if (!(error instanceof CacheUnavailableError)) throw error

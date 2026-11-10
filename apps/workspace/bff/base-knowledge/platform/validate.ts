@@ -7,24 +7,31 @@
  *   drafted on the platform) with the type it must have; a record keeps its
  *   type and its country; a territory belongs to the request's country; no
  *   record is proposed twice in one batch.
- * - KC-3: intervals are ordered.
+ * - KC-3: intervals are ordered, and no two editions of one work are in force
+ *   on the same day: two in one batch, or a new one beside one already on the
+ *   platform (the as-of resolver refuses that as ambiguous, so it is refused
+ *   here first).
+ * - KC-5: a ruleset's and a transition's own examples hold on the evaluator.
  * - KC-6: every record cites at least one capture of its change request, and
- *   every quote it gives is found in that capture's stored text. Whoever
- *   proposed it, a person or an agent: an agent cannot verify a page it made
- *   up, because the capture is the page the product fetched (or the file an
- *   operator uploaded, which the reviewer must check against its source).
+ *   every quote it gives is found in that capture's stored text, is long
+ *   enough to say something, and one names what the record claims (its name,
+ *   designation or label). Whoever proposed it, a person or an agent: an agent
+ *   cannot verify a page it made up, because the capture is the page the
+ *   product fetched (or the text an operator pasted, which the reviewer must
+ *   check against its source).
  *
  * Each problem is an RFC 9457 problem's member (`type`, `code`, `detail`) with
  * the record it is about and an RFC 6901 `pointer` into that record, so an
  * agent repairs the field and resends the batch with the same keys.
  *
  * The rest of the kit (anchors, hosts, level obligations, instruction-like
- * text) needs sources and rulesets that arrive later; until then a reviewer
+ * text) needs sources and packs that arrive later; until then a reviewer
  * checks those claim by claim.
  */
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
-import { quoteFound } from './quote'
+import { failingExamples } from '../rulesets/decision-table'
+import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
 import type { ProposedRecord } from './wire'
 
@@ -41,7 +48,7 @@ export interface KnownCapture {
   basis: 'fetched' | 'operator_supplied'
 }
 
-export const KIT_CHECKS = ['KC-1', 'KC-3', 'KC-6'] as const
+export const KIT_CHECKS = ['KC-1', 'KC-3', 'KC-5', 'KC-6'] as const
 export type KitCheck = (typeof KIT_CHECKS)[number]
 
 /** Where each check is described: one problem type per check, as RFC 9457 asks. */
@@ -50,9 +57,11 @@ export const KIT_PROBLEM_TYPE_BASE = 'urn:problem-type:knowledge-check:'
 /** What an agent does about each check, in one line. */
 export const KIT_HINTS: Readonly<Record<KitCheck, string>> = {
   'KC-1': 'Propose the named record in this batch, import the territory first, or fix the key.',
-  'KC-3': 'Order the dates: the end lies after the start.',
+  'KC-3': 'Order the dates, and end one edition of a work before the next begins.',
+  'KC-5': 'Correct the table or its examples so that each example holds on the evaluator.',
   'KC-6':
-    'Capture the page with platform-knowledge-citation-capture, cite its captureId, and quote words exactly as the capture has them.',
+    'Capture the page with platform-knowledge-citation-capture, cite its captureId, and quote at least three words ' +
+    'exactly as the capture has them, including what the record names (its name, designation or label).',
 }
 
 export interface Problem {
@@ -95,57 +104,131 @@ function intervalProblems(record: ProposedRecord): Problem[] {
   return []
 }
 
-/** The territories a record names, which must exist, with where each is named. */
+/** An edition already on the platform (at its head), with its work and dates: what a proposal must not overlap. */
+export interface DatedPlatformEdition {
+  id: string
+  workId: string
+  inForceFrom: string | null
+  inForceTo: string | null
+}
+
+const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
+  a.from <= (b.to ?? '9999-12-31') && b.from <= (a.to ?? '9999-12-31')
+
+/**
+ * Editions of one work in force on the same day (`inForceTo` is inclusive):
+ * two proposed in one batch, or one proposed beside one already on the
+ * platform. A batch that re-proposes the existing edition (closing its
+ * `inForceTo`) is compared against its new dates, not its old ones.
+ */
+function overlapProblems(records: readonly ProposedRecord[], existing: readonly DatedPlatformEdition[]): [number, Problem][] {
+  const proposed = records.flatMap((record, index) =>
+    record.type === 'edition' && record.inForceFrom
+      ? [{ index, record, key: record.key, workId: `work:${record.workKey}`, from: record.inForceFrom, to: record.inForceTo }]
+      : [],
+  )
+  const inBatch = new Set(records.map(recordIdOf))
+  const others = existing.flatMap((edition) =>
+    edition.inForceFrom && !inBatch.has(edition.id)
+      ? [{ key: edition.id, workId: edition.workId, from: edition.inForceFrom, to: edition.inForceTo }]
+      : [],
+  )
+  const found: [number, Problem][] = []
+  for (const [position, first] of proposed.entries()) {
+    for (const second of [...proposed.slice(position + 1), ...others]) {
+      if (first.workId !== second.workId || !overlaps(first, second)) continue
+      found.push([first.index, problem('KC-3', first.record, '/inForceFrom', `is in force on days ${second.key} is; end one before the other begins.`)])
+    }
+  }
+  return found
+}
+
+function exampleProblems(record: ProposedRecord): Problem[] {
+  const table =
+    record.type === 'ruleset' && record.values.body.kind === 'table'
+      ? record.values.body.payload
+      : record.type === 'edition'
+        ? record.transition
+        : null
+  if (!table) return []
+  const failing = failingExamples(table)
+  if (failing.length === 0) return []
+  const pointer = record.type === 'ruleset' ? '/values/body/payload' : '/transition'
+  return [problem('KC-5', record, pointer, `examples ${failing.map((failure) => failure.index).join(', ')} do not hold on the evaluator.`)]
+}
+
+/** The territories a record names, which must exist. */
 export function namedTerritories(record: ProposedRecord): string[] {
   return namedTerritoryFields(record).map(([territoryId]) => territoryId)
 }
 
 function namedTerritoryFields(record: ProposedRecord): [string, string][] {
-  if (record.type === 'territory') return record.parentIds.map((id, i) => [id, `/parentIds/${i}`])
-  if (record.type === 'authority') {
-    return [[record.seatTerritoryId, '/seatTerritoryId'], ...record.competenceTerritoryIds.map((id, i): [string, string] => [id, `/competenceTerritoryIds/${i}`])]
-  }
+  const each = (ids: readonly string[], at: string): [string, string][] => ids.map((id, i) => [id, `${at}/${i}`])
+  if (record.type === 'territory') return each(record.parentIds, '/parentIds')
+  if (record.type === 'authority') return [[record.seatTerritoryId, '/seatTerritoryId'], ...each(record.competenceTerritoryIds, '/competenceTerritoryIds')]
   if (record.type === 'work') {
     return [
-      ...record.territoryIds.map((id, i): [string, string] => [id, `/territoryIds/${i}`]),
+      ...each(record.territoryIds, '/territoryIds'),
       ...record.addressees.map((addressee, i): [string, string] => [addressee.territoryId, `/addressees/${i}/territoryId`]),
     ]
   }
+  if (record.type === 'ruleset') return each(record.values.territoryIds, '/values/territoryIds')
   return []
 }
 
 /** The field a reference is named by, for the pointer. */
-const REFERENCE_FIELD: Readonly<Record<string, string>> = { edition: '/workKey', manifestation: '/editionKey', work: '/addressees' }
+const REFERENCE_FIELD: Readonly<Record<string, string>> = { edition: '/workKey', manifestation: '/editionKey', work: '/addressees', ruleset: '/values/workIds' }
 
-/** KC-6: the record cites a capture of its request, and every quote is in that capture. */
+/**
+ * What a record claims to be, which one of its quotes must name: a territory's
+ * or an authority's name, a work's designation (else its title), an edition's
+ * label as the masthead prints it. A manifestation and a ruleset name nothing
+ * a page prints by that name; their quotes are held to the length alone.
+ */
+export function claimedLabel(record: ProposedRecord): string | null {
+  if (record.type === 'territory' || record.type === 'authority') return record.name
+  if (record.type === 'work') return record.designation ?? record.title
+  if (record.type === 'edition') return record.label
+  return null
+}
+
+/** KC-6: the record cites a capture of its request, every quote is in that capture, and one names what the record claims. */
 export function citationProblems(record: ProposedRecord, captures: ReadonlyMap<string, KnownCapture>): Problem[] {
   const problems: Problem[] = []
   if (!record.citations.some((citation) => citation.captureId)) {
     problems.push(problem('KC-6', record, '/citations', 'cites no capture; a platform record is proposed only with a captured source.'))
   }
-  record.citations.forEach((citation, i) => {
-    if (!citation.captureId) {
-      if (citation.url) problems.push(problem('KC-6', record, `/citations/${i}/url`, `${citation.url} is not captured; cite a capture instead of a bare link.`))
-      return
-    }
-    const capture = captures.get(citation.captureId)
-    if (!capture) {
-      problems.push(problem('KC-6', record, `/citations/${i}/captureId`, `${citation.captureId} is no capture of this change request.`))
-      return
-    }
-    if (!citation.quote) {
-      problems.push(problem('KC-6', record, `/citations/${i}/quote`, 'quotes nothing; give the words in the capture that support the record.'))
-      return
-    }
-    if (capture.text === null) {
-      problems.push(problem('KC-6', record, `/citations/${i}/captureId`, 'the capture holds no text to check the quote in; capture a text page or upload its text.'))
-      return
-    }
-    if (!quoteFound(citation.quote, capture.text)) {
-      problems.push(problem('KC-6', record, `/citations/${i}/quote`, 'the quote is not in the capture; copy it exactly as the captured page has it.'))
-    }
-  })
+  record.citations.forEach((citation, i) => problems.push(...quoteProblems(record, citation, i, captures)))
+  const label = claimedLabel(record)
+  const quoted = record.citations.flatMap((citation) => (citation.captureId && citation.quote ? [normalizeForQuote(citation.quote)] : []))
+  if (label && quoted.length > 0 && !quoted.some((quote) => quote.includes(normalizeForQuote(label)))) {
+    problems.push(problem('KC-6', record, '/citations', `no quote names "${label}", which the record claims; quote the words that do.`))
+  }
   return problems
+}
+
+function quoteProblems(
+  record: ProposedRecord,
+  citation: ProposedRecord['citations'][number],
+  i: number,
+  captures: ReadonlyMap<string, KnownCapture>,
+): Problem[] {
+  if (!citation.captureId) {
+    return citation.url ? [problem('KC-6', record, `/citations/${i}/url`, `${citation.url} is not captured; cite a capture instead of a bare link.`)] : []
+  }
+  const capture = captures.get(citation.captureId)
+  if (!capture) return [problem('KC-6', record, `/citations/${i}/captureId`, `${citation.captureId} is no capture of this change request.`)]
+  if (!citation.quote) return [problem('KC-6', record, `/citations/${i}/quote`, 'quotes nothing; give the words in the capture that support the record.')]
+  if (!quoteLongEnough(citation.quote)) {
+    return [problem('KC-6', record, `/citations/${i}/quote`, 'the quote is too short to show anything; quote at least three words or fifteen characters.')]
+  }
+  if (capture.text === null) {
+    return [problem('KC-6', record, `/citations/${i}/captureId`, 'the capture holds no text to check the quote in; capture a text page or paste its text.')]
+  }
+  if (!quoteFound(citation.quote, capture.text)) {
+    return [problem('KC-6', record, `/citations/${i}/quote`, 'the quote is not in the capture; copy it exactly as the captured page has it.')]
+  }
+  return []
 }
 
 export function validateProposal(
@@ -153,6 +236,7 @@ export function validateProposal(
   countryId: string,
   known: ReadonlyMap<string, KnownRecord>,
   captures: ReadonlyMap<string, KnownCapture>,
+  existing: readonly DatedPlatformEdition[] = [],
 ): Problem[] {
   const batch = new Map<string, KnowledgeRecordType>()
   const problems: Problem[][] = records.map(() => [])
@@ -161,12 +245,12 @@ export function validateProposal(
     const own = problems[index] as Problem[]
     if (batch.has(id)) own.push(problem('KC-1', record, '', `${id} is proposed twice in one batch.`))
     batch.set(id, record.type)
-    const existing = known.get(id)
-    if (existing && existing.type !== record.type) {
-      own.push(problem('KC-1', record, '/type', `${id} exists as a ${existing.type}; a record keeps its type.`))
+    const existingRecord = known.get(id)
+    if (existingRecord && existingRecord.type !== record.type) {
+      own.push(problem('KC-1', record, '/type', `${id} exists as a ${existingRecord.type}; a record keeps its type.`))
     }
-    if (existing && existing.countryId !== countryId) {
-      own.push(problem('KC-1', record, '', `${id} belongs to ${existing.countryId}; propose it in a request for that country.`))
+    if (existingRecord && existingRecord.countryId !== countryId) {
+      own.push(problem('KC-1', record, '', `${id} belongs to ${existingRecord.countryId}; propose it in a request for that country.`))
     }
     if (record.type === 'territory' && record.kind !== 'union' && territoryCountry(record.id) !== countryId) {
       own.push(problem('KC-1', record, '/id', `${record.id} lies outside ${countryId}, the country of this request.`))
@@ -185,7 +269,8 @@ export function validateProposal(
         own.push(problem('KC-1', record, pointer, `names territory ${territoryId}, which is not imported; import it first.`))
       }
     }
-    own.push(...intervalProblems(record), ...citationProblems(record, captures))
+    own.push(...intervalProblems(record), ...exampleProblems(record), ...citationProblems(record, captures))
   })
+  for (const [index, found] of overlapProblems(records, existing)) problems[index]?.push(found)
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))
 }

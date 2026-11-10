@@ -8,14 +8,18 @@
  * made up is not found.
  */
 
-/** The shortest quote that says anything; shorter ones match by accident. */
-export const MIN_QUOTE_CHARS = 2
+/**
+ * The shortest quote that shows anything: three words, or fifteen characters.
+ * Shorter ones match by accident ("Wi" is in "Wien"), so they prove nothing.
+ */
+export const MIN_QUOTE_WORDS = 3
+export const MIN_QUOTE_CHARS = 15
 
 const EQUIVALENTS: readonly [RegExp, string][] = [
-  [/[‘’‚‛′´`]/g, "'"],
-  [/[“”„‟″«»‹›]/g, '"'],
-  [/[‐‑‒–—―−]/g, '-'],
-  [/­/g, ''],
+  [/[\u2018\u2019\u201a\u201b\u2032\u00b4`]/g, "'"],
+  [/[\u201c\u201d\u201e\u201f\u2033\u00ab\u00bb\u2039\u203a]/g, '"'],
+  [/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-'],
+  [/\u00ad/g, ''],
   [/\s+/gu, ' '],
 ]
 
@@ -26,8 +30,14 @@ export function normalizeForQuote(text: string): string {
   return normalized.trim().toLocaleLowerCase('de')
 }
 
+/** Whether a quote is long enough to show anything ({@link MIN_QUOTE_WORDS}, {@link MIN_QUOTE_CHARS}). */
+export function quoteLongEnough(quote: string): boolean {
+  const normalized = normalizeForQuote(quote)
+  return normalized.length >= MIN_QUOTE_CHARS || normalized.split(' ').filter(Boolean).length >= MIN_QUOTE_WORDS
+}
+
 export function quoteFound(quote: string, text: string): boolean {
   const needle = normalizeForQuote(quote)
-  if (needle.length < MIN_QUOTE_CHARS) return false
+  if (!quoteLongEnough(quote)) return false
   return normalizeForQuote(text).includes(needle)
 }

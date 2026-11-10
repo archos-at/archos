@@ -23,7 +23,16 @@ import { CaptureFetchError, fetchSourcePage } from './capture-fetch'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
 import { requirePlatform } from './service-gate'
-import { type ChangeRequestRow, idsOfBatch, knownPlatformRecords, lockChangeRequest, newestPerRecord, platformTransaction, requestRevisions } from './store'
+import {
+  type ChangeRequestRow,
+  idsOfBatch,
+  knownPlatformRecords,
+  lockChangeRequest,
+  newestPerRecord,
+  platformEditionsOf,
+  platformTransaction,
+  requestRevisions,
+} from './store'
 import type { Tx } from '../store/repository'
 import { KIT_CHECKS, KIT_HINTS, KIT_PROBLEM_TYPE_BASE, namedTerritories, type Problem, validateProposal } from './validate'
 import {
@@ -40,11 +49,13 @@ import {
 /** The kit on `records` as they would stand in `request`: KC-1, KC-3 and KC-6. */
 export async function runKit(tx: Tx, request: ChangeRequestRow, records: readonly ProposedRecord[]): Promise<Problem[]> {
   const named = (record: ProposedRecord) => [...referencesOf(record).map((reference) => reference.id), ...namedTerritories(record)]
-  const [known, captures] = await Promise.all([
+  const workIds = [...new Set(records.flatMap((record) => (record.type === 'edition' ? [`work:${record.workKey}`] : [])))]
+  const [known, captures, existing] = await Promise.all([
     knownPlatformRecords(tx, idsOfBatch(records, named)),
     capturesOf(tx, request.id, citedCaptureIds(records)),
+    platformEditionsOf(tx, workIds),
   ])
-  return validateProposal(records, request.countryId, known, captures)
+  return validateProposal(records, request.countryId, known, captures, existing)
 }
 
 /**

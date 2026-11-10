@@ -64,7 +64,7 @@ export interface KnowledgeTerms {
 export interface KnowledgeProvenance {
   proposedBy?: 'reading' | 'person' | 'agent'
   note?: string
-  /** Where a platform revision's values were taken from, for the reviewer (0205); a capture and its quote (0206). */
+  /** Where a platform revision's values were taken from, for the reviewer (0205); a capture and its quote (0208). */
   citations?: { captureId?: string; quote?: string; url?: string; note?: string }[]
   /** The platform proposal as given, which `platform-knowledge-validate` re-runs the kit on (ADR-0170). */
   proposal?: Record<string, unknown>
@@ -107,6 +107,8 @@ export const knowledgeWorkRevisions = pgTable('knowledge_work_revisions', {
   territoryIds: text('territory_ids').array().notNull().default([]),
   issuer: text('issuer'),
   addressees: jsonb('addressees').$type<KnowledgeAddressee[]>().notNull().default([]),
+  /** The first day whose edition the platform holds (0206); before it an as-of answer is `history_not_held`. */
+  historyAvailableFrom: date('history_available_from'),
 })
 
 export const knowledgeEditionRevisions = pgTable('knowledge_edition_revisions', {
@@ -119,6 +121,8 @@ export const knowledgeEditionRevisions = pgTable('knowledge_edition_revisions', 
   inForceFrom: date('in_force_from'),
   inForceTo: date('in_force_to'),
   outline: jsonb('outline').$type<unknown[]>().notNull().default([]),
+  /** An amending edition's transitional rule, a `decision_table.v1` giving old_law, new_law or choice (0206). */
+  transition: jsonb('transition').$type<Record<string, unknown> | null>(),
 })
 
 export const knowledgeManifestationRevisions = pgTable('knowledge_manifestation_revisions', {

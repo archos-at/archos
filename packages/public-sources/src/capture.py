@@ -30,7 +30,7 @@ from public_sources.source import get_source
 #: What a capture asks for: a page a person reads, text before anything else.
 ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5"
 
-#: The most text a capture keeps; the BFF's column holds the same (0206).
+#: The most text a capture keeps; the BFF's column holds the same (0208).
 MAX_TEXT_CHARS = 2_000_000
 
 _TEXT_TYPES = ("text/html", "application/xhtml+xml", "application/xml", "text/xml", "text/plain")

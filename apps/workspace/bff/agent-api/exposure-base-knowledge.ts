@@ -15,6 +15,7 @@ import { OFFERED, externalOnly } from './exposure-presets'
 
 export const BASE_KNOWLEDGE_EXPOSURE = {
   'base-knowledge-check-record': OFFERED,
+  'base-knowledge-edition-as-of': OFFERED,
   'base-knowledge-confirm': externalOnly(
     'which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms',
   ),
@@ -27,5 +28,7 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   'base-knowledge-remove': OFFERED,
   'base-knowledge-update': OFFERED,
   'base-knowledge-upload': OFFERED,
+  // A read of the project's own facts under the platform's classification records: domain knowledge the door offers.
+  'classification-evaluate': OFFERED,
   'organization-countries-get': OFFERED,
 } as const satisfies Record<string, Exposure>

@@ -69,11 +69,11 @@ export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   note: text('note'),
   reviewer: text('reviewer').notNull(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
-  /** The reviewer checked the cited capture against its source (0206); required for an operator-supplied one. */
+  /** The reviewer checked the cited capture against its source (0208); required for an operator-supplied one. */
   sourceChecked: boolean('source_checked').notNull().default(false),
 })
 
-/** A page as the product captured it for a citation (0206, ADR-0170): what KC-6 checks a quote against. */
+/** A page as the product captured it for a citation (0208, ADR-0170): what KC-6 checks a quote against. */
 export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', {
   id: uuid('id').primaryKey(),
   changeRequestId: uuid('change_request_id').notNull(),

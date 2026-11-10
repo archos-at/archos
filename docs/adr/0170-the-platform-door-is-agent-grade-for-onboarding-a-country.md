@@ -47,8 +47,9 @@ every office on an agent's call alone.
 
 **The guide is a resource.** `<scheme>://platform/onboarding-guide`
 (`bff/agent-api/door/platform/onboarding-guide.md`, embedded like the office
-door's guide) is listed on the platform door to an operator who can see the
-knowledge operations, and the server's instructions name it. Nothing of it is on
+door's guide) is listed on the platform door only while the platform has
+`platform-base-knowledge` on and the operator can see the knowledge
+operations, and the server's instructions name it. Nothing of it is on
 an office door.
 
 **Shapes before writes.** `platform-knowledge-schema-get` answers each record
@@ -63,11 +64,17 @@ cache cannot be read, a keyed call is not run (503). Proposals are also
 idempotent by themselves: the same record proposed again into the same request
 is `unchanged`, no new revision, so `records-propose` and `territory-import` are
 `idempotent: true`. The key is a bare `{ type: string }` in each write's schema,
-described once in the server instructions.
+described once in the server instructions. Only an answer the same input
+always gets is kept (a 2xx, or a 400, 404 or 422); a refusal of the moment (403
+for a missing yes, 409, 412, 429, a 5xx) is not, so a retry runs again. Without
+a shared cache (`REDIS_URL` unset) the keys live in each replica's memory, so a
+retry that reaches another replica runs again.
 
 **Every refusal is an RFC 9457 problem** (`door-problem.ts`): whatever the route
 answered, the tool result carries `structuredContent.problem` with `type`,
-`title`, `status`, `detail`, `code` and the route's `details`. The platform
+`title`, `status`, `detail`, `code` and the route's `details`; so do the
+refusals the door words itself (invalid input, the read gate, an unknown
+operation, a server error, `person_required`). The platform
 knowledge routes that validate answer `application/problem+json` themselves
 (ADR-0163's `asProblem`).
 
@@ -85,15 +92,22 @@ either fetches the page now (`fetched`, a configured public source's hosts only,
 through the api tier's `POST /v1/public-sources/capture`, because only the
 backend roles may call the sandboxed fetcher, ADR-0162) or stores an operator's
 text (`operator_supplied`). It keeps the bytes' sha256, size and text
-(`knowledge_citation_captures`, migration 0206, platform-private, insert-only,
-into a draft only). KC-6 refuses a record with no captured citation, a bare
-link, an unknown capture, a capture with no text, and a quote the capture does
-not hold (compared after NFKC, typographic quotes and dashes, whitespace and
-case; nothing fuzzier). A trigger refuses an approval while a revision cites an
-operator-supplied capture that no verdict marked `source_checked`.
+(`knowledge_citation_captures`, migration 0208, platform-private, insert-only,
+into a draft only). KC-6, beside KC-1, KC-3 and KC-5, holds every record type, rulesets included.
+It refuses a record with no captured citation, a bare link, an unknown capture,
+a capture with no text, a quote shorter than three words or fifteen
+characters, a quote the capture does not hold (compared after NFKC,
+typographic quotes and dashes, whitespace and case; nothing fuzzier), and a
+record none of whose quotes names what it claims (a territory's or an
+authority's name, a work's designation or title, an edition's label). A
+trigger refuses an approval while a revision cites an operator-supplied
+capture that no verdict marked `source_checked`, and only a verdict from
+someone other than the revision's author counts: a second trigger refuses an
+author's own source check, the service refuses it first (409), and a review
+is now `personDecides`, so a source check needs the person's yes.
 
-**The person decides, and is told where when they cannot be asked.** Approve,
-publish, rollback, entitlement and a home-country move keep `personDecides` and
+**The person decides, and is told where when they cannot be asked.** Review,
+approve, publish, rollback, entitlement and a home-country move keep `personDecides` and
 `requirePersonDecision` at the route (ADR-0165), and gain `requiresPersonConfirmation`
 with `decideAt: /app/platform/countries`, so a client without form elicitation
 gets `person_required` with the link instead of a bare 403.
@@ -112,8 +126,10 @@ revision's provenance and the capture record `viaClient`, the OAuth client.
 dispatcher, routes and Postgres takes `tests/fixtures/onboarding/at-9.json` from
 the guide to a green validation, then review, approval, publish and entitlement
 on the person's yes. Its revert checks were run by hand: with the publish
-route's `requirePersonDecision` removed, with KC-6 removed from the kit, and with
-the door's idempotency bypassed, the spec fails. The 0206 block of
+route's `requirePersonDecision` removed, with KC-6 removed from the kit, with
+the door's idempotency bypassed, with the service's author check on a source
+check removed (the trigger then answers alone), and with either skill route's
+`requirePersonDecision` removed, the spec fails or holds as stated. The 0208 block of
 `scripts/rls-test-db.sh` holds the triggers and the down; `validate.spec.ts`,
 `door-idempotency.spec.ts`, `door-problem.spec.ts`, `packages/public-sources/tests/test_capture.py`
 and `apps/agent-host/tests/test_public_source_capture_route.py` hold the parts.

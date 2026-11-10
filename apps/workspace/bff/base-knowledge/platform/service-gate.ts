@@ -19,11 +19,14 @@ export class PlatformKnowledgeDisabledError extends ForbiddenError {
   }
 }
 
+/** Whether the platform organization has platform knowledge on. Unknown platform organization: off (fail closed). */
+export async function platformKnowledgeEnabled(): Promise<boolean> {
+  const platformOrganizationId = await getPlatformOrganizationId()
+  return Boolean(platformOrganizationId) && (await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, platformOrganizationId as string))
+}
+
 export async function requirePlatform(session: UserSession | null, permission: PlatformPermission): Promise<UserSession> {
   await requirePlatformPermission(session, permission)
-  const platformOrganizationId = await getPlatformOrganizationId()
-  if (!platformOrganizationId || !(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, platformOrganizationId))) {
-    throw new PlatformKnowledgeDisabledError()
-  }
+  if (!(await platformKnowledgeEnabled())) throw new PlatformKnowledgeDisabledError()
   return session as UserSession
 }

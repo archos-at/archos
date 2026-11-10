@@ -19,6 +19,8 @@ import {
   REVIEW_DECISIONS,
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
+import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
+import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
 export const countryIdSchema = z
@@ -83,6 +85,7 @@ const workRecord = z.object({
     )
     .max(10)
     .default([]),
+  historyAvailableFrom: isoDate.nullable().default(null).describe('The first day whose edition is held.'),
   ...common,
 })
 
@@ -93,7 +96,11 @@ const editionRecord = z.object({
   label: z.string().trim().min(1).max(120).describe('The Ausgabe as the masthead prints it, e.g. "2023-01-01".'),
   issuedOn: isoDate.nullable().default(null),
   inForceFrom: isoDate.nullable().default(null),
-  inForceTo: isoDate.nullable().default(null),
+  inForceTo: isoDate.nullable().default(null).describe('The last day in force, inclusive; null while in force.'),
+  transition: transitionTableSchema
+    .nullable()
+    .default(null)
+    .describe('Its transitional rule: a decision table over the procedure and boundary_from giving old_law, new_law or choice.'),
   ...common,
 })
 
@@ -138,12 +145,20 @@ const authorityRecord = z.object({
   ...common,
 })
 
+const rulesetRecord = z.object({
+  type: z.literal('ruleset'),
+  key: keySchema,
+  values: rulesetValuesSchema.describe('A ruleset (ADR-0166); workIds are record ids such as work:at-wien-bo.'),
+  ...common,
+})
+
 export const proposedRecordSchema = z.discriminatedUnion('type', [
   workRecord,
   editionRecord,
   manifestationRecord,
   territoryRecord,
   authorityRecord,
+  rulesetRecord,
 ])
 export type ProposedRecord = z.infer<typeof proposedRecordSchema>
 
@@ -236,7 +251,7 @@ export interface CaptureView {
 }
 
 /** The record types `platform-knowledge-schema-get` describes. */
-export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation'] as const
+export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'ruleset'] as const
 
 export const schemaQuerySchema = z.object({
   type: z.enum(PROPOSED_RECORD_TYPES).optional().describe('One record type; all of them when absent.'),
@@ -251,6 +266,13 @@ export const territoryImportBodySchema = z.object({
         code: territoryIdSchema,
         name: z.string().trim().min(1).max(200),
         parent: territoryIdSchema.optional(),
+        quote: z
+          .string()
+          .trim()
+          .min(2)
+          .max(2000)
+          .optional()
+          .describe('Words of the captured list that name this row, at least three; "<code> <name>" when absent.'),
       }),
     )
     .min(1)
