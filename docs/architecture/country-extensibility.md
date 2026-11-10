@@ -115,7 +115,9 @@ consolidations: re-check each on RIS before quoting it.
     2023 and **OIB-RL 6 März 2015** „gemäß Teil E der Anlage 1"
     (`LGBLA_SA_20260806_83`). The pack holds the 2015 edition from 2026-09-01;
     Teil E's deviations are not modelled, and the days before are not held, since
-    the replaced LGBl. Nr 55/2016 was not read. The corpus has no 2015 text.
+    the replaced LGBl. Nr 55/2016 was not read. Its text, like every 2019 and 2025
+    one, is a manifestation under the name oib.or.at publishes; the upload to the
+    base corpus is the operator's.
   - Burgenland: LGBl. 75/2026, published 2026-11-04, binds OIB-RL 6 „in der
     Fassung 2025" from the next day, 2026-11-05; RL 1–5 stay at 2019
     (`LGBLA_BU_20261104_75`). The OIB table still shows „-".

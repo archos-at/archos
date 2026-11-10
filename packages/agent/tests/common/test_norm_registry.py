@@ -1,5 +1,6 @@
 """Tests for the flat norm registry (agent.common.norm_registry)."""
 
+import json
 import os
 from pathlib import Path
 
@@ -1115,12 +1116,48 @@ PUBLISHED_OIB_2023 = [
 ]
 
 
+#: The Richtlinien of the 2019, 2025 and 2015 editions as oib.or.at publishes them (read 2026-11-10 from
+#: https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n>): each item page's PDF.
+PUBLISHED_OIB_OTHER_EDITIONS = [
+    ("richtlinie_1_12.04.19_0.pdf", "1", "OIB-Richtlinie 1, Ausgabe April 2019"),
+    ("oib-rl-2-brandschutz-2019.pdf", "2", "OIB-Richtlinie 2, Ausgabe April 2019"),
+    ("oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf", "2.1", "OIB-Richtlinie 2.1, Ausgabe April 2019"),
+    (
+        "oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf",
+        "2.2",
+        "OIB-Richtlinie 2.2, Ausgabe April 2019",
+    ),
+    (
+        "oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf",
+        "2.3",
+        "OIB-Richtlinie 2.3, Ausgabe April 2019",
+    ),
+    ("oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019.pdf", "3", "OIB-Richtlinie 3, Ausgabe April 2019"),
+    ("oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019.pdf", "4", "OIB-Richtlinie 4, Ausgabe April 2019"),
+    ("oib-rl-5-schallschutz-2019.pdf", "5", "OIB-Richtlinie 5, Ausgabe April 2019"),
+    ("oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf", "6", "OIB-Richtlinie 6, Ausgabe April 2019"),
+    ("oib-rl_6_september_2025.pdf", "6", "OIB-Richtlinie 6, Ausgabe September 2025"),
+    ("oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf", "6", "OIB-Richtlinie 6, Ausgabe März 2015"),
+]
+
+
 class TestPublishedOibFilenames:
     @pytest.mark.parametrize(("file_name", "doc_class", "member", "title"), PUBLISHED_OIB_2023)
     def test_each_published_name_parses(self, file_name, doc_class, member, title):
         assert nr.oib_doc_class(file_name) == doc_class
         assert nr.oib_family_member(file_name) == member
         assert nr.guess_display_title(file_name) == title
+
+    @pytest.mark.parametrize(("file_name", "member", "title"), PUBLISHED_OIB_OTHER_EDITIONS)
+    def test_each_published_name_of_another_edition_parses(self, file_name, member, title):
+        assert nr.oib_doc_class(file_name) == "guideline"
+        assert nr.oib_family_member(file_name) == member
+        assert nr.guess_display_title(file_name) == title
+
+    def test_every_published_name_has_its_manifestation_in_the_austria_pack(self):
+        pack = json.loads((REPO_ROOT / "configs" / "knowledge-packs" / "at.json").read_text(encoding="utf-8"))
+        corpus = {r["corpusFile"] for r in pack["records"] if r["type"] == "manifestation"}
+        assert {name for name, *_ in PUBLISHED_OIB_OTHER_EDITIONS} <= corpus
 
     def test_oib_2_family_holds_all_four_parts_under_published_names(self):
         families = nr.oib_families(name for name, *_ in PUBLISHED_OIB_2023)
@@ -1154,6 +1191,9 @@ class TestPublishedOibFilenames:
             "erlaeuterungen-zu-bauordnung.pdf",  # a role prefix without an OIB stem
             "oib-richtlinien-uebersicht.pdf",  # no separator after the stem
             "zu-oib-richtlinie_2.2.pdf",
+            "richtlinie_2_01.02.20.pdf",  # a date that is no OIB adoption day
+            "oib-rl-2-brandschutz-2023.pdf",  # a year whose edition is not published this way
+            "pfd_normaussentemperaturen_2015.pdf",  # a table published beside RL 6
         ],
     )
     def test_near_misses_stay_unrecognised(self, file_name):

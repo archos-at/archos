@@ -111,7 +111,6 @@ class TestAbstentions:
             held = _relation(row["relation"])["to"]["key"] in texts
             asks = bool(row["expect"].get("abstain") or row["expect"].get("no_substitute"))
             assert asks is not held, row["id"]
-        assert _row("r1-sbg-rl6")["expect"]["abstain"] and _row("r5-sbg-rl6")["expect"]["abstain"]
 
 
 class TestFalsePremises:

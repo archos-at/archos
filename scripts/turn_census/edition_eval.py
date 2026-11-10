@@ -37,8 +37,8 @@ ROOT = Path(__file__).resolve().parents[2]
 QUESTIONS = ROOT / "tests" / "fixtures" / "editions" / "at_edition_questions.yaml"
 PACK = ROOT / "configs" / "knowledge-packs" / "at.json"
 GROUPS = ("r1", "r2", "r3", "r5")
-#: The suite's generic ``family_cited`` does not apply: an abstention must cite nothing,
-#: and Salzburg's binding RL 6 (März 2015) has no text in the corpus to cite.
+#: The suite's generic ``family_cited`` does not apply: an abstention must cite nothing, and a
+#: Richtlinie's passage counts only from the binding edition, which ``no_substitute`` and the judge read.
 CHECKS_FAMILY = False
 
 #: A judge of meaning, as ``suite.Judge``: (check kind, question, answer) → yes, no, or None.
