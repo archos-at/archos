@@ -54,7 +54,68 @@ export const AI_PROVENANCE_PROPERTIES = {
   generator: 'AIGenerator',
   humanReviewed: 'AIHumanReviewed',
   runId: 'AIRunId',
+  /** The IPTC property's own name, so the `.docx` and the XMP packet agree on it. */
+  digitalSourceType: 'DigitalSourceType',
 } as const
+
+/**
+ * The standard's word for "a model made this": IPTC NewsCodes Digital Source
+ * Type `trainedAlgorithmicMedia`, the term every metadata-reading detector
+ * (exiftool, the large platforms' upload scanners, C2PA's `digitalSourceType`
+ * assertion) already matches on.
+ *
+ * ## Why this beside the vocabulary above, and not instead of it
+ *
+ * Article 50(2) AI Act asks for marking that is machine-readable AND
+ * interoperable, and the Commission's Code of Practice on Transparency of
+ * AI-Generated Content (final, 2026-06-10), Measure 1.1.1, asks that a format
+ * which carries metadata — "containerised text", its glossary's word for text
+ * inside a PDF or a Word document — record in that metadata whether the content
+ * is AI-generated. `AIGenerated=true` answers the first half and only a
+ * detector configured for this product answers the second. This URI answers
+ * both, so it is written into every carrier, and the four names above stay
+ * because an office's archive search already matches on them.
+ */
+export const IPTC_TRAINED_ALGORITHMIC_MEDIA =
+  'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'
+
+const XML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+}
+
+/**
+ * An XMP packet (ISO 16684-1) that says a model wrote the file.
+ *
+ * `Iptc4xmpExt:DigitalSourceType` is where IPTC puts the term in XMP;
+ * `xmp:CreatorTool` names what wrote it; `pdf:Keywords` repeats the
+ * {@link AiProvenanceMarking} because a PDF's XMP and its Info dictionary are
+ * meant to agree (ISO 32000-1, 14.3.2), and so that {@link markingIsInBytes}
+ * finds the marking in the packet too. A PDF carries it as the catalog's
+ * `/Metadata` stream (`@/lib/pdf/xmp-metadata`).
+ */
+export function aiProvenanceXmp(marking: AiProvenanceMarking): string {
+  const escape = (value: string) => value.replace(/[&<>"]/g, (char) => XML_ESCAPES[char])
+  const { digitalSourceType } = AI_PROVENANCE_PROPERTIES
+  return (
+    '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n' +
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n' +
+    '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n' +
+    '<rdf:Description rdf:about=""\n' +
+    ' xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"\n' +
+    ' xmlns:xmp="http://ns.adobe.com/xap/1.0/"\n' +
+    ' xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n' +
+    `<Iptc4xmpExt:${digitalSourceType}>${IPTC_TRAINED_ALGORITHMIC_MEDIA}</Iptc4xmpExt:${digitalSourceType}>\n` +
+    `<xmp:CreatorTool>${escape(AI_GENERATOR_NAME)}</xmp:CreatorTool>\n` +
+    `<pdf:Keywords>${escape(marking)}</pdf:Keywords>\n` +
+    '</rdf:Description>\n' +
+    '</rdf:RDF>\n' +
+    '</x:xmpmeta>\n' +
+    '<?xpacket end="r"?>'
+  )
+}
 
 /** What a machine is told about how the document came to exist. */
 export interface AiProvenance {
@@ -110,8 +171,9 @@ export type AiProvenanceMarking = string & { readonly [aiProvenanceMarkingBrand]
  * this is no longer called `aiProvenanceKeywords`: `Keywords` is where the PDF
  * puts it, not what it is. One string, three carriers, one detector regex.
  *
- * If react-pdf ever grows an XMP escape hatch, this is the function to change,
- * and the property names above do not move.
+ * The XMP the renderer cannot write is added after it, to the finished bytes,
+ * as an incremental update (`@/lib/pdf/xmp-metadata`, {@link aiProvenanceXmp});
+ * the Info fields stay, for the readers that only look there.
  */
 export function aiProvenanceMarking(provenance: AiProvenance): AiProvenanceMarking {
   const parts = [

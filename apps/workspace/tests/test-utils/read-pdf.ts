@@ -23,6 +23,12 @@ export interface PdfContents {
   info: Record<string, unknown>
   pageCount: number
   /**
+   * The catalog's XMP metadata stream, as pdf.js parsed it: property names
+   * lower-cased with their prefix (`iptc4xmpext:digitalsourcetype`). Empty
+   * when the file has no `/Metadata` stream.
+   */
+  xmp: Record<string, unknown>
+  /**
    * Every page's text, in reading order, whitespace-normalised.
    *
    * Normalised because pdf.js reports one item per laid-out LINE (and one per
@@ -85,11 +91,12 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfContents> {
       pages.push(items.map((item) => item.str).join(' '))
     }
 
-    const { info } = await document.getMetadata()
+    const { info, metadata } = await document.getMetadata()
 
     if (!isRecord(info)) throw new Error('the PDF carries no information dictionary')
 
-    return { info, pageCount, text: normalizePdfText(pages.join(' ')) }
+    const xmp = Object.fromEntries(metadata ? [...metadata] : [])
+    return { info, pageCount, xmp, text: normalizePdfText(pages.join(' ')) }
   } finally {
     await task.destroy()
   }

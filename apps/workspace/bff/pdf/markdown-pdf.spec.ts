@@ -18,7 +18,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { readPdf, normalizePdfText } from '@/test-utils/read-pdf'
-import { AI_GENERATOR_NAME, aiProvenanceMarking } from '@/lib/ai-provenance'
+import {
+  AI_GENERATOR_NAME,
+  IPTC_TRAINED_ALGORITHMIC_MEDIA,
+  aiProvenanceMarking,
+} from '@/lib/ai-provenance'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import {
   MAX_MARKDOWN_PDF_CHARS,
@@ -95,6 +99,7 @@ describe('renderMarkdownPdf', () => {
 
     expect(pdf.text).not.toContain(de.aiNotice.title)
     expect(pdf.info.Keywords).toBeUndefined()
+    expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBeUndefined()
     expect(pdf.info.Subject).toBeUndefined()
     // react-pdf's own default, i.e. nothing this repo wrote. Asserted so that a
     // Every document the product prints is branded now — `BlocksDocument` sets
@@ -205,6 +210,10 @@ describe('renderMarkdownPdf', () => {
         `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; AIRunId=run_7`
       )
       expect(pdf.info.Creator).toBe(AI_GENERATOR_NAME)
+      // The standard's term, in XMP: what a detector not built for us reads
+      // (AI Act Art. 50(2); the Code of Practice's Measure 1.1.1).
+      expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(IPTC_TRAINED_ALGORITHMIC_MEDIA)
+      expect(pdf.xmp['pdf:keywords']).toBe(pdf.info.Keywords)
       expect(pdf.info.Title).toBe('Brandschutz Straßenhäuser')
       // The one Info field a person sees in a viewer's properties panel, so the
       // marking survives for a reader who never scrolls to page one.
