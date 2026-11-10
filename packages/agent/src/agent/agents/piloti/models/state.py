@@ -330,6 +330,8 @@ class ResearchAgentState(BaseModel):
     # graph-direct path renders inline).
     cached_system_prompt: str | None = None
     cached_turn_context: str | None = None
+    #: The stable head of the conversation layout (``context_layout``), cached like the two above.
+    cached_conversation_context: str | None = None
 
     # -- derived signals --------------------------------------------------------
     # Read-only properties, NOT fields: they are pure functions of the signals

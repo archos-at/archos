@@ -49,6 +49,7 @@ from agent.common.norm_registry import resolve_country
 from agent.common.page_region_words import percent
 from agent.common.page_region_words import where_on_the_page_en
 from agent.common.platform_lessons import render_lessons_block
+from agent.common.prompt_caching import cached_context_message
 from agent.common.prompt_caching import cached_system_message
 from agent.common.prompt_store import ResolvedPrompt
 from agent.common.prompt_store import git_blob_version
@@ -69,6 +70,10 @@ from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.turn.building_law import BUILDING_LAW_TAG
 from agent.turn.building_law import building_law_block
 
+from .context_layout import TURN_LAYOUT
+from .context_layout import as_conversation_context
+from .context_layout import context_layout
+from .context_layout import layout_values
 from .models import ResearchAgentState
 
 logger = logging.getLogger(__name__)
@@ -388,10 +393,36 @@ def build_tools_info(tools: Sequence[Any]) -> list[dict[str, str]]:
 
 
 class TurnPrompt(NamedTuple):
-    """What one turn sends besides the transcript: the system prompt and the turn context."""
+    """What one turn sends besides the transcript: the system prompt, the turn context, and the stable head.
+
+    ``conversation`` is what the project and the office set, sent right after
+    the system prompt in the conversation layout (``context_layout``, ADR-0154);
+    None in the turn layout or when nothing is set.
+    """
 
     system: str
     context: str
+    conversation: str | None = None
+
+
+def cached_turn_prompt(state: ResearchAgentState) -> TurnPrompt | None:
+    """The prompt this run already rendered, kept on the state; None on the run's first call.
+
+    Every input is fixed for the life of one run, so the strings are
+    byte-identical across tool-loop rounds and the render runs once.
+    """
+    if state.cached_system_prompt is None or state.cached_turn_context is None:
+        return None
+    return TurnPrompt(state.cached_system_prompt, state.cached_turn_context, state.cached_conversation_context)
+
+
+def cached_prompt_fields(prompt: TurnPrompt) -> dict[str, str | None]:
+    """The state update that keeps ``prompt`` for the run's next rounds (:func:`cached_turn_prompt`)."""
+    return {
+        "cached_system_prompt": prompt.system,
+        "cached_turn_context": prompt.context,
+        "cached_conversation_context": prompt.conversation,
+    }
 
 
 def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Sequence[dict[str, str]]) -> TurnPrompt:
@@ -401,11 +432,17 @@ def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Seq
     only once the static prompt no longer does (``building_law.py``).
     """
     static = resolve_static_block().text
+    values = turn_context_values(state, tools_info, static_text=static)
+    if context_layout(template) == TURN_LAYOUT:
+        return TurnPrompt(
+            system=render_static_block(static),
+            context=with_answer_language(_render_context(template, values), state.messages),
+        )
+    conversation, note = layout_values(values)
     return TurnPrompt(
         system=render_static_block(static),
-        context=with_answer_language(
-            render_turn_context(template, state, tools_info, static_text=static), state.messages
-        ),
+        context=with_answer_language(_render_context(template, note), state.messages),
+        conversation=as_conversation_context(_render_context(template, conversation)),
     )
 
 
@@ -440,19 +477,19 @@ def request_messages(
     human message gets it right after the system prompt. Steering notes are
     spliced after it: they arrive while the turn runs, so they index past the
     newest human message, and two messages (system, context) precede the
-    transcript they index into.
+    transcript they index into. In the conversation layout the stable head
+    (``TurnPrompt.conversation``) follows the system prompt, with a breakpoint
+    of its own: the same bytes on every turn of the project.
     """
     newest = next(
         (index for index in range(len(history) - 1, -1, -1) if isinstance(history[index], HumanMessage)),
         0,
     )
-    request = [
-        cached_system_message(prompt.system),
-        *history[:newest],
-        HumanMessage(content=prompt.context),
-        *history[newest:],
-    ]
-    return with_steering(request, steering, offset=2)
+    head = [cached_system_message(prompt.system)]
+    if prompt.conversation:
+        head.append(cached_context_message(prompt.conversation))
+    request = [*head, *history[:newest], HumanMessage(content=prompt.context), *history[newest:]]
+    return with_steering(request, steering, offset=len(head) + 1)
 
 
 def _site_blocks(
@@ -496,10 +533,26 @@ def render_turn_context(
     The date is rendered at DAY precision: research needs the date, not the
     clock, and a stable context keeps the rounds of one turn byte-identical.
     """
+    return _render_context(template, turn_context_values(state, tools_info, static_text=static_text))
+
+
+def _render_context(template: str, values: dict[str, Any]) -> str:
+    rendered = render_prompt_template(template, **values)
+    if os.environ.get("DEBUG_PROMPTS"):
+        logger.debug("Rendered turn context:\n%s", rendered)
+    return rendered
+
+
+def turn_context_values(
+    state: ResearchAgentState,
+    tools_info: Sequence[dict[str, str]],
+    *,
+    static_text: str = BUILDING_LAW_TAG,
+) -> dict[str, Any]:
+    """Every value the turn-context template reads, for one run. ``context_layout`` splits them."""
     documents = [doc.model_dump() for doc in (state.available_documents or [])]
     tool_names = [str(tool.get("name", "")) for tool in tools_info]
-    rendered = render_prompt_template(
-        template,
+    return dict(
         # Per TENANT. The envelope's `escalate_to_deep` stays in the schema
         # either way: a field described and then refused is one the model can
         # decline out loud. A hand-off that is refused anyway is replaced by a
@@ -547,6 +600,3 @@ def render_turn_context(
         # beyond the shapes the envelope teaches (ENVELOPE_SHAPE_TYPES).
         card_shapes_block=state.card_shapes_block,
     )
-    if os.environ.get("DEBUG_PROMPTS"):
-        logger.debug("Rendered turn context:\n%s", rendered)
-    return rendered

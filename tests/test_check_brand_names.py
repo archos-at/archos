@@ -118,7 +118,14 @@ def test_history_and_copy_are_not_checked(checker, repo):
 def test_the_tier_names_pending_the_deploy_rename_are_not_counted(checker):
     assert checker.count_text("http://aiq-agent:8000 and aiq-api") == 0
     assert checker.count_text("from aiq_agent.common.cards import Card") == 1
-    assert checker.count_text("from agent.agents.piloti import run") == 1
+    assert checker.count_text("from aiq_agent.agents.piloti import run") == 2
+
+
+def test_an_import_of_the_chat_package_is_not_a_new_name_but_the_path_elsewhere_is(checker):
+    """The package directory is the kept identifier; an import of it only repeats that one name."""
+    assert checker.count_text("from agent.agents.piloti import run") == 0
+    assert checker.count_text("from agent.agents.piloti.prompt import TurnPrompt as PilotiPrompt") == 1
+    assert checker.count_text('module = "agent.agents.piloti.agent"') == 1
 
 
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):

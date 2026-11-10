@@ -134,6 +134,8 @@ from .ledger import assemble_result
 from .models import ResearchAgentState
 from .prompt import TurnPrompt
 from .prompt import build_tools_info
+from .prompt import cached_prompt_fields
+from .prompt import cached_turn_prompt
 from .prompt import render_turn_prompt
 from .prompt import request_messages
 from .prompt import shelf_label
@@ -1170,14 +1172,7 @@ class ChatAgent:
         binding = self._turn_binding(config)
         tools_info = state.tools_info if state.tools_info else binding.tools_info
         llm_with_tools = binding.llm_with_tools
-        # Rendered once per run and cached on the state: every input is fixed
-        # for the life of one run(), so both strings are byte-identical across
-        # tool-loop iterations and the norm-block computation runs once.
-        prompt = (
-            TurnPrompt(system=state.cached_system_prompt, context=state.cached_turn_context)
-            if state.cached_system_prompt is not None and state.cached_turn_context is not None
-            else None
-        )
+        prompt = cached_turn_prompt(state)
         if prompt is None:
             # In a THREAD, because the render resolves the static half through
             # the prompt store: with Langfuse prompt management on, that is one
@@ -1218,8 +1213,7 @@ class ChatAgent:
             "messages": [response],
             "tool_iterations": rounds,
             "retrieval_round": retrieval_round,
-            "cached_system_prompt": prompt.system,
-            "cached_turn_context": prompt.context,
+            **cached_prompt_fields(prompt),
         }
         if round_record is not None:
             update["retrieval_rounds"] = [*state.retrieval_rounds, round_record]
@@ -1307,8 +1301,7 @@ class ChatAgent:
         return {
             "messages": [response],
             "tool_iterations": state.tool_iterations,
-            "cached_system_prompt": prompt.system,
-            "cached_turn_context": prompt.context,
+            **cached_prompt_fields(prompt),
             "research_truncated": True,
             "steering": list(steering),
         }
