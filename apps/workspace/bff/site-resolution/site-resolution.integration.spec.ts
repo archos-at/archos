@@ -300,6 +300,11 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect((await read()).facts.federal_state).toMatchObject({ value: 'styria', source: 'user_confirmed' })
   })
 
+  const read = async () =>
+    withTenant({ organizationId: ORG }, async () =>
+      Array.from(await db.execute<{ profile: import('@/lib/project-profile/types').ProjectProfile }>(sql`SELECT profile FROM projects WHERE id = ${projectId}::uuid`))[0].profile,
+    )
+
   it('refuses register evidence through the generic profile patch, and keeps it through it (ADR-0172)', async () => {
     await service.setProjectSite(session, projectId, { addressId: 'at-bev:5734380' }, now)
     const { patchProjectProfile } = await import('@/lib/project-profile/profile-service')
@@ -311,6 +316,11 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       evidence: [{ kind: 'register', addressId: 'at-bev:5925325', label: 'Hauptplatz 1, 8700 Leoben', referenceDate: '2025-10-01', resolvedAt: now.toISOString() }],
     }
     await expect(patchProjectProfile(session, projectId, [{ op: 'replace', path: '/facts/municipality', value: forged }])).rejects.toThrow(/Register evidence/)
+    // Keeping the register's own evidence under another value is the same forgery.
+    const stored = (await read()).facts.municipality
+    await expect(
+      patchProjectProfile(session, projectId, [{ op: 'replace', path: '/facts/municipality', value: { ...stored, value: 'Leoben' } }]),
+    ).rejects.toThrow(/Register evidence/)
     // An unrelated patch leaves the register's own evidence where it is.
     await expect(patchProjectProfile(session, projectId, [{ op: 'add', path: '/goals/note', value: 'x' }])).resolves.toBeTruthy()
   })

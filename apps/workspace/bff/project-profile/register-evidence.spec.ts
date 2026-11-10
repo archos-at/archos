@@ -35,6 +35,24 @@ describe('register evidence a generic profile write may not add (ADR-0172)', () 
     expect(addsRegisterEvidence(withFact([reordered]), withFact([register]))).toBe(false)
   })
 
+  it('refuses register evidence moved to another entry, or kept under a changed value', () => {
+    const moved: ProjectProfile = {
+      ...empty,
+      facts: { federal_state: { value: 'Graz', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW, evidence: [register] } },
+    }
+    expect(addsRegisterEvidence(withFact([register]), moved)).toBe(true)
+    const leoben: ProjectProfile = {
+      ...empty,
+      facts: { municipality: { value: 'Leoben', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW, evidence: [register] } },
+    }
+    expect(addsRegisterEvidence(withFact([register]), leoben)).toBe(true)
+  })
+
+  it('lets a write drop the evidence or the entry', () => {
+    expect(addsRegisterEvidence(withFact([register]), withFact([]))).toBe(false)
+    expect(addsRegisterEvidence(withFact([register]), empty)).toBe(false)
+  })
+
   it('sees an edited register entry as a new one', () => {
     expect(addsRegisterEvidence(withFact([register]), withFact([{ ...register, addressId: 'at-bev:1' }]))).toBe(true)
   })
