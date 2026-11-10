@@ -12,6 +12,7 @@
  * the callers this endpoint exists for.
  */
 
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { refreshSession } from '@workos-inc/authkit-nextjs'
 import { z } from 'zod'
@@ -28,6 +29,15 @@ const createOrganizationSchema = z.object({
   /** The office's own seat (migration 0200). Never the law of its projects' sites. */
   homeCountry: homeCountrySchema,
 })
+
+/**
+ * The WorkOS idempotency key of one person creating one organization name. A
+ * double submit or a retry within WorkOS's window returns the organization the
+ * first call made; another name, or another person, is another organization.
+ */
+function creationKey(userId: string, name: string): string {
+  return `organization-create:${createHash('sha256').update(`${userId}\n${name}`).digest('hex')}`
+}
 
 /**
  * Sign-up policy for the onboarding UI: whether self-service organization
@@ -75,13 +85,24 @@ export const POST = publicApiRoute(
     const workos = getWorkOS()
 
     try {
-      const organization = await workos.organizations.createOrganization({ name })
-
-      await workos.userManagement.createOrganizationMembership({
+      // Idempotent: a retry after a failed later step (the membership, the row)
+      // gets the same organization back from WorkOS, never a second one, and
+      // the membership is made only if it is missing.
+      const organization = await workos.organizations.createOrganization(
+        { name },
+        { idempotencyKey: creationKey(session.user.id, name) }
+      )
+      const existing = await workos.userManagement.listOrganizationMemberships({
         userId: session.user.id,
         organizationId: organization.id,
-        roleSlug: 'admin',
       })
+      if (existing.data.length === 0) {
+        await workos.userManagement.createOrganizationMembership({
+          userId: session.user.id,
+          organizationId: organization.id,
+          roleSlug: 'admin',
+        })
+      }
 
       // The row and its home country exist from the start: every organization is placed (design 5.1).
       await placeOrganization(organization.id, homeCountry)

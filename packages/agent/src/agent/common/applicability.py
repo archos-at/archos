@@ -481,6 +481,14 @@ def facts_from_project_context(text: str) -> Facts:
     return facts
 
 
+#: Said before the verdicts when only an assumption places the project: migration 0018's default
+#: Vienna for projects older than the Land question, or the Land a typed postal code suggests.
+UNVERIFIED_SITE_LINE = (
+    "The site ({state}) is an unconfirmed assumption, not a confirmed fact. Say so when an answer "
+    "turns on the Land, and ask the person to confirm it."
+)
+
+
 def render_project_block(project_context: str) -> str | None:
     """Prompt section for the parsed project facts, or None when empty or not in Austria.
 
@@ -488,7 +496,8 @@ def render_project_block(project_context: str) -> str | None:
     verdict (``code — verdict — reason_en``) followed by any trigger hints.
     The verdicts are Austrian law, so a project outside Austria, or one whose
     site nothing states, gets none (``country_profile.resolve_site``): the
-    turn's jurisdiction note says what is not covered instead.
+    turn's jurisdiction note says what is not covered instead. A site only an
+    assumption places is named as unverified first (ADR-0158).
     """
     from agent.common.country_profile import resolve_site
 
@@ -499,6 +508,8 @@ def render_project_block(project_context: str) -> str | None:
     if not facts:
         return None
     lines = ["### Likely relevant for this project", ""]
+    if not site.confirmed:
+        lines[1:1] = [UNVERIFIED_SITE_LINE.format(state=site.federal_state or "Austria"), ""]
     for verdict in resolve_oib_applicability(facts):
         label = _VERDICT_LABELS.get(verdict.verdict, verdict.verdict)
         lines.append(f"- {verdict.code} — {label} — {verdict.reason_en}")

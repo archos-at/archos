@@ -36,6 +36,7 @@ import { getLocale, getTranslations } from '@/i18n/server'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import { OrgInstructionsForm } from './org-instructions-form'
 import { OrgSettingsForm } from './org-settings-form'
+import { HomeCountryNotice } from './home-country-notice'
 
 export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
   return withPageSession(async (session) => {
@@ -105,6 +106,7 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title={t('sections.overview.title')} subtitle={t('sections.overview.subtitle')} />
+        {settings && !settings.homeCountry && <HomeCountryNotice />}
 
         <Card>
           <CardHeader>
@@ -163,6 +165,14 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
                     : t('overview.noDomains')}
                 </dd>
               </div>
+              {settings?.homeCountry && (
+                <div>
+                  <dt>
+                    <SectionLabel>{t('overview.homeCountry')}</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-sm">{settings.homeCountry}</dd>
+                </div>
+              )}
               {createdLabel && (
                 <div>
                   <dt>

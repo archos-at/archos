@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const createOrganization = vi.fn()
 const createOrganizationMembership = vi.fn()
+const listOrganizationMemberships = vi.fn()
 
 vi.mock('@workos-inc/authkit-nextjs', () => ({
   refreshSession: vi.fn().mockResolvedValue({ user: { id: 'user_1' } }),
@@ -13,7 +14,7 @@ vi.mock('@workos-inc/authkit-nextjs', () => ({
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     organizations: { createOrganization },
-    userManagement: { createOrganizationMembership },
+    userManagement: { createOrganizationMembership, listOrganizationMemberships },
   }),
 }))
 
@@ -38,6 +39,22 @@ describe('POST /api/organizations', () => {
     delete process.env.DISABLE_SELF_SERVE_ORGS
     createOrganization.mockResolvedValue({ id: 'org_new' })
     createOrganizationMembership.mockResolvedValue({})
+    listOrganizationMemberships.mockResolvedValue({ data: [] })
+  })
+
+  // Review of #1545, fix 12: a retry after a failed row write must not make a second organization.
+  it('asks WorkOS with one idempotency key per person and name, and joins only once', async () => {
+    await POST(request({ name: 'Acme', homeCountry: 'AT' }))
+    placeOrganization.mockRejectedValueOnce(new Error('db down'))
+    listOrganizationMemberships.mockResolvedValue({ data: [{ id: 'om_1' }] })
+    await POST(request({ name: 'Acme', homeCountry: 'AT' }))
+    const keys = createOrganization.mock.calls.map(([, options]) => (options as { idempotencyKey: string }).idempotencyKey)
+    expect(keys[0]).toMatch(/^organization-create:[0-9a-f]{64}$/)
+    expect(keys[1]).toBe(keys[0])
+    expect(createOrganizationMembership).toHaveBeenCalledTimes(1)
+
+    await POST(request({ name: 'Other office', homeCountry: 'AT' }))
+    expect((createOrganization.mock.calls[2][1] as { idempotencyKey: string }).idempotencyKey).not.toBe(keys[0])
   })
 
   it('creates an org and makes the caller admin', async () => {

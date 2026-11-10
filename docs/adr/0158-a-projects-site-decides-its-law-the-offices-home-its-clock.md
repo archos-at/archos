@@ -79,7 +79,18 @@ cannot present a law the project's facts do not support.
   decides the office's own defaults, starting with its clock
   (`organizations.time_zone`, from the home country when unset). It never
   decides which law applies to a project, and no code reads it as a project's
-  country.
+  country. Every path that writes an organization's row states it where
+  anything says it (`ensureOrganizationRow`: the creation route, the WorkOS
+  organization's metadata `home_country` on the first signed-in page load or
+  settings save); an organization left without one is logged at WARN and its
+  admins state it once on the organization page. Refusing such an
+  organization (`organization_unplaced`) is the gate build split S15 adds; this
+  record only stops new rows without a country and makes the rest visible.
+- **Older projects' default Vienna.** Migration 0018 gave every project created
+  before the Land question an unconfirmed `federal_state=vienna`
+  (`onboarding_default`). It stays: removing it would unplace those projects.
+  As an assumption it places them as unverified, and the agent's OIB block says
+  so (`applicability.UNVERIFIED_SITE_LINE`) and asks the person to confirm.
 
 ### Consequences
 
@@ -92,7 +103,8 @@ cannot present a law the project's facts do not support.
   without a Land read less than before. A new one with a typed Austrian address
   gets its Land suggested from the postal code, so this is rare for new work.
 - Bad, because every organization that existed before migration 0200 is set to
-  AT; a non-Austrian one must be corrected by hand.
+  AT; a non-Austrian one must be corrected by hand (the roster check in the
+  migration's header).
 
 ### Confirmation
 
@@ -108,6 +120,9 @@ cannot present a law the project's facts do not support.
   or unplaced; `applicable-standards.test.ts` does the same for the overview.
 - `intake-seed.spec.ts` fails on `country=at` for `outside_austria` and on a
   confirmed typed address.
+- `home-country-row.spec.ts` holds the row paths (metadata, none, once);
+  `route.spec.ts` the creation's idempotency; `scripts/rls-test-db.sh` the 0200
+  backfill, its CHECKs and its down migration.
 - The `organizations_home_country_iso` CHECK holds the column's shape. Nothing
   enforces yet that no code reads `home_country` as a project's country; review
   is the gate, and `docs/contributing/gotchas.md` names it.
@@ -117,5 +132,5 @@ cannot present a law the project's facts do not support.
 Revisit when a second country gets a profile of its own (`CountryProfile`), or
 when connecting factors other than the site (design 3.1: `office_seat`,
 `client`, `contract`) gain their date sources: then the home country starts to
-place a work, never a project. `home_country` becomes NOT NULL once the platform
-can set it for an organization created outside the self-service route.
+place a work, never a project. `home_country` becomes NOT NULL with the
+`organization_unplaced` gate (build split S15), once no row is left without it.

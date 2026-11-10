@@ -104,8 +104,9 @@ export async function upsertOrganization(values: {
 
 /**
  * Create the row of a new organization with its home country and the clock
- * that country starts with, or set both on a row a settings write already made. Only the creation route
- * calls it: the office states its seat once, when it creates the organization.
+ * that country starts with, or set both on a row without them. Called when the
+ * seat is stated: the creation route, the WorkOS metadata, or an admin naming
+ * it once (`home-country-row.ts`).
  */
 export async function placeOrganization(organizationId: string, homeCountry: HomeCountry): Promise<void> {
   const db = getDb()
@@ -117,5 +118,13 @@ export async function placeOrganization(organizationId: string, homeCountry: Hom
         target: organizations.workosOrganizationId,
         set: { homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry], updatedAt: new Date() },
       }),
+  )
+}
+
+/** Write the row of an organization that has none, with no home country; nothing when it exists. */
+export async function createOrganizationRow(organizationId: string): Promise<void> {
+  const db = getDb()
+  await withTenant({ organizationId }, () =>
+    db.insert(organizations).values({ workosOrganizationId: organizationId }).onConflictDoNothing({ target: organizations.workosOrganizationId }),
   )
 }

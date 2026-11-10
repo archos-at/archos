@@ -18,6 +18,7 @@ import { AGENT_GROUP_IDS, MODEL_ID_PATTERN } from '@/lib/model-config/agent-grou
 import { ORG_INSTRUCTIONS_MAX_CHARS } from '@/lib/org-instructions/constants'
 import { CHAT_EFFORT_SETTING, CHAT_EFFORTS, isChatEffort } from '@/lib/reasoning-settings/catalog'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { homeCountrySchema } from './home-country'
 
 // --- web search ------------------------------------------------------------
 
@@ -130,6 +131,9 @@ export const zdrPutSchema = z.object({ enabled: z.boolean() })
 
 export const orgSettingsPutSchema = z.object({
   displayName: z.string().trim().max(200).nullable().optional(),
+  homeCountry: homeCountrySchema
+    .optional()
+    .describe("The office's own country (ISO-2), stated once when nobody has; never a project's jurisdiction. A different value later is refused (409)."),
   defaultLocale: z.enum(locales).nullable().optional(),
   settings: z
     .record(z.string(), z.unknown())

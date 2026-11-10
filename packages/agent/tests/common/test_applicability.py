@@ -252,6 +252,13 @@ class TestRenderProjectBlock:
         block = render_project_block(context)
         assert block is not None
         assert "OIB 1 — required —" in block
+        # Review of #1545, fix 8: migration 0018's default Vienna is said to be unverified.
+        assert "The site (vienna) is an unconfirmed assumption" in block
+
+    def test_a_confirmed_land_says_nothing_about_verification(self):
+        block = render_project_block("PROJECT_CONTEXT v1\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n")
+        assert block is not None
+        assert "unconfirmed assumption" not in block
 
     def test_no_trigger_lines_when_no_triggers(self):
         context = "PROJECT_CONTEXT v1\nconfirmed:\n- country=at\n- hauptnutzung=wohnen\n"

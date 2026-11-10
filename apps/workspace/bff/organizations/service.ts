@@ -9,6 +9,8 @@
 import 'server-only'
 import type { SwitchableOrganization } from './switchable'
 import { findOrganization, upsertOrganization } from './repository'
+import { ensureOrganizationRow, stateHomeCountry } from './home-country-row'
+import type { HomeCountry } from './home-country'
 import { getWorkOS } from '@/lib/workos/client'
 import { getCached, invalidateCached } from '@/lib/cache'
 import { invalidateBackendModelConfig } from '@/lib/model-config/backend-key'
@@ -40,7 +42,7 @@ export interface OrgSettings {
   defaultLocale: Locale | null
   /**
    * ISO 3166-1 alpha-2 country of the office's seat (migration 0200); null when
-   * nobody has said. Read-only here: stated when the organization is created.
+   * nobody has said. Stated when the organization is created, or once after.
    * Never a project's jurisdiction.
    */
   homeCountry: string | null
@@ -268,6 +270,8 @@ export async function switchableOrganizations(
 
 export interface OrgSettingsPatch {
   displayName?: string | null
+  /** Stated once (`stateHomeCountry`); never edited here. */
+  homeCountry?: HomeCountry
   /** `null` takes the choice back: members then start in their browser's language. */
   defaultLocale?: Locale | null
   settings?: Record<string, unknown>
@@ -360,6 +364,8 @@ async function writeOrgSettings(
   organizationId: string,
   patch: OrgSettingsPatch
 ): Promise<OrgSettings> {
+  await ensureOrganizationRow(organizationId)
+  if (patch.homeCountry) await stateHomeCountry(organizationId, patch.homeCountry)
   const current = await getOrgSettings(organizationId)
   const next: OrgSettings = {
     displayName: patch.displayName !== undefined ? patch.displayName : current.displayName,
@@ -536,6 +542,7 @@ export function changedSettingsFields(before: OrgSettings, after: OrgSettings): 
   const fields: string[] = []
   if (before.displayName !== after.displayName) fields.push('displayName')
   if (before.defaultLocale !== after.defaultLocale) fields.push('defaultLocale')
+  if (before.homeCountry !== after.homeCountry) fields.push('homeCountry')
   const keys = new Set([...Object.keys(before.settings), ...Object.keys(after.settings)])
   for (const key of [...keys].sort()) {
     if (JSON.stringify(before.settings[key]) !== JSON.stringify(after.settings[key])) fields.push(`settings.${key}`)

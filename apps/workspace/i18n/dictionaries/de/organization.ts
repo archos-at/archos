@@ -294,6 +294,15 @@ export const organization: typeof en.organization = {
     members: 'Mitglieder',
     membersCapped: '{count}+',
     pendingInvites: 'Ausstehende Einladungen',
+    homeCountry: 'Land des Büros',
+    homeCountryMissing: {
+      title: 'Das Land Ihres Büros fehlt',
+      description:
+        'Es bestimmt die Voreinstellungen Ihres Büros, zuerst die Uhrzeit, mit der Fristen und Tage gerechnet werden; bis dahin gilt die österreichische. Welches Baurecht für ein Projekt gilt, entscheidet sein Standort, nicht der Sitz. Sie geben es einmal an.',
+      placeholder: 'Land wählen',
+      save: 'Festlegen',
+      saveError: 'Das Land konnte nicht gespeichert werden.',
+    },
   },
   settings: {
     title: 'Organisationseinstellungen',

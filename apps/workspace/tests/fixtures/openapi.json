@@ -24556,6 +24556,16 @@
                       }
                     ]
                   },
+                  "homeCountry": {
+                    "description": "The office's own country (ISO-2), stated once when nobody has; never a project's jurisdiction. A different value later is refused (409).",
+                    "type": "string",
+                    "enum": [
+                      "AT",
+                      "DE",
+                      "CH",
+                      "LI"
+                    ]
+                  },
                   "defaultLocale": {
                     "anyOf": [
                       {

@@ -29,13 +29,15 @@
 --
 -- ## What stays NULL
 --
--- Every row that exists when this runs gets AT. After it, the creation route
--- is the only writer of the value (`placeOrganization`). An organization made
--- in the WorkOS dashboard after this migration has no row until its first
--- write, and a row its first settings save creates has no home country. Both
--- read as unplaced; the platform sets it (design 5.1,
--- `platform-organization-home-country-set`, a later slice). The column
--- therefore stays nullable until that operation exists.
+-- Every row that exists when this runs gets AT. After it, the value is
+-- written where the seat is stated (`placeOrganization`): the creation route,
+-- an organization's first signed-in page load or settings save reading the
+-- WorkOS organization's metadata `home_country` (`ensureOrganizationRow`), or
+-- an admin stating it once on the organization page. An organization made in
+-- the WorkOS dashboard without that metadata gets a row with none: it reads
+-- as unplaced, is logged at WARN and shown to its admins. Refusing it is the
+-- later gate (`organization_unplaced`, build split S15), so the column stays
+-- nullable.
 
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS home_country char(2);
 -- The office's clock (IANA zone), replacing the one constant OFFICE_TIME_ZONE
@@ -45,7 +47,7 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS home_country char(2);
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS time_zone text;
 ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_time_zone_shape;
 ALTER TABLE organizations ADD CONSTRAINT organizations_time_zone_shape
-  CHECK (time_zone IS NULL OR time_zone ~ '^[A-Za-z]+(/[A-Za-z0-9_+-]+)+$');
+  CHECK (time_zone IS NULL OR time_zone ~ '^(UTC|[A-Za-z]+(/[A-Za-z0-9_+-]+)+)$');
 
 ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_home_country_iso;
 ALTER TABLE organizations ADD CONSTRAINT organizations_home_country_iso

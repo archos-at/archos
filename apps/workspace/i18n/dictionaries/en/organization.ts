@@ -289,6 +289,15 @@ export const organization = {
     members: 'Members',
     membersCapped: '{count}+',
     pendingInvites: 'Pending invitations',
+    homeCountry: 'Office country',
+    homeCountryMissing: {
+      title: "Your office's country is missing",
+      description:
+        "It sets your office's defaults, first the clock that deadlines and days are counted by; until then Austria's applies. Which building law applies to a project is decided by its site, not your seat. You state it once.",
+      placeholder: 'Choose a country',
+      save: 'Set',
+      saveError: 'The country could not be saved.',
+    },
   },
   settings: {
     title: 'Organization settings',
