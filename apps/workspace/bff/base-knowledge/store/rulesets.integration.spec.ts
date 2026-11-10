@@ -171,6 +171,12 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
+        // The lifecycle the status trigger holds (migration 0216): submitted, a reviewer's verdict, a domain expert's yes.
+        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = ${requestId}`)
+        await tx.execute(sql`INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source)
+          VALUES (${randomUUID()}, ${requestId}, ${revisionId}, 'payload', 'accepted', 'reviewer', 'app')`)
+        await tx.execute(sql`INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source)
+          VALUES (${randomUUID()}, ${requestId}, 'reviewer', 'domain_expert', 'app')`)
         await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`)
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
