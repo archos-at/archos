@@ -22332,7 +22332,7 @@
       "post": {
         "operationId": "base-knowledge-report",
         "summary": "Report wrong law in the base knowledge to the platform",
-        "description": "Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, and what is wrong in one sentence. Only for a country the office is entitled to. Changes nothing an answer reads.",
+        "description": "Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, and what is wrong in one sentence, on the person’s own yes. Only for a country the office is entitled to. Changes nothing an answer reads.",
         "tags": [
           "knowledge"
         ],

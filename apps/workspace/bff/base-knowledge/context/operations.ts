@@ -82,6 +82,8 @@ export async function readCoverage(session: AuthorizedSession, query: CoverageQu
  * nobody reports on records they cannot read.
  */
 export async function reportBaseKnowledge(session: AuthorizedSession, body: BaseKnowledgeReportBody): Promise<BaseKnowledgeReportResult> {
+  // A report reaches a platform reviewer outside the office: it goes on the person's own yes, never an agent's.
+  requirePersonDecision('Reporting wrong law in the base knowledge to the platform')
   const { entitled } = await readOrganizationCountries(session.organizationId)
   if (!entitled.some((entry) => entry.countryId === body.countryId)) {
     throw new UnprocessableError(`The office is not entitled to ${body.countryId}; a report needs a country whose base knowledge it reads.`)

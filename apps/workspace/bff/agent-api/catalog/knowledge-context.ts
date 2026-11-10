@@ -34,10 +34,12 @@ export const knowledgeContextOperations = [
     summary: 'Report wrong law in the base knowledge to the platform',
     description:
       'Opens a draft change request in the country for a platform reviewer: the work or edition, the answer that showed it, ' +
-      'and what is wrong in one sentence. Only for a country the office is entitled to. Changes nothing an answer reads.',
+      'and what is wrong in one sentence, on the person’s own yes. Only for a country the office is entitled to. ' +
+      'Changes nothing an answer reads.',
     method: 'POST',
     path: '/api/base-knowledge/reports',
     body: baseKnowledgeReportBodySchema,
+    personDecides: true,
     load: () => import('@/app/api/base-knowledge/reports/route'),
   },
   {

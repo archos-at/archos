@@ -88,7 +88,19 @@ describe('project-base-confirm', () => {
 })
 
 describe('base-knowledge-report', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requirePersonDecision.mockReturnValue('app')
+  })
+
+  it('refuses without the person’s own yes, and opens nothing', async () => {
+    requirePersonDecision.mockImplementation(() => {
+      throw new Error('PERSON_DECISION_REQUIRED')
+    })
+    readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
+    await expect(reportBaseKnowledge(SESSION, { countryId: 'AT', note: 'Novelle 2026 fehlt' })).rejects.toThrow('PERSON_DECISION_REQUIRED')
+    expect(insertChangeRequest).not.toHaveBeenCalled()
+  })
 
   it('opens a draft change request in an entitled country, titled with what is wrong', async () => {
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
