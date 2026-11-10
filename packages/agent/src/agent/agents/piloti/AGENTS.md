@@ -23,7 +23,9 @@ narrow the binding: the tool stays bound and the call is refused at the
 `ToolNode` boundary, so the tool payload (and the prompt-cache shard keyed on
 it) is the same for every turn of an org — with ONE exception, scope: a turn
 without a project is not sent `ifc_query` / `ifc_measure` (`turn_tools.tools_in_scope`),
-which can only say "no project" there and are ~8k tokens of every call. Two
+which can only say "no project" there and are ~8k tokens of every call, and a turn
+in a project the BFF says holds no IFC (no DXF) is not sent them (`dxf_measure`)
+either (`projectModels` on the turn context; unknown keeps them). A handful of
 shards per org, never one per toggle combination. An entitlement may widen a
 tool for its org (`turn_tools.tools_for_flags`): `time-editions` binds the RIS
 lookup's copy that offers `as_of` (`ris_adapter.lookup.tool.offer_as_of`,

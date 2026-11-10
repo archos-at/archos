@@ -36,6 +36,7 @@ const { UNAVAILABLE } = vi.hoisted(() => ({
   } as const,
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => structuredClone(UNAVAILABLE)) }))
+vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false })) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
@@ -182,6 +183,7 @@ describe('POST /api/internal/turn-context', () => {
       baseKnowledgeLabels: [],
       buildingLaw: null,
       knowledgeContext: UNAVAILABLE,
+      projectModels: { ifc: true, dxf: false },
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({
