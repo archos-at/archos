@@ -1,12 +1,12 @@
 /**
- * Every closed vocabulary of the base knowledge records (migration 0202,
- * ADR-0163): the one source of each word. The SQL CHECKs are held to these lists
+ * Every closed vocabulary of the base knowledge records (migrations 0202 and
+ * 0204, ADR-0163 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation'] as const
+export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /** The kinds an office can hold today (design §3.5); the platform widens the CHECK later. */
@@ -38,6 +38,34 @@ export type TextStatus = (typeof TEXT_STATUSES)[number]
 export const CHECK_TARGET_TYPES = ['edition', 'manifestation'] as const
 export type CheckTargetType = (typeof CHECK_TARGET_TYPES)[number]
 
+/**
+ * What a ruleset decides (design §3.7). The first four are decision tables
+ * (`decision_table.v1`); the others are named now so the purpose list is one
+ * list, and each gets its payload schema in the slice that first reads it
+ * (setup facts, the advice policy, terminology).
+ */
+export const RULESET_PURPOSES = [
+  'classification',
+  'derivation',
+  'reference_date',
+  'competence',
+  'fact_definitions',
+  'fact_sources',
+  'advice_policy',
+  'terminology',
+] as const
+export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
+
+export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'reference_date', 'competence'] as const satisfies readonly RulesetPurpose[]
+
+/** The payload schemas the evaluator reads. A v2 arrives with a pure converter from v1 (design §3.7). */
+export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1'] as const
+export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
+
+/** The types a decision table's input declares; a fact of another type is refused, never read as false. */
+export const FACT_TYPES = ['number', 'boolean', 'code', 'codes', 'date'] as const
+export type FactType = (typeof FACT_TYPES)[number]
+
 /** Each vocabulary by the column its CHECK constrains: what the parity spec and the fixture walk. */
 export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_records.type': KNOWLEDGE_RECORD_TYPES,
@@ -47,4 +75,6 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_manifestation_revisions.licence_class': LICENCE_CLASSES,
   'knowledge_checks.target_type': CHECK_TARGET_TYPES,
   'knowledge_checks.result': KNOWLEDGE_CHECK_RESULTS,
+  'knowledge_ruleset_revisions.purpose': RULESET_PURPOSES,
+  'knowledge_ruleset_revisions.payload_schema': RULESET_PAYLOAD_SCHEMAS,
 } as const satisfies Record<string, readonly string[]>

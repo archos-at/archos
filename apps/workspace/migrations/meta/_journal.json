@@ -1422,6 +1422,13 @@
       "when": 1792870000000,
       "tag": "0202_base_knowledge",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1792890000000,
+      "tag": "0204_rulesets",
+      "breakpoints": true
     }
   ]
 }

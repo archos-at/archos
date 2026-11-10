@@ -23,6 +23,7 @@ import {
   knowledgeManifestationRevisions,
   knowledgeRecords,
   knowledgeRevisions,
+  knowledgeRulesetRevisions,
   knowledgeWorkRevisions,
   type KnowledgeCheckResult,
   type KnowledgeProvenance,
@@ -35,7 +36,7 @@ import type { EntryCheck, EntryValues } from '../wire'
 /** Most entries one office lists or a turn reads. */
 export const MAX_OFFICE_ENTRIES = 500
 
-type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
+export type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0]
 
 /** The three records one held copy is: its work, its edition, the copy itself. */
 export interface EntryRecordIds {
@@ -56,10 +57,10 @@ export interface StoredEntry extends EntryRecordIds {
   createdAt: Date
 }
 
-const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
+export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
 /** One revision of a record, with its typed body; returns the revision id. */
-async function appendRevision(
+export async function appendRevision(
   tx: Tx,
   input: {
     organizationId: string | null
@@ -84,8 +85,10 @@ async function appendRevision(
     await tx.insert(knowledgeWorkRevisions).values({ ...base, ...(body as WorkBody) })
   } else if (input.type === 'edition') {
     await tx.insert(knowledgeEditionRevisions).values({ ...base, ...(body as EditionBody) })
-  } else {
+  } else if (input.type === 'manifestation') {
     await tx.insert(knowledgeManifestationRevisions).values({ ...base, ...(body as CopyBody) })
+  } else {
+    await tx.insert(knowledgeRulesetRevisions).values({ ...base, ...(body as RulesetBody) })
   }
   return revisionId
 }
@@ -93,6 +96,7 @@ async function appendRevision(
 type WorkBody = Omit<typeof knowledgeWorkRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 type EditionBody = Omit<typeof knowledgeEditionRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 type CopyBody = Omit<typeof knowledgeManifestationRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
+export type RulesetBody = Omit<typeof knowledgeRulesetRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
 
 function bodiesOf(
   values: EntryValues,

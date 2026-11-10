@@ -1,0 +1,170 @@
+{
+  "purpose": "classification",
+  "territoryIds": ["AT"],
+  "workIds": [],
+  "validFrom": "2023-05-01",
+  "validTo": null,
+  "basisEditionId": null,
+  "body": {
+    "kind": "table",
+    "payloadSchema": "decision_table.v1",
+    "payload": {
+      "inputs": [
+        { "key": "building_type", "type": "code" },
+        { "key": "building_position", "type": "code" },
+        { "key": "access_three_sides", "type": "boolean" },
+        { "key": "storeys_above_ground", "type": "number" },
+        { "key": "escape_level_m", "type": "number" },
+        { "key": "gfa_above_ground", "type": "number" },
+        { "key": "use_units", "type": "number" },
+        { "key": "units_over_400", "type": "boolean" },
+        { "key": "uses", "type": "codes" }
+      ],
+      "output": {
+        "type": "code",
+        "codes": [
+          "no_building",
+          "hochhaus",
+          "at-oib-2023:GK1",
+          "at-oib-2023:GK2",
+          "at-oib-2023:GK3",
+          "at-oib-2023:GK4",
+          "at-oib-2023:GK5"
+        ]
+      },
+      "rows": [
+        {
+          "id": "no-building",
+          "when": { "!==": [{ "var": "building_type" }, "building"] },
+          "then": "no_building"
+        },
+        {
+          "id": "high-rise",
+          "when": { ">": [{ "var": "escape_level_m" }, 22] },
+          "then": "hochhaus",
+          "provision": {
+            "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 5 und Hochhaus",
+            "wording": "paraphrase"
+          }
+        },
+        {
+          "id": "gk1",
+          "when": {
+            "and": [
+              { "<=": [{ "var": "storeys_above_ground" }, 3] },
+              { "<=": [{ "var": "escape_level_m" }, 7] },
+              { "===": [{ "var": "building_position" }, "freestanding"] },
+              { "var": "access_three_sides" },
+              { "<=": [{ "var": "gfa_above_ground" }, 400] },
+              { "<=": [{ "var": "use_units" }, 2] }
+            ]
+          },
+          "then": "at-oib-2023:GK1",
+          "provision": {
+            "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 1",
+            "wording": "paraphrase"
+          }
+        },
+        {
+          "id": "gk2",
+          "when": {
+            "and": [
+              { "<=": [{ "var": "storeys_above_ground" }, 3] },
+              { "<=": [{ "var": "escape_level_m" }, 7] },
+              {
+                "or": [
+                  { "<=": [{ "var": "gfa_above_ground" }, 400] },
+                  {
+                    "and": [
+                      { "===": [{ "var": "building_position" }, "terraced"] },
+                      { "!": { "var": "units_over_400" } }
+                    ]
+                  },
+                  {
+                    "and": [
+                      { "===": [{ "var": "building_position" }, "freestanding"] },
+                      { "var": "access_three_sides" },
+                      { "all": [{ "var": "uses" }, { "in": [{ "var": "" }, ["residential"]] }] },
+                      { "<=": [{ "var": "gfa_above_ground" }, 800] }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "then": "at-oib-2023:GK2",
+          "provision": {
+            "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 2",
+            "wording": "paraphrase"
+          }
+        },
+        {
+          "id": "gk3",
+          "when": {
+            "and": [
+              { "<=": [{ "var": "storeys_above_ground" }, 3] },
+              { "<=": [{ "var": "escape_level_m" }, 7] }
+            ]
+          },
+          "then": "at-oib-2023:GK3",
+          "provision": {
+            "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 3",
+            "wording": "paraphrase"
+          }
+        },
+        {
+          "id": "gk4",
+          "when": {
+            "and": [
+              { "<=": [{ "var": "storeys_above_ground" }, 4] },
+              { "<=": [{ "var": "escape_level_m" }, 11] },
+              {
+                "or": [{ "<=": [{ "var": "use_units" }, 1] }, { "!": { "var": "units_over_400" } }]
+              }
+            ]
+          },
+          "then": "at-oib-2023:GK4",
+          "provision": {
+            "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 4 a) und b)",
+            "wording": "verbatim"
+          }
+        }
+      ],
+      "otherwise": { "then": "at-oib-2023:GK5" },
+      "examples": [
+        {
+          "facts": {
+            "building_type": "building",
+            "building_position": "freestanding",
+            "access_three_sides": true,
+            "storeys_above_ground": 2,
+            "escape_level_m": 3.2,
+            "gfa_above_ground": 180,
+            "use_units": 1,
+            "uses": ["residential"]
+          },
+          "expect": { "then": "at-oib-2023:GK1" }
+        },
+        {
+          "facts": { "building_type": "building", "storeys_above_ground": 6, "escape_level_m": 18 },
+          "expect": { "then": "at-oib-2023:GK5" }
+        },
+        {
+          "facts": { "building_type": "building", "escape_level_m": 25 },
+          "expect": { "then": "hochhaus" }
+        },
+        {
+          "facts": {
+            "building_type": "building",
+            "building_position": "attached",
+            "storeys_above_ground": 2,
+            "gfa_above_ground": 300,
+            "use_units": 2,
+            "units_over_400": false
+          },
+          "expect": { "undeterminedBy": ["escape_level_m"] }
+        }
+      ]
+    }
+  }
+}
