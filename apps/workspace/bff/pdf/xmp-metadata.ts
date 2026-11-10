@@ -91,8 +91,11 @@ export function withXmpMetadata(pdf: Uint8Array, xmp: string): Uint8Array {
   append('\nendstream\nendobj\n')
 
   const xrefAt = offset
+  // Object 0, the head of the free list, first: the section is valid without
+  // it (ISO 32000-1, 7.5.4), but readers that check a section starts at 0
+  // (pypdf) then guess at "corrected" object numbers.
   append(
-    'xref\n' +
+    'xref\n0 1\n0000000000 65535 f \n' +
       `${root.number} 1\n${xrefEntry(newCatalogAt, root.generation)}` +
       `${metadata.number} 1\n${xrefEntry(metadataAt, 0)}`
   )
