@@ -14,7 +14,7 @@
  *  - `platform`: platform staff on the platform door (ADR-0126). Only the
  *    `platform` domain, and that domain on no other door. Each console
  *    operation is platform-public or tenant content (`exposure/platform.ts`,
- *    ADR-0158); tenant content is on no door at all.
+ *    ADR-0160); tenant content is on no door at all.
  *  - `app`: an MCP Apps view in an outside agent's host (ADR-0142). Set only
  *    on an app-only tool (`catalog/app-views.ts`): a control on a card the
  *    person presses, listed with `_meta.ui.visibility: ['app']` so the host
@@ -69,7 +69,7 @@ import { PLATFORM_EXPOSURE } from './exposure/platform'
  * (a mail's original `.eml`, ADR-0137; ADR-0122's amendment of 2026-10-22).
  * `tenant-content`: a console operation that reads what offices or their people
  * wrote, across offices; platform staff read it in the console in the browser,
- * and no agent client does, the operator's own included (ADR-0158).
+ * and no agent client does, the operator's own included (ADR-0160).
  */
 export const WITHHELD_CATEGORIES = [
   'external-service',
@@ -441,7 +441,7 @@ export const EXPOSURE = {
   'release-summary-seen-mark': withheld('ui-state', 'whether this person has closed the weekly summary notice; their own screen'),
   'release-summary-unseen-get': withheld('ui-state', 'which summary the notice still owes this person; release-note-list reads them'),
 
-  // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0158)
+  // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0160)
   ...PLATFORM_EXPOSURE,
 
   // the agent’s read tools (`backend-operations.ts`)

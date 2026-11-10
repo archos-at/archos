@@ -85,7 +85,7 @@ export interface McpServer {
   /** The longest a call to this server may take. */
   timeout: string;
   /**
-   * What an operator's agent may reach on this server (ADR-0158): `"all"` for a
+   * What an operator's agent may reach on this server (ADR-0160): `"all"` for a
    * server that holds only the platform's own content, or the names of the
    * tools that do, when it also holds what offices wrote. A list is enforced
    * here, by agentgateway's `mcpAuthorization`: a tool not named is left out

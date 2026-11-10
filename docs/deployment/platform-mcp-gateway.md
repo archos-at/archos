@@ -5,9 +5,9 @@ One public host, `platform-mcp.<baseDomain>`, where platform staff's agents
 cluster. The servers stay private. A person signs in with WorkOS, and the
 gateway presents each server's own credential, which never leaves the cluster.
 
-| Path | Server | Credential the gateway presents | Tools an agent reaches (ADR-0158) |
+| Path | Server | Credential the gateway presents | Tools an agent reaches (ADR-0160) |
 |---|---|---|---|
-| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts and evaluators with their rules to read; skills, models and score configs to read and write; health. Never traces, scores, comments, datasets, queues, media or metrics, which carry every office's turns, and no prompt or evaluator write, which would move them (ADR-0158) |
+| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts and evaluators with their rules to read; skills, models and score configs to read and write; health. Never traces, scores, comments, datasets, queues, media or metrics, which carry every office's turns, and no prompt or evaluator write, which would move them (ADR-0160) |
 | `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft | all: the public website, written by the team |
 
 The gateway is [agentgateway](https://github.com/agentgateway/agentgateway)
@@ -175,7 +175,7 @@ file, and two behaviours read from its source at v1.7.0.
    `"all"` only for a server that holds nothing an office wrote; otherwise it
    lists the tools that hold the platform's own content, and agentgateway
    refuses every other tool, prompt and resource (`mcpAuthorization`,
-   ADR-0158). The operator's agent vendor is no processor of tenant content.
+   ADR-0160). The operator's agent vendor is no processor of tenant content.
 2. If its pod is withheld from the namespace-wide allow (rule 2 of
    `network-policies.ts`), a rule naming the gateway as its caller, as rule 23
    does for Langfuse.

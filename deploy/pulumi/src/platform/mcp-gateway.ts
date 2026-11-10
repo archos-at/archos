@@ -40,7 +40,7 @@ const DRAIN_SECONDS = 5;
 const SESSION_KEY = "session-key"; // pragma: allowlist secret (Secret key name, not a credential)
 
 /**
- * The tools of Langfuse's MCP server an operator's agent may reach (ADR-0158),
+ * The tools of Langfuse's MCP server an operator's agent may reach (ADR-0160),
  * read against Langfuse 4.74.0 (`web/src/features/mcp/`, the version
  * `config/langfuse.ts` pins).
  *
@@ -96,7 +96,7 @@ export const LANGFUSE_PLATFORM_TOOLS = [
 
 /**
  * The MCP servers behind the gateway, each at `/<name>/mcp`. Adding one is an
- * entry here, with its `tools` classified (ADR-0158), plus the NetworkPolicy that lets the gateway reach it when its
+ * entry here, with its `tools` classified (ADR-0160), plus the NetworkPolicy that lets the gateway reach it when its
  * pod is withheld from the namespace-wide allow (`network-policies.ts`).
  */
 export function mcpServers(cfg: DeployConfig): McpServer[] {
@@ -115,7 +115,7 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // that project, prompts included (`ADMITTED_ROLES`).
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
-            // Traces hold every office's turns: configuration tools only (ADR-0158).
+            // Traces hold every office's turns: configuration tools only (ADR-0160).
             tools: LANGFUSE_PLATFORM_TOOLS,
           },
         ]
@@ -129,7 +129,7 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // every write is a draft that a publisher reviews in the admin panel.
             credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
             timeout: "120s",
-            // The public website and its blog, written by the team: platform-public whole (ADR-0158).
+            // The public website and its blog, written by the team: platform-public whole (ADR-0160).
             tools: "all" as const,
           },
         ]

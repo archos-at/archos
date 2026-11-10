@@ -238,7 +238,7 @@ Every server in `mcpServers` declares `tools`: `"all"` when it holds only the
 platform's own content, or the list of tools an operator's agent may reach,
 enforced by agentgateway's `mcpAuthorization`. Langfuse's route keeps its
 configuration tools only, because its traces carry every office's turns:
-[ADR-0158](0158-an-operators-agent-reaches-platform-content-never-tenant-content.md).
+[ADR-0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md).
 
 ## More Information
 

@@ -263,7 +263,7 @@ describe("the platform MCP gateway, switched on", () => {
     expect(JSON.stringify(pod())).not.toContain("INTERNAL_API_TOKEN");
   });
 
-  it("lets an operator's agent reach Langfuse's configuration tools and none that read traces (ADR-0158)", () => {
+  it("lets an operator's agent reach Langfuse's configuration tools and none that read traces (ADR-0160)", () => {
     // Traces carry every office's turns; an operator's agent vendor is no processor of them.
     expect(langfuseRoute().policies.mcpAuthorization).toEqual({
       rules: [{ allow: `mcp.tool.name in [${LANGFUSE_PLATFORM_TOOLS.map((t) => `"${t}"`).join(", ")}]` }],

@@ -415,7 +415,7 @@ exposure config (`withheld: { category, reason }`, [below](#the-exposure-config)
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact (titles, citation formatting, skill review) |
 | `ui-state` | This person's own screen or device (push devices and preferences, the preference bag, read and unread marks) |
 | `evidence` | Bytes kept as proof, which no model reads (a held or filed mail's original `.eml`, ADR-0137) |
-| `tenant-content` | A console operation that reads what offices wrote, or changes their own state, across offices: conversations, feedback, ratings, lessons, spend per person, the kill switch, the vector reconcile. Staff use it in the console; no agent does (ADR-0158) |
+| `tenant-content` | A console operation that reads what offices wrote, or changes their own state, across offices: conversations, feedback, ratings, lessons, spend per person, the kill switch, the vector reconcile. Staff use it in the console; no agent does (ADR-0160) |
 
 A withheld operation reads as an unknown name everywhere: `tools/list`,
 `search-operations` (and no hint that it exists), `describe-operation`,
@@ -453,7 +453,7 @@ them through the platform MCP gateway at `platform-mcp.<baseDomain>/<server>/mcp
 agentgateway behind Envoy (ADR-0154,
 [`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
 
-**Tenant content is on no door** (ADR-0158). The operator's agent (Claude
+**Tenant content is on no door** (ADR-0160). The operator's agent (Claude
 onboarding a country) runs at a vendor that is no processor of what offices
 wrote. So every console operation is classified in
 `bff/agent-api/exposure/platform.ts`: `PLATFORM_PUBLIC` (models, prices, the
@@ -528,7 +528,7 @@ is no operation, or an operation without an entry, does not compile (the object
 | `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
-| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence`, `tenant-content` (a console operation that reads what offices wrote, ADR-0158) |
+| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence`, `tenant-content` (a console operation that reads what offices wrote, ADR-0160) |
 | `reason` | the reviewer | why the entry is not simply offered to both office audiences |
 
 The constants at the top name the common rows: `OFFERED` (both office

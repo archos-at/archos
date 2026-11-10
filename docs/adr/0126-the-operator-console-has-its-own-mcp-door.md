@@ -206,4 +206,4 @@ tenant content (cross-office conversations, feedback, ratings, lessons, project
 names, spend per named person, and the writes that change offices' state: the
 kill switch and the vector reconcile) is withheld from every door. Staff read it in the
 console in the browser. The operator's agent vendor is no processor of tenant
-content: [ADR-0158](0158-an-operators-agent-reaches-platform-content-never-tenant-content.md).
+content: [ADR-0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md).

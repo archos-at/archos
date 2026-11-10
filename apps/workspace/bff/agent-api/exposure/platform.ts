@@ -1,6 +1,6 @@
 /**
  * Who sees each operation of the operator console (`platform` domain), and the
- * one place every one of them is classified (ADR-0158):
+ * one place every one of them is classified (ADR-0160):
  *
  *  - `PLATFORM_PUBLIC`: the platform's own data and settings (models, prices,
  *    the base corpus, platform skills, limits per organization by id). Offered
@@ -28,7 +28,7 @@
 import type { Exposure } from '../exposure.config'
 import type { platformOperations } from '../catalog/platform'
 
-/** The operator console's own data: the platform door only (ADR-0126, ADR-0158). */
+/** The operator console's own data: the platform door only (ADR-0126, ADR-0160). */
 export const PLATFORM_PUBLIC = {
   external: false,
   agent: false,
@@ -43,7 +43,7 @@ export interface TenantContentExposure extends Exposure {
   readonly withheld: { readonly category: 'tenant-content'; readonly reason: string }
 }
 
-/** Content of offices, read or changed across them: on no door, for staff in the console only (ADR-0158). */
+/** Content of offices, read or changed across them: on no door, for staff in the console only (ADR-0160). */
 export const tenantContent = (reason: string): TenantContentExposure => ({
   external: false,
   agent: false,

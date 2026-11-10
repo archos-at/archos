@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 /**
- * The door split (ADR-0158): every console operation is platform-public or
+ * The door split (ADR-0160): every console operation is platform-public or
  * tenant content, and no tenant-content operation is reachable by an agent.
  * The platform door is where an operator's agent (Claude onboarding a country)
  * works, and its vendor is no processor of tenant content, so these cases hold
@@ -38,7 +38,7 @@ const PLATFORM_OPERATIONS = AGENT_OPERATIONS.filter((op) => op.domain === 'platf
 const TENANT_CONTENT = PLATFORM_OPERATIONS.filter((op) => isTenantContent(op.name)).map((op) => op.name)
 
 /**
- * The console operations that read what offices wrote, or change their state, as of ADR-0158. Pinned
+ * The console operations that read what offices wrote, or change their state, as of ADR-0160. Pinned
  * here, so that flipping one to platform-public is a change to this spec too,
  * read in review, never a one-word edit of the config alone.
  */

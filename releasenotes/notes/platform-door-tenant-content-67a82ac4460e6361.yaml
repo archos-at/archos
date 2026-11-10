@@ -5,7 +5,7 @@ security:
     An agent on the platform door no longer reaches what offices wrote:
     conversations and their search, product feedback, answer ratings and
     comments, lessons, flagged citation turns, project names and spend per
-    named person are on no agent door (ADR-0158). The platform MCP gateway's
+    named person are on no agent door (ADR-0160). The platform MCP gateway's
     Langfuse route offers configuration tools only, never traces.
 operators:
   - >
