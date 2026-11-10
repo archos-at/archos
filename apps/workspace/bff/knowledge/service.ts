@@ -508,18 +508,19 @@ export async function streamKnowledgeBaseDocument(fileName: string): Promise<Res
 }
 
 /**
- * Set a base-corpus file's country and edition on its chunks (ADR-0173), as the
- * knowledge-mark route sets an office copy's mark. A file with no chunks is
- * nothing to mark. Throws on any other failure, so a job retries it.
+ * Set a base-corpus file's country on its chunks and its corpus row (ADR-0173),
+ * so a later re-ingest stamps it again; its licence fields stay as they are. A
+ * file with no chunks is nothing to mark. Throws on any other failure, so a job
+ * retries it.
  */
-export async function markCorpusFile(fileName: string, mark: CorpusFileMark): Promise<void> {
+export async function markCorpusFileCountry(fileName: string, countryId: string): Promise<void> {
   const name = requirePdfBasename(fileName)
   const backendUrl = getBackendUrl()
   const collection = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
   const res = await fetch(`${backendUrl}/v1/collections/${encodeURIComponent(collection)}/knowledge-mark`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
-    body: JSON.stringify({ file_name: name, edition_id: mark.editionId, country_id: mark.countryId }),
+    body: JSON.stringify({ file_name: name, country_id: countryId }),
     signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
   })
   if (res.status === 404) return

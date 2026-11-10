@@ -19,7 +19,7 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
-import { getKnowledgeBaseStatus, markCorpusFile, reingestKnowledgeBaseDocuments, type CorpusFileMark } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatus, markCorpusFileCountry, reingestKnowledgeBaseDocuments, type CorpusFileMark } from '@/lib/knowledge/service'
 import type { IndexStatusView } from './wire'
 
 const REASON = 'platform base knowledge: indexing runs'
@@ -132,8 +132,9 @@ export type PlatformTextDeindexPayload = z.infer<typeof platformTextDeindexPaylo
 
 /**
  * The country no office is entitled to (ISO 3166-1 user-assigned `ZZ`): a chunk
- * marked with it is filtered out of every turn's base corpus (`base_corpus_country_filter`),
- * and kept, so a re-release re-indexes it with its country again.
+ * marked with it is filtered out of every base-corpus read (`vector_store.scope.scope_filter`).
+ * The mark also lands on the file's corpus row, so a re-ingest stamps it again; only a
+ * re-release, whose indexing job sends the country, reads it again.
  */
 export const UNRELEASED_COUNTRY = 'ZZ'
 
@@ -160,5 +161,5 @@ export async function runPlatformTextDeindex(_organizationId: string, payload: P
       WHERE r.organization_id IS NULL AND h.corpus_file = ${payload.corpusFile} LIMIT 1`),
   )
   if (still) return
-  await markCorpusFile(payload.corpusFile, { countryId: UNRELEASED_COUNTRY, editionId: null })
+  await markCorpusFileCountry(payload.corpusFile, UNRELEASED_COUNTRY)
 }

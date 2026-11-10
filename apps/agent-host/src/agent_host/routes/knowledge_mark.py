@@ -52,16 +52,35 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     chunks = store.count(collection, {"file_name": update.file_name})
     if not chunks:
         return None
-    payload = {
+    licence = {
         LICENCE_CLASS_FIELD: update.licence_class,
         AI_PROCESSING_FIELD: update.ai_processing_attested,
         QUOTE_MAX_CHARS_FIELD: update.quote_max_chars,
         KNOWLEDGE_EDITION_FIELD: update.edition_id,
-        # Only a base-corpus text names its country (ADR-0173); an office copy's mark leaves it alone.
-        **({COUNTRY_FIELD: update.country_id} if "country_id" in update.model_fields_set else {}),
     }
+    named = update.model_fields_set
+    # The licence mark is one statement: naming any of it sets all four, None clearing. A base-corpus
+    # text's country travels alone and leaves the licence fields as they are (ADR-0173).
+    payload = (
+        dict(licence) if named & {"licence_class", "ai_processing_attested", "quote_max_chars", "edition_id"} else {}
+    )
+    if "country_id" in named:
+        payload[COUNTRY_FIELD] = update.country_id
     store.set_file_payloads(collection, {update.file_name: payload})
+    _remember_corpus_country(collection, update)
     return chunks
+
+
+def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> None:
+    """A base-corpus text's country also goes on its corpus row, so a re-ingest stamps it again (ADR-0173)."""
+    from agent import corpus_store
+    from agent.oib_sync import COLLECTION_NAME
+
+    if collection != COLLECTION_NAME or "country_id" not in update.model_fields_set:
+        return
+    current = corpus_store.get_mark(update.file_name) or corpus_store.FileMark()
+    edition = update.edition_id if "edition_id" in update.model_fields_set else current.edition_id
+    corpus_store.set_mark(update.file_name, corpus_store.FileMark(country_id=update.country_id, edition_id=edition))
 
 
 def add_knowledge_mark_routes(router: APIRouter) -> None:
