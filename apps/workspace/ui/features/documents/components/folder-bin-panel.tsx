@@ -13,7 +13,7 @@
 
 import { fileExtensionLabel } from '../document-kind'
 import { useCallback, useState, type JSX } from 'react'
-import { AlertTriangle, Folder, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertTriangle, Folder, MoreHorizontal, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   FolderBinRequestError,
@@ -24,7 +24,9 @@ import {
   type FolderBinEntry,
   type FolderBinListing,
 } from '@/adapters/api/folder-bin-client'
+import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
+import { ROW_HAIRLINE, ROW_REVEAL } from '@/components/ui/row-hairline'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/ui/spinner'
@@ -141,11 +143,11 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
         <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
         // Rows on the page, no box and no hairlines; they bleed by their inset so the glyphs stand on the edge.
-        <ul className="-mx-4 flex flex-col gap-1">
+        <ul className="-mx-4 flex flex-col">
           {listing.entries.map((entry) => (
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
-            <Item key={entry.folderId} as="li" className="flex-wrap rounded-surface hover:bg-muted sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
+            <Item key={entry.folderId} as="li" className={`group/row flex-wrap rounded-surface hover:bg-desk sm:flex-nowrap ${ROW_HAIRLINE}`} data-testid={`bin-entry-${entry.folderId}`}>
               {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
               <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
                 {entry.document ? (
@@ -205,7 +207,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 )}
                 {entry.canRestore && (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     disabled={busyId === entry.folderId}
                     onClick={() => void restore(entry)}
@@ -215,20 +217,34 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                     {t('bin.restore')}
                   </Button>
                 )}
+                {/* One visible action per row; the one that destroys sits behind the ⋯, shown on hover, focus and selection. */}
                 {listing.canPurge && entry.status !== 'purging' && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    // Tonal, as Wiederherstellen beside it, with its glyph in red: the one sign that this press destroys
-                    // (2026-11-10 review: the two read as the same weight). The word stays ink: five red words led the page,
-                    // and red words on the grey fall under 4.5:1. The confirm's press is the red one. Its fill ends on the edge.
-                    className="ml-auto [&_svg]:text-destructive"
-                    onClick={() => setPurging(entry)}
-                    data-testid={`bin-purge-${entry.folderId}`}
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                    {t('bin.purge')}
-                  </Button>
+                  <ActionMenu
+                    mode="dropdown"
+                    align="end"
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`text-muted-foreground size-8 ${ROW_REVEAL}`}
+                        aria-label={t('bin.purge')}
+                        data-testid={`bin-actions-${entry.folderId}`}
+                      >
+                        <MoreHorizontal className="size-4" aria-hidden />
+                      </Button>
+                    }
+                    entries={[
+                      {
+                        type: 'item',
+                        id: 'purge',
+                        label: t('bin.purge'),
+                        icon: Trash2,
+                        variant: 'destructive',
+                        testId: `bin-purge-${entry.folderId}`,
+                        onSelect: () => setPurging(entry),
+                      },
+                    ]}
+                  />
                 )}
               </ItemActions>
             </Item>

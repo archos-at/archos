@@ -87,7 +87,9 @@ describe('the Papierkorb', () => {
 
   it('puts the permanent action at the far end of the row, away from restore', () => {
     expect(bin).toMatch(/justify-between/)
-    // In ink since 2026-11 (red is for a failure; the confirm says what cannot be undone), still at the far end.
-    expect(bin).toMatch(/className="ml-auto/)
+    // Behind the ⋯ since Paper on a desk (one visible action per row; the confirm says what cannot be undone),
+    // still at the far end, and always shown on a touch screen.
+    expect(bin).toContain('bin-actions-')
+    expect(bin).toContain('ROW_REVEAL')
   })
 })

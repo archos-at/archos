@@ -133,9 +133,9 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ListBody {...props} />
       </div>
-      {/* A band of the one grey under the list while mails are picked, as Dateien's: a mode, set apart by its tone. */}
+      {/* While mails are picked, a white bar floats 16px off the list's foot: elevation 2, the overlay radius (paper on a desk). */}
       {props.selectionBar && (
-        <div data-surface="sunken" className="bg-muted px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:-mx-4 md:px-8" /* the column's full width, its content on the list's edge */>{props.selectionBar}</div>
+        <div className="mx-3 mb-[max(1rem,env(safe-area-inset-bottom))] rounded-overlay bg-sheet p-3 shadow-md md:mx-0">{props.selectionBar}</div>
       )}
     </div>
   )
@@ -290,7 +290,7 @@ function ListBody({
                 {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
                 {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}
-                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 text-[13px]">
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 !text-[length:var(--text-section)] !leading-6 !font-semibold">
                   {t(`readiness.${section.readiness}`)}
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>

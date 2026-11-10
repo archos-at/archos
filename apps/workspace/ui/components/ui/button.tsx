@@ -53,9 +53,11 @@ const buttonVariants = cva(
         // to accent (a filled-to-accent outline reads as secondary).
         outline:
           'border border-input bg-transparent hover:bg-card hover:text-accent-foreground',
-        // Tonal: the one grey on white, white on a grey panel (`data-surface="sunken"`), never an outline (D4).
+        // Raised white (paper on a desk): a sheet-white press with a 1px edge
+        // at 12% ink and elevation 1; hover is the desk grey, the press the
+        // pressed grey. Replaces the tonal secondary (D4, 2026-11-10).
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-accent in-data-[surface=sunken]:bg-background in-data-[surface=sunken]:hover:bg-accent',
+          'bg-sheet text-foreground shadow-xs hover:bg-desk active:bg-pressed',
         // Ghost is the quietest action: one step to secondary, not accent.
         ghost: 'hover:bg-secondary hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',

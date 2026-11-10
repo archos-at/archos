@@ -118,7 +118,7 @@ export function InboundMailRow({
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
       // Picked holds the state grey as the open row does, as a picked tile does; what sits on it turns white.
       // A run of picked rows is one region: where two meet, their corners are square (no notch at the seam).
-      className={cn('group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0', checked && 'bg-accent hover:bg-accent [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none')}
+      className={cn('group/row relative items-start rounded-control px-3 hover:bg-hairline pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0 after:pointer-events-none after:absolute after:bottom-0 after:left-[84px] after:right-3 after:h-px after:bg-hairline last:after:hidden data-current:after:hidden', checked && 'bg-selected hover:bg-selected [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none')}
       data-checked={checked || undefined}
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
@@ -154,11 +154,11 @@ export function InboundMailRow({
           <PersonAvatar
             person={{ userId: mail.senderDomain ?? who, name: who }}
             size="sm"
-            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
+            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex min-w-0 items-baseline gap-2">
-              <p className={cn('min-w-0 flex-1 line-clamp-2 text-sm text-pretty [overflow-wrap:anywhere]', waiting ? 'text-foreground font-medium' : 'text-foreground')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
+              <p className={cn('min-w-0 flex-1 line-clamp-2 text-sm text-pretty [overflow-wrap:anywhere]', waiting ? 'text-foreground font-semibold' : 'text-foreground font-normal')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
                 {subject}
               </p>
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />

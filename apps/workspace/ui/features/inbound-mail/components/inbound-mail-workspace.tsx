@@ -459,8 +459,8 @@ export function InboundMailWorkspace({
       {/* The list's content stands on the title's edge (32px from a desk's side, 16px on a phone): `md:px-4` over its
           own 16px, the right one given back at the split, where the pane's divider is its edge. 25rem keeps the
           rows 22rem and the open row's fill as far from the divider as from the screen's side. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)]')}>
-        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:pr-8')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -528,7 +528,7 @@ export function InboundMailWorkspace({
           />
         </div>
         <div
-          className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
+          className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block @3xl:overflow-y-auto @3xl:rounded-surface @3xl:bg-sheet @3xl:shadow-sm', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
           data-testid="inbound-mail-detail-pane"
         >
           {mailId ? (

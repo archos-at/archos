@@ -127,7 +127,8 @@ describe('FolderBinPanel (the Papierkorb)', () => {
       vi.fn().mockResolvedValue(answer(409, { error: 'held', details: { reason: 'legal_hold' } }))
     )
     render(<FolderBinPanel projectId="p1" initial={listing([entry()], { canPurge: true })} />)
-    await userEvent.click(screen.getByTestId('bin-purge-f-vertraege'))
+    await userEvent.click(screen.getByTestId('bin-actions-f-vertraege'))
+    await userEvent.click(await screen.findByTestId('bin-purge-f-vertraege'))
     await userEvent.click(await screen.findByTestId('bin-purge-confirm'))
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('This folder is under a retention obligation and cannot be deleted right now.')

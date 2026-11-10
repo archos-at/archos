@@ -23,8 +23,9 @@ import { useState, type JSX } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, CheckCheck, FileText, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CheckCheck, ChevronRight, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
@@ -230,26 +231,28 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                   <span className="flex w-6 shrink-0 justify-start">
                     <FileText className="text-muted-foreground size-4" aria-hidden />
                   </span>
-                  <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
-                  <Button asChild variant="secondary" size="sm" className="shrink-0" /* tonal: a row-end press, not a label */>
+                  {/* The heading is the one action of the group: it opens the review. No second press beside it. */}
+                  <h2 className="min-w-0 flex-1 text-section">
                     <Link
                       href={reviewFilesHref(projectId, { documentId: group.documentId }, { back: here })}
                       aria-label={t('openPoints.openReviewOf', { name: group.documentName })}
+                      className="group/head inline-flex max-w-full items-center gap-1 rounded-control outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
-                      {t('openPoints.openReview')}
+                      <span className="truncate">{group.documentName}</span>
+                      <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
                     </Link>
-                  </Button>
+                  </h2>
                 </div>
-                <ul className="-mx-2.5 flex flex-col gap-0.5">
+                <ul className="-mx-2.5 flex flex-col">
                   {group.marks.map((mark) => (
-                    <li key={mark.id}>
+                    <li key={mark.id} className={ROW_HAIRLINE_MARKS}>
                       <Link
                         href={reviewFilesHref(
                           projectId,
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={cn(markRowClassName(), 'hover:bg-muted')}
+                        className={cn(markRowClassName(), 'hover:bg-desk')}
                         data-testid="open-point-row"
                       >
                         <MarkRowContent annotation={mark} viewerId={currentUserId} showPage />
@@ -274,3 +277,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
     </div>
   )
 }
+
+/** A hairline under each point, inset to its text (10px row inset + 24px marker + 12px gap). */
+const ROW_HAIRLINE_MARKS = `${ROW_HAIRLINE} after:left-[46px] after:right-2.5`

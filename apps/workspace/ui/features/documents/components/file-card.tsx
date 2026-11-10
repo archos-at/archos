@@ -395,10 +395,7 @@ export const FileCard = memo(function FileCard({
           {/* Under the hover, the open and the picked tile's fill the sheet takes that fill: the one grey on the state grey was grey on grey. */}
           <FileTileMedia
             ref={mediaRef}
-            className={cn(
-              'h-[124px] transition-colors duration-quick ease-out group-hover/card:bg-transparent group-aria-[current=true]:bg-transparent motion-reduce:transition-none',
-              selection?.checked && 'bg-transparent'
-            )}
+            className="h-[124px]"
           >
             <ThumbnailWithFallback file={file} visible={seen} />
             {showStatus && (

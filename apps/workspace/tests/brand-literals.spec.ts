@@ -1,9 +1,9 @@
 // @disk-inputs: app/**, ui/**, shared/**, i18n/dictionaries/**
 /**
  * The brand rules the workspace keeps at its own level (docs/design/design-language.md,
- * "Type ramp" and "Weight and white"): nothing but the wordmark is set in capitals,
- * content is weight 500, a surface is never pure white, and the chart palette is typed
- * in one file. Each rule is a ratchet: the allowlists below name
+ * "Paper on a desk", then "Type ramp" and "Weight and white"): nothing but the wordmark is set in
+ * capitals, weights are 440 / 500 / 600 (never 700), the app has five neutrals and three elevations, and the
+ * chart palette is typed in one file. Each rule is a ratchet: the allowlists below name
  * the few places that are exceptions on purpose, with the reason, and a new occurrence
  * anywhere else fails here instead of waiting for a reviewer's eye.
  */
@@ -27,29 +27,6 @@ const files = ['app', 'ui', 'shared']
   .filter((file) => !file.includes(`${join(ROOT, 'shared', 'brand')}`))
   .map((file) => ({ name: relative(ROOT, file), text: readFileSync(file, 'utf8') }))
 
-/** Files that may set weight 600: the wordmark, and numerals or initials at 12px or smaller inside a badge, marker, count or avatar. */
-const SEMIBOLD_ALLOWED = new Set([
-  'ui/components/brand/logo.tsx',
-  'ui/components/ui/live-cursor.tsx',
-  'ui/components/ui/comment-pin.tsx',
-  'ui/components/ui/count-pill.tsx',
-  'ui/components/ui/avatar-stack.tsx',
-  'ui/components/ui/stepper.tsx',
-  'ui/features/platform/components/norm-entry-editor.tsx',
-  'ui/features/chat/components/MessageAuthor.tsx',
-  'ui/features/chat/components/CitationMarker.tsx',
-  'ui/features/chat/components/source-preview/citation-face.tsx',
-  'ui/features/chat/components/source-preview/locus-rail.tsx',
-  'ui/features/chat/components/FileReferencePeek.tsx',
-  'ui/features/chat/components/reasoning/BranchOptions.tsx',
-  'ui/features/project-intake/components/reading/reading-milestone-card.tsx',
-  'ui/features/project-intake/components/setup-frame.tsx',
-  'ui/features/documents/components/revision-compare/compare-atoms.tsx',
-  'ui/features/documents/components/revision-compare/revision-compare.tsx',
-  'ui/features/documents/components/file-card.tsx',
-  'shared/components/MarkdownRenderer/answer-atoms.tsx',
-])
-
 /** Pure white on purpose: a document's own paper, and text on a collaborator's fixed hue. */
 const WHITE_ALLOWED = new Set([
   'ui/components/ui/live-cursor.tsx',
@@ -61,20 +38,26 @@ const WHITE_ALLOWED = new Set([
   'ui/features/diagrams/components/mermaid-diagram.tsx', // a comment recalling the old white
 ])
 
+/** 700 on purpose: the wordmark, and a 12px numeral inside a badge. */
+const BOLD_ALLOWED = new Set(['ui/components/brand/logo.tsx', 'ui/features/project-intake/components/reading/reading-milestone-card.tsx'])
+
 describe('weight', () => {
-  it('600 and 700 stay in the allowlist', () => {
+  it('weights are 440, 500 and 600: nothing is bold or extrabold but the wordmark', () => {
+    // Paper on a desk (2026-11-10): 600 is for headings and for state (an unread subject, a row that needs you),
+    // so `font-semibold` is free; 700 and up stays the wordmark's.
     const offenders = files
       .filter((f) => f.name.endsWith('.tsx') || f.name.endsWith('.ts'))
-      .filter((f) => /\bfont-(semibold|bold|extrabold)\b/.test(f.text) && !SEMIBOLD_ALLOWED.has(f.name))
+      .filter((f) => /\bfont-(bold|extrabold|black)\b/.test(withoutComments(f.text)) && !BOLD_ALLOWED.has(f.name))
       .map((f) => f.name)
     expect(offenders).toEqual([])
   })
 
-  it('the allowlist has no stale entry', () => {
-    const stale = [...SEMIBOLD_ALLOWED].filter(
-      (name) => !files.some((f) => f.name === name && /\bfont-(semibold|bold)\b/.test(f.text)),
-    )
-    expect(stale).toEqual([])
+  it('the type scale names its headings at 600: section 16, pane title 20, page title 24', () => {
+    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+    for (const [name, size] of [['section', '1rem'], ['pane-title', '1.25rem'], ['page-title', '1.5rem']]) {
+      expect(tokens, name).toMatch(new RegExp(`--text-${name}:\\s*${size};`))
+      expect(tokens, name).toMatch(new RegExp(`--text-${name}--font-weight:\\s*600;`))
+    }
   })
 
   it('the lightest weight is the raised normal, 440, read by the body and every font-normal', () => {
@@ -98,9 +81,9 @@ describe('weight', () => {
     expect(css).toEqual([])
   })
 
-  it('the stylesheet sets no weight above 500 outside the wordmark face', () => {
+  it('the stylesheet sets no weight above 600 outside the wordmark face', () => {
     const css = files.filter((f) => f.name.endsWith('.css'))
-    const offenders = css.filter((f) => /font-weight:\s*(6|7|8|9)00/.test(f.text) && !/@font-face/.test(f.text))
+    const offenders = css.filter((f) => /font-weight:\s*(7|8|9)00/.test(f.text) && !/@font-face/.test(f.text))
     expect(offenders.map((f) => f.name)).toEqual([])
   })
 })
@@ -220,26 +203,55 @@ describe('tracking', () => {
   })
 })
 
-describe('one grey', () => {
-  // The design system's one light grey (`--ds-surface-sunken`, the app's `bg-muted`) and the
-  // state fill (`bg-accent`, hover and the open row), never a step between them: Dateien and the
-  // E-Mail-Eingang wore six alpha greys (/20 to /80) until 2026-11-06. The drawn page sketches of
-  // the preview peek are an illustration's shades, not surfaces.
-  const GREY_STEPS_ALLOWED = new Set(['ui/features/documents/components/file-preview-peek.tsx'])
-  it('Dateien and the E-Mail-Eingang fill with the one grey or the state fill, never a step of either', () => {
-    const offenders = files
-      .filter((f) => f.name.startsWith('ui/features/documents/') || f.name.startsWith('ui/features/inbound-mail/'))
-      .filter((f) => !GREY_STEPS_ALLOWED.has(f.name))
-      .filter((f) => /\bbg-(muted|accent|secondary)\/\d+/.test(withoutComments(f.text)))
-      .map((f) => f.name)
-    expect(offenders).toEqual([])
+describe('five neutrals, three elevations', () => {
+  // Paper on a desk (2026-11-10) replaces „one grey, nothing grey on grey“ inside the app: the desk is grey, the
+  // working page is paper, a sheet is white, and selected and pressed are their own steps, so one fill no longer
+  // means six things. The tokens are the single place the hexes are typed.
+  const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+  const light = tokens.slice(tokens.indexOf('Paper on a desk (2026-11-10)'))
+  it('the five neutrals are the spec\u2019s', () => {
+    for (const [name, hex] of [['sheet', '#ffffff'], ['paper', '#fafaf9'], ['desk', '#f2f1f0'], ['selected', '#e9e7e4'], ['pressed', '#dedbd7']]) {
+      expect(light, name).toContain(`--${name}: ${hex};`)
+    }
+  })
+  it('hairline and edge are ink alpha', () => {
+    expect(light).toContain('--hairline: rgb(15 14 13 / 0.08);')
+    expect(light).toContain('--edge: rgb(15 14 13 / 0.12);')
+  })
+  it('the elevation steps are distinct and each one is visible (an edge ring plus a shadow)', () => {
+    const root = light.slice(0, light.indexOf('.dark {'))
+    const value = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(root)?.[1]
+    const steps = ['elevation-1', 'elevation-2', 'elevation-3'].map(value)
+    expect(new Set(steps).size).toBe(3)
+    for (const step of steps) expect(step).toMatch(/^0 0 0 1px rgb\(15 14 13/)
+    expect(value('elevation-xs')).not.toBe(value('elevation-sm'))
+    expect(value('elevation-sm')).toBe('var(--elevation-1)')
+    expect(value('elevation-md')).toBe('var(--elevation-2)')
+    expect(value('elevation-lg')).toBe('var(--elevation-3)')
+  })
+  it('the radius ladder is 6 / 10 / 16 / full, with no stray --radius', () => {
+    expect(tokens).toMatch(/--radius-overlay:\s*16px;/)
+    expect(tokens).toMatch(/--radius-inline:\s*6px;/)
+    expect(tokens).not.toMatch(/^\s*--radius:/m)
+  })
+  it('a sheet is white on every surface that draws a document or a floating bar', () => {
+    const tile = files.find((f) => f.name === 'ui/features/documents/components/file-tile.tsx')?.text ?? ''
+    expect(tile).toMatch(/bg-sheet shadow-sm/)
+    for (const name of ['ui/features/documents/components/selection-bar.tsx']) {
+      expect(files.find((f) => f.name === name)?.text, name).toMatch(/bg-sheet shadow-md rounded-overlay/)
+    }
   })
 })
 
 describe('the secondary press', () => {
-  // Owner decision D4 (design-language.md): the app's secondary press is tonal, the one grey on
-  // white and white on a grey panel, never the design system's outline. Dateien and the
-  // E-Mail-Eingang are held to it; the rest of the app is not yet.
+  // Paper on a desk overrides owner decision D4: the secondary press is raised white (a white sheet with the edge
+  // at 12% ink and elevation 1, desk grey on hover), not tonal. Dateien and the E-Mail-Eingang still set no outline
+  // button.
+  it('the kit draws secondary as the raised white press', () => {
+    const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/button.tsx')?.text ?? '')
+    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-xs hover:bg-desk active:bg-pressed'/)
+    expect(kit).not.toMatch(/in-data-\[surface=sunken\]/)
+  })
   it('Dateien and the E-Mail-Eingang set no outline button', () => {
     const offenders = files
       .filter((f) => f.name.startsWith('ui/features/documents/') || f.name.startsWith('ui/features/inbound-mail/'))
@@ -264,18 +276,27 @@ const DATEIEN_SURFACE = [
   ].map((name) => `ui/features/documents/components/${name}.tsx`),
 ]
 
-describe('no section lines', () => {
-  // The design system draws lines only where they carry a function (a field's border, an info list), never
-  // between sections, under a header or around a group (packages/brand/README.md, „Layout and shape“). Dateien's
-  // listing and the E-Mail-Eingang separate by white space and the one grey alone since 2026-11: no rule above
-  // or below a block, no hairlines between rows, no dashed box. A pinned bar over scrolling content takes the
-  // faint `shadow-pinned-foot` instead; a split view's pane divider (`border-r`) is a function and not matched.
-  it('Dateien and the E-Mail-Eingang draw no line between sections or rows', () => {
+describe('lines for lists, space for sections', () => {
+  // Paper on a desk, principle 5: a page's sections are separated by 32px of space, never a rule above or below
+  // a block or a dashed box; the rows of a list are separated by an inset hairline (`ROW_HAIRLINE`, ink at 8%).
+  // A pinned bar over scrolling content takes the faint `shadow-pinned-foot`; a split view's pane divider is a
+  // function and not matched.
+  it('Dateien and the E-Mail-Eingang draw no rule between sections (a list\u2019s rows use ROW_HAIRLINE)', () => {
     const offenders = files
       .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
       .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text)))
       .map((f) => f.name)
     expect(offenders).toEqual([])
+  })
+  it('the hairline is the token, and the Papierkorb, Offene Punkte and the mail list wear it', () => {
+    expect(files.find((f) => f.name === 'ui/components/ui/row-hairline.ts')?.text).toMatch(/after:bg-hairline/)
+    for (const name of [
+      'ui/features/documents/components/folder-bin-panel.tsx',
+      'ui/features/documents/components/open-points/open-points-panel.tsx',
+    ]) {
+      expect(files.find((f) => f.name === name)?.text, name).toContain('ROW_HAIRLINE')
+    }
+    expect(files.find((f) => f.name === 'ui/features/inbound-mail/components/inbound-mail-row.tsx')?.text).toContain('after:bg-hairline')
   })
 })
 
@@ -348,6 +369,7 @@ function pressKey(tag: string, children: string): string {
  * press). Anything else that does something (creates, files, selects, filters, opens a menu of actions) is tonal.
  */
 const WORD_GHOSTS_ALLOWED: Record<string, string> = {
+  'ui/features/documents/components/folder-bin-panel.tsx#bin-restore-': 'a list row\u2019s one visible action (Paper on a desk, principle 6): a ghost word, the rest behind the ⋯',
   'ui/features/documents/components/files-header-controls.tsx#files-open-points': 'navigation: a place, when no tabs show it',
   'ui/features/documents/components/files-header-controls.tsx#files-inbound-mail': 'navigation: a place, when no tabs show it',
   'ui/features/inbound-mail/components/inbound-mail-workspace.tsx#inbound-mail-back': 'navigation: the way back to the list',
@@ -359,7 +381,7 @@ const WORD_GHOSTS_ALLOWED: Record<string, string> = {
 describe('a press looks pressable', () => {
   // The owner's finding of 2026-11-10: rounds that optimised „reduction“ left 93 presses on these surfaces as bare
   // words, and „Als Fassung 4–6 ablegen“, „Auswählen“ or „Filter“ read as labels. A press that does something is
-  // tonal (the one grey, white on a grey panel, D4); bare words are for navigation, a disclosure, or a menu row, and
+  // raised white (D4's tonal press was overridden by Paper on a desk); bare words are for navigation, one visible ghost action per list row,, a disclosure, or a menu row, and
   // each one that stays says why in WORD_GHOSTS_ALLOWED. An icon-only tool (`size="icon"`) is not matched: a glyph
   // in a dense row reads as a tool by its shape.
   const surface = files.filter((f) => AFFORDANCE_SURFACE.some((path) => f.name.startsWith(path)))

@@ -1,0 +1,8 @@
+---
+# area: documents
+improvements:
+  - >
+    Files, project mail, open points and the bin now read as sheets lying on a
+    desk: documents are white with a soft edge, buttons are raised, headings are
+    bolder and unread mail stands out. Each list row shows one action, and the
+    rest appear on hover.
