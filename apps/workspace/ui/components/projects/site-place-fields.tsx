@@ -1,8 +1,9 @@
 'use client'
 
 /**
- * Where the new project is: its country first, then, in Austria, its
- * Bundesland. Both optional, neither preselected.
+ * Where the new project is: its country first, then, where the records hold
+ * its subdivisions, its Land (`SITE_SUBDIVISIONS`, read from the country's
+ * `fact_definitions` record, ADR-0169). Both optional, neither preselected.
  *
  * The site decides which law applies (ADR-0158), and with address search off
  * (ADR-0159) a typed address no longer places a project by itself. Left empty,
@@ -21,26 +22,15 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
 /** The A2_country tokens, in the order the picker lists them. */
 export const SITE_COUNTRIES = ['at', 'de', 'ch', 'other'] as const
-/** The A2_land tokens of Austria's nine Länder. */
-export const AUSTRIAN_STATES = [
-  'vienna',
-  'lower_austria',
-  'upper_austria',
-  'styria',
-  'carinthia',
-  'salzburg',
-  'tyrol',
-  'vorarlberg',
-  'burgenland',
-] as const
 
 export interface SitePlace {
   /** An A2_country token, or '' while none is chosen. */
   country: string
-  /** An A2_land token, or '' while none is chosen; only in Austria. */
+  /** An A2_land token, or '' while none is chosen; only in the country whose subdivisions the records hold. */
   federalState: string
 }
 
@@ -59,7 +49,7 @@ export function SitePlaceFields({
   disabled: boolean
 }): JSX.Element {
   const t = useTranslations(projectsCopy)
-  const austria = value.country === 'at'
+  const subdivided = value.country === SITE_SUBDIVISIONS.country
   return (
     <Field data-testid="create-project-site">
       <div className="grid grid-cols-2 gap-2.5 max-sm:grid-cols-1">
@@ -68,7 +58,7 @@ export function SitePlaceFields({
           <Select
             value={value.country || UNSET}
             onValueChange={(next) =>
-              onChange({ country: next === UNSET ? '' : next, federalState: next === 'at' ? value.federalState : '' })
+              onChange({ country: next === UNSET ? '' : next, federalState: next === SITE_SUBDIVISIONS.country ? value.federalState : '' })
             }
             disabled={disabled}
           >
@@ -89,17 +79,17 @@ export function SitePlaceFields({
           <FieldLabel htmlFor="create-project-federal-state">{t('form.site.federalStateLabel')}</FieldLabel>
           <Select
             value={value.federalState || UNSET}
-            onValueChange={(next) => onChange({ country: 'at', federalState: next === UNSET ? '' : next })}
-            disabled={disabled || !austria}
+            onValueChange={(next) => onChange({ country: SITE_SUBDIVISIONS.country, federalState: next === UNSET ? '' : next })}
+            disabled={disabled || !subdivided}
           >
             <SelectTrigger id="create-project-federal-state" data-testid="create-project-federal-state">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={UNSET}>{t('form.site.fromPostalCode')}</SelectItem>
-              {AUSTRIAN_STATES.map((state) => (
-                <SelectItem key={state} value={state}>
-                  {t(`form.site.state.${state}`)}
+              {SITE_SUBDIVISIONS.options.map((state) => (
+                <SelectItem key={state.token} value={state.token}>
+                  {state.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -114,5 +104,5 @@ export function SitePlaceFields({
 /** The action's fields for a chosen place: nothing for what was left empty. */
 export function setSitePlace(formData: FormData, value: SitePlace): void {
   if (value.country) formData.set('country', value.country)
-  if (value.country === 'at' && value.federalState) formData.set('federal_state', value.federalState)
+  if (value.country === SITE_SUBDIVISIONS.country && value.federalState) formData.set('federal_state', value.federalState)
 }

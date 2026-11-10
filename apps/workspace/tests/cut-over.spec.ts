@@ -26,7 +26,14 @@ const REMOVED: Record<string, string> = {
 }
 
 /** Names only the old paths used: one read again means an old path is back under a new file name. */
-const OLD_NAMES = ['getApplicableStandards', 'deriveProjectStandards', 'OIB_STANDARDS', 'platformDirectiveApplies', 'project-standards-get']
+const OLD_NAMES = ['getApplicableStandards', 'deriveProjectStandards', 'OIB_STANDARDS', 'platformDirectiveApplies', 'project-standards-get', 'AUSTRIAN_STATES']
+
+/**
+ * A list of Austria's Länder written into code, by token or by ISO code: the
+ * list lives in the country's `fact_definitions` record (`SITE_SUBDIVISIONS`),
+ * domain data in the packs and records, never a copy in a module.
+ */
+const LAND_LISTS = [/'lower_austria',\s*'upper_austria'/, /lower_austria: 'AT-3'/, /'AT-3': 'Nieder/]
 
 function sources(dir: string): string[] {
   return readdirSync(join(ROOT, dir)).flatMap((name) => {
@@ -47,5 +54,14 @@ describe('the cut-over (ADR-0175)', () => {
       return OLD_NAMES.filter((name) => text.includes(name)).map((name) => `${file}: ${name}`)
     })
     expect(found).toEqual([])
+  })
+
+  it('no source writes its own list of Austria’s Länder', () => {
+    const found = ['bff', 'ui', 'app'].flatMap(sources).filter((file) => {
+      const text = readFileSync(join(ROOT, file), 'utf8')
+      return LAND_LISTS.some((pattern) => pattern.test(text))
+    })
+    // A spec's or fixture's own data is not a list the product reads.
+    expect(found.filter((file) => !file.endsWith('.fixtures.ts') && !file.startsWith('app/dev/'))).toEqual([])
   })
 })

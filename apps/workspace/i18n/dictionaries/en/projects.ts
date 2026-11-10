@@ -359,17 +359,6 @@ export const projects = {
       fromPostalCode: 'From the postal code',
       help: 'The site decides which building law applies. Left empty, the postal code of an Austrian address suggests the federal state; you confirm it during setup.',
       country: { at: 'Austria', de: 'Germany', ch: 'Switzerland', other: 'Another country' },
-      state: {
-        vienna: 'Vienna',
-        lower_austria: 'Lower Austria',
-        upper_austria: 'Upper Austria',
-        styria: 'Styria',
-        carinthia: 'Carinthia',
-        salzburg: 'Salzburg',
-        tyrol: 'Tyrol',
-        vorarlberg: 'Vorarlberg',
-        burgenland: 'Burgenland',
-      },
     },
     sameAddress: {
       heading: 'There is already a project at this address',
