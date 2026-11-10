@@ -10,8 +10,6 @@ import { motion, springGlide } from '@/components/motion'
 
 type ToggleGroupContextValue = VariantProps<typeof toggleVariants> & {
   segmented: boolean
-  /** Segmented without its track: the chosen segment is the one grey on the page (see `ToggleGroup`'s `bare`). */
-  bare: boolean
   /** The group's current value (single string or multiple array), or undefined
    * when nothing is selected — so a segmented item can tell whether IT is the
    * active one and mount the shared-layout pill. */
@@ -37,7 +35,6 @@ const ToggleGroupContext = React.createContext<ToggleGroupContextValue>({
   size: 'default',
   variant: 'default',
   segmented: false,
-  bare: false,
   groupValue: undefined,
   pillId: 'toggle-pill',
 })
@@ -46,14 +43,13 @@ const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
     VariantProps<typeof toggleVariants> & {
-      /** Joined segment cluster (view switcher). */
-      segmented?: boolean
       /**
-       * Segmented, drawn as the section's tabs are: no track, the chosen segment the one grey and the
-       * others on the page. Where a page already shows tabs (Dateien), a second look for „one of these“
-       * was a second grey shape beside them.
+       * Joined segment cluster (view switcher, a filter): a track of the one grey with the chosen segment on a
+       * white thumb, Apple's segmented control. There is no trackless form: without its track the unchosen
+       * segments read as plain words beside a filled one, and nothing said they were the other half of a choice
+       * (design-language.md, „A choice sits on its track“).
        */
-      bare?: boolean
+      segmented?: boolean
     }
 >(
   (
@@ -62,7 +58,6 @@ const ToggleGroup = React.forwardRef<
       variant,
       size,
       segmented = false,
-      bare = false,
       children,
       value,
       defaultValue,
@@ -118,16 +113,16 @@ const ToggleGroup = React.forwardRef<
               // it describes; the row still scrolls by drag, wheel and
               // keyboard, and focusing a segment scrolls it into view.
               //
-              // A track, not a box: one tone below the page with no border,
-              // and the chosen segment a raised sheet on it (the pill below).
-              cn('w-fit max-w-full overflow-x-auto scrollbar-hide', bare ? 'gap-1' : 'gap-0 rounded-control bg-muted p-0.5')
+              // A track, not a box: the one grey with no border, and the
+              // chosen segment a white thumb on it (the pill below).
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-muted p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}
         {...rootProps}
       >
         <ToggleGroupContext.Provider
-          value={{ variant, size, segmented, bare, groupValue: resolved, pillId }}
+          value={{ variant, size, segmented, groupValue: resolved, pillId }}
         >
           {children}
         </ToggleGroupContext.Provider>
@@ -176,8 +171,11 @@ const ToggleGroupItem = React.forwardRef<
         // like the tabs trigger. Only ink stays here. `relative isolate` +
         // pill `-z-10` keeps the text above the pill with no wrapper element,
         // so no consumer needs a relative wrapper of its own.
+        // On the track an unchosen segment hovers to ink, not to a fill: a
+        // state grey on the track's grey is grey on grey, and the thumb is
+        // the one surface that moves.
         context.segmented &&
-          'relative isolate data-[state=on]:bg-transparent data-[state=on]:shadow-none',
+          'relative isolate hover:bg-transparent data-[state=on]:bg-transparent data-[state=on]:shadow-none',
         // Never squeezed: a row of segments that runs out of room scrolls
         // (the segmented tray is `overflow-x-auto`) or wraps (the plain
         // group), and a segment that shrank instead cut its own label and
@@ -199,7 +197,8 @@ const ToggleGroupItem = React.forwardRef<
           data-pill-id={context.pillId}
           className={cn(
             'absolute inset-0 -z-10 rounded-[inherit]',
-            context.bare ? 'bg-secondary' : cn('shadow-2xs', SEGMENTED_PILL_BG[resolvedVariant] ?? SEGMENTED_PILL_BG.default)
+            'shadow-2xs',
+            SEGMENTED_PILL_BG[resolvedVariant] ?? SEGMENTED_PILL_BG.default
           )}
           // Unbounded travel across the segment cluster is why this is
           // `springGlide`; reduced motion is handled by the global

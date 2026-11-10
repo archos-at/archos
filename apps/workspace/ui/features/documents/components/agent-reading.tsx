@@ -131,11 +131,12 @@ export function AgentReading({
             </p>
           )}
           {canManage && (
+            // Tonal, white on the reading's grey: it changes the reading, and a muted link read as part of the facts.
             <Button
               type="button"
-              variant="link"
+              variant="secondary"
               size="sm"
-              className="text-muted-foreground hover:text-foreground h-auto gap-1 self-start p-0 text-xs"
+              className="gap-1.5 self-start"
               onClick={() => setCorrecting(true)}
               data-testid="agent-reading-correct"
             >

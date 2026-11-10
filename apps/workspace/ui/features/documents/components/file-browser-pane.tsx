@@ -699,7 +699,7 @@ export function FileBrowserPane({
           {selection?.onStart && !picking && orderedFiles.length > 0 && writableHere && (
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="gap-1.5"
               onClick={selection.onStart}

@@ -199,6 +199,7 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
       pillId="files-places-pill"
       orientation="tabs"
       pathname={pathname}
+      track
       data-testid="files-tabs"
     />
   )
@@ -264,15 +265,14 @@ export function ProjectSectionFrame({
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold.
             <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
-              {/* On a desk the first tab's glyph stands on the title's edge: the pill bleeds by its 12px inset. */}
-              <div className="min-w-0 md:-ml-3">
+              {/* The track on the title's edge: a fill always drawn is the edge, not given back. */}
+              <div className="min-w-0">
                 <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
               </div>
-              {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
+              {/* The tabs' own 8px under the track, so the tools stand on the track's line. */}
               {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
-              {/* Word presses 12px apart, glyph to word, as every bar's: each keeps 6px of padding and the last gives its
-                  back, so the tools end on the content edge (they stood 29px apart on two 14px insets). */}
-              {tabActions && <div className="-mr-1.5 flex shrink-0 items-center pb-2 [&_[data-slot=button]]:mr-0 [&_[data-slot=button]]:px-1.5 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+              {/* Tonal presses 12px apart, as every bar's, the last one's fill on the content edge. */}
+              {tabActions && <div className="flex shrink-0 items-center gap-3 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
             </div>
           )}
           {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}

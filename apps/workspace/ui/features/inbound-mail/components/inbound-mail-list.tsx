@@ -93,8 +93,8 @@ export interface InboundMailListProps {
 }
 
 /** A thread group's press: quiet text at the line's end, a finger's 44px under touch. */
-const GROUP_ACTION =
-  'text-muted-foreground hover:text-foreground -mr-2 shrink-0 gap-1.5 px-2 text-xs pointer-coarse:min-h-11'
+/** A row-end press of a heading or a thread line: tonal, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
+const GROUP_ACTION = 'shrink-0 gap-1.5'
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -106,10 +106,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         <ToggleGroup
           type="single"
           segmented
-          bare
-          // The first segment's label on the list's edge on a desk: its fill bleeds by its inset, as the tabs' does.
-          // 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
-          className="md:-ml-3 [&>button]:text-sm"
+          // The track on the list's edge. 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
+          className="[&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -118,13 +116,13 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
             {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
-            {/* One digit's width and no text to read, white on the chosen segment's grey. */}
+            {/* One digit's width and no text to read: the one grey on the white thumb, white on the track. */}
             {waitingCount === null && (
-              <CountPill tone="muted" aria-hidden className="bg-background">
+              <CountPill tone="muted" aria-hidden className="in-data-[state=off]:bg-background">
                 <span className="invisible before:content-['8']" />
               </CountPill>
             )}
-            {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=on]:bg-background" />}
+            {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=off]:bg-background" />}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
             {t('filters.handled')}
@@ -297,7 +295,7 @@ function ListBody({
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
                 {ready && batch.length > 1 && !picking && !soleThread && (
-                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                  <Button type="button" size="sm" variant="secondary" className={GROUP_ACTION} onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     {/* No glyph, as the thread's press has none: row-end actions are text presses. One request decides at
                         most twenty mails: past that, the press says it files the first ones. */}
                     {t(batch.length < section.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
@@ -316,9 +314,9 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              {/* A 24px line whose press overhangs it by 4px each way (44px under touch): the label stands 16px over its first
-                  row's words and 24px under the section's heading, nearer what it heads than what heads it. */}
-              <div className="box-content flex h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&_[data-slot=button]]:-my-1" /* 24px, fixed: one height with its press or without, so ticking a box moves nothing */>
+              {/* A line as tall as its tonal press (32px, 44px under touch), so the press's fill never reaches the first row;
+                  4px less above it keeps the label where the 24px line with an overhanging word press had it. */}
+              <div className="box-content flex h-8 items-center justify-between gap-2 px-4 pt-1 pointer-coarse:h-11 [[data-readiness]+section>&]:pt-0" /* fixed: one height with its press or without, so ticking a box moves nothing */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}
@@ -329,7 +327,7 @@ function ListBody({
                   <BusyButton
                     type="button"
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     // No glyph: the file glyph is the „Bereit“ heading's press for all of them; this one files the thread.
                     className={GROUP_ACTION}
                     busy={fileGroupBusy === groupKey}
@@ -345,7 +343,7 @@ function ListBody({
                   </BusyButton>
                 ) : (
                   // Every mail of this half needs the person: the way in is its first mail, and no Fassung range is promised.
-                  <Button asChild size="sm" variant="ghost" className={GROUP_ACTION}>
+                  <Button asChild size="sm" variant="secondary" className={GROUP_ACTION}>
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                       {t('group.reviewInOrder')}
                     </Link>

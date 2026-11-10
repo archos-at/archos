@@ -108,7 +108,7 @@ export function HeldReview({
         </Button>
         <Button
           type="button"
-          variant="ghost"
+          variant="secondary"
           size="sm"
           onClick={() => setDeleteOpen(true)}
           disabled={actions.isDeleting}

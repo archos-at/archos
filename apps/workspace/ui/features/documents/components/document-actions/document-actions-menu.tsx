@@ -95,9 +95,9 @@ export interface DocumentActionsMenuProps {
   /**
    * What the default trigger sits on. `floating` (the default) lays it over a
    * thumbnail or a viewport, so it carries its own translucent ground and
-   * shadow to stay legible on whatever is behind it. `toolbar` sits in a row of
-   * ghost icon buttons (the preview header) and must look like its neighbours:
-   * the floating ground there read as one grey square among plain glyphs.
+   * shadow to stay legible on whatever is behind it. `toolbar` sits in the
+   * preview's header beside „Herunterladen“: tonal, as every press that opens a
+   * menu of actions is, while the window's own tools (enlarge, close) stay bare.
    */
   surface?: 'floating' | 'toolbar'
   align?: 'start' | 'end'
@@ -284,7 +284,7 @@ export function DocumentActionsMenu({
           trigger ?? (
             <Button
               type="button"
-              variant="ghost"
+              variant={surface === 'toolbar' ? 'secondary' : 'ghost'}
               size="icon"
               className={cn(
                 'size-8 shrink-0',

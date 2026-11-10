@@ -308,7 +308,7 @@ export function AttachmentRow({
                   → {draft.name}
                 </span>
               )}
-              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+              <Button type="button" size="sm" variant="secondary" onClick={() => setEditOpen(true)} data-testid="attachment-change">
                 {t('attachments.change')}
               </Button>
             </div>

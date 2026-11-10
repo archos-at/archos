@@ -265,7 +265,7 @@ export function FolderBreadcrumbRow({
         </BreadcrumbList>
       </Breadcrumb>
       </div>
-      <div className="flex shrink-0 items-center gap-2">{tools}</div>
+      <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>
     </div>
   )
 }
@@ -299,8 +299,8 @@ function NewFolderControl({
   return (
     <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
       <PopoverTrigger asChild>
-        {/* `-mr-3.5`, its padding: the label ends on the column's edge, under Hochladen's. */}
-        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 gap-1.5 phone:mr-0">
+        {/* Tonal: it creates, and as bare words „Ordner anlegen“ read as a label. Its fill ends on the column's edge, under Hochladen's. */}
+        <Button type="button" variant="secondary" size="sm" className="gap-1.5">
           <FolderPlus className="size-4" aria-hidden />
           {/* A glyph on a phone inside a folder, where the path needs the width; at the root, its words. */}
           <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{t('folders.newFolder')}</span>

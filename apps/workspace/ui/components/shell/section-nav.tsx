@@ -62,6 +62,12 @@ export interface SectionNavProps {
   railTopClassName?: string
   /** The path to mark the current section by, for a `/dev` preview that renders a page at its own URL. */
   pathname?: string
+  /**
+   * The strip on a track of the one grey, the open section a white thumb on it, as every choice in Dateien
+   * (`ToggleGroup segmented`). Where tonal presses stand beside the tabs (Dateien's tools), an open tab filled with
+   * the same grey read as one more press, and the presses as a second group of tabs (2026-11-10 review).
+   */
+  track?: boolean
   'data-testid'?: string
 }
 
@@ -84,6 +90,7 @@ export function SectionNav({
   orientation = 'rail',
   railTopClassName = 'lg:top-24',
   pathname: pathnameOverride,
+  track = false,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
   const currentPathname = usePathname()
@@ -98,6 +105,7 @@ export function SectionNav({
         pillId={pillId}
         isActive={(href) => isSectionActive(pathname, href, rootHref)}
         className={cn(orientation === 'rail' && 'lg:hidden')}
+        track={track}
       />
 
       {/* Desktop: a sticky rail beside the content. */}
@@ -133,12 +141,15 @@ export function SectionStrip({
   pillId,
   isActive,
   className,
+  track = false,
 }: {
   label: string
   items: readonly SectionNavItem[]
   pillId: string
   isActive: (href: string) => boolean
   className?: string
+  /** See {@link SectionNavProps.track}. */
+  track?: boolean
 }): JSX.Element {
   const pathname = usePathname()
   const stripRef = useRef<HTMLDivElement>(null)
@@ -163,14 +174,14 @@ export function SectionStrip({
     <div ref={stripRef} className={className}>
       {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
       <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className="flex gap-1 pb-2">
+        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-muted p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink
                 item={item}
                 active={isActive(item.href)}
                 pillId={pillId}
-                variant="strip"
+                variant={track ? 'track' : 'strip'}
               />
             </li>
           ))}
@@ -189,9 +200,11 @@ function SectionNavLink({
   item: SectionNavItem
   active: boolean
   pillId: string
-  variant: 'strip' | 'rail'
+  /** `track`: a strip entry on the grey track, 28px so the track is the row's 32px; the open one a white thumb. */
+  variant: 'strip' | 'track' | 'rail'
 }): JSX.Element {
   const Icon = item.icon
+  const onTrack = variant === 'track'
   return (
     <Link
       href={item.href}
@@ -203,13 +216,15 @@ function SectionNavLink({
         'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
         // The strip's entries sit 4px apart, so under a finger each grows to
         // 44px rather than borrowing a catchment from its neighbour.
-        variant === 'strip'
-          ? 'inline-flex gap-1.5 px-3 py-1.5 pointer-coarse:min-h-11 pointer-coarse:px-3.5'
-          : 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11',
+        variant === 'rail'
+          ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'
+          : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1' : 'py-1.5'),
         active
           ? 'text-secondary-foreground font-medium'
           : cn(
-              'text-muted-foreground hover:bg-accent',
+              'text-muted-foreground',
+              // On the track an unchosen tab hovers to ink, not to a fill: grey on the track's grey.
+              onTrack ? 'hover:text-foreground' : 'hover:bg-accent',
               variant === 'rail' && 'hover:text-foreground'
             )
       )}
@@ -219,7 +234,7 @@ function SectionNavLink({
           layoutId={pillId}
           aria-hidden
           data-slot="section-nav-pill"
-          className="bg-secondary absolute inset-0 -z-10 rounded-[inherit]"
+          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-card shadow-xs' : 'bg-secondary')}
           transition={springGlide}
         />
       )}
@@ -228,14 +243,15 @@ function SectionNavLink({
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}
       {item.count === null && (
-        // A pill of one digit's width and no text to read: white, as a count on the open tab's grey is.
-        <CountPill tone="muted" aria-hidden className="bg-background">
+        // A pill of one digit's width and no text to read: white on a grey surface, grey on the white thumb.
+        <CountPill tone="muted" aria-hidden className={cn(onTrack ? !active && 'bg-background' : 'bg-background')}>
           <span className="invisible before:content-['8']" />
         </CountPill>
       )}
       {item.count != null && item.count > 0 && (
-        // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
-        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />
+        // White on a grey surface (the open tab's fill, or the track under an unchosen one), as everything on grey is:
+        // grey on grey hid the pill. On the white thumb it is the one grey.
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active !== onTrack && 'bg-background')} />
       )}
     </Link>
   )

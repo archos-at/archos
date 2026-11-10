@@ -601,13 +601,13 @@ function AttentionRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>
-          <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-center gap-3">
             {children}
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              className="-mr-3.5 shrink-0 pl-3" /* its padding: the word ends on the brief's edge, 12px after the tonal press */
+              variant="secondary"
+              className="shrink-0" /* tonal as the press before it, 12px after it (the group's gap), its fill on the brief's edge */
               onClick={onShow}
               aria-label={showLabel}
               title={showLabel}

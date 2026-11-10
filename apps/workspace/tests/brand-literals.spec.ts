@@ -299,19 +299,101 @@ describe('one left edge', () => {
   })
 })
 
-describe('one look for one of these', () => {
-  // Dateien's places are tabs: no track, the chosen one the one grey. A segmented control beside them (the view
-  // toggle, the E-Mail-Eingang's filter) wore a grey track with a white thumb, a second grey shape for the same
-  // idea; it is `bare`, the tabs' look (`ToggleGroup`'s `bare`).
-  const SURFACE = [
-    'ui/features/inbound-mail/',
-    'ui/features/documents/components/files-header-controls.tsx',
-    'ui/features/documents/components/open-points/open-points-panel.tsx',
-  ]
-  it('every segmented group in Dateien’s header and the E-Mail-Eingang is bare', () => {
+/**
+ * The files that draw a press in Dateien's tabs, the file preview and the folder brief: the listing's files and the
+ * pieces they open inside these surfaces (the filter menu, the uploads, a filing suggestion, the preview's rail and a
+ * mail document's thread).
+ */
+const AFFORDANCE_SURFACE = [
+  ...DATEIEN_SURFACE,
+  ...[
+    'file-filter-menu', 'assign-popover', 'upload-tray', 'filing-bar', 'filing-suggestion', 'held-upload-decision',
+    'revision-notices', 'document-actions/document-actions-menu', 'mail-thread/',
+  ].map((name) => `ui/features/documents/components/${name}${name.endsWith('/') ? '' : '.tsx'}`),
+]
+
+/** Every opening tag of `<Name …>` in a file, `=>` inside an attribute's braces included. */
+function openingTags(text: string, names: readonly string[]): { tag: string; at: number }[] {
+  const tags: { tag: string; at: number }[] = []
+  const start = new RegExp(`<(${names.join('|')})(?=[\\s>/])`, 'g')
+  for (const match of text.matchAll(start)) {
+    let depth = 0
+    let quote: string | null = null
+    for (let i = match.index + match[0].length; i < text.length; i += 1) {
+      const c = text[i]
+      if (quote) {
+        if (c === quote && text[i - 1] !== '\\') quote = null
+      } else if (c === '"' || c === "'" || c === '`') quote = c
+      else if (c === '{') depth += 1
+      else if (c === '}') depth -= 1
+      else if (c === '>' && depth === 0) {
+        tags.push({ tag: text.slice(match.index, i + 1), at: i + 1 })
+        break
+      }
+    }
+  }
+  return tags
+}
+
+/** A press's name in the allowlist: its test id (a template's literal head, an `asChild` link's own), else the first copy key it reads. */
+function pressKey(tag: string, children: string): string {
+  const testId = (tag + children).match(/data-testid=(?:"([^"]+)"|\{`([^`$]+))/)
+  if (testId) return testId[1] ?? testId[2]
+  return (tag + children).match(/\bt[a-zA-Z]*\('([^']+)'/)?.[1] ?? 'unnamed'
+}
+
+/**
+ * The presses that stay bare words, each with the one reason that keeps it ghost: navigation (it goes somewhere, as a
+ * crumb or a back arrow does), a disclosure (it opens what is already there), or a row in a menu (the menu is the
+ * press). Anything else that does something (creates, files, selects, filters, opens a menu of actions) is tonal.
+ */
+const WORD_GHOSTS_ALLOWED: Record<string, string> = {
+  'ui/features/documents/components/files-header-controls.tsx#files-open-points': 'navigation: a place, when no tabs show it',
+  'ui/features/documents/components/files-header-controls.tsx#files-inbound-mail': 'navigation: a place, when no tabs show it',
+  'ui/features/inbound-mail/components/inbound-mail-workspace.tsx#inbound-mail-back': 'navigation: the way back to the list',
+  'ui/features/documents/components/file-filter-menu.tsx#file-filter-direction': 'a menu row: it flips the order the row above chose',
+  'ui/features/inbound-mail/components/mail-text.tsx#text.showLess': 'disclosure: it shows the rest of the mail already there',
+  'ui/features/inbound-mail/components/mail-text.tsx#text.hideQuoted': 'disclosure: it shows the quoted mail already there',
+}
+
+describe('a press looks pressable', () => {
+  // The owner's finding of 2026-11-10: rounds that optimised „reduction“ left 93 presses on these surfaces as bare
+  // words, and „Als Fassung 4–6 ablegen“, „Auswählen“ or „Filter“ read as labels. A press that does something is
+  // tonal (the one grey, white on a grey panel, D4); bare words are for navigation, a disclosure, or a menu row, and
+  // each one that stays says why in WORD_GHOSTS_ALLOWED. An icon-only tool (`size="icon"`) is not matched: a glyph
+  // in a dense row reads as a tool by its shape.
+  const surface = files.filter((f) => AFFORDANCE_SURFACE.some((path) => f.name.startsWith(path)))
+  const wordGhosts = surface.flatMap((f) => {
+    const text = withoutComments(f.text)
+    return openingTags(text, ['Button', 'BusyButton', 'SuggestionButton'])
+      .filter(({ tag }) => /\bvariant=("(ghost|link)"|\{[^}]*'(ghost|link)')/.test(tag) && !/\bsize=("icon|\{[^}]*'icon)/.test(tag))
+      .map(({ tag, at }) => `${f.name}#${pressKey(tag, text.slice(at, at + 400).split(/<\/(?:Busy|Suggestion)?Button>/)[0])}`)
+  })
+  it('a worded press on Dateien, the preview and the brief is tonal unless the allowlist says why not', () => {
+    expect(wordGhosts.filter((key) => !(key in WORD_GHOSTS_ALLOWED))).toEqual([])
+  })
+  it('the allowlist has no stale entry', () => {
+    expect(Object.keys(WORD_GHOSTS_ALLOWED).filter((key) => !wordGhosts.includes(key))).toEqual([])
+  })
+})
+
+describe('a choice sits on its track', () => {
+  // A segmented control is a track of the one grey with the chosen item on a white thumb (Apple's segmented
+  // control). Its `bare` form (2026-11-06 to -10: no track, the chosen item the one grey) left the unchosen options
+  // as plain text beside a filled word, so „Bearbeitet“ did not read as the other half of a choice.
+  it('the kit draws the track and has no trackless form', () => {
+    const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/toggle-group.tsx')?.text ?? '')
+    expect(kit).toMatch(/rounded-control bg-muted p-0\.5/)
+    expect(kit).not.toMatch(/\bbare\b/)
+  })
+  it('Dateien’s tabs sit on the same track, so grey alone means a press and never „chosen“', () => {
+    const frame = withoutComments(files.find((f) => f.name === 'ui/components/shell/project-section-frame.tsx')?.text ?? '')
+    expect(openingTags(frame, ['SectionNav']).map(({ tag }) => /\btrack\b/.test(tag))).toEqual([true])
+  })
+  it('every single choice on Dateien, the preview and the brief is segmented', () => {
     const offenders = files
-      .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))
-      .filter((f) => [...withoutComments(f.text).matchAll(/<ToggleGroup\b[^>]*>/g)].some(([tag]) => /\bsegmented\b/.test(tag) && !/\bbare\b/.test(tag)))
+      .filter((f) => AFFORDANCE_SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => openingTags(withoutComments(f.text), ['ToggleGroup']).some(({ tag }) => /type="single"/.test(tag) && !/\bsegmented\b/.test(tag)))
       .map((f) => f.name)
     expect(offenders).toEqual([])
   })
@@ -386,12 +468,12 @@ describe('one separator', () => {
 describe('one size for a segmented control', () => {
   // Dateien's two worded segmented controls (the E-Mail-Eingang's filter, Offene Punkte's) are set at the tabs'
   // 14px; at 12px and 14px side by side the same control read as two (2026-11).
-  it('every worded bare group in Dateien is 14px', () => {
+  it('every worded segmented group in Dateien is 14px', () => {
     const offenders = files
       .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
       .filter((f) =>
-        [...withoutComments(f.text).matchAll(/<ToggleGroup\b[\s\S]*?\n\s*>/g)].some(
-          ([tag]) => /\bbare\b/.test(tag) && !/size="icon/.test(tag) && !/\[&>button\]:text-sm/.test(tag)
+        openingTags(withoutComments(f.text), ['ToggleGroup']).some(
+          ({ tag }) => /\bsegmented\b/.test(tag) && !/size="icon/.test(tag) && !/\[&>button\]:text-sm/.test(tag)
         )
       )
       .map((f) => f.name)

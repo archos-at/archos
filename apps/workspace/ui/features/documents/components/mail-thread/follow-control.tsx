@@ -150,7 +150,7 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
             </BusyButton>
           )}
           {own.kind === 'following' && (
-            <BusyButton type="button" size="sm" variant="ghost" busy={pending === 'unfollow'} busyLabel={t('follow.unfollow')} onClick={() => void unfollow()} data-testid="mail-thread-follow-stop">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'unfollow'} busyLabel={t('follow.unfollow')} onClick={() => void unfollow()} data-testid="mail-thread-follow-stop">
               {t('follow.unfollow')}
             </BusyButton>
           )}
@@ -182,8 +182,8 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
                     <BusyButton
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-7 shrink-0 px-2 text-xs"
+                      variant="secondary"
+                      className="shrink-0"
                       busy={pending === `end:${follow.userId}`}
                       busyLabel={t('follow.end')}
                       aria-label={t('follow.endLabel', { name })}

@@ -143,9 +143,9 @@ export function FileSearchBanner({
       <span className="min-w-0 flex-1 truncate text-foreground">{bannerText}</span>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
-        className="shrink-0 gap-1.5 px-2 text-muted-foreground transition-colors duration-snap ease-out hover:text-foreground motion-reduce:transition-none"
+        className="shrink-0 gap-1.5"
         onClick={onResetSemantic}
       >
         <X className="size-3.5" aria-hidden />

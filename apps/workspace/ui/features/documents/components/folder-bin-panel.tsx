@@ -217,11 +217,12 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 )}
                 {listing.canPurge && entry.status !== 'purging' && (
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
-                    // Ink, as every press in the row: five red words led the page, and red is for a failure. The
-                    // confirm dialog says what cannot be undone. Its words end on the edge.
-                    className="ml-auto -mr-3.5"
+                    // Tonal, as Wiederherstellen beside it, with its glyph in red: the one sign that this press destroys
+                    // (2026-11-10 review: the two read as the same weight). The word stays ink: five red words led the page,
+                    // and red words on the grey fall under 4.5:1. The confirm's press is the red one. Its fill ends on the edge.
+                    className="ml-auto [&_svg]:text-destructive"
                     onClick={() => setPurging(entry)}
                     data-testid={`bin-purge-${entry.folderId}`}
                   >

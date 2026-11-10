@@ -440,12 +440,12 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
           <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />
         )}
         {manage && (
-          <div className="flex flex-wrap gap-2 pt-2" /* apart by space, no line */>
+          <div className="flex flex-wrap gap-3 pt-2" /* apart by space, no line; tonal presses 12px apart */>
             <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
               <RefreshCw className="size-4" aria-hidden />
               {t('address.rotate')}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirm('switchOff')} data-testid="address-switch-off">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('switchOff')} data-testid="address-switch-off">
               <CircleSlash className="size-4" aria-hidden />
               {t('address.switchOff')}
             </Button>

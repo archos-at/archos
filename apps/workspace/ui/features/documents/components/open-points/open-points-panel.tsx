@@ -151,7 +151,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 if (value === 'all' || value === 'me') choose({ assignee: value, due })
               }}
               segmented
-              bare
               size="sm"
               // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
               className="[&>button]:text-sm"
@@ -176,7 +175,6 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 }
               }}
               segmented
-              bare
               size="sm"
               // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
               className="[&>button]:text-sm"
@@ -226,14 +224,14 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               // their inset, so the numbers stand on the edge under the document's glyph.
               <section key={group.documentId} aria-label={group.documentName} className="flex flex-col" data-testid="open-points-document">
                 {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
-                    edge. A 24px line whose press overhangs it: the heading stands 10px over its first point, nearer it
-                    than the points stand to each other (18px). */}
-                <div className="flex min-h-6 items-center gap-3 [&_[data-slot=button]]:-my-1">
+                    edge. A line as tall as its tonal press (32px, 44px under touch): an overhanging fill reached the first
+                    point on a phone. */}
+                <div className="flex min-h-8 items-center gap-3 pointer-coarse:min-h-11">
                   <span className="flex w-6 shrink-0 justify-start">
                     <FileText className="text-muted-foreground size-4" aria-hidden />
                   </span>
                   <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
-                  <Button asChild variant="ghost" size="sm" className="-mr-3.5 shrink-0">
+                  <Button asChild variant="secondary" size="sm" className="shrink-0" /* tonal: a row-end press, not a label */>
                     <Link
                       href={reviewFilesHref(projectId, { documentId: group.documentId }, { back: here })}
                       aria-label={t('openPoints.openReviewOf', { name: group.documentName })}

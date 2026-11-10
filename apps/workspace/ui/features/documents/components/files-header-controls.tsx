@@ -165,7 +165,8 @@ export function FilesHeaderControls({
           mode="dropdown"
           entries={entries}
           trigger={
-            <Button type="button" variant="ghost" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
+            // Tonal: it opens a menu of actions, and a bare glyph beside the tonal filter read as a label.
+            <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
               <MoreHorizontal aria-hidden />
             </Button>
           }
@@ -182,8 +183,7 @@ export function FilesHeaderControls({
         value={view}
         onValueChange={choose}
         segmented
-        bare
-        size="icon" /* 32px, the search field's and Hochladen's height */
+        size="icon-sm" /* 28px squares on the track's 2px: 32px, the search field's and Hochladen's height */
         aria-label={t('workspace.view.label')}
       >
         <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
@@ -230,8 +230,7 @@ export function FilesHeaderControls({
           </Link>
         </Button>
       )}
-      {/* A ghost press gives back its padding, so its word stands 12px from its neighbours, as the filled ones do. */}
-      <div className="-mx-3.5 flex">{renderFilter(false)}</div>
+      {renderFilter(false)}
       {searchField('w-full sm:w-64 lg:w-72')}
       {upload}
       {advancedEntries && advancedEntries.length > 0 && (
@@ -239,7 +238,7 @@ export function FilesHeaderControls({
           mode="dropdown"
           entries={advancedEntries}
           trigger={
-            <Button type="button" variant="ghost" size="icon" aria-label={t('workspace.more')} data-testid="files-advanced">
+            <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid="files-advanced">
               <MoreHorizontal aria-hidden />
             </Button>
           }

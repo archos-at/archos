@@ -119,8 +119,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“.
-          <div className="flex shrink-0 items-start gap-x-2 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
+          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“. Tools 12px apart, the tonal ones as every bar's.
+          <div className="flex shrink-0 items-start gap-x-3 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
               underneath it, which is the answer to "which file is this actually"
@@ -251,7 +251,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             )}
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
               className="pointer-coarse:min-w-11 @md:px-3 h-8 shrink-0 gap-1.5 px-2"
               onClick={() => void actions.download()}

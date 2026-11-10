@@ -55,6 +55,10 @@ features:
   - >
     An opened mail shows its sender as a name and an address without brackets,
     and the file preview's header shows the name without a format box.
+  - >
+    Every button in Files, the inbox, Open points, the Bin and the file
+    preview that does something now looks like a button, and filters and the
+    grid or list choice sit on a grey track with the chosen option raised.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line
