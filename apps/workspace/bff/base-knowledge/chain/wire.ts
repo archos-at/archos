@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod'
-import { useApplicabilityOf } from '../rulesets/applicability'
+import { applicabilityOnWire } from '../rulesets/applicability'
 import { useApplicabilitySchema } from '../wire/project-law'
 import { EDITION_ROLES } from '../wire/vocab'
 import type { KnowledgeGraph } from './graph'
@@ -77,7 +77,7 @@ export function buildingLawTurn(
         corpusFiles: [...(edition?.corpusFiles ?? [])],
         designation: work?.designation ? nameOf(work.designation) : null,
         editionLabel: edition ? nameOf(edition.label) : null,
-        applicability: useApplicabilityOf(use.applicability),
+        applicability: applicabilityOnWire(use.applicability),
       }
     }),
   }

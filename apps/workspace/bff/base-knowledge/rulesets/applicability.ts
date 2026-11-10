@@ -40,8 +40,6 @@ export interface Applicability {
   open: string[]
   /** The provision the deciding row cites, when it cites one. */
   provision: string | null
-  /** The ruleset that decided, for the record the answer rests on. */
-  rulesetId: string
 }
 
 export interface ApplicabilityQuery {
@@ -103,7 +101,7 @@ export function applicabilityOf(
   const selection = selectRuleset(rulesets, { purpose: 'applicability', chain: query.chain, on: query.on, workId })
   if (selection.status === 'no_rule') return null
   if (selection.status === 'ambiguous') {
-    return { verdict: 'check', basis: [], open: [], provision: null, rulesetId: selection.rulesetIds.join(',') }
+    return { verdict: 'check', basis: [], open: [], provision: null }
   }
   const { table } = selection
   const buildings = query.buildings.length > 0 ? query.buildings : [{ buildingId: '', inputs: {} }]
@@ -113,7 +111,7 @@ export function applicabilityOf(
   } catch (error) {
     // A table the evaluator cannot run is a data error: the work stays, to check, never silently dropped.
     if (!(error instanceof RulesetEvaluationError)) throw error
-    return { verdict: 'check', basis: [], open: [], provision: null, rulesetId: selection.ruleset.id }
+    return { verdict: 'check', basis: [], open: [], provision: null }
   }
   const strongest = Math.max(...answers.map((answer) => STRENGTH[answer.verdict]))
   const deciding = answers.filter((answer) => STRENGTH[answer.verdict] === strongest)
@@ -124,12 +122,9 @@ export function applicabilityOf(
     basis: union((answer) => answer.basis),
     open: union((answer) => answer.open),
     provision: deciding.find((answer) => answer.provision)?.provision ?? null,
-    rulesetId: selection.ruleset.id,
   }
 }
 
-/** The wire form of a use's applicability (`wire/project-law.ts`): the verdict and why, without the ruleset's id. */
-export const useApplicabilityOf = (applicability: Applicability | null): UseApplicability | null =>
-  applicability
-    ? { verdict: applicability.verdict, basis: [...applicability.basis], open: [...applicability.open], provision: applicability.provision }
-    : null
+/** The wire form of a use's applicability (`wire/project-law.ts`). */
+export const applicabilityOnWire = (applicability: Applicability | null): UseApplicability | null =>
+  applicability ? { verdict: applicability.verdict, basis: [...applicability.basis], open: [...applicability.open], provision: applicability.provision } : null

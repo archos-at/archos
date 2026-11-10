@@ -15,7 +15,7 @@
  */
 
 import { chainAt, resolveChain, type BuildingScope } from '../chain/resolve'
-import { useApplicabilityOf } from '../rulesets/applicability'
+import { applicabilityOnWire } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph } from '../chain/graph'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
@@ -168,7 +168,7 @@ function contextUse(
     connectsBy,
     labels,
     corpusFiles: [...(edition?.corpusFiles ?? [])],
-    applicability: useApplicabilityOf(use.applicability),
+    applicability: applicabilityOnWire(use.applicability),
   }
 }
 

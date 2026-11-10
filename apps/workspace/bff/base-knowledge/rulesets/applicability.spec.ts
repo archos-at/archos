@@ -34,7 +34,6 @@ describe('applicabilityOf, on Austria’s tables', () => {
       basis: ['uses'],
       open: [],
       provision: 'OIB-Richtlinie 2.1 (Ausgabe Mai 2023), Brandschutz bei Betriebsbauten: Anwendungsbereich',
-      rulesetId: 'ruleset:at-oib-rl-2-1-applicability',
     })
   })
 
