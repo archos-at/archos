@@ -473,12 +473,12 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     const lawChat = randomUUID()
     const licensedAnswer = await seedVotedChat(licensedChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
     const lawAnswer = await seedVotedChat(lawChat, 'Was sagt die OIB-RL 4?', 'Laut OIB-RL 4 100 cm.', false)
-    const herleitung = (slot: string) =>
+    const reasoningSteps = (slot: string) =>
       JSON.stringify({ thinkingSteps: [{ id: `status:${slot}`, kind: 'status', slot, isComplete: true }] })
     for (const [chat, slot] of [[licensedChat, 'licensed-text'], [lawChat, 'synthesis']]) {
       await inOrg((executor) =>
         executor.execute(
-          sql`update messages set metadata = ${herleitung(slot)}::jsonb where conversation_id = ${chat} and role = 'user'`
+          sql`update messages set metadata = ${reasoningSteps(slot)}::jsonb where conversation_id = ${chat} and role = 'user'`
         )
       )
     }
