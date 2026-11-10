@@ -1191,8 +1191,14 @@ class TestPublishedOibFilenames:
             "erlaeuterungen-zu-bauordnung.pdf",  # a role prefix without an OIB stem
             "oib-richtlinien-uebersicht.pdf",  # no separator after the stem
             "zu-oib-richtlinie_2.2.pdf",
-            "richtlinie_2_01.02.20.pdf",  # a date that is no OIB adoption day
-            "oib-rl-2-brandschutz-2023.pdf",  # a year whose edition is not published this way
+            "richtlinie_2_01.02.20.pdf",  # a dated name the table does not list
+            "oib-rl-2-brandschutz-2023.pdf",  # a titled name the table does not list
+            # The diffs published beside the 2019 Richtlinien: each once read as the 2015 Richtlinie.
+            *(
+                f"oib-rl-{n}-aenderungen-gegenueber-version-2015.pdf"
+                for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
+            ),
+            "oib-rl-6-aenderungen-gegenueber-version-2011.pdf",
             "pfd_normaussentemperaturen_2015.pdf",  # a table published beside RL 6
         ],
     )
@@ -1200,6 +1206,18 @@ class TestPublishedOibFilenames:
         assert nr.oib_doc_class(file_name) is None
         assert nr.oib_family_member(file_name) is None
         assert nr.guess_display_title(file_name) is None
+
+    def test_every_diff_published_beside_another_edition_is_excluded_from_retrieval(self):
+        config = yaml.safe_load((REPO_ROOT / "configs" / "config_oib_openrouter.yml").read_text(encoding="utf-8"))
+        excluded = set(config["functions"]["knowledge_search"]["exclude_file_names"])
+        diffs = {
+            f"oib-rl-{n}-aenderungen-gegenueber-version-2015.pdf"
+            for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
+        }
+        assert (
+            diffs | {"oib-rl-6-aenderungen-gegenueber-version-2011.pdf", "aenderungen_oib-rl_6_september_2025.pdf"}
+            <= excluded
+        )
 
     def test_every_published_amendments_file_is_excluded_from_retrieval(self):
         config = yaml.safe_load((REPO_ROOT / "configs" / "config_oib_openrouter.yml").read_text(encoding="utf-8"))

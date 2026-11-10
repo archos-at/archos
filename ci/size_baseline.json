@@ -198,7 +198,7 @@
     "packages/ris-adapter/src/register.py": 942,
     "scripts/loop_eval.py": 969,
     "scripts/turn_census/fixture_bff.py": 657,
-    "scripts/turn_census/suite.py": 1464
+    "scripts/turn_census/suite.py": 1463
   },
   "functions": {
     "apps/agent-host/src/agent_host/auth/jwt_validator.py::JWTValidator.validate": 62,

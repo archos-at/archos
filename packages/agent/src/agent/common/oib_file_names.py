@@ -14,6 +14,8 @@ variant is one rule here rather than a branch in each reader. The spellings:
   OIB-RL 1 of 2019 ships as ``richtlinie_1_12.04.19_0.pdf``, under its adoption date.
 - Ausgabe September 2025: ``oib-rl_6_september_2025.pdf``, without ``ausgabe_``.
 
+The 2019, 2025 and 2015 names are listed one by one in :data:`PUBLISHED_EDITIONS`.
+
 This mapping ties a passage to its edition by its file's name, and is the bridge
 until retrieval reads the edition from the chunk itself (its ``edition_id``).
 """
@@ -25,33 +27,27 @@ import re
 #: Anchored at the start and bound to the ``oib-`` stem, so only a name that
 #: already says it is an OIB-Richtlinie is rewritten.
 _PUBLISHED_STEM_RE = re.compile(r"^(?:(erlaeuterungen|aenderungen)(?:_|-zu-))?oib-(?:rl|richtlinie)_")
-#: The month of each edition whose published names state only its year, as the
-#: Austria pack labels them (``configs/knowledge-packs/at.json``: Ausgabe April 2019,
-#: Ausgabe März 2015). A year not listed here is never rewritten.
-EDITION_MONTH = {"2015": "maerz", "2019": "april"}
-#: Month names as filenames spell them (umlauts as digraphs), January first.
-_MONTHS = (
-    "jaenner",
-    "februar",
-    "maerz",
-    "april",
-    "mai",
-    "juni",
-    "juli",
-    "august",
-    "september",
-    "oktober",
-    "november",
-    "dezember",
-)
-_NUMBER = r"(\d+(?:\.\d+)?)"
-_SUFFIX = r"(\.pdf)?$"
-#: ``oib-rl-2.1-brandschutz-bei-betriebsbauten-2019``: the 2015 and 2019 Richtlinien.
-_TITLED_RE = re.compile(rf"^oib-rl-{_NUMBER}-(?:[a-z0-9]+-)*(\d{{4}}){_SUFFIX}")
-#: ``oib-rl_6_september_2025``: a month and year without ``ausgabe_``.
-_MONTH_YEAR_RE = re.compile(rf"^oib-rl_{_NUMBER}_([a-z]+)_(\d{{4}}){_SUFFIX}")
-#: ``richtlinie_1_12.04.19_0``: a Richtlinie published under its adoption date.
-_DATED_RE = re.compile(rf"^richtlinie_{_NUMBER}_\d{{2}}\.(\d{{2}})\.(\d{{2}})(?:_\d+)?{_SUFFIX}")
+#: The Richtlinien of the editions published under other spellings, each by its exact name (lower-cased,
+#: without ``.pdf``) and the canonical name it reads as. A table, not a pattern: every item page also
+#: publishes ``oib-rl-<n>-aenderungen-gegenueber-version-2015.pdf``, a diff a pattern over
+#: ``oib-rl-<n>-…-<year>`` read as the 2015 Richtlinie itself. The names were read off
+#: https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n> on 2026-11-10, the months
+#: off the Austria pack's edition labels (``configs/knowledge-packs/at.json``).
+PUBLISHED_EDITIONS = {
+    "richtlinie_1_12.04.19_0": "oib-rl_1_ausgabe_april_2019",
+    "oib-rl-2-brandschutz-2019": "oib-rl_2_ausgabe_april_2019",
+    "oib-rl-2.1-brandschutz-bei-betriebsbauten-2019": "oib-rl_2.1_ausgabe_april_2019",
+    "oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019": "oib-rl_2.2_ausgabe_april_2019",
+    "oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019": (
+        "oib-rl_2.3_ausgabe_april_2019"
+    ),
+    "oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019": "oib-rl_3_ausgabe_april_2019",
+    "oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019": "oib-rl_4_ausgabe_april_2019",
+    "oib-rl-5-schallschutz-2019": "oib-rl_5_ausgabe_april_2019",
+    "oib-rl-6-energieeinsparung-und-waermeschutz-2019": "oib-rl_6_ausgabe_april_2019",
+    "oib-rl_6_september_2025": "oib-rl_6_ausgabe_september_2025",
+    "oib-rl-6-energieeinsparung-und-waermeschutz-2015": "oib-rl_6_ausgabe_maerz_2015",
+}
 
 
 def canonical_oib_file_name(file_name: str) -> str:
@@ -59,36 +55,15 @@ def canonical_oib_file_name(file_name: str) -> str:
 
     ``oib-richtlinie_2.2_ausgabe_mai_2023.pdf`` -> ``oib-rl_2.2_ausgabe_mai_2023.pdf``;
     ``erlaeuterungen-zu-oib-richtlinie_2.2_…`` -> ``erlaeuterungen_oib-rl_2.2_…``;
-    ``oib-rl-5-schallschutz-2019.pdf`` -> ``oib-rl_5_ausgabe_april_2019.pdf``;
-    ``richtlinie_1_12.04.19_0.pdf`` -> ``oib-rl_1_ausgabe_april_2019.pdf``;
-    ``oib-rl_6_september_2025.pdf`` -> ``oib-rl_6_ausgabe_september_2025.pdf``.
-    Any other name comes back lower-cased and otherwise unchanged.
+    ``oib-rl-5-schallschutz-2019.pdf`` -> ``oib-rl_5_ausgabe_april_2019.pdf`` (a name in
+    :data:`PUBLISHED_EDITIONS`). Any other name comes back lower-cased and otherwise unchanged.
     """
     low = file_name.lower()
-    if edition := _edition_spelling(low):
-        return edition
+    stem, suffix = (low[: -len(".pdf")], ".pdf") if low.endswith(".pdf") else (low, "")
+    if stem in PUBLISHED_EDITIONS:
+        return PUBLISHED_EDITIONS[stem] + suffix
     match = _PUBLISHED_STEM_RE.match(low)
     if not match:
         return low
     role = f"{match.group(1)}_" if match.group(1) else ""
     return f"{role}oib-rl_{low[match.end() :]}"
-
-
-def _edition_spelling(low: str) -> str | None:
-    """The canonical name of a Richtlinie published under a year, a month or a date, or None."""
-    if "leitfaden" in low:
-        return None  # a reading aid, not the Richtlinie: not one of the spellings above
-    if match := _TITLED_RE.match(low):
-        number, year, suffix = match.groups()
-        month = EDITION_MONTH.get(year)
-    elif match := _MONTH_YEAR_RE.match(low):
-        number, month, year, suffix = match.groups()
-        month = month if month in _MONTHS else None
-    elif match := _DATED_RE.match(low):
-        number, month_number, short_year, suffix = match.groups()
-        year = f"20{short_year}"
-        month = _MONTHS[int(month_number) - 1] if 1 <= int(month_number) <= 12 else None
-        month = month if EDITION_MONTH.get(year) == month else None
-    else:
-        return None
-    return f"oib-rl_{number}_ausgabe_{month}_{year}{suffix or ''}" if month else None

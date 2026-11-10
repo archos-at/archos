@@ -961,12 +961,16 @@
       "type": "edition",
       "key": "oib-rl-6-2025",
       "workKey": "oib-rl-6",
-      "label": "Ausgabe 2025",
+      "label": "Ausgabe September 2025",
       "issuedOn": "2025-08-29",
       "citations": [
         {
           "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
           "note": "adopted by the OIB general assembly (circular resolution) on 2025-08-29"
+        },
+        {
+          "url": "https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_TI_20260715_59/LGBLA_TI_20260715_59.xml",
+          "note": "RIS LGBLA_TI_20260715_59 (TBV 2026) and Anlage 13 of LGBLA_WI_20260715_26 name it OIB-Richtlinie 6, Ausgabe September 2025, as does oib.or.at; read 2026-11-10"
         }
       ]
     },
