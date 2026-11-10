@@ -3,11 +3,12 @@
  * 0204, 0205 and 0209, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
- * Pure, so the UI reads them too. The source protocols and formats are the
- * exception: Python's registry is their one list, and no CHECK holds them.
+ * Pure, so the UI reads them too. A source's protocols and formats are not
+ * here: Python's registry is their one list (`SOURCE_PROTOCOLS`,
+ * `SOURCE_FORMATS` in `shared/vocabularies.generated.ts`, read by
+ * `./source.ts`), and no CHECK holds them. This module imports nothing, so a
+ * change to it reaches only its own importers (`scripts/blast-radius.mjs`).
  */
-
-import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generated'
 
 export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
@@ -254,16 +255,6 @@ export type IndexRunState = (typeof INDEX_RUN_STATES)[number]
 /** Where a change request came from: an operator (or their agent), or a source monitor that found a change (ADR-0174). */
 export const CHANGE_REQUEST_ORIGINS = ['operator', 'monitor'] as const
 export type ChangeRequestOrigin = (typeof CHANGE_REQUEST_ORIGINS)[number]
-
-/**
- * The access types and format engines a source record may name. Their one list is the Python
- * registry that runs them (`ACCESS_TYPES`, `ENGINES` in `packages/public-sources`), generated
- * into `shared/vocabularies.generated.ts`: a new engine is code there, once, with no migration
- * and no second edit here. No CHECK holds these columns; the record's schema (`wire/source.ts`) does.
- */
-export { SOURCE_FORMATS, SOURCE_PROTOCOLS }
-export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
-export type SourceFormat = (typeof SOURCE_FORMATS)[number]
 
 /** What may leave towards a source: nothing about a tenant, or a site point too (privacy review, design §6.4). */
 export const SOURCE_DATA_FLOWS = ['public_only', 'site_keyed'] as const
