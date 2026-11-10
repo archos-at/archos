@@ -13,8 +13,15 @@ import type { KnowledgeTerms, LicenceClass } from '@/lib/db/schema/knowledge-rec
 
 export type TextUse = 'used' | 'metadata_only'
 
+/** What each licence class needs before its text is used: nothing, or the office's statement on AI processing. */
+const NEEDS_AI_STATEMENT: Readonly<Record<LicenceClass, boolean>> = {
+  public_open: false,
+  public_restricted: false,
+  licensed: true,
+}
+
 export function textUseOf(licenceClass: LicenceClass, terms: KnowledgeTerms): TextUse {
-  if (licenceClass !== 'licensed') return 'used'
+  if (!NEEDS_AI_STATEMENT[licenceClass]) return 'used'
   return terms.aiProcessingAttestedAt ? 'used' : 'metadata_only'
 }
 

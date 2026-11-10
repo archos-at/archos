@@ -12,11 +12,14 @@
 
 import { date, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
+  CheckTargetType,
   KnowledgeCheckResult,
+  ManifestationForm,
+  TextStatus,
   KnowledgeRecordType,
   KnowledgeWorkKind,
   LicenceClass,
-} from '@/lib/base-knowledge/vocabulary'
+} from '@/lib/base-knowledge/wire/vocab'
 
 export {
   KNOWLEDGE_CHECK_RESULTS,
@@ -27,7 +30,7 @@ export {
   type KnowledgeRecordType,
   type KnowledgeWorkKind,
   type LicenceClass,
-} from '@/lib/base-knowledge/vocabulary'
+} from '@/lib/base-knowledge/wire/vocab'
 
 /** A directive's addressee: the authority by name and the territory it is competent for. */
 export interface KnowledgeAddressee {
@@ -109,9 +112,9 @@ export const knowledgeManifestationRevisions = pgTable('knowledge_manifestation_
   recordId: text('record_id').notNull(),
   organizationId: text('organization_id'),
   editionId: text('edition_id').notNull(),
-  form: text('form').$type<'text' | 'dataset' | 'link'>().notNull().default('text'),
+  form: text('form').$type<ManifestationForm>().notNull().default('text'),
   language: text('language').notNull().default('de'),
-  textStatus: text('text_status').$type<'authentic' | 'official_non_prevailing' | 'translation'>().notNull().default('authentic'),
+  textStatus: text('text_status').$type<TextStatus>().notNull().default('authentic'),
   licenceClass: text('licence_class').$type<LicenceClass>().notNull(),
   terms: jsonb('terms').$type<KnowledgeTerms>().notNull().default({}),
   sha256: text('sha256'),
@@ -121,7 +124,7 @@ export const knowledgeChecks = pgTable('knowledge_checks', {
   id: uuid('id').primaryKey(),
   organizationId: text('organization_id'),
   targetId: text('target_id').notNull(),
-  targetType: text('target_type').$type<'edition' | 'manifestation'>().notNull(),
+  targetType: text('target_type').$type<CheckTargetType>().notNull(),
   checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
   checkedBy: text('checked_by').notNull(),
   result: text('result').$type<KnowledgeCheckResult>().notNull(),

@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
-import { KNOWLEDGE_WORK_KINDS, LICENCE_CLASSES } from '@/lib/base-knowledge/vocabulary'
+import { KNOWLEDGE_WORK_KINDS, LICENCE_CLASSES } from '@/lib/base-knowledge/wire/vocab'
 import type { EntryValues } from '@/lib/base-knowledge/wire'
 
 type Translate = ReturnType<typeof useTranslations>

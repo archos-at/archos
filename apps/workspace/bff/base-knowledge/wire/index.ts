@@ -14,7 +14,7 @@ import {
   KNOWLEDGE_WORK_KINDS,
   LICENCE_CLASSES,
   type KnowledgeCheckResult,
-} from '@/lib/base-knowledge/vocabulary'
+} from '@/lib/base-knowledge/wire/vocab'
 
 /** ISO 3166-1 alpha-2 or 3166-2 (`AT`, `AT-9`, `DE-BY`). */
 const territoryId = z
