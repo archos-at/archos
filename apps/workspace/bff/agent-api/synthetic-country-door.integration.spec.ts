@@ -149,6 +149,26 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
         const text = page === TERMS_URL ? TERMS : served
         return Response.json({ url: page, finalUrl: page, contentType: 'text/html', sha256: sha(text), bytes: text.length, text, retrievedAt: new Date().toISOString() })
       }
+      if (path === '/v1/public-sources/built-in') {
+        // The repository's own sources, as the api tier lists them (one, abridged).
+        return Response.json({
+          sources: [
+            {
+              sourceKey: 'at-ris',
+              title: 'RIS',
+              territory: 'AT',
+              protocol: 'rest',
+              format: 'ris_xml',
+              hosts: ['data.bka.gv.at', 'www.ris.bka.gv.at'],
+              dataFlow: 'public_only',
+              licence: 'public_open',
+              monitor: { kind: 'none', intervalHours: 24 },
+              credentialHeader: null,
+              fixtures: { valid: true, problems: [], fixtures: [{ name: 'search', ok: true, requested: ['https://data.bka.gv.at/x'] }] },
+            },
+          ],
+        })
+      }
       if (path === '/v1/public-sources/probe') {
         const previous = body.previous as { sha256: string }
         const current = sha(served)
@@ -309,8 +329,15 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
 
   it('reads the published source’s state, and takes its key only on the person’s yes, never giving it back', async () => {
     const status = await ok(author, 'platform-knowledge-source-status', { query: { sourceKey: SOURCE } })
-    const [source] = status.sources as { state: string; hosts: { state: string }[]; credential: { set: boolean } }[]
-    expect(source).toMatchObject({ state: 'active', hosts: [{ state: 'active' }], credential: { set: false } })
+    const [source] = status.sources as { origin: string; state: string; hosts: { state: string }[]; credential: { set: boolean } }[]
+    expect(source).toMatchObject({ origin: 'record', state: 'active', hosts: [{ state: 'active' }], credential: { set: false } })
+
+    // The built-in sources are listed beside the records, read-only, with their recorded fixtures' result.
+    const every = await ok(author, 'platform-knowledge-source-status', { query: {} })
+    const listed = every.sources as { sourceKey: string; origin: string; recordId: string | null; fixtures: { valid: boolean } | null }[]
+    expect(listed.find((one) => one.sourceKey === 'at-ris')).toMatchObject({ origin: 'built_in', recordId: null, fixtures: { valid: true } })
+    expect(listed.find((one) => one.sourceKey === SOURCE)).toMatchObject({ origin: 'record', fixtures: null })
+    expect(every.builtInUnavailable).toBeNull()
 
     const input = { params: { sourceKey: SOURCE }, body: { secret: 'xa-key-0123456789' } }
     const cannotAsk = await door(expert, 'platform-knowledge-source-credential-set', input, { elicits: false })

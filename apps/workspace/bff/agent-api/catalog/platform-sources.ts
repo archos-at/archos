@@ -38,9 +38,12 @@ export const platformSourceOperations = [
     domain: 'platform',
     summary: 'Read every public source’s hosts, monitor, freshness lag and key state',
     description:
-      'Published and proposed sources: each host and whether it is active, testing (with when it expires) or expired; ' +
+      'Every source there is, by `origin`: `built_in`, the product’s own sources (an engine’s configuration, reviewed ' +
+      'as code; read-only here, with its recorded fixtures’ result in `fixtures`), and `record`, the platform’s ' +
+      'published and proposed sources. Each host and whether it is active, testing (with when it expires) or expired; ' +
       'the monitor’s kind, last check, last success, failure and freshness lag in days; whether a key is set and its ' +
-      'last four characters (never the key); and the open change request a monitor filed for it, if any.',
+      'last four characters (never the key); and the open change request a monitor filed for it, if any. ' +
+      '`builtInUnavailable` says why the built-in sources are missing when they could not be listed.',
     method: 'GET',
     path: '/api/platform/knowledge/sources',
     query: sourceStatusQuerySchema,
