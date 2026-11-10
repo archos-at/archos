@@ -81,4 +81,4 @@ organization (a rollout flag in WorkOS).
 
 Re-import the previous archive with `--apply --allow-older` (and
 `--max-shrink` if it is smaller). An import that died leaves a `loading`
-release no lookup reads; the next import removes it once it is a day old. The tables are dropped only by migration 0207's down.
+release no lookup reads; the next import removes it once it is a day old. The tables are dropped only by migration 0208's down.

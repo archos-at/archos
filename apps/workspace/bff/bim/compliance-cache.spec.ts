@@ -39,72 +39,79 @@ describe('the compliance cache', () => {
   beforeEach(() => clearComplianceCache())
 
   it('returns what was stored for the same model and facts', () => {
-    writeComplianceCache('m-1', 4, 'residential', value('a'))
+    writeComplianceCache('m-1', 4, 'residential', 'AT', value('a'))
 
-    expect(readComplianceCache('m-1', 4, 'residential')?.complianceShoppingList[0].path).toBe('a')
+    expect(readComplianceCache('m-1', 4, 'residential', 'AT')?.complianceShoppingList[0].path).toBe('a')
   })
 
   it('misses on a different Gebäudeklasse', () => {
     // GK4 wants R 60 where GK5 wants R 90. Serving one for the other would
     // report a wall as compliant against a threshold nobody applied.
-    writeComplianceCache('m-1', 4, 'residential', value('gk4'))
+    writeComplianceCache('m-1', 4, 'residential', 'AT', value('gk4'))
 
-    expect(readComplianceCache('m-1', 5, 'residential')).toBeNull()
+    expect(readComplianceCache('m-1', 5, 'residential', 'AT')).toBeNull()
   })
 
   it('misses on a different Hauptnutzung', () => {
-    writeComplianceCache('m-1', 4, 'residential', value('a'))
+    writeComplianceCache('m-1', 4, 'residential', 'AT', value('a'))
 
-    expect(readComplianceCache('m-1', 4, 'office')).toBeNull()
+    expect(readComplianceCache('m-1', 4, 'office', 'AT')).toBeNull()
+  })
+
+  it('misses on a different site: an OIB verdict is no verdict in Germany', () => {
+    writeComplianceCache('m-1', 4, 'residential', 'AT-9>AT', value('a'))
+
+    expect(readComplianceCache('m-1', 4, 'residential', 'DE')).toBeNull()
+    expect(readComplianceCache('m-1', 4, 'residential', 'unplaced')).toBeNull()
   })
 
   it('misses on a different revision', () => {
     // A new revision is a new model id, which is what makes the whole thing
     // safe: an entry can never describe a model that has since changed.
-    writeComplianceCache('m-1', 4, null, value('rev3'))
+    writeComplianceCache('m-1', 4, null, 'AT', value('rev3'))
 
-    expect(readComplianceCache('m-2', 4, null)).toBeNull()
+    expect(readComplianceCache('m-2', 4, null, 'AT')).toBeNull()
   })
 
   it('distinguishes an absent fact from a set one', () => {
-    writeComplianceCache('m-1', null, null, value('none'))
-    writeComplianceCache('m-1', 4, null, value('gk4'))
+    writeComplianceCache('m-1', null, null, 'AT', value('none'))
+    writeComplianceCache('m-1', 4, null, 'AT', value('gk4'))
 
-    expect(readComplianceCache('m-1', null, null)?.complianceShoppingList[0].path).toBe('none')
-    expect(readComplianceCache('m-1', 4, null)?.complianceShoppingList[0].path).toBe('gk4')
+    expect(readComplianceCache('m-1', null, null, 'AT')?.complianceShoppingList[0].path).toBe('none')
+    expect(readComplianceCache('m-1', 4, null, 'AT')?.complianceShoppingList[0].path).toBe('gk4')
   })
 
   it('carries the truncation flag through, so the warning survives a hit', () => {
     // A cached run of a capped model must still say it was capped; otherwise
     // the second reader sees the same partial verdicts without the banner.
-    writeComplianceCache('m-1', 4, null, { ...value('a'), truncated: true })
+    writeComplianceCache('m-1', 4, null, 'AT', { ...value('a'), truncated: true })
 
-    expect(readComplianceCache('m-1', 4, null)?.truncated).toBe(true)
+    expect(readComplianceCache('m-1', 4, null, 'AT')?.truncated).toBe(true)
   })
 
   it('expires an entry after an hour', () => {
     const t0 = 1_000_000
-    writeComplianceCache('m-1', 4, null, value('a'), t0)
+    writeComplianceCache('m-1', 4, null, 'AT', value('a'), t0)
 
-    expect(readComplianceCache('m-1', 4, null, t0 + 59 * 60 * 1000)).not.toBeNull()
-    expect(readComplianceCache('m-1', 4, null, t0 + 61 * 60 * 1000)).toBeNull()
+    expect(readComplianceCache('m-1', 4, null, 'AT', t0 + 59 * 60 * 1000)).not.toBeNull()
+    expect(readComplianceCache('m-1', 4, null, 'AT', t0 + 61 * 60 * 1000)).toBeNull()
   })
 
   it('evicts the least recently READ, not the oldest written', () => {
-    for (let i = 0; i < 64; i += 1) writeComplianceCache(`m-${i}`, 4, null, value(`v${i}`))
+    for (let i = 0; i < 64; i += 1) writeComplianceCache(`m-${i}`, 4, null, 'AT', value(`v${i}`))
     // Touch the oldest so it becomes the most recent.
-    expect(readComplianceCache('m-0', 4, null)).not.toBeNull()
-    writeComplianceCache('m-new', 4, null, value('new'))
+    expect(readComplianceCache('m-0', 4, null, 'AT')).not.toBeNull()
+    writeComplianceCache('m-new', 4, null, 'AT', value('new'))
 
-    expect(readComplianceCache('m-0', 4, null)).not.toBeNull()
-    expect(readComplianceCache('m-1', 4, null)).toBeNull()
+    expect(readComplianceCache('m-0', 4, null, 'AT')).not.toBeNull()
+    expect(readComplianceCache('m-1', 4, null, 'AT')).toBeNull()
   })
 
   it('never grows past its cap', () => {
-    for (let i = 0; i < 200; i += 1) writeComplianceCache(`m-${i}`, 4, null, value(`v${i}`))
+    for (let i = 0; i < 200; i += 1) writeComplianceCache(`m-${i}`, 4, null, 'AT', value(`v${i}`))
 
     const present = Array.from({ length: 200 }, (_, i) =>
-      readComplianceCache(`m-${i}`, 4, null)
+      readComplianceCache(`m-${i}`, 4, null, 'AT')
     ).filter(Boolean)
     expect(present).toHaveLength(64)
   })

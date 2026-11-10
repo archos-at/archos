@@ -3,6 +3,15 @@
  "limit": 10,
  "operations": [
   {
+   "name": "classification-evaluate",
+   "domain": "projects",
+   "summary": "Evaluate a building’s class under its site’s rules",
+   "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"classification-evaluate\",\"domain\":\"projects\",\"summary\":\"Evaluate a building’s class under its site’s rules\",\"description\":\"One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.\",\"annotations\":{\"title\":\"Evaluate a building’s class under its site’s rules\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"buildingId\":{\"default\":\"bldg1\",\"type\":\"string\",\"maxLength\":12},\"planned\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"existing\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"on\":{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"}},\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+  },
+  {
    "name": "project-cleanup-confirm",
    "domain": "projects",
    "summary": "Move the chosen documents to the bin",
@@ -2204,10 +2213,10 @@
    "office-shelf-folder-update",
    "document-bin",
    "project-folder-bin-list",
-   "document-summary-get",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "project-folder-bin-purge"
+   "project-folder-bin-purge",
+   "project-folder-list"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
@@ -2403,6 +2412,7 @@
    "conversation-update"
   ],
   "": [
+   "classification-evaluate",
    "project-cleanup-confirm",
    "project-cleanup-propose",
    "project-consistency-check",
@@ -2411,8 +2421,7 @@
    "project-experience-extract",
    "project-get",
    "project-intake-complete",
-   "project-intake-decide",
-   "project-intake-definition-get"
+   "project-intake-decide"
   ],
   "a project list": [
    "project-list",

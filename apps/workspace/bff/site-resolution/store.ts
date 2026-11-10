@@ -1,5 +1,5 @@
 /**
- * The SQL of the address registers (migration 0207, ADR-0172). Reads only:
+ * The SQL of the address registers (migration 0208, ADR-0172). Reads only:
  * the importer is the one writer. Every statement reads the register's active
  * release, so a half-written import is never read. Bounded: one lookup returns
  * at most {@link MAX_MATCHES} rows.

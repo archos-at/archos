@@ -61,19 +61,21 @@ const cache = new Map<string, Entry>()
  * `modelId` alone is not enough: the same revision judged at Gebäudeklasse 4
  * and at 5 produces different fire-resistance verdicts, and serving one for
  * the other is exactly the class of silent wrong answer this subsystem exists
- * to avoid. Both facts are part of the identity of the result.
+ * to avoid. Both facts are part of the identity of the result, and so is the
+ * site (`siteKey`): an OIB rule binds in Austria and nowhere else.
  */
-function key(modelId: string, buildingClass: number | null, mainUse: string | null): string {
-  return `${modelId}|${buildingClass ?? ''}|${mainUse ?? ''}`
+function key(modelId: string, buildingClass: number | null, mainUse: string | null, site: string): string {
+  return `${modelId}|${buildingClass ?? ''}|${mainUse ?? ''}|${site}`
 }
 
 export function readComplianceCache(
   modelId: string,
   buildingClass: number | null,
   mainUse: string | null,
+  site: string,
   now: number = Date.now()
 ): CachedCompliance | null {
-  const id = key(modelId, buildingClass, mainUse)
+  const id = key(modelId, buildingClass, mainUse, site)
   const entry = cache.get(id)
   if (!entry) return null
   if (now - entry.storedAt > TTL_MS) {
@@ -91,10 +93,11 @@ export function writeComplianceCache(
   modelId: string,
   buildingClass: number | null,
   mainUse: string | null,
+  site: string,
   value: CachedCompliance,
   now: number = Date.now()
 ): void {
-  const id = key(modelId, buildingClass, mainUse)
+  const id = key(modelId, buildingClass, mainUse, site)
   cache.delete(id)
   cache.set(id, { value, storedAt: now })
   while (cache.size > MAX_ENTRIES) {

@@ -1232,6 +1232,10 @@
     "de": "Bitten Sie um ein Diagramm, ein Schaubild oder eine Grafik, und Piloti antwortet mit einer echten Zeichnung statt mit Textkunst aus Strichen und Pfeilen."
   },
   {
+    "en": "Ask in the chat how an existing building's class changes with the planned work: the answer gives the class today and after, what is still missing to decide it, and the document that settles it.",
+    "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
+  },
+  {
     "en": "Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you can open the drawing as a sketch to rework it, instead of being told it cannot. Asked about itself, such as whether it works inside your own assistant, Piloti now answers instead of searching your files.",
     "de": "Wenn Sie Piloti um ein Excalidraw-Diagramm oder eine Skizze bitten, erstellt es diese jetzt. Sie können die Zeichnung als Skizze öffnen und weiterbearbeiten, statt die Meldung zu erhalten, dass dies nicht möglich ist. Fragen Sie Piloti nach sich selbst, etwa ob es in Ihrem eigenen Assistenten funktioniert, antwortet es jetzt, statt Ihre Dateien zu durchsuchen."
   },
@@ -3770,6 +3774,10 @@
   {
     "en": "The project setup asks for the Bundesland right away, before a country is chosen, and hides it only when the project is outside Austria.",
     "de": "Bei der Projekteinrichtung wird sofort nach dem Bundesland gefragt, noch bevor ein Land ausgewählt wurde, und das Feld wird nur bei Projekten außerhalb Österreichs ausgeblendet."
+  },
+  {
+    "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
+    "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
   },
   {
     "en": "The project wizard lists all its modules by full name beside the questions, each with how many answers it already has, and you can jump to any of them.",

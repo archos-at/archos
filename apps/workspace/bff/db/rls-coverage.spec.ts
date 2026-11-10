@@ -232,7 +232,7 @@ const BOUNDARY_MIGRATIONS = [
   // Adds the official address registers hosted in the cell (ADR-0172): public
   // data, the same for every office, so PLATFORM tables: every tenant reads,
   // only the platform role writes (the importer).
-  '0207_address_register.sql',
+  '0208_address_register.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

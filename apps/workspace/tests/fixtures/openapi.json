@@ -58,6 +58,99 @@
     }
   ],
   "paths": {
+    "/api/projects/{id}/classification-evaluations": {
+      "post": {
+        "operationId": "classification-evaluate",
+        "summary": "Evaluate a building’s class under its site’s rules",
+        "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "buildingId": {
+                    "default": "bldg1",
+                    "type": "string",
+                    "maxLength": 12
+                  },
+                  "planned": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {}
+                  },
+                  "existing": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {}
+                  },
+                  "on": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Evaluate a building’s class under its site’s rules",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/cleanup": {
       "post": {
         "operationId": "project-cleanup-confirm",
@@ -30117,10 +30210,7 @@
                                           "const": "table"
                                         },
                                         "payloadSchema": {
-                                          "type": "string",
-                                          "enum": [
-                                            "decision_table.v1"
-                                          ]
+                                          "const": "decision_table.v1"
                                         },
                                         "payload": {
                                           "type": "object",
@@ -30371,6 +30461,492 @@
                                             "output",
                                             "rows",
                                             "otherwise"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "fact_definitions"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "fact_definitions.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "subdivisions": {
+                                              "type": "object",
+                                              "properties": {
+                                                "factKey": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                },
+                                                "label": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 200
+                                                },
+                                                "options": {
+                                                  "minItems": 1,
+                                                  "maxItems": 60,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "token": {
+                                                        "type": "string",
+                                                        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                      },
+                                                      "territoryId": {
+                                                        "type": "string",
+                                                        "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                      },
+                                                      "label": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "municipality": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "token",
+                                                      "territoryId",
+                                                      "label"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                },
+                                                "outside": {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "token": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    },
+                                                    "label": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 200
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "token",
+                                                    "label"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              },
+                                              "required": [
+                                                "factKey",
+                                                "label",
+                                                "options"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            "facts": {
+                                              "default": [],
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "key": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "number",
+                                                      "boolean",
+                                                      "code",
+                                                      "codes",
+                                                      "date"
+                                                    ]
+                                                  },
+                                                  "unit": {
+                                                    "description": "UCUM, e.g. m or m2.",
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 40
+                                                  },
+                                                  "codes": {
+                                                    "description": "For a code: the tokens it may take. Any other token reads as unknown, never as a value.",
+                                                    "minItems": 1,
+                                                    "maxItems": 100,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  },
+                                                  "existingKey": {
+                                                    "description": "The key the Bestand holds this fact under today: a classification runs once on these, once on the planned values.",
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "key",
+                                                  "label",
+                                                  "type"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "procedureTypes": {
+                                              "default": [],
+                                              "maxItems": 40,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "token": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  }
+                                                },
+                                                "required": [
+                                                  "token",
+                                                  "label"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            },
+                                            "derivations": {
+                                              "default": [],
+                                              "maxItems": 20,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "rule": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "citation": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 300
+                                                  },
+                                                  "values": {
+                                                    "type": "object",
+                                                    "propertyNames": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 80
+                                                    },
+                                                    "additionalProperties": {
+                                                      "type": "integer",
+                                                      "minimum": 1,
+                                                      "maximum": 9
+                                                    }
+                                                  },
+                                                  "highRise": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  },
+                                                  "notApplicable": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                },
+                                                "required": [
+                                                  "rule",
+                                                  "citation",
+                                                  "values"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "fact_sources"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "fact_sources.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "entries": {
+                                              "minItems": 1,
+                                              "maxItems": 100,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                  },
+                                                  "determinant": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "plot",
+                                                      "zoning",
+                                                      "heritage",
+                                                      "hazards",
+                                                      "noise"
+                                                    ]
+                                                  },
+                                                  "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "factKeys": {
+                                                    "minItems": 1,
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                    }
+                                                  },
+                                                  "appliesWhen": {
+                                                    "default": {},
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "projectTypes": {
+                                                        "minItems": 1,
+                                                        "maxItems": 20,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                        }
+                                                      },
+                                                      "uses": {
+                                                        "minItems": 1,
+                                                        "maxItems": 40,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                                                        }
+                                                      },
+                                                      "existing": {
+                                                        "const": true
+                                                      }
+                                                    },
+                                                    "additionalProperties": false
+                                                  },
+                                                  "request": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "document": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "reason": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 1000
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "document",
+                                                      "reason"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "sources": {
+                                                    "minItems": 1,
+                                                    "maxItems": 6,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "title": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 300
+                                                        },
+                                                        "reference": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 300
+                                                        },
+                                                        "needsReview": {
+                                                          "type": "boolean"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "title",
+                                                        "needsReview"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "variants": {
+                                                    "default": {},
+                                                    "type": "object",
+                                                    "propertyNames": {
+                                                      "type": "string",
+                                                      "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                    },
+                                                    "additionalProperties": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "document": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "reason": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 1000
+                                                        },
+                                                        "sources": {
+                                                          "minItems": 1,
+                                                          "maxItems": 6,
+                                                          "type": "array",
+                                                          "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "title": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "reference": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "needsReview": {
+                                                                "type": "boolean"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "title",
+                                                              "needsReview"
+                                                            ],
+                                                            "additionalProperties": false
+                                                          }
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "sources"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "additions": {
+                                                    "default": [],
+                                                    "maxItems": 50,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "territoryId": {
+                                                          "type": "string",
+                                                          "pattern": "^(?:[A-Z]{2}(?:-[A-Z0-9]{1,3})?|[A-Z]{2}:[a-z][a-z0-9_]{0,15}:[A-Za-z0-9_-]{1,40})$"
+                                                        },
+                                                        "municipality": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "addition": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 1000
+                                                        },
+                                                        "sources": {
+                                                          "minItems": 1,
+                                                          "maxItems": 3,
+                                                          "type": "array",
+                                                          "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "title": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "reference": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 300
+                                                              },
+                                                              "needsReview": {
+                                                                "type": "boolean"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "title",
+                                                              "needsReview"
+                                                            ],
+                                                            "additionalProperties": false
+                                                          }
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "territoryId",
+                                                        "municipality",
+                                                        "addition",
+                                                        "sources"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "id",
+                                                  "label",
+                                                  "factKeys",
+                                                  "request",
+                                                  "sources"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "entries"
                                           ],
                                           "additionalProperties": false
                                         }

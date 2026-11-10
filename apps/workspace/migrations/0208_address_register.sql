@@ -1,4 +1,4 @@
--- 0207: official address registers, hosted in the cell (ADR-0172; design 4.8, 5.3; build split S12).
+-- 0208: official address registers, hosted in the cell (ADR-0172; design 4.8, 5.3; build split S12).
 --
 -- A typed site address is looked up here, never at a public geocoder: every
 -- keystroke stays in the cell. A register is imported whole, as the publisher

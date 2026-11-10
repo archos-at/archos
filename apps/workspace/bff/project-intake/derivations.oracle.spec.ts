@@ -17,7 +17,7 @@ import {
   BUILDING_CLASS_DERIVATION,
   BUILDING_CLASS_INPUTS,
   possibleBuildingClasses,
-} from './derivations'
+} from './derivations.oracle'
 
 describe('deriveGebaeudeklasse', () => {
   it.each(BUILDING_CLASS_CASES)('%s', (_name, inputs, expected) => {

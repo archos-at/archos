@@ -1,7 +1,7 @@
 import { char, date, doublePrecision, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 /**
- * Official address registers imported into the cell (migration 0207, ADR-0172).
+ * Official address registers imported into the cell (migration 0208, ADR-0172).
  * Platform tables: every tenant reads them, only the platform role writes them.
  * A lookup reads the release whose `status` is `active` (one per register).
  */

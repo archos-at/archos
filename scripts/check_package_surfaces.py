@@ -97,10 +97,11 @@ def references(source: str, path: str, submodules: dict[str, set[str]]) -> list[
     """(package, submodule, line, names imported) for each reference ``path`` makes from outside the package."""
     owner = _owner(path)
     found = []
-    tree = ast.parse(source)
+    # One walk, kept: walking the tree is most of this check, and it was walked twice.
+    nodes = list(ast.walk(ast.parse(source)))
     # A bare string statement is a docstring: prose about the module, not a use of it.
-    prose = {id(node.value) for node in ast.walk(tree) if isinstance(node, ast.Expr)}
-    for node in ast.walk(tree):
+    prose = {id(node.value) for node in nodes if isinstance(node, ast.Expr)}
+    for node in nodes:
         if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             hit = _split(node.module)
             if hit and hit[0] != owner:

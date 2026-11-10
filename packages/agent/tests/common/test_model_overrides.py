@@ -459,6 +459,34 @@ class TestSharedTier:
         assert entry.overrides == {} and entry.zdr_only is True
         assert cache.get_json(shared_model_config_key("org_1")) is None
 
+    def test_an_unreadable_placement_never_reaches_another_replica_as_unplaced(self, monkeypatch):
+        """The BFF answers with ``processingPolicy: null``: replica A refuses the org inside a cell, and replica
+        B (or A once its memo expires) must not read ``{residencyCell: null}`` back from the shared tier as a
+        known, unplaced organization and serve it (ADR-0167)."""
+        from agent.common import cache
+        from agent.common import model_overrides as M
+        from agent.common import residency
+
+        monkeypatch.setenv(residency.RESIDENCY_CELL_ENV, "eu-at-1")
+        fetches = []
+
+        def null_policy(org):
+            fetches.append(org)
+            return {}, True, residency.parse_policy(None)
+
+        monkeypatch.setattr(M, "_fetch_org_config", null_policy)
+        replica_a = M._resolve_org_config("org_1")
+        with pytest.raises(residency.ResidencyViolation):
+            residency.check_organization(replica_a.processing)
+
+        M.reset_overrides_cache()  # replica B: no memo of its own
+        replica_b = M._resolve_org_config("org_1")
+        assert replica_b.processing.known is False
+        with pytest.raises(residency.ResidencyViolation):
+            residency.check_organization(replica_b.processing)
+        assert fetches == ["org_1", "org_1"], "B asks the BFF again rather than trusting a shared failure"
+        assert cache.get_json(shared_model_config_key("org_1")) is None
+
     def test_missing_token_resolution_writes_nothing_to_the_shared_tier(self, monkeypatch):
         """No INTERNAL_API_TOKEN -> YAML models with ZDR pinned, and no L2
         write, so an unconfigured backend cannot shadow a real config for a full TTL."""
