@@ -241,8 +241,15 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/platform/organization-countries.integration.spec.ts \
-    bff/base-knowledge/time/time.integration.spec.ts
+    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+
+# Editions in time: alone, after the platform suite, since both release
+# Austria's territory and a release over one moved since a request was opened
+# is a 409 by design. In one batch the two raced, and whichever opened its
+# request first lost (seen 2026-11-10 once a file joined the batch).
+echo "==> running the editions-in-time suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
