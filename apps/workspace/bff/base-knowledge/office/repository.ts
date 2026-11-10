@@ -12,6 +12,7 @@ import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
+import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 
 export interface EntryDocument {
   id: string
@@ -85,4 +86,29 @@ export async function readShelfDocument(
   )
   if (!row) return null
   return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename }
+}
+
+/**
+ * Whether an Archiv document stored under `filename` (the upload's name key) is
+ * already a base-knowledge copy: the base-knowledge upload asks before it writes
+ * any bytes, since an upload under an existing name replaces that document's
+ * file in place.
+ */
+export async function shelfNameHasEntry(organizationId: string, filename: string, reader: DocumentReader): Promise<boolean> {
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ id: documents.id })
+      .from(documents)
+      .innerJoin(knowledgeRecords, eq(knowledgeRecords.documentId, documents.id))
+      .where(
+        and(
+          eq(documents.organizationId, organizationId),
+          eq(documents.scope, 'office_shelf'),
+          eq(documents.filename, filename),
+          documentVisibleTo(reader)
+        )
+      )
+      .limit(1)
+  )
+  return rows.length > 0
 }

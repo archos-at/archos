@@ -119,6 +119,17 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     await expect(propose()).resolves.toMatchObject({ ids: { workId: expect.any(String) } })
   })
 
+  it('names a shelf file that is already recorded, so an upload under its name is refused before it writes', async () => {
+    const office = await import('../office/repository')
+    const reader = { kind: 'member' as const, userId: 'user_bk' }
+    const { documentId } = await propose()
+    const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
+    expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(true)
+    // Positive control: an unrecorded name, and the same name in another office, are free.
+    expect(await office.shelfNameHasEntry(ORG, 'not-recorded.pdf', reader)).toBe(false)
+    expect(await office.shelfNameHasEntry(OTHER_ORG, String(row.filename), reader)).toBe(false)
+  })
+
   it('states a proposed copy’s licence before any confirmation, so its text can be held back', async () => {
     const { documentId, ids } = await propose()
     expect(await repo.copyForDocument(ORG, documentId)).toEqual({
