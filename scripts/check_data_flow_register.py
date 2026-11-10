@@ -29,8 +29,10 @@ Usage: python scripts/check_data_flow_register.py. Exit code 0 when clean.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import json
+import os
 import re
 import sys
 import tomllib
@@ -104,7 +106,7 @@ REQUIRED = (
 COPY_FIELDS = ("name", "data", "location")
 LISTED_COPY_FIELDS = ("purpose", "required")
 
-ENV_SUFFIX = r"(?:_URL|_HOST|_ENDPOINT|_API_KEY|_TOKEN_ID)"
+ENV_SUFFIX = r"(?:_URL|_HOST|_ENDPOINT|_KEY|_TOKEN|_TOKEN_ID|_SECRET|_DSN)"
 ENV_NAME = rf"[A-Z][A-Z0-9_]*{ENV_SUFFIX}"
 #: Where code reads, sets or documents a variable. Literals only: a name that
 #: is a constant (``REPOSITORY_URL = "https://…"``) is not a variable.
@@ -115,51 +117,66 @@ ENV_PATTERNS = (
     re.compile(rf"^\|\s*`({ENV_NAME})`", re.M),
     re.compile(rf"^#?\s*({ENV_NAME})=", re.M),
 )
-HOST = re.compile(r"https?://([a-z0-9][a-z0-9.-]*\.[a-z]{2,})", re.I)
+HOST = re.compile(r"(?:https?|wss?)://([a-z0-9][a-z0-9.-]*\.[a-z]{2,})", re.I)
+#: A host built in a template (`f"https://{region}.vendor.io"`, `` `wss://${x}.vendor.io` ``): its fixed part.
+TEMPLATED_HOST = re.compile(r"(?:https?|wss?)://(?:\$?\{[^}]{0,80}\}[.-]?)+([a-z0-9][a-z0-9.-]*\.[a-z]{2,})", re.I)
+#: A host written without a scheme, as a quoted string, under a public suffix a vendor would use.
+BARE_HOST = re.compile(
+    r"""["'`]((?:[a-z0-9-]+\.)+(?:com|io|net|org|ai|dev|app|at|de|eu|co|cloud|ch|so|us|tech|xyz))(?::\d+)?["'`]"""
+)
+#: An IPv4 address in a string; private, loopback and link-local ranges are dropped below.
+IP_LITERAL = re.compile(r"""["'`/@](\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?["'`/]""")
+PRIVATE_IP = re.compile(
+    r"^(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|255\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)"
+)
 #: RFC 2606 and 6761 names, and cluster-internal suffixes: never a vendor.
 RESERVED_HOST = re.compile(
     r"(^|\.)(example\.(com|org|net)|[a-z0-9-]+\.(example|invalid|test|localhost|local|internal|svc))$"
     r"|\.(example|invalid|test|localhost|local|internal|svc)$"
+    r"|(^|\.)k8s\.io$"  # Kubernetes API group names, never fetched
 )
-DESTINATION_ID = re.compile(r"`([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`")
+#: The product's own domain (``packages/brand/identity.json``): our address, not a recipient.
+OWN_DOMAIN = json.loads((REPO_ROOT / "packages" / "brand" / "identity.json").read_text(encoding="utf-8"))["domain"]
+#: A model id a deployment uses by default (``DICTATION_MODEL = "elevenlabs/…"``,
+#: ``model_name: ${DEFAULT_MODEL:-openai/…}``): its vendor receives what the model is sent.
+MODEL_DEFAULT = re.compile(
+    r"""(?:\b[A-Z][A-Z0-9_]*MODEL[A-Z0-9_]*\s*(?::\s*[A-Za-z\[\]., ]+)?\s*=\s*|\bmodel(?:_name)?\s*:\s*)"""
+    r"""["']?(?:\$\{[A-Z0-9_]+:-)?([a-z0-9][a-z0-9-]{1,30})/[a-z0-9][a-z0-9._:-]+"""
+)
+#: A destination id as the README writes it: whole, or cut short with an ellipsis
+#: (`01a15d7e…`, `01a159e8-d931…`). A short one is claimed by a registered id it starts.
+DESTINATION_ID = re.compile(r"`([0-9a-f]{8}(?:-[0-9a-f]{4}){0,3}(?:-[0-9a-f]{12})?)(…)?`")
 
-RUNTIME_ROOTS = (
-    "apps/workspace/app",
-    "apps/workspace/bff",
-    "apps/workspace/ui",
-    "apps/workspace/shared",
-    "apps/workspace/workers",
-    "apps/workspace/purger",
-    "apps/workspace/observability",
-    "apps/workspace/server.js",
-    "apps/workspace/instrumentation.ts",
-    "apps/agent-host/src",
-    "packages/agent/src",
-    "packages/knowledge-layer/src",
-    "packages/ris-adapter/src",
-    "packages/tavily-web-search/src",
-    "deploy/pulumi/src",
-    "deploy/posthog",
-    "configs",
-)
+#: Everything that ships or deploys: every app, every package, the deploy tree, the configs.
+#: Whole trees, not a list of folders, so a new file anywhere in them is read.
+RUNTIME_ROOTS = ("apps", "packages", "deploy", "configs")
 ENV_ONLY_SOURCES = (
     "docs/deployment/environment-variables.md",
     "deploy/.env.example",
     "deploy/compose/docker-compose.yaml",
 )
-SUFFIXES = frozenset({".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".hog", ".yml", ".yaml", ".json"})
+SUFFIXES = frozenset({".ts", ".tsx", ".mts", ".js", ".mjs", ".cjs", ".astro", ".py", ".hog", ".yml", ".yaml", ".json"})
 #: Not runtime: specs, fixtures, dev preview pages, generated build output.
 SKIPPED_PARTS = (
     ".spec.",
     ".test.",
     "/tests/",
+    "/test/",
+    "/testing/",
     "/test-support/",
     "fixture",
     "/app/dev/",
     "node_modules",
     "__pycache__",
     ".egg-info",
+    "/dist/",
+    "/.astro/",
+    "/.next/",
+    "/public/",
     "configs/subprocessors/",
+    "/migrations/",
+    "apps/website/src/content/",
+    "/payload-types.ts",
 )
 
 
@@ -233,13 +250,25 @@ def row_errors(row: dict, repo_root: Path = REPO_ROOT) -> list[str]:
     return errors
 
 
+#: What the scan can match a row by. A row with none of them could be deleted and the check would not notice.
+SIGNALS = ("hosts", "env", "activation_env", "sdks", "hog_files", "posthog_destinations", "model_vendors")
+
+
 def _status_errors(row: dict, where: str) -> list[str]:
     errors = []
+    if not any(row.get(signal) for signal in SIGNALS) and not row.get("no_signal"):
+        errors.append(
+            f"{where}: names nothing the scan can find ({', '.join(SIGNALS)}); add one, or `no_signal` with the reason"
+        )
     if row["status"] == "latent":
         if not row.get("activation_env") and not row.get("no_boot_check"):
             errors.append(f"{where}: a latent row needs `activation_env` or `no_boot_check` with the reason")
     elif not all(_bilingual(row["copy"].get(name)) for name in LISTED_COPY_FIELDS):
         errors.append(f"{where}: a listed row needs de/en {LISTED_COPY_FIELDS} in `copy`")
+    elif row["contract"] == "none" and row["transfer"] != "eea" and not _bilingual(row["copy"].get("transfer")):
+        errors.append(
+            f"{where}: a listed third-country row without a contract needs de/en `copy.transfer`, not an SCC claim"
+        )
     if row["holds_tenant_text"] and row["deletion"]["status"] in {"no_tenant_text", "not_used"}:
         errors.append(f"{where}: holds tenant text, so `deletion.status` cannot say it holds none")
     return errors
@@ -280,20 +309,40 @@ def register_errors(register: Register) -> list[str]:
             errors.append(f"{entry.get('name')}: needs `hosts` and de/en `copy`")
     errors += [
         f"not-flows.yaml: {kind} {name} needs a reason"
-        for kind in ("hosts", "env")
+        for kind in ("hosts", "env", "posthog_destinations", "model_vendors")
         for name, reason in (register.not_flows.get(kind) or {}).items()
         if not reason
     ]
     return errors
 
 
-def _files(roots: tuple[str, ...], repo_root: Path) -> list[Path]:
+#: Directories never descended into: dependencies, build output, caches, tests.
+PRUNED_DIRS = frozenset(
+    {"node_modules", ".next", ".astro", "dist", "__pycache__", ".venv", "public", "tests", "test", "testing", ".git"}
+)
+
+
+@functools.cache
+def _files_cached(roots: tuple[str, ...], repo_root: Path) -> tuple[Path, ...]:
     found = []
     for root in roots:
         path = repo_root / root
-        candidates = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.is_file())
-        found += [p for p in candidates if p.suffix in SUFFIXES and not _skipped(p, repo_root)]
-    return found
+        if path.is_file():
+            found.append(path)
+            continue
+        for directory, subdirs, names in os.walk(path):
+            subdirs[:] = sorted(d for d in subdirs if d not in PRUNED_DIRS and not d.endswith(".egg-info"))
+            found += [Path(directory) / name for name in sorted(names)]
+    return tuple(p for p in found if p.suffix in SUFFIXES and not _skipped(p, repo_root))
+
+
+def _files(roots: tuple[str, ...], repo_root: Path) -> list[Path]:
+    return list(_files_cached(roots, repo_root))
+
+
+@functools.cache
+def _text(path: Path) -> str:
+    return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def _skipped(path: Path, repo_root: Path) -> bool:
@@ -306,7 +355,7 @@ def scan_env(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     paths = _files(RUNTIME_ROOTS, repo_root) + [repo_root / p for p in ENV_ONLY_SOURCES if (repo_root / p).is_file()]
     for path in paths:
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        text = _text(path)
         for pattern in ENV_PATTERNS:
             for name in pattern.findall(text):
                 found.setdefault(name, set()).add(path.relative_to(repo_root).as_posix())
@@ -334,10 +383,22 @@ def scan_hosts(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
     """Each literal host in runtime code, with the files that name it."""
     found: dict[str, set[str]] = {}
     for path in _files(RUNTIME_ROOTS, repo_root):
-        for host in HOST.findall(path.read_text(encoding="utf-8", errors="ignore")):
+        text = _text(path)
+        hosts = [*HOST.findall(text), *TEMPLATED_HOST.findall(text), *BARE_HOST.findall(text)]
+        hosts += [ip for ip in IP_LITERAL.findall(text) if not PRIVATE_IP.match(ip)]
+        for host in hosts:
             host = host.lower().rstrip(".")
-            if not RESERVED_HOST.search(host):
+            if not RESERVED_HOST.search(host) and host != OWN_DOMAIN and not host.endswith("." + OWN_DOMAIN):
                 found.setdefault(host, set()).add(path.relative_to(repo_root).as_posix())
+    return found
+
+
+def scan_model_vendors(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
+    """Each vendor of a default model id in runtime code or config, with the files that name it."""
+    found: dict[str, set[str]] = {}
+    for path in _files(RUNTIME_ROOTS, repo_root):
+        for vendor in MODEL_DEFAULT.findall(_text(path)):
+            found.setdefault(vendor, set()).add(path.relative_to(repo_root).as_posix())
     return found
 
 
@@ -350,7 +411,12 @@ def scan_destinations(repo_root: Path = REPO_ROOT) -> set[str]:
     """The destination ids in the tables of ``deploy/posthog/README.md``."""
     readme = repo_root / "deploy" / "posthog" / "README.md"
     lines = readme.read_text(encoding="utf-8").splitlines() if readme.is_file() else []
-    return {match for line in lines if line.startswith("|") for match in DESTINATION_ID.findall(line)}
+    found = set()
+    for line in lines:
+        for whole, short in DESTINATION_ID.findall(line):
+            if short or len(whole) == 36:
+                found.add(whole)
+    return found
 
 
 #: Manifests whose runtime dependencies ship in an image. Pulumi's runs on an operator's machine.
@@ -361,8 +427,9 @@ PY_MANIFESTS = (
     "packages/knowledge-layer/pyproject.toml",
     "packages/ris-adapter/pyproject.toml",
     "packages/tavily-web-search/pyproject.toml",
+    "packages/ifc-spatial-py/pyproject.toml",
 )
-JS_MANIFESTS = ("apps/workspace/package.json",)
+JS_MANIFESTS = ("apps/workspace/package.json", "apps/cms/package.json", "apps/website/package.json")
 
 
 def scan_packages(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
@@ -397,7 +464,7 @@ def registered_env(register: Register) -> set[str]:
     """Every variable the register accounts for."""
     names = {name for row in register.rows for name in [*row.get("env", []), *row.get("activation_env", [])]}
     names |= set((register.in_cluster.get("env") or {}).keys())
-    names |= {name for entry in register.public_sources for name in entry.get("env", [])}
+    names |= {name for entry in [*register.public_sources, *register.build] for name in entry.get("env", [])}
     return names | set((register.not_flows.get("env") or {}).keys())
 
 
@@ -411,6 +478,19 @@ def registered_hosts(register: Register) -> set[str]:
 
 def _covered(host: str, known: set[str]) -> bool:
     return any(host == entry or host.endswith("." + entry) for entry in known)
+
+
+def latent_config_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
+    """A latent vendor switched on by a config file the images ship (``activation_config``)."""
+    configs = [p for p in (repo_root / "configs").rglob("*.yml") if "subprocessors" not in p.parts]
+    errors = []
+    for row in register.rows:
+        if row.get("status") != "latent":
+            continue
+        for pattern in row.get("activation_config") or []:
+            hits = [p for p in configs if re.search(pattern, p.read_text(encoding="utf-8", errors="ignore"))]
+            errors += [f"{p.relative_to(repo_root)} switches on {row['name']}, which is latent" for p in hits]
+    return errors
 
 
 def flow_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
@@ -430,9 +510,11 @@ def flow_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
     hog = {path for row in register.rows for path in row.get("hog_files", [])}
     errors += [f"{path} has no row naming it in `hog_files`" for path in sorted(scan_hog_files(repo_root) - hog)]
     destinations = {d for row in register.rows for d in row.get("posthog_destinations", [])}
+    destinations |= set((register.not_flows.get("posthog_destinations") or {}).keys())
     errors += [
         f"PostHog destination {d} (deploy/posthog/README.md) has no row naming it in `posthog_destinations`"
-        for d in sorted(scan_destinations(repo_root) - destinations)
+        for d in sorted(scan_destinations(repo_root))
+        if not any(full.startswith(d) for full in destinations)
     ]
     packages, known_packages = scan_packages(repo_root), registered_packages(register)
     errors += [
@@ -444,6 +526,15 @@ def flow_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
     errors += [
         f"package {name} is named in the register but is no longer a dependency; remove it"
         for name in sorted(stale_packages)
+    ]
+    errors += latent_config_errors(register, repo_root)
+    vendors = scan_model_vendors(repo_root)
+    known_vendors = {v for row in register.rows for v in row.get("model_vendors", [])}
+    known_vendors |= set((register.not_flows.get("model_vendors") or {}).keys())
+    errors += [
+        f"model vendor {name} ({', '.join(sorted(files)[:2])}) is in no row's `model_vendors`"
+        for name, files in sorted(vendors.items())
+        if name not in known_vendors
     ]
     stale_hosts = set((register.not_flows.get("hosts") or {}).keys()) - set(hosts)
     stale_env = set((register.not_flows.get("env") or {}).keys()) - set(env)

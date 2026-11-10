@@ -24,7 +24,8 @@ deletion:
     The servers and the nightly Velero copy of every volume are at IPAX. A project deletion reaches the database, the
     object store and the vector index; the copies age out after 30 days. No deletion run for a whole organization at
     contract end exists yet.
-hosts: []
+# The production load balancer's address at IPAX (Pulumi.prod.yaml loadBalancerIp).
+hosts: [45.144.209.196]
 env: []
 evidence:
   - docs/deployment/kubernetes.md

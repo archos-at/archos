@@ -17,6 +17,8 @@ deletion:
   en: Every transcription runs on the platform's key with zero data retention; the audio is not stored.
 hosts: []
 env: [DICTATION_MODEL, DICTATION_FALLBACK_MODEL]
+# DICTATION_MODEL's default (agent_host/routes/dictation.py) names this vendor.
+model_vendors: [elevenlabs]
 evidence:
   - apps/agent-host/src/agent_host/routes/dictation.py
   - docs/architecture/voice-dictation.md

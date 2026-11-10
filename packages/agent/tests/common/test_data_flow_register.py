@@ -50,3 +50,18 @@ def test_the_shipped_register_is_found_and_names_the_latent_vendors() -> None:
     assert found is not None
     ids = {vendor.id for vendor in latent_vendors(found)}
     assert {"modal", "serper", "jina", "wandb", "langsmith"} <= ids
+
+
+def test_a_token_file_switches_a_latent_vendor_on(tmp_path: Path) -> None:
+    register = tmp_path / "register"
+    register.mkdir()
+    (register / "modal.yaml").write_text(
+        "id: modal\nname: Modal Labs, Inc.\nstatus: latent\nactivation_env: [MODAL_TOKEN_ID]\n"
+        "activation_files: ['~/.modal.toml']\n"
+    )
+    home = tmp_path / "home"
+    home.mkdir()
+    assert_no_latent_vendor({"REQUIRE_AUTH": "true"}, register, home)
+    (home / ".modal.toml").write_text("[default]\ntoken_id = 'ak'\n")
+    with pytest.raises(UnregisteredVendorError, match=r"~/\.modal\.toml"):
+        assert_no_latent_vendor({"REQUIRE_AUTH": "true"}, register, home)

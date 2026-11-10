@@ -17,6 +17,10 @@ deletion:
   en: As for OpenRouter; the provider is reached only through OpenRouter.
 hosts: []
 env: []
+# Default model ids the code names: chat, embeddings and the vision model
+# (openai/…), the dictation fallback (openai/whisper…), the decisions model (typesafe/…).
+# An office's own choice is any vendor in OpenRouter's catalog.
+model_vendors: [openai, typesafe]
 evidence:
   - packages/agent/src/agent/common/model_overrides.py
 copy:

@@ -18,7 +18,7 @@ deletion:
   en: >-
     Mail to a project address passes through Cloudflare and is not stored there; Email Routing's activity log keeps
     sender, recipient, time and outcome under Cloudflare's own retention.
-hosts: [api.cloudflare.com]
+hosts: [api.cloudflare.com, mx.cloudflare.net]
 env: [CLOUDFLARE_API_TOKEN]
 evidence:
   - docs/adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md

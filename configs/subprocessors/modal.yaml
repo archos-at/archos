@@ -20,6 +20,11 @@ deletion:
 hosts: [modal.com, api.modal.com]
 env: [MODAL_TOKEN_ID]
 activation_env: [MODAL_TOKEN_ID, MODAL_TOKEN_SECRET]
+# The Modal SDK also reads its token from ~/.modal.toml (checked at boot), and the
+# sandbox is switched on by a `deep_research_sandbox` function in a workflow
+# config (checked in configs/ by scripts/check_data_flow_register.py).
+activation_files: ['~/.modal.toml']
+activation_config: ['_type:\s*deep_research_sandbox']
 sdks:
   - 'py:langchain-modal'
 evidence:

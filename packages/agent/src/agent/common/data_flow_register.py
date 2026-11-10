@@ -4,7 +4,8 @@
 (``docs/compliance/data-flow-register.md``). A row with ``status: latent`` is a
 vendor the code can reach but nobody has disclosed: Modal's sandbox, Serper,
 Jina, Weights & Biases, LangSmith tracing. Its ``activation_env`` names the
-variables that would switch it on. Set one in a deployment people sign in to
+variables that would switch it on, ``activation_files`` the files
+(``~/.modal.toml``). Set one in a deployment people sign in to
 (``REQUIRE_AUTH=true``) and the process refuses to start: data would flow to a
 processor the legal page does not name. To use such a vendor, move its row to
 ``status: active``, which puts it on the page, and the boot passes.
@@ -40,6 +41,7 @@ class LatentVendor:
     id: str
     name: str
     activation_env: tuple[str, ...]
+    activation_files: tuple[str, ...] = ()
 
 
 def register_dir(cwd: Path | None = None) -> Path | None:
@@ -56,14 +58,26 @@ def latent_vendors(directory: Path) -> list[LatentVendor]:
         row = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if row.get("status") != "latent":
             continue
-        switches = tuple(row.get("activation_env") or ())
-        vendors.append(LatentVendor(id=str(row["id"]), name=str(row["name"]), activation_env=switches))
+        vendors.append(
+            LatentVendor(
+                id=str(row["id"]),
+                name=str(row["name"]),
+                activation_env=tuple(row.get("activation_env") or ()),
+                activation_files=tuple(row.get("activation_files") or ()),
+            )
+        )
     return vendors
 
 
-def switched_on(vendor: LatentVendor, env: Mapping[str, str]) -> list[str]:
-    """The vendor's activation variables that are set to something other than off."""
-    return [name for name in vendor.activation_env if (env.get(name) or "").strip().lower() not in OFF_VALUES]
+def switched_on(vendor: LatentVendor, env: Mapping[str, str], home: Path | None = None) -> list[str]:
+    """The vendor's switches that are on: variables set to something other than off, files that exist.
+
+    A file is written ``~/…`` in the register and read below ``home`` (the
+    process's home directory unless a test names another).
+    """
+    names = [name for name in vendor.activation_env if (env.get(name) or "").strip().lower() not in OFF_VALUES]
+    base = home or Path.home()
+    return names + [path for path in vendor.activation_files if (base / path.removeprefix("~/")).exists()]
 
 
 def is_real_deployment(env: Mapping[str, str]) -> bool:
@@ -71,7 +85,9 @@ def is_real_deployment(env: Mapping[str, str]) -> bool:
     return (env.get("REQUIRE_AUTH") or "").lower() == "true"
 
 
-def assert_no_latent_vendor(env: Mapping[str, str] | None = None, directory: Path | None = None) -> None:
+def assert_no_latent_vendor(
+    env: Mapping[str, str] | None = None, directory: Path | None = None, home: Path | None = None
+) -> None:
     """Refuse the boot when a latent vendor is switched on where people sign in.
 
     A no-op in a local or test deployment (``REQUIRE_AUTH`` not ``true``).
@@ -84,7 +100,7 @@ def assert_no_latent_vendor(env: Mapping[str, str] | None = None, directory: Pat
         raise UnregisteredVendorError(
             f"{REGISTER_DIR} is missing, so the data-flow register cannot be checked; refusing to start."
         )
-    offenders = [(vendor, names) for vendor in latent_vendors(found) if (names := switched_on(vendor, source))]
+    offenders = [(vendor, names) for vendor in latent_vendors(found) if (names := switched_on(vendor, source, home))]
     if not offenders:
         return
     listed = "; ".join(f"{vendor.name} ({', '.join(names)})" for vendor, names in offenders)

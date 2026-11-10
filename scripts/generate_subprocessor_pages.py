@@ -98,7 +98,7 @@ def page_tables(register: Register, lang: str) -> dict:
                     _copy(row, "purpose", lang),
                     _copy(row, "data", lang),
                     _copy(row, "location", lang),
-                    TRANSFER_TEXT[row["transfer"]][lang],
+                    (row["copy"].get("transfer") or TRANSFER_TEXT[row["transfer"]])[lang],
                     _copy(row, "required", lang),
                 ]
                 for row in listed
@@ -140,6 +140,13 @@ def _cell(text: str) -> str:
     return " ".join(str(text).replace("|", "\\|").split()).replace("{productName}", "the product")
 
 
+def _transfer_basis(row: dict) -> str:
+    """The DPV transfer basis, but only where a contract exists to carry it: SCCs are a contract."""
+    if row["transfer"] == "eea" or row["contract"] in {"dpa", "terms"}:
+        return DPV_TRANSFER[row["transfer"]]
+    return "**basis to confirm** (no contract on record)"
+
+
 def _annex_rows(register: Register) -> list[str]:
     head = (
         "| Recipient | Status | Entity | Processed in | Data classes | Purposes (DPV) | Transfer (DPV) | Contract "
@@ -151,7 +158,7 @@ def _annex_rows(register: Register) -> list[str]:
         lines.append(
             f"| {_cell(row['name'])} | {row['status']} | {row['entity_country']} "
             f"| {', '.join(row.get('processing_countries') or [])} | {', '.join(row['data_classes'])} | {purposes} "
-            f"| {DPV_TRANSFER[row['transfer']]} | {CONTRACT_TEXT[row['contract']]} "
+            f"| {_transfer_basis(row)} | {CONTRACT_TEXT[row['contract']]} "
             f"| **{row['deletion']['status']}**: {_cell(row['deletion']['en'])} |"
         )
     return lines

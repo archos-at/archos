@@ -21,6 +21,7 @@ hosts: []
 env: []
 activation_env: []
 no_boot_check: the SDK would be injected into the page by a deployment overlay, which sets no env var a process can read
+no_signal: the SDK would be injected by a deployment overlay; no host, variable or package of ours names it
 evidence:
   - apps/workspace/shared/utils/rum.ts
 copy:

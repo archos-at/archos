@@ -64,14 +64,15 @@ Option 1.
 - **Generated.** `scripts/generate_subprocessor_pages.py` writes:
   - the page's tables and lists (`subprocessors.generated.ts`), which `de.ts` and `en.ts` place between their own paragraphs;
   - the DPA annex (`docs/compliance/dpa-subprocessor-annex.md`), with purposes and transfer bases as W3C DPV terms.
-- **The ratchet.** `scripts/check_data_flow_register.py` fails every unclaimed item of these kinds:
-  - a variable ending `_URL`, `_HOST`, `_ENDPOINT`, `_API_KEY` or `_TOKEN_ID`;
-  - a literal `http(s)://host` in runtime code;
+- **The ratchet.** `scripts/check_data_flow_register.py` reads the whole of `apps/`, `packages/`, `deploy/` and `configs/`. It fails every unclaimed item of these kinds:
+  - a variable ending `_URL`, `_HOST`, `_ENDPOINT`, `_KEY`, `_TOKEN`, `_SECRET` or `_DSN`;
+  - a host: a URL of any scheme, one built in a template, a quoted bare hostname, or a public IP;
+  - a default model id's vendor;
   - a `.hog` file;
-  - a PostHog destination id;
+  - a PostHog destination id, whole or cut short;
   - a direct runtime dependency (an SDK reaches its vendor's default host with no URL in our code).
 
-  It also fails an exemption that no longer occurs. It runs as the `data-flow-register` pre-commit hook and in `tests/test_data_flow_register.py`, with a positive control for each kind.
+  It also fails a row the scan could not find and an exemption that no longer occurs. It runs as the `data-flow-register` pre-commit hook and in `tests/test_data_flow_register.py`, with a positive control for each kind.
 - **Boot check.** A row with `status: latent` names its `activation_env`.
   `agent.common.data_flow_register.assert_no_latent_vendor` stops every Python process of a deployment with `REQUIRE_AUTH=true` while one of those is set. Using such a vendor means making its row `active`, which lists it on the page.
 
@@ -89,8 +90,10 @@ Option 1.
   - the register validates;
   - the scan is clean;
   - the generated files equal the generator's output;
-  - positive controls plant an unclaimed host, variable, Hog file and SDK, and each fails.
-- `packages/agent/tests/common/test_data_flow_register.py`: a latent vendor stops the boot.
+  - positive controls plant each kind of flow (a `_DSN`, `_TOKEN` and `_SECRET` variable, a `wss://`, templated, bare and IP host, a file in the CMS, the website, `ifc-spatial-py` and Helm, a model vendor, an SDK dependency, a PostHog destination, a latent vendor in a config), and each fails;
+  - a row the scan cannot find fails.
+- `packages/agent/tests/common/test_data_flow_register.py`: a latent vendor, by a variable or a token file, stops the boot.
+- `deploy/pulumi/src/platform/posthog-log-redaction.spec.ts`: the real collector withholds a planted document name and licensed passage from PostHog Logs.
 - `apps/workspace/bff/legal/content/content.spec.ts`: the page shows the register's rows, in order.
 
 ## Pros and Cons of the Options

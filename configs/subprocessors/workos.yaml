@@ -19,7 +19,7 @@ deletion:
   en: >-
     WorkOS holds accounts, memberships and the audit trail. Audit events carry project, organization and document
     names. At contract end neither the organization, its users nor its audit trail are deleted automatically.
-hosts: [api.workos.com, workos.com, authkit.app]
+hosts: [api.workos.com, workos.com, authkit.app, workoscdn.com]
 env:
   - WORKOS_API_KEY
   - WORKOS_CLIENT_ID

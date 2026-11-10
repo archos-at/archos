@@ -74,8 +74,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen und Antwort-Bewertungen",
-          "Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; kein Text Ihrer Rückmeldungen oder Chats",
+          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Fehler und Betriebswarnungen",
+          "Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; Titel von Fehlermeldungen, die den Namen eines Dokuments oder Projekts enthalten können; Kennzahlen zu Betrieb und Kosten. Kein Text Ihrer Rückmeldungen oder Chats",
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
           "Ja"
@@ -105,17 +105,17 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Nur für die Adresssuche (vom Betreiber abschaltbar)"
         ],
         [
-          "Push-Dienst Ihres Browsers (Google, Mozilla oder Apple)",
+          "Push-Dienst Ihres Browsers (Google, Mozilla, Apple oder Microsoft)",
           "Zustellung von Benachrichtigungen, die Sie in Ihrem Browser erlaubt haben",
           "Eine verschlüsselte Benachrichtigung, die der Dienst nicht lesen kann, und die Adresse Ihres Browsers beim Dienst",
           "Abhängig von Ihrem Browser (meist USA)",
-          "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
+          "Keine Vereinbarung mit uns; Ihr Browser bestimmt den Dienst, und die Nachricht ist Ende-zu-Ende verschlüsselt",
           "Nur wenn Sie Benachrichtigungen erlauben"
         ],
         [
           "OpenAI, Inc. (direkt)",
           "Nur mit einem eigenen OpenAI-Schlüssel Ihrer Organisation (BYOK) oder einer abweichenden Konfiguration des Betreibers",
-          "Chat-Nachrichten, Dokumentauszüge, Projektprofil-Text, Audio von Diktaten",
+          "Gleiche Inhalte wie OpenRouter (siehe oben), einschließlich Audio von Diktaten",
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
           "Optional (nur falls konfiguriert)"
@@ -185,7 +185,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.",
       "Let’s Encrypt (USA) — TLS-Zertifikate für die Domains von {productName}; erhält nur die Domainnamen.",
       "ClamAV-Signaturen (Cisco Talos) — Signaturen für die Virenprüfung werden heruntergeladen; nichts wird hochgeladen.",
-      "Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google."
+      "Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google.",
+      "Buffer (USA) — veröffentlicht die Beiträge unseres Blogs in sozialen Netzwerken, nachdem eine Person sie freigegeben hat; erhält nur diese Beiträge, keine Daten aus {productName}."
     ]
   },
   "en": {
@@ -249,8 +250,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Notifying our team internally about new reports and answer ratings",
-          "Ticket number, kind of report, reason of a negative rating, organization name, links; no text of your reports or chats",
+          "Notifying our team internally about new reports, answer ratings, errors and operational alerts",
+          "Ticket number, kind of report, reason of a negative rating, organization name, links; titles of error messages, which can contain the name of a document or project; operational and cost figures. No text of your reports or chats",
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
           "Yes"
@@ -280,17 +281,17 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Only for address search (the operator can switch it off)"
         ],
         [
-          "Your browser's push service (Google, Mozilla or Apple)",
+          "Your browser's push service (Google, Mozilla, Apple or Microsoft)",
           "Delivering notifications you allowed in your browser",
           "An encrypted notification the service cannot read, and your browser's address at the service",
           "Depends on your browser (usually USA)",
-          "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
+          "No agreement with us; your browser decides the service, and the message is end-to-end encrypted",
           "Only if you allow notifications"
         ],
         [
           "OpenAI, Inc. (direct)",
           "Only with your organization's own OpenAI key (BYOK) or an operator configuration that points there",
-          "Chat messages, document excerpts, project profile text, dictation audio",
+          "The same content OpenRouter receives (see above), including dictation audio",
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
           "Optional (only if configured)"
@@ -360,7 +361,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.",
       "Let’s Encrypt (USA) — TLS certificates for the {productName} domains; receives only the domain names.",
       "ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.",
-      "Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}."
+      "Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}.",
+      "Buffer (USA) — publishes our blog's posts on social networks once a person has approved them; receives only those posts, no data from {productName}."
     ]
   }
 }

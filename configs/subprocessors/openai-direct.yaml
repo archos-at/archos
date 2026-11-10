@@ -32,8 +32,8 @@ copy:
     de: Nur mit einem eigenen OpenAI-Schlüssel Ihrer Organisation (BYOK) oder einer abweichenden Konfiguration des Betreibers
     en: Only with your organization's own OpenAI key (BYOK) or an operator configuration that points there
   data:
-    de: Chat-Nachrichten, Dokumentauszüge, Projektprofil-Text, Audio von Diktaten
-    en: Chat messages, document excerpts, project profile text, dictation audio
+    de: Gleiche Inhalte wie OpenRouter (siehe oben), einschließlich Audio von Diktaten
+    en: The same content OpenRouter receives (see above), including dictation audio
   location:
     de: USA
     en: USA

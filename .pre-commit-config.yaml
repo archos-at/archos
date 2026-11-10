@@ -106,11 +106,11 @@ repos:
         # cluster (docs/compliance/data-flow-register.md). The check fails a host,
         # key, base URL, Hog file or PostHog destination no row names; the
         # generator rewrites the legal page's tables and the DPA annex, and a
-        # changed file fails the commit. The files are every root the scan reads.
+        # changed file fails the commit. The files are every tree the scan reads.
         entry: bash -c '.venv/bin/python scripts/check_data_flow_register.py && .venv/bin/python scripts/generate_subprocessor_pages.py'
         language: system
         pass_filenames: false
-        files: ^(pyproject\.toml$|apps/(workspace|agent-host)/|packages/(agent|knowledge-layer|ris-adapter|tavily-web-search)/(src/|pyproject\.toml$)|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
+        files: ^(pyproject\.toml$|apps/|packages/|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
 
       - id: agent-docs
         name: every AGENTS.md is reachable by the agents that need it

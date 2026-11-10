@@ -12,3 +12,6 @@ operators:
     on the processor list (Modal, Serper, Jina, Weights & Biases, LangSmith,
     Anthropic or Gemini direct) is configured, and the two Slack destinations
     in PostHog no longer quote a member's feedback; paste both again.
+  - >
+    Warning logs sent to PostHog no longer carry their text: only the area tag,
+    the code location and the error type leave the cluster.

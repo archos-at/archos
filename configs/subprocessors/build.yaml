@@ -12,7 +12,7 @@ services:
       de: SonarSource / SonarQube Cloud (EU/CH) — statische Analyse des Quellcodes.
       en: SonarSource / SonarQube Cloud (EU/CH) — static analysis of source code.
   - id: registries
-    hosts: [charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
+    hosts: [ghcr.io, raw.githubusercontent.com, charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
     copy:
       de: Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.
       en: Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
@@ -31,3 +31,9 @@ services:
     copy:
       de: Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google.
       en: Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}.
+  - id: buffer
+    hosts: [api.buffer.com]
+    env: [BUFFER_API_KEY]
+    copy:
+      de: Buffer (USA) — veröffentlicht die Beiträge unseres Blogs in sozialen Netzwerken, nachdem eine Person sie freigegeben hat; erhält nur diese Beiträge, keine Daten aus {productName}.
+      en: Buffer (USA) — publishes our blog's posts on social networks once a person has approved them; receives only those posts, no data from {productName}.
