@@ -8,9 +8,10 @@ NetworkPolicy). So the BFF asks here, and this route makes the request through
 source reader uses: the source's hosts checked at every redirect, a public
 address, GET only. It answers the bytes' sha256 and size and the page's text
 (a PDF's pages joined by a form feed, with ``pages`` and a ``note`` when a scan
-has no text layer); the BFF stores them in the change request's capture. A PDF
-that needs a password or cannot be parsed is a 422 whose body names the
-problem's ``code`` beside its ``detail``.
+has no text layer); the BFF stores them in the change request's capture. A refusal
+the reader names (a host off the source or no public address, ``egress_refused``;
+a body past the ceiling; a PDF behind a password, broken, too long or too slow)
+answers the problem's ``code`` beside its ``detail``.
 
 Public pages only, never a tenant's content, and nothing is kept here.
 Internal-token guarded like every other service-to-service route: reached from
@@ -89,7 +90,7 @@ async def capture_public_source_page(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except EgressRefused as exc:
         logger.info("public source capture refused: %s", exc)
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return JSONResponse(status_code=403, content={"detail": str(exc), "code": "egress_refused"})
     except CaptureError as exc:
         if exc.code:
             return JSONResponse(status_code=exc.status, content={"detail": str(exc), "code": exc.code})

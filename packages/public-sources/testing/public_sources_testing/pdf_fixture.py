@@ -1,14 +1,18 @@
-"""The PDFs the public-sources tests read: a two-page statute, a scan, one that needs a password, one that is broken.
+"""The PDFs the public-sources tests read.
 
-Built with ingestion's own test builder (``knowledge_layer_testing.pdf_fixtures``).
-The statute is § 7 of the Austrian Urheberrechtsgesetz, which is the reason it
-may be a fixture: a law is a free work (§ 7 Abs. 1 UrhG). Its text is real.
+``fixtures/baunvo.pdf`` is a real public PDF: the Baunutzungsverordnung as
+gesetze-im-internet.de publishes it (fetched 2026-11-10, 16 pages). A statute
+is a free work (§ 5 Abs. 1 UrhG in Germany, § 7 Abs. 1 UrhG in Austria), which
+is why it may be a fixture. ``fixtures/baunvo.txt`` is what
+:func:`public_sources.pdf.read_pdf` reads from it, pages joined by a form feed:
+``python -m public_sources_testing.pdf_fixture`` rewrites it. The workspace's
+door spec serves the same two files, so the text the BFF checks a quote against
+is the text ingestion extracts; ``test_pdf.py`` fails when they drift.
 
-``python -m public_sources_testing.pdf_fixture`` rewrites ``fixtures/urhg-7.pdf``
-and ``fixtures/urhg-7.txt`` (what :func:`public_sources.pdf.read_pdf` reads from
-it, pages joined by a form feed). The workspace's door spec serves the same two
-files, so the text the BFF checks a quote against is the text ingestion
-extracts; ``test_pdf.py`` fails when they drift.
+The small ones are built with ingestion's own test builder
+(``knowledge_layer_testing.pdf_fixtures``): § 7 of the Austrian
+Urheberrechtsgesetz on two pages, the same statute behind a password, a scan
+with no text layer, and bytes that are no PDF.
 """
 
 from __future__ import annotations
@@ -18,8 +22,8 @@ from pathlib import Path
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-STATUTE_PDF = FIXTURES / "urhg-7.pdf"
-STATUTE_TEXT = FIXTURES / "urhg-7.txt"
+REAL_PDF = FIXTURES / "baunvo.pdf"
+REAL_TEXT = FIXTURES / "baunvo.txt"
 
 TITLE = "Urheberrechtsgesetz, § 7 Freie Werke"
 
@@ -63,14 +67,12 @@ def broken_pdf() -> bytes:
     return b"%PDF-1.4\n1 0 obj << /Type /Catalog >> garbage, no xref, no trailer"
 
 
+def real_text() -> str:
+    """The committed text of the real PDF, without the file's closing newline."""
+    return REAL_TEXT.read_text(encoding="utf-8").removesuffix("\n")
+
+
 if __name__ == "__main__":
     from public_sources.pdf import read_pdf
 
-    FIXTURES.mkdir(exist_ok=True)
-    STATUTE_PDF.write_bytes(statute_pdf())
-    STATUTE_TEXT.write_text((read_pdf(statute_pdf()).text or "") + "\n", encoding="utf-8")
-
-
-def statute_text() -> str:
-    """The committed text of the statute, without the file's closing newline."""
-    return STATUTE_TEXT.read_text(encoding="utf-8").removesuffix("\n")
+    REAL_TEXT.write_text((read_pdf(REAL_PDF.read_bytes()).text or "") + "\n", encoding="utf-8")

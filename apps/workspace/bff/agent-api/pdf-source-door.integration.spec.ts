@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/public-sources/testing/public_sources_testing/fixtures/urhg-7.pdf, ../../packages/public-sources/testing/public_sources_testing/fixtures/urhg-7.txt
+// @disk-inputs: ../../packages/public-sources/testing/public_sources_testing/fixtures/baunvo.pdf, ../../packages/public-sources/testing/public_sources_testing/fixtures/baunvo.txt
 /**
  * @vitest-environment node
  *
@@ -13,10 +13,11 @@
  *
  * Faked, because they are outside the door: WorkOS, the flags, the audit
  * trail, and the api tier's public-source routes. Those answer with the
- * committed fixture of `packages/public-sources`: § 7 UrhG as a two-page PDF
- * and the text ingestion's text pass reads from it (`urhg-7.txt`, pages joined
- * by a form feed). `packages/public-sources/tests/test_pdf.py` fails when the
- * two drift, so the text this spec quotes is the text the corpus would index.
+ * committed fixture of `packages/public-sources`: a real public PDF, the
+ * Baunutzungsverordnung as gesetze-im-internet.de publishes it (16 pages), and
+ * the text ingestion's text pass reads from it (`baunvo.txt`, pages joined by
+ * a form feed). `packages/public-sources/tests/test_pdf.py` fails when the two
+ * drift, so the text this spec quotes is the text the corpus would index.
  *
  * Each guard has its positive control beside it: the quote the capture does not
  * hold is refused and the one from page 2 passes; the body that is no base64 is
@@ -57,23 +58,25 @@ const RUN = Date.now().toString(36)
 const BACKEND = 'http://localhost:8000'
 
 const FIXTURES = join(process.cwd(), '../../packages/public-sources/testing/public_sources_testing/fixtures')
-const PDF = readFileSync(join(FIXTURES, 'urhg-7.pdf'))
-const PDF_TEXT = readFileSync(join(FIXTURES, 'urhg-7.txt'), 'utf8').replace(/\n$/, '')
+const PDF = readFileSync(join(FIXTURES, 'baunvo.pdf'))
+const PDF_TEXT = readFileSync(join(FIXTURES, 'baunvo.txt'), 'utf8').replace(/\n$/, '')
 
 /** A synthetic country, its own so this spec shares no territory with another on the same database. */
 const COUNTRY = 'XP'
 const SOURCE = `xp-gazette-${RUN}`
 const HOST = 'gazette.xp.example'
-const PDF_URL = `https://${HOST}/urhg-7.pdf`
+const PDF_URL = `https://${HOST}/baunvo.pdf`
 const LOCKED_URL = `https://${HOST}/locked.pdf`
 const SCAN_URL = `https://${HOST}/scan.pdf`
 const TERMS_URL = `https://${HOST}/terms`
 const TERMS = 'Terms of use of the Gazette of XP: the gazette is published under an open licence.'
 const ISO_LIST = 'XP Republic of XP (a user-assigned code, for testing)'
 
-/** Page 2 of the PDF, Abs. 2 of § 7, as a person copies it from the page: line breaks and all. */
+/** Page 1 names the regulation, as KC-6 asks one quote to. */
+const PAGE_ONE_QUOTE = 'Verordnung über die bauliche Nutzung der Grundstücke (Baunutzungsverordnung - BauNVO)'
+/** Page 2, § 1 Abs. 1, as a person copies it from the page: it runs over a line break there. */
 const PAGE_TWO_QUOTE =
-  'Die vom Bundesamt für Eich- und Vermessungswesen hergestellten oder bearbeiteten (§ 5, Absatz 1) und zur Verbreitung (§ 16) bestimmten Landkarten sind keine freien Werke.'
+  'Im Flächennutzungsplan können die für die Bebauung vorgesehenen Flächen nach der allgemeinen Art ihrer baulichen Nutzung (Bauflächen) dargestellt werden'
 
 const sha = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex')
 
@@ -86,16 +89,16 @@ const sourceRecord = (captureId: string, body = PDF.toString('base64')) => ({
   format: 'pdf_document',
   hosts: [HOST],
   terms: { url: TERMS_URL, licence: 'public_open', checked: '2026-11-01' },
-  monitor: { kind: 'sha256', intervalHours: 24, probe: { operation: 'document', args: { id: 'urhg' } } },
-  access: { documents: [{ id: 'urhg', url: PDF_URL, title: 'Urheberrechtsgesetz' }] },
-  engine: { title: 'Urheberrechtsgesetz, § 7 Freie Werke' },
+  monitor: { kind: 'sha256', intervalHours: 24, probe: { operation: 'document', args: { id: 'baunvo' } } },
+  access: { documents: [{ id: 'baunvo', url: PDF_URL, title: 'Baunutzungsverordnung' }] },
+  engine: { title: 'Baunutzungsverordnung' },
   fixtures: [
     {
-      name: 'urhg',
+      name: 'baunvo',
       operation: 'document',
-      args: { id: 'urhg' },
+      args: { id: 'baunvo' },
       responses: { [PDF_URL]: { contentType: 'application/pdf', encoding: 'base64', body } },
-      expect: { anchors: ['page_1', 'page_2'], contains: ['keine freien Werke'] },
+      expect: { anchors: ['page_1', 'page_2'], contains: ['Allgemeine Vorschriften für Bauflächen und Baugebiete'] },
     },
   ],
   citations: [{ captureId, quote: 'the gazette is published under an open licence' }],
@@ -129,11 +132,14 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
       const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
       asked.push({ path, body })
       if (path === '/v1/public-sources/check') {
-        return Response.json({ valid: true, problems: [], fixtures: [{ name: 'urhg', ok: true, requested: [PDF_URL] }] })
+        return Response.json({ valid: true, problems: [], fixtures: [{ name: 'baunvo', ok: true, requested: [PDF_URL] }] })
       }
       if (path !== '/v1/public-sources/capture') throw new Error(`no network in this spec: ${address}`)
       const page = String(body.url)
       const base = { url: page, finalUrl: page, contentType: 'application/pdf', retrievedAt: new Date().toISOString() }
+      if (new URL(page).hostname !== HOST) {
+        return Response.json({ detail: `${page} is not an https URL on a host of source ${String(body.source)}`, code: 'egress_refused' }, { status: 403 })
+      }
       if (page === LOCKED_URL) {
         return Response.json({ detail: "the PDF needs a password to open; a source's text must be readable without one", code: 'pdf_encrypted' }, { status: 422 })
       }
@@ -142,7 +148,7 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
         return Response.json({ ...base, sha256: sha('scan'), bytes: 4, text: null, pages: 2, note })
       }
       if (page === TERMS_URL) return Response.json({ ...base, contentType: 'text/html', sha256: sha(TERMS), bytes: TERMS.length, text: TERMS, pages: null, note: null })
-      return Response.json({ ...base, sha256: sha(PDF), bytes: PDF.length, text: PDF_TEXT, pages: 2, note: null })
+      return Response.json({ ...base, sha256: sha(PDF), bytes: PDF.length, text: PDF_TEXT, pages: 16, note: null })
     })
   }
 
@@ -213,48 +219,63 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
   })
 
   it('captures the PDF through its source: the text of its pages, and how many', async () => {
-    const captured = await capture('urhg', { basis: 'fetched', sourceId: SOURCE, url: PDF_URL })
-    expect(captured).toMatchObject({ contentType: 'application/pdf', sha256: sha(PDF), bytes: PDF.length, pages: 2, note: null, textChars: PDF_TEXT.length })
+    const captured = await capture('baunvo', { basis: 'fetched', sourceId: SOURCE, url: PDF_URL })
+    expect(captured).toMatchObject({ contentType: 'application/pdf', sha256: sha(PDF), bytes: PDF.length, pages: 16, note: null, textChars: PDF_TEXT.length })
     expect((asked.at(-1)?.body.config as { id: string }).id).toBe(SOURCE)
 
     const view = await ok(author, 'platform-knowledge-change-request-get', { params: { changeRequestId: requestId } })
-    const listed = (view.captures as { captureId: string; pages: number | null }[]).find((entry) => entry.captureId === captures.get('urhg'))
-    expect(listed?.pages).toBe(2)
+    const listed = (view.captures as { captureId: string; pages: number | null }[]).find((entry) => entry.captureId === captures.get('baunvo'))
+    expect(listed?.pages).toBe(16)
+    // The source's recorded PDF shows its size and digest to the reviewer, not 138 kB of base64 past the door's result cap.
+    const source = (view.revisions as { type: string; claims: { path: string; value: unknown }[] }[]).find((revision) => revision.type === 'source')
+    const config = source?.claims.find((claim) => claim.path === 'config')?.value as { fixtures: { responses: Record<string, unknown> }[] }
+    expect(config.fixtures[0]!.responses[PDF_URL]).toEqual({ content_type: 'application/pdf', encoding: 'base64', bytes: PDF.length, sha256: sha(PDF) })
   })
 
   it('refuses a quote the PDF does not hold, and passes KC-6 with a sentence from its page 2', async () => {
-    const authority = (quote: string) => ({
-      type: 'authority',
-      key: `xp-bev-${RUN}`,
-      name: 'Bundesamt für Eich- und Vermessungswesen',
-      functionCodes: ['surveying'],
-      seatTerritoryId: COUNTRY,
-      competenceTerritoryIds: [COUNTRY],
-      citations: [{ captureId: captures.get('urhg'), quote }],
+    const work = (pageTwo: string) => ({
+      type: 'work',
+      key: `xp-baunvo-${RUN}`,
+      kind: 'ordinance',
+      title: 'Verordnung über die bauliche Nutzung der Grundstücke',
+      designation: 'BauNVO',
+      territoryIds: [COUNTRY],
+      citations: [
+        { captureId: captures.get('baunvo'), quote: PAGE_ONE_QUOTE },
+        { captureId: captures.get('baunvo'), quote: pageTwo },
+      ],
     })
+    // Positive control: the page's words with one changed are not on the page.
     const madeUp = await ok(author, 'platform-knowledge-records-propose', {
       params: { changeRequestId: requestId },
-      body: { dryRun: true, records: [authority('Das Bundesamt für Eich- und Vermessungswesen erlässt Bauordnungen.')] },
+      body: { dryRun: true, records: [work(PAGE_TWO_QUOTE.replace('allgemeinen Art', 'besonderen Art'))] },
     })
     expect(madeUp.valid).toBe(false)
     expect((madeUp.results as { problems: { code: string; pointer: string }[] }[])[0]?.problems).toEqual([
-      expect.objectContaining({ code: 'KC-6', pointer: '/citations/0/quote' }),
+      expect.objectContaining({ code: 'KC-6', pointer: '/citations/1/quote' }),
     ])
 
-    // The sentence sits on page 2, after the form feed that ends page 1, and runs over three lines there.
-    expect(PDF_TEXT.split('\f')[1]).toContain('bestimmten Landkarten sind keine freien Werke')
-    await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { records: [authority(PAGE_TWO_QUOTE)] } })
+    // The sentence sits on page 2, after the form feed that ends page 1, and runs over a line break there.
+    const pageTwo = PDF_TEXT.split('\f')[1]!
+    expect(pageTwo).toContain('Im Flächennutzungsplan können die für die Bebauung vorgesehenen Flächen nach der allgemeinen Art ihrer\nbaulichen Nutzung')
+    expect(PDF_TEXT.split('\f')[0]).not.toContain('Im Flächennutzungsplan')
+    await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { records: [work(PAGE_TWO_QUOTE)] } })
     const validation = await ok(author, 'platform-knowledge-validate', { params: { changeRequestId: requestId } })
     expect(validation).toMatchObject({ valid: true, problems: [] })
   })
 
-  it('stores nothing of a PDF behind a password, and names the problem by its code', async () => {
+  it('stores nothing of a PDF behind a password or off the source’s hosts, and names each refusal by its code', async () => {
     const before = await capturesOfRequest()
     const locked = await door(author, 'platform-knowledge-citation-capture', {
       params: { changeRequestId: requestId },
       body: { basis: 'fetched', sourceId: SOURCE, url: LOCKED_URL },
     })
     expect(locked.problem).toMatchObject({ status: 422, code: 'PDF_ENCRYPTED' })
+    const offHost = await door(author, 'platform-knowledge-citation-capture', {
+      params: { changeRequestId: requestId },
+      body: { basis: 'fetched', sourceId: SOURCE, url: 'https://elsewhere.example/baunvo.pdf' },
+    })
+    expect(offHost.problem).toMatchObject({ status: 422, code: 'EGRESS_REFUSED' })
     expect(await capturesOfRequest()).toBe(before)
   })
 

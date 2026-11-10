@@ -12,6 +12,7 @@ from public_sources.egress import guarded_client
 from public_sources.egress import is_public_address
 from public_sources.source import parse_source
 from public_sources_testing import html_source
+from public_sources_testing.network import PlainHttpsForMock
 
 
 @pytest.mark.parametrize(
@@ -177,21 +178,10 @@ async def test_a_redirect_to_an_allowed_host_that_resolves_internally_is_refused
     transport = GuardedTransport(PublicOnlyBackend(inner=_Answering(), resolver=resolve))
     # Plain-text mock streams: no TLS handshake to fake, so the client speaks http to the mock.
     transport._pool._ssl_context = None
-    async with guarded_client(source, transport=_PlainHttpsForMock(transport)) as client:
+    async with guarded_client(source, transport=PlainHttpsForMock(transport)) as client:
         with pytest.raises(EgressRefused, match="169.254.169.254"):
             await client.get("https://law.example.org/bo.html")
     assert dialled == ["93.184.216.34"]
-
-
-class _PlainHttpsForMock(httpx.AsyncBaseTransport):
-    """Hands the guarded transport an http URL so the mock stream needs no TLS; the host is unchanged."""
-
-    def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
-        self.inner = inner
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        request.url = request.url.copy_with(scheme="http", port=443)
-        return await self.inner.handle_async_request(request)
 
 
 async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():

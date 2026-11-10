@@ -1,4 +1,4 @@
--- Reverse 0214. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0215. ORDER: roll the frontend back first; the newer build writes
 -- `pdf_document` sources.
 --
 -- Lossy: every source record whose any revision is a `pdf_document` goes with

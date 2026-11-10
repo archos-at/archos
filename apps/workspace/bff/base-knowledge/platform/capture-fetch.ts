@@ -37,13 +37,27 @@ export class CaptureFetchError extends Error {
   constructor(
     message: string,
     readonly status: 403 | 404 | 422 | 502 | 503,
-    /** The api tier's problem code, when it named one: `pdf_encrypted`, `pdf_malformed`, `pdf_too_many_pages`, `pdf_parse_timeout`. */
+    /** The api tier's problem code, when it named one ({@link CAPTURE_REFUSAL_CODES}). */
     readonly code: string | null = null,
   ) {
     super(message)
     this.name = 'CaptureFetchError'
   }
 }
+
+/**
+ * Why the api tier refuses a capture, by name (`public_sources.capture`): a URL
+ * or a redirect off the source's hosts or onto no public address, a body past
+ * the egress ceiling, and the PDF reader's refusals (`public_sources.pdf`).
+ */
+export const CAPTURE_REFUSAL_CODES = [
+  'egress_refused',
+  'body_too_large',
+  'pdf_encrypted',
+  'pdf_malformed',
+  'pdf_too_many_pages',
+  'pdf_parse_timeout',
+] as const
 
 /** A statute page is large and the source is a third party; a capture is no interactive read. */
 const CAPTURE_TIMEOUT_MS = 60_000
@@ -122,9 +136,9 @@ export async function fetchSourcePage(sourceId: string, url: string, configured?
   }
   if (answer.status >= 200 && answer.status < 300) return pageOf(answer.body)
   const detail = refusalDetail(answer)
-  // A body the reader refused by name (a PDF behind a password, a broken one): the code says which.
+  // A capture the api tier refused by name (a host off the source, a body too large, a PDF behind a password): the code says which.
   const code = isRecord(answer.body) && typeof answer.body.code === 'string' ? answer.body.code : null
-  if (answer.status === 422 && code) throw new CaptureFetchError(`The page cannot be read: ${detail}`, 422, code)
+  if (code && (answer.status === 403 || answer.status === 422)) throw new CaptureFetchError(`The capture was refused: ${detail}`, 422, code)
   if (answer.status === 403 || answer.status === 400 || answer.status === 422) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
   if (answer.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
   throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or upload the page as operator_supplied.`, 502)

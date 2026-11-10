@@ -85,6 +85,7 @@ async def test_an_unknown_source_is_not_found_and_a_foreign_host_refused(client)
         "/v1/public-sources/capture", headers=HEADERS, json={"source": "at-ris", "url": "https://example.org/x"}
     )
     assert foreign.status_code == 403
+    assert foreign.json()["code"] == "egress_refused"
 
 
 async def test_checks_a_configured_source_by_its_inline_fixtures(client, monkeypatch):

@@ -193,18 +193,22 @@ it.
 - **The guard is public-sources'.** `public_sources/pdf.py` runs that pass in a
   child process with a deadline and a memory ceiling, caps pages, and refuses
   by code: `pdf_encrypted`, `pdf_malformed`, `pdf_too_many_pages`,
-  `pdf_parse_timeout` (the door's `PDF_*`). Bytes stay capped by the egress
-  ceiling and hosts by the source, as for every fetch.
+  `pdf_parse_timeout`. Every refusal of a capture is named now:
+  `body_too_large` past the egress ceiling and `egress_refused` for a URL or a
+  redirect hop off the source's hosts or onto no public address. The door
+  answers each as a 422 problem whose code is the name in capitals, with a hint.
 - **Pages are joined by a form feed**, as `pdftotext` joins them: the quote
   check reads it as whitespace, and the capture view counts `pages` from it.
   No column was added.
 - **A scan keeps no text** and says so in the capture's `note`. Ingestion
   transcribes such pages with the vision model; a capture does not yet. The
   follow-up is that same transcription behind the same guard, not OCR of our own.
-- **`pdf_document`** is a format (migration 0214 widens the CHECK): a passage
+- **`pdf_document`** is a format (migration 0215 widens the CHECK): a passage
   per page, anchor `page_<n>`, monitored by sha256 like every format. A fixture
   response may carry a binary body as base64 (`encoding: base64`), within the
-  same length. Licensed documents still cannot be a source.
+  same length; a reviewer's view shows such a body as its type, size and
+  sha256, so the view stays under the door's result cap. Licensed documents
+  still cannot be a source.
 
 ## More Information
 

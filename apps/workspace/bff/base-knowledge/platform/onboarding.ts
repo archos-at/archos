@@ -19,7 +19,7 @@ import { ApiError, ConflictError, NotFoundError, ServiceUnavailableError, Unproc
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
-import { CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
+import { CAPTURE_REFUSAL_CODES, CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
 import { sourceChecksOf } from './source-checks'
 import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
@@ -128,15 +128,22 @@ export async function validatePlatformChangeRequest(session: UserSession | null,
   })
 }
 
+/** What an agent does about each named refusal of a capture. */
+const CAPTURE_REFUSAL_HINTS: Readonly<Record<(typeof CAPTURE_REFUSAL_CODES)[number], string>> = {
+  egress_refused: 'Use a URL on a host of the source, or upload the page as operator_supplied.',
+  body_too_large: 'Capture a smaller document (one part of it), or upload the text you cite as operator_supplied and say why in note.',
+  pdf_encrypted: 'Find a copy without a password or the publisher’s HTML version, or upload the text as operator_supplied and say why in note.',
+  pdf_malformed: 'Find another copy of the document, or upload the text as operator_supplied and say why in note.',
+  pdf_too_many_pages: 'Capture the part of the document you cite (most publishers split long PDFs), or upload that text as operator_supplied.',
+  pdf_parse_timeout: 'Try again later; if it keeps timing out, upload the text as operator_supplied and say why in note.',
+}
+
 /**
- * A page the reader refused by name: the api tier's code (`pdf_encrypted`) as
- * the door problem's code (`PDF_ENCRYPTED`), so an agent branches on it.
+ * A capture the api tier refused by name: its code (`pdf_encrypted`) as the
+ * door problem's code (`PDF_ENCRYPTED`), so an agent branches on it.
  */
-function unreadablePage(code: string, message: string): ApiError {
-  const hint =
-    code === 'pdf_parse_timeout'
-      ? 'Try again later; if it keeps timing out, upload the text as operator_supplied and say why in note.'
-      : 'Find a copy without a password or the publisher’s HTML version, or upload the text as operator_supplied and say why in note.'
+function refusedCapture(code: string, message: string): ApiError {
+  const hint = (CAPTURE_REFUSAL_HINTS as Record<string, string>)[code] ?? 'Upload the page as operator_supplied and say why in note.'
   return new ApiError(422, code.toUpperCase(), message, { hint })
 }
 
@@ -160,7 +167,7 @@ async function captured(body: CaptureBody, configured: ConfiguredSource | undefi
     return { ...page, sourceId: body.sourceId, retrievedAt: new Date(page.retrievedAt) }
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
-    if (error.status === 422 && error.code) throw unreadablePage(error.code, error.message)
+    if (error.code) throw refusedCapture(error.code, error.message)
     if (error.status === 404) throw new NotFoundError(error.message)
     if (error.status === 403) throw new UnprocessableError(error.message, { hint: 'Use a URL on a host of the source, or upload the page as operator_supplied.' })
     // Nothing was stored; the agent retries, or uploads the page as operator_supplied.

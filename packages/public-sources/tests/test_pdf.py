@@ -12,6 +12,7 @@ import hashlib
 
 import httpx
 import pytest
+from public_sources import capture as capture_module
 from public_sources import routing
 from public_sources.capture import CaptureError
 from public_sources.capture import capture_page
@@ -26,13 +27,14 @@ from public_sources.source import parse_inline_source
 from public_sources_testing import SOURCES_DIR
 from public_sources_testing import SYNTHETIC_TERMS
 from public_sources_testing import synthetic_source
-from public_sources_testing.pdf_fixture import STATUTE_PDF
+from public_sources_testing.network import scripted_network
+from public_sources_testing.pdf_fixture import REAL_PDF
 from public_sources_testing.pdf_fixture import TITLE
 from public_sources_testing.pdf_fixture import broken_pdf
 from public_sources_testing.pdf_fixture import password_pdf
+from public_sources_testing.pdf_fixture import real_text
 from public_sources_testing.pdf_fixture import scanned_pdf
 from public_sources_testing.pdf_fixture import statute_pdf
-from public_sources_testing.pdf_fixture import statute_text
 
 PDF_URL = "https://gazette.xa.example/urhg-7.pdf"
 PAGE_TWO = "bestimmten Landkarten sind keine freien Werke"
@@ -79,9 +81,12 @@ def _site(pages: dict[str, tuple[str, bytes]]) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
-def test_the_committed_fixture_is_what_the_builder_writes_and_the_reader_reads():
-    assert STATUTE_PDF.read_bytes() == statute_pdf()
-    assert read_pdf(statute_pdf()).text == statute_text()
+def test_the_committed_text_is_what_the_reader_reads_from_the_real_pdf():
+    """The door spec serves this text as the api tier's; it must be what this package extracts."""
+    read = read_pdf(REAL_PDF.read_bytes())
+
+    assert read.text == real_text()
+    assert len(read.pages) == 16 and read.note == ""
 
 
 def test_reads_each_page_and_joins_them_with_a_form_feed():
@@ -130,15 +135,15 @@ def test_a_parse_past_its_deadline_is_stopped():
     assert refused.value.code == "pdf_parse_timeout"
 
 
-async def test_a_capture_of_a_pdf_keeps_its_pages_text():
+async def test_a_capture_of_a_real_pdf_keeps_its_pages_text():
     source = parse_inline_source(_pdf_source())
-    content = statute_pdf()
+    content = REAL_PDF.read_bytes()
 
     page = await capture_page(source, PDF_URL, inner=_site({PDF_URL: ("application/pdf", content)}))
 
     assert page.sha256 == hashlib.sha256(content).hexdigest()
-    assert page.pages == 2 and page.note == ""
-    assert page.text == statute_text()
+    assert page.pages == 16 and page.note == ""
+    assert page.text == real_text()
 
 
 async def test_a_pdf_served_as_octet_stream_is_still_read_by_its_magic_bytes():
@@ -205,5 +210,49 @@ async def test_the_monitor_watches_a_pdf_by_its_bytes_and_hands_over_its_text():
 
     assert second.changed
     assert first.anchors == ("page_1", "page_2")
-    assert first.text == statute_text()
+    assert PAGE_TWO in (first.text or "").split(PAGE_BREAK)[1]
     assert second.text is None
+
+
+async def test_a_pdf_larger_than_the_egress_ceiling_is_refused_by_its_code(monkeypatch):
+    monkeypatch.setattr(capture_module, "MAX_BODY_BYTES", 1000)
+    source = parse_inline_source(_pdf_source())
+
+    with pytest.raises(CaptureError) as refused:
+        await capture_page(source, PDF_URL, inner=_site({PDF_URL: ("application/pdf", statute_pdf())}))
+    assert (refused.value.status, refused.value.code) == (422, "body_too_large")
+
+
+async def test_a_pdf_url_off_the_source_hosts_is_refused_before_anything_is_sent():
+    source = parse_inline_source(_pdf_source())
+
+    with pytest.raises(CaptureError) as refused:
+        await capture_page(source, "https://elsewhere.example/urhg-7.pdf", inner=_site({}))
+    assert (refused.value.status, refused.value.code) == (403, "egress_refused")
+
+
+async def test_a_pdf_url_redirecting_off_the_hosts_is_refused_at_the_hop():
+    source = parse_inline_source(_pdf_source())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "https://10.0.0.1/urhg-7.pdf"})
+
+    with pytest.raises(CaptureError) as refused:
+        await capture_page(source, PDF_URL, inner=httpx.MockTransport(handler))
+    assert (refused.value.status, refused.value.code) == (403, "egress_refused")
+
+
+async def test_a_pdf_url_redirecting_to_a_listed_host_with_a_private_address_is_refused_before_dialling():
+    # The host list cannot catch this: the second host is the source's own, and its DNS answers the metadata address.
+    record = _pdf_source()
+    record["hosts"] = ["gazette.xa.example", "files.xa.example"]
+    source = parse_inline_source(record)
+    addresses = {"gazette.xa.example": ["93.184.216.34"], "files.xa.example": ["169.254.169.254"]}
+    redirect = b"HTTP/1.1 302 Found\r\nLocation: https://files.xa.example/urhg-7.pdf\r\nContent-Length: 0\r\n\r\n"
+    dialled: list[str] = []
+
+    with pytest.raises(CaptureError) as refused:
+        await capture_page(source, PDF_URL, inner=scripted_network(addresses, redirect, dialled))
+    assert (refused.value.status, refused.value.code) == (403, "egress_refused")
+    assert "169.254.169.254" in str(refused.value)
+    assert dialled == ["93.184.216.34"]

@@ -29,6 +29,7 @@ from datetime import datetime
 import httpx
 from lxml import html as lxml_html
 from public_sources.egress import MAX_BODY_BYTES
+from public_sources.egress import EgressRefused
 from public_sources.pdf import PdfError
 from public_sources.pdf import is_pdf
 from public_sources.pdf import read_pdf
@@ -149,7 +150,7 @@ async def _read_capped(response: httpx.Response) -> bytes:
     async for chunk in response.aiter_bytes():
         size += len(chunk)
         if size > MAX_BODY_BYTES:
-            raise CaptureError(f"the page is larger than {MAX_BODY_BYTES} bytes", 502)
+            raise CaptureError(f"the page is larger than {MAX_BODY_BYTES} bytes", 422, "body_too_large")
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -168,15 +169,20 @@ async def capture_page(
     source = get_source(source_id) if isinstance(source_id, str) else source_id
     if not source.allows(url):
         hosts = ", ".join(source.hosts)
-        raise CaptureError(f"{url} is not an https URL on a host of source {source.id} ({hosts})", 403)
+        raise CaptureError(
+            f"{url} is not an https URL on a host of source {source.id} ({hosts})", 403, "egress_refused"
+        )
     transport = source_transport(
         source_id if isinstance(source_id, str) else source, inner=inner, credential=credential
     )
     client = httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=45.0, trust_env=False)
-    async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
-        content = await _read_capped(response)
-        content_type = response.headers.get("content-type")
-        final_url = str(response.url)
+    try:
+        async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
+            content = await _read_capped(response)
+            content_type = response.headers.get("content-type")
+            final_url = str(response.url)
+    except EgressRefused as exc:  # a hop off the hosts, or a name that resolves to no public address
+        raise CaptureError(str(exc), 403, "egress_refused") from exc
     text, pages, note = await _text_of(content, content_type)
     return CapturedPage(
         url=url,
