@@ -8,7 +8,8 @@
  */
 
 import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
-import type { MonitorKind, PersonDecisionSource, SourceDataFlow, SourceFormat, SourceProtocol } from '@/lib/base-knowledge/wire/vocab'
+import type { SourceFormat, SourceProtocol } from '@/lib/base-knowledge/wire/source'
+import type { MonitorKind, PersonDecisionSource, SourceDataFlow } from '@/lib/base-knowledge/wire/vocab'
 
 export const knowledgeSourceRevisions = pgTable('knowledge_source_revisions', {
   revisionId: uuid('revision_id').primaryKey(),

@@ -169,6 +169,13 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+# Site resolution: alone and first. It asserts that no territory record holds a
+# Gemeinde yet (no_territory), and the platform suite in the batch below releases
+# that territory; in one batch whichever ran first decided the outcome (seen
+# 2026-11-10 once the batch's timing moved).
+echo "==> running the site-resolution suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
 echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
@@ -239,10 +246,17 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/time/time.integration.spec.ts
+    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+
+# Editions in time: alone, after the platform suite, since both release
+# Austria's territory and a release over one moved since a request was opened
+# is a 409 by design. In one batch the two raced, and whichever opened its
+# request first lost (seen 2026-11-10 once a file joined the batch).
+echo "==> running the editions-in-time suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
