@@ -76,10 +76,10 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   const counsel = person(`user_alone_counsel_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:approve_as_counsel'])
   const managerOnly = person(`user_alone_manager_${RUN}`, ['platform:settings:view', 'platform:settings:manage'])
 
-  /** A submitted request holding one work, written by the owner. */
-  async function submitted(name: string): Promise<string> {
+  /** A submitted request holding one work, written by the owner; `key` names the work when two requests share it. */
+  async function submitted(name: string, key = name): Promise<string> {
     const id = await store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })
-    const records = [wire.proposedRecordSchema.parse({ type: 'work', key: `${name}-${RUN}`, kind: 'guideline', title: `Leitfaden ${name}` })]
+    const records = [wire.proposedRecordSchema.parse({ type: 'work', key: `${key}-${RUN}`, kind: 'guideline', title: `Leitfaden ${name}` })]
     await store.platformTransaction(async (tx) => {
       const request = await store.lockChangeRequest(tx, id)
       await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
@@ -338,5 +338,29 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     await expect(service.decidePlatformChangeRequest(managerOnly, id, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
     await expect(service.decidePlatformChangeRequest(counsel, id, { decision: 'reject', role: 'counsel' })).rejects.toThrow(/No second review is due in the counsel role/)
     expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ secondReview: { state: 'due' } })
+  })
+
+  it('withdraws only its own preview: a record another request previewed since keeps that preview', async () => {
+    const disputed = await submitted('shared-preview-a', 'shared-preview')
+    await service.decidePlatformChangeRequest(owner, disputed, alone)
+    await service.publishPlatformChangeRequest(owner, disputed, { channel: 'preview' })
+    // A second request on the same work, approved with four eyes, previews over it.
+    const later = await submitted('shared-preview-b', 'shared-preview')
+    await acceptAll(later, expert)
+    await service.decidePlatformChangeRequest(expert, later, { decision: 'approve', role: 'domain_expert' })
+    await service.publishPlatformChangeRequest(owner, later, { channel: 'preview' })
+    const [laterRevision] = (await service.getPlatformChangeRequest(expert, later)).revisions
+    await service.decidePlatformChangeRequest(expert, disputed, { decision: 'reject', role: 'domain_expert' })
+    await expect(service.decidePlatformChangeRequest(expert, disputed, { decision: 'reject', role: 'domain_expert' })).resolves.toMatchObject({
+      status: 'rejected',
+    })
+    expect(audit.record).toHaveBeenLastCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ withdrawn: 0 }) }))
+    expect(await moves(disputed)).toEqual([{ channel: 'preview', action: 'publish' }])
+    const [preview] = await withPlatformAccess('alone spec', () =>
+      db.execute<{ to: string }>(
+        sql`SELECT to_revision_id AS to FROM knowledge_release_moves WHERE record_id = ${laterRevision!.recordId} AND channel = 'preview' ORDER BY seq DESC LIMIT 1`,
+      ),
+    )
+    expect(preview?.to).toBe(laterRevision!.revisionId)
   })
 })
