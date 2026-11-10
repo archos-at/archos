@@ -4,8 +4,8 @@
  *
  * What the answer suite's turns read about the law of their site
  * (`scripts/turn_census/fixture_law.py`, ADR-0175): for each Land, the
- * knowledge context and the building law an entitled Austrian office's turn
- * carries once the Austria and EU packs are published. Written by the
+ * knowledge context (its gate, chain text and edition roles) an entitled
+ * Austrian office's turn carries once the Austria and EU packs are published. Written by the
  * production resolvers from the packs themselves, so the suite measures what
  * a turn reads in production and cannot drift from it. Since ADR-0175 a turn
  * without a context reads no law at all, so a suite without this file would
@@ -59,7 +59,10 @@ function turnLaw(territoryId: string, place: string) {
       packSeqs: { AT: 1, EU: 1 },
     }),
   )
-  return { knowledgeContext, buildingLaw: buildingLawTurn(graph, territoryId, DATE, place) }
+  // The agent reads which law applies from `knowledgeContext` alone (its chain text and roles). Until the
+  // context resolver writes the chain text itself (#1584), it is the chain resolver's, as the BFF renders it.
+  const chain = buildingLawTurn(graph, territoryId, DATE, place)
+  return { knowledgeContext: { ...knowledgeContext, text: chain?.text ?? null } }
 }
 
 describe("the answer suite's Austrian turn law", () => {
@@ -69,7 +72,7 @@ describe("the answer suite's Austrian turn law", () => {
     for (const [id, law] of Object.entries(JSON.parse(generated) as Record<string, ReturnType<typeof turnLaw>>)) {
       expect(law.knowledgeContext.gate.state, id).toBe('core')
       expect(law.knowledgeContext.retrieval.countries, id).toContain('AT')
-      expect(law.buildingLaw?.text, id).toContain('Building law at this site')
+      expect(law.knowledgeContext.text, id).toContain('Building law at this site')
     }
   })
 
