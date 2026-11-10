@@ -26,10 +26,10 @@
 import { createHash, webcrypto } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { CLIENT_CAPABILITIES_META_KEY, CLIENT_INFO_META_KEY, PROTOCOL_VERSION_META_KEY } from '@modelcontextprotocol/server'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import { doorScript, platformOperator, platformSession } from './testing/platform-door-script'
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_onb_${Date.now().toString(36)}` }))
 
@@ -91,106 +91,17 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   const OFFICE = `org_onb_office_${RUN}`
 
-  const session = (userId: string, permissions: string[]): AuthorizedSession => ({
-    userId,
-    email: `${userId}@example.test`,
-    name: null,
-    accessToken: '',
-    organizationId: fixed.platformOrg,
-    organizationMembershipId: `om_${userId}`,
-    role: 'member',
-    roles: ['member'],
-    permissions,
-    featureFlags: null,
-  })
-  const operator = (who: AuthorizedSession): Principal => ({ actor: 'external_agent', clientId: 'client_claude', scopes: [], session: who, door: 'platform' })
+  const session = (userId: string, permissions: string[]): AuthorizedSession => platformSession(fixed.platformOrg, userId, permissions)
+  const operator = (who: AuthorizedSession): Principal => platformOperator(who)
   const APPROVER = 'platform:knowledge:approve_as_domain_expert'
   const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', APPROVER]))
   const expert = operator(
     session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:organizations:manage', APPROVER]),
   )
 
-  const ELICITS = { elicitation: { form: {} } }
   const key = (name: string) => `${name}-${RUN}`
   const captureIds = new Map<string, string>()
-
-  interface Rpc {
-    result?: Record<string, unknown> & {
-      content?: { text: string }[]
-      isError?: boolean
-      resultType?: string
-      structuredContent?: Record<string, unknown>
-      requestState?: string
-    }
-    error?: { code: number; message: string }
-  }
-
-  async function rpc(principal: Principal, method: string, params: Record<string, unknown>, capabilities: Record<string, unknown> = ELICITS): Promise<Rpc> {
-    const response = await handler.fetch(
-      new Request('https://app.example.test/api/platform/mcp', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'application/json, text/event-stream',
-          'mcp-protocol-version': '2026-07-28',
-          'mcp-method': method,
-          ...(method === 'tools/call' ? { 'mcp-name': 'call-operation' } : {}),
-          ...(method === 'resources/read' ? { 'mcp-name': String(params.uri) } : {}),
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method,
-          params: {
-            ...params,
-            _meta: {
-              [PROTOCOL_VERSION_META_KEY]: '2026-07-28',
-              [CLIENT_INFO_META_KEY]: { name: 'onboarding-script', version: '1.0.0' },
-              [CLIENT_CAPABILITIES_META_KEY]: capabilities,
-            },
-          },
-        }),
-      }),
-      { authInfo: { token: '', clientId: principal.clientId ?? '', scopes: [], extra: { principal, mode: 'search' } } },
-    )
-    return JSON.parse(await response.text()) as Rpc
-  }
-
-  interface Answer {
-    ok: boolean
-    body: Record<string, unknown>
-    problem?: { code: string; status: number; detail: string; details?: unknown; type: string }
-    raw: Rpc
-  }
-
-  /**
-   * One door call as a scripted client makes it: `call-operation` with the
-   * operation's input; when the server asks the person, the script answers as
-   * the person told it to (`person: 'yes' | 'no'`), and a client without form
-   * elicitation (`elicits: false`) gets the refusal that names where to decide.
-   */
-  async function door(principal: Principal, name: string, input: Record<string, unknown>, options: { person?: 'yes' | 'no'; elicits?: boolean } = {}): Promise<Answer> {
-    const capabilities = options.elicits === false ? {} : ELICITS
-    const args = { name: 'call-operation', arguments: { name, input } }
-    let answer = await rpc(principal, 'tools/call', args, capabilities)
-    if (answer.result?.resultType === 'input_required') {
-      expect(options.person, `${name} asked the person, and the script was not told what they say`).toBeDefined()
-      const confirm = options.person === 'yes' ? { action: 'accept', content: { confirm: true } } : { action: 'decline' }
-      answer = await rpc(principal, 'tools/call', { ...args, inputResponses: { confirm }, requestState: answer.result.requestState }, capabilities)
-    }
-    const result = answer.result
-    expect(result, JSON.stringify(answer.error)).toBeDefined()
-    const structured = (result?.structuredContent ?? {}) as Record<string, unknown>
-    if (result?.isError) return { ok: false, body: structured, problem: structured.problem as Answer['problem'], raw: answer }
-    const body = (structured.result === undefined ? structured : structured.result) as Record<string, unknown>
-    return { ok: true, body, raw: answer }
-  }
-
-  const ok = async (principal: Principal, name: string, input: Record<string, unknown>, options: { person?: 'yes' | 'no' } = {}) => {
-    const answer = await door(principal, name, input, options)
-    expect(answer.ok, `${name}: ${JSON.stringify(answer.problem ?? answer.body)}`).toBe(true)
-    return answer.body
-  }
+  const { rpc, door, ok } = doorScript(() => handler)
 
   const records = (raw: readonly CaseRecord[]) =>
     raw.map(({ key: recordKey, citations, ...rest }) => {
@@ -255,9 +166,9 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     expect(text).toContain('idempotencyKey')
 
     const shapes = await ok(author, 'platform-knowledge-schema-get', {})
-    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'ruleset', 'territory', 'work'])
+    expect(Object.keys(shapes.recordTypes as object).sort()).toEqual(['authority', 'edition', 'manifestation', 'ruleset', 'source', 'territory', 'work'])
     expect(shapes.maxBatch).toBe(200)
-    expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-5', 'KC-6'])
+    expect((shapes.checks as { code: string }[]).map((check) => check.code)).toEqual(['KC-1', 'KC-3', 'KC-5', 'KC-6', 'KC-7'])
 
     // Fail closed on an unknown record type, as an RFC 9457 problem.
     const unknownType = await door(author, 'platform-knowledge-schema-get', { query: { type: 'office_copy' } })

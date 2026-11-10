@@ -6,7 +6,7 @@
  * Pure, so the UI reads them too.
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation'] as const
+export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /**
@@ -101,10 +101,16 @@ export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'referen
 
 /**
  * The payload schemas a ruleset body may carry: the evaluator's decision table,
- * and the two setup records (migration 0207, ADR-0169). A v2 arrives with a pure
- * converter from v1 (design §3.7).
+ * the two setup records (migration 0207, ADR-0169), and the advice policy and
+ * terminology (ADR-0174). A v2 arrives with a pure converter from v1 (design §3.7).
  */
-export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1', 'fact_definitions.v1', 'fact_sources.v1'] as const
+export const RULESET_PAYLOAD_SCHEMAS = [
+  'decision_table.v1',
+  'fact_definitions.v1',
+  'fact_sources.v1',
+  'advice_policy.v1',
+  'terminology.v1',
+] as const
 export type RulesetPayloadSchema = (typeof RULESET_PAYLOAD_SCHEMAS)[number]
 
 /** The purpose each setup record schema serves: one each, held by a CHECK as well. */
@@ -112,6 +118,37 @@ export const SETUP_RECORD_PURPOSES = {
   'fact_definitions.v1': 'fact_definitions',
   'fact_sources.v1': 'fact_sources',
 } as const satisfies Partial<Record<RulesetPayloadSchema, RulesetPurpose>>
+
+/** The purpose every schema but the decision table serves: one each (migrations 0207 and 0212 hold the pairing). */
+export const RECORD_SCHEMA_PURPOSES = {
+  ...SETUP_RECORD_PURPOSES,
+  'advice_policy.v1': 'advice_policy',
+  'terminology.v1': 'terminology',
+} as const satisfies Partial<Record<RulesetPayloadSchema, RulesetPurpose>>
+
+/**
+ * What an answer may do on one topic of legal advice (design §9b(b), ADR-0174),
+ * strictest last: `assert` states a provision and applies it to the stated facts,
+ * `hedge` says the matter needs an individual assessment, `decline` does not
+ * answer it and says who does. Composed by depth, the strictest wins, and an
+ * office may only tighten.
+ */
+export const ADVICE_MODES = ['assert', 'hedge', 'decline'] as const
+export type AdviceMode = (typeof ADVICE_MODES)[number]
+
+/**
+ * The topics an advice policy speaks to. Each is a fixed hedge template per mode
+ * (`rulesets/advice.ts`), so a policy is codes and never prose a prompt reads.
+ */
+export const ADVICE_TOPICS = [
+  'provision_application',
+  'individual_assessment',
+  'deadlines',
+  'authority_discretion',
+  'contract_drafting',
+  'representation',
+] as const
+export type AdviceTopic = (typeof ADVICE_TOPICS)[number]
 
 /**
  * What the location decides about a project, by ticket 31's table
@@ -143,7 +180,7 @@ export const REVIEW_DECISIONS = ['accepted', 'edited', 'rejected'] as const
 export type ReviewDecision = (typeof REVIEW_DECISIONS)[number]
 
 /** The role an approver approves in. */
-export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'second_reviewer'] as const
+export const APPROVAL_ROLES = ['domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer'] as const
 export type ApprovalRole = (typeof APPROVAL_ROLES)[number]
 
 /** How a person said yes: in the app, or answering the door's elicitation. */
@@ -164,6 +201,26 @@ export type ReleaseAction = (typeof RELEASE_ACTIONS)[number]
 /** An indexing run of a published platform text: enqueued, accepted by the corpus, or failed with why. */
 export const INDEX_RUN_STATES = ['requested', 'queued', 'failed'] as const
 export type IndexRunState = (typeof INDEX_RUN_STATES)[number]
+
+/** Where a change request came from: an operator (or their agent), or a source monitor that found a change (ADR-0174). */
+export const CHANGE_REQUEST_ORIGINS = ['operator', 'monitor'] as const
+export type ChangeRequestOrigin = (typeof CHANGE_REQUEST_ORIGINS)[number]
+
+/** The access types a source record may name (`packages/public-sources/src/access`); a new one is code, once. */
+export const SOURCE_PROTOCOLS = ['rest', 'http_eli', 'web_document', 'ogc'] as const
+export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
+
+/** The format engines a source record may name (`packages/public-sources/src/engines`). */
+export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson'] as const
+export type SourceFormat = (typeof SOURCE_FORMATS)[number]
+
+/** What may leave towards a source: nothing about a tenant, or a site point too (privacy review, design §6.4). */
+export const SOURCE_DATA_FLOWS = ['public_only', 'site_keyed'] as const
+export type SourceDataFlow = (typeof SOURCE_DATA_FLOWS)[number]
+
+/** How a source's monitor notices a change; `none` is a source nobody watches. Deterministic, no model call. */
+export const MONITOR_KINDS = ['none', 'sha256', 'etag', 'version'] as const
+export type MonitorKind = (typeof MONITOR_KINDS)[number]
 
 /** Each vocabulary by the column its CHECK constrains: what the parity spec and the fixture walk. */
 export const KNOWLEDGE_VOCABULARIES = {
@@ -188,4 +245,9 @@ export const KNOWLEDGE_VOCABULARIES = {
   'knowledge_relation_revisions.mode': BINDING_MODES,
   'knowledge_relation_revisions.from_type': RELATION_END_TYPES,
   'knowledge_relation_revisions.to_type': RELATION_END_TYPES,
+  'knowledge_change_requests.origin': CHANGE_REQUEST_ORIGINS,
+  'knowledge_source_revisions.protocol': SOURCE_PROTOCOLS,
+  'knowledge_source_revisions.format': SOURCE_FORMATS,
+  'knowledge_source_revisions.data_flow': SOURCE_DATA_FLOWS,
+  'knowledge_source_revisions.monitor_kind': MONITOR_KINDS,
 } as const satisfies Record<string, readonly string[]>

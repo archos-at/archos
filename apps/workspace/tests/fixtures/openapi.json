@@ -28621,6 +28621,20 @@
             }
           },
           {
+            "name": "origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "monitor: the requests a source monitor opened because its source changed (ADR-0174).",
+              "type": "string",
+              "enum": [
+                "operator",
+                "monitor"
+              ]
+            },
+            "description": "monitor: the requests a source monitor opened because its source changed (ADR-0174)."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -28680,7 +28694,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.",
         "tags": [
           "platform"
         ],
@@ -28717,7 +28731,8 @@
                     "enum": [
                       "domain_expert",
                       "counsel",
-                      "second_reviewer"
+                      "second_reviewer",
+                      "privacy_reviewer"
                     ]
                   }
                 },
@@ -31200,6 +31215,113 @@
                                       "type": "object",
                                       "properties": {
                                         "kind": {
+                                          "const": "advice_policy"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "advice_policy.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "topics": {
+                                              "type": "object",
+                                              "propertyNames": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "provision_application",
+                                                  "individual_assessment",
+                                                  "deadlines",
+                                                  "authority_discretion",
+                                                  "contract_drafting",
+                                                  "representation"
+                                                ]
+                                              },
+                                              "additionalProperties": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "assert",
+                                                  "hedge",
+                                                  "decline"
+                                                ]
+                                              },
+                                              "description": "Per topic, what an answer may do: assert, hedge, decline (strictest last)."
+                                            }
+                                          },
+                                          "required": [
+                                            "topics"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "terminology"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "terminology.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "entries": {
+                                              "minItems": 1,
+                                              "maxItems": 200,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "language": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\\d{3}))?$"
+                                                  },
+                                                  "term": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200,
+                                                    "pattern": "^[^\\p{Cc}\\p{Cf}\\u2028\\u2029<>{}`]+$"
+                                                  },
+                                                  "gloss": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200,
+                                                    "pattern": "^[^\\p{Cc}\\p{Cf}\\u2028\\u2029<>{}`]+$"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "language",
+                                                  "term",
+                                                  "gloss"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "entries"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
                                           "const": "inherits"
                                         },
                                         "inherits": {
@@ -31444,6 +31566,309 @@
                             "from",
                             "to"
                           ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "source"
+                            },
+                            "key": {
+                              "type": "string",
+                              "maxLength": 60,
+                              "pattern": "^[a-z]{2}(-[a-z0-9]+){1,6}$"
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "territoryId": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+                              "description": "The territory the source publishes for; its country is the request’s."
+                            },
+                            "protocol": {
+                              "type": "string",
+                              "enum": [
+                                "rest",
+                                "http_eli",
+                                "web_document",
+                                "ogc"
+                              ]
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "ris_xml",
+                                "akn",
+                                "html_statute",
+                                "geojson"
+                              ]
+                            },
+                            "hosts": {
+                              "minItems": 1,
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+                              },
+                              "description": "Every host it may reach. Usable by this request’s tests for 24 hours, by everyone once published."
+                            },
+                            "dataFlow": {
+                              "default": "public_only",
+                              "description": "site_keyed when a site point (a bbox, a coordinate) is sent: publishing it needs a privacy reviewer.",
+                              "type": "string",
+                              "enum": [
+                                "public_only",
+                                "site_keyed"
+                              ]
+                            },
+                            "terms": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "format": "uri",
+                                  "description": "The terms page. Its hash is watched when it lies on one of the source’s hosts."
+                                },
+                                "licence": {
+                                  "type": "string",
+                                  "enum": [
+                                    "public_open",
+                                    "public_restricted"
+                                  ],
+                                  "description": "public_open or public_restricted. A licensed source is no record: its text may not be kept here (ADR-0164)."
+                                },
+                                "attribution": {
+                                  "default": "",
+                                  "description": "The attribution the terms require, verbatim.",
+                                  "type": "string",
+                                  "maxLength": 500
+                                },
+                                "checked": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "description": "The day a person last read the terms."
+                                }
+                              },
+                              "required": [
+                                "url",
+                                "licence",
+                                "checked"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "monitor": {
+                              "default": {
+                                "kind": "none",
+                                "intervalHours": 24
+                              },
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "default": "sha256",
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "sha256",
+                                    "etag",
+                                    "version"
+                                  ]
+                                },
+                                "intervalHours": {
+                                  "default": 24,
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 744
+                                },
+                                "probe": {
+                                  "description": "What the monitor fetches to notice a change; a source without one is not watched.",
+                                  "type": "object",
+                                  "properties": {
+                                    "operation": {
+                                      "type": "string",
+                                      "pattern": "^[a-z_]{1,40}$"
+                                    },
+                                    "args": {
+                                      "default": {},
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string",
+                                        "pattern": "^\\w{1,40}$"
+                                      },
+                                      "additionalProperties": {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "operation"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "access": {
+                              "type": "object",
+                              "additionalProperties": {},
+                              "description": "The protocol’s configuration (see public_sources.access)."
+                            },
+                            "engine": {
+                              "default": {},
+                              "description": "The format engine’s configuration.",
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "credential": {
+                              "description": "For a keyed source: where its key goes. The key itself is set with platform-knowledge-source-credential-set, never here.",
+                              "type": "object",
+                              "properties": {
+                                "header": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z][A-Za-z0-9-]{1,40}$",
+                                  "description": "The header the key is sent in, e.g. X-Api-Key or Authorization."
+                                },
+                                "prefix": {
+                                  "default": "",
+                                  "description": "Written before the key, e.g. \"Bearer \" (with its space).",
+                                  "type": "string",
+                                  "maxLength": 20
+                                }
+                              },
+                              "required": [
+                                "header"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "fixtures": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9_-]{0,59}$"
+                                  },
+                                  "operation": {
+                                    "type": "string",
+                                    "pattern": "^[a-z_]{1,40}$",
+                                    "description": "The access type operation, e.g. document, search, features."
+                                  },
+                                  "args": {
+                                    "default": {},
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string",
+                                      "pattern": "^\\w{1,40}$"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "maxLength": 500
+                                    }
+                                  },
+                                  "responses": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string",
+                                      "maxLength": 2000,
+                                      "format": "uri"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "properties": {
+                                        "contentType": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 120,
+                                          "description": "e.g. text/html; charset=utf-8 or application/geo+json."
+                                        },
+                                        "body": {
+                                          "type": "string",
+                                          "maxLength": 500000,
+                                          "description": "The body as the source served it (text formats only)."
+                                        }
+                                      },
+                                      "required": [
+                                        "contentType",
+                                        "body"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "description": "Every URL the operation requests, with the response recorded for it."
+                                  },
+                                  "expect": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string",
+                                      "pattern": "^[a-z_]{1,30}$"
+                                    },
+                                    "additionalProperties": {},
+                                    "description": "What the engine must make of it: title, min_passages, anchors, contains, version (as public_sources.fixtures reads them)."
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "operation",
+                                  "responses",
+                                  "expect"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "Recorded exchanges that prove the record with no live call."
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
+                                  "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "title",
+                            "territoryId",
+                            "protocol",
+                            "format",
+                            "hosts",
+                            "terms",
+                            "access",
+                            "fixtures"
+                          ]
                         }
                       ],
                       "discriminator": {
@@ -31659,7 +32084,8 @@
                 "work",
                 "edition",
                 "manifestation",
-                "ruleset"
+                "ruleset",
+                "source"
               ]
             },
             "description": "One record type; all of them when absent."
@@ -31692,6 +32118,217 @@
         },
         "x-mcp-annotations": {
           "title": "Read the JSON Schema of each platform record type",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/sources/{sourceKey}/credential": {
+      "put": {
+        "operationId": "platform-knowledge-source-credential-set",
+        "summary": "Set the key a public source is fetched with (write-only)",
+        "description": "For a source whose terms issue a key; the record names the header it goes in (`credential`). Stored write-only: no operation returns it, only that a key is set and its last four characters; only the fetch attaches it, after every other header is stripped, on the source’s hosts. Replaces the previous key. The person’s own decision. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "sourceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 60,
+              "pattern": "^[a-z]{2}(-[a-z0-9]+){1,6}$",
+              "description": "The source id, e.g. xa-gazette (its record id is source:<id>)."
+            },
+            "description": "The source id, e.g. xa-gazette (its record id is source:<id>)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "secret": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 4000,
+                    "description": "The key the source’s terms issue. Write-only: no operation returns it, only its last four characters."
+                  }
+                },
+                "required": [
+                  "secret"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Set the key a public source is fetched with (write-only)",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/sources": {
+      "get": {
+        "operationId": "platform-knowledge-source-status",
+        "summary": "Read every public source’s hosts, monitor, freshness lag and key state",
+        "description": "Published and proposed sources: each host and whether it is active, testing (with when it expires) or expired; the monitor’s kind, last check, last success, failure and freshness lag in days; whether a key is set and its last four characters (never the key); and the open change request a monitor filed for it, if any.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "sourceKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "One source; all of them when absent.",
+              "type": "string",
+              "maxLength": 60,
+              "pattern": "^[a-z]{2}(-[a-z0-9]+){1,6}$"
+            },
+            "description": "One source; all of them when absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read every public source’s hosts, monitor, freshness lag and key state",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/sources/{sourceKey}/test": {
+      "post": {
+        "operationId": "platform-knowledge-source-test",
+        "summary": "Test a public source: its recorded fixtures, and one live probe if asked",
+        "description": "Runs the source record’s recorded fixtures through its access type and engine with no live call (what KC-7 checks), and with `live: true` fetches its monitor probe once through the fetcher. Pass `changeRequestId` to test the source as that open request proposes it: its hosts are usable by that request alone, for 24 hours from the proposal. Without it, the published source. Nothing is stored. 404 for a key nothing registers.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "sourceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 60,
+              "pattern": "^[a-z]{2}(-[a-z0-9]+){1,6}$",
+              "description": "The source id, e.g. xa-gazette (its record id is source:<id>)."
+            },
+            "description": "The source id, e.g. xa-gazette (its record id is source:<id>)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changeRequestId": {
+                    "description": "Test the source as this open change request proposes it (its testing hosts); absent: as published.",
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "live": {
+                    "default": false,
+                    "description": "Also fetch the monitor probe once, live, through the fetcher; nothing is stored.",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Test a public source: its recorded fixtures, and one live probe if asked",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,

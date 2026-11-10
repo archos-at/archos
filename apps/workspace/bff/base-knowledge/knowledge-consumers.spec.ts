@@ -31,6 +31,7 @@ import {
   knowledgeTerritoryRevisions,
   organizationCountries,
 } from '@/lib/db/schema/knowledge-platform'
+import { knowledgeSourceCredentials, knowledgeSourceMonitorStates, knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
 import { AWAITING_BASELINE, KNOWLEDGE_CONSUMERS } from './consumers'
 import { KNOWLEDGE_VOCABULARIES } from './wire/vocab'
 
@@ -52,6 +53,9 @@ const TABLES: Table[] = [
   knowledgeIndexRuns,
   knowledgeCitationCaptures,
   organizationCountries,
+  knowledgeSourceRevisions,
+  knowledgeSourceCredentials,
+  knowledgeSourceMonitorStates,
 ]
 
 /** The vocabularies whose values behave differently, so each value needs its own reader. */

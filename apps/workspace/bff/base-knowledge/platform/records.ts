@@ -7,6 +7,7 @@
  */
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
+import { sourceConfigOf } from '@/lib/base-knowledge/wire/source'
 import { rulesetColumns } from '../rulesets/columns'
 import type { ProposedRecord } from './wire'
 
@@ -111,6 +112,19 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         seatTerritoryId: record.seatTerritoryId,
         competenceTerritoryIds: record.competenceTerritoryIds,
         identifiers: record.identifiers,
+      }
+    case 'source':
+      return {
+        title: record.title,
+        territoryId: record.territoryId,
+        protocol: record.protocol,
+        format: record.format,
+        hosts: record.hosts,
+        dataFlow: record.dataFlow,
+        monitorKind: record.monitor.kind,
+        monitorIntervalHours: record.monitor.intervalHours,
+        licence: record.terms.licence,
+        config: sourceConfigOf(record),
       }
   }
 }

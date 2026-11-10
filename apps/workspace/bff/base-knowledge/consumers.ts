@@ -108,6 +108,16 @@ const TIME = 'S11 (time and editions): a territory valid at the project’s refe
 const SETUP = 'S9 (setup facts): competence by authority function, and authority identifiers (PVOG, Behördenkennzahl)'
 const ADDRESS = 'S12 (address resolution): a territory found by its name, kind or register alias'
 
+const SYNTH_SPEC = 'apps/workspace/bff/agent-api/synthetic-country-door.integration.spec.ts'
+const PLATFORM_SOURCES = 'apps/workspace/bff/base-knowledge/platform/sources.ts'
+const PLATFORM_RECORDS = 'apps/workspace/bff/base-knowledge/platform/records.ts'
+const PLATFORM_MONITOR = 'apps/workspace/bff/base-knowledge/platform/monitor.ts'
+const SOURCE_KC7 = { file: SYNTH_SPEC, name: 'imports the fixture territory and proposes the source, refused by KC-7 until its fixture is on its hosts' }
+const SOURCE_TESTING = { file: SYNTH_SPEC, name: 'opens the draft source’s hosts to its own request only, for testing' }
+const SOURCE_REVIEWED = { file: SYNTH_SPEC, name: 'needs counsel’s approval for an advice policy: one domain expert’s yes leaves it submitted' }
+const SOURCE_KEY = { file: SYNTH_SPEC, name: 'reads the published source’s state, and takes its key only on the person’s yes, never giving it back' }
+const SOURCE_MONITOR = { file: SYNTH_SPEC, name: 'opens one change request when the source changes, never publishes, and the agent finds it by origin' }
+
 export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   // knowledge_records
   { element: 'knowledge_records.id', consumer: STORE, test: ISOLATION },
@@ -289,6 +299,42 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'organization_countries.entitled_by', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
   { element: 'organization_countries.decision_source', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
   { element: 'organization_countries.entitled_at', consumer: PLATFORM_ENTITLEMENTS, test: LISTING },
+  // Migration 0212 (ADR-0174): public sources as platform records, their keys and monitors.
+  { element: 'knowledge_source_revisions.revision_id', consumer: PLATFORM_SOURCES, test: SOURCE_TESTING },
+  { element: 'knowledge_source_revisions.record_id', consumer: PLATFORM_SOURCES, test: SOURCE_TESTING },
+  { element: 'knowledge_source_revisions.organization_id', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.title', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.territory_id', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.protocol', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.format', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.hosts', consumer: PLATFORM_SOURCES, test: SOURCE_TESTING },
+  { element: 'knowledge_source_revisions.data_flow', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_revisions.monitor_kind', consumer: PLATFORM_SOURCES, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_revisions.monitor_interval_hours', consumer: PLATFORM_SOURCES, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_revisions.licence', consumer: PLATFORM_RECORDS, test: SOURCE_REVIEWED },
+  { element: 'knowledge_source_revisions.config', consumer: PLATFORM_SOURCES, test: SOURCE_KC7 },
+  { element: 'knowledge_source_credentials.id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.record_id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.secret_owner_id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.secret_backend', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.vault_object_id', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.encrypted_key', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.key_hint', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.set_by', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.decision_source', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.set_at', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_credentials.replaced_at', consumer: PLATFORM_SOURCES, test: SOURCE_KEY },
+  { element: 'knowledge_source_monitor_states.record_id', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.checked_at', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.ok_at', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.failure', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.etag', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.sha256', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.version', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_source_monitor_states.terms_sha256', consumer: PLATFORM_MONITOR, test: SOURCE_MONITOR },
+  { element: 'knowledge_change_requests.origin', consumer: PLATFORM_STORE, test: SOURCE_MONITOR },
+  { element: 'knowledge_change_requests.source_record_id', consumer: PLATFORM_STORE, test: SOURCE_MONITOR },
+  { element: 'knowledge_change_requests.monitor_finding', consumer: PLATFORM_STORE, test: SOURCE_MONITOR },
 ]
 
 /** The elements written before anything reads them, when this ledger was made. Remove a line when its reader lands; never add one. */

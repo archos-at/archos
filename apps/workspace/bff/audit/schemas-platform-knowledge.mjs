@@ -9,13 +9,14 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
   // Each a person's own yes on what
   // offices read, in the platform org's trail; entitlements and a home move in
   // the office's own.
+  // `awaiting`: the roles the request still needs a yes in, comma-separated; empty once it is approved (ADR-0174).
   'platform.knowledge.change_request_approved': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string' },
+    metadata: { role: 'string', decisionSource: 'string', awaiting: 'string' },
   },
   'platform.knowledge.change_request_rejected': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string' },
+    metadata: { role: 'string', decisionSource: 'string', awaiting: 'string' },
   },
   'platform.knowledge.published': {
     targets: [{ type: 'knowledge_change_request' }],
@@ -24,6 +25,11 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
   'platform.knowledge.rolled_back': {
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { restored: 'number', decisionSource: 'string' },
+  },
+  // A public source's key (ADR-0174): who set it and how they said yes; never the key.
+  'platform.knowledge.source_credential_set': {
+    targets: [{ type: 'knowledge_source' }],
+    metadata: { decisionSource: 'string' },
   },
   'platform.organization.country_entitled': {
     targets: [{ type: 'organization' }],

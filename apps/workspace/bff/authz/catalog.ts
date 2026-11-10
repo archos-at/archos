@@ -253,7 +253,7 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
     description: 'Platform tier: manage platform-wide settings and defaults.',
     tier: 'platform',
   },
-  ...(['domain_expert', 'counsel', 'second_reviewer'] as const).map((role) => ({
+  ...(['domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer'] as const).map((role) => ({
     slug: `platform:knowledge:approve_as_${role}`,
     name: `Approve knowledge as ${role.replaceAll('_', ' ')}`,
     description: `Platform tier: approve a platform knowledge change request in the ${role.replaceAll('_', ' ')} role.`,

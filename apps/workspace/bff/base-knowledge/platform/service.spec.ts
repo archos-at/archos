@@ -37,6 +37,7 @@ const writes = vi.hoisted(() => ({
   rollback: vi.fn(async (..._args: unknown[]) => ({ restored: 1 })),
   entitle: vi.fn(async (..._args: unknown[]) => true),
   home: vi.fn(async (..._args: unknown[]) => 'DE'),
+  awaiting: vi.fn(async (): Promise<string[]> => []),
 }))
 
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
@@ -48,6 +49,7 @@ vi.mock('./store', () => ({
     { revisionId: REVISION, recordId: 'work:x', createdBy: 'user_author', claims: [{ path: 'title', decision: 'accepted' }] },
   ],
   insertApproval: writes.approval,
+  awaitedApprovalRoles: async () => writes.awaiting(),
   insertReviewDecisions: writes.verdicts,
   setChangeRequestStatus: writes.status,
 }))
@@ -138,7 +140,19 @@ describe("an approval's role", () => {
     held.permissions = new Set([PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel])
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'counsel' })).resolves.toEqual({
       status: 'approved',
+      awaiting: [],
     })
     expect(writes.approval).toHaveBeenCalledWith({}, expect.objectContaining({ approver: 'user_expert', role: 'counsel' }))
+  })
+
+  it('leaves a request submitted while a role it needs has not said yes (ADR-0174)', async () => {
+    held.permissions = new Set([PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
+    writes.awaiting.mockResolvedValueOnce(['counsel'])
+    writes.status.mockClear()
+    await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })).resolves.toEqual({
+      status: 'submitted',
+      awaiting: ['counsel'],
+    })
+    expect(writes.status).not.toHaveBeenCalled()
   })
 })

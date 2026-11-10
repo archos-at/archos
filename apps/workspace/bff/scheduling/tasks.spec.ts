@@ -34,6 +34,7 @@ describe('the scheduling tasks', () => {
       'upload-sweep': '* * * * *',
       'folder-placement-sweep': '* * * * *',
       'conversation-trace-erasure': '* * * * *',
+      'source-monitor': '*/15 * * * *',
       'schedule-repair': '*/5 * * * *',
       'task-runs-prune': '41 * * * *',
       'usage-export': '*/10 * * * *',

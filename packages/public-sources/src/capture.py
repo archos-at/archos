@@ -25,6 +25,7 @@ import httpx
 from lxml import html as lxml_html
 from public_sources.egress import MAX_BODY_BYTES
 from public_sources.routing import source_transport
+from public_sources.source import Source
 from public_sources.source import get_source
 
 #: What a capture asks for: a page a person reads, text before anything else.
@@ -140,13 +141,24 @@ async def _read_capped(response: httpx.Response) -> bytes:
     return b"".join(chunks)
 
 
-async def capture_page(source_id: str, url: str, *, inner: httpx.AsyncBaseTransport | None = None) -> CapturedPage:
-    """GET ``url`` as source ``source_id`` allows it. ``inner`` stands in for the network in tests only."""
-    source = get_source(source_id)
+async def capture_page(
+    source_id: str | Source,
+    url: str,
+    *,
+    inner: httpx.AsyncBaseTransport | None = None,
+    credential: str | None = None,
+) -> CapturedPage:
+    """GET ``url`` as the source allows it: a repository record's id, or a configured source (ADR-0174).
+
+    ``inner`` stands in for the network in tests only.
+    """
+    source = get_source(source_id) if isinstance(source_id, str) else source_id
     if not source.allows(url):
         hosts = ", ".join(source.hosts)
         raise CaptureError(f"{url} is not an https URL on a host of source {source.id} ({hosts})", 403)
-    transport = source_transport(source.id, inner=inner)
+    transport = source_transport(
+        source_id if isinstance(source_id, str) else source, inner=inner, credential=credential
+    )
     client = httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=45.0, trust_env=False)
     async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
         content = await _read_capped(response)

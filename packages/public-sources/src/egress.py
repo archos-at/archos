@@ -134,16 +134,25 @@ def strip_headers(headers: httpx.Headers) -> None:
             del headers[name]
 
 
+def attach_credential(headers: httpx.Headers, credential: tuple[str, str] | None) -> None:
+    """Set a keyed source's key, after the strip (ADR-0174). ``credential`` is ``(header, value)``."""
+    if credential is not None:
+        headers[credential[0]] = credential[1]
+
+
 def guarded_client(
     source,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     timeout: float = 30.0,
+    credential: tuple[str, str] | None = None,
 ) -> httpx.AsyncClient:
     """A client that may reach ``source``'s hosts and nothing else.
 
     ``transport`` replaces the guarded one only in tests, which record the
     exchange instead of making it; the host check and the header strip still run.
+    ``credential`` (a header and its value) is set on every request after the
+    strip, so it goes to the source's hosts and to nothing else.
     """
 
     async def _check(request: httpx.Request) -> None:
@@ -153,6 +162,7 @@ def guarded_client(
         if request.method not in {"GET", "POST"}:
             raise EgressRefused(f"{request.method} is not a read", request=request)
         strip_headers(request.headers)
+        attach_credential(request.headers, credential)
 
     return httpx.AsyncClient(
         transport=transport or GuardedTransport(),

@@ -76,6 +76,6 @@ export async function readOverview(now: Date = new Date()): Promise<PlatformKnow
     const last = row.checked_at ? { checkedAt: new Date(row.checked_at), result: String(row.result) } : null
     if (platformEditionOverdue(row.kind, last, now)) country(row.country_id).overdueEditions += 1
   }
-  const queue = await listChangeRequests('submitted')
+  const queue = await listChangeRequests({ status: 'submitted' })
   return { countries: [...countries.values()].sort((a, b) => a.countryId.localeCompare(b.countryId)), queue }
 }

@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
+import { advicePolicySchema, terminologySchema } from './advice'
 import { factDefinitionsSchema, factSourcesSchema } from './setup-facts'
 import { DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
 
@@ -229,6 +230,20 @@ export const rulesetValuesSchema = z
           payload: factSourcesSchema,
         })
         .strict(),
+      z
+        .object({
+          kind: z.literal('advice_policy'),
+          payloadSchema: z.literal('advice_policy.v1'),
+          payload: advicePolicySchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('terminology'),
+          payloadSchema: z.literal('terminology.v1'),
+          payload: terminologySchema,
+        })
+        .strict(),
       z.object({ kind: z.literal('inherits'), inherits: z.literal('parent') }).strict(),
     ]),
   })
@@ -245,8 +260,9 @@ export const rulesetValuesSchema = z
         message: `${values.purpose} has no decision table schema yet`,
       })
     }
-    const setupKind = values.body.kind === 'fact_definitions' || values.body.kind === 'fact_sources'
-    if (setupKind && values.body.kind !== values.purpose) {
+    // Every body but a table or a deferral serves the purpose of its own name, and no other.
+    const recordKind = values.body.kind !== 'table' && values.body.kind !== 'inherits'
+    if (recordKind && values.body.kind !== values.purpose) {
       context.addIssue({
         code: 'custom',
         path: ['body', 'kind'],
