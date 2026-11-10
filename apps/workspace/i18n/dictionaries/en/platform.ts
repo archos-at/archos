@@ -28,6 +28,7 @@ export const platform = {
     noneReleased: 'nothing released yet',
     queueTitle: 'Review queue',
     queueDescription: 'Change requests waiting for review. Platform knowledge changes only through one of these.',
+    close: 'Close',
     queueEmpty: 'Nothing waiting for review',
     open: 'Open',
     columns: {

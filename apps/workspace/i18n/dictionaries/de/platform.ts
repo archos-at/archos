@@ -25,6 +25,7 @@ export const platform: typeof en.platform = {
     noneReleased: 'noch nichts freigegeben',
     queueTitle: 'Prüfliste',
     queueDescription: 'Änderungsanträge, die auf Prüfung warten. Plattformwissen ändert sich nur über einen solchen Antrag.',
+    close: 'Schließen',
     queueEmpty: 'Nichts wartet auf Prüfung',
     open: 'Öffnen',
     columns: {

@@ -7,7 +7,7 @@
  * Reading order: the countries, one row each (what is released, what is open,
  * how many offices read it, what is overdue for a check); then the requests
  * waiting for review. Opening a request shows every claim with its sources and
- * the reviewer's verdict, and the next step it can take: review, approve,
+ * the reviewer's verdict in a modal, and the next step it can take: review, approve,
  * publish to preview, publish to stable, roll back. Approve, publish and
  * rollback ask first, because each is the person's own decision and the last
  * two change what every entitled office reads. Read-only staff see everything
@@ -22,7 +22,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -189,13 +195,17 @@ export function CountryKnowledge(): JSX.Element {
         ) : null}
       </SectionCard>
 
-      <Sheet open={openId !== null} onOpenChange={(open) => (open ? null : setOpenId(null))}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+      <Dialog open={openId !== null} onOpenChange={(open) => (open ? null : setOpenId(null))}>
+        <DialogContent
+          className="max-h-[85vh] overflow-y-auto sm:max-w-3xl"
+          fullScreenOnMobile
+          closeLabel={t('countryKnowledge.close')}
+        >
           {openId ? (
             <ChangeRequestPanel id={openId} canManage={canManage} onChanged={() => void load()} />
           ) : null}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -300,13 +310,13 @@ function ChangeRequestPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4" data-testid="change-request-panel">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-medium">{view.title}</h2>
-        <p className="text-muted-foreground text-sm">
+    <div className="flex flex-col gap-4" data-testid="change-request-panel">
+      <DialogHeader>
+        <DialogTitle>{view.title}</DialogTitle>
+        <DialogDescription>
           {view.countryId} · {t(`countryKnowledge.status.${view.status}`)}
-        </p>
-      </div>
+        </DialogDescription>
+      </DialogHeader>
       {canManage ? (
         <div className="flex flex-wrap gap-2">
           {steps
