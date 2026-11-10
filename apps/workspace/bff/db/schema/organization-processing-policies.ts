@@ -1,7 +1,7 @@
 import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
- * What an organization's data may be processed for (migration 0205, ADR-0167).
+ * What an organization's data may be processed for (migration 0203, ADR-0167).
  *
  * One row per organization; no row reads as the defaults (`DEFAULT_PURPOSES` in
  * `bff/residency/processing-policy.ts`). `service` is always allowed and

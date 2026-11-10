@@ -1,4 +1,4 @@
--- Reverse 0205. ORDER: roll the frontend back first; the newer build reads both.
+-- Reverse 0203. ORDER: roll the frontend back first; the newer build reads both.
 --
 -- Lossy: every organization's processing policy and its cell placement go. A
 -- re-apply starts with no rows, which reads as the default purposes, and with

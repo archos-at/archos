@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The processing policy against a REAL Postgres (migration 0205, ADR-0167),
+ * The processing policy against a REAL Postgres (migration 0203, ADR-0167),
  * through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

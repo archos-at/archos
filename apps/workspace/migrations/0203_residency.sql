@@ -1,4 +1,4 @@
--- 0205: where an organization's data is processed, and what it may be used for
+-- 0203: where an organization's data is processed, and what it may be used for
 -- (ADR-0167; design docs/design/international/design.md 5.1, 6.1, 6.5).
 --
 -- ## organizations.residency_cell

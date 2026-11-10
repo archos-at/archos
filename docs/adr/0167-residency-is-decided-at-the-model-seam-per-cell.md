@@ -55,7 +55,7 @@ Option 1.
   transport does it for every bespoke call (embeddings, vision, reranking, summaries, titles,
   decisions, the distiller, dictation, the judge scripts); the chat contract judges the chat
   model's fixed base URL, which a cell sets through `OPENROUTER_BASE_URL`.
-- **An office is placed in a cell** (`organizations.residency_cell`, migration 0205). A deployment
+- **An office is placed in a cell** (`organizations.residency_cell`, migration 0203). A deployment
   refuses to serve an organization placed in another cell, or one whose placement cannot be read,
   on every path: both transports and the chat contract check the request's organization (off the
   event loop on the async paths), and `data_policy_for` checks it for detached work. NULL is served
@@ -64,7 +64,7 @@ Option 1.
   off: the backend pins whatever is stored, and the BFF refuses the switch (409).
 - **Bring-your-own-key is held to the zone.** An office's OpenRouter key is rewritten to the zone's
   host; any other endpoint is unplaced and refused inside a cell.
-- **Purposes.** `organization_processing_policies` (migration 0205) holds what an office's data may
+- **Purposes.** `organization_processing_policies` (migration 0203) holds what an office's data may
   be processed for; no row reads as `service`, `quality_evaluation`, `human_review`, and
   `product_improvement` is opt-in. Every chat trace carries `cell`, `purpose_ok` and
   `processing_policy_version`, and is tagged `purpose_ok:quality_evaluation` when that purpose is

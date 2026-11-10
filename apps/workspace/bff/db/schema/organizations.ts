@@ -44,7 +44,7 @@ export const organizations = pgTable('organizations', {
   timeZone: text('time_zone'),
   /**
    * The residency cell (one deployment) the office is placed in, e.g. `eu-at-1`
-   * (migration 0205, ADR-0167). A deployment of another cell refuses to serve
+   * (migration 0203, ADR-0167). A deployment of another cell refuses to serve
    * it. NULL: not placed; served by the cell it reaches, under that cell's zone.
    */
   residencyCell: text('residency_cell'),

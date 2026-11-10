@@ -2,7 +2,7 @@
  * An organization's processing policy, as the agent tier reads it (ADR-0167).
  *
  * Its cell (`organizations.residency_cell`) and the purposes its data may be
- * processed for (`organization_processing_policies`, migration 0205). Reported
+ * processed for (`organization_processing_policies`, migration 0203). Reported
  * to the Python backend on `/api/internal/model-overrides` beside the ZDR bit,
  * where `agent.common.residency.parse_policy` reads it: the backend refuses an
  * organization placed in another cell and tags each chat trace with
