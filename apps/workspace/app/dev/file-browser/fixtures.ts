@@ -193,10 +193,13 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
-export function useFixtureFolderNav(): FolderNavigation & { currentFolderId: string | null } {
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+export function useFixtureFolderNav(
+  folders: FolderItem[] = FOLDERS,
+  initialFolderId: string | null = null
+): FolderNavigation & { currentFolderId: string | null } {
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(initialFolderId)
   return {
-    folders: FOLDERS,
+    folders,
     currentFolderId,
     onNavigate: setCurrentFolderId,
     onCreateFolder: async () => false,

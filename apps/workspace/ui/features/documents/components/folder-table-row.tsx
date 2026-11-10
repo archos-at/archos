@@ -11,8 +11,9 @@ import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
 import { folderDragProps, useFolderDropTarget } from '../hooks/use-document-drag'
-import { FileName } from './file-name'
-import { FILE_LIST_CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
+import { FolderName } from './file-name'
+import { FILE_LIST_CELL, FILE_LIST_DATE_CELL, FILE_LIST_META_LINE, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
+import { CLAUSE_JOIN, formatRelativeTime } from '@/lib/format'
 import { FolderAccessMark, FolderReadOnlyBadge } from './folder-access-mark'
 import { FolderActionsMenu, FolderNameEditor, dropRing, useFolderLabels, type FolderTileProps } from './folder-navigation'
 import { FolderReadState } from './folder-read-state'
@@ -99,7 +100,11 @@ export function FolderRow({
             <span className="flex w-8 shrink-0 items-center">
               <Folder className="text-muted-foreground size-4" aria-hidden />
             </span>
-            <FileName text={folder.name} className="text-foreground shrink font-medium" />
+            {/* Below the size column, what it holds and when it changed are its second line, as a file row's (finding 15). */}
+            <span className="min-w-0 shrink">
+              <FolderName text={folder.name} className="text-foreground font-medium" />
+              <span className={FILE_LIST_META_LINE}>{[count, changedAt ? formatRelativeTime(changedAt, locale) : null].filter(Boolean).join(CLAUSE_JOIN)}</span>
+            </span>
             {folder.description && (
               <span className="text-muted-foreground hidden min-w-0 truncate text-xs sm:inline" title={folder.description} data-testid={`folder-description-${folder.id}`}>
                 {folder.description}
@@ -107,8 +112,6 @@ export function FolderRow({
             )}
             {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
             {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-            {/* Below the size column, what it holds stands after the name, as the folder tile says it. */}
-            <span className={cn('text-muted-foreground shrink-0 text-xs tabular-nums', layout.columns.size && '@3xl/filelist:hidden')}>{count}</span>
             <span className="flex-1" />
             {/* Only what departs from „all read“, as on the tile: the normal case is quiet. */}
             <FolderReadState tally={knowledge} exceptionsOnly />
@@ -120,10 +123,11 @@ export function FolderRow({
       {layout.columns.pages && empty('@5xl/filelist:table-cell')}
       {layout.columns.size && <TableCell className={cn(FILE_LIST_SIZE_CELL, FILE_LIST_CELL)}>{count}</TableCell>}
       <TableCell className={cn(FILE_LIST_DATE_CELL, FILE_LIST_CELL)}>
-        {changedAt && <TimeAgo date={changedAt} locale={locale} />}
+        {/* „—“ where nothing in it has a date: an empty cell read as a value missing (finding 21). */}
+        {changedAt ? <TimeAgo date={changedAt} locale={locale} /> : '—'}
       </TableCell>
       {layout.actions && (
-        <TableCell className="w-10 px-1 py-1 text-right" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        <TableCell className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0" /* a finger's ⋯ is 44px: in 32px it ran 8px past the table and the list scrolled sideways */ onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
           {layout.picking ? null : (actions ?? <FolderActionsMenu folder={folder} onStartRename={() => setEditing(true)} onDeleteFolder={onDeleteFolder} />)}
         </TableCell>
       )}

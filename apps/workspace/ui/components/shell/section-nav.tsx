@@ -223,6 +223,7 @@ function SectionNavLink({
       href={item.href}
       replace
       aria-current={active ? 'page' : undefined}
+      title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
         // `relative isolate` + pill `-z-10` is the app-sidebar rail pattern:
         // the active surface glides on `springGlide` below the ink.
@@ -231,7 +232,7 @@ function SectionNavLink({
         // 44px rather than borrowing a catchment from its neighbour.
         variant === 'rail'
           ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'
-          : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1' : 'py-1.5'),
+          : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1 md:@max-[44rem]/section:px-2.5' : 'py-1.5'),
         active
           ? 'text-secondary-foreground font-medium'
           : cn(
@@ -247,11 +248,14 @@ function SectionNavLink({
           layoutId={pillId}
           aria-hidden
           data-slot="section-nav-pill"
-          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-sheet shadow-xs' : 'bg-selected')}
+          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-sheet shadow-thumb' : 'bg-selected')}
           transition={springGlide}
         />
       )}
-      <Icon className="size-4 shrink-0" aria-hidden />
+      {/* Beside the rail in a narrow section (a tablet) the places keep their names and give up their glyphs: glyphs
+          alone were four boxes to guess, and a strip that scrolled cut „Papierkorb“ off (review of 2026-11-10, finding 2). */}
+      <Icon className={cn('size-4 shrink-0', onTrack && 'md:@max-[44rem]/section:hidden')} aria-hidden />
+      {/* A phone names only the open place. */}
       <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}

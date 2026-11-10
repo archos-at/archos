@@ -34,7 +34,8 @@ const renderList = (files = FILES, overrides: Partial<Parameters<typeof FileList
   render(<FileListView files={files} selectedFileId={null} onSelectFile={vi.fn()} {...overrides} />)
 
 const rowNames = (): string[] =>
-  screen.getAllByTestId('file-list-row').map((row) => row.querySelector('span[title]')?.textContent ?? '')
+  // The name as it is read (`FittedName`'s screen-reader copy, or its whole text before it is measured).
+  screen.getAllByTestId('file-list-row').map((row) => row.querySelector('[data-row-text] .sr-only, [data-row-text] .truncate')?.textContent ?? '')
 
 describe('FileListView', () => {
   it('shows the newest first without being asked', () => {

@@ -91,11 +91,12 @@ describe('UploadSummaryView', () => {
   it('shows the document type and the other tags of a file, and its summary', () => {
     render(<UploadSummaryView summary={MIXED_SUMMARY} />)
     const row = screen.getByTestId('upload-file-doc-grundriss-eg')
-    expect(within(row).getByTitle(filesCopy.messages.en.preview.indexed.documentType)).toHaveTextContent('Grundriss')
-    expect(within(row).getByText('Nutzungssicherheit/Barrierefreiheit')).toBeInTheDocument()
+    // A tag still stored in German reads as its translation in English (`tagLabel`).
+    expect(within(row).getByTitle(filesCopy.messages.en.preview.indexed.documentType)).toHaveTextContent('Floor plan')
+    expect(within(row).getByText('Safety in use and accessibility')).toBeInTheDocument()
     expect(within(row).getByTestId('upload-file-summary-doc-grundriss-eg')).toHaveTextContent('Einreichplan Erdgeschoss')
     // The types section counts the detected types across the batch.
-    expect(within(screen.getByTestId('upload-summary-types')).getByText('Grundriss')).toBeInTheDocument()
+    expect(within(screen.getByTestId('upload-summary-types')).getByText('Floor plan')).toBeInTheDocument()
   })
 
   it('says why a file waits in quarantine through the shared reason phrases', () => {
