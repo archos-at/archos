@@ -1,5 +1,5 @@
 /**
- * What a turn's knowledge context leaves behind (migration 0212, ADR-0173):
+ * What a turn's knowledge context leaves behind (migration 0213, ADR-0173):
  * the editions an answer used, in which role and at which pack sequences
  * (`messageEditionUses`, design §5.5 "Server-side record", E25), and the
  * Steckbrief a person confirmed (`projectBaseConfirmations`, design §5.4).

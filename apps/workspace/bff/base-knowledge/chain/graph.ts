@@ -20,9 +20,9 @@ export interface GraphTerritory {
   datedParents: readonly { id: string; validFrom?: string | null; validTo?: string | null }[]
   validFrom: string | null
   validTo: string | null
-  /** How far the records go here (0212); absent or null inherits from the parent. */
+  /** How far the records go here (0213); absent or null inherits from the parent. */
   coverageLevel?: CoverageLevel | null
-  /** Whether the node's own municipal law is held (0212); stated with its coverage. */
+  /** Whether the node's own municipal law is held (0213); stated with its coverage. */
   municipalLaw?: boolean | null
 }
 
@@ -36,7 +36,7 @@ export interface GraphWork {
   territoryIds: readonly string[]
   /** A directive's addressees, by the territory each decides for. */
   addresseeTerritoryIds: readonly string[]
-  /** What it attaches to (0212); absent reads as the site. */
+  /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
 }
 

@@ -43,10 +43,6 @@ const PROSE = 'Die Antwort.\n\n[[card:1]]\n\nDanach.'
 beforeAll(rendererSettled)
 
 describe('a placed card while the answer streams', () => {
-  // The card's renderer is a dynamic import; until it settles a card draws its
-  // placeholder, so the title is not in the first commit on a loaded runner.
-  beforeAll(rendererSettled)
-
   test('its marker holds the place, between the paragraphs it was written between', () => {
     render(<AgentResponse content={PROSE} isStreaming />)
 

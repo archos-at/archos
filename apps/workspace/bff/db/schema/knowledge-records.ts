@@ -110,7 +110,7 @@ export const knowledgeWorkRevisions = pgTable('knowledge_work_revisions', {
   addressees: jsonb('addressees').$type<KnowledgeAddressee[]>().notNull().default([]),
   /** The first day whose edition the platform holds (0206); before it an as-of answer is `history_not_held`. */
   historyAvailableFrom: date('history_available_from'),
-  /** What the work attaches to (0212): the site, the office's seat, the client. Anything but `site` alone never binds by the site's chain. */
+  /** What the work attaches to (0213): the site, the office's seat, the client. Anything but `site` alone never binds by the site's chain. */
   connectsBy: text('connects_by').array().$type<ConnectingFactor[]>().notNull().default(['site']),
 })
 

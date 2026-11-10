@@ -1,4 +1,4 @@
--- Reverse 0212. ORDER: roll the frontend back first; the newer build reads
+-- Reverse 0213. ORDER: roll the frontend back first; the newer build reads
 -- coverage and connecting factors and writes both tables.
 --
 -- Lossy: every coverage claim and connecting factor on a revision, every

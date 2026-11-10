@@ -52,7 +52,7 @@ of its own.
 
 Chosen option 3.
 
-- **Coverage is a claim** (migration 0212): `knowledge_territory_revisions.coverage_level`
+- **Coverage is a claim** (migration 0213): `knowledge_territory_revisions.coverage_level`
   (`none`, `open`, `core`, `full`) and `municipal_law`. Proposed, reviewed and
   released through a change request, so only a publish changes it and a
   rollback takes it back (design §4.6). A node without one inherits from the
@@ -137,7 +137,7 @@ each failing when its rule is removed), `context/service.spec.ts` (flag off
 reads nothing; equal digests, two keys; a failed read is
 `knowledge_unavailable`), the turn-context route spec (no key with the flag
 off), `vocab.spec.ts` (the CHECKs list the vocabularies), the element ledger,
-and `scripts/rls-test-db.sh` (0212's CHECKs, RLS on both tables, down and up).
+and `scripts/rls-test-db.sh` (0213's CHECKs, RLS on both tables, down and up).
 
 ## More Information
 

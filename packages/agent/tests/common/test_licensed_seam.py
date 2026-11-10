@@ -575,7 +575,7 @@ def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_sco
     assert licensed_text.LICENSED_TRACE_TAG in tags
     assert steps == ["licensed-text"], "one step per turn: the mark the lessons distiller reads (E44)"
     for residency_on in (False, True):
-        (rule,) = langfuse_catalog.judge_rules(residency_on)
+        rule = next(r for r in langfuse_catalog.judge_rules(residency_on) if r.name == "chat-turn-judges")
         assert {
             "type": "arrayOptions",
             "column": "tags",

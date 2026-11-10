@@ -401,6 +401,8 @@ export const FEATURE_FLAGS = {
    * turn is offered `as_of`; the door's schema still hides it.
    */
   timeEditions: 'time-editions',
+  /** Source monitors (ADR-0174, `bff/base-knowledge/platform/monitor.ts`); off: the sweep reads, fetches and writes nothing. */
+  sourceMonitors: 'source-monitors',
   /** A turn's knowledge context (ADR-0173, `bff/base-knowledge/context/`); a rollout, off: no turn-context key. */
   knowledgeContext: 'knowledge-context',
 } as const
@@ -440,6 +442,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'building-law-chain': 'entitlement',
   'site-resolution': 'rollout',
   'time-editions': 'entitlement',
+  'source-monitors': 'entitlement',
   'knowledge-context': 'rollout',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',

@@ -229,7 +229,9 @@ export const platformKnowledgeOperations = [
     summary: 'Approve or reject a submitted change request',
     description:
       'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
-      'who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.',
+      'who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an ' +
+      'advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays ' +
+      'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/decision',
     params: requestParams,

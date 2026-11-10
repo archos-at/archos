@@ -23,6 +23,7 @@ from public_sources.access import access_for
 from public_sources.egress import guarded_client
 from public_sources.engines import engine_for
 from public_sources.source import Fixture
+from public_sources.source import InlineResponse
 from public_sources.source import Source
 
 _CONTENT_TYPES = {
@@ -45,8 +46,10 @@ class FixtureResult:
         return not self.failures
 
 
-def recorded_transport(directory: Path, responses: dict[str, str], requested: list[str]) -> httpx.MockTransport:
-    """Serves each recorded URL from its file; any other URL is a 404 the run reports."""
+def recorded_transport(
+    directory: Path | None, responses: dict[str, str | InlineResponse], requested: list[str]
+) -> httpx.MockTransport:
+    """Serves each recorded URL from its file or its inline response; any other URL is a 404 the run reports."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -54,6 +57,10 @@ def recorded_transport(directory: Path, responses: dict[str, str], requested: li
         name = responses.get(url)
         if name is None:
             return httpx.Response(404, text=f"not recorded: {url}")
+        if isinstance(name, InlineResponse):
+            return httpx.Response(200, headers={"content-type": name.content_type}, content=name.text.encode("utf-8"))
+        if directory is None:
+            return httpx.Response(404, text=f"{name} is a file, and this source has no directory")
         path = directory / "fixtures" / name
         content_type = _CONTENT_TYPES.get(path.suffix, "application/octet-stream")
         return httpx.Response(200, headers={"content-type": content_type}, content=path.read_bytes())
@@ -63,7 +70,7 @@ def recorded_transport(directory: Path, responses: dict[str, str], requested: li
 
 async def run_fixture(source: Source, fixture: Fixture) -> FixtureResult:
     result = FixtureResult(source_id=source.id, fixture=fixture.name)
-    transport = recorded_transport(source.directory, fixture.responses, result.requested)
+    transport = recorded_transport(source._directory, fixture.responses, result.requested)
     async with guarded_client(source, transport=transport) as client:
         try:
             fetched = await access_for(source).fetch(client, fixture.operation, fixture.args)

@@ -15,6 +15,7 @@
 import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
+  ChangeRequestOrigin,
   CoverageLevel,
   ChangeRequestStatus,
   IndexRunState,
@@ -53,9 +54,9 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   aliases: jsonb('aliases').$type<Record<string, string>>().notNull().default({}),
   validFrom: date('valid_from'),
   validTo: date('valid_to'),
-  /** How far the platform's records go in this node (0212, design §4.6); NULL inherits from the parent. */
+  /** How far the platform's records go in this node (0213, design §4.6); NULL inherits from the parent. */
   coverageLevel: text('coverage_level').$type<CoverageLevel>(),
-  /** Whether the node's own municipal law is held (0212). */
+  /** Whether the node's own municipal law is held (0213). */
   municipalLaw: boolean('municipal_law'),
 })
 
@@ -98,6 +99,10 @@ export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
   decidedAt: timestamp('decided_at', { withTimezone: true }),
   publishedAt: timestamp('published_at', { withTimezone: true }),
+  /** An operator's, or a source monitor's (migration 0212, ADR-0174). */
+  origin: text('origin').$type<ChangeRequestOrigin>().notNull().default('operator'),
+  sourceRecordId: text('source_record_id'),
+  monitorFinding: jsonb('monitor_finding').$type<Record<string, unknown>>(),
 })
 
 export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {

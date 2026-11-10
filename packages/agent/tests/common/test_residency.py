@@ -290,14 +290,14 @@ class TestPolicy:
     def test_the_judge_rule_is_include_only_inside_a_cell(self):
         from agent.observability.langfuse_catalog import judge_rules
 
-        (rule,) = judge_rules(residency_on=True)
+        rule = next(r for r in judge_rules(residency_on=True) if r.name == "chat-turn-judges")
         assert QUALITY_EVALUATION_CONDITION in rule.filter
 
     def test_without_a_cell_the_judges_keep_judging_every_answered_turn(self):
         """Only a chat turn carries the tag; without a cell the rule is what it was before ADR-0167."""
         from agent.observability.langfuse_catalog import judge_rules
 
-        (rule,) = judge_rules(residency_on=False)
+        rule = next(r for r in judge_rules(residency_on=False) if r.name == "chat-turn-judges")
         assert QUALITY_EVALUATION_CONDITION not in rule.filter
 
 

@@ -129,7 +129,8 @@ also owns `ogc` and the door operations `source-test`, `source-status` and
   upgrade renames it.
 - Neutral: records load from the repository and deploy with the image. Records
   as database rows behind change requests (design 4.4) are the next step and
-  reuse the schema here.
+  reuse the schema here. ADR-0174 took it: a source is now also a platform
+  record, with `ogc`, monitors and the door operations named above.
 
 ### Confirmation
 

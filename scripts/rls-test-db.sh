@@ -250,6 +250,13 @@ echo "==> running the onboarding door suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
 
+# The onboarding tooling (ADR-0174): a scripted client onboards the synthetic
+# country XA (a source record, its testing hosts, an advice policy, counsel's
+# approval) and the source monitor opens a change request when the source changes.
+echo "==> running the synthetic country suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/agent-api/synthetic-country-door.integration.spec.ts
+
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
 # one its restore. The job-queue suites claim from the whole table and expect
@@ -3679,22 +3686,83 @@ check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_nam
 echo "==> 0211 country pack and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# 0212: the knowledge context (ADR-0173): coverage on a territory revision and
+# Migration 0212: the country onboarding tooling (ADR-0174).
+#
+# On a database of its own, migrated through 0212: a source record's body
+# names exact hosts and a known protocol, and is never rewritten; only a source
+# holds a credential, one active at a time; a monitor's request names its
+# source, and a second open one for the same source is refused; an advice
+# policy is published only with counsel's approval and a site-keyed source
+# only with a privacy reviewer's, whatever path reaches the release move. The
+# down drops it all, and 0212 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0212 onboarding tooling and its down migration on ot_0212"
+migrate_until ot_0212 0212_country_onboarding_tooling
+CR="c0000000-0000-4000-8000-000000000212"
+RV="e0000000-0000-4000-8000-000000000212"
+RS="e1000000-0000-4000-8000-000000000212"
+sql_in ot_0212 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('source:xa-gazette', NULL, 'source', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'source:xa-gazette', 'source', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_source_revisions (revision_id, record_id, organization_id, title, territory_id, protocol, format, hosts,
+  data_flow, monitor_kind, monitor_interval_hours, licence, config)
+  VALUES ('$RV', 'source:xa-gazette', NULL, 'Gazette', 'XA', 'ogc', 'geojson', '{geo.xa.example}', 'site_keyed', 'sha256', 24, 'public_open', '{}');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('ruleset:xa-advice', NULL, 'ruleset', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RS', 'ruleset:xa-advice', 'ruleset', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
+  VALUES ('$RS', 'ruleset:xa-advice', NULL, 'advice_policy', '{XA}', '2026-01-01', 'advice_policy.v1', '{"topics": {"deadlines": "hedge"}}');
+SQL
+refused_in ot_0212 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('source:office', 'org_a', 'source', 'user_a')" "knowledge_records_platform_types" "an office owning a source"
+refused_in ot_0212 "UPDATE knowledge_source_revisions SET hosts = '{evil.example}'" "append-only" "a source's hosts rewritten"
+refused_in ot_0212 "INSERT INTO knowledge_source_credentials (id, record_id, secret_owner_id, secret_backend, encrypted_key, key_hint, set_by, decision_source) VALUES (gen_random_uuid(), 'ruleset:xa-advice', 'org_p', 'local-aes-gcm', 'x', '…1234', 'user_a', 'app')" "belongs to a platform source record" "a credential on a ruleset"
+refused_in ot_0212 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-advice', NULL, 'classification', '{XA}', '2026-01-01', 'advice_policy.v1', '{}')" "knowledge_ruleset_revisions_prompt_purpose" "an advice policy under another purpose"
+sql_in ot_0212 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin, source_record_id, monitor_finding)
+  VALUES (gen_random_uuid(), 'Monitor', 'XA', 'system:source-monitor', 'monitor', 'source:xa-gazette', '{"needs": []}');
+SQL
+refused_in ot_0212 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin, source_record_id, monitor_finding) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'system:source-monitor', 'monitor', 'source:xa-gazette', '{}')" "knowledge_change_requests_one_open_per_source" "a second open monitor request for one source"
+refused_in ot_0212 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'user_a', 'monitor')" "knowledge_change_requests_monitor_names_source" "a monitor request that names no source"
+check_in ot_0212 "SELECT array_to_string(knowledge_required_approval_roles('$CR'), ',')" "counsel,privacy_reviewer" "0212: an advice policy needs counsel, a site-keyed source a privacy reviewer"
+sql_in ot_0212 <<SQL
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
+UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$CR';
+SQL
+refused_in ot_0212 "INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source) VALUES ('ruleset:xa-advice', 'preview', 'publish', '$RS', '$CR', 'user_expert', 'app')" "needs an approval as counsel, privacy_reviewer" "a publish without counsel and a privacy reviewer"
+sql_in ot_0212 <<SQL
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_counsel', 'counsel', 'app');
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_privacy', 'privacy_reviewer', 'app');
+UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$CR';
+INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
+  VALUES ('ruleset:xa-advice', 'preview', 'publish', '$RS', '$CR', 'user_expert', 'app');
+SQL
+check_in ot_0212 "SELECT count(*) FROM knowledge_release_moves WHERE change_request_id = '$CR'" "1" "0212: the publish runs once counsel and the privacy reviewer approved"
+apply_in ot_0212 0212_country_onboarding_tooling.down.sql
+check_in ot_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_source_%'" "0" "0212 down drops the source tables"
+check_in ot_0212 "SELECT count(*) FROM knowledge_records WHERE id IN ('source:xa-gazette', 'ruleset:xa-advice')" "0" "0212 down drops the source and advice records"
+apply_in ot_0212 0212_country_onboarding_tooling.sql
+check_in ot_0212 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_change_requests' AND column_name = 'origin'" "1" "0212 applies again after its down"
+echo "==> 0212 onboarding tooling and its down migration verified"
+# 0213: the knowledge context (ADR-0173): coverage on a territory revision and
 # a work's connecting factor are closed vocabularies; an edition use and a
 # confirmed Steckbrief are tenant tables under row-level security; the down
-# drops both tables and both columns, and 0212 applies again.
+# drops both tables and both columns, and 0213 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0212 knowledge context and its down migration on kc_0212"
-migrate_until kc_0212 0212_knowledge_context
-refused_in kc_0212 "INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, coverage_level) VALUES (gen_random_uuid(), 'DE', NULL, 'country', 'Deutschland', 'partial')" "knowledge_territory_revisions_coverage_known" "a coverage level nobody defined"
-refused_in kc_0212 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{nationality}')" "knowledge_work_revisions_connects_by_known" "a connecting factor nobody defined"
-refused_in kc_0212 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{}')" "knowledge_work_revisions_connects_by_known" "a work that attaches to nothing"
-refused_in kc_0212 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0212', 'work:x', 'binding')" "message_edition_uses_message_id_fkey" "an edition use of a message that does not exist"
-refused_in kc_0212 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0212', 'work:x', 'decisive')" "message_edition_uses_role_known" "a role nobody defined"
-check_in kc_0212 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('message_edition_uses', 'project_base_confirmations')" "message_edition_uses:true,project_base_confirmations:true" "0212: both tables are under row-level security"
-apply_in kc_0212 0212_knowledge_context.down.sql
-check_in kc_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "0" "0212 down drops both tables"
-check_in kc_0212 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'coverage_level'" "0" "0212 down drops the coverage column"
-apply_in kc_0212 0212_knowledge_context.sql
-check_in kc_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0212 applies again after its down"
-echo "==> 0212 knowledge context and its down migration verified"
+echo "==> verifying 0213 knowledge context and its down migration on kc_0213"
+migrate_until kc_0213 0213_knowledge_context
+refused_in kc_0213 "INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, coverage_level) VALUES (gen_random_uuid(), 'DE', NULL, 'country', 'Deutschland', 'partial')" "knowledge_territory_revisions_coverage_known" "a coverage level nobody defined"
+refused_in kc_0213 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{nationality}')" "knowledge_work_revisions_connects_by_known" "a connecting factor nobody defined"
+refused_in kc_0213 "INSERT INTO knowledge_work_revisions (revision_id, record_id, organization_id, kind, title, connects_by) VALUES (gen_random_uuid(), 'work:hoai', NULL, 'ordinance', 'HOAI', '{}')" "knowledge_work_revisions_connects_by_known" "a work that attaches to nothing"
+refused_in kc_0213 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0213', 'work:x', 'binding')" "message_edition_uses_message_id_fkey" "an edition use of a message that does not exist"
+refused_in kc_0213 "INSERT INTO message_edition_uses (message_id, organization_id, work_id, role) VALUES (gen_random_uuid(), 'org_0213', 'work:x', 'decisive')" "message_edition_uses_role_known" "a role nobody defined"
+check_in kc_0213 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('message_edition_uses', 'project_base_confirmations')" "message_edition_uses:true,project_base_confirmations:true" "0213: both tables are under row-level security"
+apply_in kc_0213 0213_knowledge_context.down.sql
+check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "0" "0213 down drops both tables"
+check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'coverage_level'" "0" "0213 down drops the coverage column"
+apply_in kc_0213 0213_knowledge_context.sql
+check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
+echo "==> 0213 knowledge context and its down migration verified"

@@ -238,6 +238,7 @@ Consequences, where a reader looks for them.
 | [0171](0171-the-law-of-a-procedure-is-the-edition-its-reference-date-and-transitions-name.md) | The law of a procedure is the edition its node's reference-date rule and the amending editions' transitions name | Proposed |
 | [0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md) | A site address resolves against official registers hosted in the cell, and stays unverified without a register hit; amends 0122, 0151 and 0159 | Proposed |
 | [0173](0173-a-turn-learns-its-country-coverage-and-editions-from-one-knowledge-context.md) | A turn learns its country, coverage and editions from one knowledge context resolved in the BFF | Proposed |
+| [0174](0174-public-sources-are-platform-records-kept-current-by-monitors.md) | Public sources are platform records, kept current by monitors that open change requests | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

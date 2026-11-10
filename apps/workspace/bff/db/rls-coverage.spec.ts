@@ -238,10 +238,14 @@ const BOUNDARY_MIGRATIONS = [
   // table, layered like 0202's and append-only; and re-secures knowledge_records,
   // whose platform read now also follows a released relation across packs.
   '0211_country_pack.sql',
+  // Adds public sources as platform records (ADR-0174): the source body, its
+  // write-only credential and its monitor state, platform-private like the
+  // change-request tables (`secure_table(t, 'false')`).
+  '0212_country_onboarding_tooling.sql',
   // Adds message_edition_uses (the editions an answer used, E25) and
   // project_base_confirmations (a confirmed Steckbrief), both keyed by their
   // organization (ADR-0173).
-  '0212_knowledge_context.sql',
+  '0213_knowledge_context.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

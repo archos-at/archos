@@ -8,7 +8,9 @@ source. It answers with the source's status, body and the headers in
 carrying ``x-public-source-refused`` with the reason, a source that did not
 answer a 502.
 
-It holds no secret and no tenant data, and its Deployment
+It keeps no secret and no tenant data: a keyed source's key arrives with the
+request (``credential``), is set after the strip on that one request only, is
+never logged and never kept on a client another request reuses. Its Deployment
 (``deploy/pulumi/src/app/public-source-fetcher.ts``) can reach public addresses
 and DNS only. Logs carry the source, host, path, status and size, never the
 query string: a search term is derived from somebody's question.
@@ -21,6 +23,8 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 import httpx
@@ -29,8 +33,11 @@ from public_sources.egress import EgressRefused
 from public_sources.egress import guarded_client
 from public_sources.routing import REFUSED_HEADER
 from public_sources.routing import RETURNED_HEADERS
+from public_sources.source import _HOST_RE
+from public_sources.source import REFUSED_CREDENTIAL_HEADERS
 from public_sources.source import SourceError
 from public_sources.source import get_source
+from public_sources.source import url_on_hosts
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -40,6 +47,7 @@ from starlette.routing import Route
 logger = logging.getLogger("public_sources.fetcher")
 
 DEFAULT_PORT = 8095
+_HEADER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]{1,40}$")
 
 
 def _refused(reason: str) -> Response:
@@ -51,16 +59,18 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
     clients: dict[str, httpx.AsyncClient] = {}
 
     def client_for(source) -> httpx.AsyncClient:
-        if source.id not in clients:
-            clients[source.id] = guarded_client(source, transport=transport)
-        return clients[source.id]
+        key = f"{source.id}|{','.join(source.hosts)}"
+        if key not in clients:
+            clients[key] = guarded_client(source, transport=transport)
+        return clients[key]
 
     async def fetch(request: Request) -> Response:
         try:
             payload = await request.json()
-            source = get_source(str(payload["source"]))
+            source = _source_of(payload)
         except (ValueError, KeyError, TypeError, SourceError) as exc:
             return _refused(f"bad request: {exc}")
+        credential = _credential_of(payload)
         method = str(payload.get("method", "GET")).upper()
         url = str(payload.get("url", ""))
         if method not in {"GET", "POST"}:
@@ -70,7 +80,7 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
         headers = payload.get("headers") if isinstance(payload.get("headers"), dict) else {}
         body = str(payload.get("body") or "").encode("utf-8")
         try:
-            upstream = await _send(client_for(source), method, url, headers, body)
+            upstream = await _send_for(source, credential, client_for, transport, (method, url, headers, body))
         except EgressRefused as exc:
             logger.warning("refused source=%s host=%s: %s", source.id, urlparse(url).hostname, exc)
             return _refused(str(exc))
@@ -78,15 +88,7 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
             logger.warning("unavailable source=%s host=%s: %s", source.id, urlparse(url).hostname, exc)
             return Response(f"source unavailable: {exc}", status_code=502)
         status, content, upstream_headers = upstream
-        parsed = urlparse(url)
-        logger.info(
-            "fetched source=%s host=%s path=%s status=%s bytes=%s",
-            source.id,
-            parsed.hostname,
-            parsed.path,
-            status,
-            len(content),
-        )
+        _log_fetched(source.id, url, status, len(content))
         returned = {name: upstream_headers[name] for name in RETURNED_HEADERS if name in upstream_headers}
         return Response(content, status_code=status, headers=returned)
 
@@ -107,6 +109,65 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
 
 class _TooLarge(Exception):
     pass
+
+
+async def _send_for(source, credential, client_for, transport, request: tuple[str, str, dict, bytes]):
+    """Send through the source's shared client, or, with a key, through a client of this request alone."""
+    method, url, headers, body = request
+    if credential is None:
+        return await _send(client_for(source), method, url, headers, body)
+    async with guarded_client(source, transport=transport, credential=credential) as keyed:
+        return await _send(keyed, method, url, headers, body)
+
+
+def _log_fetched(source_id: str, url: str, status: int, size: int) -> None:
+    """Source, host, path, status and size: never the query string, which can come from a question."""
+    parsed = urlparse(url)
+    logger.info(
+        "fetched source=%s host=%s path=%s status=%s bytes=%s", source_id, parsed.hostname, parsed.path, status, size
+    )
+
+
+@dataclass(frozen=True)
+class _ConfiguredSource:
+    """A source configured in the database (ADR-0174): its id and hosts, as the caller sent them.
+
+    The fetcher holds no record of it. What it still holds on its own: public
+    addresses only, GET or POST, the header strip, and the hosts at every hop.
+    """
+
+    id: str
+    hosts: tuple[str, ...]
+
+    def allows(self, url: str) -> bool:
+        return url_on_hosts(url, self.hosts)
+
+
+def _source_of(payload: dict):
+    """The repository record named, or a configured source's hosts; never a repository id with other hosts."""
+    source_id = str(payload["source"])
+    hosts = payload.get("hosts")
+    if hosts is None:
+        return get_source(source_id)
+    if not isinstance(hosts, list) or not hosts or not all(isinstance(h, str) and _HOST_RE.fullmatch(h) for h in hosts):
+        raise ValueError("hosts are exact lower-case DNS names")
+    try:
+        get_source(source_id)
+    except SourceError:
+        return _ConfiguredSource(id=source_id, hosts=tuple(hosts))
+    raise SourceError(f"{source_id} is a repository record; its hosts are the record's")
+
+
+def _credential_of(payload: dict) -> tuple[str, str] | None:
+    credential = payload.get("credential")
+    if not isinstance(credential, dict):
+        return None
+    header, value = str(credential.get("header", "")), str(credential.get("value", ""))
+    if not _HEADER_RE.fullmatch(header) or not value or "\n" in value or "\r" in value:
+        return None
+    if header.lower() in REFUSED_CREDENTIAL_HEADERS or header.lower().startswith(("x-forwarded-", "proxy-")):
+        return None
+    return header, value
 
 
 async def _send(client: httpx.AsyncClient, method: str, url: str, headers: dict, body: bytes):

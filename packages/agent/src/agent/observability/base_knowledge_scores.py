@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from .onboarding_scores import ONBOARDING_SCORE_DEFINITIONS
 from .score_definition import ScoreDefinition
 
 BASE_KNOWLEDGE_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
@@ -23,6 +24,8 @@ BASE_KNOWLEDGE_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         ),
         min_value=0,
     ),
+    # The country onboarding tooling's (ADR-0174): the platform's base knowledge, kept in its own module.
+    *ONBOARDING_SCORE_DEFINITIONS,
 )
 
 

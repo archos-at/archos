@@ -15,24 +15,18 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { ConflictError } from '@/lib/api/errors'
 import {
   knowledgeEditionRevisions,
-  knowledgeManifestationRevisions,
   knowledgeRecords,
-  knowledgeRulesetRevisions,
   knowledgeRevisions,
-  knowledgeWorkRevisions,
   type KnowledgeProvenance,
 } from '@/lib/db/schema/knowledge-records'
 import {
   knowledgeApprovals,
-  knowledgeAuthorityRevisions,
   knowledgeChangeRequests,
-  knowledgeRelationRevisions,
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
-  knowledgeTerritoryRevisions,
 } from '@/lib/db/schema/knowledge-platform'
-import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision, ReviewDecisionSource } from '@/lib/base-knowledge/wire/vocab'
-import { appendRevision, type Tx } from '../store/repository'
+import type { ApprovalRole, ChangeRequestOrigin, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision, ReviewDecisionSource } from '@/lib/base-knowledge/wire/vocab'
+import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
@@ -85,7 +79,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  status?: ChangeRequestStatus,
+  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -95,20 +89,32 @@ export async function listChangeRequests(
         revisionCount: sql<string>`(SELECT count(*) FROM knowledge_revisions r WHERE r.change_request_id = ${knowledgeChangeRequests.id})`,
       })
       .from(knowledgeChangeRequests)
-      .where(status ? eq(knowledgeChangeRequests.status, status) : undefined)
+      .where(
+        and(
+          filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
+          filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
+        ),
+      )
       .orderBy(desc(knowledgeChangeRequests.createdAt), desc(knowledgeChangeRequests.id))
       .offset(page.offset)
       .limit(Math.min(page.limit, MAX_CHANGE_REQUESTS)),
   )
-  return rows.map(({ request, revisionCount }) => ({
+  return rows.map(({ request, revisionCount }) => ({ ...summaryOf(request), revisionCount: Number(revisionCount) }))
+}
+
+/** A request's own fields as the wire shows them. */
+export function summaryOf(request: ChangeRequestRow): Omit<ChangeRequestSummary, 'revisionCount'> {
+  return {
     id: request.id,
     title: request.title,
     countryId: request.countryId,
     status: request.status,
     createdBy: request.createdBy,
     createdAt: request.createdAt.toISOString(),
-    revisionCount: Number(revisionCount),
-  }))
+    origin: request.origin,
+    sourceRecordId: request.sourceRecordId,
+    monitorFinding: request.monitorFinding,
+  }
 }
 
 /** The platform records with these ids that exist, released or drafted: what a proposal may name. */
@@ -227,21 +233,12 @@ export async function insertProposedRecords(
   return written
 }
 
-const BODY_TABLES = [
-  knowledgeWorkRevisions,
-  knowledgeEditionRevisions,
-  knowledgeManifestationRevisions,
-  knowledgeRulesetRevisions,
-  knowledgeTerritoryRevisions,
-  knowledgeAuthorityRevisions,
-  knowledgeRelationRevisions,
-] as const
-
 /** Each revision's body columns, by revision id. */
 async function bodiesOf(tx: Tx, revisionIds: readonly string[]): Promise<Map<string, Record<string, unknown>>> {
   const bodies = new Map<string, Record<string, unknown>>()
   if (revisionIds.length === 0) return bodies
-  for (const table of BODY_TABLES) {
+  // The one list of body tables, by record type: a type added there is read here too.
+  for (const table of Object.values(BODY_TABLES)) {
     const rows = (await tx.select().from(table).where(inArray(table.revisionId, [...revisionIds]))) as Record<string, unknown>[]
     for (const row of rows) bodies.set(String(row.revisionId), row)
   }
@@ -329,12 +326,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       captureViews(tx, id),
     ])
     return {
-      id: request.id,
-      title: request.title,
-      countryId: request.countryId,
-      status: request.status,
-      createdBy: request.createdBy,
-      createdAt: request.createdAt.toISOString(),
+      ...summaryOf(request),
       submittedAt: request.submittedAt?.toISOString() ?? null,
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
@@ -388,6 +380,20 @@ export async function insertReviewDecisions(
 
 function errorText(error: unknown): string {
   return error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : ''
+}
+
+/**
+ * The roles a request still needs a yes in (migration 0212): those
+ * `knowledge_required_approval_roles` names that no approval holds yet. Empty
+ * for a request with neither an advice policy nor a site-keyed source, where
+ * the first approval decides, as before.
+ */
+export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<ApprovalRole[]> {
+  const rows = await tx.execute<{ role: string }>(sql`
+    SELECT needed AS role FROM unnest(knowledge_required_approval_roles(${requestId}::uuid)) AS needed
+    WHERE NOT EXISTS (SELECT 1 FROM knowledge_approvals a WHERE a.change_request_id = ${requestId}::uuid AND a.role = needed)
+    ORDER BY needed`)
+  return rows.map((row) => row.role as ApprovalRole)
 }
 
 export async function insertApproval(

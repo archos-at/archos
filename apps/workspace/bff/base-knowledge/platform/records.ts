@@ -7,6 +7,7 @@
  */
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
+import { sourceConfigOf } from '@/lib/base-knowledge/wire/source'
 import { rulesetColumns } from '../rulesets/columns'
 import type { ProposedRecord } from './wire'
 
@@ -63,7 +64,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
           ...(authorityKey ? { authorityId: `authority:${authorityKey}` } : {}),
         })),
         historyAvailableFrom: record.historyAvailableFrom,
-        // The site alone is the default column value, and no claim of its own (0212).
+        // The site alone is the default column value, and no claim of its own (0213).
         ...(isSiteOnly(record.connectsBy) ? {} : { connectsBy: record.connectsBy }),
       }
     case 'edition':
@@ -92,7 +93,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         aliases: record.aliases,
         validFrom: record.validFrom,
         validTo: record.validTo,
-        // Only a stated coverage is a claim a reviewer decides; unstated inherits (0212).
+        // Only a stated coverage is a claim a reviewer decides; unstated inherits (0213).
         ...(record.coverageLevel === null ? {} : { coverageLevel: record.coverageLevel }),
         ...(record.municipalLaw === null ? {} : { municipalLaw: record.municipalLaw }),
       }
@@ -119,13 +120,26 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         competenceTerritoryIds: record.competenceTerritoryIds,
         identifiers: record.identifiers,
       }
+    case 'source':
+      return {
+        title: record.title,
+        territoryId: record.territoryId,
+        protocol: record.protocol,
+        format: record.format,
+        hosts: record.hosts,
+        dataFlow: record.dataFlow,
+        monitorKind: record.monitor.kind,
+        monitorIntervalHours: record.monitor.intervalHours,
+        licence: record.terms.licence,
+        config: sourceConfigOf(record),
+      }
   }
 }
 
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
 const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus'])
 
-/** A column 0212 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
+/** A column 0213 added, left at what it says when nobody stated it: no claim, so older proposals review as they did. */
 function unstated(path: string, value: unknown): boolean {
   if (path === 'coverageLevel' || path === 'municipalLaw') return value === null || value === undefined
   if (path === 'connectsBy') return Array.isArray(value) && isSiteOnly(value as string[])

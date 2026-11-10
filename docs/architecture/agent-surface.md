@@ -539,6 +539,7 @@ makes it so, and where it lives:
 | The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
 | Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
 | The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
 
 A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)
 because the public-source fetcher admits only the backend roles. The measure is

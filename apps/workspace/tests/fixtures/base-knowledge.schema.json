@@ -12,7 +12,8 @@
         "ruleset",
         "territory",
         "authority",
-        "relation"
+        "relation",
+        "source"
       ]
     },
     "knowledge_work_revisions.kind": {
@@ -88,7 +89,9 @@
       "enum": [
         "decision_table.v1",
         "fact_definitions.v1",
-        "fact_sources.v1"
+        "fact_sources.v1",
+        "advice_policy.v1",
+        "terminology.v1"
       ]
     },
     "knowledge_territory_revisions.kind": {
@@ -135,7 +138,8 @@
       "enum": [
         "domain_expert",
         "counsel",
-        "second_reviewer"
+        "second_reviewer",
+        "privacy_reviewer"
       ]
     },
     "knowledge_approvals.decision_source": {
@@ -196,6 +200,47 @@
       "enum": [
         "work",
         "edition"
+      ]
+    },
+    "knowledge_change_requests.origin": {
+      "type": "string",
+      "enum": [
+        "operator",
+        "monitor"
+      ]
+    },
+    "knowledge_source_revisions.protocol": {
+      "type": "string",
+      "enum": [
+        "rest",
+        "http_eli",
+        "web_document",
+        "ogc"
+      ]
+    },
+    "knowledge_source_revisions.format": {
+      "type": "string",
+      "enum": [
+        "ris_xml",
+        "akn",
+        "html_statute",
+        "geojson"
+      ]
+    },
+    "knowledge_source_revisions.data_flow": {
+      "type": "string",
+      "enum": [
+        "public_only",
+        "site_keyed"
+      ]
+    },
+    "knowledge_source_revisions.monitor_kind": {
+      "type": "string",
+      "enum": [
+        "none",
+        "sha256",
+        "etag",
+        "version"
       ]
     }
   }
