@@ -527,7 +527,7 @@ export const FileCard = memo(function FileCard({
           onClick={onSelect}
           // `mt-auto` (the footer's own): the grid stretches a row's tiles to one height, so every meta line of a row
           // stands on one baseline, the empty line under a one-line name beside a two-line one (finding 7).
-          className={cn('@container/foot group/foot cursor-pointer items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground', where ? 'flex-nowrap' : 'flex-wrap')}
+          className="@container/foot group/foot cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}
@@ -535,13 +535,9 @@ export const FileCard = memo(function FileCard({
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
             {/* Who has it, then the facts, one line joined by the dot: „Unvergeben PNG“ read as one phrase. */}
             {footerLead}{footerLead && <FactDot />}
-            {where && (
-              <>
-                <span className="min-w-0 truncate" title={where} data-testid="file-card-where">{where}</span>
-                <FactDot />
-              </>
-            )}
           </span>
+          {/* Where it lies, a line of its own over the facts: on one line with them „Berichte“ was cut to „Beric…“. */}
+          {where && <span className="order-first min-w-0 basis-full truncate" title={where} data-testid="file-card-where">{where}</span>}
           {/* On a 156px card the size and the age are about 125px, so the
               phone's card keeps 10px of padding (the title's too) and a tighter
               gap: the age used to run into the edge the title keeps clear. */}

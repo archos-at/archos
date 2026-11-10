@@ -56,11 +56,13 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     for (let node = walker.nextNode(); node; node = walker.nextNode()) if (!node.parentElement?.closest('.sr-only') && node.parentElement?.checkVisibility() !== false) text += node.textContent
     return text
   }
+  // Words only: a drawn title's word joiners and a tooltip's „ · “ between the name and its count are not words.
+  const words = (value) => value.replace(/[^\p{L}\p{N}]+/gu, '')
   const reachable = (el) => {
-    const text = shownText(el).trim().replace(/\s+/g, ' ')
+    const text = words(shownText(el))
     for (let node = el; node && node !== document.body; node = node.parentElement) {
       const t = (node.getAttribute('title') || '') + ' ' + (node.getAttribute('aria-label') || '')
-      if (text && t.replace(/\s+/g, ' ').includes(text)) return true
+      if (text && words(t).includes(text)) return true
     }
     return !text
   }
