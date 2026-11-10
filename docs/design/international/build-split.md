@@ -133,8 +133,18 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 ## Not in this build
 Default-deny egress for every workload, the privacy inventory and erasure across all stores, office region packs, location lookups, and the contract step that drops `norm_registry` and `oib_knowledge`. Each is its own later session.
 
+## Merging a wave
+
+The user delegated the Wave 1 merge (2026-11-10): the orchestrator merges the whole wave in one pass once every PR is green and reviewed against its intent. A merge into `develop` deploys the `dev` stack (`.github/workflows/deploy.yml`), and its migrate Job applies new migrations to the dev database, so the chain must be right before the first merge.
+
+1. **Review** each PR against its outcome with an independent reviewer; read "Better than the brief" and "Changes to fixed points" and reconcile them.
+2. **Integrate once.** On a scratch branch from the latest `develop`, merge every PR of the wave in the merge order. Migrations live in `apps/workspace/migrations` with a Drizzle journal (`meta/_journal.json`); git merges two appended journal entries silently, so two PRs that took the same next number collide without a conflict (gotchas: "`git merge` … `_journal.json`"). Renumber in merge order: file names, `idx`, a `when` after the previous entry, and every reference (`scripts/rls-test-db.sh` block, specs, `docs/database/schema.md`, comments). ADR numbers likewise (`scripts/check_adrs.py --next`).
+3. **Prove the chain** on the integration branch: `bunx vitest run tests/db/migrations-journal.test.ts` in `apps/workspace`, `task db:test:rls`, `task pkg:test`, `task verify:fast`.
+4. **Carry the renumbering back** to each PR branch, in its own commit, so each squash-merged PR is the code that was proven. Merge in the order the chain was numbered; after each merge, update the next branch from `develop` and wait for green before merging it.
+5. **Watch the dev deploy** of the last merge: the migrate Job completes, and nothing ask-first ran (the static prompt push, the authz catalog apply and Langfuse provisioning stay with the user).
+
 ## Human steps on the critical path
-1. Merge order: contract, then Wave 1 in any order, then S1 before Wave 2, then S7 before Wave 3.
+1. Merge order: contract, then Wave 1 in any order, then S1 before Wave 2, then S7 before Wave 3. Wave 1 is merged by the orchestrator (above).
 2. Approve the ask-first steps each session prepares.
 3. Counsel for the German advice policy; an expert for anything past L0.
 
