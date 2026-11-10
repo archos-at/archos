@@ -48,8 +48,35 @@ WHAT WE DELIBERATELY DO NOT SEND
   no effect. Full usage details are now always included automatically in every
   response." (https://openrouter.ai/docs/use-cases/usage-accounting). Cached
   token counts arrive whether or not we ask.
-- A per-block ``cache_control`` breakpoint: it is an edit of the prompt payload,
-  which belongs to whoever owns the prompt. The top-level field below needs none.
+ONE BLOCK BREAKPOINT AT THE END OF THE STATIC SYSTEM PROMPT
+==========================================================
+A provider writes a cache entry only at a breakpoint, and a later request
+looks back at most 20 blocks from its own breakpoints for an entry to read
+(Anthropic, "Prompt caching", read 2026-11-10, page names Fable 5.2 so dated
+on or after 2026-11-09). The automatic marker below sits at the TAIL of each
+request. Inside a turn that is enough: round 2 finds what round 1 wrote. Across
+turns it carries nothing, because the next turn drops the previous turn's
+context message and edits its history, so no entry was ever written at the
+end of the bytes every turn shares: the tools and the system prompt. Every
+turn's first call re-wrote 23-31k tokens at 1.25x
+(``docs/design/international/research/token-budget-2026-11.md``).
+
+So the agent that owns a static system prompt sends it as ONE text block with
+``cache_control`` (:func:`cached_system_message`). Anthropic's own audit puts
+"one breakpoint on the system block" (Optimizing for cost and intelligence,
+on or after 2026-11-09), and OpenRouter translates an Anthropic-style block
+marker into OpenAI's ``prompt_cache_breakpoint`` on a supporting GPT model
+(OpenRouter prompt caching guide, on or after 2026-10-07). That translation
+happens on Chat Completions only: "the Responses API does not expose per-block
+``cache_control``", and langchain's Responses converter drops the key
+(measured 2026-11-10), which is why the chat role runs on Chat Completions.
+
+The marker goes only to families whose provider is documented to accept a
+block marker (:data:`BLOCK_BREAKPOINT_FAMILIES`); :func:`strip_block_breakpoints`
+takes it off for any other model, and for any client that is not OpenRouter,
+so an admin re-pointing a group never sends a field a provider rejects. The
+key (:func:`prompt_cache_key`) hashes the block's TEXT, so moving to the block
+form did not re-key a single shard.
 
 WHAT CLAUDE NEEDS ON TOP: ONE TOP-LEVEL ``cache_control``
 =========================================================
@@ -107,6 +134,8 @@ from contextvars import ContextVar
 from contextvars import Token
 from typing import Any
 
+from langchain_core.messages import SystemMessage
+
 logger = logging.getLogger(__name__)
 
 #: OpenRouter's sticky-routing key (body field; ``x-session-id`` is the header
@@ -128,6 +157,13 @@ _AUTOMATIC_CACHE = {"type": "ephemeral"}
 #: OpenRouter model id is ``<family>/<model>``, with a leading ``~`` on the
 #: ``-latest`` aliases.
 EXPLICIT_CACHE_FAMILIES = ("anthropic",)
+
+#: Families whose provider takes a per-block ``cache_control`` through
+#: OpenRouter's Chat Completions: Anthropic natively, OpenAI translated to
+#: ``prompt_cache_breakpoint``, Gemini as its one (last) marker (OpenRouter
+#: prompt caching guide, on or after 2026-10-07). Two of the four Anthropic
+#: breakpoint slots are then in use: this one and the automatic tail marker.
+BLOCK_BREAKPOINT_FAMILIES = ("anthropic", "openai", "google")
 
 #: Prefix on the emitted key so a value showing up in a provider dashboard is
 #: attributable without a lookup.
@@ -229,10 +265,59 @@ def with_prompt_cache_routing(extra_body: Any, key: str) -> dict[str, Any]:
     return merged
 
 
+def _family(model: str | None) -> str:
+    """The ``<family>`` of an OpenRouter model id, without the ``~`` of a ``-latest`` alias."""
+    return (model or "").lstrip("~").partition("/")[0]
+
+
 def needs_cache_marker(model: str | None) -> bool:
     """Whether ``model``'s provider caches only when the request carries ``cache_control``."""
-    family = (model or "").lstrip("~").partition("/")[0]
-    return family in EXPLICIT_CACHE_FAMILIES
+    return _family(model) in EXPLICIT_CACHE_FAMILIES
+
+
+def cached_system_message(text: str) -> SystemMessage:
+    """A system prompt that is the same on every call and every turn, with a breakpoint at its end.
+
+    For a STATIC prompt only: a breakpoint on bytes that change per turn writes
+    an entry nobody reads, at 1.25x.
+    """
+    return SystemMessage(content=[{"type": "text", "text": text, CACHE_CONTROL_FIELD: dict(_AUTOMATIC_CACHE)}])
+
+
+def _without_breakpoint(content: Any) -> Any:
+    """``content`` with every block's ``cache_control`` taken off; one bare text block becomes its string."""
+    if not isinstance(content, list) or not any(isinstance(b, dict) and CACHE_CONTROL_FIELD in b for b in content):
+        return content
+    blocks = [
+        {k: v for k, v in block.items() if k != CACHE_CONTROL_FIELD} if isinstance(block, dict) else block
+        for block in content
+    ]
+    if len(blocks) == 1 and blocks[0].get("type") == "text" and set(blocks[0]) == {"type", "text"}:
+        return blocks[0]["text"]
+    return blocks
+
+
+def strip_block_breakpoints(messages: Any, model: str | None, *, openrouter: bool = True) -> Any:
+    """``messages`` as they may go to ``model``: block breakpoints kept only where the provider takes them.
+
+    Returns the input object itself when nothing changes, so a call with no
+    marker pays nothing.
+    """
+    if openrouter and _family(model) in BLOCK_BREAKPOINT_FAMILIES:
+        return messages
+    if not isinstance(messages, list):
+        return messages
+    out = []
+    changed = False
+    for message in messages:
+        content = getattr(message, "content", None)
+        stripped = _without_breakpoint(content)
+        if stripped is content:
+            out.append(message)
+            continue
+        out.append(message.model_copy(update={"content": stripped}))
+        changed = True
+    return out if changed else messages
 
 
 def with_cache_marker(extra_body: Any, model: str | None) -> dict[str, Any]:
@@ -260,7 +345,13 @@ def _system_text(messages: Any) -> str | None:
     if getattr(first, "type", None) != "system":
         return None
     content = getattr(first, "content", None)
-    return content if isinstance(content, str) else _canonical(content)
+    if isinstance(content, str):
+        return content
+    # The block form of one static prompt (``cached_system_message``) keys as its text,
+    # so the marker does not split a shard from the plain-string calls before it.
+    if isinstance(content, list) and all(isinstance(b, dict) and b.get("type") == "text" for b in content):
+        return "".join(str(b.get("text", "")) for b in content)
+    return _canonical(content)
 
 
 def prompt_cache_extra_body(
