@@ -435,7 +435,7 @@ export const intakeViewSchema = z.object({
       federalState: z.string().max(200).nullable(),
       municipality: z.string().max(200).nullable(),
       address: z.string().max(500).nullable(),
-      source: z.enum(['geocoder', 'document', 'person']).nullable(),
+      source: z.enum(['register', 'geocoder', 'document', 'person']).nullable(),
       confirmed: z.boolean(),
     }),
   }),

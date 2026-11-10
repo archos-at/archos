@@ -72,4 +72,5 @@ No run deletes an organization as a whole today; deletion is per project, conver
 ## Public sources (not processors)
 
 - Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions
+- Federal Office of Metrology and Surveying (Austria): the public address register is downloaded whole twice a year and stored with us; an address you type is looked up in our database only and never sent to the BEV
 - Fedlex (Swiss Federal Chancellery): identifiers of federal acts and dates derived from your questions — **not in use** (not on the page): configured in configs/sources/ch/fedlex/ to prove the http_eli access type (ADR-0162); no country pack entitles an office to it, so nothing is fetched for anyone. Set it active, which lists it on the page, when a pack uses it.

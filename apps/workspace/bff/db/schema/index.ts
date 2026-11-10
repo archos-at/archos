@@ -1,4 +1,5 @@
 export * from './analytics-export-cursors'
+export * from './address-register'
 export * from './agent-profiler'
 export * from './answer-feedback'
 export * from './bim'

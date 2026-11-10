@@ -77,3 +77,30 @@ for (const name of Object.keys(process.env)) {
 for (const [name, value] of Object.entries(baseline)) {
   if (process.env[name] !== value) process.env[name] = value
 }
+
+// The DOM's classes are shared the same way: happy-dom is loaded once per
+// worker, so `HTMLElement.prototype` is one object for every spec file the
+// worker runs. A spec that patched `HTMLElement.prototype.scrollTo` and
+// "restored" it by assigning what it read left an own property behind (the
+// method it read was inherited from `Element`), and that shadowed every later
+// file's `Element.prototype.scrollTo` spy: `intake-setup-view.spec.tsx` saw no
+// scroll on CI's shard 6/8, never alone. Every spec file starts from the scroll
+// methods the worker started with.
+const DOM_BASELINE = Symbol.for('vitest.dom-scroll-baseline')
+const SCROLL_METHODS = ['scroll', 'scrollBy', 'scrollTo', 'scrollIntoView'] as const
+const prototypes = typeof globalThis.HTMLElement === 'undefined' ? [] : [globalThis.Element.prototype, globalThis.HTMLElement.prototype]
+const domShared = shared as unknown as Record<symbol, Map<object, (PropertyDescriptor | undefined)[]> | undefined>
+// Recorded the first time a file sees the prototype: a worker's first file may have no DOM.
+const domBaseline = (domShared[DOM_BASELINE] ??= new Map())
+for (const prototype of prototypes) {
+  const descriptors = domBaseline.get(prototype)
+  if (!descriptors) {
+    domBaseline.set(prototype, SCROLL_METHODS.map((name) => Object.getOwnPropertyDescriptor(prototype, name)))
+    continue
+  }
+  SCROLL_METHODS.forEach((name, index) => {
+    const descriptor = descriptors[index]
+    if (descriptor) Object.defineProperty(prototype, name, descriptor)
+    else Reflect.deleteProperty(prototype, name)
+  })
+}
