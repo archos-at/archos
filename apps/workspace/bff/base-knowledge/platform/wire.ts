@@ -15,6 +15,8 @@ import {
   BINDING_MODES,
   CHANGE_REQUEST_ORIGINS,
   CHANGE_REQUEST_STATUSES,
+  CONNECTING_FACTORS,
+  COVERAGE_LEVELS,
   KNOWLEDGE_WORK_KINDS,
   type KnowledgeRecordType,
   RELATION_END_TYPES,
@@ -91,6 +93,12 @@ const workRecord = z.object({
     .max(10)
     .default([]),
   historyAvailableFrom: isoDate.nullable().default(null).describe('The first day whose edition is held.'),
+  connectsBy: z
+    .array(z.enum(CONNECTING_FACTORS))
+    .min(1)
+    .max(3)
+    .default(['site'])
+    .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
   ...common,
 })
 
@@ -147,6 +155,12 @@ const territoryRecord = z.object({
   aliases: z.record(z.string().regex(/^[a-z]{2,8}$/), z.string().min(1).max(40)).default({}),
   validFrom: isoDate.nullable().default(null),
   validTo: isoDate.nullable().default(null),
+  coverageLevel: z
+    .enum(COVERAGE_LEVELS)
+    .nullable()
+    .default(null)
+    .describe('How far the records go here (none, open, core, full); null inherits from the parent. Only a publish changes it.'),
+  municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
   ...common,
 })
 

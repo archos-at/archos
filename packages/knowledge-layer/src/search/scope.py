@@ -83,9 +83,15 @@ def scoped_collections_for_site(
     """
     entries = resolve_scoped_collections(config, session_id, base_collection)
     from agent.common.country_profile import austrian_corpus_applies
+    from agent.common.knowledge_context import base_corpus_readable
     from agent.project_context import get_profile_context_from_context
 
-    if austrian_corpus_applies(get_profile_context_from_context()):
+    # With the turn's knowledge context bound (ADR-0173) the gate decides: the corpus is searched when it
+    # may read any country, and `base_collection_filters` keeps only those countries' chunks.
+    readable = base_corpus_readable()
+    if readable is None:
+        readable = austrian_corpus_applies(get_profile_context_from_context())
+    if readable:
         return entries
     base = base_collection if base_collection is not None else config.collection_name
     return [entry for entry in entries if _shelf_name(entry) != "base" and entry.collection != base]

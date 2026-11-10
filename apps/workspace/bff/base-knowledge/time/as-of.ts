@@ -248,12 +248,12 @@ export function editionForProcedure(input: {
       return { ...reference, candidates: candidatesByEvent(work, facts) }
     return reference
   }
-  const stichtag = reference.referenceDate
+  const referenceDay = reference.referenceDate
   const filedOn = procedure.filedOn as string
-  const start = filedOn < stichtag.date ? filedOn : stichtag.date
+  const start = filedOn < referenceDay.date ? filedOn : referenceDay.date
   const end = windowEnd(procedure, input.chain[0] ?? '', input.now)
   if (end === 'zone_unknown') return { status: 'undetermined', reason: 'zone_unknown' }
-  const last = end !== null && end < stichtag.date ? stichtag.date : end
+  const last = end !== null && end < referenceDay.date ? referenceDay.date : end
   const first = editionInForce(work.editions, start, work.historyAvailableFrom)
   if (first.status !== 'determined') return first
   let current = first.edition
@@ -262,7 +262,7 @@ export function editionForProcedure(input: {
   for (const boundary of boundariesBetween(work.editions, start, last)) {
     const boundaryFrom = boundary.inForceFrom as string
     if (!boundary.transition) {
-      if (stichtag.date >= boundaryFrom) {
+      if (referenceDay.date >= boundaryFrom) {
         current = boundary
         reached = { by: 'reference_date' }
       }
@@ -293,19 +293,19 @@ export function editionForProcedure(input: {
       return {
         status: 'choice',
         editions: [editionRef(current), editionRef(boundary)],
-        referenceDate: stichtag,
+        referenceDate: referenceDay,
         boundary: step,
       }
     if (step.outcome === 'new_law') current = boundary
     reached = step.outcome === 'new_law' ? { by: 'new_law', on: boundaryFrom } : { by: 'old_law' }
     transitions.push(step)
   }
-  const refused = unconfirmed(work, current, reached, stichtag.date)
+  const refused = unconfirmed(work, current, reached, referenceDay.date)
   if (refused) return refused
   return {
     status: 'determined',
     edition: editionRef(current),
-    referenceDate: stichtag,
+    referenceDate: referenceDay,
     transitions,
   }
 }

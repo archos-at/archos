@@ -50,6 +50,9 @@ const CHAIN_MIGRATION = 'apps/workspace/migrations/0211_country_pack.sql'
 const RESOLVE_SPEC = 'apps/workspace/bff/base-knowledge/chain/resolve.spec.ts'
 const TEXT_SPEC = 'apps/workspace/bff/base-knowledge/chain/text.spec.ts'
 const CHAIN_SPEC = 'apps/workspace/bff/base-knowledge/chain/chain.integration.spec.ts'
+const CONTEXT_RESOLVE = 'apps/workspace/bff/base-knowledge/context/resolve.ts'
+/** Each edge case is a test: `context/edge-cases.spec.ts` runs every case of this file by its id. */
+const EDGE_CASES = 'evals/base-knowledge/edge_cases.yaml'
 const ROUTE_WBTV = { file: RESOLVE_SPEC, name: 'route-wbtv-oib2: in Wien the WBTV declares OIB-RL 2 in its 2023 edition, with the route' }
 const ASOF_VIENNA = { file: RESOLVE_SPEC, name: 'asof-vienna: Wien binds RL 6 in 2023 before 2026-07-15 and in 2025 from that day' }
 const DEVIATION = { file: RESOLVE_SPEC, name: 'deviation-wbtv-pkt: a WBTV clause displaces an OIB-RL 2 Punkt in Wien, and nowhere else' }
@@ -209,6 +212,10 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
   { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },
+  // Migration 0213 (ADR-0173): coverage and the connecting factor, read by the turn's knowledge context.
+  { element: 'knowledge_territory_revisions.coverage_level', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E02' } },
+  { element: 'knowledge_territory_revisions.municipal_law', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E-core-AT' } },
+  { element: 'knowledge_work_revisions.connects_by', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E40' } },
   // Migration 0211 (ADR-0168): relations, read by the resolver that gives every edition its role.
   { element: 'knowledge_relation_revisions.revision_id', consumer: CHAIN_LOAD, test: STYRIA_DB },
   { element: 'knowledge_relation_revisions.record_id', consumer: CHAIN_MIGRATION, test: REACHED },

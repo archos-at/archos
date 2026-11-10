@@ -10,6 +10,7 @@
 
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
+import { internalServiceHeaders } from '@/lib/internal-auth'
 import { BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 
 /** Lifecycle of a corpus file relative to what the RAG has indexed. */
@@ -391,7 +392,16 @@ export interface KnowledgeReingestResult {
  * `pending` until its chunks exist again. Unknown names come back in `unknown` rather than
  * failing the call — one stale name must not discard a selection of twenty.
  */
-export async function reingestKnowledgeBaseDocuments(fileNames: string[]): Promise<KnowledgeReingestResult> {
+/** The platform record a corpus file is the text of (ADR-0173): what its chunks carry as `country_id` and `knowledge_edition_id`. */
+export interface CorpusFileMark {
+  countryId: string | null
+  editionId: string | null
+}
+
+export async function reingestKnowledgeBaseDocuments(
+  fileNames: string[],
+  marks: Readonly<Record<string, CorpusFileMark>> = {},
+): Promise<KnowledgeReingestResult> {
   const names = fileNames.map(requirePdfBasename)
   if (names.length === 0) {
     throw new BadRequestError('Select at least one document to re-ingest')
@@ -401,7 +411,12 @@ export async function reingestKnowledgeBaseDocuments(fileNames: string[]): Promi
     res = await fetch(`${getBackendUrl()}/v1/admin/oib/reingest`, {
       method: 'POST',
       headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ file_names: names }),
+      body: JSON.stringify({
+        file_names: names,
+        ...(Object.keys(marks).length > 0
+          ? { marks: Object.fromEntries(Object.entries(marks).map(([name, mark]) => [name, { country_id: mark.countryId, edition_id: mark.editionId }])) }
+          : {}),
+      }),
       // Queueing only — the ingestion itself runs in the background.
       signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
     })
@@ -490,4 +505,24 @@ export async function streamKnowledgeBaseDocument(fileName: string): Promise<Res
       'Content-Security-Policy': "frame-ancestors 'self'",
     },
   })
+}
+
+/**
+ * Set a base-corpus file's country on its chunks and its corpus row (ADR-0173),
+ * so a later re-ingest stamps it again; its licence fields stay as they are. A
+ * file with no chunks is nothing to mark. Throws on any other failure, so a job
+ * retries it.
+ */
+export async function markCorpusFileCountry(fileName: string, countryId: string): Promise<void> {
+  const name = requirePdfBasename(fileName)
+  const backendUrl = getBackendUrl()
+  const collection = process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
+  const res = await fetch(`${backendUrl}/v1/collections/${encodeURIComponent(collection)}/knowledge-mark`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
+    body: JSON.stringify({ file_name: name, country_id: countryId }),
+    signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
+  })
+  if (res.status === 404) return
+  if (!res.ok) throw new UpstreamError(`Knowledge backend returned ${res.status} marking ${name}`)
 }

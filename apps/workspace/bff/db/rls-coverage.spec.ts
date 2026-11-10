@@ -242,6 +242,10 @@ const BOUNDARY_MIGRATIONS = [
   // write-only credential and its monitor state, platform-private like the
   // change-request tables (`secure_table(t, 'false')`).
   '0212_country_onboarding_tooling.sql',
+  // Adds message_edition_uses (the editions an answer used, E25) and
+  // project_base_confirmations (a confirmed Steckbrief), both keyed by their
+  // organization (ADR-0173).
+  '0213_knowledge_context.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

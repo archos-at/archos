@@ -35,6 +35,8 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           datedParents: record.datedParents,
           validFrom: record.validFrom,
           validTo: record.validTo,
+          coverageLevel: record.coverageLevel,
+          municipalLaw: record.municipalLaw,
         })
         break
       case 'work':
@@ -46,6 +48,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           designation: record.designation,
           territoryIds: record.territoryIds,
           addresseeTerritoryIds: record.addressees.map((addressee) => addressee.territoryId),
+          connectsBy: record.connectsBy,
         })
         break
       case 'edition':

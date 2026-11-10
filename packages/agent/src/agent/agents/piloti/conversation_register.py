@@ -36,6 +36,8 @@ from agent.common import get_langchain_llm
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
+from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -458,6 +460,11 @@ async def _prepare_turn(
     # Each edition's role at the site (ADR-0168), for the citation wire; None
     # included, so a turn never keys a source on the last turn's records.
     set_turn_building_law(context.building_law)
+    # Which country, coverage and editions apply, and what the turn may retrieve
+    # (ADR-0173); None included, so a turn never reads the last turn's gate.
+    set_turn_knowledge_context(context.knowledge_context)
+    if context.knowledge_context is not None:
+        record_trace_metadata(**knowledge_trace_metadata(context.knowledge_context))
     if context.building_law is not None:
         record_trace_metadata(
             building_law_chain=",".join(context.building_law.chain),

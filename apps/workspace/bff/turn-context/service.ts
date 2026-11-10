@@ -26,6 +26,7 @@ import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
 import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
 import { buildingLawForTurn } from '@/lib/base-knowledge/chain/turn'
+import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -139,7 +140,7 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
 
-  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, buildingLaw] = await Promise.all([
+  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, buildingLaw, knowledgeContext] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
@@ -164,6 +165,9 @@ export async function loadTurnContext(
     // Which edition binds at the project's site, and why, from the platform's records (ADR-0168).
     // Timed inside, once its flag is on: a turn without it records no new phase.
     advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null, timed)),
+    // Which country, coverage and editions apply, and what the turn may retrieve (ADR-0173).
+    // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge` once its flag is on.
+    knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
@@ -177,5 +181,7 @@ export async function loadTurnContext(
     baseKnowledge: baseKnowledge?.block ?? null,
     baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
     buildingLaw: buildingLaw ?? null,
+    // Absent with the flag off: the response stays byte for byte what it was.
+    ...(knowledgeContext ? { knowledgeContext } : {}),
   }
 }

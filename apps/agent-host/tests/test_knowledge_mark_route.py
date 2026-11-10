@@ -103,6 +103,20 @@ async def test_the_mark_lands_on_every_chunk_of_the_file(store):
     ]
 
 
+async def test_a_country_alone_leaves_the_licence_mark_as_it_is(store):
+    response = await _put({"file_name": "OIB-RL_2.pdf", "country_id": "ZZ"})
+
+    assert response.status_code == 200
+    assert store.written[0][1] == {"OIB-RL_2.pdf": {"country_id": "ZZ"}}
+
+
+async def test_a_malformed_country_is_refused(store):
+    response = await _put({"file_name": "OIB-RL_2.pdf", "country_id": "Austria"})
+
+    assert response.status_code == 422
+    assert store.written == []
+
+
 async def test_null_clears_the_mark(store):
     response = await _put({"file_name": "OIB-RL_2.pdf", "licence_class": None, "edition_id": None})
 
@@ -207,3 +221,19 @@ async def test_an_ingest_job_with_an_unknown_class_is_refused(ingest_app):
     app, _ingestor = ingest_app
 
     assert await _ingest(app, licence_class="free_for_all") == 422
+
+
+async def test_a_base_corpus_country_lands_on_its_corpus_row_so_a_reingest_keeps_it(store, monkeypatch):
+    from agent import corpus_store
+    from agent.oib_sync import COLLECTION_NAME
+
+    marks: dict[str, object] = {"OIB-RL_2.pdf": corpus_store.FileMark(country_id="AT", edition_id="edition:rl2")}
+    monkeypatch.setattr(corpus_store, "get_mark", lambda name: marks.get(name))
+    monkeypatch.setattr(corpus_store, "set_mark", lambda name, mark: marks.__setitem__(name, mark))
+
+    response = await _put(
+        {"file_name": "OIB-RL_2.pdf", "country_id": "ZZ"}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
+    )
+
+    assert response.status_code == 200
+    assert marks["OIB-RL_2.pdf"] == corpus_store.FileMark(country_id="ZZ", edition_id="edition:rl2")

@@ -20,7 +20,7 @@ import { getDb } from '@/lib/db'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DatedParent, RelationAnchor } from '@/lib/db/schema/knowledge-platform'
-import type { BindingMode, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
 /** Most rows of one type a graph reads. */
@@ -42,6 +42,8 @@ interface TerritoryRow extends Record<string, unknown> {
   dated_parents: DatedParent[]
   valid_from: string | null
   valid_to: string | null
+  coverage_level: CoverageLevel | null
+  municipal_law: boolean | null
 }
 
 interface RelationRow extends Record<string, unknown> {
@@ -67,6 +69,7 @@ interface WorkRow extends Record<string, unknown> {
   designation: string | null
   territory_ids: string[]
   addressee_territory_ids: string[] | null
+  connects_by: ConnectingFactor[] | null
 }
 
 interface EditionRow extends Record<string, unknown> {
@@ -78,6 +81,8 @@ interface EditionRow extends Record<string, unknown> {
   in_force_from: string | null
   in_force_to: string | null
   corpus_files: string[] | null
+  checked_at: string | Date | null
+  check_result: string | null
 }
 
 const dateText = (value: unknown): string | null => (value === null || value === undefined ? null : String(value).slice(0, 10))
@@ -104,7 +109,7 @@ async function territoriesOn(leafId: string): Promise<TerritoryRow[]> {
       ) p
       WHERE c.depth < ${MAX_TERRITORY_DEPTH}
     )
-    SELECT r.id, t.kind, t.name, t.parent_ids, t.dated_parents, t.valid_from, t.valid_to
+    SELECT r.id, t.kind, t.name, t.parent_ids, t.dated_parents, t.valid_from, t.valid_to, t.coverage_level, t.municipal_law
     FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
     WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.id IN (SELECT id FROM chain)
       AND (knowledge_country_entitled(r.country_id) OR knowledge_reached_by_relation(r.id))
@@ -135,7 +140,8 @@ async function worksFor(organizationId: string, chain: readonly string[], named:
       WHERE er.id = ANY(${sqlTextArray(named)})
     )
     SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.territory_ids,
-      (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids
+      (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids,
+      w.connects_by
     FROM knowledge_records r JOIN knowledge_work_revisions w ON w.revision_id = r.head_revision_id
     WHERE r.type = 'work' AND ${readable(organizationId)}
       AND (r.id IN (SELECT id FROM named_works)
@@ -149,8 +155,15 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
     SELECT r.id, r.organization_id, e.work_id, e.label, e.issued_on, e.in_force_from, e.in_force_to,
       (SELECT array_agg(m.corpus_file ORDER BY m.corpus_file)
          FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
-         WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND m.corpus_file IS NOT NULL) AS corpus_files,
+      c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
+    -- The platform's newest check of a platform edition: what its freshness reads (design §4.6).
+    LEFT JOIN LATERAL (
+      SELECT k.checked_at, k.result FROM knowledge_checks k
+      WHERE k.target_id = r.id AND k.organization_id IS NULL AND r.organization_id IS NULL
+      ORDER BY k.checked_at DESC LIMIT 1
+    ) c ON true
     WHERE r.type = 'edition' AND ${readable(organizationId)} AND e.work_id = ANY(${sqlTextArray(workIds)})
     ORDER BY r.id
     LIMIT ${MAX_ROWS}`)
@@ -167,6 +180,8 @@ function toTerritory(row: TerritoryRow): GraphTerritory {
     datedParents: row.dated_parents,
     validFrom: dateText(row.valid_from),
     validTo: dateText(row.valid_to),
+    coverageLevel: row.coverage_level ?? null,
+    municipalLaw: row.municipal_law ?? null,
   }
 }
 
@@ -196,6 +211,7 @@ function toWork(row: WorkRow): GraphWork {
     designation: row.designation,
     territoryIds: row.territory_ids,
     addresseeTerritoryIds: (row.addressee_territory_ids ?? []).filter((id): id is string => typeof id === 'string'),
+    connectsBy: row.connects_by ?? ['site'],
   }
 }
 
@@ -209,6 +225,7 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceFrom: dateText(row.in_force_from),
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
+    lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
   }
 }
 

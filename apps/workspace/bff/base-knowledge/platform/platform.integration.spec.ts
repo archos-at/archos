@@ -27,9 +27,9 @@ vi.mock('server-only', () => ({}))
 const flag = { on: true }
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => flag.on }))
 
-const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[] }
+const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[], marks: {} as Record<string, unknown> }
 vi.mock('@/lib/knowledge/service', () => ({
-  reingestKnowledgeBaseDocuments: async (names: string[]) => ({
+  reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => (Object.assign(corpus.marks, marks), {
     status: 'pending',
     queued: names.filter((name) => corpus.queued.includes(name)),
     unknown: names.filter((name) => corpus.unknown.includes(name)),
@@ -162,7 +162,7 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
 
     // The older release cannot be undone under a newer one.
     await expect(release.rollbackChangeRequest(first, 'wrong order', ACTOR)).rejects.toThrow(/released again/)
-    expect(await release.rollbackChangeRequest(second, 'title was right', ACTOR)).toEqual({ restored: 1 })
+    expect(await release.rollbackChangeRequest(second, 'title was right', ACTOR)).toEqual({ restored: 1, unreleasedFiles: [] })
     expect(await head(workId)).toBe(firstHead)
     // The rolled-back revision stays readable to whoever may read the record: an old citation resolves.
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.isReleased(ORG, secondHead!)).toBe(true)
@@ -251,11 +251,15 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     corpus.queued = [file]
     await indexing.runPlatformTextIndex(ORG, { runId: runs[0].id }, { last: false })
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('queued')
+    // The text's chunks carry its country and edition, so a turn's gate can filter them (ADR-0173).
+    expect(corpus.marks[file]).toEqual({ countryId: 'AT', editionId: `edition:${key('oib-rl-4-2023')}` })
     corpus.ingested = [file]
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('indexed')
     // The listing now says the platform holds the text.
     const listed = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])
     expect(listed).toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4', hasText: true }))
+    // Rolled back, no release names the file any more: it is de-indexed (ADR-0173).
+    expect(await release.rollbackChangeRequest(id, 'spec: the text goes', ACTOR)).toMatchObject({ unreleasedFiles: [file] })
   })
 
   it('records a corpus that does not know the file as failed, with why', async () => {

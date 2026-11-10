@@ -22,6 +22,9 @@ export function territoriesFromIso(rows: readonly { code: string; name: string; 
       aliases: {},
       validFrom: null,
       validTo: null,
+      // An imported territory states no coverage: it reads `none` until a reviewed change says more (ADR-0173).
+      coverageLevel: null,
+      municipalLaw: null,
       citations: [{ captureId, quote: row.quote ?? `${row.code} ${row.name}` }],
     }
   })

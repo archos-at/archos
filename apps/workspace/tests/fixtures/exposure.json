@@ -11,6 +11,26 @@
    "withheld": null,
    "reason": null
   },
+  "project-base-confirm": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "which base a project’s answers rest on is the person’s confirmation; the agent shows the base, the person confirms it"
+  },
+  "project-base-get": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-cleanup-confirm": {
    "kind": "catalog",
    "domain": "projects",
@@ -2670,6 +2690,16 @@
    "withheld": null,
    "reason": null
   },
+  "base-knowledge-report": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-update": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2681,6 +2711,16 @@
    "reason": null
   },
   "base-knowledge-upload": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "coverage-get": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,

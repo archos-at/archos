@@ -54,7 +54,7 @@ import { isShared, requireResourceAccess } from '@/lib/sharing/access'
 import { countGrantsForResource } from '@/lib/sharing/repository'
 import { resolveParticipants } from '@/lib/sharing/service'
 import { normalizeAgentAnswerMetadata } from './agent-answer-metadata'
-import { markLicensedAnswers } from './licensed-answers'
+import { recordPersistedAnswers } from './answer-records'
 import {
   resolveEngagement,
   resolveEngagementFor,
@@ -1492,7 +1492,7 @@ export async function persistInternalConversationMessages(
     )
   )
 
-  await markLicensedAnswers(conversationId, inputs, rows)
+  await recordPersistedAnswers(organizationId, conversation.projectId ?? null, conversationId, inputs, rows)
   await fanOutMessageActivity({
     organizationId,
     conversationId,

@@ -18,7 +18,8 @@
 
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, gt, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, ne, sql } from 'drizzle-orm'
+import { sqlTextArray } from '@/lib/db/sql-list'
 import { ConflictError } from '@/lib/api/errors'
 import { knowledgeManifestationRevisions, knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 import { knowledgeIndexRuns, knowledgeReleaseMoves } from '@/lib/db/schema/knowledge-platform'
@@ -141,6 +142,8 @@ export async function publishChangeRequest(requestId: string, channel: ReleaseCh
 
 export interface RollbackOutcome {
   restored: number
+  /** Base-corpus files the rolled-back request released and no released copy names any more: de-indexed after the commit (ADR-0173). */
+  unreleasedFiles: string[]
 }
 
 /** Undo a published request: each record back to its head before it, as appended inverse moves. */
@@ -187,6 +190,16 @@ export async function rollbackChangeRequest(requestId: string, reason: string, a
       await tx.update(knowledgeRecords).set({ headRevisionId: move.fromRevisionId }).where(eq(knowledgeRecords.id, move.recordId))
     }
     await setChangeRequestStatus(tx, requestId, 'rolled_back', 'decidedAt')
-    return { restored: published.length }
+    const released = published.flatMap((move) => (move.toRevisionId ? [move.toRevisionId] : []))
+    const unreleased =
+      released.length === 0
+        ? []
+        : await tx.execute<{ corpus_file: string }>(sql`
+            SELECT DISTINCT m.corpus_file FROM knowledge_manifestation_revisions m
+            WHERE m.revision_id::text = ANY(${sqlTextArray(released)}) AND m.corpus_file IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM knowledge_records r JOIN knowledge_manifestation_revisions h ON h.revision_id = r.head_revision_id
+                WHERE r.organization_id IS NULL AND h.corpus_file = m.corpus_file)`)
+    return { restored: published.length, unreleasedFiles: unreleased.map((row) => row.corpus_file) }
   })
 }

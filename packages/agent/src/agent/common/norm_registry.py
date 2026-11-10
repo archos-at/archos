@@ -547,11 +547,11 @@ def doctrine_for(project_context: str | None) -> str:
     doctrine (ADR-0158: a project without a known site gets no country law).
     """
     try:
+        from agent.common.country_profile import doctrine_note
         from agent.common.country_profile import get_country_profile
         from agent.common.country_profile import resolve_site
-        from agent.common.country_profile import site_note
 
-        note = site_note(project_context)
+        note = doctrine_note(project_context)
         if note is not None:
             return note
         profile = get_country_profile(resolve_site(project_context).country or "at")

@@ -31,4 +31,12 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   // A read of the project's own facts under the platform's classification records: domain knowledge the door offers.
   'classification-evaluate': OFFERED,
   'organization-countries-get': OFFERED,
+  // The knowledge context (ADR-0173): how far the base goes, and a project's base, are domain knowledge the door offers.
+  'coverage-get': OFFERED,
+  'project-base-get': OFFERED,
+  // A report changes nothing an answer reads: it opens a draft a platform reviewer decides.
+  'base-knowledge-report': OFFERED,
+  'project-base-confirm': externalOnly(
+    'which base a project’s answers rest on is the person’s confirmation; the agent shows the base, the person confirms it',
+  ),
 } as const satisfies Record<string, Exposure>

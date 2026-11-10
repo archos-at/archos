@@ -34,7 +34,7 @@ const writes = vi.hoisted(() => ({
   verdicts: vi.fn(async (..._args: unknown[]) => undefined),
   status: vi.fn(async (..._args: unknown[]) => undefined),
   publish: vi.fn(async (..._args: unknown[]) => ({ moved: 1, indexRuns: [] })),
-  rollback: vi.fn(async (..._args: unknown[]) => ({ restored: 1 })),
+  rollback: vi.fn(async (..._args: unknown[]) => ({ restored: 1, unreleasedFiles: [] as string[] })),
   entitle: vi.fn(async (..._args: unknown[]) => true),
   home: vi.fn(async (..._args: unknown[]) => 'DE'),
   awaiting: vi.fn(async (): Promise<string[]> => []),
@@ -59,7 +59,8 @@ vi.mock('./entitlements', () => ({
   moveHomeCountry: writes.home,
   readOrganizationCountries: vi.fn(),
 }))
-vi.mock('./indexing', () => ({ enqueueIndexRuns: async () => ({ enqueued: 0, failed: 0 }), readIndexStatus: vi.fn() }))
+const { enqueueDeindex } = vi.hoisted(() => ({ enqueueDeindex: vi.fn(async () => 0) }))
+vi.mock('./indexing', () => ({ enqueueIndexRuns: async () => ({ enqueued: 0, failed: 0 }), enqueueDeindex, readIndexStatus: vi.fn() }))
 vi.mock('./overview', () => ({ readOverview: vi.fn() }))
 
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
@@ -110,6 +111,20 @@ describe("the person's yes, at the service", () => {
       expect(anyWrite()).toBe(true)
     })
   }
+})
+
+describe('a rollback (ADR-0173)', () => {
+  it('de-indexes every text it left unreleased, as the platform organization', async () => {
+    writes.rollback.mockResolvedValueOnce({ restored: 2, unreleasedFiles: ['OIB-RL-4-2023.pdf'] })
+    await service.rollbackPlatformChangeRequest(EXPERT, REQUEST, 'wrong edition')
+    expect(enqueueDeindex).toHaveBeenCalledWith('org_platform', ['OIB-RL-4-2023.pdf'])
+  })
+
+  it('enqueues nothing when every text it released is still released', async () => {
+    enqueueDeindex.mockClear()
+    await service.rollbackPlatformChangeRequest(EXPERT, REQUEST, 'wrong title')
+    expect(enqueueDeindex).not.toHaveBeenCalled()
+  })
 })
 
 describe('a verdict on a claim', () => {

@@ -16,6 +16,7 @@ import {
 } from '@/lib/retrieval-scope/collection-scope'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
+import { corpusCountriesFor } from '@/lib/base-knowledge/context/corpus-countries'
 
 export interface RequestContext {
   projectId?: string
@@ -318,10 +319,18 @@ export async function buildCollectionScopeFromRequest(
     includeBase,
   } satisfies ScopeContext)
 
+  // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
+  // undefined with `knowledge-context` off, so the scope is byte for byte what it was.
+  const corpusCountries =
+    scope.includes(baseCollection) && session?.organizationId && !anonymous
+      ? await corpusCountriesFor(session.organizationId)
+      : undefined
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
-    return shelf ? { collection, shelf } : { collection }
+    const entry: ScopedCollection = shelf ? { collection, shelf } : { collection }
+    if (collection === baseCollection && corpusCountries) entry.countries = corpusCountries
+    return entry
   })
 
   return {

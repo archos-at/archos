@@ -127,6 +127,9 @@ LICENCE_CLASS_FIELD = "licence_class"
 LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
 #: Payload field holding the id of the knowledge edition a point's source belongs to.
 KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
+#: Payload field holding the country (ISO 3166-1) whose pack a base-corpus point belongs to (ADR-0173):
+#: a turn reads only the countries its office is entitled to. A point written before it lacks it and is Austrian.
+COUNTRY_FIELD = "country_id"
 #: Payload field holding whether the office stated its licence covers processing by the hosted AI services
 #: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
 AI_PROCESSING_FIELD = "ai_processing_attested"
@@ -256,6 +259,7 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     # The licence mark (``PUT /v1/collections/{c}/knowledge-mark``, ``writes.enrichment``).
     LICENCE_CLASS_FIELD,
     KNOWLEDGE_EDITION_FIELD,
+    COUNTRY_FIELD,
     "folder_path",
     # Every folder a document is filed in or beneath, case-folded: "this
     # folder and below" is one exact match (``prefilter.folder_ancestors``).
