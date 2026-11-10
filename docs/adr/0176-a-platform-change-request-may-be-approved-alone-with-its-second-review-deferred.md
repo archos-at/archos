@@ -59,7 +59,7 @@ never forgotten.
 Chosen option 1.
 
 **The permission.** `platform:knowledge:approve_alone`, in the platform tier
-of the authorization catalog (`bff/authz/catalog-platform.ts`). Only
+of the authorization catalog (`bff/authz/catalog.ts`). Only
 `org-platform-owner` holds it, as it holds every platform permission; no
 narrower role should. The deploy Job `grid-app-authz-catalog` applies it. A
 break-glass session (`PLATFORM_OWNER_EMAILS`) holds it too, since break-glass

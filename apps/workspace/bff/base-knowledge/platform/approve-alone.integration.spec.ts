@@ -222,4 +222,17 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       ),
     ).rejects.toThrow()
   })
+
+  it('drops a request rejected while it waited for another role from the queue: nothing of it reached an office', async () => {
+    const id = await submitted('rejected-after-alone')
+    // A request still submitted after the override (awaiting counsel) is rejected by another person.
+    await withPlatformAccess('alone spec', () =>
+      db.execute(sql`INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason)
+        VALUES (gen_random_uuid(), ${id}::uuid, ${AUTHOR}, 'domain_expert', 'app', ${REASON})`),
+    )
+    await service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })
+    expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ status: 'rejected', secondReview: { state: 'due' } })
+    expect(await queued(id)).toBe(false)
+    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).rejects.toMatchObject({ status: 409 })
+  })
 })

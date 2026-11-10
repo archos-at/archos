@@ -85,6 +85,12 @@ const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermissio
   privacy_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer,
 }
 
+/**
+ * Where a due second review is given: once the request was approved. A submitted one still waits for a role
+ * (counsel, a privacy reviewer) and is decided as before; a rejected one reached no office, so it owes nothing.
+ */
+const SECOND_REVIEW_STATUSES: readonly ChangeRequestStatus[] = ['approved', 'published', 'rolled_back']
+
 type KnowledgeAuditAction =
   | 'platform.knowledge.change_request_approved'
   | 'platform.knowledge.change_request_rejected'
@@ -224,7 +230,7 @@ export async function reviewPlatformChangeRequest(
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
     // A request approved alone stays reviewable until its second review is given (ADR-0176).
-    if (request.status !== 'submitted' && request.secondReview !== 'due') {
+    if (request.status !== 'submitted' && !(request.secondReview === 'due' && SECOND_REVIEW_STATUSES.includes(request.status))) {
       throw new ConflictError(`The change request is ${request.status}; only a submitted one, or one whose second review is due, is reviewed.`)
     }
     const revisions = await reviewedRevisions(tx, requestId)
@@ -273,7 +279,7 @@ export async function decidePlatformChangeRequest(
   const outcome = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
-    if (request.secondReview === 'due' && request.status !== 'submitted') {
+    if (request.secondReview === 'due' && SECOND_REVIEW_STATUSES.includes(request.status)) {
       if (body.override) throw new ConflictError('The second review of this change request is due; another person gives it, without an override.')
       return { ...(await giveSecondReview(tx, request, body.decision, person.userId)), alone: [] as string[] }
     }

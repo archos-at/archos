@@ -79,6 +79,7 @@ export async function readOverview(now: Date = new Date()): Promise<PlatformKnow
   }
   // The queue: what waits for a review, and what was approved alone and still owes its second one (ADR-0176).
   const [submitted, secondReviewDue] = await Promise.all([listChangeRequests({ status: 'submitted' }), listChangeRequests({ secondReview: 'due' })])
-  const queue = [...submitted, ...secondReviewDue.filter((request) => request.status !== 'submitted')]
+  // A submitted one is listed once; a rejected one reached no office and owes no review.
+  const queue = [...submitted, ...secondReviewDue.filter((request) => request.status !== 'submitted' && request.status !== 'rejected')]
   return { countries: [...countries.values()].sort((a, b) => a.countryId.localeCompare(b.countryId)), queue }
 }

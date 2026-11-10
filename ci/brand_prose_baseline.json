@@ -311,7 +311,7 @@
   "apps/workspace/bff/auth/session-cookie-chunks.spec.ts": 2,
   "apps/workspace/bff/auth/session.ts": 1,
   "apps/workspace/bff/auth/types.ts": 1,
-  "apps/workspace/bff/authz/catalog.ts": 9,
+  "apps/workspace/bff/authz/catalog.ts": 10,
   "apps/workspace/bff/authz/decide.ts": 1,
   "apps/workspace/bff/authz/feature-flags.spec.ts": 4,
   "apps/workspace/bff/authz/feature-flags.ts": 30,
