@@ -37,7 +37,7 @@ Windows: advice on prompts, tool descriptions and context must be dated **on or 
 | A19 | [Define success criteria and build evaluations](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests) | ≥ 2026-09-22 | volume over polish; automated and LLM grading with rubrics |
 | A20 | [The components of agent memory](https://www.anthropic.com/research/components-of-agent-memory) (engineering) | **2026-11-06** | "Injected memories use up valuable tokens"; keep the injected top layer small and retrieve the rest |
 | A21 | [Reducing cost and improving performance with Claude Platform](https://claude.com/blog/reducing-cost-and-improving-performance-with-claude-platform) | **2026-09-08** (updated after 2026-09-22) | anti-patterns to remove: verification rituals, emphasis boosters, mandatory procedures, contradictory rules |
-| A22 | [The anatomy of effective commerce agents](https://claude.com/blog/the-anatomy-of-effective-commerce-agents) | **2026-09-02** | breakpoint at the end of the global segment (system + tools); an instruction belongs in the system prompt only if it is relevant to about ⅓ of traffic, the rest goes in skills; UI components as typed tools rather than markup in the system prompt |
+| A22 | [The anatomy of effective commerce agents](https://claude.com/blog/the-anatomy-of-effective-commerce-agents) | **2026-09-02** | breakpoint at the end of the global segment (system + tools); as a starting point, an instruction relevant to a third or more of traffic goes in the system prompt, the rest in skills; UI components as typed tools rather than markup in the system prompt |
 | A23 | [Claude Platform release notes](https://platform.claude.com/docs/en/release-notes/overview) | entries 2026-06-10 … 2026-11-09 | feature dates and model launches |
 
 ### Anthropic: models (5-month window)
@@ -86,16 +86,16 @@ Windows: advice on prompts, tool descriptions and context must be dated **on or 
 | ↳ KINDS, FIELDS, CITATIONS, the three examples | 1,818 (examples alone 673) | `chat_static.md:80-117` |
 | ↳ envelope field list | 1,112 | `common/answer_envelope.py:1321` |
 | ↳ formatting 922 · rules 689 · building_law 422 · voice 416 · role 228 · good_answer 160 · done 106 | | `chat_static.md` |
-| **Tool schemas, chat agent, inside a project** | **20,798** | 28 runtime tools 19,086 + 6 file verbs 1,712 |
+| **Tool schemas, chat agent, inside a project** | **20,267** as bound for chat (20,798 on raw contracts) | 28 runtime tools 18,555 as bound (19,086 raw) + 6 file verbs 1,712 |
 | ↳ `ifc_measure` | **5,974** (description 2,449) | `tools/bim/measure_description.py`, `measure_input.py` |
 | ↳ `ifc_query` | 2,170 | |
 | ↳ `dxf_measure` 1,092 · `knowledge_search` 1,037 · `project_lookup` 957 · `list_files` 872 · `canvas__mark` 670 · `ris_lookup_tool` 587 · `grep` 549 · … | | |
 | ↳ outside a project, without the two IFC tools | 12,654 | `agents/piloti/turn_tools.py:25` | <!-- brand-history -->
-| **Static prefix total** | **≈ 23.3k (no project) to 31.5k (project)** | |
+| **Static prefix total** | **≈ 22.8k (no project) to 31.0k (project)**, as bound for chat | |
 
 Notes on the tool count:
 - `web_search_tool` was measured with its placeholder description, because no `TAVILY_API_KEY` was set.
-- `knowledge_search` and `list_files` were measured on their raw contract. The chat binding (`knowledge_layer/chat_binding.py`) rewrites both slightly.
+- `knowledge_search` and `list_files` were first measured on their raw contract (1,037 and 872). The chat binding (`knowledge_layer/chat_binding.py`) rewrites both, and the model is sent the bound versions (621 and 757); the totals above use the bound figures (re-measured by the PR's reviewer on develop b3fa243d7). The six file verbs are bound only on a turn with a working directory; without one there are four, at 1,383 tokens.
 - 54 of the parameters are `anyOf [X, null]` with `default: null`. Rendering them bare would save **888 tokens** (4.7 % of the tool payload).
 
 ### Per turn, dynamic
@@ -149,7 +149,7 @@ Notes on the tool count:
 `llm_factory.prepare_request` (`common/llm_factory.py:216`) sends `session_id` + `prompt_cache_key`. For `anthropic/*` models it also sends one top-level `cache_control: {type: ephemeral}`; that is OpenRouter's automatic caching (`common/prompt_caching.py:125`, `:238`). There is **no block-level breakpoint, by deliberate choice** (`prompt_caching.py:51`).
 
 Reading that against A6 and O1:
-- **Inside a turn, caching works.** The automatic breakpoint sits at the tail, and the next round's lookback finds it. The exception is a round that adds 20 blocks or more: with a width cap of 12 calls (`config:934`), a round of about 10 calls emits ~10 `tool_use` + ~10 `tool_result` blocks, which falls outside the lookback.
+- **Inside a turn, caching works.** The automatic breakpoint sits at the tail, and the next round's lookback finds it. The 20-block lookback is not the limit it looks like: a run of consecutive `tool_use` blocks counts as one position, and so does a run of consecutive `tool_result` blocks (A6), so even a round at the width cap of 12 calls (`config:934`) takes about two positions.
 - **Across turns, almost nothing carries, and the cause is structural.** The previous turn wrote cache entries only at its tail positions, behind its own turn context. The next turn removes that context, prunes the turn before last and moves the trim window. No entry was ever written at the end of the system prompt, so the next turn's first call rewrites the whole 23–31k static prefix at 1.25×.
 
   The same holds on GPT-6.1: since GPT-5.6, OpenAI's automatic caching also writes at managed breakpoints and bills writes at 1.25× (O1). This matches the 2026-11-04 production finding: 30 % misses, "carries nothing between turns", a 72 % share where a carried prefix would give 86 %. A12's healthy bar is ≥ 80 %.
@@ -174,7 +174,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
   - A22 (09-02): a breakpoint at the end of the global segment.
   - O1 (≥ 10-07): block markers are translated to OpenAI's `prompt_cache_breakpoint` with a 30-min TTL; the Responses API does not expose per-block `cache_control`.
 - **Saving:** the static prefix (23–31k tokens) on every turn's first call moves from a 1.25× write to a 0.05× read on terra, Opus 5.5 and Sonnet 5.5 (O3). That is ≈ 28–37k eq per turn. On gpt-6.1-terra this takes a routine answer from **≈ €0.083 to ≈ €0.057**, about 30 % of the main call's cost.
-  - It also holds across conversations: every conversation of an org on one tool shard shares the prefix, so opening turns (65 % of turns, ADR-0154) benefit too.
+  - It also holds across conversations: every conversation of an org on one tool shard shares the prefix, so opening turns (65 % of turns, the proposed context-layout ADR) benefit too.
 - **Quality:** none expected; the model reads the same bytes.
 - **Risk:** the move from Responses to Chat Completions changes the transport of every research call; the YAML comment asks for an answer-suite measurement first. All shards re-key once. Langchain's Responses converter may drop unknown block keys, so check the wire.
 - **How to verify:**
@@ -184,18 +184,20 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 
 ### 2. Record `cache_write_tokens` in the ledger and in Langfuse
 
-- **Where:** `common/cost_tracking.py:202-203` (the `CostEvent` fields), `:326-339` and `:743-760` (the usage parsers), `:266` (the Responses path), plus the BFF ledger columns. Today nothing reads the field: `grep cache_write` finds no hit in the agent or the BFF.
+- **Where:** `common/cost_tracking.py:202-203` (the `UsageEvent` fields), `:326-339` and `:743-760` (the usage parsers), `:266` (the Responses path), plus the BFF ledger columns. Today nothing reads the field: `grep cache_write` finds no hit in the agent or the BFF.
 - **Guidance:** O1 lists `cache_write_tokens` in `usage.prompt_tokens_details`. A12: judge cache levers by net effect.
 - **Saving:** none directly. Without this field nobody can tell whether a breakpoint pays, or whether the GPT-5.6+ 1.25× write tax lands on one-shot calls. It is the measurement that changes 1, 3, 4 and 7 depend on.
 - **Risk:** a ledger migration.
 - **How to verify:** a unit test on the parsers; a non-zero write on the first call of a fresh shard.
 
-### 3. Make history edits batch-wise, and land the stable head from ADR-0154
+### 3. Make history edits batch-wise, and land the stable head from the proposed context-layout ADR
+
+That ADR is numbered 0154 only on the unmerged branch `origin/feat/chat-conversation-context-layout`; on develop, `docs/adr/0154` is a different, accepted ADR (agentgateway, 2026-11-05). It needs a new number when it lands.
 
 - **Where:**
   - `agents/piloti/history.py:89-106`: `trim_messages(strategy="last")` re-trims every turn, which moves the start of history once a conversation passes 40k tokens. <!-- brand-history -->
   - `history.py:175-222`: `prune_tool_results` rewrites the turn before last on every turn.
-  - The **unmerged** branch `origin/feat/chat-conversation-context-layout` (ADR-0154, `status: proposed`, 2026-11-04) moves the project and office blocks to one message after the system prompt. It measured a follow-up's new characters dropping from 41–44k to 14–17k.
+  - The **unmerged** branch `origin/feat/chat-conversation-context-layout` (the proposed context-layout ADR, `status: proposed`, 2026-11-04) moves the project and office blocks to one message after the system prompt. It measured a follow-up's new characters dropping from 41–44k to 14–17k.
 - **Guidance:**
   - A8 (≥ 11-09): clearing invalidates the cache, so clear in large batches (`clear_at_least`).
   - A1 item 7 (≥ 11-09): keep history append-only.
@@ -220,7 +222,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 
 ### 5. Bind the IFC and DXF tools only when the project holds such a model
 
-- **Where:** `agents/piloti/turn_tools.py:25-46`. Narrow `_PROJECT_MODEL_TOOLS` from "inside a project" to "a project with an `.ifc` (or `.dxf`) document", using the turn's inventory or a BFF flag. Whether a project has a model is a stable fact of that project, so an org still lands on a handful of cache shards. <!-- brand-history -->
+- **Where:** `agents/piloti/turn_tools.py:25-46`. Narrow `_PROJECT_MODEL_TOOLS` (today `ifc_query` and `ifc_measure` only) from "inside a project" to "a project with an `.ifc` document", and **add** `dxf_measure` to the gated set under "a project with a `.dxf` document": today it is bound in every scope, so its 1,092 tokens are saved only if it joins the set, using the turn's inventory or a BFF flag. Whether a project has a model is a stable fact of that project, so an org still lands on a handful of cache shards. <!-- brand-history -->
 - **Guidance:**
   - A5 (≥ 11-09): selection accuracy degrades past 30–50 tools; above 10k tokens of definitions, load on demand. The agent binds 34 tools at ~20.8k tokens.
   - A12: unused definitions cost money, not correctness.
@@ -292,7 +294,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 
 **Considered and not recommended now:**
 - Anthropic `search_result` blocks and native citations (A15): they need the Messages API through OpenRouter's Anthropic endpoint, they are incompatible with the structured-output envelope rung, and the verifier the repo owns already does the job.
-- Turn-scoped system messages for the turn context (A10): a Claude-only beta whose support through OpenRouter's Chat Completions is unverified. ADR-0154's stable head reaches the same goal provider-neutrally.
+- Turn-scoped system messages for the turn context (A10): a Claude-only beta whose support through OpenRouter's Chat Completions is unverified. the proposed context-layout ADR's stable head reaches the same goal provider-neutrally.
 - Programmatic tool calling (A16): a server-side code container, and not ZDR-clean through OpenRouter.
 
 ---
@@ -319,7 +321,7 @@ Cost estimates use the measured turn profile above, OpenRouter list prices (O3) 
 - medium effort as the research default (A2, A12);
 - the workspace door as client-side tool search (`workspace__search/describe/call`, A5).
 
-**Discrepancy between docs and code:** `docs/architecture/llm-providers.md` cites "the agent's `test_cross_turn_prefix.py`". That file exists only on the unmerged branch `origin/feat/chat-conversation-context-layout`, not on this branch. I did not modify the repo; it needs a fix in the change that lands or drops ADR-0154.
+**Discrepancy between docs and code:** `docs/architecture/llm-providers.md` cites "the agent's `test_cross_turn_prefix.py`". That file exists only on the unmerged branch `origin/feat/chat-conversation-context-layout`, not on this branch. I did not modify the repo; it needs a fix in the change that lands or drops the proposed context-layout ADR.
 
 ---
 
