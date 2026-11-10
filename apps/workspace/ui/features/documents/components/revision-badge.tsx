@@ -78,7 +78,7 @@ export function OlderRevisionBadge({
   const replacedBy = t('revisionBadge.olderTitle', { name: newer.filename })
   return (
     <Badge
-      variant="outline"
+      variant="secondary"
       className={cn('text-muted-foreground shrink-0 font-normal', className)}
       title={replacedBy}
       aria-label={`${t('revisionBadge.older')}. ${replacedBy}`}

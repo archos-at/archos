@@ -31,7 +31,7 @@ export function StatusScreen({ code, title, description, actions, art, detail, c
       <Logo size="medium" className="mb-8" />
       {art && <div className="mb-8 flex w-full justify-center">{art}</div>}
       {code && <SectionLabel as="p">{code}</SectionLabel>}
-      <h1 className="mt-2 text-xl font-medium tracking-tight text-foreground text-balance">{title}</h1>
+      <h1 className="mt-2 text-xl font-medium text-foreground text-balance">{title}</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground text-balance">{description}</p>
       {actions && <div className="mt-6 flex flex-wrap items-center justify-center gap-3">{actions}</div>}
       {detail && <p className="mt-6 font-mono text-xs text-muted-foreground">{detail}</p>}

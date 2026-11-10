@@ -102,7 +102,7 @@ export const VerdictHeaderCard: FC<VerdictHeaderCardProps> = ({
           break is the guarantee that nothing ever overflows the card. */}
       <p
         className={cn(
-          'hyphens-auto break-words text-balance tracking-tight text-foreground',
+          'hyphens-auto break-words text-balance text-foreground',
           text.length > LONG_VERDICT ? 'card-figure-24' : 'card-figure-30',
         )}
       >

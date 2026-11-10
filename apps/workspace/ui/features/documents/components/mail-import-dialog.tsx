@@ -219,7 +219,7 @@ export function MailImportDialogView({
         />
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             {t('mailImport.close')}
           </Button>
         </DialogFooter>
@@ -351,7 +351,7 @@ function ImportRow({
         {resumable && (
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={onResume}
             aria-label={t('mailImport.resumeNamed', { name: row.filename })}
             data-testid="mail-import-resume"

@@ -101,7 +101,7 @@ export function RevisionTimelineRow({
               {label}
             </span>
             {marker && (
-              <Badge variant="outline" className="bg-background px-1.5 py-0 text-[11px]" data-testid="revision-row-current">
+              <Badge variant="secondary" className="bg-background px-1.5 py-0 text-[11px]" data-testid="revision-row-current">
                 {marker}
               </Badge>
             )}

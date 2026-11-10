@@ -82,7 +82,7 @@ export function ChangeList({
           <AlertDescription className="text-error">
             <p>{error.message}</p>
             {error.retryable && (
-              <Button variant="outline" size="sm" className="mt-1" onClick={onRetry} data-testid="compare-mark-retry">
+              <Button variant="secondary" size="sm" className="mt-1" onClick={onRetry} data-testid="compare-mark-retry">
                 <RotateCw aria-hidden />
                 {t('compare.retry')}
               </Button>

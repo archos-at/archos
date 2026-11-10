@@ -123,7 +123,7 @@ export default function AccessOverviewDevPage(): JSX.Element {
         className="mx-auto flex max-w-3xl flex-col gap-10 p-4 text-foreground sm:p-8"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Wer Zugriff hat</h1>
+          <h1 className="text-xl font-semibold">Wer Zugriff hat</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Chip, Teilnehmerleiste und Übersicht — die Antwort auf „wer liest das mit?“.
           </p>

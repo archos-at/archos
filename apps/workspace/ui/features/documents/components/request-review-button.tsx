@@ -51,7 +51,7 @@ export function RequestReviewButton({
 
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
       className={className}
       disabled={state !== 'idle'}

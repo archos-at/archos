@@ -18,7 +18,6 @@ import { createDataSourcesClient, type DataSourceFromAPI } from '@/adapters/api'
 
 const initialState: LayoutState = {
   isSessionsPanelOpen: false,
-  isMobileNavOpen: false,
   dataSourcesPanelTab: 'connections',
   enabledDataSourceIds: [], // Start empty, populated when data sources are fetched
   theme: 'system',
@@ -48,9 +47,6 @@ export const useLayoutStore = create<LayoutStore>()(
 
       setSessionsPanelOpen: (open: boolean) =>
         set({ isSessionsPanelOpen: open }, false, 'setSessionsPanelOpen'),
-
-      setMobileNavOpen: (open: boolean) =>
-        set({ isMobileNavOpen: open }, false, 'setMobileNavOpen'),
 
       setDataSourcesPanelTab: (tab: DataSourcesPanelTab) =>
         set({ dataSourcesPanelTab: tab }, false, 'setDataSourcesPanelTab'),

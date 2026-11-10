@@ -32,7 +32,7 @@ const RadioGroupItem = React.forwardRef<
       // Same ring as its sibling `Checkbox` — the offset matters more here, not
       // less: on a 16px circle an offset-less ring lands on the border itself
       // and reads as "this radio is slightly thicker", not as focus.
-      'aspect-square size-4 shrink-0 rounded-full border border-input text-primary shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary',
+      'aspect-square size-4 shrink-0 rounded-full border border-(--ds-line-strong) text-primary shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary',
       PRESSABLE_SMALL,
       FOCUS_RING,
       className,

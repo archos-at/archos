@@ -25,6 +25,11 @@ const toggleVariants = cva(
           'border border-border bg-transparent text-muted-foreground shadow-xs hover:bg-accent hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-xs',
         inverted:
           'text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
+        // A filter chip (paper on a desk, principle 4): never the press's shape. A 28px pill of the desk's fill and no
+        // edge at rest, one step down the ladder under the pointer; picked, the selected grey with its tick (the
+        // caller's `Check`, shown `in-data-[state=on]`). Round 3 drew it as the press, and „Für Sie“ read as a command
+        // beside „Protokoll exportieren“. Never a thumb either: a thumb lives on a track.
+        chip: 'rounded-full bg-desk text-foreground font-medium hover:bg-selected data-[state=on]:bg-selected data-[state=on]:hover:bg-pressed',
       },
       // Aligned to `Button`'s size scale, one name = one height, so a toggle
       // and a button placed side by side in a toolbar line up. The scale used
@@ -46,6 +51,14 @@ const toggleVariants = cva(
         'icon-sm': 'size-7 px-0 pointer-coarse:size-11',
       },
     },
+    // A chip is 28px whatever the size says; under a finger 36px, its catchment 44px (an overhang the gap absorbs).
+    compoundVariants: [
+      {
+        variant: 'chip',
+        className:
+          'relative h-7 px-3 pointer-coarse:h-9 pointer-coarse:min-w-11 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[""]',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',

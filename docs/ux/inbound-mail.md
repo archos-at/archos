@@ -26,11 +26,18 @@ English copy calls the place „Project mail“.
 
 ## Where it is entered
 
-- The Dateien header: a ghost link „E-Mail-Eingang“ with a **muted** count
-  pill (on the phone, the ⋯ menu entry with the count as a hint).
+- Dateien's places, as tabs in the section header (`ProjectSectionFrame`,
+  the shared `SectionNav`): Alle Dateien · E-Mail-Eingang with a **muted**
+  count · Offene Punkte · Papierkorb. The E-Mail-Eingang tab only for whoever
+  may decide the project's mail (`requireMailReviewer`, asked once by the
+  project layout); its count is the rail's own (`useInboundMailWaitingShown`).
+  On a phone the tabs are a scrolling strip, hidden on an opened mail.
+- The chat's start: under the greeting, the same quiet line as in Dateien,
+  while something waits (the UI revision's „what happened since your last
+  visit“, its first line).
 - A quiet line above the shelf root: „2 E-Mails warten auf Ablage · Ansehen“.
-- A muted count on Dateien in the rail and the phone tab bar. The Postfach
-  keeps the only ink pill.
+- A muted count on Dateien in the rail and the phone tab bar, its words on
+  hover. The Postfach keeps the only ink pill.
 - `ProjectMailWaiting` on the project card (`waitingMailCounts`).
 - The project overview (Einstellungen › Übersicht): a full-width tile
   „E-Mail-Adresse des Projekts“, „In Cc gesetzt, bringt sie die Antworten von
@@ -82,10 +89,18 @@ manage sees „Bitten Sie jemanden, der das Projekt verwaltet, sie in den
 Projekteinstellungen zu erzeugen.“ Rotation's confirm says that every follow on
 the project ends.
 
-The never-used list says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie
-die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft
-schreiben. Was Sie selbst so senden und Ihre Domain bestätigt, wird direkt
-abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.“
+The E-Mail-Eingang's header shows the address itself (a press copies it) and
+„Mehr zur Adresse“ (the dialog); a manager without an address reads „Adresse
+erzeugen“ there, a member nothing.
+
+Never used, the page is about the address: the list takes the whole width,
+says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie die Adresse in Cc,
+wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Die Antworten warten
+hier auf Ablage.“ (what is filed directly is the address dialog's), and holds one sheet with the address a size up, „Kopieren“
+(primary) and „Als Kontakt sichern“; the header's address and the
+Wartet/Bearbeitet switch stand down. Without an address: „Dieses Projekt hat
+noch keine E-Mail-Adresse …“ with „Adresse erzeugen“ for a manager, or whom to
+ask for a member. An empty list never shows the „Wählen Sie …“ pane.
 
 ## The E-Mail-Eingang
 
@@ -112,8 +127,12 @@ bestätigt, für jeden Teil ein Ziel, nichts zu prüfen.“ and, with two or mor
 ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
 by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
 one request decides at most 20). A ready row outside a thread group carries
-„Wie vorgeschlagen ablegen“: one press, no confirmation, the same request as
-bulk and never an acknowledgement. The mail is read again first; if it changed
+„Wie vorgeschlagen ablegen“, shown where the reader is (the open row, under the
+pointer or the keyboard, always under a finger): one press, no confirmation,
+the same request as bulk and never an acknowledgement. A row whose parts are
+all on their way reads „Wird abgelegt …“ and offers no press. The open row is
+a fill, not a drawn box; a sender's disc is neutral (a sender is not a member,
+an identity hue would mean nothing). The mail is read again first; if it changed
 („Anhang wird noch geprüft …“), nothing is filed and a toast says why. After
 the press: „1 E-Mail wird wie vorgeschlagen abgelegt“ with the destinations
 („In E-Mail-Verlauf „Verfahren MA 37“: 1 · In „Behörde“: 1“). A row under
@@ -126,11 +145,14 @@ under „Wartet auf andere“. A verified writer's mail direct filing left
 (`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
-group under „Bereit“ with „Alle {n} ablegen (wird Fassung {a}–{b})“ (or „Die
-ersten 20 ablegen …“); its replies that need a look are a group under „Braucht
-Sie“ with „Der Reihe nach ansehen“ (opens the first, with no Fassung range,
-which would depend on what is filed first). The group line names the thread;
-its rows do not repeat it. A row whose text a follow already appended shows no
+group under „Bereit“ with „Als Fassung {a}–{b} ablegen“ (or „Die ersten 20 als
+Fassung … ablegen“); its replies that need a look are a group under „Braucht
+Sie“ with „Ansehen“ (opens the first, with no Fassung range, which would depend
+on what is filed first). The group line (the thread's glyph and „{name}“; „E-Mail-Verlauf“ and the
+count in its title and the section's label) and its press share one row. The rows do
+not repeat the thread: each subject drops the thread's name in front
+(`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
+rather than three cut-off „Stellplatznachweis – …“. A row whose text a follow already appended shows no
 thread line; its attachments still wait.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
@@ -166,9 +188,10 @@ it (the server refuses a colleague's filing and restore alike, `sender_only`).
 The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confirmation.
 
 **The detail** opens on the mail (`mail-header.tsx`), top to bottom:
-1. The header: the subject, then ONE line „{Name} ‹{Adresse}›“ (name and
-   address always together), the trust („Domain bestätigt: {domain}“ with its
-   ⓘ toggletip; trust is never folded), the received time and „Details ▾“. The
+1. The header: the subject, then „{Name} ‹{Adresse}›“ (name and address
+   always together), then one muted line: the trust („Domain bestätigt:
+   {domain}“ with its ⓘ toggletip; trust is never folded), the received time
+   and „Details ▾“. One line of all six was the densest on the page. The
    sender's flags („An andere Empfänger adressiert“, …), why it waits
    (`SenderWaitLine`, one sentence ending on the reader's next step; for a
    colleague of a claimed mail, `waitReason.signature`, `replay` and

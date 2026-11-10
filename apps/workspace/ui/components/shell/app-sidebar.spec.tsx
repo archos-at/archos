@@ -1,12 +1,12 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen, act, within } from '@/test-utils'
+import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { useIsMobile } from '@/hooks/use-is-mobile'
-import { useLayoutStore } from '@/features/layout/store'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
+import { RailChatsSource, type RailChats } from './rail-chats'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -37,12 +37,13 @@ vi.mock('@/hooks/use-last-project-section', () => ({
   pruneProjectSections: () => {},
 }))
 
-vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div />, ProjectStatusDot: () => <span /> }))
-vi.mock('./connection-band', () => ({ ConnectionBand: () => <div data-testid="connection-band" /> }))
-vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
-vi.mock('./connection-presence-indicator', () => ({
-  ConnectionPresenceIndicator: () => <div />,
+vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div /> }))
+vi.mock('./connection-band', () => ({
+  ConnectionBand: ({ appearance = 'band' }: { appearance?: string }) => (
+    <div data-testid="connection-band" data-appearance={appearance} />
+  ),
 }))
+vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
 vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 
 // Only the hook is stood in for: the module's named queries stay real.
@@ -68,8 +69,7 @@ afterEach(() => {
   // the rail used to hand the icon rail to every test that ran after it.
   window.localStorage.removeItem('sidebar.collapsed')
   vi.mocked(useIsMobile).mockReturnValue(false)
-  useLayoutStore.setState({ isMobileNavOpen: false })
-  useShellOverlays.setState({ projectSheetOpen: false, paletteOpen: false })
+  useShellOverlays.setState({ paletteOpen: false })
 })
 
 describe('the Inbox entry follows canAccessInbox, in both directions', () => {
@@ -194,10 +194,20 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    // Chat · Files · Automation* · Archiv* · Suche · Inbox*,
+    // Chat · Files · Automation* · Overview, then Archiv* · Suche · Inbox*,
     // per `project-sections.ts`. Automation is absent here because `showSkills`
     // is off.
-    expect(labels).toEqual(['Chat', 'Files', 'Office filing', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+  })
+})
+
+// The Übersicht (the project hub) stood at the foot under „Organisation“,
+// where proximity read it as the organisation's. It is the project's.
+describe('AppSidebar - the project hub stands with the project', () => {
+  test('Overview is in the project sections, not among the organisation doorways', () => {
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
+    expect(within(screen.getByLabelText('Project sections')).getByText('Overview')).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Organization' })).queryByText('Overview')).toBeNull()
   })
 })
 
@@ -207,8 +217,12 @@ describe('AppSidebar - collapsed icon rail', () => {
     render(<AppSidebar {...baseProps} />)
 
     const sections = screen.getByLabelText('Project sections')
+    const org = screen.getByRole('navigation', { name: 'Organization' })
     expect(within(sections).getByText('Chat')).toBeVisible()
-    expect(within(sections).getByText('Work')).toBeVisible()
+    // The project's sections carry no label: the switcher above them is their
+    // heading. The organisation's doorways carry theirs.
+    expect(sections.querySelector('[data-sidebar="group-label"]')).toBeNull()
+    expect(within(org).getByText('Organization')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
 
@@ -216,7 +230,20 @@ describe('AppSidebar - collapsed icon rail', () => {
     // sr-only as visible, so we assert the class rather than toBeVisible.
     expect(within(sections).getByText('Chat')).toHaveClass('sr-only')
     expect(within(sections).getByText('Files')).toHaveClass('sr-only')
-    expect(within(sections).queryByText('Work')).not.toBeInTheDocument()
+    expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
+  })
+})
+
+// The fold control jumped from the head (expanded) to the foot (icon rail) in
+// one round; the one control just used must stay where it was clicked.
+describe('AppSidebar - the fold control stays in the head', () => {
+  test('in both widths', async () => {
+    const user = userEvent.setup()
+    render(<AppSidebar {...baseProps} />)
+    const head = (): Element => document.querySelector('[data-sidebar="header"]')!
+    expect(head()).toContainElement(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(head()).toContainElement(screen.getByRole('button', { name: 'Expand sidebar' }))
   })
 })
 
@@ -269,39 +296,28 @@ describe('AppSidebar - mobile top bar', () => {
 })
 
 describe('AppSidebar - the phone top band', () => {
-  test("names the project, and opens the switcher sheet from it", async () => {
+  // The founder (2026-11-10): „it still looks weird, on mobile lets remove it
+  // entirely“. No project name stands above a phone page, as a band or a crumb.
+  test('draws nothing over a page that has a header: no project name, no control', () => {
     pathname = '/app/projects/p1/files'
-    const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    const pill = within(screen.getByRole('banner')).getByTestId('project-pill')
-    expect(pill).toHaveTextContent('Project One')
-    expect(pill).toHaveAttribute('aria-expanded', 'false')
-
-    await user.click(pill)
-
-    expect(useShellOverlays.getState().projectSheetOpen).toBe(true)
+    const banner = screen.getByRole('banner')
+    expect(banner).not.toHaveTextContent('Project One')
+    expect(within(banner).queryAllByRole('button')).toEqual([])
+    expect(within(banner).queryAllByRole('link')).toEqual([])
+    expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
   })
 
-  test('carries the search that opens the command palette', async () => {
-    pathname = '/app/projects/p1/files'
+  test('a bare flow has no page header, so its way back and the search keep one line, without the project’s name', async () => {
+    pathname = '/app/projects/p1/setup'
     const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    await user.click(within(screen.getByRole('banner')).getByTestId('shell-search'))
+    const banner = screen.getByRole('banner')
+    const line = banner.querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
+    expect(within(line).getByRole('link', { name: 'Back to Overview' })).toHaveAttribute('href', '/app/projects/p1/settings')
+    expect(banner).not.toHaveTextContent('Project One')
+    await user.click(within(line).getByTestId('shell-search'))
     expect(useShellOverlays.getState().paletteOpen).toBe(true)
-  })
-
-  test('offers a way back from a page one level below a tab, and none on a tab root', () => {
-    pathname = '/app/projects/p1/files/bin'
-    const { unmount } = render(<AppSidebar {...baseProps} />)
-    expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Back to Files' })).toHaveAttribute(
-      'href',
-      '/app/projects/p1/files'
-    )
-    unmount()
-
-    pathname = '/app/projects/p1/files'
-    render(<AppSidebar {...baseProps} />)
-    expect(within(screen.getByRole('banner')).queryByRole('link', { name: /^Back to/ })).toBeNull()
   })
 
   test('shows the connection on a phone, where the rail footer is out of sight', () => {
@@ -309,6 +325,17 @@ describe('AppSidebar - the phone top band', () => {
     vi.mocked(useIsMobile).mockReturnValue(true)
     render(<AppSidebar {...baseProps} />)
     expect(within(screen.getByRole('banner')).getByTestId('connection-band')).toBeInTheDocument()
+    // One per shell: the drawer does not carry a second band (or a second ping).
+    expect(screen.getAllByTestId('connection-band')).toHaveLength(1)
+  })
+
+  test('on a desktop the connection is a row of the rail footer, and the header carries none', () => {
+    pathname = '/app/projects/p1/files'
+    const { container } = render(<AppSidebar {...baseProps} />)
+    const bands = screen.getAllByTestId('connection-band')
+    expect(bands).toHaveLength(1)
+    expect(bands[0]).toHaveAttribute('data-appearance', 'rail')
+    expect(container.querySelector('[data-sidebar="footer"]')).toContainElement(bands[0]!)
   })
 })
 
@@ -334,6 +361,24 @@ describe('AppSidebar - active state', () => {
     expect(pills[0]!.closest('a')).toHaveTextContent('Chat')
   })
 
+  test('the active entry is a sheet on the desk: white, with the thumb’s edge and shadow', () => {
+    // Where the reader is, is white on the desk with its 12% edge (`shadow-xs`
+    // carries both), as the open tab on Dateien's track. As a bare white fill
+    // it stood 1.08:1 off the band and was the weakest thing on it.
+    const { container } = render(<AppSidebar {...baseProps} />)
+    const pill = container.querySelector('[data-slot="rail-active-pill"]')!
+    expect(pill).toHaveClass('bg-sheet', 'shadow-xs')
+    // The edge is the shadow's ring, never a border: a border would move the row's content by 1px.
+    expect(pill.className).not.toMatch(/\bborder\b|\bborder-/)
+    expect(pill.closest('a')).toHaveClass('font-semibold')
+  })
+
+  test('a preview can pin the route the rail lights', () => {
+    render(<AppSidebar {...baseProps} pathname="/app/projects/p1/settings" />)
+    const overview = screen.getAllByText('Overview').map((el) => el.closest('a'))
+    expect(overview.some((link) => link?.getAttribute('aria-current') === 'page')).toBe(true)
+  })
+
   test('keys the pill identity by rail width, so it never scales across a collapse', () => {
     // `layoutId` is motion state, not a DOM attribute, so the animation itself
     // is not observable from a jsdom render — but the KEY is, and the key is
@@ -346,18 +391,28 @@ describe('AppSidebar - active state', () => {
   })
 })
 
-describe('AppSidebar - layout store mobile nav sync', () => {
-  test('opens the primitive sheet when the chat toolbar sets the store', async () => {
+// The phone drawer had no door in the product (nothing set it open), so it
+// went: on a phone the rail draws its top band and nothing else.
+describe('AppSidebar - on a phone', () => {
+  test('renders the top band and no rail', () => {
+    pathname = '/app/projects/p1/files'
     vi.mocked(useIsMobile).mockReturnValue(true)
-    render(<AppSidebar {...baseProps} />)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const { container } = render(<AppSidebar {...baseProps} />)
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(container.querySelector('[data-sidebar="sidebar"]')).toBeNull()
+  })
+})
 
-    await act(async () => {
-      useLayoutStore.getState().setMobileNavOpen(true)
-    })
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
+describe('AppSidebar - the organisation heads its doorways', () => {
+  test("the doorways' heading is the organisation's name, at the foot with the person", () => {
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf organizationName="Musterarchitektur ZT GmbH" />)
+    const org = screen.getByRole('navigation', { name: 'Musterarchitektur ZT GmbH' })
+    expect(within(org).getByText('Musterarchitektur ZT GmbH')).toBeInTheDocument()
+    // The project owns the top of the rail and the office its foot: stacked
+    // under the project's sections the two heads fought, and the lower 60% of
+    // the band stood empty.
+    expect(org.closest('[data-sidebar="footer"]')).not.toBeNull()
+    expect(screen.getByLabelText('Project sections').closest('[data-sidebar="content"]')).not.toBeNull()
   })
 })
 
@@ -376,5 +431,95 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
     expect(officeShelf.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
     // The project's own sections are still offered — the project did not go away.
     expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+  })
+})
+
+// None of the pilot offices found the chat history (2026-11-10): its one door was a glyph in the chat's toolbar.
+// The project's last chats stand under „Chat“ in the rail, the open one as the current place.
+describe('AppSidebar - the project’s last chats under „Chat“', () => {
+  const chats = (over: Partial<RailChats> = {}): RailChats => ({
+    items: [
+      { id: 'c1', title: 'Rettungswege Bürogebäude GK4 Wien', href: '/app/projects/p1/chat?session=c1', current: false },
+      { id: 'c2', title: 'Fluchtweglänge im Erdgeschoss', href: '/app/projects/p1/chat?session=c2', current: true },
+    ],
+    allHref: '/app/projects/p1/chat',
+    onOpen: vi.fn(),
+    onOpenAll: vi.fn(),
+    ...over,
+  })
+  const renderWith = (value: RailChats | null, props: Partial<typeof baseProps> & { pathname?: string } = {}) =>
+    render(
+      <RailChatsSource value={value}>
+        <AppSidebar {...baseProps} {...props} />
+      </RailChatsSource>
+    )
+
+  test('lists them right under „Chat“, newest first, and „All chats“ last', () => {
+    renderWith(chats())
+    const list = screen.getByRole('list', { name: 'Recent chats' })
+    const links = within(list).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
+    expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
+    expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
+    // In the sections' list, between „Chat“ and „Files“.
+    const sections = within(screen.getByLabelText('Project sections')).getAllByRole('link').map((link) => link.textContent)
+    expect(sections.indexOf('Chat')).toBeLessThan(sections.indexOf('Rettungswege Bürogebäude GK4 Wien'))
+    expect(sections.indexOf('All chats')).toBeLessThan(sections.indexOf('Files'))
+  })
+
+  test('a title stays on one line, whole in its tooltip', () => {
+    renderWith(chats())
+    const row = screen.getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' })
+    expect(row).toHaveAttribute('title', 'Rettungswege Bürogebäude GK4 Wien')
+    expect(row.querySelector('span')).toHaveClass('truncate')
+  })
+
+  test('the open chat is the current place: the one sheet, and „Chat“ its ancestor in ink', () => {
+    const { container } = renderWith(chats())
+    const open = screen.getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })
+    expect(open).toHaveAttribute('aria-current', 'page')
+    const pills = Array.from(container.querySelectorAll('[data-slot="rail-active-pill"]'))
+    expect(pills).toHaveLength(1)
+    expect(pills[0]!.closest('a')).toBe(open)
+    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    expect(chat).not.toHaveAttribute('aria-current')
+    expect(chat).toHaveClass('font-semibold')
+  })
+
+  test('with no chat open, „Chat“ stays the current place', () => {
+    renderWith(chats({ items: chats().items.map((item) => ({ ...item, current: false })) }))
+    const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
+    expect(chat).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('a row and „All chats“ tell the chat’s side before the link is followed', async () => {
+    const user = userEvent.setup()
+    const value = chats()
+    renderWith(value)
+    await user.click(screen.getByRole('link', { name: 'Rettungswege Bürogebäude GK4 Wien' }))
+    expect(value.onOpen).toHaveBeenCalledWith('c1')
+    await user.click(screen.getByRole('link', { name: 'All chats' }))
+    expect(value.onOpenAll).toHaveBeenCalledOnce()
+  })
+
+  test('a project with no chats shows nothing under „Chat“: no empty list, no „All chats“', () => {
+    renderWith(chats({ items: [] }))
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+    expect(screen.queryByText('All chats')).not.toBeInTheDocument()
+  })
+
+  test('without a source (a preview, a spec) the rail is as it was', () => {
+    renderWith(null)
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+  })
+
+  test('the icon rail has no room for titles: „Chat“ is its glyph, and the list is gone', async () => {
+    const user = userEvent.setup()
+    renderWith(chats())
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
+    // With the open chat's row gone, „Chat“ is the current place again: the sheet must not vanish with the list.
+    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')?.getAttribute('href')).toMatch(/^\/app\/projects\/p1\/chat/)
   })
 })

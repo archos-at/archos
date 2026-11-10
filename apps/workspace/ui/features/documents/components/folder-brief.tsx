@@ -2,15 +2,15 @@
 
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
-import { Camera, ChevronDown, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
+import { Camera, ChevronDown, CircleAlert, CircleDashed, Clock, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Chip, ChipCount, ChipLabel } from '@/components/ui/chip'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { SegmentMeter, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
+import { SegmentMeter, TONE_INK, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatDayRange } from '@/lib/format'
+import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
@@ -30,8 +30,8 @@ import {
 
 /** Read state → the tone its swatch and meter segment are drawn in. */
 export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
-  readable: 'success',
-  reading: 'info',
+  readable: 'ink',
+  reading: 'inkSoft',
   failed: 'destructive',
   held: 'warning',
   unindexed: 'muted',
@@ -110,17 +110,16 @@ export interface FolderBriefProps {
  * So every level opens with Piloti's account of its whole subtree, built from
  * nothing but what the listing already carries (`folder-knowledge.ts`):
  *
- * 1. How much of it Piloti can cite — one sentence and one bar, every state a
- *    swatch AND a word, each a way into exactly those documents.
- * 2. What it is about — the document types and disciplines Piloti assigned, and
- *    the kinds of content it found, as chips that narrow the listing to them.
- * 3. What needs a person — failures with a single re-read for all of them,
- *    documents the content screen is holding, documents Piloti could not place.
- * 4. Where below it the trouble sits — the deepest folder, one click away.
+ * 1. How much of it Piloti can cite (a sentence and a bar, each state a swatch and a word).
+ * 2. What it is about (types, disciplines, kinds of content, as chips that narrow the listing).
+ * 3. What needs a person (failures with one re-read for all, held and unplaced documents).
+ * 4. Where below it the trouble sits (the deepest folder, one click away).
  *
  * It never shows CONTENT of a document Piloti cannot cite: a quarantined file
  * is counted, never described (`buildFolderBrief`).
  */
+const BRIEF_CHEVRON = 'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none'
+
 export function FolderBrief({
   brief,
   folderName,
@@ -136,13 +135,12 @@ export function FolderBrief({
   detailsLoading = false,
 }: FolderBriefProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const { locale } = useLocale()
   const { tally } = brief
   const phone = usePhoneLayout()
   if (tally.total === 0) return null
-  // Nothing to act on, and a phone has no room for a line that only reassures:
-  // when every document is read the disclosure is gone. One unread, failed,
-  // held or unplaced document, or a missing one at the root, brings it back,
-  // folded to its one line.
+  // Nothing to act on, and a phone has no room for a line that only reassures: when every document is read the
+  // disclosure is gone. One unread, failed, held, unplaced or missing document brings it back, folded to one line.
   if (phone && briefHasNothingToSay(tally, folderName === null ? missing : null)) return null
 
   const scope = folderName
@@ -151,26 +149,20 @@ export function FolderBrief({
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 
-  // ONE ELEMENT THAT OPENS IN PLACE.
-  //
-  // Folded, the brief is one quiet line above the listing: what Piloti has read
-  // is worth a glance, not the top third of every folder. It used to open by
-  // swapping that line for a different element, a card with its own header, so
-  // the thing just clicked vanished and the words reappeared elsewhere in
-  // another size. Now the line IS the card's header in both states: it never
-  // moves, the card's border fades in around it, and the details open below.
-  // The `-mx-3` holds in both states, so the line's text stays on the
-  // listing's edge whether or not a border is drawn around it.
+  // ONE ELEMENT THAT OPENS IN PLACE: folded, one quiet line on the listing's edge; open, a sheet on the column's edge
+  // with its content 16px in, on a phone too (a 12px bleed left the sheet's edge at 220 under a 232 title).
   const open = !collapsed
   const allRead = everythingRead(tally)
+  const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
+  const pagesLine = t('brief.pagesCount', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 py-0 transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
-        collapsed && 'border-transparent bg-transparent shadow-none'
+        'gap-0 border-0 bg-sheet py-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
-      data-state={open ? 'open' : 'closed'}
+      data-state={open ? 'open' : 'closed'} data-surface={open ? 'sunken' : undefined}
       aria-labelledby="folder-brief-title"
       role="region"
     >
@@ -182,42 +174,37 @@ export function FolderBrief({
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
-                open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/60'
+                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */
               )}
               data-testid="folder-brief-toggle"
             >
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0 truncate phone:whitespace-normal" /* the chevron follows the words; a phone wraps, never cuts */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
+                {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
+                {open && quietPages && <span className="text-muted-foreground tabular-nums">{CLAUSE_JOIN}{pagesLine}</span>}
+                {/* On a phone the line wraps, and the chevron follows its last word there too. */}
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
-                )}
-                aria-hidden
-              />
+              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
             </button>
           </CollapsibleTrigger>
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
           {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
-          {(!allRead || hasUnindexedAside(tally) || tally.pages > 0) && (
-            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5" data-testid="folder-brief-meter">
+          {(!allRead || hasUnindexedAside(tally)) && (
+            <div className="flex flex-col gap-2.5 px-4 pb-3 pt-0.5" data-testid="folder-brief-meter">
               {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
               <ReadStateLegend tally={tally} onSelect={onSelect} />
             </div>
           )}
 
-          {/* Ordered by what the reader has to do: what needs them first, open;
-              then what Piloti is missing, what the folder is about and where the
-              trouble sits, each folded to one line that already names its content.
-              Open in full, the brief was taller than a laptop screen and the
-              listing it introduces started below the fold. */}
-          <div className="flex flex-col divide-y border-t" data-testid="folder-brief-sections">
+          {/* Ordered by what the reader has to do: what needs them first, open; then what is missing, what the folder
+              is about and where the trouble sits, each folded to one line (open in full it was taller than a laptop). */}
+          <div className="flex flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
@@ -282,7 +269,8 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
   const states = tally.total > tally.unindexed ? MEANT_TO_READ.filter((state) => state !== 'readable' && tally[state] > 0) : []
   if (hasUnindexedAside(tally)) states.push('unindexed')
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+    // `-mx-1.5`: the entries' inset holds their hover fill, so dots and page count stand on the brief's edges.
+    <div className="-mx-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
         <button data-attr={state === 'unindexed' ? 'folder-brief-state-unindexed' : 'files-select'}
           key={state}
@@ -321,10 +309,10 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   const { locale } = useLocale()
   if (tally.readable === 0) return null
   const contentNames = contents.map(({ label }) => t(`preview.contentTypeNames.${label}`))
-  const summary =
-    documentTypes.length + disciplines.length > 0
-      ? [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t)).join(' · ')
-      : t('brief.noTypes')
+  // The closed line names the first four kinds and counts the rest; the disclosure holds them all.
+  const kinds = [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t))
+  const more = kinds.length - 4
+  const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(CLAUSE_JOIN)
   return (
     <BriefDisclosure id="folder-brief-about" title={t('brief.aboutTitle')} summary={summary}>
       {documentTypes.length === 0 && disciplines.length === 0 ? (
@@ -341,7 +329,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
           {disciplines.length > 0 && (
             <ChipFamily label={t('brief.disciplinesLabel')}>
               {disciplines.map(({ label, count }) => (
-                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="outline" />
+                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="secondary" />
               ))}
             </ChipFamily>
           )}
@@ -365,7 +353,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
         </ChipFamily>
       )}
       {contentNames.length > 0 && (
-        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(' · ') })}</p>
+        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(CLAUSE_JOIN) })}</p>
       )}
       {photos && (
         <button data-attr="folder-brief-photos"
@@ -406,8 +394,8 @@ function DeferredAboutSection({
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          className="h-7 self-start"
+          variant="secondary"
+          className="self-start"
           onClick={onLoadDetails}
           disabled={loading}
           data-testid="folder-brief-load-details"
@@ -457,25 +445,20 @@ function BriefDisclosure({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="hover:bg-accent/60 focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
+              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
-              <span className="text-muted-foreground shrink-0 text-xs font-medium">{title}</span>
+              <span className="text-muted-foreground min-w-28 shrink-0 text-xs" /* one column: summaries on one edge; muted, its value ink */>{title}</span>
               {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-normal" aria-hidden={open}>
+              <span className="text-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
                 {open ? '' : summary}
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
-                )}
-                aria-hidden
-              />
+              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
             </button>
           </CollapsibleTrigger>
         </h3>
-        <CollapsibleContent className="flex flex-col gap-2.5 px-3 pb-3">{children}</CollapsibleContent>
+        <CollapsibleContent className="flex flex-col gap-2.5 px-4 pb-3">{children}</CollapsibleContent>
       </section>
     </Collapsible>
   )
@@ -530,8 +513,8 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2.5 px-3 py-3" aria-labelledby="folder-brief-needs">
-      <h3 id="folder-brief-needs" className="text-muted-foreground text-xs font-medium">
+    <section className="flex flex-col gap-1 px-4 pb-3 pt-2" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
+      <h3 id="folder-brief-needs" className="text-foreground text-name font-semibold" /* a heading by weight: 13/20/600 over 14/440 rows (rank by two channels) */>
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (
@@ -546,8 +529,8 @@ function NeedsYouSection({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-7 gap-1.5"
+              variant="secondary"
+              className="gap-1.5"
               onClick={onReadAgain}
               disabled={Boolean(readAgainProgress)}
               data-testid="folder-brief-read-again"
@@ -555,7 +538,9 @@ function NeedsYouSection({
               <RotateCcw className={cn('size-3.5', readAgainProgress && 'animate-spin motion-reduce:animate-none')} aria-hidden />
               {readAgainProgress
                 ? t('brief.readAgainProgress', { done: readAgainProgress.done, count: readAgainProgress.total })
-                : t('brief.readAgainAll', { count: sendable })}
+                : sendable === 2
+                  ? t('brief.readAgainBoth')
+                  : t('brief.readAgainAll', { count: sendable })}
             </Button>
           )}
         </AttentionRow>
@@ -583,6 +568,12 @@ function NeedsYouSection({
   )
 }
 
+/** What needs the reader by its glyph: failed (red, alert), held (ochre, a clock), unplaced (muted, an open circle). */
+const AttentionGlyph = ({ tone }: { tone: MeterTone }): JSX.Element => {
+  const Glyph = tone === 'destructive' ? CircleAlert : tone === 'warning' ? Clock : CircleDashed
+  return <Glyph className={cn('mt-[5px] size-3.5 shrink-0', TONE_INK[tone === 'muted' ? 'ink' : tone])} aria-hidden />
+}
+
 function AttentionRow({
   tone,
   text,
@@ -604,28 +595,28 @@ function AttentionRow({
   const t = useTranslations(filesCopy)
   return (
     <div className="flex items-start gap-2" data-testid={testId}>
-      <ToneSwatch tone={tone} className="mt-[7px]" />
-      {/* The sentence and its own action (re-read) share a column, so on a
-          phone the action wraps under the sentence. „Anzeigen" stays at the
-          end of the first line rather than orphaned on a line of its own. */}
+      <AttentionGlyph tone={tone} /* a glyph with the colour and the words: a bare red dot was a hue alone */ />
+      {/* The sentence, then its actions as one group: at the line's end where it fits, together below on a phone. */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>
-          {children && <div className="flex shrink-0 items-center gap-1.5">{children}</div>}
+          <div className="flex shrink-0 items-center gap-3">
+            {children}
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="shrink-0" /* tonal as the press before it, 12px after it (the group's gap), its fill on the brief's edge */
+              onClick={onShow}
+              aria-label={showLabel}
+              title={showLabel}
+            >
+              {t('brief.show')}
+            </Button>
+          </div>
         </div>
         {hint && <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">{hint}</p>}
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="-mr-2 h-7 shrink-0"
-        onClick={onShow}
-        aria-label={showLabel}
-        title={showLabel}
-      >
-        {t('brief.show')}
-      </Button>
     </div>
   )
 }
@@ -644,7 +635,7 @@ function HotspotSection({
     <BriefDisclosure
       id="folder-brief-where"
       title={t('brief.whereTitle')}
-      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(' · ')}
+      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(CLAUSE_JOIN)}
     >
       <ul className="-mx-1.5 flex flex-col">
         {hotspots.map(({ folder, trail, tally }) => (
@@ -692,7 +683,7 @@ function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
       <ul className="flex min-w-0 flex-wrap gap-1.5 pointer-coarse:gap-2">
         {shown.map((entry) => (
           <li key={`${entry.role}@${entry.buildingName ?? ''}`} className="min-w-0 max-w-full">
-            <Chip variant="outline" size="sm" title={name(entry)}>
+            <Chip variant="secondary" size="sm" title={name(entry)}>
               <ToneSwatch tone="muted" />
               <ChipLabel>{name(entry)}</ChipLabel>
             </Chip>

@@ -153,8 +153,9 @@ describe('the size a mail may have', () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     const line = await screen.findByTestId('address-size-limit')
     expect(INBOUND_MAIL_MAX_MESSAGE_BYTES).toBe(25 * MIB)
+    // One limit, the one a person acts on: two side by side left it unclear which applied.
     expect(line).toHaveTextContent(
-      `Up to ${INBOUND_MAIL_MAX_MESSAGE_BYTES / MIB} MB per mail, attachments together up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB. Upload larger files directly`
+      `Attachments up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB per mail. Upload larger files directly`
     )
     // Base64 sends three bytes as four: 25 MiB of mail carries 18 MiB of files.
     expect(line).toHaveTextContent('about 18 MB')
@@ -170,7 +171,7 @@ describe('the size a mail may have', () => {
 
   it('states it on the overview’s tile too', async () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
-    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Up to 25 MB per mail')
+    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Attachments up to about 18 MB per mail')
   })
 })
 
