@@ -156,7 +156,7 @@ export const inboundMail = {
   },
 
   header: {
-    addressMenu: 'Project address',
+    addressMenu: "The project's email address",
     addressMore: 'About the address',
     addressCopy: 'Copy address',
     addressCopied: 'Address copied',

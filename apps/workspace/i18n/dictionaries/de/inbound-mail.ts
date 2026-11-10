@@ -165,7 +165,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   header: {
-    addressMenu: 'Projektadresse',
+    addressMenu: 'E-Mail-Adresse des Projekts',
     addressMore: 'Mehr zur Adresse',
     addressCopy: 'Adresse kopieren',
     addressCopied: 'Adresse kopiert',
