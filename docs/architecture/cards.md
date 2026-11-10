@@ -301,10 +301,12 @@ or dropped and recorded (`status:card:invalid:N`). The reason is the round:
 `emit_card` is a tool call, a tool call ends a message, and every card-bearing
 answer paid one more full-context call to write the prose after it — and a
 third on a wrong shape. Nothing on the wire changed. The taught envelope
-schema carries the doctrine, the index and the full shape of the one content
-card whose shape is easy to get wrong and that answers earn most
-(`ENVELOPE_SHAPE_TYPES`: `calculation`), COMPOSE and the placement rule,
-cached with the prefix; every other shape stays on demand.
+schema carries the doctrine, the index, COMPOSE and the placement rule, cached
+with the prefix. No full shape rides there any more (`ENVELOPE_SHAPE_TYPES` is
+empty since 2026-11-10: `calculation` and `formula` were 23 % of the system
+prompt): the turn's decision attaches the shape of each card it expects to
+the turn's note (`card_shapes_block`), and a shape guessed from the index
+line goes to the repair model.
 
 **The answer's own Markdown comes first, on every surface.** The doctrine
 (`render_card_doctrine`) opens with MARKDOWN FIRST: tables, lists, flowchart
@@ -566,9 +568,10 @@ What bounds it now is the prompt: **it says what a direct reply may put on a
 card.** A subject-matter question that merely landed in a short reply earns the
 structure its content calls for; small talk, a formatting or memory request, a shelf
 listing and an off-topic decline get none. On chat the doctrine, the L1 index
-and the shapes of `ENVELOPE_SHAPE_TYPES` ride in the envelope contract
-(`render_envelope_cards_contract`, `cards/envelope.py`) on every turn —
-enough to name the right card AND to build it, with a card the validator
+ride in the envelope contract (`render_envelope_cards_contract`,
+`cards/envelope.py`) on every turn, and the shapes of the cards the turn's
+decision expects ride in its note — enough to name the right card AND to
+build it, with a card the validator
 refuses handed to the small repair model (`cards/repair.py`) rather than back
 to the answering agent. Deep research still reads the doctrine in
 `emit_card`'s description, and gets the shape on the retry. Skills, too, are offered on
