@@ -55,8 +55,10 @@ import { isProjectClosed } from '@/lib/projects/project-status'
  * (`packages/agent/src/agent/common/licensed_text.py`). Off lists a licensed
  * passage without its text. Not withdrawn by a closed project.
  *
- * `timeEditions` (ADR-0171) tells `law-lookup` whether it may answer for a past
- * day (`as_of`); off, such a call is refused. Not withdrawn by a closed project.
+ * `timeEditions` is always true since the `time-editions` switch went (ADR-0175):
+ * `law-lookup` answers for a past day (`as_of`) for every office. It stays on
+ * the wire only so an agent built before the cut-over keeps offering `as_of`;
+ * it goes once no deployed agent reads it.
  *
  * Token-guarded like every other internal route.
  */
@@ -73,14 +75,13 @@ export const GET = internalApiRoute(
   'post-answer-stages',
   async ({ request }) => {
     const { organizationId, projectId } = parseQuery(request, querySchema)
-    const [enabled, deepResearch, tasks, folderCards, sourceRouting, licensedSeam, timeEditions, project] = await Promise.all([
+    const [enabled, deepResearch, tasks, folderCards, sourceRouting, licensedSeam, project] = await Promise.all([
       enabledPostAnswerStages(organizationId),
       isDeepResearchEnabledForOrg(organizationId),
       isTaskAutomationEnabledForOrg(organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.folderCards, organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.sourceRouting, organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.licensedSeam, organizationId),
-      isOrgFeatureEnabled(FEATURE_FLAGS.timeEditions, organizationId),
       projectId ? findProjectTenancy(projectId) : Promise.resolve(null),
     ])
     const closed =
@@ -93,7 +94,7 @@ export const GET = internalApiRoute(
         folderCards,
         sourceRouting,
         licensedSeam,
-        timeEditions,
+        timeEditions: true,
       },
     }
   },

@@ -13,8 +13,7 @@
  * - **source-credential-set** stores a key write-only, on the person's yes.
  *
  * Reads take `platform:settings:view`, the live probe and the key
- * `platform:settings:manage`; all of it answers 403 until the platform has the
- * `platform-base-knowledge` flag (`requirePlatform`).
+ * `platform:settings:manage` (`requirePlatform`).
  */
 
 import 'server-only'

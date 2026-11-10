@@ -775,7 +775,6 @@ export const organization = {
     appliesIn: 'Applies in {territories}',
     addressedTo: 'Directive of {authorities}',
     empty: 'No base knowledge recorded yet. Choose a document from the office shelf.',
-    off: 'Office base knowledge is not enabled for this organization yet.',
     loadError: 'The base knowledge could not be loaded.',
     saveError: 'That could not be saved. Please try again.',
     field: {

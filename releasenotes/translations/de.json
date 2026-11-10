@@ -588,6 +588,10 @@
     "de": "Die Ergebnisse eines Projekts zeigen jetzt nebeneinander, wo ein Dokument eine andere Gebäudeklasse, Geschossanzahl, Grundstücksfläche, Bauweise, Nutzung oder ein anderes Bundesland als im Projektprofil angibt, jeweils mit Links zu beiden."
   },
   {
+    "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
+    "de": "Im Projekt-Setup sehen Sie jetzt, welches Recht am Standort gilt, sowie jede Vorschrift und Richtlinie in der dort verbindlichen Fassung – dieselbe Rechtsgrundlage, auf der auch die Antworten im Chat beruhen. Wenn noch kein Recht angegeben werden kann, erfahren Sie warum: weil kein Standort hinterlegt ist oder Ihr Büro das betreffende Land nicht aktiviert hat."
+  },
+  {
     "en": "A project's Übersicht opens again when your office has a closed project to compare it with. Before, the similar-projects tile failed to load and took the whole Übersicht down with an error page.",
     "de": "Die Übersicht eines Projekts öffnet sich wieder, wenn Ihr Büro ein abgeschlossenes Projekt zum Vergleich hat. Zuvor konnte die Kachel für ähnliche Projekte nicht geladen werden und brachte die gesamte Übersicht mit einer Fehlerseite zum Absturz."
   },
@@ -1856,6 +1860,10 @@
     "de": "Jede fertige Antwort lässt sich jetzt kopieren. Bisher bot eine Antwort ohne Quelle, etwa eine Rückfrage oder ein kurzer Gesprächsbeitrag, nur den Word-Download an, sodass Sie keinen Satz daraus in eine E-Mail übernehmen konnten."
   },
   {
+    "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
+    "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
+  },
+  {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
     "de": "Jeder Schritt hinter dieser Zahl wird mitveröffentlicht: welche Zahlen auf unseren Annahmen beruhen und welche auf Ihren, wie die Arbeitswoche eines Planers angenommen wird und was die Berechnung bewusst nicht berücksichtigt."
   },
@@ -2054,6 +2062,10 @@
   {
     "en": "For a very long text file, a note under the text now says that only the beginning is shown, so the last visible line no longer reads like the end of the document.",
     "de": "Bei einer sehr langen Textdatei steht jetzt unter dem Text, dass nur der Anfang angezeigt wird, damit die letzte sichtbare Zeile nicht wie das Ende des Dokuments wirkt."
+  },
+  {
+    "en": "For now the setup no longer marks the OIB guidelines that only some buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for each. They return shortly, worked out from the building's facts.",
+    "de": "Fürs Erste kennzeichnet das Setup die OIB-Richtlinien, die nur für bestimmte Gebäude gelten (Betriebsbau, Garage, Hochhaus), nicht mehr jeweils mit einer Begründung. Sie kommen bald zurück und werden anhand der Gebäudedaten ermittelt."
   },
   {
     "en": "For offices that have it switched on, every project can have its own mail address, and mail sent to it waits in the project's E-Mail-Eingang in Dateien until someone files it. Apart from a member's own mail, nothing becomes part of the project without a person's decision, and every attachment is checked for malware before anyone can open or file it.",

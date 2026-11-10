@@ -209,6 +209,8 @@ Waves 1 to 4 built every new path beside the old one, behind a switch whose off 
 
 Kept as switches, because they gate data or a contract that does not exist yet rather than an old path: `site-resolution` (the BEV import), `source-monitors`, the residency switches (the EU contract). `office-base-knowledge`, `licensed-seam`, `source-routing` and `platform-base-knowledge` are rollout switches for capabilities with no old twin; R2 lists each with a keep-or-remove reason in ADR-0175.
 
+**After Wave 5:** answer quality and cost, measured against the market and current vendor guidance, continue in [`quality-and-cost.md`](quality-and-cost.md) (slices Q1–Q4).
+
 ### S16 Onboarding tooling
 - **Scope (2026-11-10):** country onboarding itself, Germany first, is run elsewhere. S16 builds only the country-neutral tooling it needs.
 - **Design suggests:** the advice-policy and terminology ruleset *types* with hedge templates and the `advice_policy_held` score (the content of a country's policy is that country's onboarding); the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points.

@@ -32,6 +32,7 @@
   "bff/authz/projects.ts": 454,
   "bff/authz/resource-check.ts": 547,
   "bff/backend-proxy.ts": 279,
+  "bff/base-knowledge/wire/project-law.ts": 595,
   "bff/bim/types.ts": 545,
   "bff/brand.ts": 980,
   "bff/cache/index.ts": 506,

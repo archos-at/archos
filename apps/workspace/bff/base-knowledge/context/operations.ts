@@ -9,7 +9,7 @@
 
 import 'server-only'
 import { and, desc, eq, sql } from 'drizzle-orm'
-import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { ConflictError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requirePersonDecision } from '@/lib/agent-api/person-decision'
 import { requireProjectAccess } from '@/lib/authz/projects'
@@ -20,7 +20,8 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { insertChangeRequest } from '../platform/store'
 import type { CoverageLevel } from '../wire/vocab'
-import { knowledgeContextForTurn } from './service'
+import { lawOf } from './project-law'
+import { contextWithNames, knowledgeContextForTurn } from './service'
 import type {
   BaseKnowledgeReportBody,
   BaseKnowledgeReportResult,
@@ -94,18 +95,14 @@ export async function reportBaseKnowledge(session: AuthorizedSession, body: Base
   return { changeRequestId: id, status: 'draft' }
 }
 
-async function contextOf(session: AuthorizedSession, projectId: string) {
-  const context = await knowledgeContextForTurn(session.organizationId, projectId, undefined, null, 'operation')
-  // The route checks the flag first; a context withheld here is the flag going off between the two reads.
-  if (!context) throw new NotFoundError('The knowledge context is not available for this office.')
-  return context
-}
+const contextOf = (session: AuthorizedSession, projectId: string) =>
+  knowledgeContextForTurn(session.organizationId, projectId, undefined, null, 'operation')
 
-/** A project's base as the turn reads it, and the newest Steckbrief a person confirmed. Needs project:view. */
+/** A project's base as the turn reads it, the law it names (`lawOf`), and the newest Steckbrief a person confirmed. Needs project:view. */
 export async function readProjectBase(session: AuthorizedSession, projectId: string): Promise<ProjectBaseView> {
   await requireProjectAccess(session, projectId, 'project:view')
-  const [context, confirmed] = await Promise.all([
-    contextOf(session, projectId),
+  const [resolved, confirmed] = await Promise.all([
+    contextWithNames(session.organizationId, projectId),
     withTenant({ organizationId: session.organizationId }, () =>
       getDb()
         .select({
@@ -121,7 +118,8 @@ export async function readProjectBase(session: AuthorizedSession, projectId: str
     ),
   ])
   const row = confirmed[0]
-  return { context, confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
+  // One resolution for both: the page names the same uses, in the same roles, as the context it shows.
+  return { context: resolved.context, law: lawOf(resolved), confirmed: row ? { ...row, confirmedAt: row.confirmedAt.toISOString() } : null }
 }
 
 const sameSeqs = (a: readonly { packId: string; seq: number }[], b: readonly { packId: string; seq: number }[]) =>

@@ -33,7 +33,7 @@ offices. Onboarding a real country (Germany first) is run elsewhere.
   moves what an office reads.
 - **Fail closed on unknown**: an unchecked source, an expired testing window,
   an unreachable checker.
-- **What a flag gates is unchanged while it is off**: the monitor sweep is
+- **What a flag gates is unchanged while it is off** ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.): the monitor sweep is
   behind `source-monitors`; the source records, operations and KC-7 are behind
   the existing `platform-base-knowledge`, and accept only inputs that were
   refused before; a request with neither an advice policy nor a site-keyed
@@ -156,6 +156,11 @@ publish without them, whatever path reaches it.
   view has no form for a key yet: a client that cannot ask the person is sent
   to Platform → Countries, where the person cannot set it either, so until that
   form exists the key is set through a client that can ask.
+- Bad: the fetcher Deployment, the NetworkPolicy behind the egress guard, is
+  off by default (`publicSourceFetcherEnabled`). Until a stack turns it on,
+  the guard runs in the backend's pods with no network layer behind it. The
+  one config line and what it changes: `docs/deployment/security-config.md`
+  (Public-source egress).
 - Neutral: nothing tags a turn `advice_policy:carried` yet; the turn-context
   slice that puts a site's hedges into the prompt does, and the judge runs from then.
 - Neutral: score names follow the repository's kebab case

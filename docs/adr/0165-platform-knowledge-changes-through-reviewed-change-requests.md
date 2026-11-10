@@ -45,6 +45,8 @@ a trigger refuses any platform head that is not where the newest stable move
 points. A rollback appends the inverse moves. A publish over a record released
 by another request since this one was opened is a 409 (`base_release_seq`).
 
+**Amended by [ADR-0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) (2026-11-10):** an author holding `platform:knowledge:approve_alone` may approve their own request with an explicit override and a reason; the request is marked `approval: single` and owes a second review that another person gives later (migration 0214).
+
 **Four eyes, in the database.** An approval on a request holding a revision its
 approver wrote is refused by a trigger, not only by the service; so, since
 migration 0208, is a verdict on one of its claims, so the "every claim accepted"
@@ -80,7 +82,7 @@ the corpus reports its chunks.
 **Behind a flag.** `platform-base-knowledge`: per office, its turn reads the
 platform's listings and directives; for the platform organization, the routes
 answer and the norm registry stops taking edits (409). Off, everything is as
-before.
+before. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 
 ### Confirmation
 

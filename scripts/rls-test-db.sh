@@ -240,6 +240,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
+    bff/base-knowledge/platform/approve-alone.integration.spec.ts \
     bff/base-knowledge/platform/organization-countries.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 

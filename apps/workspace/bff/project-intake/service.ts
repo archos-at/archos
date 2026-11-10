@@ -22,6 +22,7 @@
 
 import { normalizeProfileKey, normalizeProfileValue } from '@/lib/project-profile/legacy-names'
 import 'server-only'
+import { projectLawFor } from '@/lib/base-knowledge/context/project-law'
 import { ConflictError, ForbiddenError, NotFoundError, ServiceUnavailableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -206,23 +207,21 @@ const intakeCompleted = () =>
 
 async function viewOf(session: AuthorizedSession, row: ProjectIntakeRow): Promise<IntakeView> {
   const { organizationId } = session
-  const [profile, documents, canDecide, canManage] = await Promise.all([
+  const [profile, documents, canDecide, canManage, applicableLaw] = await Promise.all([
     loadProfile(organizationId, row.projectId),
     readableDocuments(organizationId, row.projectId),
     holds(session, row.projectId, PROFILE_WRITE),
     row.mode === 'closing' ? holds(session, row.projectId, 'project:manage') : Promise.resolve(false),
+    projectLawFor(organizationId, row.projectId),
   ])
-  const open = row.status !== 'completed'
   const unread = unreadDocuments(documents, row.documentsRead)
   return buildIntakeView({
-    row,
-    profile,
-    definition,
+    row, profile, definition, applicableLaw,
     needs: needsOf(profile, row),
     unreadDocuments: unread.length,
     readingDocuments: { readable: documents, unread },
     canDecide,
-    canComplete: open && (row.mode === 'closing' ? canManage : canDecide),
+    canComplete: row.status !== 'completed' && (row.mode === 'closing' ? canManage : canDecide),
   })
 }
 

@@ -247,7 +247,7 @@
       "get": {
         "operationId": "project-base-get",
         "summary": "Read a project’s base knowledge: gate, chain, editions and their roles",
-        "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation. Needs project:view.",
+        "description": "What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and freshness, the procedures, the packs with their release sequence, and the newest confirmation; and `law`: the gate and each edition the context names with its role, qualifier, designation and edition label, empty where the gate refuses. Needs project:view.",
         "tags": [
           "projects"
         ],
@@ -4085,60 +4085,6 @@
         "x-mcp-annotations": {
           "title": "Set a project’s site",
           "readOnlyHint": false,
-          "destructiveHint": false,
-          "idempotentHint": true,
-          "openWorldHint": false
-        }
-      }
-    },
-    "/api/projects/{id}/standards": {
-      "get": {
-        "operationId": "project-standards-get",
-        "summary": "The OIB standards that apply to a project",
-        "description": "Which standards apply, from the project’s brief: `{ standards: [{ code, title, status, reason, decidingFact? }], briefComplete }`. `status` is `required`, `likely` or `check`; a `check`’s `decidingFact` is the profile key that settles it (project-profile-patch). `briefComplete: false`: the brief is thin, six generic verdicts answered. Orientation only.",
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The project id, from project-list."
-            },
-            "description": "The project id, from project-list."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "429": {
-            "$ref": "#/components/responses/Error429"
-          }
-        },
-        "x-mcp-annotations": {
-          "title": "The OIB standards that apply to a project",
-          "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false
@@ -28931,6 +28877,22 @@
             }
           },
           {
+            "name": "secondReview",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "due: the requests approved alone whose second review nobody has given yet (ADR-0176).",
+              "type": "string",
+              "enum": [
+                "due",
+                "confirmed",
+                "disputed",
+                "void"
+              ]
+            },
+            "description": "due: the requests approved alone whose second review nobody has given yet (ADR-0176)."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -28979,8 +28941,8 @@
     "/api/platform/knowledge/change-requests/{changeRequestId}/decision": {
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
-        "summary": "Approve or reject a submitted change request",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.",
+        "summary": "Approve or reject a submitted change request, or give the second review of one approved alone",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. `override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone (403 without), is never implied, and marks the request `approval: single` with a second review due; propose it and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an approved request whose second review is due, another person gives it in each role approved alone they hold (`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed request is not published further; rejecting it again withdraws its preview, and a published one is rolled back (platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.",
         "tags": [
           "platform"
         ],
@@ -29009,7 +28971,8 @@
                     "enum": [
                       "approve",
                       "reject"
-                    ]
+                    ],
+                    "description": "On a request whose second review is due (secondReview.state due, past submitted): approve confirms it, reject disputes it."
                   },
                   "role": {
                     "default": "domain_expert",
@@ -29019,6 +28982,21 @@
                       "counsel",
                       "second_reviewer",
                       "privacy_reviewer"
+                    ]
+                  },
+                  "override": {
+                    "description": "Approve a request you wrote without a second person (needs platform:knowledge:approve_alone and the person's own yes). Never implicit: the request is marked approval single and a second review stays due until another person gives it.",
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 20,
+                        "maxLength": 500,
+                        "description": "Why nobody else can approve now; kept on the approval and in the audit trail."
+                      }
+                    },
+                    "required": [
+                      "reason"
                     ]
                   }
                 },
@@ -29055,7 +29033,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Approve or reject a submitted change request",
+          "title": "Approve or reject a submitted change request, or give the second review of one approved alone",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
@@ -29067,7 +29045,7 @@
       "get": {
         "operationId": "platform-knowledge-change-request-get",
         "summary": "Read a change request with its claims, verdicts, approvals and releases",
-        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals, and the release moves.",
+        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals (with the reason of one given alone), and the release moves. `approval` is four_eyes, or single when its author approved it alone; then `secondReview` says whether another person’s review is due, confirmed or disputed.",
         "tags": [
           "platform"
         ],
@@ -29121,8 +29099,8 @@
     "/api/platform/knowledge/change-requests/{changeRequestId}/review": {
       "post": {
         "operationId": "platform-knowledge-change-request-review",
-        "summary": "Record verdicts on the claims of a submitted change request",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.",
+        "summary": "Record verdicts on the claims of a change request under review",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone stays reviewable until its second review is given.",
         "tags": [
           "platform"
         ],
@@ -29222,7 +29200,7 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Record verdicts on the claims of a submitted change request",
+          "title": "Record verdicts on the claims of a change request under review",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -29663,7 +29641,7 @@
       "get": {
         "operationId": "platform-knowledge-overview-get",
         "summary": "Read the platform’s base knowledge by country, and the review queue",
-        "description": "Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, entitled offices and editions past their check target; and the submitted change requests awaiting review.",
+        "description": "Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, entitled offices and editions past their check target; and the queue: the submitted change requests awaiting review, and every request approved alone (`approval: single`) whose second review is still due.",
         "tags": [
           "platform"
         ],

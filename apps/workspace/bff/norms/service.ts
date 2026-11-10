@@ -12,13 +12,8 @@ import { getBackendUrl } from '@/lib/backend-proxy'
 import {
   BadRequestError,
   ConflictError,
-  UnprocessableError,
   UpstreamError,
 } from '@/lib/api/errors'
-import { recordAuditEvent } from '@/lib/audit/service'
-import { getPlatformOrganizationId } from '@/lib/authz/platform'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import type { UserSession } from '@/lib/auth/types'
 import {
   normRegistryEnvelopeSchema,
@@ -77,74 +72,19 @@ export async function getNormRegistry(): Promise<NormRegistryEnvelope> {
 }
 
 /**
- * Once the platform's base knowledge is switched on for the platform
- * organization (ADR-0165), a norm reaches offices only through a reviewed change
- * request, so the registry's own edit path is closed (409) rather than left as a
- * second way in. Unknown platform organization: the registry stays as it was.
- */
-async function refuseWhilePlatformRecordsOwnNorms(): Promise<void> {
-  const platformOrganizationId = await getPlatformOrganizationId()
-  if (!platformOrganizationId) return
-  if (await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, platformOrganizationId)) {
-    throw new ConflictError(
-      'Norms now change through a platform change request (create one, propose the records, submit it for review); the registry takes no edits.',
-    )
-  }
-}
-
-/**
- * Persist the whole registry under the held concurrency `version`. Re-throws
- * backend 409/422/400 as typed errors; records an audit event on success
- * (targeting the platform org, never throwing on audit failure).
+ * The registry takes no edits: a norm reaches offices only through a reviewed
+ * change request (ADR-0165), unconditionally since the cut-over (ADR-0175). The
+ * route, its operation and the editor answer 409 with the way in until the
+ * contract step that drops `norm_registry` removes them.
  */
 export async function putNormRegistry(
-  session: UserSession | null,
-  body: PutNormRegistryBody,
-  request?: Request,
+  _session: UserSession | null,
+  _body: PutNormRegistryBody,
+  _request?: Request,
 ): Promise<{ version: number }> {
-  await refuseWhilePlatformRecordsOwnNorms()
-  let res: Response
-  try {
-    res = await fetch(`${getBackendUrl()}/v1/admin/norms`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
-      body: JSON.stringify({ version: body.version, registry: body.registry }),
-      signal: AbortSignal.timeout(NORMS_TIMEOUT_MS),
-    })
-  } catch (error) {
-    throw new UpstreamError('Norm registry backend unreachable', error instanceof Error ? error.message : undefined)
-  }
-
-  if (res.status === 409) {
-    throw new ConflictError((await readDetail(res)) || 'Registry wurde parallel geändert')
-  }
-  if (res.status === 422) {
-    throw new UnprocessableError((await readDetail(res)) || 'Registry-Validierung fehlgeschlagen')
-  }
-  if (res.status === 400) {
-    throw new BadRequestError((await readDetail(res)) || 'Ungültige Registry')
-  }
-  if (!res.ok) {
-    throw new UpstreamError(`Norm registry backend returned ${res.status}`)
-  }
-
-  const parsed = (await res.json().catch(() => ({}))) as { version?: unknown }
-  const nextVersion = typeof parsed.version === 'number' ? parsed.version : body.version + 1
-
-  const organizationId = await getPlatformOrganizationId()
-  if (organizationId && session) {
-    await recordAuditEvent({
-      organizationId,
-      actor: { userId: session.userId, email: session.email },
-      action: 'platform.norm_registry.updated',
-      targetType: 'norm_registry',
-      targetId: organizationId,
-      metadata: { entries: body.registry.entries.length, version: nextVersion },
-      request,
-    })
-  }
-
-  return { version: nextVersion }
+  throw new ConflictError(
+    'Norms now change through a platform change request (create one, propose the records, submit it for review); the registry takes no edits.',
+  )
 }
 
 /** Verify a pointer against RIS. Returns candidates for the admin to pick from. */

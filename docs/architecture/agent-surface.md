@@ -531,7 +531,7 @@ makes it so, and where it lives:
 
 | Guarantee | Where |
 |---|---|
-| A guide the agent reads first, a resource on the platform door only, while `platform-base-knowledge` is on | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
+| A guide the agent reads first, a resource on the platform door only, for a caller who sees its operations | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
 | Each record type's JSON Schema, the batch limit, the kit's checks | `platform-knowledge-schema-get` |
 | `idempotencyKey` on **every** door write, both doors: the first answer again (a 2xx, 400, 404 or 422; a refusal of the moment is not kept), 422 for the key with other input, 503 (nothing run) when the cache cannot be read; per replica without `REDIS_URL` | `door-idempotency.ts`, around the route call in `dispatch.ts` |
 | Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |
@@ -539,6 +539,7 @@ makes it so, and where it lives:
 | The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
 | Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
 | The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| Four eyes with one deferral (ADR-0176): an author approves alone only with `override: {reason}`, `platform:knowledge:approve_alone` and the person's own yes, never on an agent's word; the request is marked `approval: single`, stays in the overview's `queue` until another person's review confirms or disputes it, and a disputed one is not published further (rollback stays the person's decision) | `decidePlatformChangeRequest` in `bff/base-knowledge/platform/service.ts`; the 0214 triggers; `approve-alone.integration.spec.ts` |
 | A country's sources as records (ADR-0174): KC-7 on the api tier, testing hosts usable by their own request for 24 hours, `source-test`, `source-status`, a write-only key on the person's yes, monitors that open change requests (`origin: monitor`) and never publish | `catalog/platform-sources.ts`; `bff/base-knowledge/platform/sources.ts`, `source-service.ts`, `source-checks.ts`, `monitor.ts` |
 
 A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)

@@ -84,6 +84,12 @@ export const PLATFORM_PERMISSIONS = {
   knowledgeApproveAsSecondReviewer: 'platform:knowledge:approve_as_second_reviewer',
   /** A source that receives a site point needs a privacy review before it is published (ADR-0174). */
   knowledgeApproveAsPrivacyReviewer: 'platform:knowledge:approve_as_privacy_reviewer',
+  /**
+   * Approve a change request one wrote, with a reason, when no second person is
+   * there to (ADR-0176): the second review is deferred, never removed. Only the
+   * platform owner holds it.
+   */
+  knowledgeApproveAlone: 'platform:knowledge:approve_alone',
 } as const
 
 /** Project-tier permissions, checked per project via WorkOS FGA. */

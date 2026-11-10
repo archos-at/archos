@@ -210,15 +210,12 @@ export const ORG_PERMISSION_SPECS: readonly PermissionSpec[] = [
 ]
 
 /**
- * Platform-tier permissions, only ever on `platform-org` roles. **Enforced by US,
- * not by WorkOS**: on 2026-07-31 the live API accepted an `organization` role
- * holding `project:view`, so a dedicated resource type would buy no guarantee.
- * The line is held by `./platform` (membership of the GRID Platform organization
- * before any platform surface answers; a claim alone is never enough) and by
- * `catalog.spec.ts` (no environment-scoped role holds a `platform:*` permission,
- * the ONLY check between a careless provisioning edit and a tenant role carrying
- * platform access). `approve_as_<role>`: the role an approval records is one its
- * approver holds, never what a client sent (ADR-0165).
+ * Platform-tier permissions, only ever on `platform-org` roles. **Enforced by US, not by WorkOS**: on 2026-07-31
+ * the live API accepted an `organization` role holding `project:view`, so a dedicated resource type would buy no
+ * guarantee. The line is held by `./platform` (membership of the GRID Platform organization before any platform
+ * surface answers; a claim alone is never enough) and by `catalog.spec.ts` (no environment-scoped role holds a
+ * `platform:*` permission, the ONLY check between a careless provisioning edit and a tenant role carrying platform
+ * access). `approve_as_<role>`: the role an approval records is one its approver holds (ADR-0165).
  */
 export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
   {
@@ -259,6 +256,8 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
     description: `Platform tier: approve a platform knowledge change request in the ${role.replaceAll('_', ' ')} role.`,
     tier: 'platform' as const,
   })),
+  { slug: 'platform:knowledge:approve_alone', name: 'Approve knowledge alone', tier: 'platform',
+    description: 'Platform tier: approve a knowledge change request one wrote, with a reason, when no second person can. A second review stays due (ADR-0176).' },
   {
     slug: 'platform:observability:view',
     name: 'View LLM observability',

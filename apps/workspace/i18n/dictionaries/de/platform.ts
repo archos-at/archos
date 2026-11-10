@@ -18,14 +18,36 @@ export const platform: typeof en.platform = {
     range: 'Geben Sie einen Wert von {min} bis {max} ein.',
   },
   countryKnowledge: {
-    disabledTitle: 'Plattformwissen ist nicht eingeschaltet',
-    disabledBody: 'Länder, ihre Einträge und die Prüfliste erscheinen hier, sobald die Plattform-Organisation das Flag platform-base-knowledge hat.',
+    disabledTitle: 'Kein Zugriff auf das Plattformwissen',
+    disabledBody: 'Länder, ihre Einträge und die Prüfliste sehen Mitglieder der Plattform-Organisation mit der Berechtigung, Plattformwissen zu lesen.',
     countriesTitle: 'Länder',
     countriesDescription: 'Was die Büros eines Landes von der Plattform lesen: freigegebene Einträge, offene Änderungsanträge, berechtigte Büros und Ausgaben, deren Prüfung fällig ist.',
     noneReleased: 'noch nichts freigegeben',
     queueTitle: 'Wartet auf Ihre Prüfung',
     queueDescription: 'Plattformwissen ändert sich nur über einen Änderungsantrag. Öffnen Sie einen, um seine Einträge mit den Quellen zu vergleichen.',
     queueEmpty: 'Nichts wartet auf Prüfung',
+    approval: {
+      single: 'Ohne Zweitprüfung freigegeben',
+    },
+    secondReview: {
+      due: 'Zweitprüfung offen',
+      confirmed: 'Zweitprüfung bestätigt',
+      disputed: 'Zweitprüfung beanstandet',
+      void: 'Zweitprüfung entfällt',
+    },
+    secondReviewDueIn: 'Zweitprüfung offen als: {roles}',
+    roles: {
+      domain_expert: 'Fachprüfung',
+      counsel: 'Rechtsprüfung',
+      second_reviewer: 'Zweitprüfung',
+      privacy_reviewer: 'Datenschutzprüfung',
+    },
+    secondReviewNext: {
+      due: 'Ohne Zweitprüfung freigegeben. Prüfen Sie jeden Eintrag gegen seine Quelle und bestätigen oder beanstanden Sie die Freigabe.',
+      disputed: 'Die Zweitprüfung hat die Freigabe beanstandet. Der Antrag wird nicht weiter veröffentlicht: Lehnen Sie ihn ab, das zieht auch seine Vorschau zurück, oder nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
+    },
+    aloneReason: 'Warum gibt niemand sonst frei?',
+    aloneReasonHint: 'Mindestens 20 Zeichen. Der Grund steht im Antrag und im Prüfprotokoll.',
     open: 'Prüfen',
     close: 'Schließen',
     columns: {
@@ -133,6 +155,7 @@ export const platform: typeof en.platform = {
     wrongCount: 'nicht richtig: {count}',
     why: {
       open: 'Noch zu prüfen: {count}',
+      alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
     },
     acceptAll: 'Alle richtig',
@@ -156,6 +179,9 @@ export const platform: typeof en.platform = {
       preview: 'In die Vorschau veröffentlichen',
       stable: 'Veröffentlichen',
       rollback: 'Zurücknehmen',
+      alone: 'Ohne Zweitprüfung freigeben',
+      confirm: 'Zweitprüfung bestätigen',
+      dispute: 'Beanstanden',
     },
     done: {
       approve: 'Freigegeben.',
@@ -163,6 +189,9 @@ export const platform: typeof en.platform = {
       preview: 'In der Vorschau veröffentlicht.',
       stable: 'Veröffentlicht. Berechtigte Büros lesen ihn ab jetzt.',
       rollback: 'Zurückgenommen. Die Büros lesen wieder den vorigen Stand.',
+      alone: 'Ohne Zweitprüfung freigegeben. Die Zweitprüfung bleibt offen.',
+      confirm: 'Zweitprüfung bestätigt.',
+      dispute: 'Beanstandet. Nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
     },
     confirm: {
       approve: {
@@ -184,6 +213,18 @@ export const platform: typeof en.platform = {
       rollback: {
         title: 'Diesen Änderungsantrag zurücknehmen?',
         body: 'Jeder Eintrag kehrt zu seinem Stand vor diesem Antrag zurück. Die Historie bleibt, damit frühere Antworten ihre Quellen weiter finden.',
+      },
+      alone: {
+        title: 'Ohne Zweitprüfung freigeben?',
+        body: 'Nur wenn niemand sonst prüfen kann. Der Antrag wird als ohne Zweitprüfung freigegeben markiert, und eine Zweitprüfung bleibt offen, bis eine andere Person sie gibt.',
+      },
+      confirm: {
+        title: 'Zweitprüfung bestätigen?',
+        body: 'Sie bestätigen, dass jeder Eintrag mit seiner Quelle verglichen wurde. Damit ist die offene Zweitprüfung erledigt.',
+      },
+      dispute: {
+        title: 'Freigabe beanstanden?',
+        body: 'Der Antrag wird als beanstandet markiert und nicht weiter veröffentlicht. Was schon veröffentlicht ist, bleibt, bis jemand ihn zurücknimmt.',
       },
     },
   },
@@ -320,19 +361,14 @@ export const platform: typeof en.platform = {
       'Fügen Sie eine PDF hinzu oder ein ZIP mit vielen auf einmal — alle Projekte stützen ihre Antworten auf diesen Korpus.',
   },
   norms: {
+    retired: 'Normen ändern sich nur noch über einen geprüften Änderungsantrag im Länderwissen der Plattform. Dieser Katalog ist nur noch lesbar.',
+    retiredLink: 'Zum Länderwissen',
     title: 'Normenkatalog',
     description:
       'Kuratierte Zitierstellen des österreichischen Baurechts, die der Agent zitiert — im Unterschied zum Basiswissen, das die Volltexte enthält, gegen die geprüft wird.',
     entryCount: '{count} Einträge',
     entryCountOne: '1 Eintrag',
-    readOnly: 'Sie können den Katalog ansehen, aber nicht ändern.',
     loadError: 'Der Normenkatalog konnte nicht geladen werden.',
-    add: 'Neuer Eintrag',
-    save: 'Register speichern',
-    saved: 'Register gespeichert.',
-    saveError: 'Das Register konnte nicht gespeichert werden.',
-    invalid: 'Registry-Validierung fehlgeschlagen.',
-    unsaved: 'Ungespeichert',
     federal: 'Bund',
     empty: {
       title: 'Noch keine Einträge im Katalog',
@@ -341,13 +377,6 @@ export const platform: typeof en.platform = {
     noMatches: {
       title: 'Kein Eintrag passt zu diesen Filtern',
       description: 'Setzen Sie die Suche zurück oder wählen Sie einen anderen Rang bzw. Geltungsbereich.',
-    },
-    conflict: {
-      title: 'Der Katalog wurde parallel geändert',
-      description:
-        'Während Ihrer Bearbeitung wurde eine neuere Fassung gespeichert, Ihre Änderungen wurden daher nicht übernommen. Laden Sie neu, um auf dem aktuellen Katalog weiterzuarbeiten — dabei gehen sie verloren.',
-      reload: 'Verwerfen und neu laden',
-      toast: 'Der Katalog wurde parallel geändert — bitte vor dem Speichern neu laden.',
     },
     search: {
       placeholder: 'Titel, Kürzel, ID durchsuchen…',
@@ -445,12 +474,6 @@ export const platform: typeof en.platform = {
       advanced: 'Erweitert',
       advancedHint:
         'Selten nötig. Hier bleibt jedes gespeicherte Feld bearbeitbar — auch die von der RIS-Suche befüllten.',
-    },
-    delete: {
-      title: 'Eintrag löschen?',
-      description: 'Der Eintrag verlässt den Katalog. Wirksam erst nach dem Speichern.',
-      confirm: 'Löschen',
-      cancel: 'Abbrechen',
     },
     fields: {
       id: 'Katalog-ID',
