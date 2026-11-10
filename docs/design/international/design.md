@@ -468,7 +468,7 @@ knowledge_citation_captures(id, change_request_id, url, document_id, basis CHECK
 ```
 
 - **Flow.** draft, `validate`, `submit`, per-claim review, approvals, `publish {preview}`, `golden-run`, `publish {stable}`. A publish moves heads in one transaction, appends moves and bumps `stable_seq`. A rollback appends inverse moves. Released revisions stay readable, so old citations resolve.
-- **Approval roles.** A trigger requires `domain_expert` for every change request (migration 0217). It adds `counsel` for advice policy and `privacy_reviewer` for a site-keyed source. (A `second_reviewer` role for a hotfix was planned and removed in 0217: nothing required it.)
+- **Approval roles.** A trigger requires `domain_expert` for every change request (migration 0218). It adds `counsel` for advice policy and `privacy_reviewer` for a site-keyed source. (A `second_reviewer` role for a hotfix was planned and removed in 0218: nothing required it.)
 - **Four eyes per revision.** No approval counts for a revision its approver created. A reviewer's edit becomes a revision in a follow-up change request that the proposer or another reviewer approves.
 - **The person's yes is server-side.** These operations are `personDecides`: review-approve, `publish`, `rollback`, `org-country-entitle` and `organization-home-country-set`.
   - On the platform door the caller is an `external_agent` [V `principal.ts`], so `confirmation.ts` elicits and signs the answer [V].

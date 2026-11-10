@@ -1,6 +1,6 @@
 /**
  * A platform change request through its lifecycle, for the specs that need
- * released platform knowledge to read (migration 0217): proposed by its author,
+ * released platform knowledge to read (migration 0218): proposed by its author,
  * submitted, every claim accepted by a domain expert who wrote nothing in it,
  * approved by them, then published. The one way a spec seeds an approved or
  * published request; the status trigger refuses every shortcut.

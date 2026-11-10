@@ -247,7 +247,7 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
   { slug: 'platform:settings:manage', name: 'Manage platform settings', tier: 'platform',
     description: 'Platform tier: manage platform-wide settings and defaults (models, prices, retrieval); not the base knowledge corpus.' },
   { slug: 'platform:knowledge:write', name: 'Write platform knowledge', tier: 'platform',
-    description: 'Platform tier: draft platform knowledge change requests: open one, capture sources, propose records, submit (ADR-0165).' },
+    description: 'Platform tier: draft knowledge change requests (open, capture, propose, submit) and manage the base corpus (upload, sync, reingest). ADR-0165.' },
   { slug: 'platform:knowledge:review', name: 'Review platform knowledge', tier: 'platform',
     description: 'Platform tier: review, approve or reject, publish and roll back platform knowledge change requests (ADR-0165).' },
   ...(['domain_expert', 'counsel', 'privacy_reviewer'] as const).map((role) => ({

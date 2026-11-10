@@ -57,7 +57,7 @@ never forgotten.
 ## Decision Outcome
 
 **Amended 2026-11-10 (architecture review of platform governance, migration
-0217):** an approval alone no longer defers the source check. A page an
+0218):** an approval alone no longer defers the source check. A page an
 operator pasted is checked against its source by somebody other than its
 author before any approval, alone or not (ADR-0170 as it was), so a sole owner
 releases alone only what cites fetched captures. Every request needs a domain

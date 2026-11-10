@@ -1,4 +1,4 @@
--- Reverse 0217. ORDER: roll the frontend back first; the newer build expects a
+-- Reverse 0218. ORDER: roll the frontend back first; the newer build expects a
 -- domain expert's approval on every request and refuses an override over an
 -- unchecked pasted page.
 --

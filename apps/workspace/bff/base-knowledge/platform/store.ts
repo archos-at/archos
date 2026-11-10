@@ -419,7 +419,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 }
 
 /**
- * Why an approval waits on a pasted page (0209, 0217), and the two ways out: a second person's source check,
+ * Why an approval waits on a pasted page (0209, 0218), and the two ways out: a second person's source check,
  * or, to approve alone, a fetched capture in its place (ADR-0170, ADR-0176).
  */
 const SOURCE_UNCHECKED =
