@@ -120,3 +120,15 @@ def test_the_version_window_excludes_the_day_it_went_out_of_force_and_unknown_da
     assert in_force_on({}, date(2020, 1, 1)) is False
     assert in_force_on({"In Kraft seit": "2015-01-01", "Außer Kraft seit": "bald"}, date(2020, 1, 1)) is False
     assert parse_day("2023-02-30") is None
+
+
+def test_the_lookup_span_records_the_day_asked_for_and_the_versions_left_unread():
+    from ris_adapter.lookup.address import parse_address
+    from ris_adapter.lookup.telemetry import _span_context
+    from ris_adapter.lookup.trace import LookupTrace
+
+    trace = LookupTrace(as_of="2019-06-01", versions_dropped=2)
+    context = _span_context("Was sagt § 3?", parse_address("Was sagt § 3?", "", ""), trace, [])
+
+    assert context["as_of"] == "2019-06-01" and context["versions_dropped"] == 2
+    assert "as_of" not in _span_context("Was sagt § 3?", parse_address("Was sagt § 3?", "", ""), LookupTrace(), [])
