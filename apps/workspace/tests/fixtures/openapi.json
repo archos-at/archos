@@ -28694,7 +28694,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. Audited.",
         "tags": [
           "platform"
         ],
@@ -31638,9 +31638,9 @@
                                   "type": "string",
                                   "enum": [
                                     "public_open",
-                                    "public_restricted",
-                                    "licensed"
-                                  ]
+                                    "public_restricted"
+                                  ],
+                                  "description": "public_open or public_restricted. A licensed source is no record: its text may not be kept here (ADR-0164)."
                                 },
                                 "attribution": {
                                   "default": "",
@@ -31724,6 +31724,27 @@
                               "description": "The format engine’s configuration.",
                               "type": "object",
                               "additionalProperties": {}
+                            },
+                            "credential": {
+                              "description": "For a keyed source: where its key goes. The key itself is set with platform-knowledge-source-credential-set, never here.",
+                              "type": "object",
+                              "properties": {
+                                "header": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z][A-Za-z0-9-]{1,40}$",
+                                  "description": "The header the key is sent in, e.g. X-Api-Key or Authorization."
+                                },
+                                "prefix": {
+                                  "default": "",
+                                  "description": "Written before the key, e.g. \"Bearer \" (with its space).",
+                                  "type": "string",
+                                  "maxLength": 20
+                                }
+                              },
+                              "required": [
+                                "header"
+                              ],
+                              "additionalProperties": false
                             },
                             "fixtures": {
                               "minItems": 1,

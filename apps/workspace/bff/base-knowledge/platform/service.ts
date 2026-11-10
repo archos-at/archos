@@ -232,7 +232,11 @@ export async function decidePlatformChangeRequest(
   const outcome = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
-    if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is decided.`)
+    // A draft may be rejected too: a monitor's request a reviewer finds nothing to do for is closed that way (ADR-0174).
+    const decidable = body.decision === 'reject' ? ['draft', 'submitted'] : ['submitted']
+    if (!decidable.includes(request.status)) {
+      throw new ConflictError(`The change request is ${request.status}; only a ${decidable.join(' or ')} one is ${body.decision === 'reject' ? 'rejected' : 'approved'}.`)
+    }
     if (body.decision === 'reject') {
       await setChangeRequestStatus(tx, requestId, 'rejected', 'decidedAt')
       return { status: 'rejected' as const, awaiting: [] }
@@ -251,13 +255,12 @@ export async function decidePlatformChangeRequest(
     await setChangeRequestStatus(tx, requestId, 'approved', 'decidedAt')
     return { status: 'approved' as const, awaiting }
   })
-  if (outcome.status !== 'submitted') {
-    await audit(person, {
-      action: outcome.status === 'approved' ? 'platform.knowledge.change_request_approved' : 'platform.knowledge.change_request_rejected',
-      targetId: requestId,
-      metadata: { role: body.role, decisionSource },
-    })
-  }
+  // Every yes is audited, also one that leaves the request waiting for another role.
+  await audit(person, {
+    action: body.decision === 'approve' ? 'platform.knowledge.change_request_approved' : 'platform.knowledge.change_request_rejected',
+    targetId: requestId,
+    metadata: { role: body.role, decisionSource, awaiting: outcome.awaiting.join(',') },
+  })
   return outcome
 }
 

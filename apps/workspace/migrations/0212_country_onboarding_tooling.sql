@@ -85,7 +85,8 @@ CREATE TABLE IF NOT EXISTS "knowledge_source_revisions" (
   CONSTRAINT knowledge_source_revisions_data_flow_known CHECK ("data_flow" IN ('public_only', 'site_keyed')),
   CONSTRAINT knowledge_source_revisions_monitor_known CHECK ("monitor_kind" IN ('none', 'sha256', 'etag', 'version')),
   CONSTRAINT knowledge_source_revisions_interval_bounded CHECK ("monitor_interval_hours" BETWEEN 1 AND 744),
-  CONSTRAINT knowledge_source_revisions_licence_known CHECK ("licence" IN ('public_open', 'public_restricted', 'licensed')),
+  -- A configured source keeps its text (fixtures, monitor captures), which licensed text never is (ADR-0164).
+  CONSTRAINT knowledge_source_revisions_licence_open CHECK ("licence" IN ('public_open', 'public_restricted')),
   CONSTRAINT knowledge_source_revisions_config_object CHECK (jsonb_typeof("config") = 'object'),
   CONSTRAINT knowledge_source_revisions_revision_fk FOREIGN KEY ("revision_id", "owner_key")
     REFERENCES "knowledge_revisions" ("revision_id", "owner_key") ON DELETE CASCADE,

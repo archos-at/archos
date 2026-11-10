@@ -206,8 +206,23 @@ async function checkOne(source: RegisteredSource, state: MonitorState | undefine
   return { recordId: source.recordId, lagSince: now, failed: false, changed: seen.changed || seen.termsChanged, opened }
 }
 
+/**
+ * One source's check, whatever it throws: an error of this source (a record the
+ * api tier refuses, a database refusal) is its failure, logged and counted, and
+ * the run goes on to the next source.
+ */
+async function checkedOrFailed(source: RegisteredSource, state: MonitorState | undefined, now: Date, deps: MonitorDeps): Promise<Checked> {
+  try {
+    return await checkOne(source, state, now, deps)
+  } catch (error) {
+    console.error(`[source-monitor] ${source.recordId} failed:`, error)
+    return { recordId: source.recordId, lagSince: state?.okAt ?? null, failed: true, changed: false, opened: null }
+  }
+}
+
 /** One run of the monitor. `deps` stand in for the api tier, the flags and Langfuse in tests only. */
-export async function runSourceMonitor(now = new Date(), deps: MonitorDeps = DEFAULT_DEPS): Promise<MonitorOutcome> {
+export async function runSourceMonitor(now = new Date(), stand: Partial<MonitorDeps> = {}): Promise<MonitorOutcome> {
+  const deps: MonitorDeps = { ...DEFAULT_DEPS, ...stand }
   if (!(await deps.enabled())) return { enabled: false, run: null, opened: {} }
   const startedAt = Date.now()
   const { sources, states } = await platformTransaction(async (tx) => {
@@ -216,7 +231,7 @@ export async function runSourceMonitor(now = new Date(), deps: MonitorDeps = DEF
   })
   const results: Checked[] = []
   for (const source of sources.filter((candidate) => due(candidate, states.get(candidate.recordId), now)).slice(0, MAX_PROBES_PER_RUN)) {
-    results.push(await checkOne(source, states.get(source.recordId), now, deps))
+    results.push(await checkedOrFailed(source, states.get(source.recordId), now, deps))
   }
   const checkedIds = new Set(results.map((result) => result.recordId))
   const lags = await platformTransaction(async (tx) =>

@@ -143,3 +143,33 @@ async def test_the_fetcher_serves_a_configured_source_by_its_hosts_and_attaches_
         # A repository record keeps its own hosts: a caller cannot widen them.
         widened = {**payload, "source": "at-ris", "url": "https://gazette.xa.example/"}
         assert (await client.post("/v1/fetch", json=widened)).status_code == 403
+
+
+def test_a_licensed_source_is_no_configured_record():
+    record = synthetic_source()
+    record["terms"]["licence"] = "licensed"
+    with pytest.raises(SourceError, match="licensed"):
+        parse_inline_source(record)
+
+
+@pytest.mark.parametrize(
+    "header", ["Host", "Cookie", "Proxy-Authorization", "X-Forwarded-For", "Content-Type", "Transfer-Encoding"]
+)
+def test_a_key_never_goes_under_a_header_that_routes_frames_or_proxies(header):
+    with pytest.raises(SourceError, match="carries no key"):
+        parse_inline_source(synthetic_source(credential={"header": header}))
+
+
+async def test_the_fetcher_drops_a_key_sent_under_a_refused_header():
+    seen: list[httpx.Request] = []
+    app = make_app(transport=_site({SYNTHETIC_URL: b"ok"}, seen))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fetcher") as client:
+        payload = {
+            "source": "xa-gazette",
+            "method": "GET",
+            "url": SYNTHETIC_URL,
+            "headers": {},
+            "hosts": ["gazette.xa.example"],
+        }
+        await client.post("/v1/fetch", json={**payload, "credential": {"header": "Cookie", "value": "session=1"}})
+    assert "cookie" not in seen[-1].headers

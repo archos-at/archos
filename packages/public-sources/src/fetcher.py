@@ -8,7 +8,9 @@ source. It answers with the source's status, body and the headers in
 carrying ``x-public-source-refused`` with the reason, a source that did not
 answer a 502.
 
-It holds no secret and no tenant data, and its Deployment
+It keeps no secret and no tenant data: a keyed source's key arrives with the
+request (``credential``), is set after the strip on that one request only, is
+never logged and never kept on a client another request reuses. Its Deployment
 (``deploy/pulumi/src/app/public-source-fetcher.ts``) can reach public addresses
 and DNS only. Logs carry the source, host, path, status and size, never the
 query string: a search term is derived from somebody's question.
@@ -32,6 +34,7 @@ from public_sources.egress import guarded_client
 from public_sources.routing import REFUSED_HEADER
 from public_sources.routing import RETURNED_HEADERS
 from public_sources.source import _HOST_RE
+from public_sources.source import REFUSED_CREDENTIAL_HEADERS
 from public_sources.source import SourceError
 from public_sources.source import get_source
 from public_sources.source import url_on_hosts
@@ -161,6 +164,8 @@ def _credential_of(payload: dict) -> tuple[str, str] | None:
         return None
     header, value = str(credential.get("header", "")), str(credential.get("value", ""))
     if not _HEADER_RE.fullmatch(header) or not value or "\n" in value or "\r" in value:
+        return None
+    if header.lower() in REFUSED_CREDENTIAL_HEADERS or header.lower().startswith(("x-forwarded-", "proxy-")):
         return None
     return header, value
 

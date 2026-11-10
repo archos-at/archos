@@ -33,8 +33,11 @@ offices. Onboarding a real country (Germany first) is run elsewhere.
   moves what an office reads.
 - **Fail closed on unknown**: an unchecked source, an expired testing window,
   an unreachable checker.
-- **Flag off means unchanged**: the platform behaves byte for byte as before
-  until an operator turns monitors on.
+- **What a flag gates is unchanged while it is off**: the monitor sweep is
+  behind `source-monitors`; the source records, operations and KC-7 are behind
+  the existing `platform-base-knowledge`, and accept only inputs that were
+  refused before; a request with neither an advice policy nor a site-keyed
+  source is approved as before.
 - **No free text from records reaches a prompt** (design §3.7).
 
 ## Considered Options
@@ -85,6 +88,10 @@ repository record's hosts.
 
 **Every new table is platform-private**: the source body and the monitor state are read by no tenant, and the credential has no `organization_id` at all (`secret_owner_id` binds the secret), so not even the platform organization's members read a key as a tenant.
 
+**A licensed source is no record.** Its fixtures and its monitor's captures
+would keep the source's text, which licensed text never is (ADR-0164): the wire,
+the package and a CHECK refuse `licence: licensed` for a configured source.
+
 **Three door operations** (`catalog/platform-sources.ts`):
 `platform-knowledge-source-test` (fixtures, and one live probe on request;
 nothing stored), `platform-knowledge-source-status` (hosts and their state, the
@@ -92,8 +99,11 @@ monitor's last check, freshness lag, whether a key is set, the open monitor
 request) and `platform-knowledge-source-credential-set` (write-only, the
 person's yes, audited). A key is stored through the BYOK secret store (Vault or
 a local AES-GCM envelope), one active per source; only a fetch reads it, and the
-guard sets it after the header strip, under the header the record names, on the
-source's hosts only.
+guard sets it after the header strip, under the header the record names
+(never one that routes, frames or proxies the request), on the source's hosts
+only. **A key goes only where a reviewer saw it go**: with a released source,
+or with a draft revision whose credential header and every host the released
+revision already had. A re-proposal that adds a host is tested without the key.
 
 **`ogc`** is an access type: OGC API - Features (`items`, the collection's own
 description) and WFS 2.0 (`GetFeature`, `GetCapabilities`), with a `geojson`
@@ -109,7 +119,10 @@ of a terms page on the source's hosts). A change opens a draft change request,
 and current state, terms changed, `needs[]`); at most one is open per source
 (a unique index). It never publishes. The run is a Langfuse trace
 `source-monitor` with `freshness-lag-days` per watched source. Agents find the
-work with `change-request-list {origin: monitor}`.
+work with `change-request-list {origin: monitor}`; a reviewer who finds nothing
+to do rejects the draft (the person's yes), which frees the source for the
+next request. One source's failure is that source's, logged and counted; the
+run goes on.
 
 **Advice policy and terminology are ruleset types.** `advice_policy.v1` holds
 per topic one of `assert`, `hedge`, `decline`; the text an answer carries for a
@@ -139,8 +152,10 @@ publish without them, whatever path reaches it.
   sources are held behind a privacy reviewer until the page reads records
   (needs a decision on how the page lists them).
 - Bad: an agent that sets a key has the key in its context. The door offers the
-  operation because the design asks for it; the app's own form is the
-  preferred path, and the person's yes is required either way.
+  operation because the design asks for it, on the person's yes. The platform
+  view has no form for a key yet: a client that cannot ask the person is sent
+  to Platform → Countries, where the person cannot set it either, so until that
+  form exists the key is set through a client that can ask.
 - Neutral: nothing tags a turn `advice_policy:carried` yet; the turn-context
   slice that puts a site's hedges into the prompt does, and the judge runs from then.
 - Neutral: score names follow the repository's kebab case

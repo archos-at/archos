@@ -44,8 +44,10 @@ Two kinds of configured source:
   is a draft, its hosts are `testing`: usable by its own request's
   `source-test` and `citation-capture` for 24 hours, by nothing else. Once
   published they are `active`. A `site_keyed` source (it receives a site
-  point) needs a `privacy_reviewer` approval; a keyed one gets its key through
-  `platform-knowledge-source-credential-set` (write-only, the person's yes).
+  point) needs a `privacy_reviewer` approval; a keyed one names its header and
+  gets its key through `platform-knowledge-source-credential-set` (write-only,
+  the person's yes). The key goes with a draft only to hosts and under a header
+  the released source already had. A `licensed` source cannot be a record.
 - **A repository file** under `configs/sources/<country>/<name>/source.yml`
   (ADR-0162), reviewed as code. `at-ris` and `ch-fedlex` are these; a record
   may not take one's id. Name a new one in the agent's guide in the same change
@@ -58,7 +60,8 @@ The `source-monitor` sweep (every 15 minutes) checks each published source
 record whose monitor names a probe and whose interval has passed, with no model
 call. A change opens one draft request, `origin: monitor`, holding the new page
 as a capture; a second change while it is open is recorded in the source's
-state only. It never publishes. It runs only with `source-monitors` and
+state only; a reviewer with nothing to do rejects the draft, which frees the
+source for the next one. It never publishes. It runs only with `source-monitors` and
 `platform-base-knowledge` on for the platform organization. Each run is the
 Langfuse trace `source-monitor`, with `freshness-lag-days` per source.
 

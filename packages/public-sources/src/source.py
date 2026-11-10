@@ -108,6 +108,34 @@ class InlineResponse(_Strict):
     text: str = Field(max_length=500_000)
 
 
+#: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).
+REFUSED_CREDENTIAL_HEADERS = frozenset(
+    {
+        "host",
+        "cookie",
+        "set-cookie",
+        "connection",
+        "keep-alive",
+        "content-length",
+        "content-type",
+        "transfer-encoding",
+        "te",
+        "trailer",
+        "upgrade",
+        "via",
+        "forwarded",
+        "proxy-authorization",
+        "proxy-authenticate",
+        "proxy-connection",
+        "accept",
+        "accept-language",
+        "if-none-match",
+        "if-modified-since",
+        "user-agent",
+    }
+)
+
+
 class Credential(_Strict):
     """Where a keyed source wants its key (ADR-0174). The key itself is never in the record.
 
@@ -118,6 +146,16 @@ class Credential(_Strict):
     header: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9-]{1,40}$")
     #: Written before the key, e.g. ``Bearer `` (with its space); empty for a bare key.
     prefix: str = Field(default="", max_length=20)
+
+    @field_validator("header")
+    @classmethod
+    def _carries_a_key(cls, value: str) -> str:
+        name = value.lower()
+        if name in REFUSED_CREDENTIAL_HEADERS or name.startswith(("x-forwarded-", "proxy-")):
+            raise ValueError(
+                f"{value} routes, frames or proxies the request, or the guard sets it itself: it carries no key"
+            )
+        return value
 
 
 class Fixture(_Strict):
@@ -258,6 +296,10 @@ def parse_inline_source(raw: dict[str, Any]) -> Source:
     file of the same name.
     """
     source = parse_source(raw)
+    if source.terms.licence == "licensed":
+        raise SourceError(
+            f"source {source.id!r} is licensed: its text may not be kept in a configured record (ADR-0164)"
+        )
     files = [name for fixture in source.fixtures for name in fixture.responses.values() if isinstance(name, str)]
     if files:
         raise SourceError(

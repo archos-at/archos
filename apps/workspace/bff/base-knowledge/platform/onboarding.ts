@@ -21,7 +21,7 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import { CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
 import { sourceChecksOf } from './source-checks'
-import { revealedCredential, type RegisteredSource, usableSource } from './sources'
+import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
 import { requirePlatform } from './service-gate'
@@ -155,9 +155,24 @@ async function captured(body: CaptureBody, configured: ConfiguredSource | undefi
   }
 }
 
-/** A registered source as the api tier takes it: its configuration, and its key when one is set. */
+/**
+ * Whether a source's key may go with a fetch: a released source's, yes. A draft
+ * revision's only when a reviewer already saw the key go there: the released
+ * revision names the same credential header and every host the draft names.
+ * A re-proposal that adds a host or moves the header is tested without the
+ * key, so no key reaches a host nobody reviewed (ADR-0174).
+ */
+export async function keyMayGo(tx: Tx, source: RegisteredSource): Promise<boolean> {
+  if (source.state === 'active') return true
+  const released = await activeSource(tx, source.key)
+  if (!released) return false
+  const header = (config: Record<string, unknown>) => JSON.stringify(config.credential ?? null)
+  return header(source.config) === header(released.config) && source.hosts.every((host) => released.hosts.includes(host))
+}
+
+/** A registered source as the api tier takes it: its configuration, and its key when one is set and may go ({@link keyMayGo}). */
 export async function configuredSource(tx: Tx, source: RegisteredSource): Promise<ConfiguredSource> {
-  const credential = await revealedCredential(tx, source.recordId)
+  const credential = (await keyMayGo(tx, source)) ? await revealedCredential(tx, source.recordId) : null
   return { config: source.config, ...(credential ? { credential } : {}) }
 }
 

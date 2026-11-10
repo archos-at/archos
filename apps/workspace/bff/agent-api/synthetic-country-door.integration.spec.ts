@@ -31,10 +31,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { doorScript, platformOperator, platformSession } from './testing/platform-door-script'
 
-const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_xa_${Date.now().toString(36)}` }))
+const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_xa_${Date.now().toString(36)}`, flagsOff: new Set<string>() }))
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
+vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async (slug: string) => !fixed.flagsOff.has(slug) }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()
   return {
@@ -81,6 +81,7 @@ const sourceRecord = (captureId: string, overrides: Record<string, unknown> = {}
   terms: { url: TERMS_URL, licence: 'public_open', checked: '2026-11-01' },
   monitor: { kind: 'sha256', intervalHours: 24, probe: { operation: 'document', args: { id: 'code' } } },
   access: { documents: [{ id: 'code', url: CODE_URL, title: 'Building Code' }] },
+  credential: { header: 'X-Api-Key' },
   engine: { unit: '//section', number: "./span[@class='nr']", heading: './h2', title: '//h1' },
   fixtures: [
     {
@@ -221,6 +222,13 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(dry.valid).toBe(false)
     expect((dry.results as { problems: { code: string; pointer: string }[] }[])[0]?.problems).toEqual([expect.objectContaining({ code: 'KC-7', pointer: '/fixtures/0' })])
 
+    // A licensed source is no record: its fixtures and captures would keep licensed text (ADR-0164).
+    const licensed = await door(author, 'platform-knowledge-records-propose', {
+      params: { changeRequestId: requestId },
+      body: { dryRun: true, records: [sourceRecord(captures.get('terms')!, { terms: { url: TERMS_URL, licence: 'licensed', checked: '2026-11-01' } })] },
+    })
+    expect(licensed.problem).toMatchObject({ status: 400 })
+
     // Unknown fails closed: with the checker down, the source is a problem, never a pass.
     checkerDown = true
     const unchecked = await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { dryRun: true, records: [sourceRecord(captures.get('terms')!)] } })
@@ -324,17 +332,39 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(stored[0]?.encrypted).not.toContain('xa-key-0123456789')
   })
 
+  it('sends the key with a draft only to hosts and under a header the released source already had', async () => {
+    const reproposed = async (hosts: string[]) => {
+      const request = String((await ok(author, 'platform-knowledge-change-request-create', { body: { title: 'Xanadu, again', countryId: COUNTRY } })).id)
+      const terms = String(
+        (await ok(author, 'platform-knowledge-citation-capture', { params: { changeRequestId: request }, body: { basis: 'operator_supplied', url: TERMS_URL, text: TERMS } }))
+          .captureId,
+      )
+      await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: request }, body: { records: [sourceRecord(terms, { hosts })] } })
+      asked.length = 0
+      await ok(author, 'platform-knowledge-source-test', { params: { sourceKey: SOURCE }, body: { changeRequestId: request, live: true } })
+      return asked.find((call) => call.path === '/v1/public-sources/probe')?.body
+    }
+    // A draft that adds a host nobody reviewed is probed without the key.
+    const widened = await reproposed([HOST, 'attacker.example'])
+    expect(widened?.config).toMatchObject({ hosts: [HOST, 'attacker.example'] })
+    expect(widened?.credential).toBeUndefined()
+    // Positive control: the same hosts as released, so the key goes.
+    expect((await reproposed([HOST]))?.credential).toBe('xa-key-0123456789')
+  })
+
   it('opens one change request when the source changes, never publishes, and the agent finds it by origin', async () => {
     const { runSourceMonitor } = await import('@/lib/base-knowledge/platform/monitor')
     const { probeSource } = await import('@/lib/base-knowledge/platform/source-service')
     const runs: { lags: { recordId: string; days: number }[] }[] = []
-    const deps = { probe: probeSource, enabled: async () => true, record: async (run: (typeof runs)[number]) => void runs.push(run) }
+    const deps = { probe: probeSource, record: async (run: (typeof runs)[number]) => void runs.push(run) }
     const recordId = `source:${SOURCE}`
 
-    // Flag off: nothing read, nothing fetched.
+    // Flag off, through the real check of the platform's flags: nothing read, nothing fetched.
+    fixed.flagsOff.add('source-monitors')
     asked.length = 0
-    expect((await runSourceMonitor(new Date(), { ...deps, enabled: async () => false })).enabled).toBe(false)
+    expect((await runSourceMonitor(new Date(), { probe: probeSource, record: deps.record })).enabled).toBe(false)
     expect(asked).toEqual([])
+    fixed.flagsOff.delete('source-monitors')
 
     const t0 = new Date()
     const baseline = await runSourceMonitor(t0, deps)
@@ -361,5 +391,12 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const again = await runSourceMonitor(new Date(later.getTime() + 25 * 3_600_000), deps)
     expect(again.opened[recordId]).toBeUndefined()
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_change_requests WHERE source_record_id = ${recordId}`)).toBe(1)
+
+    // A reviewer with nothing to do closes it (a draft may be rejected, the person's yes), and the next change files anew.
+    const closed = await ok(expert, 'platform-knowledge-change-request-decide', { params: { changeRequestId: opened }, body: { decision: 'reject', role: 'domain_expert' } }, { person: 'yes' })
+    expect(closed.status).toBe('rejected')
+    served = `${PAGE_V2}\n§ 4 Fountains`
+    const reopened = await runSourceMonitor(new Date(later.getTime() + 75 * 3_600_000), deps)
+    expect(reopened.opened[recordId]).toBeTruthy()
   })
 })

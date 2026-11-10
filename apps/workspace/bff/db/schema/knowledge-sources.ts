@@ -22,7 +22,7 @@ export const knowledgeSourceRevisions = pgTable('knowledge_source_revisions', {
   dataFlow: text('data_flow').$type<SourceDataFlow>().notNull(),
   monitorKind: text('monitor_kind').$type<MonitorKind>().notNull(),
   monitorIntervalHours: integer('monitor_interval_hours').notNull(),
-  licence: text('licence').$type<'public_open' | 'public_restricted' | 'licensed'>().notNull(),
+  licence: text('licence').$type<'public_open' | 'public_restricted'>().notNull(),
   config: jsonb('config').$type<Record<string, unknown>>().notNull(),
 })
 

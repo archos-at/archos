@@ -17,6 +17,58 @@
 import { z } from 'zod'
 import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS, SOURCE_FORMATS, SOURCE_PROTOCOLS } from './vocab'
 
+/**
+ * The licences a configured source may have: its fixtures and its monitor's
+ * captures keep the source's text, which licensed text never is (ADR-0164).
+ */
+export const CONFIGURED_SOURCE_LICENCES = ['public_open', 'public_restricted'] as const satisfies readonly (typeof LICENCE_CLASSES)[number][]
+
+/**
+ * Headers a key may never be sent under: the request's routing and framing,
+ * cookies, the proxy's, and the ones the guard forwards on its own. Held again
+ * by `public_sources.source.Credential`.
+ */
+export const REFUSED_CREDENTIAL_HEADERS = [
+  'host',
+  'cookie',
+  'set-cookie',
+  'connection',
+  'keep-alive',
+  'content-length',
+  'content-type',
+  'transfer-encoding',
+  'te',
+  'trailer',
+  'upgrade',
+  'via',
+  'forwarded',
+  'proxy-authorization',
+  'proxy-authenticate',
+  'proxy-connection',
+  'accept',
+  'accept-language',
+  'if-none-match',
+  'if-modified-since',
+  'user-agent',
+] as const
+
+export const sourceCredentialSchema = z
+  .object({
+    header: z
+      .string()
+      .regex(/^[A-Za-z][A-Za-z0-9-]{1,40}$/)
+      .refine(
+        (header) => {
+          const name = header.toLowerCase()
+          return !(REFUSED_CREDENTIAL_HEADERS as readonly string[]).includes(name) && !name.startsWith('x-forwarded-') && !name.startsWith('proxy-')
+        },
+        'a header that routes, frames or proxies the request, or that the guard sets itself, carries no key',
+      )
+      .describe('The header the key is sent in, e.g. X-Api-Key or Authorization.'),
+    prefix: z.string().max(20).default('').describe('Written before the key, e.g. "Bearer " (with its space).'),
+  })
+  .strict()
+
 /** A source's id, which is also its record key: `<iso2>-<name>` in lower case (`xa-gazette`). */
 export const sourceKeySchema = z
   .string()
@@ -57,7 +109,9 @@ export const sourceFixtureSchema = z
 export const sourceTermsSchema = z
   .object({
     url: z.url().max(2000).describe('The terms page. Its hash is watched when it lies on one of the source’s hosts.'),
-    licence: z.enum(LICENCE_CLASSES),
+    licence: z
+      .enum(CONFIGURED_SOURCE_LICENCES)
+      .describe('public_open or public_restricted. A licensed source is no record: its text may not be kept here (ADR-0164).'),
     attribution: z.string().trim().max(500).default('').describe('The attribution the terms require, verbatim.'),
     checked: z.iso.date().describe('The day a person last read the terms.'),
   })
@@ -97,6 +151,9 @@ export const sourceRecordFields = {
   monitor: sourceMonitorSchema.default({ kind: 'none', intervalHours: 24 }),
   access: z.record(z.string(), z.unknown()).describe('The protocol’s configuration (see public_sources.access).'),
   engine: z.record(z.string(), z.unknown()).default({}).describe('The format engine’s configuration.'),
+  credential: sourceCredentialSchema
+    .optional()
+    .describe('For a keyed source: where its key goes. The key itself is set with platform-knowledge-source-credential-set, never here.'),
   fixtures: z.array(sourceFixtureSchema).min(1).max(10).describe('Recorded exchanges that prove the record with no live call.'),
 }
 
@@ -122,6 +179,7 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
       interval_hours: record.monitor.intervalHours,
       ...(record.monitor.probe ? { probe: record.monitor.probe } : {}),
     },
+    ...(record.credential ? { credential: record.credential } : {}),
     access: record.access,
     engine: record.engine,
     fixtures: record.fixtures.map((fixture) => ({
