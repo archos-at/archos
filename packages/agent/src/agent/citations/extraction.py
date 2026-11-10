@@ -190,6 +190,15 @@ def _entry_from_hit(hit: GroundingHit, tool_name: str) -> SourceEntry:
     return _entry_from_hit_fields(hit, tool_name)
 
 
+def _keep_licensed_text(hit: GroundingHit) -> None:
+    """File an attested licensed passage whole on the turn's registry, so a quote of it verifies past its excerpt."""
+    from agent.citations.session import get_session_registry
+
+    registry = get_session_registry()
+    if registry is not None and hit.licence is not None and hit.licence.licensed and hit.licence.ai_processing:
+        registry.licensed_text[hit.citation_key.strip()] = hit.body.strip()
+
+
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     """One captured grounding hit as a registry entry, by field copy.
 
@@ -203,6 +212,7 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     key, not by its link. Giving it one would move it onto the registry's URL
     identity and out of the document dedup.
     """
+    _keep_licensed_text(hit)
     return SourceEntry(
         citation_key=hit.citation_key.strip(),
         title=hit.display_title.strip() or None,

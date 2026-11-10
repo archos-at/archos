@@ -271,7 +271,7 @@
     "packages/agent/src/agent/cards/surface_documents.py::surface_documents._surface": 159,
     "packages/agent/src/agent/citations/extraction.py::extract_sources_from_tool_result": 82,
     "packages/agent/src/agent/citations/quote_matching.py::normalized_coverage": 91,
-    "packages/agent/src/agent/citations/quote_verification.py::verify_quoted_spans": 68,
+    "packages/agent/src/agent/citations/quote_verification.py::verify_quoted_spans": 63,
     "packages/agent/src/agent/citations/registry.py::SourceRegistry.resolve_url": 74,
     "packages/agent/src/agent/citations/sanitize.py::sanitize_report": 65,
     "packages/agent/src/agent/citations/trailer_values.py::drop_ungrounded_trailer_values": 70,

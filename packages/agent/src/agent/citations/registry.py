@@ -62,6 +62,14 @@ class SourceRegistry:
         # document's evidence entirely.
         self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
         self._all: list[SourceEntry] = []
+        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0159). Held in
+        #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
+        self.licensed_text: dict[str, str] = {}
+
+    def for_turn(self) -> SourceRegistry:
+        """This registry, for a new turn: licensed text is not carried between turns, not even for verification."""
+        self.licensed_text.clear()
+        return self
 
     @staticmethod
     def _identity(entry: SourceEntry) -> tuple[str | None, str, int | None]:

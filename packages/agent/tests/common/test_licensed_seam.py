@@ -647,3 +647,27 @@ def test_a_reply_cannot_rebuild_the_norm_from_quotes_each_under_the_cap():
     assert kept <= licensed_text.ANSWER_QUOTE_FACTOR * CAP + late_quotes * (licensed_text.SHINGLE_CHARS - 1)
     assert kept < 5 * 100
     assert longest_licensed_run(reply.split(" Und weiter: ")[0]) == 100, "the first quotes pass whole"
+
+
+def test_a_quote_from_later_in_a_licensed_passage_verifies_against_the_turns_whole_passage():
+    """The stored excerpt stops at the cap; verification reads the passage whole, for this turn only."""
+    from agent.citations.extraction import _entry_from_hit_fields
+    from agent.citations.quote_verification import _verification_chunks
+    from agent.citations.quote_verification import normalize_for_quote_match
+    from agent.citations.registry import SourceRegistry
+    from agent.citations.session import reset_session_registry
+    from agent.citations.session import set_session_registry
+
+    registry = SourceRegistry()
+    token = set_session_registry(registry)
+    try:
+        entry = _entry_from_hit_fields(_hit(), "knowledge_search")
+        registry.add(entry)
+    finally:
+        reset_session_registry(token)
+
+    later = normalize_for_quote_match(LICENSED[900:980])
+    assert len(entry.chunk_text) == CAP, "what rests with the answer is the quote cap"
+    assert any(later in text for text, _ in _verification_chunks(registry))
+    registry.for_turn()
+    assert not any(later in text for text, _ in _verification_chunks(registry)), "the next turn holds none of it"

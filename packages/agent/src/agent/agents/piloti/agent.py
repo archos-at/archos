@@ -974,7 +974,7 @@ def _bind_registry() -> tuple[SourceRegistry, Any]:
     """
     registry = get_session_registry()
     if registry is not None:
-        return registry, None
+        return registry.for_turn(), None
     registry = SourceRegistry()
     return registry, set_session_registry(registry)
 
