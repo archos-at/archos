@@ -217,6 +217,33 @@ def file_licence(row: Any) -> Any:
     return stated or document_licence(row.collection, row.file_name)
 
 
+#: How many points of one page a recall reads, at most.
+_RECALL_POINTS = 4000
+
+
+def licensed_passage_sources(collection: str, file_name: str, page: int | None) -> tuple[Any, list[str]]:
+    """What a licensed reference from an earlier turn may be read again from: the document's licence now, and
+    the texts a hit on ``page`` was rendered from (its points' text, the page as the estate reads it).
+
+    No text when the copy is not a licensed, attested one any more: the caller then expands nothing. The
+    caller checks each candidate against the reference's hash (``agent.common.licensed_recall``).
+    """
+    import asyncio
+
+    from knowledge_layer.vector_store import TEXT_FIELD
+    from knowledge_layer.vector_store import get_store
+
+    terms = document_licence(collection, file_name)
+    if terms is None or not terms.licensed or not terms.ai_processing:
+        return terms, []
+    filters = {"file_name": file_name} | ({"page_label": str(page)} if page is not None else {})
+    points = get_store().scroll(collection, filters, limit=_RECALL_POINTS, fields=[TEXT_FIELD])
+    texts = [str((point.payload or {}).get(TEXT_FIELD) or "") for point in points]
+    pages = asyncio.run(stored_pages.read_pages(collection, file_name, wanted={page} if page else None))
+    texts += [found.text for found in (pages.pages if pages else []) if page is None or found.number == page]
+    return terms, [text for text in texts if text]
+
+
 def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: bool = True) -> Any:
     """One page as a grounding record: the page's text, the file's own row, the ``file, p.N`` key."""
     from knowledge_layer.search.grounding_hits import _citation_key_for

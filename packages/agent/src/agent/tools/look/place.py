@@ -75,8 +75,8 @@ def citation_key(facts: PlaceFacts) -> str:
 
 
 def document_licence(collection: str, file_name: str) -> Any:
-    """The licence a document's points carry (``knowledge_layer.estate.document_licence``); fails closed."""
-    from knowledge_layer.estate import document_licence as read
+    """The licence a document's points carry, through the licence port (``knowledge.licences``); fails closed."""
+    from agent.knowledge.licences import document_licence as read
 
     return read(collection, file_name)
 

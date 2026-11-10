@@ -162,7 +162,7 @@
   },
   "packages/knowledge-layer/tests/test_licensed_hits.py": {
     "knowledge_layer.estate.grep": 1,
-    "knowledge_layer.estate.render": 2,
+    "knowledge_layer.estate.render": 3,
     "knowledge_layer.search.grounding_hits": 1,
     "knowledge_layer.search.rerank": 1
   },

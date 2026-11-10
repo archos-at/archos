@@ -671,3 +671,24 @@ def test_a_quote_from_later_in_a_licensed_passage_verifies_against_the_turns_who
     assert any(later in text for text, _ in _verification_chunks(registry))
     registry.for_turn()
     assert not any(later in text for text, _ in _verification_chunks(registry)), "the next turn holds none of it"
+
+
+def test_the_licensed_tag_reaches_the_turns_root_observation_from_inside_a_tool():
+    """The judges' filter reads the trace's tags, and the root span is stamped from the turn's own context.
+
+    A tool runs in a COPY of that context (a LangGraph node), so a ContextVar it sets never reaches the
+    root; the tag rides the turn-outcome box, shared by reference, and survives the terminal's fill.
+    """
+    import contextvars
+
+    from agent.observability import turn_outcome
+
+    box = turn_outcome.begin_turn_outcome()
+    try:
+        contextvars.copy_context().run(licensed_text.mark_licensed_turn)
+        turn_outcome.record_turn_error("answer_failed")
+        tags = (turn_outcome.current_turn_outcome() or {}).get(turn_outcome.TAGS_ATTRIBUTE)
+    finally:
+        turn_outcome.end_turn_outcome(box)
+
+    assert licensed_text.LICENSED_TRACE_TAG in (tags or [])

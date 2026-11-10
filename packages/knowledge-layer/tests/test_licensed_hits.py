@@ -100,3 +100,40 @@ def test_a_judge_reads_a_licensed_excerpt_as_a_reference_and_an_unattested_one_n
     assert "⟦licensed:lp_" in attested and NORM_LINE not in attested
     assert UNATTESTED_NOTE in unattested and NORM_LINE not in unattested
     assert NORM_LINE in public, "positive control: an unmarked excerpt is read as it was"
+
+
+def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeypatch):
+    """What ``licensed_recall`` checks a later turn's reference against: the page's points and its page text."""
+    from knowledge_layer import stored_pages
+    from knowledge_layer import vector_store
+    from knowledge_layer.estate import render
+    from knowledge_layer.stored_pages import PageText
+
+    from agent.common.licensed_text import LicenceTerms
+
+    asked = {}
+
+    class Store:
+        def scroll(self, collection, filters, *, limit, fields):
+            asked.update(collection=collection, filters=filters, fields=fields)
+            return [SimpleNamespace(payload={vector_store.TEXT_FIELD: NORM_LINE})]
+
+    async def read_pages(collection, file_name, *, wanted=None):
+        return PageText(
+            pages=[Page(number=12, text="page twelve", source="text_layer")], origin="stored", page_count=40
+        )
+
+    attested = LicenceTerms(licence_class="licensed", ai_processing=True)
+    monkeypatch.setattr(render, "document_licence", lambda collection, file_name: attested)
+    monkeypatch.setattr(vector_store, "get_store", Store)
+    monkeypatch.setattr(stored_pages, "read_pages", read_pages)
+
+    terms, texts = render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)
+
+    assert terms == attested and texts == [NORM_LINE, "page twelve"]
+    assert asked["filters"] == {"file_name": "oenorm_b_1600.pdf", "page_label": "12"}
+
+    monkeypatch.setattr(
+        render, "document_licence", lambda collection, file_name: LicenceTerms(licence_class="licensed")
+    )
+    assert render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)[1] == [], "unattested: no text"

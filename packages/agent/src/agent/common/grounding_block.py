@@ -39,6 +39,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from agent.common.action_rows import current_action_call
+from agent.common.licensed_recall import anchor_of
 from agent.common.licensed_text import LicenceTerms
 from agent.common.licensed_text import begin_licensed_capture
 from agent.common.licensed_text import end_licensed_capture
@@ -433,7 +434,9 @@ def _lanes_line(lanes: tuple[TraceLane, ...]) -> str:
 
 def _hit_lines(index: int, hit: GroundingHit) -> list[str]:
     """One ``--- Result N ---`` block: header, blank line, the fenced body (``common/passage_fence.py``), blank line."""
-    body = licensed_body((hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body, hit.licence)
+    body = (hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body
+    anchor = anchor_of(hit.collection, hit.file_name, hit.page, len(body)) if hit.licence else None
+    body = licensed_body(body, hit.licence, anchor=anchor)
     return [f"--- Result {index} ---", *_header_lines(hit), "", fence(body), ""]
 
 

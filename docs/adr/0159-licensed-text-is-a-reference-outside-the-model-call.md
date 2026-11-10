@@ -57,20 +57,37 @@ while the model still reads what the office licensed for this use.
   else, a missing field included, is not attested. A licensed passage without it renders as listed
   only (document, page, clause, no text, `UNATTESTED_NOTE`) whatever the flag says, nothing of it is
   quotable (`licensed_text.quotable` gives the citation registry nothing), and the ingest of such a
-  document refuses every OpenRouter request in its scope (`licensed_ingest`,
-  `refuse_unattested_model_read` in `openrouter._pinned_request`), so it is never transcribed,
-  embedded or summarised.
+  document refuses every OpenRouter request in its scope (`licensed_document_scope`, alias
+  `licensed_ingest`; `refuse_unattested_model_read` in `openrouter._pinned_request`), so it is never
+  transcribed, embedded or summarised. `look` refuses such a page, and so does the agent host's
+  revision comparison (`routes/revision_compare.py`, 403).
+- **Work on one licensed document runs in its scope.** An ingest, a `look` at a page and a revision
+  comparison run inside `licensed_document_scope(terms)`: every model call in it goes to
+  zero-retention endpoints whatever the organization's setting (the OpenRouter transports pin it, and
+  the chat contract merges the pin into the request), a non-OpenRouter (BYOK) endpoint is refused,
+  and the generations are traced as metadata (length, sha256), still recorded with model, usage and
+  cost. `look` sends a licensed page's text, never its image, and returns its reading as a licensed
+  hit, so the reading too is a reference in the transcript.
 - **A reference, not the text.** `render_grounding_block` renders a licensed hit with a `Licence:`
-  line and a reference token `⟦licensed:lp_…⟧` in its fence; the text is filed in the turn's
-  `LicensedCapture`, opened with the grounding capture and dropped with it, never serialised.
+  line and a reference token in its fence, `⟦licensed:lp_<16 hex of the passage's sha256>.<anchor>⟧`.
+  The anchor is base64url JSON of the hit's collection, file, page and body length: metadata the
+  header states anyway. The text is filed in the turn's `LicensedCapture`, opened with the grounding
+  capture and dropped with it, never serialised. The same passage gets the same reference, on every
+  call and every turn, so the provider's prompt-cache prefix stays stable.
 - **Expanded inside the call, whole, and only to zero retention.** The chat-request contract
   (`llm_factory`) replaces references with their text after LangChain has reported the messages to
   every callback, so Langfuse and the agent runtime's spans log the token. The model reads each
   passage whole, as its tool returned it (a section, pages, a clause, as the question needs); nothing
   caps what it reads. The text goes only to a request pinned to zero-retention endpoints (ADR-0074):
-  an organization that switched retention limits off, or a BYOK endpoint, gets a note instead. A
-  reference from an earlier turn expands to a note that says so: licensed text is not carried
-  between turns.
+  an organization that switched retention limits off, or a BYOK endpoint, gets a note instead.
+- **A later turn reads the passage again from its document.** Licensed text is not carried between
+  turns; the reference is. At the start of a chat turn (`licensed_recall.open_grounding_capture`),
+  each anchored reference in the history's tool results that the new capture lacks is read again
+  (`knowledge_layer.estate.licensed_passage_sources`: the page's points and its page text) and filed
+  only when a candidate's sha256 matches the reference, its collection is in the turn's signed scope,
+  the copy is still licensed and attested, and the flag is on. A changed, withdrawn or deleted copy,
+  a reference with no anchor (a `grep` line, a judge's excerpt) and one typed into a message expand
+  to `EXPIRED_NOTE`. So a reference never expires while its copy exists and is attested.
 - **The provider's prompt cache keeps working.** "No licensed text in caches" means our persistent
   stores (Dragonfly, LangGraph checkpoints, job payloads, Langfuse, logs), not the provider's
   short-lived in-memory prompt cache, which the zero-retention endpoints' terms cover. Expansion is
@@ -83,34 +100,55 @@ while the model still reads what the office licensed for this use.
   24-character shingles that lets a run of licensed text through up to the passage's
   `quote_max_chars` and drops the rest, writing `[…]`, in the content, reasoning and tool-call
   arguments (escape-aware for JSON), before any callback sees a token. A capped stream reports its
-  own tokens.
+  own tokens. One reply carries at most `ANSWER_QUOTE_FACTOR` (3) times the smallest cap of what it
+  read, all quotes and channels together; past that budget every further run is cut.
 - **Direct traces** (`observability.direct_trace._clip`) cap every payload against the turn's
   licensed text, and an ingest of a licensed document (`ingest.measures.file_trace`, keyed on the
   job config's `licence_class`) records its generations as metadata only: length and sha256.
 - **The registry and the estate.** A licensed hit's `chunk_text` in the citation registry is cut to
-  its quote cap; `grep`'s index of lines prints none of a licensed document.
+  its quote cap. The whole passage stays in memory for the turn (`SourceRegistry.licensed_text`,
+  cleared when the next turn binds the registry, never serialised), so the quote check verifies a
+  quotation from anywhere in it. `grep`'s index of lines puts a licensed document's lines behind a
+  reference, expanded only inside the call.
+- **The search's own judges read references.** The reranker and the requery judge
+  (`search/rerank._build_user_prompt`, which `requery` shares) render a licensed excerpt through
+  `licensed_body`, so the excerpt reaches the judge model only as an expanded reference, on a
+  zero-retention request, and an unattested one not at all.
 - **Everything else that could carry licensed text out.**
   - A web search whose query shares a shingle with the turn's licensed text is refused before the
     provider sees it (`licensed_text.refused_outbound_query`, in `tavily_web_search`).
-  - A turn that read licensed text is tagged `licensed-text`, and the `chat-turn-judges` rule skips
+  - A turn that read licensed text is tagged `licensed-text` on its root observation (through the
+    turn-outcome box, `turn_outcome.record_turn_tag`, which a tool's copied context still reaches),
+    and the `chat-turn-judges` rule skips
     it (`none of`): its trace holds references, so a judge would grade the answer against the wrong
     evidence. It carries the score `licensed-quote-capped` (quotes a reply had cut; 0 when it kept
     to the cap).
-  - The lessons distiller takes no vote on an answer whose stored sources name the office shelf or
-    the `office` kind (`platform-lessons/repository.ts`, design E44): a lesson reaches every office.
+  - The lessons distiller takes no vote on an answer whose turn read licensed text (design E44): the
+    turn's first licensed passage emits the technical step `licensed-text`, which rests in the
+    answer's `messages.metadata`, and `platform-lessons/licensed-text.ts` excludes such a message.
+    It reads the seam's own marker and nothing else, so with the flag off (no passage expanded, no
+    marker) the distiller's input is what it was. A lesson reaches every office.
   - The `Licence:` line asks for the answer's label ("Norm, Büroexemplar Ausgabe 2017, zuletzt
     geprüft am …"), read from the office base knowledge block by the hit's `knowledge_edition_id`,
     and for every quote in the language the passage is written in: a translation is no quote and
     no source.
   - The agent door's tools (`apps/agent-host`) run without a turn capture, so a licensed hit reaches
-    an outside agent listed only and the cumulative quote cap per document and session (design E19)
-    holds at zero. `document-text-get`, which reads a document's text in the BFF, does not know a
-    document's licence yet; until it does, it is the one door path that can return a licensed
-    copy's text (see the PR).
+    an outside agent listed only. The door's document routes are held in the BFF by the sibling
+    change on the office layer (`base-knowledge/door-guard.ts`): a licensed copy's file and links
+    are never sent to an agent, and its text is refused while unattested, otherwise cut to three
+    quote caps per document, person and day, cumulatively (design E19).
+  - Cross-project search snippets (`tools/cross_project`, up to 900 characters each) carry no licence
+    mark yet: the BFF's hit does not state one. A licensed copy filed in a project would reach the
+    agent as a snippet. Follow-up: the BFF states the mark on the hit (`licenceOfDocument`).
+  - Derived text is stored as written. A document summary or a folder dossier a model wrote while
+    reading a licensed copy (in its licensed scope, so at zero retention) is model output stored in
+    the database; it is not the licensed text, and this seam does not cap a paraphrase or a quote
+    inside it.
 - **The flag.** `licensed-seam` (entitlement, read per turn through `GET /api/internal/stages`)
   decides whether the turn's capture may expand at all. Off, a licensed hit is listed (document,
-  page, clause) with no text. The seam itself is never off: a marked passage is never rendered as
-  text.
+  page, clause) with no text, nothing is recalled, and the web search's description and the
+  distiller's input are unchanged. The seam itself is never off: a marked passage is never rendered
+  as text. No text a model reads names this record.
 
 ### Consequences
 
@@ -118,10 +156,11 @@ while the model still reads what the office licensed for this use.
   the guarantee needs no exporter to recognise licensed text.
 - Good: the answer can still read a licensed table; the eval (`task be:eval:licensed`) measures how
   well against the unmarked ceiling and the listed-only floor.
-- Bad: a later turn does not see the earlier turn's licensed passages and has to search again; its
-  prompt-cache prefix changes at that point of the history.
-- Bad: a quote from a licensed passage beyond its first `quote_max_chars` cannot be verified
-  against the registry, which holds only that much; the quote check may flag it.
+- Bad: a later turn pays one store read per earlier reference to read it again, and a reference
+  with no anchor (a `grep` line) is lost; the turn has to search again for it.
+- Bad: a passage that a turn read but that its document no longer holds byte-for-byte (a
+  re-ingest that changed chunking) cannot be recalled; the hash check prefers losing it to
+  expanding other text.
 - Neutral: deep research and intake open the grounding capture without the flag, so they list
   licensed passages and read none, until a caller passes the flag on.
 
@@ -132,7 +171,10 @@ real `ChatOpenAI` against a mock wire: the wire must read it; no callback, the c
 or the log may hold more than the cap; the reply's content and tool-call arguments are capped and
 still parse; each assertion has an unmarked positive control. The ordering test holds that the
 callback saw the reference and the request the text.
-`packages/knowledge-layer/tests/test_licensed_hits.py` holds the producers.
+`packages/knowledge-layer/tests/test_licensed_hits.py` holds the producers and the recall's sources;
+`packages/agent/tests/common/test_licensed_recall.py` holds the recall (the hash, the scope, the
+attestation, the flag, a reference typed into a message). The `look` and revision-comparison tests
+hold that a licensed page sends no image and an unattested one is refused.
 
 ## Pros and Cons of the Options
 

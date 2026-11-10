@@ -262,7 +262,7 @@ reports, and the chat-request contract expands the reference only after that
 (ADR-0159). A reply that read licensed text is capped at the passage's
 `quote_max_chars` before any callback sees it, and every direct generation's
 payload passes `licensed_text.trace_payload` in `direct_trace._clip`. The
-generation is never dropped; only its content is. A turn that read licensed text carries the trace tag `licensed-text`, and the `chat-turn-judges` rule skips it (`none of`): its trace holds references, not the text the answer was grounded in. `test_licensed_seam.py` plants
+generation is never dropped; only its content is. A turn that read licensed text carries the trace tag `licensed-text` on its root observation (`turn_outcome.record_turn_tag`), and the `chat-turn-judges` rule skips it (`none of`): its trace holds references, not the text the answer was grounded in. `test_licensed_seam.py` plants
 a shingle and fails if a callback, the checkpointed messages or the log hold more
 of it than the cap.
 

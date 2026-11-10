@@ -66,9 +66,9 @@ from agent.common import content_to_text
 from agent.common.cost_tracking import cost_tracker_var
 from agent.common.data_sources import disabled_source_notice
 from agent.common.data_sources import source_id_for_call
-from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
 from agent.common.grounding_block import strip_trace_lanes
+from agent.common.licensed_recall import open_grounding_capture
 from agent.common.model_vision import chat_model_scope
 from agent.common.model_vision import model_name_of
 from agent.common.prompt_caching import begin_stable_prefix
@@ -1551,7 +1551,7 @@ class ChatAgent:
         # What each evidence tool STATED, filed under the bytes it returned, so
         # the citation registry copies fields instead of re-parsing the text an
         # evidence tool wrote (ADR-0061).
-        grounding_capture = begin_grounding_capture(licensed_text=state.licensed_text_allowed)
+        grounding_capture = await open_grounding_capture(state.licensed_text_allowed, state.messages)
         try:
             graph_result = await self._graph.ainvoke(state, config=self._graph_config(binding))
             turn_sources = get_turn_captures()

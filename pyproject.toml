@@ -187,6 +187,9 @@ ignore_imports = [
   # The port: `agent.knowledge.factory` builds the BaseRetriever and
   # BaseIngestor the agent talks to, so it is the one module that should.
   "agent.knowledge.factory -> knowledge_layer.**",
+  # The licence port (ADR-0159): a document's licence, and a licensed passage's source
+  # for a later turn, read where the marks and the text live.
+  "agent.knowledge.licences -> knowledge_layer.estate",
   # Known bypasses of the port, from before this contract. Route each one
   # through the port and delete its line; a new one fails the build.
   "agent.agents.piloti.register -> knowledge_layer.chat_binding",

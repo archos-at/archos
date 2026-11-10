@@ -26,9 +26,10 @@ know. This module is everything that follows from the mark, in four moves:
    already reported them to every callback, Langfuse's included, so the trace
    logs the token and only the provider sees the text: whole, never cut, and only on a request pinned
    to zero-retention endpoints, whose terms cover the provider's short-lived prompt cache (identical
-   bytes on every call of a turn, so the later calls read the norm from it). A token from an earlier
-   turn finds nothing to expand and says so (:data:`EXPIRED_NOTE`): licensed text
-   is not carried between turns.
+   bytes on every call of a turn, so the later calls read the norm from it). Licensed text is not
+   carried between turns: a later turn reads a reference's passage again from its document
+   (``licensed_recall``), hash-checked against the reference, and only while the copy is still licensed
+   and attested; anything else expands to :data:`EXPIRED_NOTE`.
 3. **Capped on the way out.** A call that expanded anything returns through
    :class:`QuoteCap`, a shingle matcher that lets a run of licensed text through
    up to the passage's ``quote_max_chars`` and drops the rest, in the answer, the
@@ -50,7 +51,6 @@ import hashlib
 import json
 import logging
 import re
-import secrets
 from collections.abc import Iterable
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -103,7 +103,8 @@ ANSWER_QUOTE_FACTOR = 3
 #: extend the quote it closes by one character.
 CAP_MARKER = "[…]"
 
-_REF_RE = re.compile(r"⟦licensed:(lp_[0-9a-f]{16})⟧")
+#: A reference: ``lp_`` and 16 hex of the passage's sha256, then any anchor (``licensed_recall.anchor_of``).
+REFERENCE_RE = re.compile(r"⟦licensed:(lp_[0-9a-f]{16})(?:\.([A-Za-z0-9_-]+))?⟧")
 
 #: The ``Licence:`` header line's text, under which the passage follows as a reference.
 LICENSED_LINE = (
@@ -149,8 +150,13 @@ NOT_ZERO_RETENTION_NOTE = (
     "Name the document, its page and clause; quote nothing from it.]"
 )
 
-#: What a reference from an earlier turn expands to: the text is not carried between turns.
+#: What a reference this turn holds no text for expands to (``licensed_recall`` says which are read again).
 EXPIRED_NOTE = "[Licensed text from an earlier turn, not carried over. Search or read it again to quote it.]"
+
+
+def passage_digest(text: str) -> str:
+    """The reference id of ``text``: the same passage, the same id."""
+    return "lp_" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 class LicenceTerms(BaseModel):
@@ -214,9 +220,10 @@ class LicensedCapture:
     _cap: QuoteCap | None = None
 
     def file(self, text: str, quote_max_chars: int) -> str:
-        ref = f"lp_{secrets.token_hex(8)}"
+        ref = passage_digest(text)
         self.read_any = True
-        self.passages[ref] = (text, quote_max_chars)
+        held = self.passages.pop(ref, None)
+        self.passages[ref] = (text, min(quote_max_chars, held[1]) if held else quote_max_chars)
         while len(self.passages) > MAX_PASSAGES_PER_TURN:
             del self.passages[next(iter(self.passages))]
         self._cap = None
@@ -259,8 +266,13 @@ def _emit_capped_score(capped: int) -> None:
         logger.debug("licensed-quote-capped not emitted", exc_info=True)
 
 
-def licensed_body(body: str, terms: LicenceTerms | None) -> str:
-    """What a hit's fence holds: ``body``, or for a licensed one a reference to its filed text or the withheld note."""
+def current_capture() -> LicensedCapture | None:
+    """This turn's capture, or ``None`` outside a turn that opened one."""
+    return _capture.get()
+
+
+def licensed_body(body: str, terms: LicenceTerms | None, *, anchor: str | None = None) -> str:
+    """What a hit's fence holds: ``body``, or for a licensed one a reference (with ``anchor``, recallable) or a note."""
     if terms is None or not terms.licensed:
         return body
     if not terms.ai_processing:
@@ -269,11 +281,12 @@ def licensed_body(body: str, terms: LicenceTerms | None) -> str:
     if capture is None or not capture.text_allowed:
         return WITHHELD_NOTE
     if not capture.read_any:
-        _mark_turn()
-    return f"⟦licensed:{capture.file(body, terms.quote_max_chars)}⟧"
+        mark_licensed_turn()
+    ref = capture.file(body, terms.quote_max_chars)
+    return f"⟦licensed:{ref}.{anchor}⟧" if anchor else f"⟦licensed:{ref}⟧"
 
 
-def _mark_turn() -> None:
+def mark_licensed_turn() -> None:
     """Mark the turn that read licensed text, once: a trace tag (the judges skip it) and a technical step.
 
     The step rests with the answer (``messages.metadata``, slot :data:`LICENSED_TRACE_TAG`): the lessons distiller
@@ -281,8 +294,10 @@ def _mark_turn() -> None:
     """
     from agent.common.turn_status import emit_technical
     from agent.observability.langfuse_trace_attributes import add_trace_tag
+    from agent.observability.turn_outcome import record_turn_tag
 
     add_trace_tag(LICENSED_TRACE_TAG)
+    record_turn_tag(LICENSED_TRACE_TAG)
     emit_technical(LICENSED_TRACE_TAG)
 
 
@@ -321,7 +336,7 @@ def _expand_text(
         used[match.group(1)] = found
         return neutralise_tags(found[0])
 
-    return _REF_RE.sub(replace, text)
+    return REFERENCE_RE.sub(replace, text)
 
 
 def _expand_content(
