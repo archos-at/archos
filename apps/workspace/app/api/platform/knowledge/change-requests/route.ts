@@ -23,5 +23,5 @@ export const GET = platformApiRoute(
 
 export const POST = platformApiRoute(
   async ({ session, request }) => createPlatformChangeRequest(session, await parseJsonBody(request, createChangeRequestBodySchema)),
-  { permission: PLATFORM_PERMISSIONS.settingsManage, status: 201 },
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite, status: 201 },
 )

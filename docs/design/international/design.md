@@ -461,14 +461,14 @@ knowledge_release_moves(pack_id, seq, record_id, channel CHECK (IN ('preview','s
   FOREIGN KEY (to_revision_id, record_id) REFERENCES knowledge_revisions (revision_id, record_id));   -- insert-only
 knowledge_review_decisions(change_request_id, revision_id, claim_path, decision CHECK (IN ('accepted','edited','rejected')),
   source_checked, reviewer, started_at, decided_at);
-knowledge_approvals(change_request_id, approver, role CHECK (IN ('domain_expert','counsel','second_reviewer','privacy_reviewer')),
+knowledge_approvals(change_request_id, approver, role CHECK (IN ('domain_expert','counsel','privacy_reviewer')),
   decision_source CHECK (IN ('app','elicitation')), decided_at);
 knowledge_golden_runs(pack_id, channel, release_seq, case_id, case_revision_id, result, scores, ran_at);
 knowledge_citation_captures(id, change_request_id, url, document_id, basis CHECK (IN ('fetched','operator_supplied')), sha256, retrieved_at);
 ```
 
 - **Flow.** draft, `validate`, `submit`, per-claim review, approvals, `publish {preview}`, `golden-run`, `publish {stable}`. A publish moves heads in one transaction, appends moves and bumps `stable_seq`. A rollback appends inverse moves. Released revisions stay readable, so old citations resolve.
-- **Approval roles.** A trigger requires `domain_expert` for legal content. It adds `counsel` for advice policy, `second_reviewer` for a hotfix, and `privacy_reviewer` for a site-keyed source.
+- **Approval roles.** A trigger requires `domain_expert` for every change request (migration 0218). It adds `counsel` for advice policy and `privacy_reviewer` for a site-keyed source. (A `second_reviewer` role for a hotfix was planned and removed in 0218: nothing required it.)
 - **Four eyes per revision.** No approval counts for a revision its approver created. A reviewer's edit becomes a revision in a follow-up change request that the proposer or another reviewer approves.
 - **The person's yes is server-side.** These operations are `personDecides`: review-approve, `publish`, `rollback`, `org-country-entitle` and `organization-home-country-set`.
   - On the platform door the caller is an `external_agent` [V `principal.ts`], so `confirmation.ts` elicits and signs the answer [V].

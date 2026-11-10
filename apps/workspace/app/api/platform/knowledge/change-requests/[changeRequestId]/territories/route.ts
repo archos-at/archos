@@ -28,5 +28,5 @@ export const POST = platformApiRoute<Params>(
         actingReaderIsAgent() ? 'agent' : 'person',
       )
     }),
-  { permission: PLATFORM_PERMISSIONS.settingsManage },
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite },
 )

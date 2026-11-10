@@ -33,6 +33,9 @@ export const TESTING_WINDOW_MS = 24 * 60 * 60 * 1000
 
 const OPEN_STATUSES = ['draft', 'submitted'] as const
 
+/** A monitor's request is open in these states: the WHERE of `knowledge_change_requests_one_open_per_source` (0212). */
+export const MONITOR_REQUEST_OPEN_STATUSES = ['draft', 'submitted', 'approved'] as const
+
 export type SourceState = 'active' | 'testing'
 
 export interface RegisteredSource {
@@ -212,4 +215,20 @@ export async function writeMonitorState(tx: Tx, state: MonitorState): Promise<vo
     .insert(knowledgeSourceMonitorStates)
     .values(state)
     .onConflictDoUpdate({ target: knowledgeSourceMonitorStates.recordId, set: { ...state } })
+}
+
+/**
+ * A check's clock and outcome only: `checked_at`, `ok_at`, `failure`. The baseline (etag, sha256, version, terms) the
+ * row holds stays as it is, never rewritten from a snapshot this run read earlier, which another run may have moved
+ * since (a run outlives the sweep's 10-minute timeout). A source checked for the first time gets a row with no baseline.
+ */
+export async function touchMonitorState(
+  tx: Tx,
+  state: Pick<MonitorState, 'recordId' | 'checkedAt' | 'okAt' | 'failure'>,
+): Promise<void> {
+  const clock = { checkedAt: state.checkedAt, okAt: state.okAt, failure: state.failure }
+  await tx
+    .insert(knowledgeSourceMonitorStates)
+    .values({ ...state, etag: null, sha256: null, version: null, termsSha256: null })
+    .onConflictDoUpdate({ target: knowledgeSourceMonitorStates.recordId, set: clock })
 }

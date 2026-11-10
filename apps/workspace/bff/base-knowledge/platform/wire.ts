@@ -399,7 +399,11 @@ export const reviewBodySchema = z.object({
       }),
     )
     .min(1)
-    .max(500),
+    .max(500)
+    // Two verdicts on one claim in one body would leave which one stands to insertion order.
+    .refine((decisions) => new Set(decisions.map((d) => `${d.revisionId}|${d.claimPath}`)).size === decisions.length, {
+      message: 'Each claim (revisionId, claimPath) takes one decision per review.',
+    }),
 })
 
 /** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
@@ -485,6 +489,8 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   revisions: RevisionView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
+  /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */
+  sourcesUnchecked: boolean
   /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
   secondReviewRoles: SecondReviewRoleView[]
   /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */
