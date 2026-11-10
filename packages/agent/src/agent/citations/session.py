@@ -17,7 +17,6 @@ from typing import Any
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import normalize_url
 from agent.citations.registry import SourceRegistry
-from agent.citations.roles import LEGACY_BINDING_STATUS
 from agent.common.grounding_block import SourceRegion
 
 logger = logging.getLogger(__name__)
@@ -54,15 +53,11 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
     match strength that the same conversation had shown a minute earlier, on a
     replica move nobody could see.
     """
-    from agent.common.norm_registry import LEGACY_NORM_RANK
-
     registry = SourceRegistry()
     if isinstance(entries, list):
         for item in entries:
             if isinstance(item, dict):
                 try:
-                    rank = item.get("rank")
-                    status = item.get("binding_status", "unknown")
                     registry.add(
                         SourceEntry(
                             url=item.get("url"),
@@ -78,8 +73,6 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
                             chunk_text=item.get("chunk_text"),
                             clause=item.get("clause", item.get("punkt")),
                             score=item.get("score"),
-                            rank=LEGACY_NORM_RANK.get(rank, rank) if isinstance(rank, str) else rank,
-                            binding_status=LEGACY_BINDING_STATUS.get(status, status),
                             regions=[
                                 region
                                 for region in map(SourceRegion.from_cached, item.get("regions") or [])

@@ -201,8 +201,7 @@ class NormsFile(BaseModel):
 
     version: int = 1
     corpus_collection: str = "oib_knowledge"
-    # Profile fields a stored registry still carries (the norms store writes them). Nothing reads
-    # them since ADR-0175: a country's doctrine and coverage are its pack's records.
+    # Profile fields the norms store still writes; nothing reads them since ADR-0175 (the packs do).
     language: str = ""
     states: dict[str, str | None] = Field(default_factory=dict)
 
@@ -1015,6 +1014,7 @@ def _lane_for_source(
         if doc_class:
             return _OIB_CLASS_LANES[doc_class]
     if _host_matches(source_url, "ris.bka.gv.at"):
+        registry = registry if registry is not None else load_registry()  # loaded only for a RIS page
         if registry:
             for entry in registry.entries:
                 if entry.document_number and entry.document_number in source_url:

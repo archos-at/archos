@@ -3064,8 +3064,6 @@ class TestKnowledgeLayerChunkTextCapture:
             chunk_text="Brandabschnitte sind so auszubilden.",
             clause="3.5.2",
             score=0.87,
-            rank="oib_guideline",
-            binding_status="binding",
         )
 
         hydrated = _registry_from_cached_entries([dataclasses.asdict(original)])
@@ -3552,4 +3550,6 @@ class TestTheSessionCacheFromBeforeTheRename:
             ]
         )
         entry = registry._all[0]
-        assert (entry.clause, entry.rank, entry.binding_status) == ("3.5.2", "state_law", "declared_binding")
+        assert entry.clause == "3.5.2"
+        # A cached rank and binding status are read by nothing since ADR-0175: the roles decide.
+        assert not hasattr(entry, "rank") and not hasattr(entry, "binding_status")

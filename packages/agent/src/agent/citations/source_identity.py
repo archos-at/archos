@@ -42,15 +42,12 @@ def source_lane(entry: SourceEntry, registry: NormRegistry | None = None) -> tup
     """
     from agent.common.norm_registry import lane_for_hit
     from agent.common.norm_registry import lane_for_knowledge_hit
-    from agent.common.norm_registry import load_registry
 
     file_name = None
     if entry.citation_key:
         file_name, _ = parse_citation_key(entry.citation_key)
-    # The registry only ranks a legal-database page into its federal or state lane, a display label;
-    # ``lane_for_hit`` recognises the page by its host. A source without a URL never needs it.
-    if registry is None:
-        registry = load_registry() if entry.url else None
+    # ``registry`` only ranks a RIS page into its federal or state lane, a display label;
+    # ``lane_for_hit`` loads it itself for such a page when the caller passes none.
     classify = lane_for_knowledge_hit if entry.source_type == "knowledge_layer" else lane_for_hit
     # The shelf the hit already carries (ADR-0047) is what decides whether the
     # default doc class means anything; without it the resolver has to guess

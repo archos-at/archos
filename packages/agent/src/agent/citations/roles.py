@@ -70,16 +70,6 @@ class BindingClassification:
     binding_status: str = "unknown"
 
 
-#: The German binding statuses an older pod wrote into the shared session cache
-#: (and onto the wire) before the English names. Read-only: nothing writes these.
-LEGACY_BINDING_STATUS: dict[str, str] = {
-    "bindend": "binding",
-    "verbindlich_erklaert": "declared_binding",
-    "auslegend": "interpretive",
-    "unbekannt": "unknown",
-}
-
-
 @dataclass(frozen=True)
 class EditionUse:
     """One edition's role at the turn's site."""

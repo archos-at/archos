@@ -3,8 +3,8 @@
 Stages over ``(messages, registry)``, in this order: DSML strip, envelope
 split, grouped-citation expansion and control-marker extraction
 (``_extract``), envelope card registration, citation and quote verification
-with the turn's ONE repair (an unresolvable ``[N]`` is labelled where it
-stood, never silently removed), the dialect validator
+with the turn's ONE repair (an unresolvable ``[N]`` is removed, and no
+verification marker ever reaches the prose: ADR-0125, amended), the dialect validator
 (``common/answer_dialect``), sanitisation, the restated-mindmap drop,
 re-citing the composed cards, the ``answer_meta`` gates, card suppression,
 callout resolution, the quote-line stamps (``common/quote_stamps``), and

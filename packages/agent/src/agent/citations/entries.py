@@ -73,14 +73,6 @@ class SourceEntry:
     # is but how nearly it matched; the best score of a page's chunks survives
     # dedup. None for URL/web sources.
     score: float | None = None
-    # BINDING CLASSIFICATION, as an older pod cached it in the session registry. The
-    # wire never reads these: it recomputes the status from the turn's edition roles
-    # (``citations/roles.py``, ADR-0175), ``unknown`` where none reaches the passage,
-    # because a fabricated "binding" badge would be a false legal claim. ``rank`` was
-    # the norm registry's rank and nothing sets it any more. Kept so a cached entry
-    # still round-trips through the session-registry cache.
-    rank: str | None = None
-    binding_status: str = "unknown"
     # WHERE ON THE PAGE the passage sits, as boxes the viewer draws (issue #433).
     # Stated by the producer for a passage read off a picture of the page (a
     # plan's Grundriss, a photo), never for running text, which the viewer
