@@ -59,7 +59,7 @@ export interface StoredEntry extends EntryRecordIds {
 
 const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** The typed body table of each record type (0202, 0203). */
+/** The typed body table of each record type (0202, 0205). */
 const BODY_TABLES = {
   work: knowledgeWorkRevisions,
   edition: knowledgeEditionRevisions,
@@ -71,7 +71,7 @@ const BODY_TABLES = {
 /**
  * One revision of a record, with its typed body; returns the revision id.
  * Owner-neutral: the office passes its organization, the platform `null` and
- * the change request the revision is proposed in (0203 requires it).
+ * the change request the revision is proposed in (0205 requires it).
  */
 export async function appendRevision(
   tx: Tx,

@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0203_platform_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0205_platform_base_knowledge.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -14,8 +14,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KNOWLEDGE_VOCABULARIES } from './vocab'
 
-/** In order: a later migration's CHECK on a column replaces an earlier one (0203 widens the record types). */
-const MIGRATIONS = ['migrations/0202_base_knowledge.sql', 'migrations/0203_platform_base_knowledge.sql'].map((path) =>
+/** In order: a later migration's CHECK on a column replaces an earlier one (0205 widens the record types). */
+const MIGRATIONS = ['migrations/0202_base_knowledge.sql', 'migrations/0205_platform_base_knowledge.sql'].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
 )
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')

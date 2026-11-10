@@ -1,6 +1,6 @@
 /**
  * What the office layer asks of the platform's own base knowledge (ADR-0163,
- * ADR-0165), behind one interface. The platform's records (migration 0203)
+ * ADR-0165), behind one interface. The platform's records (migration 0205)
  * answer it, behind the `platform-base-knowledge` flag per organization: with
  * the flag off an office reads exactly what the stub answered, nothing.
  *

@@ -342,7 +342,7 @@ export const FEATURE_FLAGS = {
    */
   officeBaseKnowledge: 'office-base-knowledge',
   /**
-   * The platform's own base knowledge (ADR-0165, migration 0203): territories,
+   * The platform's own base knowledge (ADR-0165, migration 0205): territories,
    * authorities, listed norms and texts as records that change only through a
    * reviewed change request. For an office, its turn reads the norms the platform
    * lists that it holds no copy of ("gelistet, kein Text") and the platform's

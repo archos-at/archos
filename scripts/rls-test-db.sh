@@ -209,6 +209,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
+    bff/residency/processing-policy.integration.spec.ts \
     bff/inbox/repository.integration.spec.ts \
     bff/project-experience/readable-files.integration.spec.ts \
     bff/projects/memory-evidence.integration.spec.ts \
@@ -3464,18 +3465,18 @@ check_in bk_0202 "SELECT count(*) FROM pg_indexes WHERE indexname = 'knowledge_r
 echo "==> 0202 base knowledge and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0203: the platform's base knowledge in the same records (ADR-0165).
+# Migration 0205: the platform's base knowledge in the same records (ADR-0165).
 #
-# On a database of its own, migrated through 0203: a platform revision goes
+# On a database of its own, migrated through 0205: a platform revision goes
 # only into a draft change request, an approval never comes from a revision's
 # author, a platform head moves only with a stable release move, an office
-# owns no territory, and the down restores 0202's shape so 0203 applies again.
+# owns no territory, and the down restores 0202's shape so 0205 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0203 platform base knowledge and its down migration on pbk_0203"
-migrate_until pbk_0203 0203_platform_base_knowledge
-CR="c0000000-0000-4000-8000-000000000203"
-RV="e0000000-0000-4000-8000-000000000203"
-sql_in pbk_0203 <<SQL
+echo "==> verifying the 0205 platform base knowledge and its down migration on pbk_0205"
+migrate_until pbk_0205 0205_platform_base_knowledge
+CR="c0000000-0000-4000-8000-000000000205"
+RV="e0000000-0000-4000-8000-000000000205"
+sql_in pbk_0205 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT territories', 'AT', 'user_author');
 INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-6', NULL, 'territory', 'AT', 'user_author');
 INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
@@ -3483,28 +3484,28 @@ INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organizati
 INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
   VALUES ('$RV', 'AT-6', NULL, 'state', 'Steiermark', '{AT}');
 SQL
-refused_in pbk_0203 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('AT-7', 'org_0203', 'territory', 'user_author')" "knowledge_records_platform_types" "an office owning a territory"
-refused_in pbk_0203 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('work_p0203', NULL, 'work', 'user_author')" "knowledge_records_country_is_platform" "a platform record without a country"
-refused_in pbk_0203 "INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by) VALUES ('e0000000-0000-4000-8000-000000000213', 'AT-6', 'territory', NULL, 'user_author')" "knowledge_revisions_change_request_is_platform" "a platform revision outside a change request"
-refused_in pbk_0203 "UPDATE knowledge_records SET head_revision_id = '$RV' WHERE id = 'AT-6'" "only with a stable release move" "a platform head moved without a release"
-sql_in pbk_0203 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
-refused_in pbk_0203 "INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id) VALUES ('e0000000-0000-4000-8000-000000000223', 'AT-6', 'territory', NULL, 'user_author', '$CR')" "into a draft change request" "a revision into a submitted request"
-refused_in pbk_0203 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_author', 'domain_expert', 'app')" "revision they wrote" "an author approving their own request"
-refused_in pbk_0203 "INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source) VALUES ('AT-6', 'stable', 'publish', '$RV', '$CR', 'user_expert', 'app')" "only an approved change request" "a publish before the approval"
-sql_in pbk_0203 <<SQL
+refused_in pbk_0205 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('AT-7', 'org_0205', 'territory', 'user_author')" "knowledge_records_platform_types" "an office owning a territory"
+refused_in pbk_0205 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('work_p0205', NULL, 'work', 'user_author')" "knowledge_records_country_is_platform" "a platform record without a country"
+refused_in pbk_0205 "INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by) VALUES ('e0000000-0000-4000-8000-000000000213', 'AT-6', 'territory', NULL, 'user_author')" "knowledge_revisions_change_request_is_platform" "a platform revision outside a change request"
+refused_in pbk_0205 "UPDATE knowledge_records SET head_revision_id = '$RV' WHERE id = 'AT-6'" "only with a stable release move" "a platform head moved without a release"
+sql_in pbk_0205 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
+refused_in pbk_0205 "INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id) VALUES ('e0000000-0000-4000-8000-000000000223', 'AT-6', 'territory', NULL, 'user_author', '$CR')" "into a draft change request" "a revision into a submitted request"
+refused_in pbk_0205 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_author', 'domain_expert', 'app')" "revision they wrote" "an author approving their own request"
+refused_in pbk_0205 "INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source) VALUES ('AT-6', 'stable', 'publish', '$RV', '$CR', 'user_expert', 'app')" "only an approved change request" "a publish before the approval"
+sql_in pbk_0205 <<SQL
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
 UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$CR';
 INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
   VALUES ('AT-6', 'stable', 'publish', '$RV', '$CR', 'user_expert', 'app');
 UPDATE knowledge_records SET head_revision_id = '$RV' WHERE id = 'AT-6';
 SQL
-check_in pbk_0203 "SELECT head_revision_id FROM knowledge_records WHERE id = 'AT-6'" "$RV" "0203: a stable release moves the head"
-refused_in pbk_0203 "UPDATE knowledge_release_moves SET reason = 'x'" "append-only" "a release move rewritten"
-refused_in pbk_0203 "UPDATE knowledge_records SET country_id = 'DE' WHERE id = 'AT-6'" "only head_revision_id" "a platform record's country rewritten"
-# Down: 0202's shape comes back, without the platform's rows; 0203 applies again.
-apply_in pbk_0203 0203_platform_base_knowledge.down.sql
-check_in pbk_0203 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_records' AND column_name = 'country_id'" "0" "0203 down drops the country column"
-check_in pbk_0203 "SELECT count(*) FROM knowledge_records" "0" "0203 down removes the platform's records"
-apply_in pbk_0203 0203_platform_base_knowledge.sql
-check_in pbk_0203 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_release_moves'" "1" "0203 applies again after its down"
-echo "==> 0203 platform base knowledge and its down migration verified"
+check_in pbk_0205 "SELECT head_revision_id FROM knowledge_records WHERE id = 'AT-6'" "$RV" "0205: a stable release moves the head"
+refused_in pbk_0205 "UPDATE knowledge_release_moves SET reason = 'x'" "append-only" "a release move rewritten"
+refused_in pbk_0205 "UPDATE knowledge_records SET country_id = 'DE' WHERE id = 'AT-6'" "only head_revision_id" "a platform record's country rewritten"
+# Down: 0202's shape comes back, without the platform's rows; 0205 applies again.
+apply_in pbk_0205 0205_platform_base_knowledge.down.sql
+check_in pbk_0205 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_records' AND column_name = 'country_id'" "0" "0205 down drops the country column"
+check_in pbk_0205 "SELECT count(*) FROM knowledge_records" "0" "0205 down removes the platform's records"
+apply_in pbk_0205 0205_platform_base_knowledge.sql
+check_in pbk_0205 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_release_moves'" "1" "0205 applies again after its down"
+echo "==> 0205 platform base knowledge and its down migration verified"

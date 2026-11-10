@@ -1,5 +1,5 @@
 /**
- * Which countries an office is entitled to (migration 0203, ADR-0165, design
+ * Which countries an office is entitled to (migration 0205, ADR-0165, design
  * §5.1): its home country, and each country the platform entitled it to. The
  * read policy of every platform record asks the same question in SQL
  * (`knowledge_country_entitled`); this is the platform's write side and the

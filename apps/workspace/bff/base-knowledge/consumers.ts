@@ -142,7 +142,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'point.ai_processing_attested', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_the_seams_attestation_and_quote_cap_ride_along' } },
   { element: 'point.quote_max_chars', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: OFFICE_FILTER_SPEC, name: 'test_a_cap_that_is_no_positive_count_is_left_out' } },
   { element: 'point.knowledge_edition_id', consumer: 'packages/knowledge-layer/src/vector_store/writes.py', test: { file: MARK_SPEC, name: 'test_the_ingest_job_carries_the_mark_into_its_config' } },
-  // Migration 0203 (ADR-0165): the platform's columns and tables.
+  // Migration 0205 (ADR-0165): the platform's columns and tables.
   { element: 'knowledge_records.country_id', consumer: PLATFORM_READ, test: LISTING },
   { element: 'knowledge_revisions.change_request_id', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_manifestation_revisions.corpus_file', consumer: PLATFORM_READ, test: INDEXED },
@@ -222,7 +222,7 @@ export const AWAITING_BASELINE: readonly string[] = [
   'knowledge_manifestation_revisions.language',
   'knowledge_manifestation_revisions.text_status',
   'knowledge_manifestation_revisions.sha256',
-  // Migration 0203's own, at its landing: the territory and authority fields the slices after S7 read.
+  // Migration 0205's own, at its landing: the territory and authority fields the slices after S7 read.
   'knowledge_territory_revisions.kind',
   'knowledge_territory_revisions.name',
   'knowledge_territory_revisions.aliases',

@@ -10,7 +10,7 @@
  * What the SQL itself must hold, whatever the service does: another office
  * reads none of an office's records (with a positive control: the owner does);
  * a platform row is never written by a tenant (when one is read, and by whom,
- * is `../platform/platform.integration.spec.ts`, migration 0203); history is never updated or deleted on its own; an office cannot
+ * is `../platform/platform.integration.spec.ts`, migration 0205); history is never updated or deleted on its own; an office cannot
  * attach its copy to another office's edition; and deleting the document
  * leaves no record, revision, body or check behind.
  */

@@ -1,13 +1,13 @@
--- Reverse 0203. ORDER: roll the frontend back first; the newer build reads and
+-- Reverse 0205. ORDER: roll the frontend back first; the newer build reads and
 -- writes these tables and columns.
 --
 -- Lossy: every platform record (territories, authorities, listings, texts),
 -- every change request, review verdict, approval, release move and index run,
 -- and every office's country entitlements go. Office records are untouched:
 -- they never carry a country, a change request or a corpus file. 0202's read
--- policies come back, so an office reads what it read before 0203.
+-- policies come back, so an office reads what it read before 0205.
 DELETE FROM "knowledge_records" WHERE "organization_id" IS NULL;
--- 0202's read policies first: the 0203 ones name the columns and functions dropped below.
+-- 0202's read policies first: the 0205 ones name the columns and functions dropped below.
 SELECT secure_table('knowledge_records',
   'organization_id = current_org() OR (organization_id IS NULL AND head_revision_id IS NOT NULL)');
 SELECT secure_table('knowledge_revisions',

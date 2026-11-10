@@ -2514,12 +2514,12 @@ owner's.
 | `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256` | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
 | `knowledge_checks` | That somebody checked a work, edition or copy is still in force, and the `result` | Append-only; target and owner checked by trigger (`knowledge_refuse_cross_owner`) |
 
-RLS: an office reads its own rows and, since 0203, a platform row only as below;
+RLS: an office reads its own rows and, since 0205, a platform row only as below;
 writes are its own rows only (restrictive guards). `scripts/rls-test-db.sh`
 verifies 0202 and its down; `bff/base-knowledge/store/repository.integration.spec.ts`
 proves isolation with a positive control.
 
-## The platform's base knowledge (migration 0203, ADR-0165)
+## The platform's base knowledge (migration 0205, ADR-0165)
 
 The same records with `organization_id` NULL. `knowledge_records.country_id`
 (platform rows only, ISO 3166-1) is what an office is entitled to;
@@ -2544,6 +2544,6 @@ Reads: an office reads a platform record once it has a head and
 `organization_countries` row), and a platform revision or body once
 `knowledge_revision_released(revision_id)` (ever released to stable) and its
 record is readable. Both are `SECURITY DEFINER`. `scripts/rls-test-db.sh`
-verifies 0203's triggers and its down;
+verifies 0205's triggers and its down;
 `bff/base-knowledge/platform/platform.integration.spec.ts` proves entitlement,
 rollback and the guards with positive controls.

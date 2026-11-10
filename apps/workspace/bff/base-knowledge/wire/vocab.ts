@@ -1,6 +1,6 @@
 /**
  * Every closed vocabulary of the base knowledge records (migrations 0202 and
- * 0203, ADR-0163 and ADR-0165): the one source of each word. The SQL CHECKs are held to these lists
+ * 0205, ADR-0163 and ADR-0165): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.
@@ -38,7 +38,7 @@ export type TextStatus = (typeof TEXT_STATUSES)[number]
 export const CHECK_TARGET_TYPES = ['edition', 'manifestation'] as const
 export type CheckTargetType = (typeof CHECK_TARGET_TYPES)[number]
 
-/** The record types an office may own; territories and authorities are the platform's (migration 0203). */
+/** The record types an office may own; territories and authorities are the platform's (migration 0205). */
 export const OFFICE_RECORD_TYPES = ['work', 'edition', 'manifestation'] as const satisfies readonly KnowledgeRecordType[]
 
 /** A territory's level (design §3.2); ids are ISO 3166 (`AT-6`) or `<CC>:<scheme>:<code>`. */

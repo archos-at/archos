@@ -1,5 +1,5 @@
 /**
- * The platform's side of the base knowledge records (migration 0203, ADR-0165):
+ * The platform's side of the base knowledge records (migration 0205, ADR-0165):
  * the two record types only the platform owns (territories, authorities), the
  * change requests every platform revision is proposed in, the review verdicts
  * and approvals on them, the insert-only release moves that move a platform

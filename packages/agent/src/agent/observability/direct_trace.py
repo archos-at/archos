@@ -36,6 +36,7 @@ disagree about what they carry.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -46,6 +47,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 
+from agent.common import residency
 from agent.common.image_redaction import redact_inline_images
 from agent.common.licensed_text import trace_payload
 from agent.observability.langfuse_trace_attributes import GEN_AI_REQUEST_MODEL
@@ -317,22 +319,30 @@ class _ObservedGeneration:
         self._feature = feature
         self._attributes = attributes
         self._span: Any | None = None
+        self._sink: Any = None
 
     async def __aenter__(self) -> GenerationRecorder:
-        self._span = _start_span(self._feature, self._attributes)
-        return GenerationRecorder(self._span)
+        return self.__enter__()
 
     async def __aexit__(self, exc_type, exc, traceback) -> bool:
-        _end_span(self._span, exc)
-        return False
+        return self.__exit__(exc_type, exc, traceback)
 
     def __enter__(self) -> GenerationRecorder:
         self._span = _start_span(self._feature, self._attributes)
+        # The seam reports where the call inside this block went (``common/residency.record_route``).
+        self._sink = residency.route_sink().set(functools.partial(_record_route, self._span))
         return GenerationRecorder(self._span)
 
     def __exit__(self, exc_type, exc, traceback) -> bool:
+        residency.route_sink().reset(self._sink)
         _end_span(self._span, exc)
         return False
+
+
+def _record_route(span: Any, route: Any) -> None:
+    """``route``'s processing location, subprocessor and compliance as the generation's own metadata."""
+    if span is not None:
+        span.set_attributes({f"{OBSERVATION_METADATA_PREFIX}{key}": value for key, value in route.metadata().items()})
 
 
 def _start_span(feature: str, attributes: dict[str, Any]) -> Any | None:

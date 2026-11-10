@@ -29,7 +29,7 @@ project and nobody reviewed a change claim by claim before offices read it.
 ## Decision Outcome
 
 **Same records, owner NULL.** Platform rows are `knowledge_records` with
-`organization_id` NULL and a `country_id` (migration 0203). Two record types
+`organization_id` NULL and a `country_id` (migration 0205). Two record types
 join, platform only: `territory` (ISO 3166 ids, parents) and `authority`
 (competence territories). No second lifecycle: a revision is appended, and the
 head moves.
@@ -80,7 +80,7 @@ before.
 
 `apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts` under `task db:test:rls`
 (rollback round trip, MA 37 in Graz, indexing, the second office's listing, four eyes, the 409s,
-a tenant reading nothing of the change requests); the 0203 block of `scripts/rls-test-db.sh`
+a tenant reading nothing of the change requests); the 0205 block of `scripts/rls-test-db.sh`
 (the triggers and the down); `bff/agent-api/person-decision.spec.ts` (the yes, through the real
 acting session); the element ledger (`bff/base-knowledge/consumers.ts`) for every new column.
 
@@ -101,7 +101,7 @@ acting session); the element ledger (`bff/base-knowledge/consumers.ts`) for ever
 
 ## More Information
 
-Migration `apps/workspace/migrations/0203_platform_base_knowledge.sql`; code
+Migration `apps/workspace/migrations/0205_platform_base_knowledge.sql`; code
 `apps/workspace/bff/base-knowledge/platform/`; operations
 `apps/workspace/bff/agent-api/catalog/platform-knowledge.ts`; the view
 `/app/platform/countries`.

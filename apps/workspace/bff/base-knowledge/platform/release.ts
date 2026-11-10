@@ -11,7 +11,7 @@
  * - Rollback: each record back to what it was before the stable publish;
  *   refused with 409 when a later release moved the head again.
  *
- * The database holds the same rules a second time (0203's triggers): a publish
+ * The database holds the same rules a second time (0205's triggers): a publish
  * only of an approved request's own revisions, a head only where the newest
  * stable move points.
  */

@@ -1,5 +1,5 @@
 /**
- * The SQL of the platform's change requests (migration 0203, ADR-0165): open
+ * The SQL of the platform's change requests (migration 0205, ADR-0165): open
  * one, propose records into it, read it with its claims and verdicts, record
  * verdicts and approvals. Every statement runs as the platform role
  * (`withPlatformAccess`): these tables are platform-private, and the service

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The platform's base knowledge against a REAL Postgres (migration 0203,
+ * The platform's base knowledge against a REAL Postgres (migration 0205,
  * ADR-0165), through the restricted runtime role for every office read:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
