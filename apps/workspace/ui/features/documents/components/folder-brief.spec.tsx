@@ -143,7 +143,8 @@ describe('FolderBrief — what needs the reader comes first', () => {
   it('names what a folded section holds on its one line, and opens on a click', async () => {
     renderBrief()
     const toggle = screen.getByTestId('folder-brief-about-toggle')
-    expect(toggle).toHaveTextContent('Grundriss · Schnitt · Brandschutz')
+    // A tag still stored in German reads as its translation in English (finding 21).
+    expect(toggle).toHaveTextContent('Floor plan · Section · Fire safety')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -264,5 +265,59 @@ describe('FolderBrief - from the shelf summary', () => {
     renderPartial({ onLoadDetails: vi.fn(), detailsLoading: true })
     await userEvent.click(screen.getByTestId('folder-brief-about-toggle'))
     expect(screen.getByTestId('folder-brief-load-details')).toBeDisabled()
+  })
+})
+
+/**
+ * What it found sits with what it read: one block on the listing's column. On dev (2026-11-10) the findings were a
+ * bordered box from the page's left edge to its right, stacked over the brief's own line on the 1280px column.
+ */
+describe('FolderBrief — what it found', () => {
+  const findings = {
+    projectId: 'p1',
+    response: {
+      findings: [{ kind: 'missing_plan' as const, key: 'a4', label: 'A4', sources: [{ documentId: 'x', name: 'Katasterauszug.dxf', pages: [1, 2] }] }],
+      documentCount: 2,
+      truncated: false,
+      document: null,
+    },
+  }
+  const READ = [file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] })]
+
+  it('folded, says what it read quietly and what asks the reader as a chip of its own that opens the brief', async () => {
+    // „1 finding“ was 13px of ink at the end of a grey sentence (review of 2026-11-10, finding 12).
+    const onCollapsedChange = vi.fn()
+    renderBrief(READ, { missing: null, collapsed: true, findings, onCollapsedChange })
+    expect(screen.getByTestId('folder-brief-toggle')).toHaveTextContent(/^All 2 documents read in this project$/)
+    const chip = screen.getByTestId('folder-brief-findings-count')
+    expect(chip).toHaveAttribute('data-slot', 'asks-you-chip')
+    expect(chip).toHaveTextContent('1 finding')
+    expect(screen.queryByTestId('document-findings-panel')).not.toBeInTheDocument()
+    await userEvent.click(chip)
+    expect(onCollapsedChange).toHaveBeenCalledWith(false)
+  })
+
+  it('opens to the findings as a section of the brief, under the id the upload report links to', () => {
+    renderBrief(READ, { missing: null, findings })
+    const section = screen.getByTestId('document-findings-panel')
+    expect(section.closest('[data-testid="folder-brief"]')).not.toBeNull()
+    expect(section).toHaveAttribute('id', 'document-findings')
+    expect(within(section).getByTestId('finding-missing_plan')).toHaveTextContent('Drawing number A4 is referred to')
+  })
+
+  it('opens itself when the page is reached through the upload report’s link', () => {
+    window.history.replaceState(null, '', '#document-findings')
+    const onCollapsedChange = vi.fn()
+    renderBrief(READ, { missing: null, collapsed: true, onCollapsedChange, findings })
+    expect(onCollapsedChange).toHaveBeenCalledWith(false)
+    window.history.replaceState(null, '', '#')
+  })
+
+  it('speaks for a folder without the project’s findings, and names how far it reaches, not the folder the title names', () => {
+    renderBrief(READ, { missing: null, collapsed: true, folderName: 'Pläne', findings })
+    const toggle = screen.getByTestId('folder-brief-toggle')
+    expect(toggle).toHaveTextContent('All 2 documents read in this folder')
+    expect(toggle).not.toHaveTextContent('finding')
+    expect(toggle).not.toHaveTextContent('Pläne')
   })
 })

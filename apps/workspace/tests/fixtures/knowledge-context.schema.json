@@ -403,6 +403,31 @@
           "items": {
             "type": "string"
           }
+        },
+        "undetermined": {
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "history_not_held",
+                  "edition_dates_unknown",
+                  "ambiguous_editions"
+                ]
+              }
+            },
+            "required": [
+              "workId",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [

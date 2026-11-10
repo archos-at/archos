@@ -27,7 +27,8 @@ export function fileMatchesQuery(file: FileItem, q: string, tagText: (tag: strin
     documentDisplayName(file).toLowerCase().includes(q) ||
     file.filename.toLowerCase().includes(q) ||
     (file.summary ?? '').toLowerCase().includes(q) ||
-    (file.tags ?? []).some((tag) => tagText(tag).toLowerCase().includes(q)) ||
+    // The stored value and its label: „Grundriss“ finds a floor plan in an English workspace too.
+    (file.tags ?? []).some((tag) => tag.toLowerCase().includes(q) || tagText(tag).toLowerCase().includes(q)) ||
     (file.topics ?? []).some((topic) => topic.toLowerCase().includes(q)) ||
     olderRevisionNames(file).some((name) => name.toLowerCase().includes(q))
   )

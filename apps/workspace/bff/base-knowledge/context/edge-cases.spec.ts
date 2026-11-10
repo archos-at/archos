@@ -53,6 +53,7 @@ const caseSchema = z
         /** Words the chain text must carry, and must not: the text says what the uses say. */
         textContains: z.array(z.string()).optional(),
         textLacks: z.array(z.string()).optional(),
+        undetermined: z.array(z.object({ workId: z.string(), reason: z.string() })).optional(),
       })
       .strict(),
   })
@@ -106,6 +107,7 @@ describe('the edge cases of country base knowledge', () => {
       expect(use).toMatchObject(expected)
     }
     for (const workId of want.absentWorks ?? []) expect(context.uses.map((use) => use.workId)).not.toContain(workId)
+    if (want.undetermined) expect(context.undetermined).toEqual(want.undetermined)
     for (const words of want.textContains ?? []) expect(context.text, edgeCase.id).toContain(words)
     for (const words of want.textLacks ?? []) expect(context.text ?? '', edgeCase.id).not.toContain(words)
   })
@@ -117,6 +119,10 @@ describe('the chain text’s bound', () => {
     const capped = capText(long)
     expect(capped.length).toBeLessThanOrEqual(MAX_CONTEXT_TEXT_CHARS)
     expect(capped).toMatch(/x\n\[The rest of the building law at this site is cut; ask about one instrument by name\.\]$/)
+    // Every line before the note is a whole line of the original: the cut never splits one.
+    const kept = capped.split('\n').slice(0, -1)
+    expect(kept.length).toBeGreaterThan(0)
+    expect(kept).toEqual(long.split('\n').slice(0, kept.length))
     expect(capText('short')).toBe('short')
   })
 })

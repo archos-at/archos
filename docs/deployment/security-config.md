@@ -123,30 +123,44 @@ In production, consider:
 ## Public-source egress
 
 Every fetch of a public source (a statute portal, a geodata service, a page
-captured for a citation) goes through one guard, `public_sources.egress`: the
-source's hosts at every redirect hop, a connection only to an address the guard
-resolved itself and found public, and only the forwarded headers (ADR-0162).
-That holds on every path: the RIS adapter's own client is guarded too, with the
-`source-routing` flag off.
+captured for a citation) is made by one process, the `public-source-fetcher`,
+and every PDF from one is parsed there (`POST /v1/extract`). Every stack
+deploys it, and Compose runs it as a service; there is no switch and no path
+around it (ADR-0162 amendment). The backend roles find it by
+`PUBLIC_SOURCE_FETCHER_URL`; without it they refuse to read a source at all.
 
-Where the guard runs depends on one stack setting, **off by default**:
+Two layers hold it:
 
-```bash
-# in deploy/pulumi, on the stack to change; commit the stack file it rewrites
-pulumi config set publicSourceFetcherEnabled true
-```
+- **Its own guard**, `public_sources.egress`: the source's hosts at every
+  redirect hop, a connection only to an address it resolved itself and found
+  public, only the forwarded headers. A PDF is parsed in a child process with a
+  deadline, a memory ceiling, no core file and no environment beyond its locale.
+- **Its NetworkPolicy** (Kubernetes only): in, the chat, api and agent-worker
+  roles; out, DNS and public addresses on 443. It holds no secret and no
+  service-account token, so a hostile PDF that took the reader reaches nothing.
+  In Compose it has a network of its own (`public-sources`) shared with those
+  three roles and no store; Coolify puts every service on one managed network,
+  so there the guard is the only layer.
 
-- **Off** (today's default): the guard runs inside the backend's own pods. A
-  bug in it would leave nothing behind it: those pods reach the cluster's
-  services, so no NetworkPolicy stops a fetch that the guard lets through.
-- **On**: Pulumi deploys the `public-source-fetcher` Deployment and sets
-  `PUBLIC_SOURCE_FETCHER_URL` on the chat, api and agent-worker roles; a fetch
-  for an organization with the `source-routing` flag is made by that pod,
-  whose NetworkPolicy admits public addresses on 443 and nothing in the
-  cluster. The guard then has a layer behind it that holds while code is wrong.
+### When the fetcher is not there
 
-Turn it on per stack once the fetcher has run on dev; the flag then moves
-organizations onto it one at a time.
+Public sources are the only thing that depends on the fetcher, so a missing
+fetcher costs exactly that and nothing else. Chat, documents and the office's
+own knowledge keep working, and no pod leaves rotation. On purpose, the
+backend's `/health` probes no dependency (`agent_host/health.py`).
+
+| What is wrong | What a person sees | Where it shows |
+|---|---|---|
+| A backend role started without `PUBLIC_SOURCE_FETCHER_URL` | Every law lookup answers "OGD-RIS is not reachable from here: no public-source fetcher is configured"; a capture or a `pdf_document` source refuses with `PDF_READER_FAILED` | `/health` of that role (and the BFF's `/api/health`, which passes it through) answers `"public_source_fetcher": "missing"` |
+| The fetcher has no ready replica (crash loop, image pull, OOM) | The same lookups fail with "not reachable" after the connect error; a PDF capture with `PDF_READER_FAILED` | The `DeploymentUnavailable` alert after 15 minutes (`deploy/pulumi/src/platform/workload-alerts.ts`); `kubectl get deploy public-source-fetcher` |
+| A PDF reader hit its 1 GiB ceiling, or the pod its 2560Mi limit | That one capture refuses with `PDF_READER_FAILED` (the reader's exit signal in the message); other reads go on | The fetcher's log line for `/v1/extract` (size and outcome, never content); an OOMKilled restart in the pod's status |
+| A parse past 45 s, or the fetcher not answering within 50 s | `PDF_PARSE_TIMEOUT` | The same log line |
+| Both PDF readers busy (two captures already parsing) | `PDF_PARSE_TIMEOUT` at once, with "try again in a minute"; nothing queues, and law lookups (`/v1/fetch`) go on | `extract refused: 2 readers busy` in the fetcher's log |
+| A node drain while it runs one replica | Lookups and PDF captures refused as "not reachable" until the pod is scheduled again (the surge rollout covers a deploy, not a drain); its PodDisruptionBudget holds once `replicas` is 2 or more | `kubectl get pdb public-source-fetcher` |
+
+To check a stack by hand: `curl -s <backend>/health` for the configuration;
+`kubectl -n <ns> exec deploy/api -- python -c "import httpx; print(httpx.get('http://public-source-fetcher:8095/healthz').text)"`
+for the path from a caller through the NetworkPolicy.
 
 ## API Keys
 

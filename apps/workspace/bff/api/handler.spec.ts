@@ -11,7 +11,8 @@ vi.mock('server-only', () => ({}))
 import { errorResponse, internalApiRoute, SIGNED_INTERNAL_PREFIX } from './handler'
 import { readBoundedBody } from './bounded-body'
 import { NotFoundError, UpstreamError } from './errors'
-import { FeatureDisabledError, featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { signedRequest, TEST_KEY_ID, TEST_SIGNING_SECRET, type SignedRequestOptions } from '@/test-utils/signed-request'
 
 describe('errorResponse', () => {

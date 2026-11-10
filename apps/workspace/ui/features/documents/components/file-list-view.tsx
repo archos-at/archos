@@ -10,7 +10,7 @@ import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
-import { FILE_LIST_CELL as CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
+import { FILE_LIST_CELL as CELL, FILE_LIST_DATE_CELL, FILE_LIST_META_LINE, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
 
 export { FILE_LIST_CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
 export { FileListSkeleton } from './file-list-skeleton'
@@ -19,7 +19,7 @@ import { MarkedSnippet } from './semantic-match'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatAbsoluteTime, formatBytes, formatRelativeTime } from '@/lib/format'
+import { CLAUSE_JOIN, formatAbsoluteTime, formatBytes, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
@@ -214,13 +214,15 @@ export function FileListView({
           practice — there the name column was already taking the remainder. */}
       <FileListLayoutContext.Provider value={{ picking, showRank, columns, actions: renderActions !== undefined }}>
       <Table
+        scrollX={false}
         role="grid"
         className="table-fixed border-separate border-spacing-0 text-left"
         data-testid="file-list-view"
       >
         {/* Below the reference columns the head is a lone „Name“ over the one column, a head that says nothing: the
             filter menu sorts there. */}
-        <TableHeader className="hidden @3xl/filelist:table-header-group">
+        {/* Pinned while a long level scrolls under it (240 drawings, finding 22), on the page's paper. */}
+        <TableHeader className="bg-background sticky top-0 z-10 hidden @xl/filelist:table-header-group">
           <TableRow className="hover:bg-transparent">
             {picking && <TableHead scope="col" className="h-auto w-11 p-0" aria-label={t('selection.column')} />}
             <SortHeader
@@ -271,7 +273,7 @@ export function FileListView({
                 sort={sort}
                 onSort={setSort}
                 align="right"
-                className="hidden w-[104px] @3xl/filelist:table-cell"
+                className="hidden w-[104px] @xl/filelist:table-cell"
               />
             )}
             {/* Dates left-align, as their head reads; numbers (Größe, Seiten, Relevanz) right-align to theirs. */}
@@ -280,7 +282,7 @@ export function FileListView({
               column="added"
               sort={sort}
               onSort={setSort}
-              className="hidden w-[120px] @4xl/filelist:table-cell"
+              className="hidden w-[120px] @2xl/filelist:table-cell"
             />
             {renderActions && <TableHead scope="col" className="h-auto w-10 p-0" />}
           </TableRow>
@@ -416,7 +418,7 @@ const FileListRowItem = memo(function FileListRowItem({
             {/* Wraps rather than cut the name: a chip that does not fit beside it takes the next line (a phone's
                 „E…_Index-C.pdf“ beside „4 offen · 2 für Sie“ was the name cut to its last letters). */}
             <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
-              <FileName text={documentDisplayName(file)} />
+              <FileName text={documentDisplayName(file)} className="flex-1" /* the line's width, then the chips: as wide as its own text it measured itself to nothing */ />
               <RevisionCount file={file} />
               {file.status && !isCitableStatus(file.status) && (
                 <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="h-5 shrink-0 self-center px-2 py-0" /* 20px, the open-marks chip's: a 22px badge made its row 42 */ />
@@ -428,7 +430,11 @@ const FileListRowItem = memo(function FileListRowItem({
               <FilingSuggestionSlot documentId={file.id} className="max-w-[45%] shrink-0 self-center" />
               {/* The summary on the name's line, in what is left of it (Gmail's snippet): one 40px row, not two lines.
                   A narrow list (a phone) has nothing left of it, so there it is the second line. */}
-              {!semantic && file.summary && <span className="text-meta text-muted-foreground min-w-0 basis-full truncate font-normal @xl/filelist:flex-1 @xl/filelist:basis-0" title={file.summary}>{file.summary}</span>}
+              {!semantic && file.summary && <span className="text-meta text-muted-foreground hidden min-w-0 truncate font-normal @xl/filelist:block @xl/filelist:flex-1 @xl/filelist:basis-0" title={file.summary}>{file.summary}</span>}
+            </span>
+            {/* A narrow list's second line: what the columns say at desk width (a phone's 56px row, finding 14). */}
+            <span className={FILE_LIST_META_LINE} data-testid="file-list-meta">
+              {[typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : null, formatRelativeTime(file.createdAt, locale)].filter(Boolean).join(CLAUSE_JOIN)}
             </span>
             {file.sourceDeletedAt && <SourceDeletedNote at={file.sourceDeletedAt} />}
             {/* In a ranked result the second line is WHY this row is here: the snippet answers the query, and a
@@ -510,7 +516,7 @@ const FileListRowItem = memo(function FileListRowItem({
       {renderActions && (
         <TableCell
           // 40px wide, and its 32px trigger 4px off the row's top and foot: 44px here made a file row taller than a folder's.
-          className="w-10 px-1 py-1 text-right"
+          className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0" /* a finger's ⋯ is 44px: in 32px it ran 8px past the table and the list scrolled sideways */
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >

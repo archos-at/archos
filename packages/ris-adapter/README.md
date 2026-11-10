@@ -179,12 +179,12 @@ re-exported from `ris_adapter.client`. The norm admin route and
 (`federal_state_param`). `tests/test_source_record_parity.py` freezes the code
 the record replaced, so an edit that moves an Austrian request fails there.
 
-**`sourceRouting`.** With the organization's `source-routing` flag on
-(`routing.py`), `RisClient` makes the same requests through
-`public_sources.routing.source_transport("at-ris")`: the sandboxed
-`public-source-fetcher` when `PUBLIC_SOURCE_FETCHER_URL` is set, the same guard
-in process when not. Off is the default and the behaviour before it.
-`SOURCE_ROUTING=on|off` overrides the flag for a process (the answer suite).
+**Through the fetcher, always.** `RisClient` makes its requests through
+`public_sources.routing.source_transport("at-ris")`, which sends them to the
+sandboxed `public-source-fetcher` (`PUBLIC_SOURCE_FETCHER_URL`). Without a
+fetcher a RIS request is a `RisError`; there is no in-process path (ADR-0162
+amendment). For the answer suite, run the fetcher (`python -m
+public_sources.fetcher`) and point the variable at it.
 
 ## Configuration
 

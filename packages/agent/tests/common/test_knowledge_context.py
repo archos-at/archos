@@ -112,7 +112,13 @@ def test_trace_metadata_names_chains_gate_coverage_packs_and_reference_dates():
         "reference_dates": "p1@DE-NW=undetermined",
         "base_updated_since_last_answer": "DE",
         "building_law_uses": 1,
+        "undetermined_editions": "",
     }
+
+
+def test_trace_metadata_names_the_law_whose_edition_is_undetermined():
+    raw = {**WIRE, "undetermined": [{"workId": "work:bauo-nrw", "reason": "ambiguous_editions"}, {"workId": 3}]}
+    assert trace_metadata(parse_knowledge_context(raw))["undetermined_editions"] == "work:bauo-nrw=ambiguous_editions"
 
 
 def test_without_a_bound_context_nothing_is_allowed():

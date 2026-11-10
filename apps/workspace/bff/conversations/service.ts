@@ -27,7 +27,7 @@
 import 'server-only'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
-import { FeatureDisabledError } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { FEATURE_FLAGS, isCollaborationEnabled } from '@/lib/authz/feature-flags'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { ConflictError, ForbiddenError, NotFoundError, UpstreamError } from '@/lib/api/errors'

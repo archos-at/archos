@@ -3,6 +3,7 @@
  */
 import { describe, test, expect } from 'vitest'
 import {
+  formatByteProgress,
   formatBytes,
   formatCount,
   formatCredits,
@@ -205,5 +206,14 @@ describe('formatBytes', () => {
 
   test('scales past gigabytes', () => {
     expect(formatBytes(3_500_000_000_000, 'en-US')).toBe('3.5 TB')
+  })
+})
+
+describe('formatByteProgress', () => {
+  test('says a transfer as two sizes in the total’s unit, each with one decimal from MB up', () => {
+    // „3 MB von 6 MB“ stood over rows of „4,8 MB“ and „1,2 MB“ (review of 2026-11-10, finding 20).
+    expect(formatByteProgress(3_000_000, 6_000_000, 'de')).toEqual({ done: '3,0', total: '6,0 MB' })
+    expect(formatByteProgress(450_000, 6_000_000, 'en')).toEqual({ done: '0.5', total: '6.0 MB' })
+    expect(formatByteProgress(120_000, 361_000, 'de')).toEqual({ done: '120', total: '361 kB' })
   })
 })

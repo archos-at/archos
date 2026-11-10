@@ -22,15 +22,27 @@ describe('a file name keeps its end', () => {
   it.each([
     ['file-card.tsx', 'name'],
     ['file-list-view.tsx', 'documentDisplayName\\('],
-    ['folder-navigation.tsx', 'folder.name'],
   ])('%s draws the name through FileName', (file, subject) => {
     expect(read(file)).toMatch(new RegExp(`<FileName\\s+text=\\{${subject.replace('.', '\\.')}`))
   })
 
-  it('FileName cuts in the middle and is read once', () => {
+  it('a tile keeps two lines for its name, by the one rule every file name follows', () => {
+    // „Baustellenbesprechun/g.pdf“ (a tile's `overflow-wrap: anywhere`) and „R…Stand-2026-11-03.pdf“ (a row's
+    // MiddleTruncate) were two rules for one name (review of 2026-11-10, findings 5, 16, 17).
+    expect(read('file-card.tsx')).toMatch(/<FileName text=\{name\} lines=\{2\}/)
+    expect(read('file-name.tsx')).toContain('<FittedName')
+    expect(read('file-card.tsx')).not.toMatch(/overflow-wrap:anywhere|break-all/)
+  })
+
+  it('a folder is named on one line, cut at its end with its whole name as its title', () => {
+    // A folder's start tells it apart; one card of three lines made its row 138px beside rows of 82 (finding 6).
+    expect(read('folder-navigation.tsx')).toMatch(/<FolderName text=\{folder\.name\}/)
+    expect(read('folder-table-row.tsx')).toMatch(/<FolderName text=\{folder\.name\}/)
+  })
+
+  it('FileName is read once', () => {
     // The read-once lives in the atom, so every name it draws is read once.
-    expect(read('file-name.tsx')).toContain('<MiddleTruncate')
-    const atom = read('../../../components/ui/middle-truncate.tsx')
+    const atom = read('../../../components/ui/fitted-name.tsx')
     expect(atom).toContain('aria-hidden')
     expect(atom).toContain('sr-only')
   })
@@ -78,13 +90,14 @@ describe('the folder tile on a phone', () => {
   const folders = read('folder-navigation.tsx')
 
   // Round 4 of Paper on a desk: three full-width folder rows put the first thumbnail at y=475 on a 390px phone. A
-  // folder is a 48px sheet in the grid's two columns (glyph, name, count), its menu a long press away.
-  it('is a 48px sheet in the grid’s two columns, its ⋯ and chevron left to the long press', () => {
+  // folder is a sheet in the grid's two columns (glyph, name, count); since the review of 2026-11-10 (finding 19) its
+  // ⋯ stands at its end, as on every other row a finger meets, and the chevron steps aside for it.
+  it('is a 56px sheet in the grid’s two columns, its ⋯ at its end, no chevron', () => {
     expect(folders.match(/data-folder-tile=""/g)?.length).toBeGreaterThanOrEqual(2)
     expect(folders).not.toContain('col-span-full')
-    expect(folders).toMatch(/phone:min-h-12/)
-    expect(folders).toMatch(/-translate-y-1\/2 phone:hidden/)
-    expect(folders).toMatch(/data-slot="folder-opens"/)
+    expect(folders).toMatch(/<FileTileBody className="flex h-14 /)
+    expect(folders).toMatch(/-translate-y-1\/2 phone:right-1\.5/)
+    expect(folders).toMatch(/size-4 shrink-0 phone:hidden" aria-hidden data-slot="folder-opens"/)
   })
 })
 
@@ -99,5 +112,26 @@ describe('the Papierkorb', () => {
     expect(bin).toContain('ROW_REVEAL')
     expect(bin).toMatch(/variant: 'destructive'/)
     expect(bin).toMatch(/<ConfirmDialog[\s\S]*?onConfirm=\{purge\}/)
+  })
+})
+
+describe('the list keeps its columns at a laptop’s width and says them on a phone', () => {
+  // Review of 2026-11-10, findings 14, 15 and 22: at 1024px beside the rail Größe, Hinzugefügt and the head were gone,
+  // a phone's file row was one 40px line with nothing but its name, and a folder of 240 had no head to sort by.
+  const layout = read('file-list-layout.ts')
+  const list = read('file-list-view.tsx')
+  it('steps Größe and the head in from a 36rem list and Hinzugefügt from 42rem', () => {
+    expect(layout).toMatch(/FILE_LIST_SIZE_CELL = '[^']*@xl\/filelist:table-cell'/)
+    expect(layout).toMatch(/FILE_LIST_DATE_CELL = '[^']*@2xl\/filelist:table-cell'/)
+    expect(list).toMatch(/<TableHeader className="bg-background sticky top-0 z-10 hidden @xl\/filelist:table-header-group">/)
+  })
+  it('pins the head in the pane’s scroll, so the table does not scroll sideways on its own', () => {
+    expect(list).toMatch(/<Table\s+scrollX=\{false\}/)
+  })
+  it('says size and age on a narrow row’s second line, for files and folders alike', () => {
+    expect(layout).toMatch(/FILE_LIST_META_LINE = '[^']*@xl\/filelist:hidden'/)
+    expect(list).toMatch(/className=\{FILE_LIST_META_LINE\} data-testid="file-list-meta"/)
+    expect(read('folder-table-row.tsx')).toMatch(/<span className=\{FILE_LIST_META_LINE\}>/)
+    expect(read('folder-table-row.tsx')).toMatch(/changedAt \? <TimeAgo date=\{changedAt\} locale=\{locale\} \/> : '—'/)
   })
 })

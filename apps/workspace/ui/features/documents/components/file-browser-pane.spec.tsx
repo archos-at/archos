@@ -153,9 +153,11 @@ describe('FileBrowserPane — card grid', () => {
     expect(selected).not.toHaveAttribute('aria-pressed')
   })
 
-  it('renders the upload card as the last tile of the grid', () => {
-    renderPane({ uploadCard: <div data-testid="upload-card-stub" /> })
-    expect(screen.getByTestId('upload-card-stub')).toBeInTheDocument()
+  it('draws no upload tile among the files: the header uploads and the whole page takes a drop', () => {
+    // A dashed „Drag files here or browse“ cell stood in the grid as a file that was not one (dev, 2026-11-10).
+    renderPane({})
+    expect(screen.queryByTestId('project-upload-dropcard')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('file-card')).toHaveLength(files.length)
   })
 })
 
@@ -246,6 +248,44 @@ describe('FileBrowserPane — folder drill-down', () => {
     expect(table).toBe(screen.getByTestId('file-list-view'))
     expect(table?.querySelector('tbody > tr')).toBe(row)
     expect(row.className).not.toMatch(/\brounded|\bshadow/)
+  })
+
+  // Review of 2026-11-10, findings 9 and 10: a subfolder mixed its folders and files in one grid (a folder stretched to
+  // a thumbnail's height), and the root labelled its kinds while a subfolder did not.
+  it('draws every level in one grammar: its folders first, then its files, each labelled when both are there', () => {
+    renderPane({ files: [{ ...files[0], folderId: 'root-1' }], folderNav: folderNav('root-1') })
+    const folderTiles = screen.getByTestId('folder-tiles')
+    expect(within(folderTiles).getByTestId('folder-card-child-1')).toBeInTheDocument()
+    expect(within(folderTiles).queryByTestId('file-card')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folders-label')).toHaveTextContent('Folders')
+    expect(screen.getByText('Files', { selector: 'p' })).toBeInTheDocument()
+    expect(folderTiles.compareDocumentPosition(screen.getByTestId('file-card')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('labels neither kind where the level holds only one', () => {
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null) })
+    expect(screen.getByTestId('folder-tiles')).toBeInTheDocument()
+    expect(screen.queryByTestId('folders-label')).not.toBeInTheDocument()
+  })
+
+  it('starts each result’s meta line with the folder it lies in: a search spans every folder', async () => {
+    // Finding 13: results said nothing of where they were.
+    const user = userEvent.setup()
+    renderPane({ files: [], searchFiles: [{ ...files[1], folderId: 'root-2' }], folderNav: folderNav(null) })
+    await user.type(screen.getByRole('textbox', { name: /search files/i }), 'permit')
+    expect(screen.getByTestId('file-card-where')).toHaveTextContent('Bescheide')
+  })
+
+  it('keeps „Select“ in place where the level holds only folders, disabled, so nothing moves under the pointer', () => {
+    // Finding 19: the press came and went with the level's files and moved „Create folder“ under the pointer.
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null), selection: { active: false, selectedIds: new Set(), onToggle: vi.fn(), onStart: vi.fn() } })
+    expect(screen.getByTestId('selection-start')).toBeDisabled()
+  })
+
+  it('marks an empty level so its own Hochladen is the pane’s one ink press', () => {
+    // Finding 8: two black Hochladen (the toolbar's and the empty state's; a phone's floating one and the empty state's).
+    const { container } = renderPane({ files: [], searchFiles: files, folderNav: folderNav('root-2') })
+    expect(container.querySelector('[data-empty-level]')).not.toBeNull()
   })
 
   it('a typed query escapes the current folder and searches the corpus', async () => {
@@ -594,19 +634,12 @@ describe('FileBrowserPane — loading', () => {
     onDeleteFolder: vi.fn(),
   }
 
-  it('draws the folder tiles and the upload cell it is about to be replaced by, and no path row the root no longer has', () => {
-    renderPane({
-      isLoading: true,
-      folderNav,
-      uploadCard: <button type="button">Drop files</button>,
-    })
+  it('draws the folder tiles it is about to be replaced by, and no path row the root no longer has', () => {
+    renderPane({ isLoading: true, folderNav })
 
     const skeleton = screen.getByTestId('file-browser-skeleton')
     expect(within(skeleton).queryByTestId('folder-breadcrumb-skeleton')).not.toBeInTheDocument()
     expect(within(skeleton).getAllByTestId('folder-card-skeleton').length).toBeGreaterThan(0)
-    // The dashed cell is the last tile of a project's grid; a skeleton without
-    // it is one tile shorter than the answer.
-    expect(within(skeleton).getByText('Drop files')).toBeInTheDocument()
   })
 
   it('leaves the folder tiles out on a surface that has no folders', () => {

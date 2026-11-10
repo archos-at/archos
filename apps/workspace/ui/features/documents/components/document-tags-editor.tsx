@@ -112,14 +112,15 @@ export function DocumentTagsEditor({
   const suggestions = useMemo(() => {
     const q = input.trim().toLowerCase()
     const available = ALL_VOCABULARY_TAGS.filter((tag) => !tags.includes(tag))
-    return q ? available.filter((tag) => labelOf(tag).toLowerCase().includes(q)) : available
+    // The label or the stored value: „Brandschutz“ typed in an English workspace still finds „Fire safety“.
+    return q ? available.filter((tag) => labelOf(tag).toLowerCase().includes(q) || tag.toLowerCase().includes(q)) : available
   }, [input, tags, labelOf])
 
   /** Resolve the free-typed input to a canonical vocabulary entry, if any. */
   const resolveInput = useCallback((): string | null => {
     const q = input.trim().toLowerCase()
     if (!q) return null
-    const exact = ALL_VOCABULARY_TAGS.find((tag) => labelOf(tag).toLowerCase() === q)
+    const exact = ALL_VOCABULARY_TAGS.find((tag) => labelOf(tag).toLowerCase() === q || tag.toLowerCase() === q)
     if (exact && !tags.includes(exact)) return exact
     // A query narrowing to exactly one candidate is unambiguous — accept it.
     return suggestions.length === 1 ? suggestions[0] : null
