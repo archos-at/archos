@@ -30006,7 +30006,7 @@
                             },
                             "inForceTo": {
                               "default": null,
-                              "description": "The last day in force, inclusive; null while in force.",
+                              "description": "The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.",
                               "anyOf": [
                                 {
                                   "type": "string",

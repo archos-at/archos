@@ -1,8 +1,14 @@
 /**
  * Which edition of a work was in force on a day (ADR-0171, design §3.4). Pure.
  *
- * An edition is in force from `inForceFrom` through `inForceTo`, both days
- * included (RIS prints the last day as the Außerkrafttretensdatum). Fail
+ * The one answer to "which edition was in force on a day": the time path
+ * (`./as-of.ts`) and the chain resolver (`../chain/resolve.ts`) both ask it.
+ * An edition is in force on the half-open interval `[inForceFrom, inForceTo)`:
+ * `inForceTo` is the first day it no longer holds, the same reading as every
+ * other interval in base knowledge (relations, territories, rulesets), so a
+ * successor's `inForceFrom` equals its predecessor's `inForceTo`. A source
+ * that prints the last day in force (RIS's Außerkrafttretensdatum, ELI's
+ * `date_no_longer_in_force`) is converted at read, one day later. Fail
  * closed at every gap in the data:
  * - a day before the history the platform holds is `history_not_held`, never
  *   the oldest edition it happens to have;
@@ -31,7 +37,7 @@ export function isIsoDate(value: unknown): value is string {
 
 function covers(edition: DatedEdition, day: string): boolean {
   const from = edition.inForceFrom as string
-  return from <= day && (edition.inForceTo === null || day <= edition.inForceTo)
+  return from <= day && (edition.inForceTo === null || day < edition.inForceTo)
 }
 
 /**

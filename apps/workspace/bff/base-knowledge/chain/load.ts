@@ -70,6 +70,7 @@ interface WorkRow extends Record<string, unknown> {
   territory_ids: string[]
   addressee_territory_ids: string[] | null
   connects_by: ConnectingFactor[] | null
+  history_available_from: string | null
 }
 
 interface EditionRow extends Record<string, unknown> {
@@ -141,7 +142,7 @@ async function worksFor(organizationId: string, chain: readonly string[], named:
     )
     SELECT r.id, r.organization_id, w.kind, w.title, w.identifiers ->> 'designation' AS designation, w.territory_ids,
       (SELECT array_agg(a ->> 'territoryId') FROM jsonb_array_elements(w.addressees) AS a) AS addressee_territory_ids,
-      w.connects_by
+      w.connects_by, w.history_available_from
     FROM knowledge_records r JOIN knowledge_work_revisions w ON w.revision_id = r.head_revision_id
     WHERE r.type = 'work' AND ${readable(organizationId)}
       AND (r.id IN (SELECT id FROM named_works)
@@ -212,6 +213,7 @@ function toWork(row: WorkRow): GraphWork {
     territoryIds: row.territory_ids,
     addresseeTerritoryIds: (row.addressee_territory_ids ?? []).filter((id): id is string => typeof id === 'string'),
     connectsBy: row.connects_by ?? ['site'],
+    historyAvailableFrom: dateText(row.history_available_from),
   }
 }
 

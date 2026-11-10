@@ -62,8 +62,16 @@ Chosen option 2.
   (`time/as-of.ts`, `referenceDateOf`). Without a filing day there is no rule to
   pick, so the answer asks for `filed_on`. Without a rule the answer is
   `no_reference_date_rule` with the edition each known event gives.
-- **Edition on a day.** An edition is in force from `in_force_from` through
-  `in_force_to`, both days included, the reading RIS prints. Undated editions
+- **Edition on a day.** An edition is in force on `[in_force_from,
+  in_force_to)`: `in_force_to` is the first day it no longer holds, the
+  successor's `in_force_from` (amended 2026-11-10, migration 0216; until then
+  it was the last day, the reading RIS prints, while relations, territories
+  and rulesets were already half-open, and the chain resolver dropped a law on
+  its edition's last day). A source that prints the last day in force (RIS's
+  Außerkrafttretensdatum, verified on the OGD API: the Bauproduktegesetz 1997
+  ends `2018-12-31`) is entered and read one day later. `time/editions.ts`
+  `editionInForce` is the one rule: the time path and the chain resolver
+  (`chain/resolve.ts`, through `editionFor`) both ask it. Undated editions
   make the work `edition_dates_unknown`; overlap is `ambiguous_editions`; before
   `history_available_from` (or before the oldest edition when that is null) is
   `history_not_held` (`time/editions.ts`). KC-3 refuses two editions of one

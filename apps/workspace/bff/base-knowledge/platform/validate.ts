@@ -107,8 +107,8 @@ function territoryCountry(territoryId: string): string {
 }
 
 function intervalProblems(record: ProposedRecord): Problem[] {
-  if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo < record.inForceFrom) {
-    return [problem('KC-3', record, '/inForceTo', 'inForceTo lies before inForceFrom.')]
+  if (record.type === 'edition' && record.inForceFrom && record.inForceTo && record.inForceTo <= record.inForceFrom) {
+    return [problem('KC-3', record, '/inForceTo', 'inForceTo must lie after inForceFrom (intervals are half-open: inForceTo is the first day no longer in force).')]
   }
   if ((record.type === 'territory' || record.type === 'relation') && record.validFrom && record.validTo && record.validTo <= record.validFrom) {
     return [problem('KC-3', record, '/validTo', 'validTo must lie after validFrom (intervals are half-open).')]
@@ -128,11 +128,12 @@ export interface DatedPlatformEdition {
   inForceTo: string | null
 }
 
+/** Two half-open intervals share a day: one ending on the day the other begins does not. */
 const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
-  a.from <= (b.to ?? '9999-12-31') && b.from <= (a.to ?? '9999-12-31')
+  a.from < (b.to ?? '9999-12-31') && b.from < (a.to ?? '9999-12-31')
 
 /**
- * Editions of one work in force on the same day (`inForceTo` is inclusive):
+ * Editions of one work in force on the same day (intervals are half-open):
  * two proposed in one batch, or one proposed beside one already on the
  * platform. A batch that re-proposes the existing edition (closing its
  * `inForceTo`) is compared against its new dates, not its old ones.
@@ -153,7 +154,7 @@ function overlapProblems(records: readonly ProposedRecord[], existing: readonly 
   for (const [position, first] of proposed.entries()) {
     for (const second of [...proposed.slice(position + 1), ...others]) {
       if (first.workId !== second.workId || !overlaps(first, second)) continue
-      found.push([first.index, problem('KC-3', first.record, '/inForceFrom', `is in force on days ${second.key} is; end one before the other begins.`)])
+      found.push([first.index, problem('KC-3', first.record, '/inForceFrom', `is in force on days ${second.key} is; let one end (inForceTo, exclusive) on the day the other begins.`)])
     }
   }
   return found
