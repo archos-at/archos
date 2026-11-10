@@ -12,8 +12,6 @@ import pytest
 from ris_adapter.client import RisDocument
 from ris_adapter.client import RisHit
 from ris_adapter.client import RisSearchResult
-from ris_adapter.lookup.as_of import AS_OF_REFUSED
-from ris_adapter.lookup.as_of import ENV_OVERRIDE
 from ris_adapter.lookup.as_of import in_force_on
 from ris_adapter.lookup.as_of import parse_day
 
@@ -40,7 +38,6 @@ def _version(url: str, since: str, until: str = "") -> RisHit:
 @pytest.fixture
 def versions(lookup, monkeypatch):
     """Two versions of one §: 2015-01-01 to 2021-01-01, and from 2021-01-01."""
-    monkeypatch.setenv(ENV_OVERRIDE, "on")
     lookup.client.search_result = RisSearchResult(
         hits=[_version(NEW_URL, "2021-01-01"), _version(OLD_URL, "2015-01-01", "2021-01-01")]
     )
@@ -89,18 +86,7 @@ async def test_a_past_day_never_reads_the_catalog_or_the_whole_law(versions, cat
 
 
 @pytest.mark.asyncio
-async def test_with_the_flag_off_as_of_is_refused_and_nothing_is_searched(lookup, monkeypatch):
-    monkeypatch.setenv(ENV_OVERRIDE, "off")
-
-    output = await lookup.run(question="Was sagt § 3?", as_of="2019-06-01")
-
-    assert output == AS_OF_REFUSED
-    assert lookup.client.search_calls == [] and lookup.client.fetch_calls == []
-
-
-@pytest.mark.asyncio
 async def test_a_malformed_day_is_an_error(lookup, monkeypatch):
-    monkeypatch.setenv(ENV_OVERRIDE, "on")
 
     output = await lookup.run(question="Was sagt § 3?", as_of="01.06.2019")
 
@@ -166,69 +152,22 @@ def _offered(tool) -> tuple[str, set[str]]:
 
 
 @pytest.mark.asyncio
-async def test_without_the_flag_the_payload_offers_no_as_of():
-    """The registered tool is the contract before ADR-0171: no argument, no line about it."""
+async def test_every_turn_is_offered_as_of_and_it_reaches_the_tool(versions):
+    """ADR-0175: the ``time-editions`` switch is gone; the registered tool shows ``as_of`` and answers it."""
     from ris_adapter.lookup.tool import RIS_LOOKUP_DESCRIPTION
 
     async for tool in _tool():
         description, arguments = _offered(tool)
-
-    assert arguments == {"question", "conclusion", "jurisdiction", "instrument", "application"}
-    assert description == RIS_LOOKUP_DESCRIPTION and "as_of" not in description
-
-
-@pytest.mark.asyncio
-async def test_with_the_flag_the_turn_binds_a_copy_that_offers_as_of_and_reaches_the_tool(lookup, monkeypatch):
-    from ris_adapter.lookup.tool import RIS_LOOKUP_AS_OF_DESCRIPTION
-    from ris_adapter.lookup.tool import offer_as_of
-
-    monkeypatch.setenv(ENV_OVERRIDE, "off")
-    async for tool in _tool():
-        [offered] = offer_as_of([tool])
-        description, arguments = _offered(offered)
-        output = await offered.ainvoke({"question": "Was sagt § 3?", "as_of": "2019-06-01"})
-
-    assert "as_of" in arguments and description == RIS_LOOKUP_AS_OF_DESCRIPTION
-    # The argument arrives at the tool, whose own gate still decides: here, refused.
-    assert output == AS_OF_REFUSED
-
-
-@pytest.mark.asyncio
-async def test_an_as_of_the_hidden_schema_receives_anyway_is_refused_without_the_flag(lookup, monkeypatch):
-    monkeypatch.setenv(ENV_OVERRIDE, "off")
-    async for tool in _tool():
         output = await tool.ainvoke({"question": "Was sagt § 3?", "as_of": "2019-06-01"})
 
-    assert output == AS_OF_REFUSED
-    assert lookup.client.search_calls == []
+    assert arguments == {"question", "conclusion", "jurisdiction", "instrument", "application", "as_of"}
+    assert description == RIS_LOOKUP_DESCRIPTION and "as_of (str)" in description
+    assert "alte Fassung" in output and "neue Fassung" not in output
 
 
-@pytest.mark.asyncio
-async def test_a_flag_lookup_that_fails_refuses_as_of(lookup, monkeypatch):
-    """Off is the safe answer: a BFF that cannot be asked never opens a past day."""
-    import agent.project_context
-    import agent.stages.flags
+def test_no_switch_decides_the_offer_any_more():
+    """The process override and the flag read went with the switch (ADR-0175)."""
+    from ris_adapter.lookup import as_of
 
-    def _down(**_kwargs):
-        raise RuntimeError("BFF unreachable")
-
-    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
-    monkeypatch.setattr(agent.project_context, "get_organization_id_from_context", lambda: "org-1")
-    monkeypatch.setattr(agent.stages.flags, "fetch_turn_flags", _down)
-
-    output = await lookup.run(question="Was sagt § 3?", as_of="2019-06-01")
-
-    assert output == AS_OF_REFUSED
-    assert lookup.client.search_calls == [] and lookup.client.fetch_calls == []
-
-
-def test_the_process_override_decides_the_offer_as_it_decides_the_call(monkeypatch):
-    """The answer suite runs without a BFF: ``TIME_EDITIONS=on`` must offer what it allows."""
-    from ris_adapter.lookup.as_of import as_of_offered
-
-    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
-    assert (as_of_offered(True), as_of_offered(False)) == (True, False)
-    monkeypatch.setenv(ENV_OVERRIDE, "on")
-    assert as_of_offered(False) is True
-    monkeypatch.setenv(ENV_OVERRIDE, "off")
-    assert as_of_offered(True) is False
+    for retired in ("ENV_OVERRIDE", "as_of_offered", "as_of_allowed", "AS_OF_REFUSED"):
+        assert not hasattr(as_of, retired), retired

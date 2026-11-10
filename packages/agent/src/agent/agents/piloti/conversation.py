@@ -468,7 +468,6 @@ class ConversationGraph:
             deep_research_allowed=state.deep_research_allowed,
             tasks_allowed=state.tasks_allowed,
             licensed_text_allowed=state.licensed_text_allowed,
-            time_editions_allowed=state.time_editions_allowed,
             confined=state.confined,
         )
 

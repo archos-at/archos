@@ -18,8 +18,6 @@ that says the version was not found, never today's text under a past date.
 
 from __future__ import annotations
 
-import asyncio
-import os
 import re
 from datetime import date
 
@@ -63,48 +61,3 @@ def in_force_on(metadata: dict[str, str], day: date) -> bool:
         return True
     until = parse_day(until_text)
     return until is not None and day < until
-
-
-#: ``TIME_EDITIONS=on|off`` overrides the flag for a whole process: the answer suite runs without a BFF.
-ENV_OVERRIDE = "TIME_EDITIONS"
-
-
-def _override() -> bool | None:
-    override = os.environ.get(ENV_OVERRIDE, "").strip().lower()
-    return override == "on" if override in {"on", "off"} else None
-
-
-def as_of_offered(flag_allowed: bool) -> bool:
-    """Whether a turn is offered ``as_of``: the turn's flag, unless the process override says otherwise."""
-    override = _override()
-    return flag_allowed if override is None else override
-
-
-def _allowed_for(organization_id: str | None) -> bool:
-    """The ``time-editions`` flag for ``organization_id``; anything short of a yes is no. Blocking."""
-    override = _override()
-    if override is not None:
-        return override
-    if not organization_id:
-        return False
-    try:
-        from agent.stages.flags import fetch_turn_flags
-
-        return fetch_turn_flags(organization_id=organization_id).time_editions_allowed
-    except Exception:  # noqa: BLE001 - off is the safe answer: the lookup then refuses as_of
-        return False
-
-
-async def as_of_allowed() -> bool:
-    """Whether this turn's organization may ask for a past day; off the event loop."""
-    try:
-        from agent.project_context import get_organization_id_from_context
-    except ImportError:  # adapter used standalone, without the agent package
-        return _allowed_for(None)
-    return await asyncio.to_thread(_allowed_for, get_organization_id_from_context())
-
-
-AS_OF_REFUSED = (
-    "Error: as_of is not enabled for this organization, so no version of a past day can be read. "
-    "Ask without as_of for the version in force today, and say that the version of that day was not checked."
-)

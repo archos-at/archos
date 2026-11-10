@@ -79,7 +79,6 @@ def stubs(monkeypatch):
             enabled_stages=calls["stages"],
             deep_research_allowed=calls["deep_research_allowed"],
             tasks_allowed=calls["tasks_allowed"],
-            time_editions_allowed=calls.get("time_editions_allowed", False),
         )
 
     monkeypatch.setattr(context_mod, "resolve_platform_lessons", lessons)
@@ -90,16 +89,6 @@ def stubs(monkeypatch):
 
 
 class TestLoadTurnContext:
-    @pytest.mark.parametrize("resolve_stages", [True, False])
-    async def test_carries_the_time_editions_flag_whether_or_not_a_stage_runs(self, stubs, resolve_stages):
-        """``law-lookup`` is offered ``as_of`` only on what this field says (ADR-0171); a hop that drops it is off."""
-        stubs["time_editions_allowed"] = True
-        request = _request(project_id="p1", organization_id="org")
-
-        context = await load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=resolve_stages)
-
-        assert context.time_editions_allowed is True
-
     async def test_composes_the_live_digest_into_the_project_context(self, stubs):
         request = _request(project_id="p1", organization_id="org", project_context="PROFILE", project_memory="FROZEN")
 

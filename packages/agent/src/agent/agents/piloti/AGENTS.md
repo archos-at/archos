@@ -24,11 +24,9 @@ narrow the binding: the tool stays bound and the call is refused at the
 it) is the same for every turn of an org — with ONE exception, scope: a turn
 without a project is not sent `ifc_query` / `ifc_measure` (`turn_tools.tools_in_scope`),
 which can only say "no project" there and are ~8k tokens of every call. Two
-shards per org, never one per toggle combination. An entitlement may widen a
-tool for its org (`turn_tools.tools_for_flags`): `time-editions` binds the RIS
-lookup's copy that offers `as_of` (`ris_adapter.lookup.tool.offer_as_of`,
-ADR-0171); without the flag the registered tool, which hides it, is bound
-as it is, so the payload stays what it was before the flag existed. Anything you add that reads a file, compiles a
+shards per org, never one per toggle combination. The RIS lookup offers `as_of`
+(ADR-0171) on every turn; the `time-editions` switch that bound a second copy of
+it went with ADR-0175. Anything you add that reads a file, compiles a
 graph or builds an index belongs in the boot half.
 `packages/agent/tests/agents/piloti/test_build_once.py` counts it.
 

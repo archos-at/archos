@@ -84,7 +84,6 @@ from .reference_fit import FIT_THRESHOLD
 from .reference_fit import MIN_LINES as MIN_FIT_LINES
 from .reference_fit import ReferenceFit
 from .reference_fit import fit_references
-from .turn_tools import tools_for_flags
 from .turn_tools import tools_in_scope
 
 logger = logging.getLogger(__name__)
@@ -559,7 +558,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     if runtime is not None:
         emit_skills_offered(runtime)
         record_trace_metadata(skills_offered=len(runtime.skills), skills_pinned=list(runtime.pinned) or None)
-    turn_tools = tools_in_scope(tools_for_flags(list(deployment.tools), state.time_editions_allowed) + draft_tools)
+    turn_tools = tools_in_scope(list(deployment.tools) + draft_tools)
     turn = TurnConfig(
         llm_provider=llm_provider,
         tools=turn_tools,
