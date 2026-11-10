@@ -46,10 +46,10 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('in a project it lists the rail sections without a tab, gated as the rail gates them', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'profile', 'organization', 'platform', 'whats-new'])
-    expect(keys(NONE)).toEqual(['profile', 'whats-new'])
-    // Suche is the top band's search on a phone, not a second row here.
-    expect(keys(ALL)).not.toContain('search')
+    // Suche is listed: the chat and Alle Dateien have no search on their title's line, so „Mehr“ is where it
+    // is on every page.
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'organization', 'platform', 'whats-new'])
+    expect(keys(NONE)).toEqual(['search', 'profile', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
   })

@@ -41,7 +41,7 @@ import { researchCopy } from '@/i18n/namespaces/research'
 import type { ResourceSharingState } from '@/lib/sharing/types'
 import { useHeaderHeight } from '../hooks/use-header-height'
 import { useLayoutStore } from '../store'
-import { ChatProjectContext } from './ChatProjectContext'
+import { ChatConnectionLine } from './ChatConnectionLine'
 import { THREAD_COLUMN_INNER, THREAD_GUTTER } from '@/components/ui/thread-column'
 
 /**
@@ -53,12 +53,6 @@ const MENU_FOCUS_GUARD_MS = 250
 
 interface ChatToolbarProps {
   sessionTitle?: string
-  /**
-   * The active project. Named on a phone only, in the context row above the
-   * pills (the chat route has no phone header to carry it); on a desktop the
-   * rail and the URL name it, so the pills do not.
-   */
-  projectName?: string | null
   onNewSession?: () => void
   isNewSessionDisabled?: boolean
   /**
@@ -94,7 +88,6 @@ interface ChatToolbarProps {
 
 export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
   sessionTitle = '',
-  projectName = null,
   onNewSession,
   isNewSessionDisabled = false,
   isChatStarted = true,
@@ -292,13 +285,8 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
     // own the research report: a run is read in the thread that commissioned
     // it, in its run block (ADR-0062), so there is no report toggle here.
     <header ref={headerRef} className={cn(THREAD_GUTTER, 'bg-background absolute inset-x-0 top-0 z-20 min-h-12 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] max-md:landscape:flex max-md:landscape:items-start max-md:landscape:gap-2')}>
-      {/* Phone shell: where the reader is, and search, above the pills. On a phone
-          on its side there is width for it beside them, so it stands left of the
-          row there instead of taking a line of 393px. */}
-      <ChatProjectContext
-        projectName={projectName}
-        className={cn(THREAD_COLUMN_INNER, 'mb-2 mt-1 max-md:landscape:mx-0 max-md:landscape:mb-0 max-md:landscape:w-auto max-md:landscape:max-w-[16rem] max-md:landscape:shrink-0')}
-      />
+      {/* Phone shell: the connection's line, which takes room only while the link is not fine. */}
+      <ChatConnectionLine className={cn(THREAD_COLUMN_INNER, 'max-md:landscape:mx-0 max-md:landscape:w-auto max-md:landscape:shrink-0')} />
       {/* The thread's one column (`thread-column.ts`), less the gutter the header
           already carries, so the pills stand on the answer's and composer's edges. */}
       <div className={cn(THREAD_COLUMN_INNER, 'flex items-start justify-between gap-3 max-sm:items-stretch max-md:landscape:mx-0 max-md:landscape:min-w-0 max-md:landscape:flex-1')}>

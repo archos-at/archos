@@ -28,8 +28,9 @@ import {
  * tab: Automatisierung), `organization` (the organisation's doorways without a
  * tab: the Büroablage), `account` (the avatar menu's links, in the menu's
  * order and gated as the menu gates them) and `help` (Neuerungen, after the
- * tour, as the menu has it). Suche is not listed: the top band's search
- * reaches it, and twice was once too often. The project's and the
+ * tour, as the menu has it). Suche is listed with the organisation's doorways:
+ * a page's title line ends in the search, but the chat and Alle Dateien have
+ * none there, so „Mehr" is where it is on every page. The project's and the
  * organisation's places stood in one „Bereiche" list, which the rail keeps
  * apart on purpose. Actions (theme, language, tour, feedback, sign out) are the sheet's
  * own and not destinations.
@@ -51,9 +52,6 @@ export interface MoreFlags extends PhoneTabFlags {
 }
 
 const GROUP_ORDER: readonly MoreDestination['group'][] = ['project', 'organization', 'account', 'help']
-
-/** Reached from the top band's search on a phone (`ShellSearchButton`), so not listed again. */
-const ON_THE_BAND: ReadonlySet<string> = new Set(['search'])
 
 /** The destination keys the bar carries, so a section with a tab never appears twice. */
 function carried(tabs: readonly PhoneTab[]): ReadonlySet<string> {
@@ -112,7 +110,7 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
     canAccessInbox: flags.canAccessInbox,
   }
   const places = railSections(sectionFlags)
-    .filter((section) => !onBar.has(section.key) && !ON_THE_BAND.has(section.key))
+    .filter((section) => !onBar.has(section.key))
     .map(
       (section): MoreDestination => ({
         key: section.key,

@@ -8,12 +8,14 @@ improvements:
     On a phone you switch projects from „Mehr“: its first entry shows the
     project you are in, and „Projekt wechseln“ opens the list of projects.
   - >
-    On a phone the top of each page is one header: the project's name in a
-    small line over the page's title, with the search at the end of the
-    title's line, and the page's content starts higher.
+    On a phone a page starts with its title: the project's name is no longer
+    shown at the top of every page, so the content starts higher. The project
+    you are in is shown in „Mehr“.
   - >
-    An opened mail on a phone has one way back, „← E-Mail-Eingang“, instead
-    of two arrows above each other.
+    An opened mail on a phone has one way back, the arrow beside
+    „E-Mail-Eingang“ at the top, instead of two arrows above each other.
+  - >
+    On a phone, Suche is also listed in „Mehr“.
   - >
     A project name too long for the selector is shortened in the middle, so
     its end stays readable, and is never wrapped onto a second line.
@@ -51,9 +53,8 @@ improvements:
     Above a project, the header marks „Projekte“ as the page you are on, and
     its Büroablage, Suche and Postfach show their names on wide screens.
   - >
-    On a phone, „Mehr“ shows who is signed in and groups its entries under
-    the project's and the office's names; Suche is reached from the search at
-    the top.
+    On a phone, „Mehr“ shows who is signed in and groups its entries by the
+    project, the office and your account.
 fixes:
   - >
     The connection state reads „Verbindung unterbrochen“ or „Keine

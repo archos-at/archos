@@ -23,12 +23,13 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   action?: React.ReactNode
   /**
    * Where the page is, above the title, small and muted (12/16, `text-meta`): the project a tab belongs to, so the
-   * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox). On a phone it is the same
-   * crumb, 4px above the title at 16/24/600: one header block, the desk's at a phone's size.
+   * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox).
    */
   crumb?: React.ReactNode
-  /** Classes for the crumb's line: `md:hidden` for a crumb only the rail-less widths need (the project's name). */
+  /** Classes for the crumb's line: `max-md:hidden` where the widths without a rail start the page with its title. */
   crumbClassName?: string
+  /** What starts the title's line, before the title: a way back (a phone's ←), on the title's edge. */
+  titleStart?: React.ReactNode
   /**
    * What ends the title's line, at every width: a glyph that belongs to the header (the phone's search, a page's
    * one ⋯). A 44px target hangs into the line's height, so it costs the header none.
@@ -91,6 +92,7 @@ export function PageHeader({
   action,
   crumb,
   crumbClassName,
+  titleStart,
   titleEnd,
   actionInline = false,
   className,
@@ -108,11 +110,12 @@ export function PageHeader({
             {crumb}
           </p>
         )}
-        {titleEnd ? (
-          <div className="flex min-w-0 items-center justify-between gap-2" data-slot="page-header-title-line">
-            <h1 className="min-w-0 text-balance text-page-title phone:text-section">{title}</h1>
+        {titleStart || titleEnd ? (
+          <div className="flex min-w-0 items-center gap-2" data-slot="page-header-title-line">
             {/* -10px each side: a 44px target on the title's 24px line. */}
-            <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>
+            {titleStart && <div className="-my-2.5 flex shrink-0 items-center">{titleStart}</div>}
+            <h1 className="min-w-0 flex-1 text-balance text-page-title phone:text-section">{title}</h1>
+            {titleEnd && <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>}
           </div>
         ) : (
           <h1 className="text-balance text-page-title phone:text-section">{title}</h1>

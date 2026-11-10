@@ -234,44 +234,31 @@ describe('ChatToolbar', () => {
     })
   })
 
-  describe('phone context row', () => {
+  describe('phone top', () => {
     beforeEach(() => {
       useShellOverlays.setState({ paletteOpen: false })
       mockIsMobile = false
     })
 
-    test('names the project as a quiet line — the chat route has no phone band, and the selector is in „Mehr“', () => {
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
+    // The founder (2026-11-10): „on mobile lets remove it entirely“. No project name and no lone search
+    // glyph stand over the pills: the project is the first row of „Mehr“, and the search is listed there.
+    test('carries no project name and no search over the pills: the toolbar starts with its pills', () => {
+      mockIsMobile = true
+      render(<ChatToolbar sessionTitle="My Session" />)
 
-      const row = screen.getByTestId('chat-project-context')
-      expect(within(row).getByTestId('project-crumb')).toHaveTextContent('Wohnbau Favoriten')
-      // The search is the row's one control.
-      expect(within(row).getAllByRole('button').map((button) => button.getAttribute('data-testid'))).toEqual(['shell-search'])
-    })
-
-    test('carries the search that opens the command palette', async () => {
-      const user = userEvent.setup()
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
-
-      await user.click(within(screen.getByTestId('chat-project-context')).getByTestId('shell-search'))
-
-      expect(useShellOverlays.getState().paletteOpen).toBe(true)
-    })
-
-    test('is there on a chat that has not started, where the reader most needs a way out', () => {
-      render(<ChatToolbar projectName="Wohnbau Favoriten" isChatStarted={false} />)
-
-      expect(screen.getByTestId('project-crumb')).toBeInTheDocument()
-      expect(screen.getByTestId('shell-search')).toBeInTheDocument()
+      const line = screen.getByTestId('chat-connection-line')
+      expect(line.querySelectorAll('button, a, p')).toHaveLength(0)
+      expect(screen.queryByTestId('shell-search')).toBeNull()
+      expect(screen.queryByTestId('project-crumb')).toBeNull()
     })
 
     test('the connection line is mounted on the phone shell only', () => {
-      const { unmount } = render(<ChatToolbar projectName="Wohnbau Favoriten" />)
+      const { unmount } = render(<ChatToolbar />)
       expect(document.querySelector('[data-slot="connection-band"]')).toBeNull()
       unmount()
 
       mockIsMobile = true
-      render(<ChatToolbar projectName="Wohnbau Favoriten" />)
+      render(<ChatToolbar />)
       expect(document.querySelector('[data-slot="connection-band"]')).not.toBeNull()
     })
 
@@ -280,7 +267,7 @@ describe('ChatToolbar', () => {
       const rect = vi
         .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
         .mockReturnValue({ height: 163 } as DOMRect)
-      render(<ChatToolbar projectName="Wohnbau Favoriten" onHeightChange={onHeightChange} />)
+      render(<ChatToolbar onHeightChange={onHeightChange} />)
       rect.mockRestore()
 
       expect(onHeightChange).toHaveBeenCalledWith(163)
@@ -292,7 +279,6 @@ describe('ChatToolbar', () => {
       render(
         <ChatToolbar
           sessionTitle="My Session"
-          projectName="Wohnbau Favoriten"
           isChatStarted={false}
         />
       )
@@ -313,7 +299,6 @@ describe('ChatToolbar', () => {
       render(
         <ChatToolbar
           sessionTitle="My Session"
-          projectName="Wohnbau Favoriten"
           isChatStarted
         />
       )
@@ -472,7 +457,7 @@ describe('ChatToolbar', () => {
     })
 
     test('does not repeat the project name in the breadcrumb — the context row above it carries it', () => {
-      render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
+      render(<ChatToolbar sessionTitle="My Session" />)
 
       const breadcrumb = screen.getByRole('navigation')
       expect(within(breadcrumb).queryByText('Wohnbau Favoriten')).not.toBeInTheDocument()

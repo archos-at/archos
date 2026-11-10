@@ -1,4 +1,4 @@
-// @disk-inputs: ui/components/shell/*.tsx, ui/components/shell/*.ts, ui/components/ui/sidebar.tsx, ui/features/layout/components/ChatProjectContext.tsx, ui/components/ui/page-header.tsx
+// @disk-inputs: ui/components/shell/*.tsx, ui/components/shell/*.ts, ui/components/ui/sidebar.tsx, ui/features/layout/components/ChatConnectionLine.tsx, ui/features/layout/components/ChatToolbar.tsx
 /**
  * The app rail's material (docs/design/design-language.md, „The app rail“): the
  * rail is the desk beside the page (Paper on a desk). Two things on it are
@@ -16,7 +16,7 @@
  * adds without noticing what it does to the whole: one `border-t` to „tidy“ a
  * group, one more white box. Each exception names its function.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -27,7 +27,6 @@ const RAIL_FILES = [
   'ui/components/shell/app-sidebar.tsx',
   'ui/components/shell/sidebar-brand.tsx',
   'ui/components/shell/project-switcher.tsx',
-  'ui/components/shell/project-crumb.tsx',
   'ui/components/shell/phone-project-list.tsx',
   'ui/components/shell/phone-more-sheet.tsx',
   'ui/components/shell/sidebar-user-menu.tsx',
@@ -107,40 +106,34 @@ describe('the app rail’s material', () => {
     expect(withInitials).toEqual(['ui/components/shell/project-switcher.tsx'])
   })
 
-  it('on a phone, keeps the project selector in „Mehr“ and the top of a page one header block, with no band over it', () => {
+  it('on a phone, names the project in „Mehr“ and nowhere above a page: no band, no crumb, no line over the chat', () => {
     const band = source('ui/components/shell/app-sidebar.tsx')
     const frame = source('ui/components/shell/project-section-frame.tsx')
-    const header = withoutComments(readFileSync(join(ROOT, 'ui/components/ui/page-header.tsx'), 'utf8'))
-    const chat = withoutComments(readFileSync(join(ROOT, 'ui/features/layout/components/ChatProjectContext.tsx'), 'utf8'))
-    const crumb = source('ui/components/shell/project-crumb.tsx')
-    // Nothing at the top of a page opens a project list.
-    for (const text of [band, frame, chat]) {
-      expect(text).not.toMatch(/ProjectPill|PhoneProjectList|data-project-selector|setMoreSheetOpen|projectSwitcher\.switch/)
+    const chatLine = withoutComments(readFileSync(join(ROOT, 'ui/features/layout/components/ChatConnectionLine.tsx'), 'utf8'))
+    const chat = withoutComments(readFileSync(join(ROOT, 'ui/features/layout/components/ChatToolbar.tsx'), 'utf8'))
+    // The shell's top, the chat's toolbar and its line never read a project's name, and open no project list.
+    for (const text of [band, chat, chatLine]) {
+      expect(text).not.toMatch(/\bprojectName\b|\bactiveProject\b|project\.name|projects\.find|ProjectCrumb|ProjectPill|PhoneProjectList|data-project-selector|projectSwitcher\.switch/)
     }
-    // The shell draws its own line only where the page has no header (a bare flow); never a band over one.
+    // The page's header shows the project only in Dateien's crumb, and that crumb is the desk's alone.
+    expect(frame.match(/\{projectName\}/g)).toHaveLength(1)
+    expect(frame).toMatch(/<span className="min-w-0 truncate">\{projectName\}<\/span>/)
+    expect(frame).toMatch(/crumbClassName="max-md:hidden"/)
+    expect(frame).not.toMatch(/ProjectCrumb|MiddleTruncate|PhoneProjectList|data-project-selector/)
+    // The title's line holds what a phone's top holds: one way back, and the app's search (not beside a page's own).
+    expect(frame).toMatch(/titleStart=\{\s*back && \(\s*<Link/)
+    expect(frame.match(/<ShellSearchButton\b/g)).toHaveLength(1)
+    expect(frame).toMatch(/\{!ownSearch && <ShellSearchButton className="-mr-2\.5 md:hidden" \/>\}/)
+    // The shell draws a line of its own only where the page has no header (a bare flow): a way back and the search.
     expect(band).toMatch(/\{!pageHasHeader && \(\s*<div data-slot="phone-bare-line"/)
-    expect(band.match(/<ProjectCrumb\b/g)).toHaveLength(1)
     expect(band.match(/<ShellSearchButton\b/g)).toHaveLength(1)
     expect(band).not.toMatch(/min-h-14/)
-    // The page's header is the block: the project as its crumb (4px over the title, at every width the same
-    // muted 12/16), the search once, on the title's line, below the rail's width only.
-    expect(header).toMatch(/'text-meta text-muted-foreground mb-1 flex min-w-0 items-center gap-1'/)
-    expect(header).not.toMatch(/phone:sr-only|phone:mb-0|phone:text-foreground/)
-    expect(frame).toMatch(/titleEnd=\{[\s\S]*?<ShellSearchButton className="-mr-2\.5 md:hidden" \/>/)
-    expect(frame.match(/<ShellSearchButton\b/g)).toHaveLength(1)
-    expect(frame).toMatch(/<MiddleTruncate text=\{projectName\}/)
-    // Dateien has no second way back: its places are tabs, and an opened mail draws its own.
+    // Dateien has no second way back: its places are tabs, and an opened mail hands the header its own.
     expect(source('ui/components/shell/phone-tabs.ts')).not.toMatch(/\/files\/`\)\) return/)
-    // The chat has no page header: one crumb line over its pills, 16px, the search hanging into it.
-    expect(chat).toMatch(/<div className="flex h-4 items-center/)
-    expect(chat).toMatch(/<ProjectCrumb\b/)
-    // A line of text, not a control: the header crumb's muted 12/16, one line cut in the middle.
-    expect(crumb).toMatch(/text-muted-foreground text-meta/)
-    expect(crumb).toMatch(/<MiddleTruncate\b/)
-    expect(crumb).not.toMatch(/<button|onClick|role=|aria-haspopup|bg-sheet|shadow-/)
-    // The list has one door on a phone.
+    // The list has one door on a phone, and the atom that drew the name at the top is gone.
     const doors = RAIL_FILES.filter((file) => /<PhoneProjectList\b/.test(source(file)))
     expect(doors).toEqual(['ui/components/shell/phone-more-sheet.tsx'])
+    expect(existsSync(join(ROOT, 'ui/components/shell/project-crumb.tsx'))).toBe(false)
   })
 
   it('sets a row in ink at 500 and where the reader is at 600, never muted at 440', () => {

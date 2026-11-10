@@ -295,25 +295,26 @@ describe('AppSidebar - mobile top bar', () => {
 })
 
 describe('AppSidebar - the phone top band', () => {
-  // The founder (2026-11-10), of a 44px band with the project's name and the
-  // search over the page's title: „this tiny thing up top is still a bit weird“.
-  test('draws no band over a page that has a header: the header names the project and holds the search', () => {
+  // The founder (2026-11-10): „it still looks weird, on mobile lets remove it
+  // entirely“. No project name stands above a phone page, as a band or a crumb.
+  test('draws nothing over a page that has a header: no project name, no control', () => {
     pathname = '/app/projects/p1/files'
     render(<AppSidebar {...baseProps} />)
     const banner = screen.getByRole('banner')
-    expect(within(banner).queryByTestId('project-crumb')).toBeNull()
+    expect(banner).not.toHaveTextContent('Project One')
     expect(within(banner).queryAllByRole('button')).toEqual([])
     expect(within(banner).queryAllByRole('link')).toEqual([])
     expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
   })
 
-  test('a bare flow has no page header, so its way back, the project and the search keep one line', async () => {
+  test('a bare flow has no page header, so its way back and the search keep one line, without the project’s name', async () => {
     pathname = '/app/projects/p1/setup'
     const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    const line = screen.getByRole('banner').querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
+    const banner = screen.getByRole('banner')
+    const line = banner.querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
     expect(within(line).getByRole('link', { name: 'Back to Overview' })).toHaveAttribute('href', '/app/projects/p1/settings')
-    expect(within(line).getByTestId('project-crumb')).toHaveTextContent('Project One')
+    expect(banner).not.toHaveTextContent('Project One')
     await user.click(within(line).getByTestId('shell-search'))
     expect(useShellOverlays.getState().paletteOpen).toBe(true)
   })

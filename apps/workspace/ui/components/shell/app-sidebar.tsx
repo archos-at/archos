@@ -19,9 +19,9 @@
  * `org` group under the project's — because they are reachable from inside a
  * project, where they open as sheets above it.
  *
- * Below `md` this renders no rail and no band: the page's header names the
- * project (`ProjectSectionFrame`), and only the connection's line stands above
- * it while the link is not fine. The destinations are the tab bar's
+ * Below `md` this renders no rail and no band: the page starts with its title
+ * (`ProjectSectionFrame`), and only the connection's line stands above it
+ * while the link is not fine. The project is not named at the top of a phone page. The destinations are the tab bar's
  * (`PhoneTabBar`) and „Mehr"'s, whose first row is the project selector. Collapse persistence lives in the
  * primitive (`sidebar.collapsed`).
  */
@@ -56,7 +56,6 @@ import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
 import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
-import { ProjectCrumb } from './project-crumb'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
@@ -231,7 +230,6 @@ function AppSidebarFrame({
   // redundant there — hide it and let the chat toolbar host the nav opener.
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile
-  const activeProject = projects.find((project) => project.id === projectId)
   const back = phoneBackTarget(pathname, projectId)
   const pageHasHeader = framesProjectPage(pathname, projectId)
 
@@ -309,13 +307,12 @@ function AppSidebarFrame({
     <>
       {/* The top of a phone page. Hidden on chat, whose toolbar is its own.
           Where the page has a header (`ProjectSectionFrame`: every page but
-          the bare flows) this draws NO band: the header carries the project's
-          name as its crumb, the way back and the search, one block. What is
-          left here is the screen's top inset and the connection's line, which
-          takes room only while the link is not fine. A band of a small grey
-          name and a lone glyph over the title read as leftover chrome. The
-          destinations live in the tab bar (`PhoneTabBar`), and the project
-          selector is the first row of „Mehr" there. */}
+          the bare flows) this draws nothing: the page starts with its title,
+          whose line holds the way back and the search. What is left here is
+          the screen's top inset and the connection's line, which takes room
+          only while the link is not fine. No project name stands above a
+          phone page, as a band or as a crumb: the project is the first row of
+          „Mehr" in the tab bar (`PhoneTabBar`), and nowhere else on a phone. */}
       <header
         data-scope="project"
         className={cn(
@@ -327,7 +324,7 @@ function AppSidebarFrame({
           isChatRoute ? 'hidden' : 'flex'
         )}
       >
-        {/* A bare flow (the Einrichtung) has no page header: its way back, the project and the search keep one 44px line. */}
+        {/* A bare flow (the Einrichtung) has no page header: its way back and the search keep one 44px line. */}
         {!pageHasHeader && (
         <div data-slot="phone-bare-line" className="flex min-h-11 items-center gap-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
           {back && (
@@ -339,8 +336,6 @@ function AppSidebarFrame({
               <ChevronLeft className="size-5" aria-hidden />
             </Link>
           )}
-          {/* On the page's 16px gutter, where the title under it starts. */}
-          {activeProject && <ProjectCrumb name={activeProject.name} className={cn('flex-1', !back && 'ml-2')} />}
           <ShellSearchButton className="ml-auto" />
         </div>
         )}
