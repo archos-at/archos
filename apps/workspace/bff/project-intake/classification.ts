@@ -15,8 +15,8 @@ import 'server-only'
 import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { gateNamesLaw } from '@/lib/base-knowledge/context/project-law'
-import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { gateNamesLaw } from '@/lib/base-knowledge/wire/project-law'
+import { contextForPage } from '@/lib/base-knowledge/context/service'
 import { buildingClassFacts, candidateMeanings, classifyWithTable } from '@/lib/base-knowledge/rulesets/building-class'
 import { evaluateDecisionTable } from '@/lib/base-knowledge/rulesets/decision-table'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
@@ -169,10 +169,21 @@ export async function evaluateProjectClassification(
   await requireProjectAccess(session, projectId, 'project:view')
   const state = await findProjectProfileInOrg(projectId, session.organizationId)
   if (!state) throw new NotFoundError()
-  const { gate } = await knowledgeContextForTurn(session.organizationId, projectId)
+  // An operation's read, never the turn alert's (ADR-0173).
+  const { gate } = await contextForPage(session.organizationId, projectId)
   if (!gateNamesLaw(gate.state)) {
     const withheld = { state: gate.state, reason: gate.reason }
     return { status: 'undetermined', gate: withheld, site: { chain: [] }, classification: null, planned: null, existing: null, shift: null, requests: [] }
   }
   return evaluateClassification(state.profile, projectIntakeDefinitionV1, input)
+}
+
+/**
+ * Whether the project's knowledge context withholds law at its site: then the
+ * intake derives and writes no Gebäudeklasse either, as this operation answers
+ * (ADR-0169's amendment). An operation's read, never the turn alert's.
+ */
+export async function lawWithheldAt(organizationId: string, projectId: string): Promise<boolean> {
+  const { gate } = await contextForPage(organizationId, projectId)
+  return !gateNamesLaw(gate.state)
 }

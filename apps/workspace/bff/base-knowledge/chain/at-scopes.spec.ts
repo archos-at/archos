@@ -34,8 +34,8 @@ const scopes = read('at-scopes.json')
 const scopeRecords = recordsOf(scopes)
 const atRecords = recordsOf(read('at.json'))
 const euRecords = recordsOf(read('eu.json'))
-const byKey = new Map(scopeRecords.map((record) => [record.key, record]))
-const graph = graphFromProposals([...euRecords, ...atRecords.map((record) => byKey.get(record.key) ?? record)])
+const byId = new Map(scopeRecords.map((record) => [recordIdOf(record), record]))
+const graph = graphFromProposals([...euRecords, ...atRecords.map((record) => byId.get(recordIdOf(record)) ?? record)])
 
 const SCOPED = ['oib-rl-2-1-2019', 'oib-rl-2-1-2023', 'oib-rl-2-2-2019', 'oib-rl-2-2-2023', 'oib-rl-2-3-2019', 'oib-rl-2-3-2023']
 
@@ -61,10 +61,10 @@ describe('Austria’s scopes for OIB-RL 2.1, 2.2 and 2.3', () => {
   })
 
   it('give each 2019 and 2023 edition of the three a scope, and change nothing else of it but add its citations', () => {
-    expect(scopeRecords.map((record) => record.key).sort()).toEqual(SCOPED)
+    expect(scopeRecords.map(recordIdOf).sort()).toEqual(SCOPED.map((key) => `edition:${key}`))
     for (const record of scopeRecords) {
-      const inPack = atRecords.find((candidate) => candidate.key === record.key)
-      if (record.type !== 'edition' || inPack?.type !== 'edition') throw new Error(`${record.key} is no edition of the pack`)
+      const inPack = atRecords.find((candidate) => recordIdOf(candidate) === recordIdOf(record))
+      if (record.type !== 'edition' || inPack?.type !== 'edition') throw new Error(`${recordIdOf(record)} is no edition of the pack`)
       const { appliesWhen, citations, ...rest } = record
       const { appliesWhen: before, citations: cited, ...packRest } = inPack
       expect(before).toBeNull()

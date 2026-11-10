@@ -24,6 +24,7 @@ import {
   createChangeRequestBodySchema,
   entitleBodySchema,
   homeCountryBodySchema,
+  listOrganizationCountriesQuerySchema,
   listChangeRequestsQuerySchema,
   PROPOSED_RECORD_TYPES,
   proposeRecordsBodySchema,
@@ -294,6 +295,22 @@ export const platformKnowledgeOperations = [
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/index-status',
     params: requestParams,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/index-status/route'),
+  },
+  {
+    name: 'platform-org-countries-list',
+    domain: 'platform',
+    summary: 'List where every organization is placed: its home country and the countries it is entitled to',
+    description:
+      'Per organization (the platform organization left out): `homeCountry`, or null with `unplaced.reason`: ' +
+      '`directory_names` (its WorkOS metadata names `directoryHomeCountry`, written on the next signed-in page load), ' +
+      '`no_row` (nobody signed in to it yet, and nothing names a country) or `not_stated` (its admins have not stated it). Then `entitled`: its home (source `home`) and ' +
+      'each country the platform entitled it to (source `platform`, with who and when). A page at a time (`limit`, ' +
+      '`cursor` from `nextCursor`), the unplaced first within it. Read only: place an office with ' +
+      'platform-organization-home-country-set, entitle it with platform-org-country-entitle.',
+    method: 'GET',
+    path: '/api/platform/organizations/countries',
+    query: listOrganizationCountriesQuerySchema,
+    load: () => import('@/app/api/platform/organizations/countries/route'),
   },
   {
     name: 'platform-org-country-entitle',

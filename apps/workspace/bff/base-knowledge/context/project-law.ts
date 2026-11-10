@@ -11,17 +11,11 @@
  */
 
 import 'server-only'
-import type { ProjectLaw } from '../wire/project-law'
+import { gateNamesLaw, type ProjectLaw } from '../wire/project-law'
 import { SHIPPED_SETUP_RECORDS } from '../rulesets/shipped'
 import { selectRecord } from '../rulesets/select'
 import { contextForPage } from './service'
-import type { GateState, KnowledgeContext } from './wire'
-
-/** The gate states that name no law: the turn refuses, and so does the page. */
-const REFUSING: ReadonlySet<GateState> = new Set(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'])
-
-/** Whether a gate lets the page name law. Pure. */
-export const gateNamesLaw = (gate: GateState): boolean => !REFUSING.has(gate)
+import type { KnowledgeContext } from './wire'
 
 /**
  * The label of each building fact the uses' scopes name, in the country's

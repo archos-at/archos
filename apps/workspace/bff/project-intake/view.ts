@@ -17,8 +17,8 @@ import type { ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage
 import { formatIntakeAnswer, labelForProfileKey } from '@/lib/project-profile/intake-vocabulary'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
-import type { ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
-import { deriveAll } from './derivation-view'
+import { gateNamesLaw, type ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
+import { deriveAll, withoutDerivedClasses } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { BUILDING_CLASS_RULE } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
@@ -141,14 +141,15 @@ export function suggestionGroups(
 function derivationReviews(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
-  needs: readonly Need[]
+  needs: readonly Need[],
+  lawWithheld: boolean
 ): DerivationReview[] {
   const classes = new Map(
     profileItems(profile, definition, needs)
       .filter(({ item }) => isDerivedClass(item))
       .map(({ item }) => [item.key, item])
   )
-  return deriveAll(profile, definition).map((derivation) => ({
+  return deriveAll(profile, definition, { lawWithheld }).map((derivation) => ({
     ...derivation,
     suggestion: classes.get(`${BUILDING_CLASS_RULE}@${derivation.buildingId}`) ?? null,
   }))
@@ -192,7 +193,11 @@ export interface IntakeViewInput {
   canComplete: boolean
   /** Step 3: the readable documents and the unread ones among them, for the live „x von y". Absent: none. */
   readingDocuments?: { readable: readonly ReadingDocument[]; unread: readonly ReadingDocument[] }
-  /** Step 5: the law at the project's site from the records (`projectLawFor`). Absent: the card is left out. */
+  /**
+   * Step 5: the law at the project's site from the records (`projectLawFor`).
+   * Absent: the card is left out. Where its gate names no law, no class is
+   * derived or shown either (ADR-0169's amendment).
+   */
   applicableLaw?: ProjectLaw
 }
 
@@ -201,7 +206,9 @@ const iso = (value: Date | string | null | undefined): string | null =>
 
 /** The review. */
 export function buildIntakeView(input: IntakeViewInput): IntakeView {
-  const { row, profile, definition, needs } = input
+  const { row, definition, needs } = input
+  const lawWithheld = input.applicableLaw ? !gateNamesLaw(input.applicableLaw.gate) : false
+  const profile = lawWithheld ? withoutDerivedClasses(input.profile, definition) : input.profile
   const groups = suggestionGroups(profile, definition, needs)
   const contradictions = contestedItems(profile, definition, needs)
   const questions = needs.filter((need) => need.decisive && need.state === 'open').slice(0, MAX_INTAKE_NEEDS)
@@ -222,7 +229,7 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     questions,
     openQuestions,
     groups,
-    derivations: derivationReviews(profile, definition, needs),
+    derivations: derivationReviews(profile, definition, needs, lawWithheld),
     canDecide: input.canDecide,
     canComplete: input.canComplete,
     // Step 5, Steckbrief: the law at the site, from the platform's records.

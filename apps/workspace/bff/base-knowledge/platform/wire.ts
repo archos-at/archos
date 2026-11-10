@@ -112,12 +112,12 @@ const workRecord = z.object({
         .regex(/^\d{1,12}$/)
         .optional()
         .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
-      'ris_dokumentnummer': z
-        .string()
-        .regex(/^[A-Z0-9_]{4,60}$/)
+      eli: z
+        .url()
+        .max(300)
+        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
         .optional()
-        .describe('RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.'),
-      eli: z.url().max(300).optional().describe('The European Legislation Identifier of the work, as a URL; a passage under it is this work.'),
+        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
     })
     .strict()
     .default({})
@@ -361,7 +361,6 @@ export interface CaptureView {
   retrievedAt: string
 }
 
-/** The record types `platform-knowledge-schema-get` describes. */
 /** Every record type `records-propose` takes, in the order the guide proposes them; held to `proposedRecordSchema`'s union by `wire.spec.ts`. */
 export const PROPOSED_RECORD_TYPES = ['territory', 'authority', 'work', 'edition', 'manifestation', 'relation', 'ruleset', 'source'] as const
 
@@ -560,3 +559,40 @@ export interface OrganizationCountriesView {
   homeCountry: string | null
   entitled: { countryId: string; source: 'home' | 'platform'; entitledAt: string | null }[]
 }
+
+/**
+ * Why an office has no home country (ADR-0158): its WorkOS metadata names one, which the next signed-in page load
+ * writes; or no row yet and nothing names one; or a row whose admins never stated it.
+ */
+export const UNPLACED_REASONS = ['directory_names', 'no_row', 'not_stated'] as const
+
+/** One office's placement as the platform reads it: `platform-org-countries-list`. */
+export interface OrganizationPlacementView {
+  organizationId: string
+  name: string
+  homeCountry: string | null
+  /** Null once placed. `directoryHomeCountry`: what the WorkOS organization's metadata names, if anything. */
+  unplaced: { reason: (typeof UNPLACED_REASONS)[number]; directoryHomeCountry: string | null } | null
+  /** Its home first (source `home`), then each country the platform entitled it to, with who and how. */
+  entitled: {
+    countryId: string
+    source: 'home' | 'platform'
+    entitledAt: string | null
+    entitledBy: string | null
+    decisionSource: string | null
+  }[]
+}
+
+export interface PlatformOrganizationCountries {
+  /** This page's offices, the unplaced first, then by name. */
+  organizations: OrganizationPlacementView[]
+  /** How many on this page have no home country. */
+  unplaced: number
+  /** Pass as `cursor` for the next page; null on the last. */
+  nextCursor: string | null
+}
+
+export const listOrganizationCountriesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().describe('Organizations per page; 100 at most and by default.'),
+  cursor: z.string().trim().min(1).max(200).optional().describe('nextCursor of the previous page.'),
+})

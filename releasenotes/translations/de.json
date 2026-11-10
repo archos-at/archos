@@ -1148,6 +1148,10 @@
     "de": "Antworten lassen sich schneller überfliegen: Die erste Zeile nennt den Wert fett, Prüfungen je Gebäudeklasse stehen in Tabellen mit Verweisen, Abläufe als nummerierte Schritte und offene Punkte als Aufgabenliste."
   },
   {
+    "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
+    "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
+  },
+  {
     "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
     "de": "In Word exportierte Antworten sowie Berichte und Diagramme, die der Agent als PDF ablegt, weisen jetzt in ihren Dateieigenschaften mit standardisierten Begriffen, die Archivierungs- und Compliance-Tools erkennen, darauf hin, dass sie von einer KI erstellt wurden. Jedes vom Agenten verfasste Dokument, auch ein Schreiben an eine Behörde, beginnt jetzt mit einer Zeile, die angibt, dass es von einem KI-System erstellt wurde und für welches Büro."
   },

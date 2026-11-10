@@ -5,12 +5,12 @@
  * not match are not refs. Pure.
  */
 
+import { z } from 'zod'
 import { SOURCE_REF_SCHEMES, type SourceRefScheme } from '../wire/vocab'
 
-export interface SourceRef {
-  scheme: SourceRefScheme
-  value: string
-}
+/** One identifier of a work at its source, by scheme (`SOURCE_REF_SCHEMES`): how a passage read live finds its work. */
+export const sourceRefSchema = z.object({ scheme: z.enum(SOURCE_REF_SCHEMES), value: z.string().min(1).max(300) }).strict()
+export type SourceRef = z.infer<typeof sourceRefSchema>
 
 const SCHEMES: ReadonlySet<string> = new Set(SOURCE_REF_SCHEMES)
 

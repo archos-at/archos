@@ -333,7 +333,6 @@
                       "type": "string",
                       "enum": [
                         "ris_gesetzesnummer",
-                        "ris_dokumentnummer",
                         "eli"
                       ]
                     },

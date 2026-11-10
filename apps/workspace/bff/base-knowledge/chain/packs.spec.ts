@@ -132,6 +132,18 @@ describe('the Austria and EU packs', () => {
       'oib-rl_4_ausgabe_mai_2023.pdf': 'edition:oib-rl-4-2023',
       'oib-rl_5_ausgabe_mai_2023.pdf': 'edition:oib-rl-5-2023',
       'oib-rl_6_ausgabe_mai_2023.pdf': 'edition:oib-rl-6-2023',
+      // The other binding editions, under the names oib.or.at publishes (agent/common/oib_file_names.py).
+      'richtlinie_1_12.04.19_0.pdf': 'edition:oib-rl-1-2019',
+      'oib-rl-2-brandschutz-2019.pdf': 'edition:oib-rl-2-2019',
+      'oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf': 'edition:oib-rl-2-1-2019',
+      'oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf': 'edition:oib-rl-2-2-2019',
+      'oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf': 'edition:oib-rl-2-3-2019',
+      'oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019.pdf': 'edition:oib-rl-3-2019',
+      'oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019.pdf': 'edition:oib-rl-4-2019',
+      'oib-rl-5-schallschutz-2019.pdf': 'edition:oib-rl-5-2019',
+      'oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf': 'edition:oib-rl-6-2019',
+      'oib-rl_6_september_2025.pdf': 'edition:oib-rl-6-2025',
+      'oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf': 'edition:oib-rl-6-2015',
     })
   })
 

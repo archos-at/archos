@@ -23,6 +23,7 @@
 import { normalizeProfileKey, normalizeProfileValue } from '@/lib/project-profile/legacy-names'
 import 'server-only'
 import { projectLawFor } from '@/lib/base-knowledge/context/project-law'
+import { lawWithheldAt } from './classification'
 import { ConflictError, ForbiddenError, NotFoundError, ServiceUnavailableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -530,15 +531,12 @@ export async function recordIntakeValues(
     value: normalizeProfileValue(value.key, value.value),
   }))
   const row = await requireCurrentReading(session, projectId, jobId)
-  const documents = await readableDocuments(organizationId, projectId)
+  const [documents, lawWithheld] = await Promise.all([readableDocuments(organizationId, projectId), lawWithheldAt(organizationId, projectId)])
   const readableFiles = new Set(documents.map((document) => document.fileName))
   const screened = await screenValues(organizationId, row, values, readableFiles)
   return writeProfile(session, projectId, (current) => {
-    const plan = planRecord(current, definition, screened, {
-      now: new Date().toISOString(),
-      readingId: jobId,
-      needs: { mode: row.mode, dismissed: row.dismissed },
-    })
+    const needs = { mode: row.mode, dismissed: row.dismissed }
+    const plan = planRecord(current, definition, screened, { now: new Date().toISOString(), readingId: jobId, needs, lawWithheld })
     const value = { results: plan.results, opened: plan.opened.slice(0, MAX_INTAKE_NEEDS) }
     return { value, before: current, after: plan.profile, keys: plan.changedKeys }
   })
@@ -557,8 +555,9 @@ export async function withdrawIntakeValues(
 ): Promise<InternalIntakeWithdrawResponse> {
   const keys = sentKeys.map(normalizeProfileKey)
   await requireCurrentReading(session, projectId, jobId)
+  const lawWithheld = await lawWithheldAt(session.organizationId, projectId)
   const results = await writeProfile(session, projectId, (current) => {
-    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId })
+    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId, lawWithheld })
     return { value: plan.results, before: current, after: plan.profile, keys: plan.changedKeys }
   })
   return { results }

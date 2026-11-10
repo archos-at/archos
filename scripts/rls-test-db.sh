@@ -169,6 +169,13 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+# Site resolution: alone and first. It asserts that no territory record holds a
+# Gemeinde yet (no_territory), and the platform suite in the batch below releases
+# that territory; in one batch whichever ran first decided the outcome (seen
+# 2026-11-10 once the batch's timing moved).
+echo "==> running the site-resolution suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
 echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
@@ -238,10 +245,17 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/time/time.integration.spec.ts
+    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+
+# Editions in time: alone, after the platform suite, since both release
+# Austria's territory and a release over one moved since a request was opened
+# is a 409 by design. In one batch the two raced, and whichever opened its
+# request first lost (seen 2026-11-10 once a file joined the batch).
+echo "==> running the editions-in-time suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
@@ -3774,14 +3788,14 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
-# 0216: an edition's scope (ADR-0177) is a JSON object or absent; the down
-# drops the column, and 0216 applies again.
+# 0217: an edition's scope (ADR-0177) is a JSON object or absent; the down
+# drops the column, and 0217 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0216 edition scope and its down migration on aw_0216"
-migrate_until aw_0216 0216_edition_applies_when
-check_in aw_0216 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_edition_revisions_applies_when_object'" "CHECK (((applies_when IS NULL) OR (jsonb_typeof(applies_when) = 'object'::text)))" "0216: a scope is a JSON object or absent"
-apply_in aw_0216 0216_edition_applies_when.down.sql
-check_in aw_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "0" "0216 down drops the column"
-apply_in aw_0216 0216_edition_applies_when.sql
-check_in aw_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0216 applies again after its down"
-echo "==> 0216 edition scope and its down migration verified"
+echo "==> verifying 0217 edition scope and its down migration on aw_0217"
+migrate_until aw_0217 0217_edition_applies_when
+check_in aw_0217 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_edition_revisions_applies_when_object'" "CHECK (((applies_when IS NULL) OR (jsonb_typeof(applies_when) = 'object'::text)))" "0217: a scope is a JSON object or absent"
+apply_in aw_0217 0217_edition_applies_when.down.sql
+check_in aw_0217 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "0" "0217 down drops the column"
+apply_in aw_0217 0217_edition_applies_when.sql
+check_in aw_0217 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0217 applies again after its down"
+echo "==> 0217 edition scope and its down migration verified"

@@ -28,7 +28,8 @@ vi.mock('./turn-snapshot', () => ({ rememberTurnContext: vi.fn() }))
 
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from '../chain/from-proposals'
-import { gateNamesLaw, lawOf, projectLawFor } from './project-law'
+import { gateNamesLaw } from '../wire/project-law'
+import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 
 /** A synthetic scope shaped like a guideline for production buildings (ADR-0177); the real one is a record citing its clause. */

@@ -71,7 +71,7 @@ What it is:
 - **Record.** The edition record's `appliesWhen`: a `decision_table.v1`
   (ADR-0166) whose output is `boolean` (`wire/applies-when.ts`); null applies
   to every building, as before. Stored in
-  `knowledge_edition_revisions.applies_when` (migration 0216, provisional
+  `knowledge_edition_revisions.applies_when` (migration 0217, provisional
   number), which the SQL holds to an object; the wire refuses any other
   output. The kit runs the table's own examples (KC-5, pointer `/appliesWhen`).
   Each row's `provision` cites the edition's own scope clause.
@@ -155,7 +155,7 @@ What it is:
   leave a farm building's 2.1 to a person.
 - `bff/base-knowledge/platform/record-schemas.spec.ts`: the record schemas,
   with the decision table written once, fit one tool result on the door.
-- `scripts/rls-test-db.sh` (0216): the object CHECK, down and reapply.
+- `scripts/rls-test-db.sh` (0217): the object CHECK, down and reapply.
 - `ui/features/project-intake/components/steps/profile-step.spec.tsx`: the
   chip and its peek.
 

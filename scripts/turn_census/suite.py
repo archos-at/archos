@@ -106,6 +106,7 @@ from census import run_stamp  # noqa: E402
 from census import source_packages  # noqa: E402
 from census import timed_out  # noqa: E402
 from census import tree_pythonpath  # noqa: E402
+from cited_files import cited_families  # noqa: E402
 from eval_sets import set_module  # noqa: E402
 from files_eval import recorded_calls  # noqa: E402
 from fixture_bff import lookups_served  # noqa: E402
@@ -117,7 +118,6 @@ from workspace_eval import run_conversation  # noqa: E402
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 #: A cited corpus file's Richtlinie number: `oib-rl_2.1_…`, `oib-richtlinie_2.2_…`.
-_CITED_FAMILY = re.compile(r"(?:rl|richtlinie)_(\d+(?:\.\d+)?)_", re.IGNORECASE)
 _LOG_SIGNALS = {
     # The one repair (ADR-0067): a flagged quote, and a patch attempt on one
     # close enough to its passage. Each flagged quote's closeness is in the
@@ -381,7 +381,7 @@ def observe(
     run.answer = final_answer(log_text)
     run.envelope = {"kind": envelope.get("kind"), "cards": envelope.get("cards") or []} if envelope else None
     run.kind = str((envelope or {}).get("kind") or "")
-    run.cited_families = sorted(set(_CITED_FAMILY.findall(run.answer)))
+    run.cited_families = cited_families(run.answer)
     requests = record.parent / "requests.jsonl"
     run.lookups = lookups_served(requests, record.stem)
     if "escalated" in run.signals:

@@ -63,7 +63,13 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
 7. Agent identity prompts: the j2 prompts hardcode "Austrian building
    regulations / RIS / OIB" framing — template off the profile
    (`country_name`, `legal_source_tools`) when country #2 ships.
-8. Request envelope: its `federal_state` is AT-vocabulary; add a
+8. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
+   `norm_registry` (`oib_doc_class`, `oib_family_member`, `guess_display_title`)
+   parse the OIB's filenames and tie a passage to its edition by name, from
+   `agent/common/`, which should be country-neutral. Country #2's texts get their
+   class and edition from the pack's manifestations instead, which is also the
+   fix the name mapping bridges to (retrieval reading the chunk's `edition_id`).
+9. Request envelope: its `federal_state` is AT-vocabulary; add a
    `country` envelope field alongside it (the structured `country=<cc>` prompt
    fact is already parsed by `country_profile.resolve_site`, which never
    defaults to Austria: an unplaced project is `site_unknown`).
@@ -115,7 +121,17 @@ consolidations: re-check each on RIS before quoting it.
     2023 and **OIB-RL 6 März 2015** „gemäß Teil E der Anlage 1"
     (`LGBLA_SA_20260806_83`). The pack holds the 2015 edition from 2026-09-01;
     Teil E's deviations are not modelled, and the days before are not held, since
-    the replaced LGBl. Nr 55/2016 was not read. The corpus has no 2015 text.
+    the replaced LGBl. Nr 55/2016 was not read. Its text, like every 2019 and 2025
+    one, is a manifestation under the name oib.or.at publishes.
+- **Upload, then publish.** Uploading a file to the base corpus does not tie it to
+  its edition: the publish's index run does, re-ingesting each manifestation's
+  `corpusFile` with its release's mark (`base-knowledge/platform/indexing.ts`). A
+  publish whose file is missing fails that run („upload it, then publish again"),
+  and a file uploaded after its release carries the unreleased mark `ZZ`
+  (`UNRELEASED_COUNTRY`, the same file), which no office is entitled to, until a
+  later publish indexes it. So upload
+  the eleven 2019, 2025 and 2015 texts first, under their published names, then
+  publish the change request that carries their manifestations.
   - Burgenland: LGBl. 75/2026, published 2026-11-04, binds OIB-RL 6 „in der
     Fassung 2025" from the next day, 2026-11-05; RL 1–5 stay at 2019
     (`LGBLA_BU_20261104_75`). The OIB table still shows „-".

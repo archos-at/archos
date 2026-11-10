@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_knowledge_approve_alone.sql, migrations/0215_pdf_document_sources.sql, migrations/0216_source_vocabularies_from_python.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -25,6 +25,7 @@ const MIGRATIONS = [
   'migrations/0213_knowledge_context.sql',
   'migrations/0214_knowledge_approve_alone.sql',
   'migrations/0215_pdf_document_sources.sql',
+  'migrations/0216_source_vocabularies_from_python.sql',
 ].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
 )
@@ -61,6 +62,21 @@ describe('the base knowledge vocabularies', () => {
   it.each(Object.entries(KNOWLEDGE_VOCABULARIES))('%s is what its CHECK lists', (qualified, values) => {
     const [table, column] = qualified.split('.')
     expect(checkedValues(table, column).sort()).toEqual([...values].sort())
+  })
+
+  it('holds no CHECK on a source\'s protocol or format: the Python registry is their one list', () => {
+    const latest = (constraint: string): 'added' | 'dropped' | undefined =>
+      [...MIGRATIONS]
+        .reverse()
+        .map((text) =>
+          new RegExp(`DROP CONSTRAINT IF EXISTS ${constraint}\\b`).test(text) ? ('dropped' as const)
+          : new RegExp(`CONSTRAINT ${constraint}\\s+CHECK`).test(text) ? ('added' as const)
+          : undefined,
+        )
+        .find(Boolean)
+    expect(latest('knowledge_source_revisions_protocol_known')).toBe('dropped')
+    expect(latest('knowledge_source_revisions_format_known')).toBe('dropped')
+    expect(Object.keys(KNOWLEDGE_VOCABULARIES)).not.toContain('knowledge_source_revisions.format')
   })
 
   it('allows a decision table only for the purposes the wire gives one', () => {

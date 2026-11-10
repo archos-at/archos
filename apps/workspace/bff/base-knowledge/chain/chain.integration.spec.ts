@@ -161,7 +161,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
   })
 
-  it('reads an edition’s scope and the page its text opens at (0216, ADR-0177)', async () => {
+  it('reads an edition’s scope and the page its text opens at (0217, ADR-0177)', async () => {
     const scope = {
       inputs: [{ key: 'uses', type: 'codes' }],
       output: { type: 'boolean' },

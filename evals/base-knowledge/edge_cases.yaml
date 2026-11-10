@@ -61,6 +61,11 @@ cases:
       retrieval: [DE, EU]
       uses:
         work:bauo-nrw: { role: binding, qualifier: uncurated, editionId: null, labels: [uncurated_source], freshness: current }
+      # The text says what the uses say: uncurated, never "reviewed".
+      textContains:
+        - "from the platform's records, some read from an uncurated official source (marked)"
+        - 'BauO NRW „Bauordnung NRW“, the consolidated text in force at its source: law of DE-NW, in force; read from an uncurated official source; nobody on the platform reviewed this route'
+      textLacks: ["from the platform's reviewed records"]
 
   - id: E04
     title: Org with home DE and no site asks about Abstandsflächen
@@ -98,6 +103,12 @@ cases:
         work:hoai: { role: information, qualifier: null, labels: [depends_on_connecting_factor] }
         work:vgv: { role: information, qualifier: null, labels: [depends_on_connecting_factor] }
         work:baybo: { role: binding, qualifier: uncurated }
+      # HOAI binds by the office's seat or the client, never "not in force here".
+      textContains:
+        - 'Binding by something other than the site:'
+        - 'HOAI „Honorarordnung für Architekten und Ingenieure“, the consolidated text in force at its source: binds by where the office sits or who the client is, not by the site; cite it as binding only once that is known'
+        - 'VgV „Vergabeverordnung“, the consolidated text in force at its source: binds by who the client is, not by the site'
+      textLacks: ['not in force here']
 
   - id: E47
     title: US project; org without an organizations row
@@ -121,6 +132,26 @@ cases:
       uses:
         work:bo-wien: { role: binding, qualifier: null, labels: [] }
       absentWorks: [work:stmk-bg]
+      textContains: ["from the platform's reviewed records"]
+      textLacks: ['uncurated']
+
+  - id: E-newer-known
+    title: Vienna's building code, whose source names a newer edition than the records hold, is in force only by the records, and the text says so
+    graphs: [austria]
+    records:
+      - { type: edition, key: bo-wien-2023, workKey: bo-wien, label: Fassung 2023, inForceFrom: '2023-01-01' }
+    office: { homeCountry: AT, entitled: [AT] }
+    site: { territoryId: AT-9, certainty: verified }
+    date: '2026-12-14'
+    checks:
+      edition:bo-wien-2023: { checkedAt: '2026-12-10T08:00:00Z', result: newer_known }
+    expect:
+      gate: full
+      uses:
+        work:bo-wien: { role: binding, editionId: edition:bo-wien-2023, freshness: newer_known }
+      textContains:
+        - 'Bauordnung für Wien, edition Fassung 2023: law of AT-9, in force by the records; a newer edition is known at its source: say so, and check which one binds'
+      textLacks: ['AT-9, in force;', 'AT-9, in force\n']
 
   - id: E-none
     title: A country with territories and no coverage record reads none, and carries no use
