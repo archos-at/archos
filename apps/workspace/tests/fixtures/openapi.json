@@ -23760,6 +23760,48 @@
         }
       }
     },
+    "/api/organization/countries": {
+      "get": {
+        "operationId": "organization-countries-get",
+        "summary": "Read the office’s home country and the countries it is entitled to",
+        "description": "Its home country, and each country the platform entitled it to: the countries whose platform base knowledge (listed norms, authorities, directives) its answers draw on. Any member may read.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the office’s home country and the countries it is entitled to",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/organization/deleted-folder-content": {
       "get": {
         "operationId": "organization-deleted-folder-content-get",
@@ -27982,6 +28024,456 @@
         }
       }
     },
+    "/api/platform/knowledge/change-requests": {
+      "post": {
+        "operationId": "platform-knowledge-change-request-create",
+        "summary": "Open a change request for one country’s platform knowledge",
+        "description": "Opens a draft. Every change to platform knowledge goes through one: propose records into it, submit it, have it reviewed and approved by another person, then publish it.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "countryId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$",
+                    "description": "The country whose knowledge it changes; what offices are entitled to."
+                  }
+                },
+                "required": [
+                  "title",
+                  "countryId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Open a change request for one country’s platform knowledge",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "platform-knowledge-change-request-list",
+        "summary": "List the platform’s knowledge change requests",
+        "description": "Newest first, at most 200; filter by `status`.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "submitted",
+                "approved",
+                "rejected",
+                "published",
+                "rolled_back"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous page.",
+              "type": "string",
+              "pattern": "^\\d{1,6}$"
+            },
+            "description": "nextCursor of the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the platform’s knowledge change requests",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/decision": {
+      "post": {
+        "operationId": "platform-knowledge-change-request-decide",
+        "summary": "Approve or reject a submitted change request",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted and is refused (409) for anyone who wrote a revision in the request. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ]
+                  },
+                  "role": {
+                    "default": "domain_expert",
+                    "type": "string",
+                    "enum": [
+                      "domain_expert",
+                      "counsel",
+                      "second_reviewer"
+                    ]
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Approve or reject a submitted change request",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}": {
+      "get": {
+        "operationId": "platform-knowledge-change-request-get",
+        "summary": "Read a change request with its claims, verdicts, approvals and releases",
+        "description": "Each record’s newest revision in the request, every claim (a body field) with the newest verdict on it, the approvals, and the release moves.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a change request with its claims, verdicts, approvals and releases",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/review": {
+      "post": {
+        "operationId": "platform-knowledge-change-request-review",
+        "summary": "Record verdicts on the claims of a submitted change request",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected. A verdict is not an approval and changes nothing offices read.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decisions": {
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "claimPath": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "decision": {
+                          "type": "string",
+                          "enum": [
+                            "accepted",
+                            "edited",
+                            "rejected"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "revisionId",
+                        "claimPath",
+                        "decision"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "decisions"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Record verdicts on the claims of a submitted change request",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/submit": {
+      "post": {
+        "operationId": "platform-knowledge-change-request-submit",
+        "summary": "Submit a draft change request for review",
+        "description": "No more records go into it after this. 409 unless it is a draft; 422 when it holds no records.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Submit a draft change request for review",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/documents/{fileName}/doc-class": {
       "patch": {
         "operationId": "platform-knowledge-doc-class-update",
@@ -28177,6 +28669,732 @@
         }
       }
     },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/index-status": {
+      "get": {
+        "operationId": "platform-knowledge-index-status",
+        "summary": "Read whether a change request’s published texts are indexed",
+        "description": "Per text: requested, queued (the base corpus accepted it), indexed (the corpus reports its chunks) or failed with the reason.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read whether a change request’s published texts are indexed",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge": {
+      "get": {
+        "operationId": "platform-knowledge-overview-get",
+        "summary": "Read the platform’s base knowledge by country, and the review queue",
+        "description": "Per country: released records by type (territory, authority, work, edition, manifestation), open change requests, entitled offices and editions past their check target; and the submitted change requests awaiting review.",
+        "tags": [
+          "platform"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the platform’s base knowledge by country, and the review queue",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/publish": {
+      "post": {
+        "operationId": "platform-knowledge-publish",
+        "summary": "Publish an approved change request to preview or stable",
+        "description": "Preview first; stable then moves what every entitled office reads and queues each published text for indexing. The person’s own decision. 409 when another request released one of its records since it was opened. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "preview",
+                      "stable"
+                    ],
+                    "description": "preview first; stable moves what offices read."
+                  }
+                },
+                "required": [
+                  "channel"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Publish an approved change request to preview or stable",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/records": {
+      "post": {
+        "operationId": "platform-knowledge-records-propose",
+        "summary": "Propose up to 200 cited records into a draft change request",
+        "description": "Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation. Run it with `dryRun: true` first: it answers the validation problems and writes nothing. A batch with problems is refused (422). The same key again in the same draft adds a revision to the same record.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "records": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "work"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "technical_standard",
+                                "guideline",
+                                "commentary",
+                                "authority_directive",
+                                "statute"
+                              ]
+                            },
+                            "title": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            "designation": {
+                              "default": null,
+                              "description": "e.g. \"ÖNORM B 1600\".",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "territoryIds": {
+                              "default": [],
+                              "description": "Where it applies; empty for a standard.",
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                              }
+                            },
+                            "issuer": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "addressees": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  },
+                                  "territoryId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                                  },
+                                  "authorityKey": {
+                                    "description": "The authority record it names, e.g. \"at-wien-ma37\".",
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "territoryId"
+                                ]
+                              }
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "kind",
+                            "title"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "edition"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "workKey": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                              "description": "The work it is an edition of, proposed here or already published."
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120,
+                              "description": "The Ausgabe as the masthead prints it, e.g. \"2023-01-01\"."
+                            },
+                            "issuedOn": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "inForceFrom": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "inForceTo": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "workKey",
+                            "label"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "manifestation"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "editionKey": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "form": {
+                              "default": "text",
+                              "type": "string",
+                              "enum": [
+                                "text",
+                                "link"
+                              ]
+                            },
+                            "language": {
+                              "default": "de",
+                              "type": "string",
+                              "minLength": 2,
+                              "maxLength": 35
+                            },
+                            "licenceClass": {
+                              "type": "string",
+                              "enum": [
+                                "public_open",
+                                "public_restricted"
+                              ]
+                            },
+                            "corpusFile": {
+                              "default": null,
+                              "description": "The text, as a file uploaded to the base corpus; null for a listing without text.",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[^/\\\\]{1,200}\\.pdf$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "editionKey",
+                            "licenceClass"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "territory"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "union",
+                                "country",
+                                "state",
+                                "district",
+                                "municipality",
+                                "city_district"
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "parentIds": {
+                              "default": [],
+                              "description": "Nearest first, e.g. [\"AT\"] for AT-6.",
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                              }
+                            },
+                            "aliases": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z]{2,8}$"
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "validFrom": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "validTo": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "kind",
+                            "name"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "authority"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "functionCodes": {
+                              "default": [],
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z_]{2,40}$"
+                              }
+                            },
+                            "seatTerritoryId": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                            },
+                            "competenceTerritoryIds": {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                              }
+                            },
+                            "identifiers": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z_]{2,20}$"
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              }
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "name",
+                            "seatTerritoryId",
+                            "competenceTerritoryIds"
+                          ]
+                        }
+                      ],
+                      "discriminator": {
+                        "propertyName": "type"
+                      }
+                    }
+                  },
+                  "dryRun": {
+                    "default": false,
+                    "description": "Validate only; nothing is written.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "records"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Propose up to 200 cited records into a draft change request",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/reingest": {
       "post": {
         "operationId": "platform-knowledge-reingest",
@@ -28237,6 +29455,81 @@
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/rollback": {
+      "post": {
+        "operationId": "platform-knowledge-rollback",
+        "summary": "Roll back a published change request",
+        "description": "Each record returns to its state before the request, as appended inverse releases; revisions stay, so old citations resolve. The person’s own decision. 409 when a later release moved a record again. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Roll back a published change request",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
           "openWorldHint": false
         }
       }
@@ -28840,7 +30133,7 @@
       "put": {
         "operationId": "platform-norm-registry-update",
         "summary": "Replace the norm registry",
-        "description": "Writes the complete norm registry (`{ version, registry }`) as read from platform-norm-registry-get with your edits; a stale version is rejected. It changes which norms every organization’s answers can cite. Audited.",
+        "description": "Writes the complete norm registry (`{ version, registry }`) as read from platform-norm-registry-get; a stale version, or any write once platform knowledge is on (use platform-knowledge-change-request-create), is refused (409). Audited.",
         "tags": [
           "platform"
         ],
@@ -29312,6 +30605,84 @@
         }
       }
     },
+    "/api/platform/organizations/{organizationId}/countries": {
+      "post": {
+        "operationId": "platform-org-country-entitle",
+        "summary": "Entitle an organization to a country’s platform knowledge, or withdraw it",
+        "description": "From then on the office’s answers draw on that country’s released platform knowledge (`entitled: false` withdraws it; its home country needs no entitlement). The person’s own decision. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The organization id, from platform-overview-get."
+            },
+            "description": "The organization id, from platform-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countryId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "entitled": {
+                    "type": "boolean",
+                    "description": "false withdraws the entitlement."
+                  }
+                },
+                "required": [
+                  "countryId",
+                  "entitled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Entitle an organization to a country’s platform knowledge, or withdraw it",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/organizations/{organizationId}/storage": {
       "get": {
         "operationId": "platform-org-storage-get",
@@ -29573,6 +30944,79 @@
           "title": "Read an organization’s credit usage",
           "readOnlyHint": true,
           "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/organizations/{organizationId}/home-country": {
+      "put": {
+        "operationId": "platform-organization-home-country-set",
+        "summary": "Move an organization’s home country",
+        "description": "The office’s seat: one of the countries the product is offered in. The old home stays an entitlement until withdrawn. The person’s own decision. Audited.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The organization id, from platform-overview-get."
+            },
+            "description": "The organization id, from platform-overview-get."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countryId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                "required": [
+                  "countryId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Move an organization’s home country",
+          "readOnlyHint": false,
+          "destructiveHint": true,
           "idempotentHint": true,
           "openWorldHint": false
         }
@@ -30883,6 +32327,111 @@
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/platform/knowledge/change-requests/{changeRequestId}/territories": {
+      "post": {
+        "operationId": "platform-territory-import",
+        "summary": "Import ISO 3166 territories into a draft change request",
+        "description": "A bulk file of ISO 3166 rows (`code`, `name`, optional `parent`) becomes territory records: a code without a subdivision is a country, `AT-6` a state of AT. Validated and reviewed like any proposal.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "changeRequestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The change request id, from platform-knowledge-change-request-create or -list."
+            },
+            "description": "The change request id, from platform-knowledge-change-request-create or -list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "iso3166"
+                    ],
+                    "description": "A bulk file of ISO 3166 rows."
+                  },
+                  "rows": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "parent": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "format",
+                  "rows"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Import ISO 3166 territories into a draft change request",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
           "openWorldHint": false
         }
       }

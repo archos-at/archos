@@ -344,8 +344,8 @@ export const platformOperations = [
     domain: 'platform',
     summary: 'Replace the norm registry',
     description:
-      'Writes the complete norm registry (`{ version, registry }`) as read from platform-norm-registry-get with your edits; ' +
-      'a stale version is rejected. It changes which norms every organization’s answers can cite. Audited.',
+      'Writes the complete norm registry (`{ version, registry }`) as read from platform-norm-registry-get; a stale version, or ' +
+      'any write once platform knowledge is on (use platform-knowledge-change-request-create), is refused (409). Audited.',
     method: 'PUT',
     path: '/api/platform/norms',
     body: putNormRegistryBodySchema,

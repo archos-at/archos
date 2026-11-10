@@ -426,17 +426,25 @@ SELECT secure_table('knowledge_revisions',
   'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
   'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
 --> statement-breakpoint
-DO $$
-DECLARE target text;
-BEGIN
-  FOREACH target IN ARRAY ARRAY['knowledge_work_revisions', 'knowledge_edition_revisions',
-    'knowledge_manifestation_revisions', 'knowledge_territory_revisions', 'knowledge_authority_revisions']
-  LOOP
-    PERFORM secure_table(target,
-      'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
-      'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
-  END LOOP;
-END $$;
+SELECT secure_table('knowledge_work_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
+--> statement-breakpoint
+SELECT secure_table('knowledge_edition_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
+--> statement-breakpoint
+SELECT secure_table('knowledge_manifestation_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
+--> statement-breakpoint
+SELECT secure_table('knowledge_territory_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
+--> statement-breakpoint
+SELECT secure_table('knowledge_authority_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');
 --> statement-breakpoint
 SELECT secure_table('knowledge_checks',
   'organization_id = current_org() OR (organization_id IS NULL AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = target_id))');

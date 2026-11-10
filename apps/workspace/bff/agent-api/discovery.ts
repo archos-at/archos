@@ -476,7 +476,10 @@ export async function executeOperation(
     }
     // An agent reads the answer: a route that words its refusal in the person's locale words it in English.
     // The person's yes, when the door got one, rides along for a route that asks (`person-decision.ts`).
-    const result = await callOperation(op, input, ctx.principal.session, 'agent', personYesOf(ctx.decisionSource))
+    const yes = personYesOf(ctx.decisionSource)
+    const result = yes.decisionSource
+      ? await callOperation(op, input, ctx.principal.session, 'agent', yes)
+      : await callOperation(op, input, ctx.principal.session, 'agent')
     record(result.status)
     // A link works for whoever holds it, with the requester's access: never into a transcript others read.
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {

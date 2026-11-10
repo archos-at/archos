@@ -48,15 +48,16 @@ import {
   type ProposedRevision,
 } from './store'
 import { namedTerritories, validateProposal, type Problem } from './validate'
-import type {
-  ChangeRequestSummary,
-  ChangeRequestView,
-  IndexStatusView,
-  OrganizationCountriesView,
-  PlatformKnowledgeOverview,
-  ProposedRecord,
-  ReleaseChannelBody,
-  ReviewDecisionBody,
+import {
+  CHANGE_REQUEST_PAGE,
+  type ChangeRequestSummary,
+  type ChangeRequestView,
+  type IndexStatusView,
+  type OrganizationCountriesView,
+  type PlatformKnowledgeOverview,
+  type ProposedRecord,
+  type ReleaseChannelBody,
+  type ReviewDecisionBody,
 } from './wire'
 
 /** The platform organization has not switched platform knowledge on. */
@@ -110,9 +111,16 @@ export async function platformKnowledgeOverview(session: UserSession | null): Pr
   return readOverview()
 }
 
-export async function listPlatformChangeRequests(session: UserSession | null, status?: ChangeRequestStatus): Promise<ChangeRequestSummary[]> {
+export async function listPlatformChangeRequests(
+  session: UserSession | null,
+  query: { status?: ChangeRequestStatus; limit?: number; cursor?: string },
+): Promise<{ changeRequests: ChangeRequestSummary[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
-  return listChangeRequests(status)
+  const offset = query.cursor ? Number(query.cursor) : 0
+  const limit = query.limit ?? CHANGE_REQUEST_PAGE
+  // One more than the page says whether another follows.
+  const rows = await listChangeRequests(query.status, { offset, limit: limit + 1 })
+  return { changeRequests: rows.slice(0, limit), nextCursor: rows.length > limit ? String(offset + limit) : null }
 }
 
 export async function getPlatformChangeRequest(session: UserSession | null, id: string): Promise<ChangeRequestView> {

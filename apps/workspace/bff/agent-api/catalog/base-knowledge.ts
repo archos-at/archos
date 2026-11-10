@@ -145,6 +145,17 @@ export const baseKnowledgeOperations = [
     params: entryParamsSchema,
     load: () => import('@/app/api/base-knowledge/[entryId]/route'),
   },
+  {
+    name: 'organization-countries-get',
+    domain: 'organization',
+    summary: 'Read the office’s home country and the countries it is entitled to',
+    description:
+      'Its home country, and each country the platform entitled it to: the countries whose platform base knowledge ' +
+      '(listed norms, authorities, directives) its answers draw on. Any member may read.',
+    method: 'GET',
+    path: '/api/organization/countries',
+    load: () => import('@/app/api/organization/countries/route'),
+  },
 ] as const satisfies readonly AgentOperation[]
 
 export type BaseKnowledgeOperationName = (typeof baseKnowledgeOperations)[number]['name']

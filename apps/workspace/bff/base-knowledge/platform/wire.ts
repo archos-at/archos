@@ -187,8 +187,14 @@ export const rollbackBodySchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 })
 
+/** A page of change requests: the default and the most one call returns. */
+export const CHANGE_REQUEST_PAGE = 50
+export const MAX_CHANGE_REQUEST_PAGE = 200
+
 export const listChangeRequestsQuerySchema = z.object({
   status: z.enum(CHANGE_REQUEST_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_CHANGE_REQUEST_PAGE).optional(),
+  cursor: z.string().regex(/^\d{1,6}$/).optional().describe('nextCursor of the previous page.'),
 })
 
 export const entitleBodySchema = z.object({

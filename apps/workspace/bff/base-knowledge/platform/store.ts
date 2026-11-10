@@ -81,7 +81,10 @@ export async function setChangeRequestStatus(
     .where(eq(knowledgeChangeRequests.id, id))
 }
 
-export async function listChangeRequests(status?: ChangeRequestStatus): Promise<ChangeRequestSummary[]> {
+export async function listChangeRequests(
+  status?: ChangeRequestStatus,
+  page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
+): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
     getDb()
       .select({
@@ -90,8 +93,9 @@ export async function listChangeRequests(status?: ChangeRequestStatus): Promise<
       })
       .from(knowledgeChangeRequests)
       .where(status ? eq(knowledgeChangeRequests.status, status) : undefined)
-      .orderBy(desc(knowledgeChangeRequests.createdAt))
-      .limit(MAX_CHANGE_REQUESTS),
+      .orderBy(desc(knowledgeChangeRequests.createdAt), desc(knowledgeChangeRequests.id))
+      .offset(page.offset)
+      .limit(Math.min(page.limit, MAX_CHANGE_REQUESTS)),
   )
   return rows.map(({ request, revisionCount }) => ({
     id: request.id,

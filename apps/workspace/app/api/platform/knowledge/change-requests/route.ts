@@ -13,8 +13,10 @@ import { createChangeRequestBodySchema, listChangeRequestsQuerySchema } from '@/
 export const GET = platformApiRoute(
   async ({ session, request }) => {
     const query = listChangeRequestsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams))
-    if (!query.success) throw new BadRequestError('status must be one of draft, submitted, approved, rejected, published, rolled_back')
-    return { changeRequests: await listPlatformChangeRequests(session, query.data.status) }
+    if (!query.success) {
+      throw new BadRequestError('status is one of draft, submitted, approved, rejected, published, rolled_back; limit 1 to 200')
+    }
+    return listPlatformChangeRequests(session, query.data)
   },
   { permission: PLATFORM_PERMISSIONS.settingsView },
 )
