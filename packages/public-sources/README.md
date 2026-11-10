@@ -59,7 +59,10 @@ public addresses.
 A source whose protocol or format is not in the tables of ADR-0162 needs an
 access type or an engine first: a class in `src/access/` or `src/engines/`
 with its configuration model, registered in that package's `__init__.py`, and
-tests. That is the only code a new country can need.
+tests. That is the only code a new country can need: the registry's keys are
+the one list of protocols and formats, which the `vocabularies` hook writes into
+the UI (`apps/workspace/shared/vocabularies.generated.ts`), and no migration or
+CHECK lists them (0216).
 
 ## Rules
 

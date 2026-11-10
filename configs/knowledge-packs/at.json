@@ -965,12 +965,16 @@
       "type": "edition",
       "key": "oib-rl-6-2025",
       "workKey": "oib-rl-6",
-      "label": "Ausgabe 2025",
+      "label": "Ausgabe September 2025",
       "issuedOn": "2025-08-29",
       "citations": [
         {
           "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/#inkrafttreten",
           "note": "adopted by the OIB general assembly (circular resolution) on 2025-08-29"
+        },
+        {
+          "url": "https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/LGBLA_TI_20260715_59/LGBLA_TI_20260715_59.xml",
+          "note": "RIS LGBLA_TI_20260715_59 (TBV 2026) and Anlage 13 of LGBLA_WI_20260715_26 name it OIB-Richtlinie 6, Ausgabe September 2025, as does oib.or.at; read 2026-11-10"
         }
       ]
     },
@@ -986,6 +990,171 @@
         {
           "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
           "note": "published free of charge by the OIB"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-1-2019-text",
+      "editionKey": "oib-rl-1-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "richtlinie_1_12.04.19_0.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-1",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/richtlinie_1_12.04.19_0.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-2019-text",
+      "editionKey": "oib-rl-2-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-2-brandschutz-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-2-brandschutz-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-1-2019-text",
+      "editionKey": "oib-rl-2-1-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-1",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-2-2019-text",
+      "editionKey": "oib-rl-2-2-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-2",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-2-3-2019-text",
+      "editionKey": "oib-rl-2-3-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-2-3",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-3-2019-text",
+      "editionKey": "oib-rl-3-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-3",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-4-2019-text",
+      "editionKey": "oib-rl-4-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-4",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-5-2019-text",
+      "editionKey": "oib-rl-5-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-5-schallschutz-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-5",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-5-schallschutz-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-6-2019-text",
+      "editionKey": "oib-rl-6-2019",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2019/oib-richtlinie-6",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-6-2025-text",
+      "editionKey": "oib-rl-6-2025",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl_6_september_2025.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2025/oib-richtlinie-6",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl_6_september_2025.pdf, read 2026-11-10"
+        }
+      ]
+    },
+    {
+      "type": "manifestation",
+      "key": "oib-rl-6-2015-text",
+      "editionKey": "oib-rl-6-2015",
+      "form": "text",
+      "language": "de",
+      "licenceClass": "public_open",
+      "corpusFile": "oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf",
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/richtlinien/oib-richtlinien-2015/oib-richtlinie-6",
+          "note": "published free of charge by the OIB as https://www.oib.or.at/wp-content/uploads/oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf, read 2026-11-10"
         }
       ]
     },

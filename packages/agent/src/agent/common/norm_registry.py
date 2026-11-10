@@ -43,6 +43,7 @@ from pydantic import ValidationError
 from pydantic import field_validator
 
 from agent.common.family_query import family_query_number  # noqa: F401  (re-exported)
+from agent.common.oib_file_names import canonical_oib_file_name
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 from agent.common.source_kinds import MAIL_LANE
@@ -801,33 +802,6 @@ _LANE_LABELS: dict[str, str] = {
     MAIL_LANE: MAIL_LANE_LABEL,
     OFFICE_MAIL_LANE: MAIL_LANE_LABEL,
 }
-
-
-# The OIB does not publish its corpus under one spelling. Most 2023 files are
-# ``oib-rl_<n>_…``, ``erlaeuterungen_oib-rl_<n>_…`` and
-# ``aenderungen_oib-rl_<n>_…``, but OIB-RL 2.2 ships as
-# ``oib-richtlinie_2.2_…``, ``erlaeuterungen-zu-oib-richtlinie_2.2_…`` and
-# ``aenderungen_oib-richtlinie_2.2_…`` (oib.or.at, Ausgabe Mai 2023). Every
-# filename reader below parses the canonical form this rewrites to, so a
-# spelling variant is one alternation here rather than a branch in each reader.
-# Anchored at the start and bound to the ``oib-`` stem, so only a name that
-# already says it is an OIB-Richtlinie is rewritten.
-_OIB_PUBLISHED_STEM_RE = re.compile(r"^(?:(erlaeuterungen|aenderungen)(?:_|-zu-))?oib-(?:rl|richtlinie)_")
-
-
-def canonical_oib_file_name(file_name: str) -> str:
-    """Lower-cased ``file_name`` with a published OIB spelling rewritten to ``oib-rl_``.
-
-    ``oib-richtlinie_2.2_ausgabe_mai_2023.pdf`` -> ``oib-rl_2.2_ausgabe_mai_2023.pdf``;
-    ``erlaeuterungen-zu-oib-richtlinie_2.2_…`` -> ``erlaeuterungen_oib-rl_2.2_…``.
-    Any other name comes back lower-cased and otherwise unchanged.
-    """
-    low = file_name.lower()
-    match = _OIB_PUBLISHED_STEM_RE.match(low)
-    if not match:
-        return low
-    role = f"{match.group(1)}_" if match.group(1) else ""
-    return f"{role}oib-rl_{low[match.end() :]}"
 
 
 def oib_doc_class(file_name: str) -> str | None:

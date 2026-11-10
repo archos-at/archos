@@ -165,7 +165,7 @@
     "packages/agent/src/agent/common/content_screen.py": 949,
     "packages/agent/src/agent/common/cost_tracking.py": 941,
     "packages/agent/src/agent/common/decisions.py": 676,
-    "packages/agent/src/agent/common/norm_registry.py": 1169,
+    "packages/agent/src/agent/common/norm_registry.py": 1142,
     "packages/agent/src/agent/common/provider_limiter.py": 876,
     "packages/agent/src/agent/common/wire_v2.py": 1403,
     "packages/agent/src/agent/knowledge/base.py": 738,
@@ -198,7 +198,7 @@
     "packages/ris-adapter/src/register.py": 942,
     "scripts/loop_eval.py": 969,
     "scripts/turn_census/fixture_bff.py": 657,
-    "scripts/turn_census/suite.py": 1464
+    "scripts/turn_census/suite.py": 1463
   },
   "functions": {
     "apps/agent-host/src/agent_host/auth/jwt_validator.py::JWTValidator.validate": 62,
