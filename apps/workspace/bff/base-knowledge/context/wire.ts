@@ -8,7 +8,8 @@
  */
 
 import { z } from 'zod'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, SOURCE_REF_SCHEMES } from '../wire/vocab'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS } from '../wire/vocab'
+import { sourceRefSchema } from '../chain/source-refs'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
@@ -53,8 +54,6 @@ export const gateSchema = z
   })
   .strict()
 
-/** One identifier of a work at its source, by scheme (`SOURCE_REF_SCHEMES`): how a passage read live finds its work. */
-export const sourceRefSchema = z.object({ scheme: z.enum(SOURCE_REF_SCHEMES), value: z.string().min(1).max(300) }).strict()
 
 /** The longest chain text the context carries; the resolver cuts a longer one at a line, with a note. */
 export const MAX_CONTEXT_TEXT_CHARS = 16_000
@@ -128,7 +127,6 @@ export const knowledgeContextSchema = z
 export type Leaf = z.infer<typeof leafSchema>
 export type Gate = z.infer<typeof gateSchema>
 export type ContextUse = z.infer<typeof contextUseSchema>
-export type SourceRef = z.infer<typeof sourceRefSchema>
 export type ProcedureContext = z.infer<typeof procedureContextSchema>
 export type KnowledgeContext = z.infer<typeof knowledgeContextSchema>
 export type UseLabel = (typeof USE_LABELS)[number]

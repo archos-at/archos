@@ -111,12 +111,12 @@ const workRecord = z.object({
         .regex(/^\d{1,12}$/)
         .optional()
         .describe('RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. "20000006".'),
-      'ris_dokumentnummer': z
-        .string()
-        .regex(/^[A-Z0-9_]{4,60}$/)
+      eli: z
+        .url()
+        .max(300)
+        .regex(/\/$/, 'an ELI ends with "/": a passage is this work only below that whole path segment')
         .optional()
-        .describe('RIS: the Dokumentnummer of one document of the work, as RIS prints it; matched as a whole token.'),
-      eli: z.url().max(300).optional().describe('The European Legislation Identifier of the work, as a URL; a passage under it is this work.'),
+        .describe('The European Legislation Identifier of the work, as a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).'),
     })
     .strict()
     .default({})

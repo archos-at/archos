@@ -4550,11 +4550,7 @@
           "sourceRefs": [
             {
               "scheme": "eli",
-              "value": "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11"
-            },
-            {
-              "scheme": "ris_dokumentnummer",
-              "value": "LWI40000225"
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/"
             },
             {
               "scheme": "ris_gesetzesnummer",
@@ -5065,6 +5061,93 @@
       "retrieval": {
         "countries": [
           "AT",
+          "EU"
+        ]
+      }
+    }
+  },
+  "open:DE-NW": {
+    "knowledgeContext": {
+      "gate": {
+        "state": "open",
+        "reason": null,
+        "leaves": [
+          {
+            "territoryId": "DE-NW",
+            "country": "DE",
+            "certainty": "verified",
+            "entitled": true,
+            "coverage": "open",
+            "municipalLaw": null
+          }
+        ]
+      },
+      "packs": [
+        {
+          "packId": "DE",
+          "seq": 0
+        },
+        {
+          "packId": "EU",
+          "seq": 1
+        }
+      ],
+      "chains": {
+        "DE-NW": [
+          "DE-NW",
+          "DE",
+          "EU"
+        ]
+      },
+      "date": "2026-11-10",
+      "procedures": [],
+      "uses": [
+        {
+          "workId": "work:bauo-nrw",
+          "editionId": null,
+          "role": "binding",
+          "qualifier": "uncurated",
+          "via": "territory",
+          "date": "2026-11-10",
+          "freshness": "current",
+          "lastCheckedAt": null,
+          "connectsBy": [
+            "site"
+          ],
+          "labels": [
+            "uncurated_source"
+          ],
+          "corpusFiles": [],
+          "designation": "BauO NRW",
+          "editionLabel": null,
+          "sourceRefs": []
+        },
+        {
+          "workId": "work:hoai",
+          "editionId": null,
+          "role": "information",
+          "qualifier": null,
+          "via": "territory",
+          "date": "2026-11-10",
+          "freshness": "current",
+          "lastCheckedAt": null,
+          "connectsBy": [
+            "office_seat",
+            "client"
+          ],
+          "labels": [
+            "depends_on_connecting_factor"
+          ],
+          "corpusFiles": [],
+          "designation": "HOAI",
+          "editionLabel": null,
+          "sourceRefs": []
+        }
+      ],
+      "text": "Building law at this site, Nordrhein-Westfalen (DE-NW, DE, EU), on 2026-11-10, from the platform's records, some read from an uncurated official source (marked). What binds outranks what explains: law in force (Gesetz, Verordnung) > a model code, standard or guideline only where a law makes it binding, and only in the edition the route names > guidance, interpretation and information, which add no requirement. Information from an authority shows its practice, not a norm.\nBinding here:\n- BauO NRW „Bauordnung NRW“, the consolidated text in force at its source: law of DE-NW, in force; read from an uncurated official source; nobody on the platform reviewed this route\nLegal commentaries are not available; say so when asked for one.\nBinding by something other than the site:\n- HOAI „Honorarordnung für Architekten und Ingenieure“, the consolidated text in force at its source: binds by where the office sits or who the client is, not by the site; cite it as binding only once that is known",
+      "retrieval": {
+        "countries": [
+          "DE",
           "EU"
         ]
       }

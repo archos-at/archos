@@ -40,13 +40,31 @@ const pack = (name: string) => {
 }
 const graph = graphFromProposals([...pack('eu.json'), ...pack('at.json')])
 
-const contextAt = (territoryId: string) =>
+/**
+ * Where nobody curated a country (open coverage, design §4.6): its law is binding only as `uncurated`, and a
+ * work bound by the office's seat is information. Synthetic, so the agent's side reads a qualifier, labels and a
+ * connecting factor the Austrian packs never give.
+ */
+const OPEN = 'open:DE-NW'
+const openGraph = graphFromProposals(
+  proposeRecordsBodySchema.parse({
+    records: [
+      { type: 'territory', id: 'EU', kind: 'union', name: 'EU' },
+      { type: 'territory', id: 'DE', kind: 'country', name: 'Deutschland', datedParents: [{ id: 'EU', validFrom: '1958-01-01' }], coverageLevel: 'open' },
+      { type: 'territory', id: 'DE-NW', kind: 'state', name: 'Nordrhein-Westfalen', parentIds: ['DE'] },
+      { type: 'work', key: 'bauo-nrw', kind: 'statute', title: 'Bauordnung NRW', designation: 'BauO NRW', territoryIds: ['DE-NW'] },
+      { type: 'work', key: 'hoai', kind: 'ordinance', title: 'Honorarordnung für Architekten und Ingenieure', designation: 'HOAI', territoryIds: ['DE'], connectsBy: ['office_seat', 'client'] },
+    ],
+  }).records,
+)
+
+const contextAt = (territoryId: string, entitled = 'AT', at = graph) =>
   knowledgeContextSchema.parse(
     resolveKnowledgeContext({
       homeCountry: 'AT',
-      entitled: new Set(['AT']),
+      entitled: new Set(['AT', entitled]),
       sites: [{ territoryId, certainty: 'verified' }],
-      graph,
+      graph: at,
       truncated: false,
       date: DATE,
       now: new Date(`${DATE}T12:00:00Z`),
@@ -55,7 +73,11 @@ const contextAt = (territoryId: string) =>
     }),
   )
 
-const generated = `${JSON.stringify(Object.fromEntries(LANDS.map((id) => [id, { knowledgeContext: contextAt(id) }])), null, 2)}\n`
+const generated = `${JSON.stringify(
+  Object.fromEntries([...LANDS.map((id) => [id, { knowledgeContext: contextAt(id) }]), [OPEN, { knowledgeContext: contextAt('DE-NW', 'DE', openGraph) }]]),
+  null,
+  2,
+)}\n`
 const schema = `${JSON.stringify(
   jsonSchemaDocument(
     { KnowledgeContext: knowledgeContextSchema },
@@ -78,17 +100,25 @@ const committed = (path: string, text: string) => {
 describe('the knowledge context’s contract with the Python tier', () => {
   it('reads core coverage, a chain text and named uses in every Land', () => {
     for (const [id, { knowledgeContext }] of Object.entries(JSON.parse(generated) as Record<string, { knowledgeContext: ReturnType<typeof contextAt> }>)) {
+      if (id === OPEN) continue
       expect(knowledgeContext.gate.state, id).toBe('core')
       expect(knowledgeContext.text, id).toContain('Building law at this site')
       expect(knowledgeContext.uses.every((use) => 'designation' in use && 'sourceRefs' in use), id).toBe(true)
     }
   })
 
+  it('reads uncurated law, its label and a work bound by the office’s seat where coverage is open', () => {
+    const open = (JSON.parse(generated) as Record<string, { knowledgeContext: ReturnType<typeof contextAt> }>)[OPEN].knowledgeContext
+    expect(open.gate.state).toBe('open')
+    expect(open.uses.find((use) => use.workId === 'work:bauo-nrw')).toMatchObject({ role: 'binding', qualifier: 'uncurated', labels: ['uncurated_source'] })
+    expect(open.uses.find((use) => use.workId === 'work:hoai')).toMatchObject({ role: 'information', connectsBy: ['office_seat', 'client'], labels: ['depends_on_connecting_factor'] })
+    expect(open.text).toContain('read from an uncurated official source')
+  })
+
   it('names the Bauordnung für Wien by its identifiers at RIS, so a passage read live there finds it', () => {
     const vienna = (JSON.parse(generated) as Record<string, { knowledgeContext: ReturnType<typeof contextAt> }>)['AT-9'].knowledgeContext
     expect(vienna.uses.find((use) => use.workId === 'work:bo-wien')?.sourceRefs).toEqual([
-      { scheme: 'eli', value: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11' },
-      { scheme: 'ris_dokumentnummer', value: 'LWI40000225' },
+      { scheme: 'eli', value: 'https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/' },
       { scheme: 'ris_gesetzesnummer', value: '20000006' },
     ])
   })

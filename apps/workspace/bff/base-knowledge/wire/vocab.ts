@@ -203,7 +203,7 @@ export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
  * Dokumentnummer (one paragraph's document, a whole token), and an ELI (a URL
  * prefix). A scheme added here is matched by the agent only once it learns it.
  */
-export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'ris_dokumentnummer', 'eli'] as const
+export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
 export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
