@@ -82,7 +82,8 @@ register itself and no typed text leaves the cell.
   of another country and the register is not searched, unless the register
   lists it as cross-border (the Kleinwalsertal's 87567–87569 and Jungholz's
   87491, E30); a place must be the Gemeinde, the Ortschaft or the delivery
-  place, or begin with one ("Wien-Innere Stadt"), and a place the postcode's
+  place, or one of them before a district after a `-`, `,` or `/` ("Wien-Innere
+  Stadt"), never a prefix of the key ("Wiener Neudorf" is not Wien), and a place the postcode's
   addresses do not lie in is `conflict`, never the postcode's address; a house
   number with a door
   (`12/3/4`) is tried as typed, then as `12`; a lot number (`GNR 310/4`) is the

@@ -88,22 +88,20 @@ export async function activeReleases(organizationId: string, registers: readonly
 /**
  * Addresses of the active releases of `registers` whose street key and one of
  * `houseKeys` match exactly, filtered here by `postcode` or, without one, by
- * `placeKey`: a street and number common across Austria ("Hauptplatz 7") has
+ * `placeKeys`: a street and number common across Austria ("Hauptplatz 7") has
  * more than {@link MAX_MATCHES} rows, and a cap applied before the filter
  * would drop the one the line names.
  */
 export async function findByKeys(
   organizationId: string,
-  query: { registers: readonly string[]; streetKey: string; houseKeys: readonly string[]; postcode: string | null; placeKey: string | null }
+  query: { registers: readonly string[]; streetKey: string; houseKeys: readonly string[]; postcode: string | null; placeKeys: readonly string[] | null }
 ): Promise<RegisterRow[]> {
   if (query.registers.length === 0 || query.houseKeys.length === 0) return []
   const narrowing = query.postcode
     ? sql`AND e.postcode = ${query.postcode}`
-    : query.placeKey
-      ? // The place itself, or a district written after it ("wieninnerestadt" in "wien"), as `match.ts` reads it.
-        // Keys are letters and digits only, so LIKE sees no wildcard in them.
-        sql`AND EXISTS (SELECT 1 FROM unnest(e.place_keys) AS p(key)
-              WHERE p.key = ${query.placeKey} OR (length(p.key) >= 3 AND ${query.placeKey} LIKE p.key || '%'))`
+    : query.placeKeys && query.placeKeys.length > 0
+      ? // The keys `placeKeysOf` gives, compared whole, as `match.ts` compares them.
+        sql`AND e.place_keys && ${sql.param([...query.placeKeys])}::text[]`
       : sql``
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<RawRow>(sql`${SELECT_ROW}

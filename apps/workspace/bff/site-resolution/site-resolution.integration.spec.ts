@@ -263,6 +263,9 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     // A postcode and no place could be Switzerland's or Liechtenstein's.
     expect(await service.resolveSite(session, 'Herrengasse 16, 8010', now)).toMatchObject({ status: 'unverified', reason: 'incomplete' })
     expect(await service.resolveSite(session, 'Herrengasse 16, 1010 Wien-Innere Stadt', now)).toMatchObject({ status: 'verified', site: { municipality: { name: 'Wien' } } })
+    // A place that only begins with another's name is another place: Wiener Neudorf is not Wien.
+    expect(await service.resolveSite(session, 'Stephansplatz 1, Wiener Neudorf', now)).toMatchObject({ status: 'unverified', reason: 'no_register_hit' })
+    expect(await service.resolveSite(session, 'Stephansplatz 1, 2351 Wiener Neudorf', now)).toMatchObject({ status: 'unverified' })
   })
 
   it('finds the Kleinwalsertal address typed with its German postcode (E30), and refuses Germany (no register)', async () => {

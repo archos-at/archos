@@ -10,7 +10,9 @@
  *   87567, design E30) is no filter; any other is evidence of another country,
  *   and the service does not search the register at all.
  * - A place must be the municipality, the locality or the delivery place, or
- *   begin with one of them ("Wien-Innere Stadt" for Wien). When a postcode
+ *   one of them followed by a district after a `-`, `,` or `/` ("Wien-Innere
+ *   Stadt" for Wien). Never a bare prefix of the key: "Wiener Neudorf" is not
+ *   Wien, nor "Steinach am Brenner" Stein. When a postcode
  *   matched and the place names none of its rows, the line contradicts itself
  *   (`8010 Wien`): `conflict`, never the postcode's address.
  */
@@ -36,9 +38,20 @@ export function usablePostcode(parsed: ParsedAddress, postcodeShape: RegExp): st
   return parsed.postcode && postcodeShape.test(parsed.postcode) ? parsed.postcode : null
 }
 
-/** Whether a row lies in the typed place: its key, or a district written after it ("wieninnerestadt" in "wien"). */
-function inPlace(row: RegisterRow, key: string): boolean {
-  return row.placeKeys.some((place) => key === place || (place.length >= 3 && key.startsWith(place)))
+/**
+ * The keys a typed place may name: the place as typed, and, when a district
+ * follows it after a `-`, `,` or `/` ("Wien-Innere Stadt"), its first part.
+ * Only at that boundary: a place that merely begins with another's name is
+ * another place.
+ */
+export function placeKeysOf(place: string): string[] {
+  const first = place.split(/[-,/]/)[0]?.trim() ?? ''
+  return [...new Set([placeKey(place), placeKey(first)].filter(Boolean))]
+}
+
+/** Whether a row lies in the typed place: one of its place keys is one the place may name. */
+function inPlace(row: RegisterRow, keys: readonly string[]): boolean {
+  return row.placeKeys.some((place) => keys.includes(place))
 }
 
 export interface Narrowed {
@@ -55,8 +68,8 @@ export function narrow(parsed: ParsedAddress, rows: readonly RegisterRow[], post
   const postcode = usablePostcode(parsed, postcodeShape)
   if (postcode) candidates = candidates.filter((row) => row.postcode === postcode)
   if (!parsed.place) return { rows: candidates, conflict: false }
-  const key = placeKey(parsed.place)
-  const placed = candidates.filter((row) => inPlace(row, key))
+  const keys = placeKeysOf(parsed.place)
+  const placed = candidates.filter((row) => inPlace(row, keys))
   if (placed.length === 0 && postcode && candidates.length > 0) return { rows: candidates, conflict: true }
   return { rows: placed, conflict: false }
 }

@@ -16,9 +16,9 @@ import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
 import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
 import { competentAuthorities } from './competence'
-import { houseKeysOf, narrow, outcomeOf, usablePostcode } from './match'
+import { houseKeysOf, narrow, outcomeOf, placeKeysOf, usablePostcode } from './match'
 import { parseAddress, type ParsedAddress } from './parse'
-import { placeKey, streetKey } from './normalize'
+import { streetKey } from './normalize'
 import { ADDRESS_REGISTERS, STATE_NAMES, federalStateToken, registerFor, territoryChain } from './registers'
 import { siteProfileOperations } from './profile'
 import { activeReleases, findByAddressId, findByKeys, type RegisterRow } from './store'
@@ -94,7 +94,7 @@ export async function resolveSite(session: Session, typed: string, now = new Dat
       streetKey: streetKey(parsed.street),
       houseKeys: houseKeysOf(parsed),
       postcode,
-      placeKey: !postcode && parsed.place ? placeKey(parsed.place) : null,
+      placeKeys: !postcode && parsed.place ? placeKeysOf(parsed.place) : null,
     })
     const result = narrow(parsed, found, register.postcodeShape)
     narrowed.push(...result.rows)

@@ -20,7 +20,7 @@ import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import { bevAttribution, bevEntry, bevLookups, csvRecords, splitCsvLine, type RegisterEntry } from './bev'
 import { authorityOf, siteFacts } from './competence'
 import { IMPORT_BATCH_SIZE, columnsOf } from './import'
-import { houseKeysOf, narrow, outcomeOf } from './match'
+import { houseKeysOf, narrow, outcomeOf, placeKeysOf } from './match'
 import { streetKey } from './normalize'
 import { parseAddress } from './parse'
 import { siteProfileOperations } from './profile'
@@ -136,6 +136,16 @@ describe('narrowing the rows a line found', () => {
 
   it('takes a district written after the place', () => {
     expect(lookup('Herrengasse 16, 1010 Wien-Innere Stadt')).toMatchObject({ status: 'one', row: { addressId: '6792486' } })
+  })
+
+  it('reads a place only whole, or before a district after a dash, comma or slash; never by a prefix of its key', () => {
+    expect(placeKeysOf('Wien-Innere Stadt')).toEqual(['wieninnerestadt', 'wien'])
+    const row = (place: string): RegisterRow => ({ ...ROWS[0], placeKeys: [place], postcode: '9999' })
+    const placed = (line: string, place: string) => narrow(parseAddress(line)!, [row(place)], BEV_ADDRESS_REGISTER.postcodeShape).rows
+    expect(placed('Herrengasse 16, Wiener Neudorf', 'wien')).toEqual([])
+    expect(placed('Dorfstraße 3, Steinach am Brenner', 'stein')).toEqual([])
+    expect(placed('Herrengasse 16, Aichkirchen', 'aich')).toEqual([])
+    expect(placed('Herrengasse 16, Wien/Innere Stadt', 'wien')).toHaveLength(1)
   })
 
   it('finds nothing for an address the register does not hold', () => {
