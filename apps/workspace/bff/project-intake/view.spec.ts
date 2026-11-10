@@ -182,28 +182,12 @@ describe('buildIntakeView', () => {
     expect(derivation.missing.length).toBeGreaterThan(0)
   })
 
-  // Step 5, Steckbrief: the rule set's Ampel reads what a person confirmed, never a suggestion.
-  it('computes the applicable Richtlinien from the confirmed values only', () => {
-    const highRise = { value: 25, status: 'unconfirmed' as const, reason: 'r', source: 'agent_suggested' as const, updatedAt: NOW }
-    const suggested = buildIntakeView({
-      ...input(),
-      profile: { ...profile, assumptions: { ...profile.assumptions, 'escape_level_m@bldg1': highRise } },
-    })
-    expect(suggested.applicableStandards?.map((standard) => standard.code)).not.toContain('OIB 2.3')
-
-    const confirmed = buildIntakeView({
-      ...input(),
-      profile: {
-        ...profile,
-        facts: {
-          ...profile.facts,
-          'escape_level_m@bldg1': { value: 25, confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
-        },
-      },
-    })
-    expect(confirmed.applicableStandards).toContainEqual(
-      expect.objectContaining({ code: 'OIB 2.3', status: 'required' })
-    )
+  // Step 5, Steckbrief: the law at the site is the records' (`projectLawFor`), passed through, never derived here.
+  it('carries the law the service read, and derives no list of its own (ADR-0175)', () => {
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableLaw')
+    expect(buildIntakeView(input())).not.toHaveProperty('applicableStandards')
+    const law = { gate: 'core' as const, uses: [{ workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, designation: 'X', editionLabel: null }] }
+    expect(buildIntakeView({ ...input(), applicableLaw: law }).applicableLaw).toEqual(law)
   })
 })
 

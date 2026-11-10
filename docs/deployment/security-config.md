@@ -120,6 +120,34 @@ In production, consider:
 - Restricting the `8333` port to internal Docker networking only (remove the port mapping if only internal services need it)
 - Adding TLS via a reverse proxy
 
+## Public-source egress
+
+Every fetch of a public source (a statute portal, a geodata service, a page
+captured for a citation) goes through one guard, `public_sources.egress`: the
+source's hosts at every redirect hop, a connection only to an address the guard
+resolved itself and found public, and only the forwarded headers (ADR-0162).
+That holds on every path: the RIS adapter's own client is guarded too, with the
+`source-routing` flag off.
+
+Where the guard runs depends on one stack setting, **off by default**:
+
+```bash
+# in deploy/pulumi, on the stack to change; commit the stack file it rewrites
+pulumi config set publicSourceFetcherEnabled true
+```
+
+- **Off** (today's default): the guard runs inside the backend's own pods. A
+  bug in it would leave nothing behind it: those pods reach the cluster's
+  services, so no NetworkPolicy stops a fetch that the guard lets through.
+- **On**: Pulumi deploys the `public-source-fetcher` Deployment and sets
+  `PUBLIC_SOURCE_FETCHER_URL` on the chat, api and agent-worker roles; a fetch
+  for an organization with the `source-routing` flag is made by that pod,
+  whose NetworkPolicy admits public addresses on 443 and nothing in the
+  cluster. The guard then has a layer behind it that holds while code is wrong.
+
+Turn it on per stack once the fetcher has run on dev; the flag then moves
+organizations onto it one at a time.
+
 ## API Keys
 
 ### Required Keys

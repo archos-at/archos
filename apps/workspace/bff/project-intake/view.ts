@@ -17,7 +17,7 @@ import type { ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage
 import { formatIntakeAnswer, labelForProfileKey } from '@/lib/project-profile/intake-vocabulary'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
-import { getApplicableStandards } from '@/lib/oib/applicable-standards'
+import type { ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
 import { deriveAll } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { BUILDING_CLASS_RULE } from './setup-scope'
@@ -192,6 +192,8 @@ export interface IntakeViewInput {
   canComplete: boolean
   /** Step 3: the readable documents and the unread ones among them, for the live „x von y". Absent: none. */
   readingDocuments?: { readable: readonly ReadingDocument[]; unread: readonly ReadingDocument[] }
+  /** Step 5: the law at the project's site from the records (`projectLawFor`). Absent: the card is left out. */
+  applicableLaw?: ProjectLaw
 }
 
 const iso = (value: Date | string | null | undefined): string | null =>
@@ -223,8 +225,8 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     derivations: derivationReviews(profile, definition, needs),
     canDecide: input.canDecide,
     canComplete: input.canComplete,
-    // Step 5, Steckbrief: the Ampel from the confirmed values (facts) only.
-    applicableStandards: getApplicableStandards(profile),
+    // Step 5, Steckbrief: the law at the site, from the platform's records.
+    ...(input.applicableLaw ? { applicableLaw: input.applicableLaw } : {}),
     // Step 4, Rückfragen: what the location decides, and the documents for it.
     locationRegister: locationRegisterFor({ profile, location: row.location ?? null, mode: row.mode, needs }),
     readingProgress: readingProgressOf(input),

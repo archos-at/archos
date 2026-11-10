@@ -28,8 +28,14 @@ vi.mock('@/lib/proposals/repository', () => ({ listConversationProposals: vi.fn(
 vi.mock('@/lib/cross-project/reference-brief', () => ({ loadReferenceBrief: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ baseKnowledgeForTurn: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/chain/turn', () => ({ buildingLawForTurn: vi.fn(async () => null) }))
-// Undefined is the flag off (ADR-0173): the response then carries no `knowledgeContext` key at all.
-vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
+// Every turn carries a context (ADR-0175); one that could not be read is `knowledge_unavailable`.
+const { UNAVAILABLE } = vi.hoisted(() => ({
+  UNAVAILABLE: {
+    gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
+    packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], retrieval: { countries: [] },
+  } as const,
+}))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => structuredClone(UNAVAILABLE)) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
@@ -142,13 +148,16 @@ describe('POST /api/internal/turn-context', () => {
     expect((await response.json()).data.referenceProjects).toBeNull()
   })
 
-  it('carries no knowledgeContext key with its flag off, so the response is what it was (ADR-0173)', async () => {
+  it('always carries the knowledge context, unreadable as knowledge_unavailable, never absent (ADR-0175)', async () => {
     const { data } = await (await call()).json()
-    expect(Object.keys(data)).not.toContain('knowledgeContext')
+    expect(data.knowledgeContext).toEqual(UNAVAILABLE)
     expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Function), 's_text-conversation')
+    // The schema itself refuses a turn context without one: the agent never sees "no context".
+    const { knowledgeContext: _dropped, ...without } = data
+    expect(turnContextResponseSchema.safeParse(without).success).toBe(false)
   })
 
-  it('carries the knowledge context once its flag is on (positive control)', async () => {
+  it('carries the resolved knowledge context', async () => {
     const context = {
       gate: { state: 'not_entitled', reason: null, leaves: [{ territoryId: 'DE-BY', country: 'DE', certainty: 'verified', entitled: false, coverage: null, municipalLaw: null }] },
       packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], retrieval: { countries: [] },
@@ -172,6 +181,7 @@ describe('POST /api/internal/turn-context', () => {
       baseKnowledge: null,
       baseKnowledgeLabels: [],
       buildingLaw: null,
+      knowledgeContext: UNAVAILABLE,
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({

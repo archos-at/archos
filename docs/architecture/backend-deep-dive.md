@@ -1485,8 +1485,8 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    appends the gate's note or the chain. Deep research's **Jurisdiction**
    block (`law_gate.JURISDICTION_GROUNDING`) says to follow them.
 - **OIB edition per Land** — relation records of the Austria pack
-   (`configs/knowledge-packs/at.json`, ADR-0168). The BFF resolves the
-   project's site against the platform's records (`bff/base-knowledge/chain/`)
+   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over
+   (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
    and the turn context carries `buildingLaw`: the chain text and each
    edition's role. The agent binds it per turn (`citations/roles.py`, beside
    `set_turn_documents`); the chain text is the turn context's

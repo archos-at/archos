@@ -20,7 +20,7 @@
  * gateway in front of the cluster's own MCP servers holds the same line per
  * tool (`deploy/pulumi/src/platform/mcp-gateway.ts`, `tools`).
  *
- * A new console operation takes one of the two here, or in a file of its own
+ * A new console operation takes one of the first two here, or in a file of its own
  * under `exposure/` spread into `EXPOSURE`. Its type admits nothing else, and
  * `platform.spec.ts` holds that a tenant-content operation stays off every door.
  */
@@ -50,8 +50,22 @@ export const tenantContent = (reason: string): TenantContentExposure => ({
   withheld: { category: 'tenant-content', reason },
 })
 
-/** A console operation's entry: one of the two classes, never anything else. */
-export type PlatformExposure = typeof PLATFORM_PUBLIC | TenantContentExposure
+/** A console write that only refuses now, kept until its route goes: on no door, so no agent is offered a call that always fails. */
+export interface RetiredExposure extends Exposure {
+  readonly external: false
+  readonly agent: false
+  readonly withheld: { readonly category: 'product-config'; readonly reason: string }
+}
+
+/** A retired console write: on no door, with what replaced it. */
+export const retired = (reason: string): RetiredExposure => ({
+  external: false,
+  agent: false,
+  withheld: { category: 'product-config', reason },
+})
+
+/** A console operation's entry: one of the three classes, never anything else. */
+export type PlatformExposure = typeof PLATFORM_PUBLIC | TenantContentExposure | RetiredExposure
 
 type PlatformOperationName = (typeof platformOperations)[number]['name']
 
@@ -88,7 +102,9 @@ export const PLATFORM_EXPOSURE = {
   'platform-model-defaults-update': PLATFORM_PUBLIC,
   'platform-model-search': PLATFORM_PUBLIC,
   'platform-norm-registry-get': PLATFORM_PUBLIC,
-  'platform-norm-registry-update': PLATFORM_PUBLIC,
+  'platform-norm-registry-update': retired(
+    'the norm registry takes no edits since ADR-0175 and answers 409: norms change through a change request (platform-knowledge-change-request-create)',
+  ),
   'platform-norm-verify': PLATFORM_PUBLIC,
   'platform-org-budget-get': PLATFORM_PUBLIC,
   'platform-org-budget-update': PLATFORM_PUBLIC,

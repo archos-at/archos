@@ -5,24 +5,21 @@
  * corpus's entry of every collection scope (`collection-scope-request.ts`), so
  * every reader the agent tier runs, a chat turn, a run, a door tool, filters
  * the base corpus by it in one place (`vector_store.scope.scope_filter`).
- * Behind `knowledge-context`: with it off nothing is read and the scope is what
- * it was. Cached per organization for five minutes.
+ * Read for every office since the cut-over (ADR-0175): an office entitled to
+ * nothing reads none of the base corpus. Cached per organization for five minutes.
  */
 
 import 'server-only'
 import { sql } from 'drizzle-orm'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { getCached } from '@/lib/cache'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { readOrganizationCountries } from '../platform/entitlements'
 
 const TTL_MS = 5 * 60 * 1000
 
-/** The office's corpus countries, sorted; undefined with the flag off. */
-export async function corpusCountriesFor(organizationId: string): Promise<string[] | undefined> {
-  if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.knowledgeContext, organizationId))) return undefined
+/** The office's corpus countries, sorted; empty when it is entitled to none. */
+export async function corpusCountriesFor(organizationId: string): Promise<string[]> {
   return getCached(`corpus-countries:${organizationId}`, TTL_MS, async () => {
     const { entitled } = await readOrganizationCountries(organizationId)
     const [eu] = await withTenant({ organizationId }, () =>

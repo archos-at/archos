@@ -1,8 +1,8 @@
 /**
  * @vitest-environment node
  *
- * The knowledge context of a turn around its resolver (ADR-0173): off reads
- * and times nothing; two offices whose inputs hash alike never share a cached
+ * The knowledge context of a turn around its resolver (ADR-0173): present on
+ * every turn, with no switch (ADR-0175); two offices whose inputs hash alike never share a cached
  * context; a read that fails gives `knowledge_unavailable`, never a context
  * built from nothing.
  */
@@ -10,11 +10,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { isOrgFeatureEnabled, findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries, cache, getCached } =
+const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries, cache, getCached } =
   vi.hoisted(() => {
     const cache = new Map<string, unknown>()
     return {
-      isOrgFeatureEnabled: vi.fn(),
       findProjectProfileInOrg: vi.fn(),
       loadGraph: vi.fn(),
       officeTimeZone: vi.fn(),
@@ -28,7 +27,6 @@ const { isOrgFeatureEnabled, findProjectProfileInOrg, loadGraph, officeTimeZone,
   })
 const { unavailableAdd } = vi.hoisted(() => ({ unavailableAdd: vi.fn() }))
 vi.mock('@opentelemetry/api', () => ({ metrics: { getMeter: () => ({ createCounter: () => ({ add: unavailableAdd }) }) } }))
-vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
 vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone }))
 vi.mock('@/lib/cache', () => ({ getCached }))
@@ -39,7 +37,6 @@ const { rememberTurnContext, lastAnswerPackSeqs } = vi.hoisted(() => ({ remember
 vi.mock('./turn-snapshot', () => ({ rememberTurnContext }))
 vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import('./last-answer')>()), lastAnswerPackSeqs }))
 
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
 
 const AUSTRIA = {
@@ -53,24 +50,13 @@ describe('knowledgeContextForTurn', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     cache.clear()
-    isOrgFeatureEnabled.mockResolvedValue(true)
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
     findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
     loadGraph.mockResolvedValue({ graph: AUSTRIA, truncated: false })
   })
 
-  it('with the flag off reads nothing, times nothing and carries no key', async () => {
-    isOrgFeatureEnabled.mockResolvedValue(false)
-    const time = vi.fn()
-    expect(await knowledgeContextForTurn('org_a', 'project_1', time as never)).toBeUndefined()
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith(FEATURE_FLAGS.knowledgeContext, 'org_a')
-    expect(time).not.toHaveBeenCalled()
-    expect(readOrganizationCountries).not.toHaveBeenCalled()
-    expect(loadGraph).not.toHaveBeenCalled()
-  })
-
-  it('times the knowledge phase once the flag is on (positive control)', async () => {
+  it('times the knowledge phase on every turn, with no switch to ask', async () => {
     const time = vi.fn((_name: string, load: () => Promise<unknown>) => load())
     const context = await knowledgeContextForTurn('org_a', 'project_1', time as never)
     expect(time).toHaveBeenCalledWith('knowledge', expect.any(Function))
