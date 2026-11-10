@@ -79,10 +79,11 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
           ))}
         </ul>
       )}
-      <p className="text-muted-foreground mt-3 text-xs" data-testid="profile-rules-basis">
-        {legends.length > 0 && <>{legends.map((legend) => t(`rules.legend.${legend}`)).join(' · ')}. </>}
-        {t('rules.basis')} {t('rules.disclaimer')}
-      </p>
+      {!refusal && (
+        <p className="text-muted-foreground mt-3 text-xs" data-testid="profile-rules-basis">
+          {legends.map((legend) => t(`rules.legend.${legend}`)).join(' · ')}. {t('rules.basis')} {t('rules.disclaimer')}
+        </p>
+      )}
     </section>
   )
 }

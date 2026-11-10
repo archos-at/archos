@@ -142,6 +142,8 @@ describe('ProfileStep', () => {
       expect(screen.getByTestId('profile-rules')).toHaveAttribute('data-gate', 'site_unknown')
       expect(screen.getByTestId('profile-rules-gate')).toHaveTextContent('The site is still missing.')
       expect(within(screen.getByTestId('profile-rules')).queryAllByRole('button')).toEqual([])
+      // Nothing named, so no legend and no basis line under it.
+      expect(screen.queryByTestId('profile-rules-basis')).toBeNull()
     })
 
     it('tells an office its country is not enabled, and that its own documents still apply', () => {
