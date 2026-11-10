@@ -25,7 +25,15 @@ import {
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
 } from '@/lib/db/schema/knowledge-platform'
-import type { ApprovalRole, ChangeRequestOrigin, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision, ReviewDecisionSource } from '@/lib/base-knowledge/wire/vocab'
+import type {
+  ApprovalRole,
+  ChangeRequestOrigin,
+  ChangeRequestStatus,
+  KnowledgeRecordType,
+  ReviewDecision,
+  ReviewDecisionSource,
+  SecondReviewState,
+} from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
@@ -79,7 +87,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin },
+  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -93,6 +101,7 @@ export async function listChangeRequests(
         and(
           filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
           filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
+          filter.secondReview ? eq(knowledgeChangeRequests.secondReview, filter.secondReview) : undefined,
         ),
       )
       .orderBy(desc(knowledgeChangeRequests.createdAt), desc(knowledgeChangeRequests.id))
@@ -114,6 +123,10 @@ export function summaryOf(request: ChangeRequestRow): Omit<ChangeRequestSummary,
     origin: request.origin,
     sourceRecordId: request.sourceRecordId,
     monitorFinding: request.monitorFinding,
+    approval: request.approval,
+    secondReview: request.secondReview
+      ? { state: request.secondReview, by: request.secondReviewBy, at: request.secondReviewAt?.toISOString() ?? null }
+      : null,
   }
 }
 
@@ -336,6 +349,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         role: approval.role,
         decisionSource: approval.decisionSource,
         decidedAt: approval.decidedAt.toISOString(),
+        overrideReason: approval.overrideReason,
       })),
       releases: releases.map((move) => ({
         seq: move.seq,
@@ -344,6 +358,8 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         action: move.action,
         toRevisionId: move.toRevisionId,
         releasedAt: move.releasedAt.toISOString(),
+        // A release carries how its request was approved: one published from a single approval says so.
+        approval: request.approval,
       })),
     }
   })
@@ -398,7 +414,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 
 export async function insertApproval(
   tx: Tx,
-  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation' },
+  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation'; overrideReason?: string },
 ): Promise<void> {
   try {
     await tx.insert(knowledgeApprovals).values({ id: randomUUID(), ...input })
@@ -408,7 +424,38 @@ export async function insertApproval(
     if (/revision they wrote/.test(message)) {
       throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
     }
+    if (/override approval is for an author/.test(message)) {
+      throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
+    }
     if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
+    if (/no reviewer checked/.test(message)) {
+      throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
+    }
+    throw error
+  }
+}
+
+/** Everybody who wrote a revision in the request: whom four eyes keeps from approving or reviewing it. */
+export async function requestAuthors(tx: Tx, requestId: string): Promise<Set<string>> {
+  return new Set((await requestRevisions(tx, requestId)).map((revision) => revision.createdBy))
+}
+
+/**
+ * Close the second review a single approval owes (migration 0214): `confirmed`
+ * or `disputed`, by somebody who wrote nothing in the request. The trigger holds
+ * both, and the source check (0209) on a confirmation.
+ */
+export async function closeSecondReview(tx: Tx, requestId: string, state: 'confirmed' | 'disputed', by: string): Promise<void> {
+  try {
+    await tx
+      .update(knowledgeChangeRequests)
+      .set({ secondReview: state, secondReviewBy: by, secondReviewAt: new Date() })
+      .where(eq(knowledgeChangeRequests.id, requestId))
+  } catch (error) {
+    const message = errorText(error)
+    if (/second reviewer may not have written/.test(message)) {
+      throw new ConflictError('You wrote a revision in this change request, so another person gives its second review (four eyes).')
+    }
     if (/no reviewer checked/.test(message)) {
       throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
     }

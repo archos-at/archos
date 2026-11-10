@@ -209,6 +209,21 @@
         "monitor"
       ]
     },
+    "knowledge_change_requests.approval": {
+      "type": "string",
+      "enum": [
+        "four_eyes",
+        "single"
+      ]
+    },
+    "knowledge_change_requests.second_review": {
+      "type": "string",
+      "enum": [
+        "due",
+        "confirmed",
+        "disputed"
+      ]
+    },
     "knowledge_source_revisions.protocol": {
       "type": "string",
       "enum": [

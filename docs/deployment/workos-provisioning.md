@@ -217,7 +217,8 @@ through `org:projects:administer`, not through this tier.
 | `platform:organizations:manage` | Administer any org (reserved, unused in v1) |
 | `platform:usage:view` | Cross-org LLM usage/spend |
 | `platform:settings:manage` | Platform-wide settings (reserved) |
-| `platform:knowledge:approve_as_domain_expert`, `…_as_counsel`, `…_as_second_reviewer` | Approve a platform knowledge change request in that role (ADR-0165); `org-platform-owner` holds all three, a narrower role may hold one |
+| `platform:knowledge:approve_as_domain_expert`, `…_as_counsel`, `…_as_second_reviewer`, `…_as_privacy_reviewer` | Approve a platform knowledge change request in that role (ADR-0165, ADR-0174); `org-platform-owner` holds all four, a narrower role may hold one |
+| `platform:knowledge:approve_alone` | Approve a change request one wrote, with a reason, when no second person can (ADR-0176). The request is marked `single` and a second review stays due. `org-platform-owner` only; no narrower role should hold it |
 
 They live on the Organization resource type because WorkOS permissions attach to
 resource types and Organization is the immutable topology root (§0). They are

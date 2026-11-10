@@ -15,6 +15,7 @@
 import { bigint, boolean, date, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ApprovalRole,
+  ChangeRequestApproval,
   ChangeRequestOrigin,
   CoverageLevel,
   ChangeRequestStatus,
@@ -27,6 +28,7 @@ import type {
   RelationType,
   ReviewDecision,
   ReviewDecisionSource,
+  SecondReviewState,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
@@ -103,6 +105,12 @@ export const knowledgeChangeRequests = pgTable('knowledge_change_requests', {
   origin: text('origin').$type<ChangeRequestOrigin>().notNull().default('operator'),
   sourceRecordId: text('source_record_id'),
   monitorFinding: jsonb('monitor_finding').$type<Record<string, unknown>>(),
+  /** `single`: approved by its author through an override; a second review is owed (migration 0214, ADR-0176). */
+  approval: text('approval').$type<ChangeRequestApproval>().notNull().default('four_eyes'),
+  /** NULL on a four-eyes request; `due` until another person confirms or disputes a single approval. */
+  secondReview: text('second_review').$type<SecondReviewState>(),
+  secondReviewBy: text('second_review_by'),
+  secondReviewAt: timestamp('second_review_at', { withTimezone: true }),
 })
 
 export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
@@ -146,6 +154,8 @@ export const knowledgeApprovals = pgTable('knowledge_approvals', {
   role: text('role').$type<ApprovalRole>().notNull(),
   decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Set only on an author's own approval through the override (migration 0214): why no second person approved. */
+  overrideReason: text('override_reason'),
 })
 
 export const knowledgeReleaseMoves = pgTable('knowledge_release_moves', {

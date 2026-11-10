@@ -18,13 +18,30 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { role: 'string', decisionSource: 'string', awaiting: 'string' },
   },
+  // An author's own approval through the override (ADR-0176): the reason they gave, the
+  // revisions approved alone (ids, comma-separated, cut at 500 characters; `revisionCount`
+  // says when) and the roles still awaited. One event per override, instead of `_approved`.
+  'platform.knowledge.change_request_approved_alone': {
+    targets: [{ type: 'knowledge_change_request' }],
+    metadata: { role: 'string', decisionSource: 'string', reason: 'string', revisions: 'string', revisionCount: 'number', awaiting: 'string' },
+  },
+  // Another person's deferred review of a request approved alone: confirmed, or disputed
+  // (rollback stays the next person's decision). `status` is the request's when they gave it.
+  'platform.knowledge.second_review_confirmed': {
+    targets: [{ type: 'knowledge_change_request' }],
+    metadata: { role: 'string', decisionSource: 'string', status: 'string' },
+  },
+  'platform.knowledge.second_review_disputed': {
+    targets: [{ type: 'knowledge_change_request' }],
+    metadata: { role: 'string', decisionSource: 'string', status: 'string' },
+  },
   'platform.knowledge.published': {
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { channel: 'string', moved: 'number', decisionSource: 'string', indexFailed: 'number' },
   },
   'platform.knowledge.rolled_back': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { restored: 'number', decisionSource: 'string' },
+    metadata: { restored: 'number', decisionSource: 'string', deindexed: 'number', deindexFailed: 'number' },
   },
   // A public source's key (ADR-0174): who set it and how they said yes; never the key.
   'platform.knowledge.source_credential_set': {

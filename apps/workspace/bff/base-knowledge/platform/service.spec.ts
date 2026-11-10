@@ -43,7 +43,9 @@ const writes = vi.hoisted(() => ({
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
 vi.mock('./store', () => ({
   platformTransaction: async <T,>(fn: (tx: unknown) => Promise<T>) => fn({}),
-  lockChangeRequest: async (_tx: unknown, id: string) => ({ id, status: 'submitted', countryId: 'AT' }),
+  lockChangeRequest: async (_tx: unknown, id: string) => ({ id, status: 'submitted', countryId: 'AT', approval: 'four_eyes', secondReview: null }),
+  requestAuthors: async () => new Set(['user_author']),
+  closeSecondReview: writes.status,
   findChangeRequest: async (id: string) => ({ id, status: 'approved' }),
   reviewedRevisions: async () => [
     { revisionId: REVISION, recordId: 'work:x', createdBy: 'user_author', claims: [{ path: 'title', decision: 'accepted' }] },
@@ -71,11 +73,15 @@ import * as service from './service'
 
 const EXPERT = { userId: 'user_expert', email: 'expert@example.com', organizationId: 'org_platform' } as unknown as UserSession
 const REQUEST = 'c0000000-0000-4000-8000-000000000001'
+/** The author of the mocked request, approving it alone. */
+const OWNER = { userId: 'user_author', email: 'owner@example.com', organizationId: 'org_platform' } as unknown as UserSession
+const ALONE = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: 'Nobody else on the platform team this week.' } }
 
 /** Every decision that runs only on the person's yes, as the route calls it. */
 const DECISIONS: [string, () => Promise<unknown>][] = [
   ['approve', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })],
   ['reject', () => service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })],
+  ['approve-alone', () => service.decidePlatformChangeRequest(OWNER, REQUEST, ALONE)],
   ['publish', () => service.publishPlatformChangeRequest(EXPERT, REQUEST, { channel: 'stable' })],
   ['rollback', () => service.rollbackPlatformChangeRequest(EXPERT, REQUEST, 'wrong title')],
   ['entitle', () => service.entitleOrganizationCountry(EXPERT, 'org_office', { countryId: 'AT', entitled: true })],
@@ -156,6 +162,8 @@ describe("an approval's role", () => {
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'counsel' })).resolves.toEqual({
       status: 'approved',
       awaiting: [],
+      approval: 'four_eyes',
+      secondReview: null,
     })
     expect(writes.approval).toHaveBeenCalledWith({}, expect.objectContaining({ approver: 'user_expert', role: 'counsel' }))
   })
@@ -167,7 +175,46 @@ describe("an approval's role", () => {
     await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'approve', role: 'domain_expert' })).resolves.toEqual({
       status: 'submitted',
       awaiting: ['counsel'],
+      approval: 'four_eyes',
+      secondReview: null,
     })
     expect(writes.status).not.toHaveBeenCalled()
+  })
+})
+
+describe('an approval alone (ADR-0176)', () => {
+  it('is refused without platform:knowledge:approve_alone, before anything is written', async () => {
+    held.permissions.delete(PLATFORM_PERMISSIONS.knowledgeApproveAlone)
+    await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, ALONE)).rejects.toMatchObject({ status: 403 })
+    expect(anyWrite()).toBe(false)
+  })
+
+  it('is never implied: the author’s plain approve is refused (four eyes)', async () => {
+    await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/four eyes/)
+    expect(writes.approval).not.toHaveBeenCalled()
+  })
+
+  it('records the reason on the approval and audits one override event with the revisions approved alone', async () => {
+    const { recordAuditEvent } = await import('@/lib/audit/service')
+    vi.mocked(recordAuditEvent).mockClear()
+    await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, ALONE)).resolves.toEqual({
+      status: 'approved',
+      awaiting: [],
+      approval: 'single',
+      secondReview: 'due',
+    })
+    expect(writes.approval).toHaveBeenCalledWith({}, expect.objectContaining({ approver: 'user_author', overrideReason: ALONE.override.reason }))
+    expect(recordAuditEvent).toHaveBeenCalledTimes(1)
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'platform.knowledge.change_request_approved_alone',
+        metadata: expect.objectContaining({ reason: ALONE.override.reason, revisions: REVISION, revisionCount: 1 }),
+      }),
+    )
+  })
+
+  it('is refused on a reject: an override is for approving', async () => {
+    await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, { ...ALONE, decision: 'reject' })).rejects.toMatchObject({ status: 422 })
+    expect(anyWrite()).toBe(false)
   })
 })
