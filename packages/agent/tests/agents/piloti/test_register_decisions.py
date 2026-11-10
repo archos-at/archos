@@ -356,25 +356,25 @@ class TestTheBuildingModelToolsNeedAProject:
         return [SimpleNamespace(name=n) for n in ("knowledge_search", "ifc_query", "ifc_measure", "read_passage")]
 
     def test_a_turn_without_a_project_is_not_sent_them(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search", "read_passage"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search", "read_passage"]
 
     def test_a_grouped_deployment_is_not_sent_them_either(self, monkeypatch):
         from types import SimpleNamespace
 
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
         tools = [SimpleNamespace(name=n) for n in ("knowledge_search", "bim__ifc_query", "bim__ifc_measure")]
-        assert [t.name for t in register._tools_in_scope(tools)] == ["knowledge_search"]
+        assert [t.name for t in register.tools_in_scope(tools)] == ["knowledge_search"]
 
     def test_a_project_turn_keeps_them(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: "proj-1")
-        assert [t.name for t in register._tools_in_scope(self._tools())] == [
+        assert [t.name for t in register.tools_in_scope(self._tools())] == [
             "knowledge_search",
             "ifc_query",
             "ifc_measure",
@@ -392,20 +392,20 @@ class TestTheViewerToolIsSentOnlyToAPageThatCanRunIt:
         return [SimpleNamespace(name=n) for n in ("knowledge_search", "show_in_viewer")]
 
     def test_a_turn_that_declared_nothing_is_not_sent_it(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
         from agent.common.client_tools import set_turn_client_tools
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: "proj-1")
         set_turn_client_tools(None)
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search"]
 
     def test_a_turn_whose_page_declared_it_is(self, monkeypatch):
-        from agent.agents.piloti import register
+        from agent.agents.piloti import turn_tools as register
         from agent.common.client_tools import set_turn_client_tools
 
         monkeypatch.setattr(register, "get_project_id_from_context", lambda: None)
         set_turn_client_tools(["show_in_viewer"])
-        assert [t.name for t in register._tools_in_scope(self._tools())] == ["knowledge_search", "show_in_viewer"]
+        assert [t.name for t in register.tools_in_scope(self._tools())] == ["knowledge_search", "show_in_viewer"]
         set_turn_client_tools(None)
 
 
@@ -441,3 +441,75 @@ def test_the_turn_start_records_the_catalog_the_precedent_and_whether_round_0_lo
     record_reference_decision(TurnDecisions.none(), 0, ())
     assert recorded == {"reference_projects_offered": 0, "precedent_p": None, "reference_prefetch": False}
     assert tags == []
+
+
+class TestTheTimeEditionsArgument:
+    """``law-lookup``'s ``as_of`` reaches the model only on a ``time-editions`` turn (ADR-0171).
+
+    The registered RIS tool hides the argument, so a turn without the flag binds
+    it as it is and sends the payload it sent before the flag existed.
+    """
+
+    @staticmethod
+    def _ris_lookup_tool():
+        from langchain_core.tools import StructuredTool
+        from pydantic import BaseModel
+        from pydantic.json_schema import SkipJsonSchema
+
+        class LookupArgs(BaseModel):
+            question: str
+            as_of: SkipJsonSchema[str] = ""
+
+        async def lookup(question: str, as_of: str = "") -> str:
+            return f"{question}|{as_of}"
+
+        return StructuredTool.from_function(
+            coroutine=lookup, name="ris_lookup_tool", description="RIS.", args_schema=LookupArgs
+        )
+
+    @staticmethod
+    def _arguments(bound) -> set[str]:
+        from langchain_core.utils.function_calling import convert_to_openai_tool
+
+        return set(convert_to_openai_tool(bound)["function"]["parameters"]["properties"])
+
+    @staticmethod
+    async def _turn_tools(time_editions_allowed: bool, lookup) -> list:
+        agent = MagicMock()
+        agent.run = AsyncMock(side_effect=lambda state, turn=None: state)
+        with (
+            patch.object(register_module, "ChatAgent", return_value=agent),
+            patch.object(register_module, "decide_turn", new_callable=AsyncMock, return_value=TurnDecisions.none()),
+            patch.object(register_module, "get_organization_id_from_context", return_value="org-1"),
+            patch.object(register_module, "SkillResolver") as resolver,
+        ):
+            resolver.return_value.resolve.return_value = ()
+            config = ResearchAgentConfig(llm="research_llm", tools=["ris_lookup_tool"], skills_enabled=False)
+            gen = research_agent.__wrapped__(config, _FakeBuilder({"ris_lookup_tool": lookup}))
+            info = await gen.__anext__()
+            state = ResearchAgentState(
+                messages=[HumanMessage(content="Was galt 2019 nach § 3?")], time_editions_allowed=time_editions_allowed
+            )
+            await info.single_fn(state)
+            await gen.aclose()
+        return list(agent.run.await_args.kwargs["turn"].tools)
+
+    async def test_a_turn_without_the_flag_binds_the_registered_tool_as_it_is(self):
+        lookup = self._ris_lookup_tool()
+
+        [bound] = await self._turn_tools(False, lookup)
+
+        assert bound is lookup
+        assert self._arguments(bound) == {"question"}
+
+    async def test_a_turn_with_the_flag_binds_the_copy_that_offers_as_of(self):
+        [bound] = await self._turn_tools(True, self._ris_lookup_tool())
+
+        assert "as_of" in self._arguments(bound)
+        assert "as_of (str)" in bound.description
+        assert await bound.ainvoke({"question": "q", "as_of": "2019-06-01"}) == "q|2019-06-01"
+
+    def test_without_the_flag_nothing_is_rebound(self):
+        tools = [self._ris_lookup_tool()]
+
+        assert register_module.tools_for_flags(tools, False) is tools

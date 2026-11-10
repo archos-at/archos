@@ -8,7 +8,7 @@ The tool SET no longer varies with the data-source toggles — a switched-off
 source keeps its tool and refuses the call (``common/data_sources.py``), so
 every turn of an org sends the same tool payload to the same cache shard —
 except that a turn without a project is not sent the building-model tools
-(``_tools_in_scope``), which cannot run there.
+(``turn_tools.tools_in_scope``), which cannot run there.
 """
 
 import asyncio
@@ -35,8 +35,6 @@ from agent.common import is_verbose
 from agent.common import unavailable_source_ids
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
-from agent.common.client_tools import KNOWN_CLIENT_TOOLS
-from agent.common.client_tools import client_tool_declared
 from agent.common.country_profile import austrian_corpus_applies
 from agent.common.country_profile import austrian_only_sources
 from agent.common.country_profile import record_site
@@ -47,14 +45,12 @@ from agent.common.openrouter import PLATFORM_FIXED
 from agent.common.openrouter import pin_chat_model
 from agent.common.reasoning_settings import effort_of
 from agent.common.request_llm_context import read_request_llm_context
-from agent.common.tool_calls import tool_basename
 from agent.common.tool_validation import format_no_sources_message
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.observability.langfuse_trace_attributes import add_trace_tag
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.observability.turn_phases import observed_phase
 from agent.project_context import get_organization_id_from_context
-from agent.project_context import get_project_id_from_context
 from agent.skills import SkillResolver
 from agent.skills import SkillRuntime
 from agent.skills.events import emit_skills_offered
@@ -89,6 +85,8 @@ from .reference_fit import FIT_THRESHOLD
 from .reference_fit import MIN_LINES as MIN_FIT_LINES
 from .reference_fit import ReferenceFit
 from .reference_fit import fit_references
+from .turn_tools import tools_for_flags
+from .turn_tools import tools_in_scope
 
 logger = logging.getLogger(__name__)
 
@@ -447,35 +445,6 @@ def _warm_question(facts: TurnFacts | None) -> None:
     task.add_done_callback(_WARMING.discard)
 
 
-#: Tools that read the PROJECT's building model. Outside a project they can
-#: only answer "no project" (``tools/bim/failures.NO_PROJECT_TEXT``), and
-#: their two schemas are ~8 200 of the ~17 000 tool tokens every call of the
-#: turn re-sends (measured 2026-09-23 on the live request; deferral did not
-#: reduce what was billed).
-_PROJECT_MODEL_TOOLS = frozenset({"ifc_query", "ifc_measure"})
-
-
-def _tools_in_scope(tools: list[Any]) -> list[Any]:
-    """The turn's tools less those that cannot run in its scope.
-
-    The tool payload still does not vary with the data-source toggles (the
-    cache shard stays one per org); it varies with two facts the turn cannot
-    change — whether there is a project, and whether the asking page can run a
-    frontend tool (``common/client_tools``, ADR-0144) — so an org has at most
-    four shards, not one per combination.
-    """
-    in_project = bool(get_project_id_from_context())
-
-    def runs_here(tool: Any) -> bool:
-        # The BASE name: a grouped or MCP tool arrives as ``bim__ifc_query``.
-        name = tool_basename(getattr(tool, "name", "") or "")
-        if name in KNOWN_CLIENT_TOOLS:
-            return client_tool_declared(name)
-        return in_project or name not in _PROJECT_MODEL_TOOLS
-
-    return [tool for tool in tools if runs_here(tool)]
-
-
 def _apply_decisions(decisions: TurnDecisions, state: ResearchAgentState, runtime: SkillRuntime | None) -> None:
     """The two prompt-side effects: the chosen skill's body, and the likely card shapes.
 
@@ -592,7 +561,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     if runtime is not None:
         emit_skills_offered(runtime)
         record_trace_metadata(skills_offered=len(runtime.skills), skills_pinned=list(runtime.pinned) or None)
-    turn_tools = _tools_in_scope(list(deployment.tools) + draft_tools)
+    turn_tools = tools_in_scope(tools_for_flags(list(deployment.tools), state.time_editions_allowed) + draft_tools)
     turn = TurnConfig(
         llm_provider=llm_provider,
         tools=turn_tools,
