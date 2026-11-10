@@ -10,3 +10,13 @@ sources:
     copy:
       de: 'Rechtsinformationssystem des Bundes (Bundeskanzleramt, Österreich): Suchbegriffe und Kennungen von Rechtsvorschriften, die aus Ihren Fragen abgeleitet sind'
       en: 'Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions'
+  - id: fedlex
+    name: Bundeskanzlei (Fedlex, Publikationsplattform des Bundesrechts)
+    country: CH
+    status: unused
+    unused_reason: configured in configs/sources/ch/fedlex/ to prove the http_eli access type (ADR-0162); no country pack entitles an office to it, so nothing is fetched for anyone. Set it active, which lists it on the page, when a pack uses it.
+    hosts: [fedlex.data.admin.ch, www.fedlex.admin.ch]
+    env: []
+    copy:
+      de: 'Fedlex (Schweizerische Bundeskanzlei): Kennungen von Bundeserlassen und Stichtage, die aus Ihren Fragen abgeleitet sind'
+      en: 'Fedlex (Swiss Federal Chancellery): identifiers of federal acts and dates derived from your questions'

@@ -1,6 +1,9 @@
 # Hosts and variables the scan finds that carry no data out of the cluster,
 # each with the reason. An entry that no longer occurs fails the check.
 hosts:
+  data.legilux.public.lu: the JOLux ontology's namespace in Fedlex's SPARQL query, never fetched
+  docs.oasis-open.org: the Akoma Ntoso XML namespace (packages/public-sources/src/engines/akn.py), never fetched
+  publications.europa.eu: EU language-authority IRIs in Fedlex's SPARQL query, compared as identifiers, never fetched
   cv.iptc.org: an IPTC digital-source-type vocabulary term in AI provenance metadata, never fetched
   iptc.org: an XMP namespace in AI provenance metadata, never fetched
   ns.adobe.com: an XMP namespace in AI provenance metadata, never fetched
@@ -52,6 +55,7 @@ model_vendors:
 posthog_destinations:
   01a163d8-dfc6-0000-3e2d-82d9d653bc47: the older feedback workflow, archived on 2026-10-27 (deploy/posthog/README.md); it posts nothing
 env:
+  DEFAULT_BASE_URL: a Python constant in ris-adapter (src/client.py), not a variable; it holds RIS's base URL from configs/sources/at/ris/source.yml, whose hosts public-sources.yaml lists
   A11Y_BASE_URL: the accessibility audit script's target, our own app
   ACCESS_KEY: a constant's name in the storage migration script, not a variable
   ADMIN_TOKEN: a token our own admin routes check
@@ -312,4 +316,5 @@ packages:
     - 'js:@tailwindcss/postcss'
     - 'js:typescript'
   'our own workspace package':
+    - 'py:public-sources'
     - 'py:knowledge-layer'

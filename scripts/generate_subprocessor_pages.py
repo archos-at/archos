@@ -85,6 +85,20 @@ def _copy(row: dict, name: str, lang: str) -> str:
     return row["copy"][name][lang]
 
 
+def _source_in_use(source: dict) -> bool:
+    """A public source the page lists: one an office's work fetches from."""
+    return source.get("status", "active") == "active"
+
+
+def _public_source_line(source: dict) -> str:
+    line = f"- {_cell(source['copy']['en'])}"
+    return (
+        line
+        if _source_in_use(source)
+        else f"{line} — **not in use** (not on the page): {_cell(source['unused_reason'])}"
+    )
+
+
 def page_tables(register: Register, lang: str) -> dict:
     """Every generated part of the page in one language."""
     listed = [row for row in register.rows if row["status"] in LISTED]
@@ -114,7 +128,7 @@ def page_tables(register: Register, lang: str) -> dict:
             f"{_copy(row, 'name', lang)} ({_copy(row, 'location', lang)}) — {_copy(row, 'data', lang)}."
             for row in latent
         ],
-        "publicSources": [source["copy"][lang] for source in register.public_sources],
+        "publicSources": [source["copy"][lang] for source in register.public_sources if _source_in_use(source)],
         "build": [service["copy"][lang] for service in register.build],
     }
 
@@ -216,7 +230,7 @@ def render_annex(register: Register) -> str:
         "Every store below holds an office's text after its contract ends: until the bound it names, or without one.",
         "\n".join(_gaps(register)),
         "## Public sources (not processors)",
-        "\n".join(f"- {_cell(source['copy']['en'])}" for source in register.public_sources),
+        "\n".join(_public_source_line(source) for source in register.public_sources),
     ]
     return "\n\n".join(parts) + "\n"
 

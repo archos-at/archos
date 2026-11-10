@@ -186,7 +186,28 @@ def test_a_private_or_documentation_address_is_not_a_flow(tmp_path: Path) -> Non
     code = tmp_path / "apps" / "agent-host" / "src"
     code.mkdir(parents=True)
     (code / "a.py").write_text('A = "http://10.0.0.5:80/x"\nB = "http://192.0.2.1/"\nC = "cert-manager.io/v1"\n')
+    # A NetworkPolicy's exceptions: CGNAT, IETF assignments, benchmarking, multicast, reserved.
+    special = ["100.64.0.0", "100.127.0.0", "192.0.0.0", "198.18.0.0", "224.0.0.0", "240.0.0.0"]
+    (code / "b.py").write_text("".join(f'X{i} = "{ip}/10"\n' for i, ip in enumerate(special)))
     assert check.flow_errors(check.Register(), tmp_path) == []
+
+
+def test_a_public_address_beside_the_special_ranges_is_still_a_flow(tmp_path: Path) -> None:
+    code = tmp_path / "apps" / "agent-host" / "src"
+    code.mkdir(parents=True)
+    (code / "a.py").write_text('A = "100.128.0.1/"\nB = "198.20.0.1/"\n')
+    errors = check.flow_errors(check.Register(), tmp_path)
+    assert any("100.128.0.1" in error for error in errors) and any("198.20.0.1" in error for error in errors)
+
+
+def test_an_unused_public_source_is_recorded_but_not_on_the_page(register) -> None:
+    """Fedlex is configured and fetched for nobody: the annex says so, the page does not list it."""
+    fedlex = next(source for source in register.public_sources if source["id"] == "fedlex")
+    assert fedlex["status"] == "unused"
+    assert fedlex["copy"]["de"] not in generate.page_tables(register, "de")["publicSources"]
+    assert "**not in use**" in generate.render_annex(register)
+    reasonless = check.Register(public_sources=[{**fedlex, "unused_reason": ""}])
+    assert any("needs `unused_reason`" in error for error in check.register_errors(reasonless))
 
 
 def test_a_posthog_destination_fails_until_registered_even_when_cut_short(tmp_path: Path) -> None:

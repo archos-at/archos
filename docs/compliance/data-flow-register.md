@@ -52,8 +52,9 @@ Only files git tracks are read: what a local build writes and `.gitignore` names
 Not read either: specs, tests, fixtures, `/app/dev/` preview pages, migrations, `public/`
 assets, build output and dependencies. Not flows: reserved names (`example.com`,
 `.invalid`, `.test`, `.internal`, `.svc`), Kubernetes API groups (`*.k8s.io`), the
-product's own domain (`packages/brand/identity.json`), and private, loopback and
-documentation addresses. An entry in `not-flows.yaml` that no longer occurs, or a
+product's own domain (`packages/brand/identity.json`), and private, loopback,
+documentation and other special-use addresses (CGNAT, benchmarking, multicast,
+reserved: the exceptions a NetworkPolicy lists). An entry in `not-flows.yaml` that no longer occurs, or a
 named package that is no longer a dependency, fails too, so an exemption cannot
 outlive its reason. A host that only arrives at runtime (a BYOK base URL, a
 browser's push endpoint) is caught through its variable, or listed on the row by
@@ -78,6 +79,13 @@ browser SDK, injected by an overlay) says why in `no_boot_check`.
 
 One file per recipient, named by its `id`. The four list files (`in-cluster.yaml`,
 `public-sources.yaml`, `build.yaml`, `not-flows.yaml`) hold the rest.
+
+A public source in `public-sources.yaml` is `active` (the default: an office's
+work fetches from it, and the page lists it) or `unused` with an `unused_reason`
+(configured under `configs/sources/`, entitled to no office: Fedlex). The annex
+lists both; the page only the active ones. Every host a record under
+`configs/sources/` names is held to this file by the scan, so a new source
+cannot ship unlisted.
 
 | Field | Values |
 |---|---|

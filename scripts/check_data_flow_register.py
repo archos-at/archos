@@ -129,7 +129,11 @@ BARE_HOST = re.compile(
 IP_LITERAL = re.compile(r"""["'`/@](\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?["'`/]""")
 PRIVATE_IP = re.compile(
     r"^(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|255\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)"
+    # CGNAT (100.64/10), IETF protocol assignments (192.0.0/24), benchmarking (198.18/15), multicast, reserved
+    r"|^(?:100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|192\.0\.0\.|198\.1[89]\.|2(?:2[4-9]|[3-4]\d|5[0-4])\.)"
 )
+#: A public source is `active` (fetched for an office, listed on the page) or `unused` (configured, no office uses it).
+PUBLIC_SOURCE_STATUSES = frozenset({"active", "unused"})
 #: RFC 2606 and 6761 names, and cluster-internal suffixes: never a vendor.
 RESERVED_HOST = re.compile(
     r"(^|\.)(example\.(com|org|net)|[a-z0-9-]+\.(example|invalid|test|localhost|local|internal|svc))$"
@@ -308,6 +312,16 @@ def register_errors(register: Register) -> list[str]:
     for entry in [*register.public_sources, *register.build]:
         if not (_bilingual(entry.get("copy")) and entry.get("hosts") is not None):
             errors.append(f"{entry.get('name')}: needs `hosts` and de/en `copy`")
+    errors += [
+        f"public-sources.yaml: {source.get('name')} has status {source.get('status')}; use active or unused"
+        for source in register.public_sources
+        if source.get("status", "active") not in PUBLIC_SOURCE_STATUSES
+    ]
+    errors += [
+        f"public-sources.yaml: {source.get('name')} is unused and needs `unused_reason`"
+        for source in register.public_sources
+        if source.get("status") == "unused" and not source.get("unused_reason")
+    ]
     errors += [
         f"not-flows.yaml: {kind} {name} needs a reason"
         for kind in ("hosts", "env", "posthog_destinations", "model_vendors")

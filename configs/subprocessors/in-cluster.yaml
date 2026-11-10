@@ -68,6 +68,7 @@ env:
   NAT_JOB_STORE_DB_URL: the jobs database in the cluster
   LISTEN_DB_URL: direct Postgres DSN for LISTEN, in the cluster
   LOCK_DB_URL: direct Postgres DSN for advisory locks, in the cluster
+  PUBLIC_SOURCE_FETCHER_URL: the sandboxed public-source fetcher in the cluster (deploy/pulumi/src/app/public-source-fetcher.ts); it reaches only the hosts a record under configs/sources/ lists, each of which the scan holds to public-sources.yaml
   BACKGROUND_WORK_PG_HOST: Hatchet's Postgres in the cluster
   KEDA_BACKGROUND_WORK_DB_URL: KEDA's read-only login to Hatchet's Postgres
   CLICKHOUSE_URL: Langfuse's ClickHouse in the cluster
