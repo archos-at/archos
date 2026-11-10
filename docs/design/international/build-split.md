@@ -124,7 +124,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **S1:** the stubs above; `consumers.ts` with `knowledge-consumers.spec.ts`, and `wire/vocab.ts` with its generator, so record words have one source.
 - **S2:** render the office answer label; the door's cumulative quote cap per document and session (E19); refuse a web search that shares a shingle with licensed text; the multilingual quoting rule; no groundedness judge on licensed turns; the lessons distiller refuses turns that used office or licensed text (E44), detected from S2's own seam markers until S15's `message_edition_uses` exists.
 - **S3:** komoot off by default; the remaining Austria-only prompts and derivations (`parcel_note` without a country, project-experience prompts "in Austria", the deep-research opener "Austrian office", `prompt-view.ts` deriving `country=at`); `time_zone` replacing `OFFICE_TIME_ZONE`. Prepare the neutral static prompt push, and gate it on S8's renderer being deployed.
-- **S4:** the right to edit `exposure.config.ts`; the office door honours the exclusion list (design 6.5, T-row "door honours it"); correct `docs/architecture/agent-surface.md` where it describes the platform door.
+- **S4:** the right to edit `exposure.config.ts`; the T-row "door honours it" is met by restricted folders (ADR-0097), which the office door already honours because it runs every route as the person (`read-gate.integration.spec.ts`); correct `docs/architecture/agent-surface.md` where it describes the platform door.
 - **S5:** the DPA annex generated from the register; the corrected "excerpt" copy on the legal page; the interim FAQ correction (design 1.3: no claim of Germany or of older versions) as static wording until S15 generates the FAQ.
 - **S6:** the AKN `eId` anchor fixture test.
 
@@ -202,6 +202,7 @@ Each returns when its trigger arrives, as its own session.
 - `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, agentic intake; the Steckbrief confirmation itself is S15's). Trigger: the agentic project-setup track.
 - The alias map (E29). Trigger: a source changes its format.
 - Switzerland's LexFind connector; DPIA and TIA templates (documents, not code).
+- An office-set "not for agents" flag on folders or documents (design 6.5 names an "exclusion list" but never defines it; nothing in the code is one). Open product decision for the user: granularity, who sets it, and whether the product's own agent counts. Today restricted folders are the mechanism.
 
 ## Merging a wave
 
