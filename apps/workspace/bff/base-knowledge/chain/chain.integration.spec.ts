@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { publishedRequest } from '../platform/testing/lifecycle'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
@@ -58,30 +59,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   /** Proposed by the author, every claim accepted and approved by the expert, published to preview and stable. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<string> {
-    const id = await store.insertChangeRequest({ title, countryId, createdBy: AUTHOR })
-    await store.platformTransaction(async (tx) => {
-      const request = await store.lockChangeRequest(tx, id)
-      const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
-      await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
-      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
-    })
-    const view = await store.readChangeRequest(id)
-    await store.platformTransaction(async (tx) => {
-      await store.insertReviewDecisions(
-        tx,
-        id,
-        { by: EXPERT, decisionSource: 'app' },
-        view!.revisions.flatMap((revision) =>
-          revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
-        ),
-      )
-      await store.insertApproval(tx, { changeRequestId: id, approver: EXPERT, role: 'domain_expert', decisionSource: 'app' })
-      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
-    })
-    await release.publishChangeRequest(id, 'preview', ACTOR)
-    await release.publishChangeRequest(id, 'stable', ACTOR)
-    return id
+    const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
+    return publishedRequest({ title, countryId, records }, { author: AUTHOR, expert: EXPERT })
   }
+
 
   const bindingOf = async (organizationId: string, leaf: string, workId: string) => {
     const { graph, truncated } = await load.loadGraph(organizationId, leaf)

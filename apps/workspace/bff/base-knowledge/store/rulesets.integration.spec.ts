@@ -20,6 +20,7 @@
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { approveSeededRequest } from '../platform/testing/lifecycle'
 import type { RulesetValuesInput } from '../wire/ruleset'
 
 vi.mock('server-only', () => ({}))
@@ -171,13 +172,8 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
-        // The lifecycle the status trigger holds (migration 0216): submitted, a reviewer's verdict, a domain expert's yes.
-        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = ${requestId}`)
-        await tx.execute(sql`INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source)
-          VALUES (${randomUUID()}, ${requestId}, ${revisionId}, 'payload', 'accepted', 'reviewer', 'app')`)
-        await tx.execute(sql`INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source)
-          VALUES (${randomUUID()}, ${requestId}, 'reviewer', 'domain_expert', 'app')`)
-        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`)
+        // Through the lifecycle the status trigger holds (migration 0216), never straight to approved.
+        await approveSeededRequest(tx, requestId, [revisionId], 'reviewer')
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
         await tx.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`)
