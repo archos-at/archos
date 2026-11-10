@@ -11,4 +11,4 @@ operators:
     Platform, Countries: reviewed claim by claim, approved by a second person,
     published to preview, then stable, and rolled back if needed. Off until the
     platform-base-knowledge flag is set; while on, the norm catalog takes no
-    edits. Migration 0203 adds the tables.
+    edits. Migration 0205 adds the tables.
