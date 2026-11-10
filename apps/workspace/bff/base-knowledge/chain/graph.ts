@@ -53,6 +53,8 @@ export interface GraphEdition {
   corpusFiles: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
+  /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
+  sourceUrl?: string | null
 }
 
 export interface RelationAnchorPair {

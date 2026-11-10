@@ -7,7 +7,7 @@
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
  * digest, and the resolved context is cached, with the names a person reads
- * for its uses (never on the wire), under `knowledge-context-v2:<org>:<project>:<digest>`: the organization and the
+ * for its uses (never on the wire), under `knowledge-context-v3:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -39,6 +39,7 @@ import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
+import type { FactDefinition } from '../wire/setup-facts'
 import type { KnowledgeContext, ProcedureContext } from './wire'
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
@@ -88,7 +89,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v2:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v3:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -140,14 +141,20 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
 }
 
 /**
- * The names a person reads for a context's uses: each work's designation and
- * each edition's label, from the graph the context was resolved on. Kept beside
+ * The names a person reads for a context's uses: each work's designation, each
+ * edition's label and the page its text opens at, from the graph the context
+ * was resolved on, and the label of each building fact an applicability names
+ * (ADR-0176), from the country's fact definitions. Kept beside
  * the context, never on its wire, so the page names exactly the uses the turn
  * reads without reading the graph again.
  */
 export interface UseNames {
   works: Record<string, string | null>
   editions: Record<string, string | null>
+  /** Per edition, where a person opens its text. */
+  sources: Record<string, string | null>
+  /** Per building fact a use's applicability names, its label in the country's terms. */
+  facts: Record<string, string>
 }
 
 /** A resolved context and the names of its uses: what the cache holds. */
@@ -156,17 +163,22 @@ export interface ContextResolution {
   names: UseNames
 }
 
-const NO_NAMES: UseNames = { works: {}, editions: {} }
+const NO_NAMES: UseNames = { works: {}, editions: {}, sources: {}, facts: {} }
 
 /** The names of the uses `context` carries, read from `graph`. Pure. */
-export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext): UseNames {
-  const names: UseNames = { works: {}, editions: {} }
+export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext, definitions: readonly FactDefinition[] = []): UseNames {
+  const names: UseNames = { works: {}, editions: {}, sources: {}, facts: {} }
+  const labels = new Map(definitions.map((definition) => [definition.key, definition.label]))
   for (const use of context.uses) {
     const designation = graph.works.get(use.workId)?.designation
     names.works[use.workId] = designation ? nameOf(designation) : null
     if (use.editionId) {
-      const label = graph.editions.get(use.editionId)?.label
-      names.editions[use.editionId] = label ? nameOf(label) : null
+      const edition = graph.editions.get(use.editionId)
+      names.editions[use.editionId] = edition?.label ? nameOf(edition.label) : null
+      names.sources[use.editionId] = edition?.sourceUrl ?? null
+    }
+    for (const key of [...(use.applicability?.basis ?? []), ...(use.applicability?.open ?? [])]) {
+      names.facts[key] = nameOf(labels.get(key) ?? key)
     }
   }
   return names
@@ -196,7 +208,7 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     packSeqs: inputs.packSeqs,
     building,
   })
-  return { context, names: graph ? namesOf(graph, context) : NO_NAMES }
+  return { context, names: graph ? namesOf(graph, context, project?.definitions) : NO_NAMES }
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */

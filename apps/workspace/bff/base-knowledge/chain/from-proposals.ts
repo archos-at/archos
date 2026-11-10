@@ -17,11 +17,13 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
   const editions = new Map<string, GraphEdition>()
   const relations: GraphRelation[] = []
   const corpusFiles = new Map<string, string[]>()
+  const sourceUrls = new Map<string, string>()
   for (const record of records) {
-    if (record.type === 'manifestation' && record.corpusFile) {
-      const id = `edition:${record.editionKey}`
-      corpusFiles.set(id, [...(corpusFiles.get(id) ?? []), record.corpusFile])
-    }
+    if (record.type !== 'manifestation') continue
+    const id = `edition:${record.editionKey}`
+    if (record.corpusFile) corpusFiles.set(id, [...(corpusFiles.get(id) ?? []), record.corpusFile])
+    const url = record.citations?.[0]?.url
+    if (url && !sourceUrls.has(id)) sourceUrls.set(id, url)
   }
   for (const record of records) {
     const id = recordIdOf(record)
@@ -61,6 +63,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           inForceFrom: record.inForceFrom,
           inForceTo: record.inForceTo,
           corpusFiles: corpusFiles.get(id) ?? [],
+          sourceUrl: sourceUrls.get(id) ?? null,
         })
         break
       case 'relation':

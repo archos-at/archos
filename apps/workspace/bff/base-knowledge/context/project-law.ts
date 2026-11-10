@@ -24,7 +24,7 @@ export const gateNamesLaw = (gate: GateState): boolean => !REFUSING.has(gate)
 /** The law a resolution names. Pure. */
 export function lawOf({ context, names }: ContextResolution): ProjectLaw {
   const gate = context.gate.state
-  if (!gateNamesLaw(gate)) return { gate, uses: [] }
+  if (!gateNamesLaw(gate)) return { gate, uses: [], factLabels: {} }
   return {
     gate,
     uses: context.uses.map((use) => ({
@@ -35,7 +35,9 @@ export function lawOf({ context, names }: ContextResolution): ProjectLaw {
       designation: names.works[use.workId] ?? null,
       editionLabel: use.editionId ? (names.editions[use.editionId] ?? null) : null,
       applicability: use.applicability,
+      sourceUrl: use.editionId ? (names.sources[use.editionId] ?? null) : null,
     })),
+    factLabels: { ...names.facts },
   }
 }
 

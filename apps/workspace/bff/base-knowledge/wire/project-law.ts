@@ -41,6 +41,8 @@ export const projectLawUseSchema = z
     editionLabel: z.string().nullable(),
     /** Whether the work applies to the project's buildings, and why (ADR-0176); null where no table narrows it. */
     applicability: useApplicabilitySchema.nullable(),
+    /** Where a person opens the edition's text: the page its manifestation cites; null when none does. */
+    sourceUrl: z.url().max(2000).nullable(),
   })
   .strict()
 
@@ -49,6 +51,8 @@ export const projectLawSchema = z
   .object({
     gate: z.enum(GATE_STATES),
     uses: z.array(projectLawUseSchema).max(40),
+    /** The label of each building fact a use's applicability names, in the country's terms. */
+    factLabels: z.record(z.string(), z.string()),
   })
   .strict()
 

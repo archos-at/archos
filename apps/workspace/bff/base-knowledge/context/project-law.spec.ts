@@ -46,6 +46,15 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
       { type: 'edition', key: 'oib-rl-2-2023', workKey: 'oib-rl-2', label: '2023', issuedOn: '2023-05-25' },
       { type: 'work', key: 'oib-rl-2-1', kind: 'model_code', title: 'Brandschutz bei Betriebsbauten', designation: 'OIB-RL 2.1', territoryIds: ['AT'] },
       { type: 'edition', key: 'oib-rl-2-1-2023', workKey: 'oib-rl-2-1', label: '2023', issuedOn: '2023-05-25' },
+      {
+        type: 'manifestation',
+        key: 'oib-rl-2-1-2023-text',
+        editionKey: 'oib-rl-2-1-2023',
+        form: 'text',
+        language: 'de',
+        licenceClass: 'public_open',
+        citations: [{ url: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/', note: 'published by the OIB' }],
+      },
     ].map((record) => proposedRecordSchema.parse(record)),
   )
   // Checked today: an uncurated edition nobody checked is stale and reads as information (E28).
@@ -93,7 +102,7 @@ describe('projectLawFor', () => {
     loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
     const law = await projectLawFor('org_at', 'project_wien')
     expect(law.gate).toBe('core')
-    expect(law.uses).toContainEqual({ workId: 'work:bo-wien', editionId: 'edition:bo-wien-2024', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. 2024/1', applicability: null })
+    expect(law.uses).toContainEqual({ workId: 'work:bo-wien', editionId: 'edition:bo-wien-2024', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. 2024/1', applicability: null, sourceUrl: null })
   })
 
   it('names binding law uncurated and guidance as information where nobody curated the records (open coverage), as the turn reads them', async () => {
@@ -118,7 +127,10 @@ describe('projectLawFor', () => {
     expect(hall.uses.find((use) => use.workId === 'work:oib-rl-2-1')).toMatchObject({
       designation: 'OIB-RL 2.1',
       applicability: { verdict: 'applies', basis: ['uses'], open: [], provision: 'OIB-RL 2.1, Anwendungsbereich' },
+      sourceUrl: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/',
     })
+    // The fact is named in the country's own terms, from its fact definitions.
+    expect(hall.factLabels).toEqual({ uses: 'Nutzungen' })
     expect((await knowledgeContextForTurn('org_at', 'project_halle')).uses.map((use) => use.workId)).toContain('work:oib-rl-2-1')
     findProjectProfileInOrg.mockResolvedValue(placedWith(['residential']))
     const flats = await projectLawFor('org_at', 'project_wohnbau')
@@ -137,14 +149,14 @@ describe('projectLawFor', () => {
 
   it('names nothing where the office is not entitled to the site’s country, and reads no graph', async () => {
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [] })
-    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'not_entitled', uses: [] })
+    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'not_entitled', uses: [], factLabels: {} })
     expect(loadGraph).not.toHaveBeenCalled()
   })
 
   it('says the law could not be read when a read fails, never that none applies', async () => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [] })
+    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [], factLabels: {} })
   })
 })
 
@@ -154,7 +166,7 @@ describe('lawOf', () => {
     (state) => {
       const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], retrieval: { countries: [] } }
-      expect(lawOf({ context, names: { works: {}, editions: {} } })).toEqual({ gate: state, uses: [] })
+      expect(lawOf({ context, names: { works: {}, editions: {}, sources: {}, facts: {} } })).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
 

@@ -3120,6 +3120,18 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "sourceUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -3129,15 +3141,23 @@
                   "qualifier",
                   "designation",
                   "editionLabel",
-                  "applicability"
+                  "applicability",
+                  "sourceUrl"
                 ],
                 "additionalProperties": false
+              }
+            },
+            "factLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
               }
             }
           },
           "required": [
             "gate",
-            "uses"
+            "uses",
+            "factLabels"
           ],
           "additionalProperties": false
         },
