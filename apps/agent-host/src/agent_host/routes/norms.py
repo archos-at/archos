@@ -32,19 +32,6 @@ logger = logging.getLogger(__name__)
 
 _ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
 
-# Bundesland -> OGD-RIS "SucheIn<State>" query flag (mirrors scripts/build_ris_catalog.py).
-_FEDERAL_STATE_PARAMS: dict[str, str] = {
-    "Wien": "SucheInWien",
-    "Niederösterreich": "SucheInNiederoesterreich",
-    "Oberösterreich": "SucheInOberoesterreich",
-    "Steiermark": "SucheInSteiermark",
-    "Kärnten": "SucheInKaernten",
-    "Salzburg": "SucheInSalzburg",
-    "Tirol": "SucheInTirol",
-    "Vorarlberg": "SucheInVorarlberg",
-    "Burgenland": "SucheInBurgenland",
-}
-
 
 def _require_admin_token(x_admin_token: str | None = Header(default=None)):
     if not _ADMIN_TOKEN:
@@ -163,16 +150,16 @@ def add_norm_routes(router: APIRouter) -> None:
     async def verify_norm(body: NormsVerifyRequest, _: None = Depends(_require_admin_token)) -> dict:
         from ris_adapter.client import RisClient
         from ris_adapter.client import RisError
+        from ris_adapter.client import federal_state_param
 
         params: dict[str, str] = {"Titel": body.title_query}
         if body.federal_state:
-            flag = _FEDERAL_STATE_PARAMS.get(body.federal_state)
-            if flag is None:
+            if not (flag := federal_state_param(body.federal_state)):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Unknown Bundesland '{body.federal_state}'",
                 )
-            params[f"Bundesland.{flag}"] = "true"
+            params[flag] = "true"
 
         client = RisClient()
         try:

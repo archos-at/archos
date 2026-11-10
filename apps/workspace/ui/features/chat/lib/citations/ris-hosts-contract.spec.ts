@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/ris-adapter/src/client.py
+// @disk-inputs: ../../configs/sources/at/ris/source.yml
 /**
  * @vitest-environment node
  */
@@ -6,12 +6,13 @@
  * The in-app RIS reader's host promise, pinned to the backend's enforcement.
  *
  * `isRisUrl` decides whether a citation chip OFFERS the in-app reader;
- * `ALLOWED_DOCUMENT_HOSTS` in `packages/ris-adapter/src/client.py` decides
- * whether the fetch behind it succeeds. If the first is ever wider than the
+ * the `hosts` of the RIS source record (`configs/sources/at/ris/source.yml`,
+ * ADR-0162), which the RIS client and the fetcher enforce, decide whether the
+ * fetch behind it succeeds. If the first is ever wider than the
  * second, a chip promises a viewer and delivers a 404 — worse than the
  * outbound link it replaced, because the reader has already committed a click.
  *
- * So the promise is read out of the enforcing file rather than restated: this
+ * So the promise is read out of the enforcing record rather than restated: this
  * spec fails when someone edits either side alone.
  */
 
@@ -22,13 +23,13 @@ import { RIS_DOCUMENT_HOSTS, isRisUrl } from './target'
 
 /** Repo root, from this spec's own location. */
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..', '..', '..')
-const CLIENT = join(REPO_ROOT, 'packages', 'ris-adapter', 'src', 'client.py')
+const RECORD = join(REPO_ROOT, 'configs', 'sources', 'at', 'ris', 'source.yml')
 
 const backendHosts = (): string[] => {
-  const source = readFileSync(CLIENT, 'utf8')
-  const block = /ALLOWED_DOCUMENT_HOSTS\s*=\s*frozenset\(\s*\{([^}]*)\}/.exec(source)
-  expect(block, 'ALLOWED_DOCUMENT_HOSTS not found in the RIS client').not.toBeNull()
-  return Array.from(block![1].matchAll(/"([^"]+)"/g)).map((m) => m[1]!)
+  const source = readFileSync(RECORD, 'utf8')
+  const block = /^hosts:\n((?:[ \t]+-[ \t]+\S+\n)+)/m.exec(source)
+  expect(block, 'hosts not found in the RIS source record').not.toBeNull()
+  return Array.from(block![1].matchAll(/-[ \t]+(\S+)/g)).map((m) => m[1]!)
 }
 
 describe('RIS reader host contract', () => {
