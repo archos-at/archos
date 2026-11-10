@@ -360,8 +360,9 @@ export function ProjectSectionFrame({
           />
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
-            // places would only push its subject below the fold.
-            <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', opened && 'phone:hidden')}>
+            // places would only push its subject below the fold. 24px under the title block (16px on a phone): at 12px
+            // the places read as the title's last line (pilot feedback, 2026-11-10); the band keeps its own 16px.
+            <div className={cn('-mb-2 mt-6 flex items-start justify-between gap-4 phone:mt-4', opened && 'phone:hidden')}>
               {/* The track on the title's edge: a fill always drawn is the edge, not given back. */}
               <div className="min-w-0">
                 <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />

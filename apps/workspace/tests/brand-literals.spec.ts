@@ -104,8 +104,8 @@ describe('white', () => {
   })
 
   it('the browser-chrome colours are the app\u2019s paper, which is its background', () => {
-    // Paper on a desk: the app's paper (#f6f5f3) sits one step under the brand's surface (#fafaf9), which was 1.04:1
-    // under a white sheet. The browser's chrome is the page's own colour.
+    // Paper on a desk: the app's paper is the brand's surface (#fafaf9; round 3's darker #f6f5f3 drifted off the
+    // corporate design, 2026-11-10). The browser's chrome is the page's own colour.
     const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
     const layer = tokens.slice(tokens.indexOf('Paper on a desk (2026-11-10)'))
     const light = /:root \{[^}]*--paper: (#[0-9a-f]{6});/.exec(layer)?.[1]
@@ -214,9 +214,18 @@ describe('five neutrals, three elevations', () => {
   const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
   const light = tokens.slice(tokens.indexOf('Paper on a desk (2026-11-10)'))
   it('the five neutrals are the spec\u2019s', () => {
-    for (const [name, hex] of [['sheet', '#ffffff'], ['paper', '#f6f5f3'], ['desk', '#edece9'], ['selected', '#e4e2df'], ['pressed', '#d9d6d2']]) {
+    for (const [name, hex] of [['sheet', '#ffffff'], ['paper', '#fafaf9'], ['desk', '#f2f1f0'], ['selected', '#e7e5e3'], ['pressed', '#dcdad7']]) {
       expect(light, name).toContain(`--${name}: ${hex};`)
     }
+  })
+  it('the light paper and desk are the brand\u2019s surface and sunken surface (corporate design)', () => {
+    // Round 3 darkened both a step (#f6f5f3, #edece9) and the app's ground drifted away from the brand; a pilot office
+    // saw it (2026-11-10). The brand's tokens are the source; the app's layer may only add steps under them.
+    const brand = readFileSync(join(ROOT, 'shared/brand/tokens.vars.css'), 'utf8')
+    const ds = (name: string) => new RegExp(`--ds-${name}:\\s*(#[0-9a-f]{6});`).exec(brand)?.[1]
+    const root = light.slice(light.indexOf(':root {'), light.indexOf('}', light.indexOf(':root {')))
+    expect(root).toContain(`--paper: ${ds('surface')};`)
+    expect(root).toContain(`--desk: ${ds('surface-sunken')};`)
   })
   it('hairline and edge are ink alpha', () => {
     expect(light).toContain('--hairline: rgb(15 14 13 / 0.08);')
@@ -264,8 +273,9 @@ describe('five neutrals, three elevations', () => {
       // Current (the open row's sheet) and picked, side by side in the mail list, step at least 1.2:1 in both themes:
       // round 3's dark pair was 1.08:1 and read as one grey.
       expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
-      // A white sheet reads off the paper by its plane as well as its edge (round 2: 1.04:1, the tiles carried by the edge alone).
-      expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.07)
+      // A white sheet reads off the paper by its 12% edge and its elevation (held below); the paper is the brand's
+      // surface, 1.04:1 under white, and never white itself.
+      expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.04)
     }
   })
   it('a sheet carries the 12% edge in both themes (elevation 1 opens with it)', () => {
@@ -789,6 +799,10 @@ describe('rows, weights and the phone', () => {
     const row = source('ui/features/documents/components/review/mark-row.tsx')
     expect(row).toMatch(/columns && 'max-w-\[720px\]'/)
     expect(row).toMatch(/text-muted-foreground ml-auto hidden shrink-0 items-start gap-4/)
+  })
+  it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
+    // At 12px (8px on a phone) „Alle Dateien“, „E-Mail-Eingang“… hung on the title above them (pilot feedback, 2026-11-10).
+    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/'-mb-2 mt-6 flex items-start justify-between gap-4 phone:mt-4'/)
   })
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/track\s+compactOnPhone/)

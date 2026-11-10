@@ -677,15 +677,15 @@
    ============================================================================= */
 :root {
   --sheet: #ffffff; /* a document, card, menu, floating bar */
-  --paper: #f6f5f3; /* the working page: 1.09:1 under a sheet, so a white tile reads off it by its plane and its edge */
-  --desk: #edece9; /* rail, list columns, the canvas behind a document, hover */
-  --selected: #e4e2df; /* a picked row or tile */
-  --pressed: #d9d6d2; /* a control while the button is down */
+  --paper: #fafaf9; /* the working page: the brand's surface; a white sheet stands 1.04:1 off it and reads by its 12% edge and its shadow */
+  --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
+  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
+  --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
   --hairline: rgb(15 14 13 / 0.08); /* between list rows */
   --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
-  --field-border: #8a8784; /* a field's border: 3.3:1 on the paper, the 3:1 a control's boundary needs */
+  --field-border: #8a8784; /* a field's border: 3.4:1 on the paper, 3.2:1 on the desk, the 3:1 a control's boundary needs */
 
-  --background: var(--paper); /* the brand's #fafaf9 was 1.04:1 under a white sheet: tiles were carried by a faint edge alone */
+  --background: var(--paper); /* the brand's surface; a sheet separates from it by its edge and elevation, not by a darker page */
   --background-color-surface-base: var(--paper); /* the body's own plane, so the header band and the page are one paper */
   --card: var(--sheet);
   --popover: var(--sheet);
