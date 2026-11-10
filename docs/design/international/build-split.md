@@ -221,6 +221,38 @@ Sessions that started during Wave 5 or after it. Each takes the next free migrat
 
 **Architecture review after Wave 5:** the ranked findings and who owns each are in [`architecture-review-2026-11.md`](architecture-review-2026-11.md).
 
+#### Where the build stopped (2026-11-10, 21:35 UTC)
+
+Merged on develop: #1593 (one visibility predicate), #1592 (PDFs parsed only in the fetcher pod), #1591 (half-open edition intervals, migration 0217), #1598 (a monitor keeps its page under review while its request is open), #1594 (four eyes in the database and the split knowledge permissions, migration 0218), #1584 (one turn payload: uses carry text, designation and structured `sourceRefs`; identifiers on works), #1600 (source-status lists the built-in sources beside the records), #1601 (the fetcher's egress policy without the IPv4-mapped range), #1597 (one `parents` field per territory, one walk, migration 0219), #1582 (the knowledge context is the only source of which law applies; the Wave 5 cut-over is complete).
+
+**Dev deploys failed from #1592 to #1601** (20:10 to about 20:45 UTC): the fetcher's NetworkPolicy listed `::ffff:0:0/96` under `::/0`, which the API server refuses. Nothing merged in that window reached dev until #1601. The deploy also only runs after a develop CI run finishes green, and every merge cancels the run before it, so a burst of merges deploys nothing until the last one's CI is green. After a merge, check the deploy run, not only CI (gotchas row).
+
+**Dev regressed until Austria is published.** With every switch on and no Austrian records released, `coverage-get` answers AT at level `none`, the law gate withholds the RIS tools, and a question like "Was sagt § 50 Wiener Garagengesetz?" answers from web search at low confidence (12.7 s, high, RIS before; 58.7 s, low, web after). Publishing EU then AT is the first job of the next session, not a nicety.
+
+**Publishing Austria on dev, where it stands.**
+- Change requests `c323cdc4-b258-4176-b5ce-4eaca8b51b5a` (EU, submitted) and `5907f5cb-8443-43bd-8b82-02f28d563dfd` (AT, draft, 202 records, validates clean).
+- The AT draft carries the RIS dates (half-open `validFrom`/`validTo`): Salzburg's OIB 2023 relations from 2026-09-01 (§ 9 Abs 1 LGBl 83/2026) with the 2019 ones ending there, OIB-RL 6 März 2015 as an edition with an AT-5 `makes_binding` relation from 2026-09-01; Burgenland RL 6 2025 from 2026-11-05 and RL 6 2019 ending there; Niederösterreich's 2023 relations from 2025-03-20 and the 2019 ones ending there. Wien unchanged.
+- The approval is the owner's own: `platform-knowledge-change-request-decide` with `override` asks the person through the door, and an agent cannot answer it. Since #1594 an approval alone also needs every cited capture fetched or source-checked; the AT draft has one `operator_supplied` capture (`b22f63d5-6ac7-43d8-b138-ac51a2c0b855`, the RL 6 2015 masthead), which blocks it until a second person checks it or the record is dropped.
+- Still missing: work identifiers (`ris_gesetzesnummer`, `eli` ending in "/") on the Bauordnungen, the 2019 OIB texts in the corpus (11 PDFs), entitling the dev offices.
+- There is no per-record read of a draft: `change-request-get` truncates at 40k characters (reported as a missing operation).
+
+**Open PRs.** Each takes the next free migration number when it merges (develop is at 0219).
+
+| PR | Owner | State at stop | What it needs |
+|---|---|---|---|
+| #1599 prefix caching and token budget | Q1 | reviewed, fixes in | the answer suite (blocked on OpenRouter credit), renumber; watch items in its body; `chat_static.md:6` is incomplete and needs `prompts:push -- --apply` |
+| #1589 applicability per building | R2 | deferred, handover in its body | merge develop (it is behind #1584), gates, captures, `at-scopes.json` proposed on dev |
+
+**Branches without a PR.** `m1/competence-directives` (finding 14, competence decides directives): resolver side done, handover in `docs/design/international/handover-competence-directives.md` on that branch. The office half is decided (option A: an unlinked addressee answers `authority_unknown`, no prefix fallback).
+
+**Next, per owner.**
+- **S18 (governance):** PR B, findings 3, 4 and 11: delete the preview channel (code, the `knowledge_release_moves.channel` CHECK and the 0212/0214 guards, a down that restores the CHECK `NOT VALID`), approve-alone as derived state with `allowedActions` on the read, ADR-0176 rewritten. Then PR C, finding 16: the organizations row written on WorkOS `organization.created`, idempotent. Known limits left by design: "every claim accepted" is checked in the service only; revisions proposed in one transaction share `created_at`, so "newest" falls to `revision_id` order.
+- **S17 (sources):** the OIB capture check end to end, monitor 5b (`text_sha256`) and 5c (state per manifestation, size it first), `platform-knowledge-document-import` (a URL fetched through the capture route's guarded fetch, then the existing upload service), and the failure path in `monitor.ts` (~218) still writing `ok_at` from the snapshot.
+- **R1 (agent):** a test that fails when `textOf` (`context/resolve.ts:193`) stops calling `capText`: about 300 territory-binding works for one leaf in `edge-cases.spec.ts`, resolved, the text at most 16 000 characters and ending with the cut note.
+- **Unowned:** delete the site-resolution "alone and first" block in `scripts/rls-test-db.sh` (#1593 fixed the cause; prove it with one full run); `platform-cards.spec.tsx:81` (`/Treppenlauf/`) fails on develop in every local run; the gotchas env-leak row has no established cause.
+- **Retired WorkOS switches to delete** once #1582 and #1584 are deployed on dev: `knowledge-context`, `building-law-chain`, `time-editions`, `office-base-knowledge`, `platform-base-knowledge`, and `source-routing` (since #1592).
+- **The owner:** OpenRouter credit for the answer suite; `prompts:push -- --apply` and `langfuse:provision -- --apply`; sign in again on dev after #1594 (new permissions); the approval alone of EU and AT.
+
 **After Wave 5:** answer quality and cost, measured against the market and current vendor guidance, continue in [`quality-and-cost.md`](quality-and-cost.md) (slices Q1–Q4).
 
 ### S16 Onboarding tooling
