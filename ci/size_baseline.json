@@ -198,7 +198,7 @@
     "packages/ris-adapter/src/register.py": 942,
     "scripts/loop_eval.py": 969,
     "scripts/turn_census/fixture_bff.py": 657,
-    "scripts/turn_census/suite.py": 1496
+    "scripts/turn_census/suite.py": 1464
   },
   "functions": {
     "apps/agent-host/src/agent_host/auth/jwt_validator.py::JWTValidator.validate": 62,
@@ -428,8 +428,8 @@
     "scripts/decision_eval_office.py::evaluate_fit": 75,
     "scripts/decision_eval_office.py::evaluate_hits": 63,
     "scripts/decision_eval_office.py::evaluate_precedent": 62,
-    "scripts/turn_census/suite.py::main": 104,
+    "scripts/turn_census/suite.py::main": 94,
     "scripts/turn_census/suite.py::observe": 91,
-    "scripts/turn_census/suite.py::render": 76
+    "scripts/turn_census/suite.py::render": 62
   }
 }

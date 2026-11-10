@@ -59,7 +59,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
 
   /** Proposed by the author, every claim accepted and approved by the expert, published to preview and stable. */
   async function published(countryId: string, title: string, raw: unknown[]): Promise<string> {
-    const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
+    // Parsed in batches, as records-propose takes them: a pack may hold more records than one batch carries.
+    const records = Array.from({ length: Math.ceil(raw.length / wire.MAX_PROPOSED_RECORDS) }, (_, i) =>
+      wire.proposeRecordsBodySchema.parse({ records: raw.slice(i * wire.MAX_PROPOSED_RECORDS, (i + 1) * wire.MAX_PROPOSED_RECORDS) }).records,
+    ).flat()
     return publishedRequest({ title, countryId, records }, { author: AUTHOR, expert: EXPERT })
   }
 

@@ -12,7 +12,7 @@
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import type { Tx } from '../../store/repository'
-import type { ProposedRecord } from '../wire'
+import { MAX_PROPOSED_RECORDS, type ProposedRecord } from '../wire'
 
 export interface LifecycleActors {
   /** Who proposes the records: never the reviewer (four eyes). */
@@ -30,7 +30,11 @@ export async function approvedRequest(
   const id = await store.insertChangeRequest({ title: request.title, countryId: request.countryId, createdBy: actors.author })
   await store.platformTransaction(async (tx) => {
     const draft = await store.lockChangeRequest(tx, id)
-    await store.insertProposedRecords(tx, draft!, request.records, { createdBy: actors.author, proposedBy: 'person' })
+    // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
+    for (let start = 0; start < request.records.length; start += MAX_PROPOSED_RECORDS) {
+      const batch = request.records.slice(start, start + MAX_PROPOSED_RECORDS)
+      await store.insertProposedRecords(tx, draft!, batch, { createdBy: actors.author, proposedBy: 'person' })
+    }
     await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
   })
   const view = await store.readChangeRequest(id)

@@ -33778,6 +33778,74 @@
         }
       }
     },
+    "/api/platform/organizations/countries": {
+      "get": {
+        "operationId": "platform-org-countries-list",
+        "summary": "List where every organization is placed: its home country and the countries it is entitled to",
+        "description": "Per organization (the platform organization left out): `homeCountry`, or null with `unplaced.reason`: `directory_names` (its WorkOS metadata names `directoryHomeCountry`, written on the next signed-in page load), `no_row` (nobody signed in to it yet, and nothing names a country) or `not_stated` (its admins have not stated it). Then `entitled`: its home (source `home`) and each country the platform entitled it to (source `platform`, with who and when). A page at a time (`limit`, `cursor` from `nextCursor`), the unplaced first within it. Read only: place an office with platform-organization-home-country-set, entitle it with platform-org-country-entitle.",
+        "tags": [
+          "platform"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Organizations per page; 100 at most and by default.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Organizations per page; 100 at most and by default."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "nextCursor of the previous page.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "nextCursor of the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List where every organization is placed: its home country and the countries it is entitled to",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/organizations/{organizationId}/countries": {
       "post": {
         "operationId": "platform-org-country-entitle",
