@@ -32,6 +32,8 @@ import httpx
 from public_sources import access_for
 from public_sources import engine_for
 from public_sources import get_source
+from public_sources.egress import EgressRefused
+from public_sources.egress import GuardedTransport
 
 # The format is the ``ris_xml`` engine's; its names are re-exported here, where
 # the tools, the routes and the tests have always imported them from.
@@ -174,8 +176,17 @@ class RisClient:
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
     def _http_client(self) -> httpx.AsyncClient:
+        """The client of a turn without ``sourceRouting``: the guard runs here, in process.
+
+        :class:`public_sources.egress.GuardedTransport` dials only an address it
+        resolved itself and found public, at every hop, so a RIS name that
+        answers a cluster address (DNS rebinding) reaches nothing; the hop hook
+        below checks the host. ``trust_env=False``: an environment proxy would
+        take the request past the guard. A transport handed in (tests) stands in
+        for the network.
+        """
         if self._client is None or self._client.is_closed:
-            self._client = self._new_client(self._transport)
+            self._client = self._new_client(self._transport or GuardedTransport(), trust_env=False)
         return self._client
 
     def _routed_client(self) -> httpx.AsyncClient:
@@ -261,6 +272,8 @@ class RisClient:
                     return response
             except RisError:
                 raise
+            except EgressRefused as exc:  # deterministic: a retry would be refused the same way
+                raise RisError(f"OGD-RIS request refused: {exc}") from exc
             except httpx.HTTPStatusError as exc:
                 raise RisError(f"OGD-RIS request failed with HTTP {exc.response.status_code}: {url}") from exc
             except httpx.HTTPError as exc:
