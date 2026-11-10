@@ -1964,6 +1964,10 @@
     "de": "Fußnoten in einer Antwort folgen Ihrer Sprache, und ihre Sprungmarken funktionieren wieder."
   },
   {
+    "en": "For a project in Austria, answers can now say which edition of the OIB-Richtlinien its Land declared binding and since when: the 2019 edition in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition that a Land has not adopted is marked as guidance in the sources, no longer as binding.",
+    "de": "Bei einem Projekt in Österreich können Antworten jetzt angeben, welche Ausgabe der OIB-Richtlinien das jeweilige Land für verbindlich erklärt hat und seit wann: die Ausgabe 2019 in der Steiermark, in Vorarlberg und im Burgenland, die Ausgabe 2023 in den Ländern, die sie übernommen haben, sowie RL 6 in der Ausgabe 2025 in Wien und Tirol. Eine neuere Ausgabe, die ein Land nicht übernommen hat, wird in den Quellen nicht mehr als verbindlich, sondern als Orientierung gekennzeichnet."
+  },
+  {
     "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
     "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
   },

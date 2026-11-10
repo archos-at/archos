@@ -67,6 +67,14 @@
           "section": "features",
           "area": "office-knowledge",
           "text": {
+            "en": "For a project in Austria, answers can now say which edition of the OIB-Richtlinien its Land declared binding and since when: the 2019 edition in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition that a Land has not adopted is marked as guidance in the sources, no longer as binding.",
+            "de": "Bei einem Projekt in Österreich können Antworten jetzt angeben, welche Ausgabe der OIB-Richtlinien das jeweilige Land für verbindlich erklärt hat und seit wann: die Ausgabe 2019 in der Steiermark, in Vorarlberg und im Burgenland, die Ausgabe 2023 in den Ländern, die sie übernommen haben, sowie RL 6 in der Ausgabe 2025 in Wien und Tirol. Eine neuere Ausgabe, die ein Land nicht übernommen hat, wird in den Quellen nicht mehr als verbindlich, sondern als Orientierung gekennzeichnet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
             "en": "Answers now name the standards the platform lists for your country even when your office holds no copy, saying the text is not available, and an authority's directives reach a project only where that authority decides.",
             "de": "Antworten nennen jetzt die Normen, die die Plattform für Ihr Land auflistet, auch wenn Ihrem Büro keine Kopie vorliegt, und weisen darauf hin, dass der Text nicht verfügbar ist. Vorgaben einer Behörde gelten für ein Projekt nur, wenn die Behörde dies festlegt."
           }
