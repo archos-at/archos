@@ -26,6 +26,8 @@ const { isOrgFeatureEnabled, findProjectProfileInOrg, loadGraph, officeTimeZone,
       }),
     }
   })
+const { unavailableAdd } = vi.hoisted(() => ({ unavailableAdd: vi.fn() }))
+vi.mock('@opentelemetry/api', () => ({ metrics: { getMeter: () => ({ createCounter: () => ({ add: unavailableAdd }) }) } }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
 vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone }))
@@ -92,6 +94,7 @@ describe('knowledgeContextForTurn', () => {
     expect(context?.gate.state).toBe('knowledge_unavailable')
     expect(context?.retrieval.countries).toEqual([])
     expect(context?.uses).toEqual([])
+    expect(unavailableAdd).toHaveBeenCalledWith(1)
   })
 })
 

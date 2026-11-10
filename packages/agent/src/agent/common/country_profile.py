@@ -370,7 +370,17 @@ def austrian_corpus_applies(project_context: str | None) -> bool:
     The retrieval scope (`collection-scope-request.ts`), the round-0 prefetch and
     the RIS tools ask this one question (ADR-0158): a project abroad or one
     nothing places does not search Austrian law. A turn without a project does.
+
+    With the turn's knowledge context bound (``knowledge-context``, ADR-0173)
+    the BFF's gate decides instead: the corpus applies when Austria is among the
+    countries the turn may retrieve from, so an unentitled, unplaced or
+    unavailable context reads none of it.
     """
+    from agent.common.knowledge_context import corpus_country_allowed
+
+    allowed = corpus_country_allowed("AT")
+    if allowed is not None:
+        return allowed
     if not project_context or not project_context.strip():
         return True
     return resolve_site(project_context).country == "at"

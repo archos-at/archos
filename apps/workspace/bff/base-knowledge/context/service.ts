@@ -18,6 +18,7 @@
 
 import 'server-only'
 import { createHash } from 'node:crypto'
+import { metrics } from '@opentelemetry/api'
 import { sql } from 'drizzle-orm'
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { getCached } from '@/lib/cache'
@@ -41,6 +42,15 @@ export const CONTEXT_TTL_MS = 10 * 60 * 1000
 
 /** The procedures a turn carries: the profile's first, as `procedure-*` facts scope them (ADR-0171). */
 const PROCEDURE_IDS = ['p1'] as const
+
+/**
+ * Turns whose knowledge context could not be read (`knowledge_context_available`
+ * in design §5.5): the alert's row in the merged health insight reads it
+ * (docs/observability/metrics.md). A no-op meter where nothing exports.
+ */
+const unavailableTurns = metrics
+  .getMeter('grid.base-knowledge')
+  .createCounter('grid.knowledge_context.unavailable', { description: 'Turns whose knowledge context could not be read' })
 
 const untimed: PhaseTimer = (_name, load) => load()
 
@@ -165,7 +175,7 @@ export async function knowledgeContextForTurn(
       const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
       return await getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
     } catch (error) {
-      // The alert reads this line (`knowledge_context_available`, docs/observability/alerts.md).
+      unavailableTurns.add(1)
       console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })
       return unavailableContext(calendarDayIn('UTC'))
     }
