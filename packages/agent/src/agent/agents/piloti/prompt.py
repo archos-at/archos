@@ -38,6 +38,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 
+from agent.citations.roles import get_turn_building_law
 from agent.common import load_prompt
 from agent.common import render_prompt_template
 from agent.common.applicability import render_project_block
@@ -65,6 +66,8 @@ from agent.knowledge.already_read import render_already_read_block
 from agent.observability.langfuse_trace_attributes import current_fallback_identity
 from agent.observability.langfuse_trace_attributes import record_prompt_link
 from agent.observability.langfuse_trace_attributes import record_trace_metadata
+from agent.turn.building_law import BUILDING_LAW_TAG
+from agent.turn.building_law import building_law_block
 
 from .models import ResearchAgentState
 
@@ -390,10 +393,17 @@ class TurnPrompt(NamedTuple):
 
 
 def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Sequence[dict[str, str]]) -> TurnPrompt:
-    """The system prompt (the static half, resolved through the store) and this turn's context."""
+    """The system prompt (the static half, resolved through the store) and this turn's context.
+
+    The static text decides whether the turn context carries ``<building_law>``:
+    only once the static prompt no longer does (``building_law.py``).
+    """
+    static = resolve_static_block().text
     return TurnPrompt(
-        system=render_static_block(resolve_static_block().text),
-        context=with_answer_language(render_turn_context(template, state, tools_info), state.messages),
+        system=render_static_block(static),
+        context=with_answer_language(
+            render_turn_context(template, state, tools_info, static_text=static), state.messages
+        ),
     )
 
 
@@ -440,12 +450,41 @@ def request_messages(
     return with_steering(request, steering, offset=2)
 
 
+def _site_blocks(
+    state: ResearchAgentState, documents: list[dict[str, Any]], tool_names: list[str], static_text: str
+) -> dict[str, Any]:
+    """Where the turn looks and where the project stands: the focus, the trigger and the site's law.
+
+    ``building_law`` is the ``<building_law>`` block, which a turn carries only
+    once its static prompt does not (``turn/building_law.py``, ADR-0168); its
+    chain text is the platform records' for this turn (``citations/roles.py``).
+    """
+    law = get_turn_building_law()
+    return {
+        "focus_file_name": state.focus_file_name,
+        "focus_shelf_label": shelf_label(state.focus_shelf),
+        # The path `read_file` opens it by, when the turn reads the estate: a bare „dieses Dokument“
+        # then goes straight into the read. A hint, never a filter (ADR-0133 decision 3).
+        "focus_file_path": focus_file_path(state, tool_names),
+        "focus_region_block": focus_region_block(state, tool_names),
+        "trigger_block": trigger_block(state, tool_names),
+        "building_law": building_law_block(static_text, state.project_context, law.text if law else None),
+        "oib_applicability": oib_applicability(state.project_context),
+        "parcel_note": parcel_note(documents, resolve_country(state.project_context)),
+    }
+
+
 def render_turn_context(
     template: str,
     state: ResearchAgentState,
     tools_info: Sequence[dict[str, str]],
+    *,
+    static_text: str = BUILDING_LAW_TAG,
 ) -> str:
     """Render this turn's context message for one run.
+
+    ``static_text`` is the system prompt it goes with (``_site_blocks``); unnamed,
+    it holds ``<building_law>``, and the context is what it always was.
 
     The date is rendered at DAY precision: research needs the date, not the
     clock, and a stable context keeps the rounds of one turn byte-identical.
@@ -493,15 +532,7 @@ def render_turn_context(
         workspace_block=(
             state.workspace_block if any(name.startswith(WORKSPACE_TOOL_PREFIX) for name in tool_names) else None
         ),
-        focus_file_name=state.focus_file_name,
-        focus_shelf_label=shelf_label(state.focus_shelf),
-        # The path `read_file` opens it by, when the turn reads the estate: a bare „dieses Dokument“
-        # then goes straight into the read. A hint, never a filter (ADR-0133 decision 3).
-        focus_file_path=focus_file_path(state, tool_names),
-        focus_region_block=focus_region_block(state, tool_names),
-        trigger_block=trigger_block(state, tool_names),
-        oib_applicability=oib_applicability(state.project_context),
-        parcel_note=parcel_note(documents, resolve_country(state.project_context)),
+        **_site_blocks(state, documents, tool_names, static_text),
         # The L1 skills catalog, collated by the register layer; None renders
         # no section.
         skills_block=state.skills_block,

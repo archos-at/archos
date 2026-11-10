@@ -40,6 +40,8 @@ from agent.common.prompt_store import PromptStore
 from agent.common.prompt_store import ResolvedPrompt
 from agent.common.prompt_utils import render_prompt_template
 from agent.observability import langfuse_trace_attributes as lta
+from agent.turn.building_law import BUILDING_LAW_TAG
+from agent.turn.building_law import bundled_building_law
 
 FIXTURE = Path(__file__).parent / "fixtures" / "chat_prompt_rendered.txt"
 
@@ -448,3 +450,15 @@ def test_project_record_names_the_three_file_blocks_and_says_look_before_missing
     assert "`glob`" in record and "`grep`" in record
     without = render_prompt_template(system_prompt_template(), **{**PINNED, "project_context": "name: X"})
     assert "documents_missing:" not in without
+
+
+def test_the_turn_s_building_law_block_is_the_static_prompt_s_byte_for_byte():
+    """ADR-0168: an Austrian site reads after the neutral push what it read before it.
+
+    Holds while the static prompt still carries the block; the push removes it
+    from ``chat_static.md``, and this test goes with it.
+    """
+    static = (PROMPTS_DIR / STATIC_PROMPT_FILE).read_text(encoding="utf-8")
+    start = static.index(BUILDING_LAW_TAG)
+    end = static.index("</building_law>") + len("</building_law>")
+    assert bundled_building_law() == static[start:end]
