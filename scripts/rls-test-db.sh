@@ -3388,3 +3388,39 @@ check_in home_0200 "SELECT count(*) FROM information_schema.columns WHERE table_
 apply_in home_0200 0200_organization_home_country.sql
 check_in home_0200 "SELECT count(*) FROM pg_constraint WHERE conname IN ('organizations_home_country_iso', 'organizations_time_zone_shape')" "2" "0200 applies again after its down"
 echo "==> 0200 home country and its down migration verified"
+# Migration 0201: an existing Austrian project with a stored address and no
+# Land gets the Land its Postleitzahl names, as an unconfirmed suggestion
+# (ADR-0158).
+#
+# On a database of its own, migrated through 0200: a Graz address (typed, an
+# assumption), a Linz address kept as a confirmed fact, a Zürich address, a
+# project without an address, and one already placed. Only the two Austrian
+# ones get a Land, with its derivation; the rest stay as they were; a second
+# run changes nothing; the down takes back only what 0201 wrote.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0201 postal-code Land and its down migration on postal_0201"
+migrate_before postal_0201 0201_postal_code_land_backfill
+U201="user_01J0MA1LUSERA00000000000A3"
+sql_in postal_0201 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name, profile) VALUES
+  ('b0000000-0000-4000-8000-000000000201', 'org_0201', 'Graz', '$U201', 'proj_0201_a',
+   '{"facts":{},"assumptions":{"site_address":{"value":"Herrengasse 16, 8010 Graz","status":"unconfirmed","reason":"r","source":"onboarding_default","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
+  ('b1000000-0000-4000-8000-000000000201', 'org_0201', 'Linz', '$U201', 'proj_0201_b',
+   '{"facts":{"site_address":{"value":"Hauptplatz 1, 4020 Linz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"assumptions":{}}'),
+  ('b2000000-0000-4000-8000-000000000201', 'org_0201', 'Zürich', '$U201', 'proj_0201_c',
+   '{"facts":{"site_address":{"value":"Bahnhofstrasse 1, 8001 Zürich","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
+  ('b3000000-0000-4000-8000-000000000201', 'org_0201', 'No address', '$U201', 'proj_0201_d', '{}'),
+  ('b4000000-0000-4000-8000-000000000201', 'org_0201', 'Placed', '$U201', 'proj_0201_e',
+   '{"facts":{"country":{"value":"de","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"},"site_address":{"value":"Herrengasse 16, 8010 Graz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}}}');
+SQL
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+LAND="SELECT string_agg(name || '=' || coalesce(profile -> 'assumptions' -> 'federal_state' ->> 'value', '-'), ',' ORDER BY name) FROM projects WHERE organization_id = 'org_0201'"
+check_in postal_0201 "$LAND" "Graz=styria,Linz=upper_austria,No address=-,Placed=-,Zürich=-" "0201 places the Austrian addresses only"
+check_in postal_0201 "SELECT (profile -> 'assumptions' -> 'federal_state' -> 'evidence' -> 0 ->> 'rule') || ',' || (profile -> 'assumptions' -> 'federal_state' -> 'evidence' -> 0 -> 'inputs' -> 0 ->> 'suggested') || ',' || (profile_prompt_view LIKE '%- federal_state=upper_austria [abgeleitet]%')::text FROM projects WHERE name = 'Linz'" "postal_code,false,true" "0201 records its derivation and the prompt line"
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+check_in postal_0201 "SELECT sum(profile_version) FROM projects WHERE organization_id = 'org_0201' AND name IN ('Graz', 'Linz')" "4" "0201 runs again without touching a placed project"
+apply_in postal_0201 0201_postal_code_land_backfill.down.sql
+check_in postal_0201 "$LAND" "Graz=-,Linz=-,No address=-,Placed=-,Zürich=-" "0201 down takes back only its own suggestions"
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+check_in postal_0201 "$LAND" "Graz=styria,Linz=upper_austria,No address=-,Placed=-,Zürich=-" "0201 applies again after its down"
+echo "==> 0201 postal-code Land and its down migration verified"

@@ -31,6 +31,13 @@ import { createOrganizationRow, findOrganization, placeOrganization } from './re
  */
 const placed = new Set<string>()
 const warned = new Set<string>()
+/**
+ * Organizations found without a country, and until when that answer holds: an
+ * unplaced organization would otherwise cost a database read and a WorkOS call
+ * on every page load. Short, so a country set in the dashboard is seen soon.
+ */
+const unplacedUntil = new Map<string, number>()
+export const UNPLACED_RECHECK_MS = 5 * 60_000
 
 /** The home country the WorkOS organization's metadata names, or null. Never throws. */
 export async function homeCountryFromDirectory(organizationId: string): Promise<HomeCountry | null> {
@@ -58,8 +65,8 @@ function warnUnplaced(organizationId: string): void {
  * country. Cheap after the first call per process; never throws (a failure is
  * logged and the next request tries again).
  */
-export async function ensureOrganizationRow(organizationId: string): Promise<void> {
-  if (placed.has(organizationId)) return
+export async function ensureOrganizationRow(organizationId: string, now: number = Date.now()): Promise<void> {
+  if (placed.has(organizationId) || (unplacedUntil.get(organizationId) ?? 0) > now) return
   try {
     const row = await findOrganization(organizationId)
     if (row?.homeCountry) {
@@ -73,6 +80,7 @@ export async function ensureOrganizationRow(organizationId: string): Promise<voi
       return
     }
     if (!row) await createOrganizationRow(organizationId)
+    unplacedUntil.set(organizationId, now + UNPLACED_RECHECK_MS)
     warnUnplaced(organizationId)
   } catch (error) {
     console.warn(`[organizations] could not ensure the row of ${organizationId}:`, error)
@@ -91,4 +99,5 @@ export async function stateHomeCountry(organizationId: string, homeCountry: Home
   }
   if (row?.homeCountry !== homeCountry) await placeOrganization(organizationId, homeCountry)
   placed.add(organizationId)
+  unplacedUntil.delete(organizationId)
 }

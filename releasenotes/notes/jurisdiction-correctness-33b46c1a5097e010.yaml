@@ -24,7 +24,8 @@ operators:
     Migration 0200 gives every organization row a home country and a time
     zone (AT and Europe/Vienna for every existing organization) and creates
     rows for organizations that had none; check the WorkOS roster for a
-    non-Austrian office first.
+    non-Austrian office first. Migration 0201 suggests the Bundesland of
+    existing projects with an Austrian address and none stated.
   - >
     Address search is off by default (ADR-0159): a stack that wants komoot's
     public geocoder sets geocoderUrl, or GEOCODER_URL in Compose. The

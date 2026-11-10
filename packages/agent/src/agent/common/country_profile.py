@@ -37,12 +37,10 @@ exists (design ``docs/design/international/design.md`` 3.1, invariant A1). A
 project is placed by its own facts: a ``country`` line, else a Land token. A
 project nothing places has NO country, never the default one, and no country's
 law is presented as applying to it: no OIB verdicts, and the chat turn reads
-``SITE_UNKNOWN_NOTE``. Austrian sources stay readable for it as information:
-deep research keeps the Austrian doctrine and catalogue, labelled by
-``JURISDICTION_GROUNDING`` as binding nothing for an unplaced project. A
-project placed outside the covered countries gets ``UNCOVERED_SITE_NOTE``,
-never Austrian doctrine or the catalogue. The office's own seat never places a
-project.
+``SITE_UNKNOWN_NOTE`` (deep research reads it as its doctrine). Neither it nor
+a project placed outside the covered countries (``UNCOVERED_SITE_NOTE``) gets
+the Austrian doctrine, the catalogue, the corpus or RIS
+(``austrian_corpus_applies``). The office's own seat never places a project.
 """
 
 from __future__ import annotations
@@ -183,9 +181,9 @@ places the project too, as unverified.
   The norm doctrine below says so for this project. Never present an Austrian rule, OIB-Richtlinie or
   Austrian building class as applicable; say plainly that the site's law is not covered and what the answer
   would need. An Austrian rule appears only as a comparison the person asked for, labelled as Austrian.
-- **No country and no Land** (the site is not stated): no country's law is known to apply. Austrian sources
-  answer a question about Austrian law, labelled as such, but nothing is presented as binding for this
-  project. When the answer turns on the jurisdiction, say that the site is missing and ask for it.
+- **No country and no Land** (the site is not stated): no country's law is known to apply, and the Austrian
+  corpus and the RIS tools are not used for this project until its site is stated. Nothing is presented as
+  binding. When the answer turns on the jurisdiction, say that the site is missing and ask for it.
 
 ## Project Hard Limits & Grounding
 

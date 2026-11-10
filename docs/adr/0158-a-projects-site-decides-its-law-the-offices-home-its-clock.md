@@ -70,7 +70,9 @@ cannot present a law the project's facts do not support.
   (`bff/project-profile/postal-place.ts`, a GeoNames table shipped with the code),
   stored as an unconfirmed assumption with its derivation; the create form asks
   for the country and, in Austria, the Land. Otherwise every new Austrian
-  project would start unplaced and lose its OIB verdicts.
+  project would start unplaced and lose its OIB verdicts. Migration 0201 gives
+  existing projects with a stored address and no Land the same suggestion,
+  once; a project with no address stays unplaced and is asked.
 - **Typed address.** An address that no register confirmed is stored as an
   unconfirmed assumption, never as a confirmed fact; `country=at` is written
   only for an Austrian site.
@@ -120,6 +122,8 @@ cannot present a law the project's facts do not support.
   or unplaced; `applicable-standards.test.ts` does the same for the overview.
 - `intake-seed.spec.ts` fails on `country=at` for `outside_austria` and on a
   confirmed typed address.
+- `scripts/rls-test-db.sh` holds 0201 (Austrian addresses placed, a Zürich
+  address and an unplaced or placed project left alone, idempotent, its down).
 - `home-country-row.spec.ts` holds the row paths (metadata, none, once);
   `route.spec.ts` the creation's idempotency; `scripts/rls-test-db.sh` the 0200
   backfill, its CHECKs and its down migration.
