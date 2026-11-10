@@ -257,7 +257,7 @@ export async function publishPlatformChangeRequest(
   const decisionSource = requirePersonDecision(`Publishing a change request to ${body.channel}`)
   await requireRequest(requestId)
   const outcome = await publishChangeRequest(requestId, body.channel, { by: person.userId, decisionSource })
-  const indexing = await enqueueIndexRuns(person, outcome.indexRuns)
+  const indexing = await enqueueIndexRuns(await getPlatformOrganizationId(), outcome.indexRuns)
   await audit(person, {
     action: 'platform.knowledge.published',
     targetId: requestId,

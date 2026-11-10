@@ -16,7 +16,6 @@ import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
-import type { UserSession } from '@/lib/auth/types'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
@@ -42,16 +41,17 @@ async function markRun(runId: string, state: 'queued' | 'failed', failure: strin
  * failed with why, so the status never shows "requested" for work nobody will do.
  */
 export async function enqueueIndexRuns(
-  session: Pick<UserSession, 'organizationId'>,
+  platformOrganizationId: string | null,
   runIds: readonly string[],
 ): Promise<{ enqueued: number; failed: number }> {
   let failed = 0
   for (const runId of runIds) {
     try {
-      // The job belongs to the platform organization the operator acts in; it runs as the system.
+      // The job belongs to the platform organization, whichever office the operator browses; it runs as the system.
+      if (!platformOrganizationId) throw new Error('the platform organization is not known')
       await enqueueJob({
         kind: 'platform_text_index',
-        organizationId: session.organizationId as string,
+        organizationId: platformOrganizationId,
         payload: { runId },
         priority: BFF_JOB_PRIORITY.bulk,
       })
