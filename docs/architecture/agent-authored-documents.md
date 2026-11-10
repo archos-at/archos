@@ -572,7 +572,7 @@ library maps one-for-one onto PDFKit's `info` (checked in
 `node_modules/@react-pdf/renderer/index.d.ts` and `lib/react-pdf.js`; PDFKit's
 own `appendXML` is reachable only through the PDF/A/PDF-UA `subset` option,
 which `<Document>` does not expose). So the four properties ride in `Keywords`
-as `AIGenerated=true; AIGenerator=Piloti; AIHumanReviewed=false; AIRunId=…`,
+as `AIGenerated=true; AIGenerator=Piloti; AIHumanReviewed=false; DigitalSourceType=…/trainedAlgorithmicMedia; AIRunId=…`,
 with `Creator` = `Piloti` and `Subject` = the notice headline. A `.docx` names
 its properties; a PDF only lists them.
 

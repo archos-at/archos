@@ -335,7 +335,7 @@ describe('what leaves the product says a machine made it', () => {
   }
 
   /** What `generatedDocumentMarking` answers for an `answer_artifact`. */
-  const EXPECTED_MARKING = `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false`
+  const EXPECTED_MARKING = `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`
 
   it('puts the marking in the stored SVG, past the allow-list that rewrites it', async () => {
     await file()

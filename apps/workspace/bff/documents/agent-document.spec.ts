@@ -78,6 +78,9 @@ describe('renderAgentDocumentMarkdown', () => {
     // Inside a fenced block, after the body. A `<!-- … -->` wrapper survives the
     // byte check and dies on the first "paste as plain text".
     expect(text).toMatch(/```\nAIGenerated=true;/)
+    // The standard's term, in the one carrier Markdown has: a detector that
+    // knows IPTC and not this product still finds it.
+    expect(text).toContain('DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia')
     expect(text.indexOf('# Aktenvermerk')).toBeLessThan(text.indexOf('AIGenerated=true'))
   })
 

@@ -273,7 +273,7 @@ describe('fileResearchReport', () => {
     expect(pdf.text).toContain(normalizePdfText('ein Mensch hat es nicht geprüft'))
 
     expect(pdf.info.Keywords).toBe(
-      `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; AIRunId=run_7`
+      `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia; AIRunId=run_7`
     )
     expect(pdf.info.Creator).toBe(PRODUCT_NAME)
   })
@@ -303,7 +303,7 @@ describe('fileResearchReport', () => {
     // The marking is still IN the bytes. The branding is added matter and must
     // never displace the one thing the filing seam refuses a document without.
     expect(pdf.info.Keywords).toBe(
-      `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; AIRunId=run_7`
+      `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia; AIRunId=run_7`
     )
   })
 

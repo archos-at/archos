@@ -207,7 +207,7 @@ describe('renderMarkdownPdf', () => {
       const pdf = await readPdf(bytes)
 
       expect(pdf.info.Keywords).toBe(
-        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; AIRunId=run_7`
+        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia; AIRunId=run_7`
       )
       expect(pdf.info.Creator).toBe(AI_GENERATOR_NAME)
       // The standard's term, in XMP: what a detector not built for us reads
@@ -230,7 +230,7 @@ describe('renderMarkdownPdf', () => {
       )
 
       expect(pdf.info.Keywords).toBe(
-        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false`
+        `AIGenerated=true; AIGenerator=${PRODUCT_NAME}; AIHumanReviewed=false; DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`
       )
     })
   })

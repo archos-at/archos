@@ -180,6 +180,10 @@ export function aiProvenanceMarking(provenance: AiProvenance): AiProvenanceMarki
     `${AI_PROVENANCE_PROPERTIES.generated}=true`,
     `${AI_PROVENANCE_PROPERTIES.generator}=${AI_GENERATOR_NAME}`,
     `${AI_PROVENANCE_PROPERTIES.humanReviewed}=false`,
+    // The standard's term in the string too, so a carrier that has only this
+    // string (Markdown's fenced block, an SVG's <desc>, a PDF's Keywords) still
+    // says `trainedAlgorithmicMedia` to a detector not built for this product.
+    `${AI_PROVENANCE_PROPERTIES.digitalSourceType}=${IPTC_TRAINED_ALGORITHMIC_MEDIA}`,
   ]
   if (provenance.runId) parts.push(`${AI_PROVENANCE_PROPERTIES.runId}=${provenance.runId}`)
   // The one place the brand is minted. Everything downstream that holds an
