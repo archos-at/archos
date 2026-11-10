@@ -1,5 +1,5 @@
 /**
- * Base knowledge records (migration 0202, ADR-0163): one set of tables for the
+ * Base knowledge records (migrations 0202 and 0204, ADR-0163 and ADR-0166): one set of tables for the
  * platform (`organization_id` NULL) and every office. A work is the instrument
  * (ÖNORM B 1600), an edition its Ausgabe, a manifestation a held copy. Each is a
  * header row here and an append-only history of revisions with a typed body per
@@ -19,6 +19,8 @@ import type {
   KnowledgeRecordType,
   KnowledgeWorkKind,
   LicenceClass,
+  RulesetPayloadSchema,
+  RulesetPurpose,
 } from '@/lib/base-knowledge/wire/vocab'
 
 export {
@@ -129,4 +131,25 @@ export const knowledgeChecks = pgTable('knowledge_checks', {
   checkedBy: text('checked_by').notNull(),
   result: text('result').$type<KnowledgeCheckResult>().notNull(),
   note: text('note'),
+})
+
+/**
+ * A ruleset's body (migration 0204, ADR-0166): what it decides, where and when,
+ * and its decision table or `inherits: 'parent'`. The payload is the wire's
+ * `decisionTableSchema`, parsed again on every read: a row the evaluator cannot
+ * read is refused, never half-run.
+ */
+export const knowledgeRulesetRevisions = pgTable('knowledge_ruleset_revisions', {
+  revisionId: uuid('revision_id').primaryKey(),
+  recordId: text('record_id').notNull(),
+  organizationId: text('organization_id'),
+  purpose: text('purpose').$type<RulesetPurpose>().notNull(),
+  territoryIds: text('territory_ids').array().notNull(),
+  workIds: text('work_ids').array().notNull().default([]),
+  validFrom: date('valid_from').notNull(),
+  validTo: date('valid_to'),
+  basisEditionId: text('basis_edition_id'),
+  inherits: text('inherits').$type<'parent'>(),
+  payloadSchema: text('payload_schema').$type<RulesetPayloadSchema>(),
+  payload: jsonb('payload').$type<unknown>(),
 })
