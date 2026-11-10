@@ -379,7 +379,7 @@ class TestChangedPages:
         assert response.status_code == 409
 
     async def test_the_index_is_read_as_the_office_the_bff_names(self, ingested, monkeypatch):
-        """No office in the test setup: the route takes it from the BFF's request (ADR-0158)."""
+        """No office in the test setup: the route takes it from the BFF's request (ADR-0163)."""
         from knowledge_layer.vector_store import office_read
 
         offices: list[object] = []

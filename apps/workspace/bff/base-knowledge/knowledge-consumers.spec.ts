@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  *
- * The element ledger holds (design §3.10, ADR-0158): every column of the base
+ * The element ledger holds (design §3.10, ADR-0163): every column of the base
  * knowledge tables, every behaviour-bearing value and every payload field has a
  * consumer that names it and a test that exists, or says which later part reads
  * it, and that list only shrinks. A column added without a reader fails here.

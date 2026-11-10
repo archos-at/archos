@@ -1,5 +1,5 @@
 /**
- * The office's base knowledge (ADR-0158): its licensed standards, commentaries,
+ * The office's base knowledge (ADR-0163): its licensed standards, commentaries,
  * authority directives, guidelines and laws as Archiv documents with edition,
  * territory, authority, licence and last check. See `projects.ts` for the shape
  * and `docs/architecture/agent-surface.md` for the rules.

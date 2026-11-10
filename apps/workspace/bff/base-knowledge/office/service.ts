@@ -1,5 +1,5 @@
 /**
- * The office's base knowledge (ADR-0158, ticket 32): which Archiv documents are
+ * The office's base knowledge (ADR-0163, ticket 32): which Archiv documents are
  * licensed standards, commentaries, authority directives, guidelines or laws,
  * in which edition, where they apply, under which licence, and when they were
  * last checked. The headless capability; the routes, the agent operations and
@@ -8,7 +8,7 @@
  * - A proposal records the values the reading (or an agent) suggests; nothing
  *   reaches an answer until a person confirms. Confirmation moves the heads and
  *   counts as the first check.
- * - An edit appends revisions; history is never rewritten (migration 0200).
+ * - An edit appends revisions; history is never rewritten (migration 0202).
  * - A check records what somebody found; the freshness marker reads the newest.
  * - Removal deletes the Archiv document through the Archiv's own delete (chunks,
  *   objects, holds), and the records go with it by foreign key.
@@ -55,7 +55,8 @@ import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
-import { readShelfDocument, visibleOfficeDocuments, type EntryDocument } from './repository'
+import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments, type EntryDocument } from './repository'
+import { documentNameKey } from '@/lib/documents/name-match'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
@@ -216,6 +217,12 @@ export async function uploadBaseKnowledge(
   { folderId = null, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null } = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
+  // Before any bytes are written: an upload under an existing name replaces that
+  // document's file in place, and a recorded copy's file is changed through its
+  // entry (remove it, or record the new edition under another name), never here.
+  if (await shelfNameHasEntry(session.organizationId, documentNameKey(file.name), await reader(session))) {
+    throw new ConflictError('A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.')
+  }
   let workId: string | null = null
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
     folderId,

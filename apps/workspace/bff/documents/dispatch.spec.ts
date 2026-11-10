@@ -144,7 +144,7 @@ beforeEach(() => {
   // still the row the next one reads — which is how a suite comes to depend on
   // the order its cases happen to run in.
   vi.mocked(findDocumentInOrg).mockResolvedValue(makeDocument({ authoredBy: 'user' }))
-  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', settings: {} })
+  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', homeCountry: null, settings: {} })
 })
 
 afterEach(() => {
@@ -227,7 +227,7 @@ describe('dispatchDocument', () => {
 
   /**
    * A licensed base-knowledge copy the office has not confirmed for AI
-   * processing is metadata-only (ADR-0158): a re-read keeps it out of the index.
+   * processing is metadata-only (ADR-0163): a re-read keeps it out of the index.
    */
   it('reads nothing for a metadata-only office shelf copy, and asks only for office shelf rows', async () => {
     vi.mocked(isTextHeld).mockResolvedValueOnce(true)
@@ -1089,7 +1089,7 @@ describe('dispatchDocument — upload screening', () => {
   it("sends the suggested content rules for an office that never saved a policy", async () => {
     await dispatchDocument(input('Baubeschreibung.pdf'))
     const screening = sentBody().screening as { content_terms: string[]; detectors: string[] }
-    expect(screening.detectors).toEqual(['iban', 'at_svnr', 'credit_card'])
+    expect(screening.detectors).toEqual(['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'])
     expect(screening.content_terms).toContain('Gehaltsabrechnung')
   })
 
@@ -1097,6 +1097,7 @@ describe('dispatchDocument — upload screening', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: {
         uploadScreening: {
           enabled: true,
@@ -1115,6 +1116,7 @@ describe('dispatchDocument — upload screening', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: {
         uploadScreening: { enabled: false, nameTerms: [], nameExceptions: [], contentTerms: ['x y'], detectors: [] },
       },

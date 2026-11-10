@@ -250,7 +250,7 @@ TEST_OFFICE = "org_test"
 
 @pytest.fixture
 def reads_as_an_office() -> Iterator[None]:
-    """Searches read as :data:`TEST_OFFICE`, as every request names its office (``vector_store.ScopeRead``, ADR-0158).
+    """Searches read as :data:`TEST_OFFICE`, as every request names its office (``vector_store.ScopeRead``, ADR-0163).
 
     A search over a tenant scope that names no office is refused; a test of the
     search itself, not of that refusal, reads as one the way a turn does.

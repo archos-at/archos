@@ -1,5 +1,5 @@
 /**
- * Confirm a proposed base-knowledge entry, with any corrections (ADR-0158).
+ * Confirm a proposed base-knowledge entry, with any corrections (ADR-0163).
  * From now on it reaches the office's answers; the confirmation is its first
  * check. A licensed copy needs the office's licence attestation. Needs
  * org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.

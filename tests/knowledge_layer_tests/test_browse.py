@@ -379,7 +379,7 @@ def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
 
 @pytest.fixture
 def reads_as_an_office():
-    """A search over a project's scope reads as an office (``vector_store.ScopeRead``, ADR-0158), as a request does."""
+    """A search over a project's scope reads as an office (``vector_store.ScopeRead``, ADR-0163), as a request does."""
     with reading_as("org_test"):
         yield
 

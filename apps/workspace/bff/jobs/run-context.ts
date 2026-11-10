@@ -17,7 +17,7 @@ import { getBudgetStatus } from '@/lib/budgets/service'
 import { computeCollectionScope } from '@/lib/retrieval-scope/collection-scope'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
-import { loadProjectFederalState, loadProjectPromptView } from '@/lib/project-profile/prompt-view'
+import { loadProjectFederalState, loadProjectPromptView, loadProjectSiteCountry } from '@/lib/project-profile/prompt-view'
 import { buildProjectMemoryDigest } from '@/lib/projects/memory-service'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { requesterOf, type BudgetSnapshot, type RequestContextInput } from '@/lib/request-context'
@@ -153,6 +153,8 @@ async function buildProjectCollectionScope(
     projectId,
     projectCollectionName: project?.collectionName,
     includeProject: true,
+    // As the chat's scope: the Austrian corpus only for a project placed in Austria (ADR-0158).
+    includeBase: (await loadProjectSiteCountry(projectId, organizationId)) === 'at',
   })
   return scope.length > 0 ? scope : null
 }

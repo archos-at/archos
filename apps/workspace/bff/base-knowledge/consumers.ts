@@ -1,5 +1,5 @@
 /**
- * The element ledger of the base knowledge records (design §3.10, ADR-0158):
+ * The element ledger of the base knowledge records (design §3.10, ADR-0163):
  * every column, search-index payload field and behaviour-bearing enum value,
  * with the file that reads it and a deterministic test (no model call) that
  * proves the reading. `knowledge-consumers.spec.ts` fails when an element has

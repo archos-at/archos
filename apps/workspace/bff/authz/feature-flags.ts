@@ -275,6 +275,18 @@ export const FEATURE_FLAGS = {
    */
   folderCards: 'folder-cards',
   /**
+   * Public sources through the sandboxed fetcher (ADR-0162): the agent's RIS
+   * requests leave from the `public-source-fetcher` Deployment, which reaches
+   * public hosts and nothing in the cluster, instead of from the agent's own
+   * pod. The requests are the same either way. Read per organization by the
+   * agent tier through `GET /api/internal/stages` (`features.sourceRouting`).
+   *
+   * Kind `entitlement` only for its default: off until an operator targets an
+   * organization, and off in a deployment that signs nobody in, because off is
+   * what shipped before it. It costs nothing and changes no one's access.
+   */
+  sourceRouting: 'source-routing',
+  /**
    * The office's conventions (ADR-0129): Piloti counts how the office files
    * (folders its projects keep, where each Dokumentart goes, the Plannummer
    * shape) and tells a turn that asks about filing or finding. Read per
@@ -304,7 +316,7 @@ export const FEATURE_FLAGS = {
    */
   inboundMail: 'inbound-mail',
   /**
-   * The office's base knowledge (ADR-0158, ticket 32): an Archiv document can be
+   * The office's base knowledge (ADR-0163, ticket 32): an Archiv document can be
    * recorded as a licensed standard, a commentary, an authority directive, a
    * guideline or a law, with its edition, territory, authority and last check,
    * and a turn tells the agent which of them the office holds and how far each
@@ -345,6 +357,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'platform-agent-mcp': 'entitlement',
   'piloti-ask': 'entitlement',
   'folder-cards': 'entitlement',
+  'source-routing': 'entitlement',
   'office-conventions': 'entitlement',
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',

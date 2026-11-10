@@ -1,6 +1,6 @@
 /**
  * Mark a base-knowledge copy's search-index points with its licence mark and
- * edition (ADR-0158): the licensed seam (ADR-0159) keys on `licence_class`,
+ * edition (ADR-0163): the licensed seam (ADR-0159) keys on `licence_class`,
  * `ai_processing_attested` and `quote_max_chars` to keep licensed text inside
  * its bounds, and a hit names the edition it came from.
  *

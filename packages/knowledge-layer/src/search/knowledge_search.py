@@ -287,7 +287,7 @@ class KnowledgeSearch:
         except Exception:
             session_collection = None
         return search_scope.restrict_scope_to_turn(
-            search_scope.resolve_scoped_collections(self.config, session_collection, base_collection)
+            search_scope.scoped_collections_for_site(self.config, session_collection, base_collection)
         )
 
     async def _literal(self, outcome: ActionOutcome, args: SearchArgs, targets: list) -> str:

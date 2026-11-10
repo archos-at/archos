@@ -75,6 +75,7 @@ COPY pyproject.toml uv.lock ./
 COPY packages/agent/ ./packages/agent/
 COPY packages/knowledge-layer/ ./packages/knowledge-layer/
 COPY packages/ris-adapter/ ./packages/ris-adapter/
+COPY packages/public-sources/ ./packages/public-sources/
 COPY packages/tavily-web-search/ ./packages/tavily-web-search/
 # The backend app, with its entrypoint.py and start_web.py; .dockerignore keeps
 # this Dockerfile out.
@@ -97,6 +98,7 @@ RUN uv sync --frozen --no-dev --no-install-workspace --all-packages
 # Install workspace packages (without CLI for base)
 RUN uv pip install --no-deps -e ./packages/agent \
     && uv pip install --no-deps -e ./packages/tavily-web-search \
+    && uv pip install --no-deps -e ./packages/public-sources \
     && uv pip install --no-deps -e ./packages/ris-adapter \
     && uv pip install --no-deps -e "./packages/knowledge-layer[all]" \
     && uv pip install --no-deps -e ./apps/agent-host \
@@ -117,7 +119,7 @@ RUN uv pip install -e './packages/ifc-spatial-py[ids]'
 # A requirement no layer installed fails the build, not the pod. Only the "not
 # installed" class: the declared-Python and cryptography mismatches `uv pip
 # check` also lists are accepted in pyproject.toml and are not this.
-RUN /app/.venv/bin/python -c "import agent_host; import knowledge_layer; import ris_adapter.register; import tavily_web_search.register; print('✓ Base packages installed')" \
+RUN /app/.venv/bin/python -c "import agent_host; import knowledge_layer; import ris_adapter.register; import public_sources.fetcher; import tavily_web_search.register; print('✓ Base packages installed')" \
     && /app/.venv/bin/python -c "import ifc_spatial.tools; print('✓ Spatial engine installed')" \
     && ! uv pip check --python /app/.venv/bin/python 2>&1 | grep "not installed"
 

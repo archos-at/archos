@@ -68,7 +68,7 @@ export interface ShelfUploadInput {
    * Runs once the row and its version exist and before the dispatch, for a
    * caller that must record something the dispatch then reads: the base-knowledge
    * upload records its proposal here, so the dispatch finds the copy's text held
-   * (ADR-0158). Not called for a re-upload of unchanged bytes, which dispatches nothing.
+   * (ADR-0163). Not called for a re-upload of unchanged bytes, which dispatches nothing.
    */
   beforeDispatch?: (documentId: string) => Promise<void>
   file: File

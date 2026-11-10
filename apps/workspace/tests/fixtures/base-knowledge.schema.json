@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "base-knowledge.schema.json",
-  "description": "The closed vocabularies of the base knowledge records (ADR-0158). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.",
+  "description": "The closed vocabularies of the base knowledge records (ADR-0163). Generated from apps/workspace/bff/base-knowledge/wire/vocab.ts by its spec; do not edit.",
   "$defs": {
     "knowledge_records.type": {
       "type": "string",

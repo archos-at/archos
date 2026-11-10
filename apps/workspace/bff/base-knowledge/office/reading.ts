@@ -1,5 +1,5 @@
 /**
- * What a base-knowledge document's name and masthead say (ADR-0158): kind,
+ * What a base-knowledge document's name and masthead say (ADR-0163): kind,
  * designation, edition, territory, issuer and, for a directive, the authority.
  * Pure; nothing here calls a model. Today the service passes the file name
  * alone: the copy's text is held until a person confirms it, so no summary or

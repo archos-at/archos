@@ -18,6 +18,7 @@ vi.mock('./telemetry', () => ({ recordOperationCalled: vi.fn(), recordOperationM
 
 import type { AskState, AskView } from '@/lib/agent-asks/ask-wire'
 import { TASKS_EXTENSION } from './ask-calls'
+import { AI_GENERATED_META } from './ai-generated-meta'
 import { callOperation, validateOperationInput } from './dispatch'
 import { createAgentDoorHandler } from './mcp-server'
 import type { AgentPrincipal } from './principal'
@@ -315,5 +316,38 @@ describe('the 2025-era path', () => {
     expect(calls('agent-ask-create')).toHaveLength(1)
     expect(calls('agent-ask-create')[0][1]).toEqual({ body: { question: 'Wie hoch darf die Attika sein?' } })
     expect(calls('agent-ask-get')).toHaveLength(0)
+  })
+})
+
+/**
+ * Art. 50(2) AI Act: an answer a model wrote for this call is marked on the
+ * wire, in `_meta`, whichever path the door answers it by. The positive
+ * control is the ask that has no answer yet: same operation, no mark, so a
+ * mark on every result would fail here.
+ */
+describe('the AI mark on an answer', () => {
+  it('marks the answer streamed after progress', async () => {
+    const { messages } = await modern('tools/call', askCall(), { name: 'call-operation', meta: { progressToken: 'p1' } })
+    const result = last(messages).result as { _meta?: Record<string, unknown>; structuredContent: AskView }
+    expect(result.structuredContent.state).toBe('completed')
+    expect(result._meta).toMatchObject(AI_GENERATED_META)
+  })
+
+  it('marks the answer a finished task carries inline', async () => {
+    askRoutes(['completed'])
+    const done = await modern('tasks/get', { taskId: ASK_ID }, { name: ASK_ID, capabilities: TASKS })
+    const task = last(done.messages).result as { result: { _meta?: Record<string, unknown> } }
+    expect(task.result._meta).toMatchObject(AI_GENERATED_META)
+  })
+
+  it('does not mark an ask that has no answer yet, nor a plain read', async () => {
+    askRoutes([], 'working')
+    const pending = await modern('tools/call', askCall(), { name: 'call-operation' })
+    const result = last(pending.messages).result as { _meta?: Record<string, unknown>; structuredContent: AskView }
+    expect(result.structuredContent.state).toBe('working')
+    expect(result._meta?.aiGenerated).toBeUndefined()
+
+    const read = await modern('tools/call', { name: 'call-operation', arguments: { name: 'project-list', input: {} } }, { name: 'call-operation' })
+    expect((last(read.messages).result as { _meta?: Record<string, unknown> })._meta?.aiGenerated).toBeUndefined()
   })
 })

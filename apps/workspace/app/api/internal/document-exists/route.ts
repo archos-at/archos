@@ -8,7 +8,7 @@
  * `exists: false` the pipeline takes back out the chunks that attempt
  * inserted (`knowledge_layer/ingest/document_presence.py`).
  *
- * A base-knowledge copy whose text is held (ADR-0158) answers `exists: false`
+ * A base-knowledge copy whose text is held (ADR-0163) answers `exists: false`
  * too: a proposal made while its ingest ran purged the passages, and the job
  * that then wrote chunks takes them out here, so the last writer loses. The
  * office is read from the collection name when the job did not send it.

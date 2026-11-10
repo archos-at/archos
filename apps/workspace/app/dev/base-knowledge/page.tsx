@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Dev preview for Organisation → Grundlagen des Büros (ADR-0158): the real card
+ * Dev preview for Organisation → Grundlagen des Büros (ADR-0163): the real card
  * over a fetch shim with a confirmed ÖNORM checked this autumn, an MA 37
  * directive whose check is overdue, a commentary never checked, and a proposal
  * read from a freshly uploaded standard. Not linked from anywhere and 404s

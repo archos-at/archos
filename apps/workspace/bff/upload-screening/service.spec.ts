@@ -40,6 +40,7 @@ describe('assertUploadNameAllowed', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: { uploadScreening: officePolicy },
     })
     await expect(assertUploadNameAllowed('org-1', { filename: 'Notizen Huber.pdf' }, false)).rejects.toBeInstanceOf(
@@ -66,6 +67,7 @@ describe('assertUploadNameAllowed into a project (migration 0158)', () => {
     vi.mocked(getOrgSettings).mockResolvedValue({
       displayName: null,
       defaultLocale: 'de',
+      homeCountry: null,
       settings: { uploadScreening: officePolicy },
     })
   })

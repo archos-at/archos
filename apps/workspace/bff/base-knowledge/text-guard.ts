@@ -1,5 +1,5 @@
 /**
- * What the ingest and search paths ask of base knowledge (ADR-0158): whether a
+ * What the ingest and search paths ask of base knowledge (ADR-0163): whether a
  * document's text is held (never embedded, summarised or faceted), and the mark
  * a confirmed copy's points carry. The one seam from `documents/` and `search/`
  * into these records.

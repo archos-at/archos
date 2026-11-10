@@ -429,6 +429,7 @@ export const files = {
     reasonTerm: '“{term}” in the text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Social security number {sample}',
+    reasonTaxId: 'Tax ID {sample}',
     reasonCard: 'Card number {sample}',
     reasonPages: '{count, plural, one {page {pages}} other {pages {pages}}}',
     // Spreadsheets and text files have no pages, so a finding has no place to open.
@@ -443,6 +444,10 @@ export const files = {
       'The number is laid out like an IBAN and its check digits are valid, so it is no random string of digits. Your office marked account numbers as sensitive.',
     basisSvnr:
       'The number is laid out like an Austrian social security number and its check digit is valid. Your office marked it as sensitive.',
+    basisDeSvnr:
+      'The number is laid out like a German social insurance number (Rentenversicherungsnummer) and its check digit is valid. Your office marked it as sensitive.',
+    basisTaxId:
+      'The number is laid out like a German tax identification number, its check digit is valid, and the page names a tax ID. Your office marked it as sensitive.',
     basisCard:
       'The number is laid out like a card number and its check digit is valid. Your office marked card numbers as sensitive.',
     basisOther: 'The content check applied a rule not described here.',

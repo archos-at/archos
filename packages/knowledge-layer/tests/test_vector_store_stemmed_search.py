@@ -35,7 +35,7 @@ from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
 
-# A search over a project or session scope reads as an office, as every request does (ADR-0158).
+# A search over a project or session scope reads as an office, as every request does (ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_stem"

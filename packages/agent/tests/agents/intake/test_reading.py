@@ -23,7 +23,7 @@ from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.knowledge.schema import AvailableDocument
 
-# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 

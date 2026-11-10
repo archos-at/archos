@@ -74,7 +74,7 @@ class TurnContext:
     #: conversation's audience, what waits, and this conversation's proposals
     #: with every status. Rendered when the workspace tools are bound.
     workspace: str | None = None
-    #: The data of each confirmed office copy's answer label (ADR-0158), for the
+    #: The data of each confirmed office copy's answer label (ADR-0163), for the
     #: answer's renderer to word. Empty with the flag off or from an older BFF.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
     #: Whether this turn may hand work over (`create_task`). Its own flag, see
@@ -340,7 +340,7 @@ async def _load_turn_context(
         # The office's conventions the turn was shown (ADR-0129): 0 on a turn
         # without them, so Langfuse can compare filing answers with and without.
         record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
-    # The office's base-knowledge entries the turn was shown (ADR-0158), so Langfuse
+    # The office's base-knowledge entries the turn was shown (ADR-0163), so Langfuse
     # can compare answers with and without the office's own standards.
     if blocks.base_knowledge is not None:
         lines = blocks.base_knowledge.splitlines()

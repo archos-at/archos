@@ -1,5 +1,5 @@
 /**
- * The office's base-knowledge service (ADR-0158) over mocked repositories: who
+ * The office's base-knowledge service (ADR-0163) over mocked repositories: who
  * may do what, that a proposal merges the reading with what a caller read, that
  * a licensed copy needs the attestation, that confirming checks it, that removal
  * runs the office shelf's own delete, and that the flag gates the turn.
@@ -17,6 +17,7 @@ vi.mock('../store/repository', () => ({
 }))
 vi.mock('./repository', () => ({
   readShelfDocument: vi.fn(),
+  shelfNameHasEntry: vi.fn(async () => false),
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
@@ -45,7 +46,7 @@ import {
   type StoredEntry,
 } from '../store/repository'
 import { markCopyPoints } from './mark'
-import { readShelfDocument, visibleOfficeDocuments } from './repository'
+import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments } from './repository'
 import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
 import { forgetKeysFor } from '../http/idempotency'
@@ -188,6 +189,13 @@ describe('uploading as base knowledge', () => {
       expect.objectContaining({ designation: 'ÖNORM B 1600', kind: 'technical_standard' }),
       expect.objectContaining({ provenance: { proposedBy: 'reading' } }),
     )
+  })
+
+  it('refuses a name a recorded copy already holds before writing any bytes', async () => {
+    vi.mocked(shelfNameHasEntry).mockResolvedValueOnce(true)
+    const upload = uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'ÖNORM B 1600.pdf'), new Request('http://localhost/x'))
+    await expect(upload).rejects.toBeInstanceOf(ConflictError)
+    expect(uploadOfficeShelfDocument).not.toHaveBeenCalled()
   })
 
   it('proposes the stored document when the shelf already held these bytes', async () => {

@@ -117,7 +117,7 @@ vi.mock('@/lib/storage/admission', () => ({
 }))
 
 // The office shelf's base-knowledge guard reads its own tables; this spec has no
-// database, and the guard fails closed (ADR-0158), so it answers for itself here.
+// database, and the guard fails closed (ADR-0163), so it answers for itself here.
 vi.mock('@/lib/base-knowledge/text-guard', () => ({
   isTextHeld: vi.fn(async () => false),
   copyMarkForIngest: vi.fn(async () => null),
@@ -2260,6 +2260,15 @@ describe('the authorship gate on the (collection, filename) join', () => {
   })
 
   describe('getDocumentVisualDetails', () => {
+    // The backend reads the collection as the office the BFF names (ADR-0163),
+    // so the call carries the internal token, which an internal-looking backend gets.
+    beforeEach(() => {
+      vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    })
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
     it('returns no page text for a machine-authored row, and asks for none', async () => {
       vi.mocked(findDocumentInOrg).mockResolvedValue(agentDoc)
 

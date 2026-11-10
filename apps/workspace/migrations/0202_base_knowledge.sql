@@ -1,4 +1,4 @@
--- 0200: base knowledge records, one set of tables for the platform and every office (ADR-0158).
+-- 0202: base knowledge records, one set of tables for the platform and every office (ADR-0163).
 --
 -- ## What was missing
 --

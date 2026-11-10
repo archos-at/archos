@@ -261,7 +261,7 @@ export async function dispatchDocument(
     return { jobId: null, status: 'stored' }
   }
   // A licensed base-knowledge copy whose office has not stated that its licence
-  // covers AI processing is metadata-only (ADR-0158): kept, never read. Asked
+  // covers AI processing is metadata-only (ADR-0163): kept, never read. Asked
   // here so a re-read, a re-index or a restore cannot index it either. Only the
   // office shelf holds base knowledge, so no other row pays the read.
   if (row.scope === 'office_shelf' && (await isTextHeld(input.organizationId, row.id))) {

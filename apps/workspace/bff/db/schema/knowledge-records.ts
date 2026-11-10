@@ -1,5 +1,5 @@
 /**
- * Base knowledge records (migration 0200, ADR-0158): one set of tables for the
+ * Base knowledge records (migration 0202, ADR-0163): one set of tables for the
  * platform (`organization_id` NULL) and every office. A work is the instrument
  * (ÖNORM B 1600), an edition its Ausgabe, a manifestation a held copy. Each is a
  * header row here and an append-only history of revisions with a typed body per

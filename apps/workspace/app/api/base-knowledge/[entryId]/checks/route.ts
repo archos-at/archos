@@ -1,6 +1,6 @@
 /**
  * Record that somebody checked a base-knowledge copy is still the edition in
- * force, and what they found (ADR-0158). Append-only: a check is never edited.
+ * force, and what they found (ADR-0163). Append-only: a check is never edited.
  * Needs org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
  */
 

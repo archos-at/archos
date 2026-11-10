@@ -72,7 +72,7 @@ export async function getDocumentVisualDetails(
   let res: Response
   try {
     res = await fetch(collectionFileUrl(getBackendUrl(), ref, '/visual-details'), {
-      // The office the backend reads the collection as (ADR-0158): its structural reads refuse a
+      // The office the backend reads the collection as (ADR-0163): its structural reads refuse a
       // project scope that names none, and an empty answer would look like "no visual pages".
       headers: { ...internalServiceHeaders(getBackendUrl()), 'x-organization-id': session.organizationId },
       signal: AbortSignal.timeout(BACKEND_FETCH_TIMEOUT_MS),

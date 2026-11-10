@@ -26,6 +26,7 @@ import { renderToStream } from '@react-pdf/renderer'
 import type { AiProvenanceMarking } from '@/lib/ai-provenance'
 import type { DocumentChrome } from './branding'
 import { ReportPDF } from './ReactPdfDocument'
+import { withAiProvenanceXmp } from './xmp-metadata'
 import type { DocumentFact } from '@/lib/answer-export/answer-document'
 
 /** The MIME type a browser needs to show the bytes inline. */
@@ -240,15 +241,16 @@ export interface MarkdownPdfOptions {
   /** The reader's language; defaults to the app default. */
   locale?: string
   /**
-   * The AI marking — printed on the cover AND written to the Info dictionary's
-   * Keywords, both or neither.
+   * The AI marking — printed on the cover, written to the Info dictionary's
+   * Keywords AND to the XMP stream as `trainedAlgorithmicMedia`
+   * (`./xmp-metadata`).
    *
-   * Opt-in, because a stamp on every PDF is a stamp that means nothing: a
-   * person exporting prose they have read and chosen to download is not the
-   * case this marks. A document Piloti filed into a project is, because it
-   * leaves the product with no byline to carry it.
+   * Required. Everything this renders is a model's Markdown, and Art. 50(2) AI
+   * Act asks for every such output to be marked; it once was opt-in for a
+   * download route that no longer exists, and an option a new caller can
+   * forget is how a PDF ships unmarked. The type is the check.
    */
-  marking?: AiProvenanceMarking
+  marking: AiProvenanceMarking
   /**
    * The branding this document carries — the header line, the prose block on
    * the cover and the line at the foot of every page.
@@ -409,5 +411,5 @@ export async function renderMarkdownPdf(
   })
   const chunks: Buffer[] = []
   for await (const chunk of stream) chunks.push(Buffer.from(chunk as Uint8Array))
-  return new Uint8Array(Buffer.concat(chunks))
+  return withAiProvenanceXmp(new Uint8Array(Buffer.concat(chunks)), options.marking)
 }

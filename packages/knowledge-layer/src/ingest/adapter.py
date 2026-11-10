@@ -3520,7 +3520,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         summaries table lacks, from its first chunks in reading order (no
         embedding), capped at ``max_chars``. ``None`` on any failure or no text.
         It is the platform's own sweep over every office's collections, so it
-        reads under ``reading_for_maintenance`` and names no office (ADR-0158).
+        reads under ``reading_for_maintenance`` and names no office (ADR-0163).
         """
         from knowledge_layer.vector_store import reading_for_maintenance
         from knowledge_layer.vector_store import reads as qdrant_reads

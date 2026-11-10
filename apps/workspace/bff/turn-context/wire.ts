@@ -30,7 +30,7 @@ export const turnContextResponseSchema = z.object({
   workspace: z.string().nullable(),
   /**
    * The office's confirmed base knowledge (`lib/base-knowledge/office/turn-block.ts`,
-   * ADR-0158): one line per licensed standard, commentary, directive, guideline
+   * ADR-0163): one line per licensed standard, commentary, directive, guideline
    * or law it holds, with edition, role, the project's directive verdict and the
    * last check. Null when the `office-base-knowledge` flag is off or the office
    * holds none; an older agent ignores it.

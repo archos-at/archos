@@ -1,5 +1,5 @@
 /**
- * What a copy's text use changes outside the records (ADR-0158, design §4.7):
+ * What a copy's text use changes outside the records (ADR-0163, design §4.7):
  * a held copy's passages and its search row (summary, facets) go and its row
  * reads `stored` (bytes kept, nothing reads them), and a copy whose text the
  * person released is read again. The guards (`base-knowledge/text-guard.ts`,

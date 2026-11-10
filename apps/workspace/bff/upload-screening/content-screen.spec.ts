@@ -101,7 +101,7 @@ describe('content screen: chat rules', () => {
   it('uses the content terms and detectors, never the name terms', () => {
     const rules = chatScreeningRules(SUGGESTED_SCREENING_POLICY)
     expect(rules?.terms).toEqual(SUGGESTED_SCREENING_POLICY.contentTerms)
-    expect(rules?.detectors).toEqual(['iban', 'at_svnr', 'credit_card'])
+    expect(rules?.detectors).toEqual(['iban', 'at_svnr', 'credit_card', 'de_svnr', 'de_tax_id'])
     // „Rechnung" is a NAME term: a question about a Schlussrechnung is not masked.
     expect(maskText('Bitte prüfe die Schlussrechnung', rules).findings).toEqual([])
   })

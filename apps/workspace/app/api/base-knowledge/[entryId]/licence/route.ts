@@ -1,5 +1,5 @@
 /**
- * A confirmed base-knowledge copy's licence (ADR-0158): its class and the
+ * A confirmed base-knowledge copy's licence (ADR-0163): its class and the
  * office's statements on it. Whether the copy's text reaches a model turns on
  * these, so they change here and nowhere else, and only on the person's own
  * call (the operation is `personDecides` and offered to no agent of the office).

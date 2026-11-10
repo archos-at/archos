@@ -37,7 +37,7 @@ export function shelfOfKey(key: string): DocumentShelf | null {
  * Write rows, each only when what it says changed: an unchanged fingerprint
  * costs no write, so a backstop refresh of a quiet shelf writes nothing.
  */
-/** Drop one document's search row: a base-knowledge copy whose text is now held keeps no summary (ADR-0158). */
+/** Drop one document's search row: a base-knowledge copy whose text is now held keeps no summary (ADR-0163). */
 export async function deleteSearchFacets(organizationId: string, documentId: string): Promise<void> {
   await withTenant({ organizationId }, () =>
     getDb()

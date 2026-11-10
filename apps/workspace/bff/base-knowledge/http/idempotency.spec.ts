@@ -1,5 +1,5 @@
 /**
- * `Idempotency-Key` on the office's base-knowledge writes (ADR-0158): a repeat
+ * `Idempotency-Key` on the office's base-knowledge writes (ADR-0163): a repeat
  * with the same key and body answers what the first did and runs nothing; the
  * same key with another body is refused; no key runs every time.
  */

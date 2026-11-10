@@ -1,5 +1,5 @@
 /**
- * Who sees each base-knowledge operation (ADR-0158). Spread into `EXPOSURE`
+ * Who sees each base-knowledge operation (ADR-0163). Spread into `EXPOSURE`
  * (`exposure.config.ts`), the one table that decides exposure; split out so
  * that table stays readable and so the base-knowledge sessions own their rows.
  *

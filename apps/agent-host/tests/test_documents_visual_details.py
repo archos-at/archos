@@ -70,7 +70,7 @@ async def test_fail_open_on_backend_error():
 
 @pytest.mark.asyncio
 async def test_reads_as_the_office_the_bff_names(monkeypatch):
-    """No office in the test setup: the route reads as the BFF's (ADR-0158), and refuses quietly without one."""
+    """No office in the test setup: the route reads as the BFF's (ADR-0163), and refuses quietly without one."""
     from knowledge_layer.vector_store import office_read
 
     monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")

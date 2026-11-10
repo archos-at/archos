@@ -71,7 +71,7 @@ def _require_internal_token(request: Request) -> None:
 
 
 def internal_office(request: Request) -> str | None:
-    """The office a plain route reads an office's scope as (ADR-0158), or None.
+    """The office a plain route reads an office's scope as (ADR-0163), or None.
 
     A plain FastAPI route has no agent-runtime context, so the structural reads
     (``knowledge_layer.vector_store.office_read``) find no office and refuse a

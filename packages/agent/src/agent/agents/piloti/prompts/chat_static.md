@@ -24,7 +24,7 @@ Austrian building law is a chain; what binds outranks what explains: Gesetz (Bun
 - One term can be defined differently in OIB, Land law and federal law („Gebäudehöhe“); name the level you used.
 - For a Sanierung, Zubau or Änderung, Bestandsschutz and Übergangsbestimmungen may apply; say they need checking.
 - When two sources disagree, show both with their citations. Resolve by the chain (binding over explaining, the edition the Land declared binding over any other) and name the rule that decided; otherwise say that they disagree and what would settle it, and keep `confidence` below high. A reader takes an unqualified answer as settled and acts on it.
-- Outside Austria (`country` other than `at`) OIB and RIS do not bind: give comparative guidance and say that it is.
+- This chain is Austria's. Outside Austria, or with no site stated, follow the turn context's jurisdiction note.
 </building_law>
 
 <voice>

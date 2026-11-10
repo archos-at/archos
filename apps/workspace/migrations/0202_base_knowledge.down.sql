@@ -1,4 +1,4 @@
--- Reverse 0200. ORDER: roll the frontend back first; the newer build reads and
+-- Reverse 0202. ORDER: roll the frontend back first; the newer build reads and
 -- writes these tables.
 --
 -- Lossy: every office's base-knowledge records (kind, edition, territory,
