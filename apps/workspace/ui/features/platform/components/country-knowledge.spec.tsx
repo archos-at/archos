@@ -88,10 +88,10 @@ describe('CountryKnowledge', () => {
     expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
   })
 
-  test('says platform knowledge is off when the routes answer 403', async () => {
+  test('says the caller has no access when the routes answer 403', async () => {
     serve(403)
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
-    expect(await screen.findByText('Platform knowledge is not switched on')).toBeInTheDocument()
+    expect(await screen.findByText('No access to platform knowledge')).toBeInTheDocument()
   })
 
   test('names the record and its fields in words, and says what to do now', async () => {

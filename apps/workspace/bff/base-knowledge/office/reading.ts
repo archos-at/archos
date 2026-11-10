@@ -14,6 +14,7 @@
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import type { Addressee, EntryValues } from '../wire'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
 export interface DocumentReading {
   fileName: string
@@ -24,18 +25,10 @@ export interface DocumentReading {
   federalState?: string | null
 }
 
-/** The intake's `federal_state` tokens as ISO 3166-2 codes. */
-export const FEDERAL_STATE_TERRITORIES: Readonly<Record<string, string>> = {
-  burgenland: 'AT-1',
-  carinthia: 'AT-2',
-  lower_austria: 'AT-3',
-  upper_austria: 'AT-4',
-  salzburg: 'AT-5',
-  styria: 'AT-6',
-  tyrol: 'AT-7',
-  vorarlberg: 'AT-8',
-  vienna: 'AT-9',
-}
+/** The intake's `federal_state` tokens as ISO 3166-2 codes, from the country's `fact_definitions` record (`SITE_SUBDIVISIONS`). */
+export const FEDERAL_STATE_TERRITORIES: Readonly<Record<string, string>> = Object.fromEntries(
+  SITE_SUBDIVISIONS.options.map((option) => [option.token, option.territoryId]),
+)
 
 /** Authorities a directive names, with the territory they decide for (the interim path, design §8.1). */
 const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = [

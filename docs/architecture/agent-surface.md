@@ -531,7 +531,7 @@ makes it so, and where it lives:
 
 | Guarantee | Where |
 |---|---|
-| A guide the agent reads first, a resource on the platform door only, while `platform-base-knowledge` is on | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
+| A guide the agent reads first, a resource on the platform door only, for a caller who sees its operations | `door/platform/onboarding-guide.md`, `door/platform-guide.ts` |
 | Each record type's JSON Schema, the batch limit, the kit's checks | `platform-knowledge-schema-get` |
 | `idempotencyKey` on **every** door write, both doors: the first answer again (a 2xx, 400, 404 or 422; a refusal of the moment is not kept), 422 for the key with other input, 503 (nothing run) when the cache cannot be read; per replica without `REDIS_URL` | `door-idempotency.ts`, around the route call in `dispatch.ts` |
 | Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |

@@ -9,8 +9,7 @@
  *
  * Reads take `platform:settings:view` (whose description already covers the base
  * knowledge corpus); writes `platform:settings:manage`; entitlements and a home
- * country `platform:organizations:manage`. Everything answers 403 until the
- * platform organization has the `platform-base-knowledge` flag. Approve,
+ * country `platform:organizations:manage`. Approve,
  * publish, rollback and entitlement need the person's own yes at the server
  * (`requirePersonDecision`), whichever path the call took; each is audited.
  *
@@ -116,7 +115,6 @@ export async function createPlatformChangeRequest(
   return { id: await insertChangeRequest({ ...body, createdBy: person.userId }) }
 }
 
-export { PlatformKnowledgeDisabledError } from './service-gate'
 
 /**
  * Validate a batch and, unless it is a dry run or a check failed, write it into

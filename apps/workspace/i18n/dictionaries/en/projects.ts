@@ -396,28 +396,6 @@ export const projects = {
     cancel: 'Cancel',
     submit: 'Create project',
   },
-  applicableStandards: {
-    heading: 'Applicable standards',
-    description: 'OIB-Richtlinien relevant to this project, based on the brief.',
-    briefIncomplete: 'Complete the project brief for applicability tailored to this building.',
-    status: {
-      required: 'Required',
-      check: 'Check',
-      likely: 'Likely',
-    },
-    askQuestion: 'Which requirements of {code} ({title}) apply to this project?',
-    source: 'Source',
-    sourceAria: 'Open the source for {code}',
-    sourceTitle: 'Open the OIB source',
-    askGrid: 'Ask {productName}',
-    askAgentAria: 'Ask {productName} about {code}',
-    askAgentTitle: 'Ask {productName} about this Richtlinie',
-    emptyTitle: 'No applicable standards yet',
-    emptyDescription:
-      'Complete the project brief so {productName} can work out which OIB-Richtlinien apply to this building.',
-    disclaimer:
-      'Orientation only — not legal advice. Confirm applicability against the current Bauordnung and the authority having jurisdiction.',
-  },
   dangerZone: {
     deleteSuccess: 'Project deleted. An organization admin can restore it until {date}.',
     deleteSuccessNoDate:

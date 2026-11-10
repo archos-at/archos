@@ -43,7 +43,6 @@ import { startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
-import { deriveProjectStandards, toStandardWire } from '@/lib/oib/project-standards'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { memberReader } from '@/lib/documents/visibility'
 import { withServedEvidence } from './memory-evidence'
@@ -628,15 +627,6 @@ export async function getProjectOverview(session: AuthorizedSession, projectId: 
   return data
 }
 
-/**
- * The OIB guidelines that apply to a project and why, from its brief
- * (`deriveProjectStandards`, the overview's own derivation).
- */
-export async function getProjectStandards(session: AuthorizedSession, projectId: string) {
-  const project = await getProject(session, projectId)
-  const { applicableStandards, briefComplete } = deriveProjectStandards(project)
-  return { standards: applicableStandards.map(toStandardWire), briefComplete }
-}
 
 /** The fields a member may edit on an existing memory item. */
 export type ProjectMemoryItemPatch = Partial<

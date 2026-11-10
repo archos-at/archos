@@ -21,8 +21,8 @@ export const platform = {
     range: 'Enter a value from {min} to {max}.',
   },
   countryKnowledge: {
-    disabledTitle: 'Platform knowledge is not switched on',
-    disabledBody: 'Countries, their records and the review queue appear here once the platform organization has the platform-base-knowledge flag.',
+    disabledTitle: 'No access to platform knowledge',
+    disabledBody: 'Countries, their records and the review queue are shown to members of the platform organization who may read platform knowledge.',
     countriesTitle: 'Countries',
     countriesDescription: 'What offices in each country read from the platform: released records, open change requests, entitled offices, and editions overdue for a check.',
     noneReleased: 'nothing released yet',
@@ -364,19 +364,14 @@ export const platform = {
       'Add a PDF, or a ZIP holding many at once — every project grounds its answers on this corpus.',
   },
   norms: {
+    retired: "Norms now change only through a reviewed change request in the platform's country knowledge. This catalog is read-only.",
+    retiredLink: 'Open country knowledge',
     title: 'Norm catalog',
     description:
       'Curated pointers to Austrian building law that the agent cites — unlike base knowledge, which holds the full texts they are checked against.',
     entryCount: '{count} entries',
     entryCountOne: '1 entry',
-    readOnly: 'You can view the catalog, but you do not have permission to change it.',
     loadError: 'Could not load the norm catalog.',
-    add: 'New entry',
-    save: 'Save registry',
-    saved: 'Registry saved.',
-    saveError: 'Could not save the registry.',
-    invalid: 'Registry validation failed.',
-    unsaved: 'Unsaved',
     federal: 'Federal',
     empty: {
       title: 'No entries in the catalog yet',
@@ -385,13 +380,6 @@ export const platform = {
     noMatches: {
       title: 'No entry matches these filters',
       description: 'Clear the search, or pick a different rank or scope.',
-    },
-    conflict: {
-      title: 'The catalog changed elsewhere',
-      description:
-        'Someone saved a newer version while you were editing, so your changes were not written. Reload to continue from the current catalog — this discards them.',
-      reload: 'Discard and reload',
-      toast: 'The catalog changed elsewhere — reload before saving.',
     },
     search: {
       placeholder: 'Search title, short name, ID…',
@@ -487,12 +475,6 @@ export const platform = {
       advanced: 'Advanced',
       advancedHint:
         'Rarely needed. Every stored field stays editable here — including the ones the RIS search fills.',
-    },
-    delete: {
-      title: 'Delete entry?',
-      description: 'The entry leaves the catalog. It takes effect only once you save.',
-      confirm: 'Delete',
-      cancel: 'Cancel',
     },
     fields: {
       id: 'Catalog ID',

@@ -160,8 +160,6 @@ export interface BaseKnowledgeEntry {
 }
 
 export interface BaseKnowledgeList {
-  /** Whether the organization uses base knowledge at all (the `office-base-knowledge` flag). */
-  enabled: boolean
   canManage: boolean
   entries: BaseKnowledgeEntry[]
   /** Where the next page starts, or null on the last page. */

@@ -8,6 +8,8 @@ import {
 } from '@/lib/retrieval-scope/collection-scope-request'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
+// The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
 vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))

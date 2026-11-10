@@ -179,6 +179,19 @@ export type TerritoryKind = (typeof TERRITORY_KINDS)[number]
  * Ordered weakest first: a site's gate is its weakest leaf.
  */
 export const COVERAGE_LEVELS = ['none', 'open', 'core', 'full'] as const
+
+/**
+ * What the turn may claim about the law of its site, weakest first after the
+ * three refusals:
+ *
+ * - `organization_unplaced`: the office has no home country; nothing territorial answers (E47).
+ * - `site_unknown`: no site and no place the turn named; the answer asks for the place (E04).
+ * - `not_entitled`: the site's country is not entitled; documents and office copies still answer (E01).
+ * - `knowledge_unavailable`: the records could not be read; retrieval, law lookup and classification are withheld.
+ * - a coverage level: how far the platform's records go at the weakest leaf (design §4.6).
+ */
+export const GATE_STATES = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', ...COVERAGE_LEVELS] as const
+export type GateState = (typeof GATE_STATES)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
 /**
