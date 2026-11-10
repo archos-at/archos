@@ -209,6 +209,8 @@ Waves 1 to 4 built every new path beside the old one, behind a switch whose off 
 
 Kept as switches, because they gate data or a contract that does not exist yet rather than an old path: `site-resolution` (the BEV import), `source-monitors`, the residency switches (the EU contract). `office-base-knowledge`, `licensed-seam`, `source-routing` and `platform-base-knowledge` are rollout switches for capabilities with no old twin; R2 lists each with a keep-or-remove reason in ADR-0175.
 
+**Architecture review after Wave 5:** the ranked findings and who owns each are in [`architecture-review-2026-11.md`](architecture-review-2026-11.md).
+
 **After Wave 5:** answer quality and cost, measured against the market and current vendor guidance, continue in [`quality-and-cost.md`](quality-and-cost.md) (slices Q1–Q4).
 
 ### S16 Onboarding tooling
