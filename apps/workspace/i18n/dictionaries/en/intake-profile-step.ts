@@ -64,6 +64,10 @@ export const intakeProfileStep = {
       authority_practice: 'authority practice',
       information: 'for information',
     },
+    qualifier: {
+      uncurated: 'not curated',
+      office_maintained: 'kept by the office',
+    },
     chipAria: '{name}, {role}',
     legend: {
       binding: 'Filled = binding',

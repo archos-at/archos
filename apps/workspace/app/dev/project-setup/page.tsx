@@ -62,7 +62,7 @@ export default function ProjectSetupPreviewPage({
   const params = use(searchParams)
   const name = stateOf(params.state)
   const busy = params.busy === '1'
-  // `?profile=review | confirmed | highRise | siteUnknown | notEntitled | readonly` draws
+  // `?profile=review | confirmed | highRise | siteUnknown | notEntitled | uncurated | readonly` draws
   // the Steckbrief's own fixtures (the law at the site as `projectLawFor` answers it).
   const profileName =
     typeof params.profile === 'string' && params.profile in PROFILE_STEP_FIXTURES

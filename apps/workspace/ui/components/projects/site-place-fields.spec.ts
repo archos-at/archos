@@ -9,6 +9,15 @@ describe('the create form site picker', () => {
     expect([...SITE_SUBDIVISIONS.options.map((option) => option.token), SITE_SUBDIVISIONS.outside].sort()).toEqual([...FEDERAL_STATE_TOKENS].sort())
   })
 
+  it('names every Land the record lists in German and in English, by its token', async () => {
+    const [{ projects: de }, { projects: en }] = await Promise.all([import('@/i18n/dictionaries/de/projects'), import('@/i18n/dictionaries/en/projects')])
+    for (const { token } of SITE_SUBDIVISIONS.options) {
+      expect(de.form.site.state[token as keyof typeof de.form.site.state], `de ${token}`).toEqual(expect.any(String))
+      expect(en.form.site.state[token as keyof typeof en.form.site.state], `en ${token}`).toEqual(expect.any(String))
+    }
+    expect(en.form.site.state.vienna).toBe('Vienna')
+  })
+
   it('sends nothing for what was left empty, and a Land only in Austria', () => {
     const empty = new FormData()
     setSitePlace(empty, { country: '', federalState: '' })

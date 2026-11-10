@@ -2,8 +2,10 @@
 
 /**
  * Where the new project is: its country first, then, where the records hold
- * its subdivisions, its Land (`SITE_SUBDIVISIONS`, read from the country's
- * `fact_definitions` record, ADR-0169). Both optional, neither preselected.
+ * its subdivisions, its Land (`SITE_SUBDIVISIONS`, read from the shipped AT
+ * seed of the country's `fact_definitions` record, ADR-0169), each named in the
+ * reader's language by its token (`form.site.state.<token>`). Both optional,
+ * neither preselected.
  *
  * The site decides which law applies (ADR-0158), and with address search off
  * (ADR-0159) a typed address no longer places a project by itself. Left empty,
@@ -89,7 +91,7 @@ export function SitePlaceFields({
               <SelectItem value={UNSET}>{t('form.site.fromPostalCode')}</SelectItem>
               {SITE_SUBDIVISIONS.options.map((state) => (
                 <SelectItem key={state.token} value={state.token}>
-                  {state.label}
+                  {t(`form.site.state.${state.token}` as Parameters<typeof t>[0])}
                 </SelectItem>
               ))}
             </SelectContent>

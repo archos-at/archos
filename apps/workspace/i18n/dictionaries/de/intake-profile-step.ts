@@ -59,6 +59,10 @@ export const intakeProfileStep: typeof en.intakeProfileStep = {
       authority_practice: 'Behördenpraxis',
       information: 'zur Information',
     },
+    qualifier: {
+      uncurated: 'nicht kuratiert',
+      office_maintained: 'vom Büro gepflegt',
+    },
     chipAria: '{name}, {role}',
     legend: {
       binding: 'Gefüllt = verbindlich',

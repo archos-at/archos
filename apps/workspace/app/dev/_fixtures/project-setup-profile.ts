@@ -17,10 +17,11 @@
  *     no class.
  *   - `siteUnknown`: no site yet, so the card names no law and says why.
  *   - `notEntitled`: a site in a country the office is not entitled to.
+ *   - `uncurated`: coverage `open`, binding law named uncurated (design §4.6).
  *   - `readonly`: the review for someone who may look but not decide.
  */
 
-import type { ProjectLaw } from '@/lib/base-knowledge/context/operations-wire'
+import type { ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
 import type { DerivationReview, IntakeView, Suggestion, SuggestionGroup } from '@/lib/project-intake/types'
 import {
   DERIVATION_OPEN,
@@ -37,11 +38,11 @@ import {
 export const LAW_VIENNA: ProjectLaw = {
   gate: 'core',
   uses: [
-    { workId: 'work:at-wien-bo', editionId: 'edition:at-wien-bo-2023', role: 'binding', designation: 'BO für Wien', editionLabel: 'LGBl. Nr. 37/2023' },
-    { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'binding', designation: 'OIB-RL 2', editionLabel: '2023' },
-    { workId: 'work:oib-rl-4', editionId: 'edition:oib-rl-4-2023', role: 'binding', designation: 'OIB-RL 4', editionLabel: '2023' },
-    { workId: 'work:oenorm-b-1600', editionId: 'edition:oenorm-b-1600-2017', role: 'guidance', designation: 'ÖNORM B 1600', editionLabel: '2017' },
-    { workId: 'work:oib-erl-2', editionId: 'edition:oib-erl-2-2023', role: 'interpretation', designation: 'OIB-RL 2 Erläuterungen', editionLabel: '2023' },
+    { workId: 'work:at-wien-bo', editionId: 'edition:at-wien-bo-2023', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. Nr. 37/2023' },
+    { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023' },
+    { workId: 'work:oib-rl-4', editionId: 'edition:oib-rl-4-2023', role: 'binding', qualifier: null, designation: 'OIB-RL 4', editionLabel: '2023' },
+    { workId: 'work:oenorm-b-1600', editionId: 'edition:oenorm-b-1600-2017', role: 'guidance', qualifier: null, designation: 'ÖNORM B 1600', editionLabel: '2017' },
+    { workId: 'work:oib-erl-2', editionId: 'edition:oib-erl-2-2023', role: 'interpretation', qualifier: null, designation: 'OIB-RL 2 Erläuterungen', editionLabel: '2023' },
   ],
 }
 
@@ -119,6 +120,18 @@ export const PROFILE_HIGH_RISE: IntakeView = {
 export const PROFILE_SITE_UNKNOWN: IntakeView = { ...PROFILE_REVIEW, applicableLaw: { gate: 'site_unknown', uses: [] } }
 
 /** A site in a country the office is not entitled to: no law named, the office's own documents still answer. */
+/** A Land whose records nobody curated yet (coverage `open`): binding law is named uncurated, the rest reads as information. */
+export const PROFILE_UNCURATED: IntakeView = {
+  ...PROFILE_REVIEW,
+  applicableLaw: {
+    gate: 'open',
+    uses: [
+      { workId: 'work:at-wien-bo', editionId: null, role: 'binding', qualifier: 'uncurated', designation: 'BO für Wien', editionLabel: null },
+      { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2023', role: 'information', qualifier: null, designation: 'OIB-RL 2', editionLabel: '2023' },
+    ],
+  },
+}
+
 export const PROFILE_NOT_ENTITLED: IntakeView = { ...PROFILE_REVIEW, applicableLaw: { gate: 'not_entitled', uses: [] } }
 
 /** Someone who may look at the Steckbrief but not decide on it. */
@@ -130,6 +143,7 @@ export const PROFILE_STEP_FIXTURES = {
   highRise: PROFILE_HIGH_RISE,
   siteUnknown: PROFILE_SITE_UNKNOWN,
   notEntitled: PROFILE_NOT_ENTITLED,
+  uncurated: PROFILE_UNCURATED,
   readonly: PROFILE_READONLY,
 } as const
 

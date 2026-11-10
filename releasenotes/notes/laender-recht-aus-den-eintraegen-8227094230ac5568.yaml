@@ -9,6 +9,11 @@ improvements:
   - >
     Every office can now record its own standards, commentaries and directives,
     and ask which edition of a law applied on an earlier date.
+deprecations:
+  - >
+    For now the setup no longer marks the OIB guidelines that only some
+    buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for
+    each. They return shortly, worked out from the building's facts.
 operators:
   - >
     The cut-over removes five feature flags: knowledge-context,

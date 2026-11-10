@@ -72,10 +72,15 @@ The paths that went with them:
   `GET /api/projects/[id]/standards` route and the `project-standards-get`
   operation. The Steckbrief's „Was für dieses Projekt gilt“ shows
   `projectLawFor` (`bff/base-knowledge/context/project-law.ts`): the gate and
-  the editions the chain names, with designation, edition and role. It is the
-  turn's own read, so the page and the answer name the same law. Where the gate
-  refuses (no home country, no site, not entitled, unreadable, no coverage) the
-  card says why. `project-base-get` carries the same `law`.
+  the uses of the turn's own cached resolution, in the turn's roles and with
+  its qualifier (open coverage names binding law uncurated and the rest
+  information; a work that connects by more than the site informs), named from
+  the graph the context was resolved on. So the page and the answer name the
+  same law in the same role, with no second read. Where the gate refuses (no
+  home country, no site, not entitled, unreadable, no coverage) the card says
+  why. `project-base-get` carries the same `law`. The update of the old norm
+  registry is withheld from the platform door (it only answers 409), and its
+  console view is read-only with a pointer to change requests.
 - `bff/base-knowledge/platform/applicability.ts`, which decided a platform
   directive's reach from an authority record's own territory list (the interim
   path, design §8.1). The competence rulesets of the site's chain decide it now
@@ -85,8 +90,10 @@ The paths that went with them:
   placed only to its Land is decided.
 - Five hand-written lists of Austria's Länder (the create form's picker, the
   contradiction check, the platform reviewer's names, the register's names, the
-  reading's token map) read `SITE_SUBDIVISIONS`, the country's
-  `fact_definitions` record (ADR-0169).
+  reading's token map) read `SITE_SUBDIVISIONS`, from the shipped AT seed of the
+  country's `fact_definitions` record (`rulesets/seeds/at-setup-fact-definitions.json`,
+  ADR-0169). The picker still names each Land in the reader's language
+  (`form.site.state.<token>`).
 
 ### Kept, and why
 
@@ -124,6 +131,15 @@ The paths that went with them:
 - Bad: offices that had none of the switches see the Steckbrief card change
   from OIB verdicts to the law the records name, and the base knowledge card
   in their settings.
+- Bad, until its own change lands: the OIB list narrowed by the building
+  (OIB-RL 2.1 for a Betriebsbau, 2.2 for a garage, 2.3 for a high-rise by its
+  escape level), the reason on each chip, its source link and the door's
+  `decidingFact` went with `bff/oib`. They return as data, not code: the
+  applicability conditions as rules over the building facts run by the one
+  evaluator (ADR-0166, `classification-evaluate`), so the chain narrows by the
+  building as well as by the site, each chip with its reason and the source
+  link of its edition's manifestation. That change follows this one; Wave 5
+  is done only once it has landed.
 
 ### Confirmation
 

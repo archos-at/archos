@@ -6,8 +6,8 @@
  * The inputs that decide the context are cheap (the office row, its
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
- * digest, and the resolved context is cached under
- * `knowledge-context:<org>:<project>:<digest>`: the organization and the
+ * digest, and the resolved context is cached, with the names a person reads
+ * for its uses (never on the wire), under `knowledge-context-v2:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -29,6 +29,8 @@ import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import type { PhaseTimer } from '../chain/turn'
 import { loadGraph } from '../chain/load'
+import type { KnowledgeGraph } from '../chain/graph'
+import { nameOf } from '../chain/text'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
@@ -82,7 +84,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v2:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -133,23 +135,79 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
   })
 }
 
+/**
+ * The names a person reads for a context's uses: each work's designation and
+ * each edition's label, from the graph the context was resolved on. Kept beside
+ * the context, never on its wire, so the page names exactly the uses the turn
+ * reads without reading the graph again.
+ */
+export interface UseNames {
+  works: Record<string, string | null>
+  editions: Record<string, string | null>
+}
+
+/** A resolved context and the names of its uses: what the cache holds. */
+export interface ContextResolution {
+  context: KnowledgeContext
+  names: UseNames
+}
+
+const NO_NAMES: UseNames = { works: {}, editions: {} }
+
+/** The names of the uses `context` carries, read from `graph`. Pure. */
+export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext): UseNames {
+  const names: UseNames = { works: {}, editions: {} }
+  for (const use of context.uses) {
+    const designation = graph.works.get(use.workId)?.designation
+    names.works[use.workId] = designation ? nameOf(designation) : null
+    if (use.editionId) {
+      const label = graph.editions.get(use.editionId)?.label
+      names.editions[use.editionId] = label ? nameOf(label) : null
+    }
+  }
+  return names
+}
+
 /** Resolve the context from what was read; the graph is read only for a site the office is entitled to. */
-async function resolveFor(organizationId: string, inputs: ContextDigestInputs, time: PhaseTimer): Promise<KnowledgeContext> {
+async function resolveFor(organizationId: string, inputs: ContextDigestInputs, time: PhaseTimer): Promise<ContextResolution> {
   const first = inputs.sites[0]
   const country = first ? countryOf(first.territoryId) : null
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
-  return resolveKnowledgeContext({
+  const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
+  const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
-    graph: loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] }),
+    graph,
     truncated: loaded?.truncated ?? false,
     date: inputs.date,
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
   })
+  return { context, names: graph ? namesOf(graph, context) : NO_NAMES }
+}
+
+/** The cached resolution for an office and project; throws what a read throws. */
+async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer): Promise<ContextResolution> {
+  const inputs = await readContextInputs(organizationId, projectId)
+  const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
+  return getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
+}
+
+/**
+ * The context of a project as a person's page reads it, with the names of its
+ * uses (`projectLawFor`): the same resolution the turn reads, from the same
+ * cache. Fails closed like the turn: a read that throws is `knowledge_unavailable`.
+ */
+export async function contextWithNames(organizationId: string, projectId: string): Promise<ContextResolution> {
+  try {
+    return await resolution(organizationId, projectId, untimed)
+  } catch (error) {
+    console.error('[knowledge_context_available=false] the knowledge context could not be read for a page', { organizationId, projectId, error })
+    return { context: unavailableContext(calendarDayIn('UTC')), names: NO_NAMES }
+  }
 }
 
 /** The context with nothing readable: retrieval, law lookup and classification withheld. */
@@ -199,9 +257,7 @@ export async function knowledgeContextForTurn(
 ): Promise<KnowledgeContext> {
   return time('knowledge', async () => {
     try {
-      const inputs = await readContextInputs(organizationId, projectId)
-      const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
-      const context = await getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
+      const { context } = await resolution(organizationId, projectId, time)
       if (!conversationId) return context
       // What this turn is answered on: its answer records from it, not from a later resolution (E42).
       await rememberTurnContext(organizationId, conversationId, context)

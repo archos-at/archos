@@ -358,6 +358,17 @@ export const projects: typeof en.projects = {
       fromPostalCode: 'Aus der Postleitzahl',
       help: 'Der Standort entscheidet, welches Baurecht gilt. Leer gelassen schlägt die Postleitzahl einer österreichischen Adresse das Bundesland vor; Sie bestätigen es in der Erfassung.',
       country: { at: 'Österreich', de: 'Deutschland', ch: 'Schweiz', other: 'Anderer Staat' },
+      state: {
+        vienna: 'Wien',
+        lower_austria: 'Niederösterreich',
+        upper_austria: 'Oberösterreich',
+        styria: 'Steiermark',
+        carinthia: 'Kärnten',
+        salzburg: 'Salzburg',
+        tyrol: 'Tirol',
+        vorarlberg: 'Vorarlberg',
+        burgenland: 'Burgenland',
+      },
     },
     sameAddress: {
       heading: 'An dieser Adresse gibt es schon ein Projekt',

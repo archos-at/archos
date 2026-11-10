@@ -3048,6 +3048,20 @@
                       "information"
                     ]
                   },
+                  "qualifier": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "uncurated",
+                          "office_maintained"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "designation": {
                     "type": [
                       "string",
@@ -3065,6 +3079,7 @@
                   "workId",
                   "editionId",
                   "role",
+                  "qualifier",
                   "designation",
                   "editionLabel"
                 ],

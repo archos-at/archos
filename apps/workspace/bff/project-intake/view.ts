@@ -17,7 +17,7 @@ import type { ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage
 import { formatIntakeAnswer, labelForProfileKey } from '@/lib/project-profile/intake-vocabulary'
 import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
-import type { ProjectLaw } from '@/lib/base-knowledge/context/operations-wire'
+import type { ProjectLaw } from '@/lib/base-knowledge/wire/project-law'
 import { deriveAll } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { BUILDING_CLASS_RULE } from './setup-scope'

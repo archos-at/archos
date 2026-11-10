@@ -978,7 +978,6 @@
   "apps/workspace/ui/features/organization/components/upload-screening-card.spec.tsx": 1,
   "apps/workspace/ui/features/organization/components/upload-screening-card.tsx": 3,
   "apps/workspace/ui/features/platform/components/feedback-turn-sheet.tsx": 2,
-  "apps/workspace/ui/features/platform/components/norm-registry.spec.tsx": 1,
   "apps/workspace/ui/features/product-feedback/components/feedback-form.tsx": 1,
   "apps/workspace/ui/features/product-feedback/components/feedback-threads.spec.tsx": 1,
   "apps/workspace/ui/features/product-feedback/components/feedback-threads.tsx": 4,

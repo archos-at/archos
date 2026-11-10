@@ -3917,9 +3917,12 @@
    "sensitivity": null,
    "external": false,
    "agent": false,
-   "platform": true,
-   "withheld": null,
-   "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
+   "platform": false,
+   "withheld": {
+    "category": "product-config",
+    "reason": "the norm registry takes no edits since ADR-0175 and answers 409: norms change through a change request (platform-knowledge-change-request-create)"
+   },
+   "reason": null
   },
   "platform-norm-verify": {
    "kind": "catalog",

@@ -8,7 +8,7 @@ import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
-import type { ProjectLawUse } from '@/lib/base-knowledge/context/operations-wire'
+import type { ProjectLawUse } from '@/lib/base-knowledge/wire/project-law'
 import type { IntakeView } from '@/lib/project-intake/types'
 import { cn } from '@/lib/utils'
 
@@ -92,7 +92,8 @@ function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }):
   const t = useTranslations(intakeProfileStepCopy)
   const peek = useHoverPopover()
   const name = nameOf(use)
-  const role = t(`rules.role.${use.role}`)
+  // The qualifier the turn reads goes with the role: „verbindlich, nicht kuratiert“.
+  const role = [t(`rules.role.${use.role}`), use.qualifier ? t(`rules.qualifier.${use.qualifier}`) : null].filter(Boolean).join(', ')
   const question = t('rules.askQuestion', { name })
   return (
     <>
@@ -106,13 +107,14 @@ function LawChip({ projectId, use }: { projectId: string; use: ProjectLawUse }):
           type="button"
           aria-label={t('rules.chipAria', { name, role })}
           data-role={use.role}
-          data-testid={`profile-rule-${use.workId}`}
+          data-qualifier={use.qualifier ?? undefined}
+          data-testid={`profile-rule-${use.workId}-${use.editionId ?? 'live'}`}
           {...peek.triggerProps}
         >
           <RoleDot role={use.role} />
           <span>
             {name}
-            {use.role !== 'binding' && <span className="text-muted-foreground">, {role}</span>}
+            {(use.role !== 'binding' || use.qualifier) && <span className="text-muted-foreground">, {role}</span>}
           </span>
         </button>
       </Chip>

@@ -17,6 +17,7 @@ import {
   PROFILE_READONLY,
   PROFILE_REVIEW,
   PROFILE_SITE_UNKNOWN,
+  PROFILE_UNCURATED,
 } from '@/app/dev/_fixtures/project-setup-profile'
 import { INTAKE_CLOSING, INTAKE_READING } from '@/app/dev/_fixtures/project-intake'
 import type { IntakeView } from '@/lib/project-intake/types'
@@ -144,6 +145,14 @@ describe('ProfileStep', () => {
       expect(within(screen.getByTestId('profile-rules')).queryAllByRole('button')).toEqual([])
       // Nothing named, so no legend and no basis line under it.
       expect(screen.queryByTestId('profile-rules-basis')).toBeNull()
+    })
+
+    it('names binding law from records nobody curated as not curated, as the turn reads it', () => {
+      setup(PROFILE_UNCURATED)
+      const chip = screen.getByRole('button', { name: 'BO für Wien, binding, not curated' })
+      expect(chip).toHaveAttribute('data-qualifier', 'uncurated')
+      expect(chip).toHaveTextContent('BO für Wien, binding, not curated')
+      expect(screen.getByTestId('profile-rule-work:oib-rl-2-edition:oib-rl-2-2023')).toHaveAttribute('data-role', 'information')
     })
 
     it('tells an office its country is not enabled, and that its own documents still apply', () => {

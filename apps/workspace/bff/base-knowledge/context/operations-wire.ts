@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { projectLawSchema } from '@/lib/project-intake/types'
+import { projectLawSchema } from '../wire/project-law'
 import { COVERAGE_LEVELS } from '../wire/vocab'
 import { knowledgeContextSchema } from './wire'
 
@@ -86,6 +86,6 @@ export type CoverageView = z.infer<typeof coverageViewSchema>
 export type BaseKnowledgeReportBody = z.infer<typeof baseKnowledgeReportBodySchema>
 export type BaseKnowledgeReportResult = z.infer<typeof baseKnowledgeReportResultSchema>
 export type ProjectBaseView = z.infer<typeof projectBaseViewSchema>
-export type { ProjectLaw, ProjectLawUse } from '@/lib/project-intake/types'
+export type { ProjectLaw, ProjectLawUse } from '../wire/project-law'
 export type ProjectBaseConfirmBody = z.infer<typeof projectBaseConfirmBodySchema>
 export type ProjectBaseConfirmResult = z.infer<typeof projectBaseConfirmResultSchema>
