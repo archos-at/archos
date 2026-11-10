@@ -463,6 +463,7 @@ export const inboundMail: typeof en.inboundMail = {
     gone: 'Die Datei ist nicht mehr da.',
     original_not_clean: 'Das Original hat die Prüfung auf Schadsoftware nicht bestanden und lässt sich nicht herunterladen.',
     mail_not_received_here: 'Der E-Mail-Empfang ist hier nicht eingerichtet. Laden Sie Dateien direkt hoch.',
+    legal_hold: 'Diese Datei wird wegen einer Aufbewahrungspflicht gehalten und nicht an einen Agenten gegeben.',
     unknown: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
 

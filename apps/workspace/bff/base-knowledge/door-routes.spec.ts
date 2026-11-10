@@ -134,6 +134,14 @@ describe('an agent at the door, through the routes', () => {
     expect(JSON.stringify(similar.body)).toContain(LICENSED_SNIPPET_NOTE)
   })
 
+  it('gets nothing of a held copy of any class on any route, under one code', async () => {
+    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
+    for (const [name, input] of [...WHOLE, ['document-text-get', DOC] as [string, OperationInput]]) {
+      expect(JSON.stringify((await call(name, input)).body), name).toContain('BASE_COPY_HELD')
+    }
+    expect(JSON.stringify((await call('workspace-search', { body: { text: 'Mindesthöhe' } })).body)).toContain(LICENSED_SNIPPET_NOTE)
+  })
+
   it('is refused every licensed route when the copy’s licence cannot be read (fail closed)', async () => {
     licence.fails = true
     for (const [name, input] of [...WHOLE, ['document-text-get', DOC] as [string, OperationInput]]) {

@@ -21,6 +21,7 @@ describe('the licence lookup by document id', () => {
       aiProcessingAttested: false,
       quoteMaxChars: 500,
       confirmed: false,
+      held: true,
       editionId: 'ed-1',
     })
   })

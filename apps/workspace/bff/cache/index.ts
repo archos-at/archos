@@ -128,7 +128,7 @@ class InProcessStore implements CacheStore {
  * call sites below, and additionally keeps timeouts tight here so a cache
  * outage degrades to loader calls instead of hanging requests.
  */
-class RedisStore implements CacheStore {
+export class RedisStore implements CacheStore {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any
 
@@ -150,8 +150,13 @@ class RedisStore implements CacheStore {
 
   async increment(key: string, by: number, ttlMs: number): Promise<number> {
     // One transaction: the add, and an expiry set only on the key's first write (NX), so the window never slides.
-    const results = await this.client.multi().incrby(key, by).pexpire(key, Math.max(1, Math.round(ttlMs)), 'NX').exec()
-    return Number(results?.[0]?.[1])
+    const ms = Math.max(1, Math.round(ttlMs))
+    const results = await this.client.multi().incrby(key, by).pexpire(key, ms, 'NX').exec()
+    const [[addError, total] = [], [expireError] = []] = results ?? []
+    if (addError) throw addError
+    // A store that refuses PEXPIRE NX inside MULTI would leave the counter without an expiry, kept for good.
+    if (expireError && (await this.client.pttl(key)) < 0) await this.client.pexpire(key, ms)
+    return Number(total)
   }
 
   async deletePrefix(prefix: string): Promise<void> {

@@ -450,6 +450,7 @@ export const inboundMail = {
     gone: 'The file is no longer there.',
     original_not_clean: 'The original did not pass the malware check and cannot be downloaded.',
     mail_not_received_here: 'Receiving mail is not set up here. Upload files directly.',
+    legal_hold: 'This file is kept under a legal hold and is not given to an agent.',
     unknown: 'That did not work. Try again.',
   },
 

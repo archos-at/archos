@@ -79,10 +79,18 @@ describe('an agent at the door', () => {
   })
 
   it('gets no text of a copy whose office has not attested AI processing, nor of an unconfirmed one', async () => {
-    licence.value = { ...attested, aiProcessingAttested: false }
-    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'LICENSED_TEXT_WITHHELD' })
-    licence.value = { ...attested, confirmed: false }
-    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'LICENSED_TEXT_WITHHELD' })
+    licence.value = { ...attested, aiProcessingAttested: false, held: true }
+    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+    licence.value = { ...attested, confirmed: false, held: true }
+    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+  })
+
+  it('gets no text and no bytes of ANY held copy, whatever its licence class (one code)', async () => {
+    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
+    await expect(doorTextOf(session, 'doc4b', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+    await expect(refuseLicensedFileForAgent(session, 'doc4b')).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+    licence.value = { ...licence.value as object, confirmed: true, held: false }
+    expect((await doorTextOf(session, 'doc4b', read)).text).toBe(NORM)
   })
 
   it('gets no file or link of a licensed copy', async () => {
@@ -147,9 +155,17 @@ describe('search snippets', () => {
     expect(passage).toMatchObject({ snippet: LICENSED_SNIPPET_NOTE, page: 4 })
   })
 
-  it('are withheld when the licence cannot be read (fail closed)', async () => {
+  it('are withheld when the licence cannot be read (fail closed), on both search paths', async () => {
     vi.mocked(licenceOfDocument).mockRejectedValueOnce(new Error('db down'))
     expect((await searchForAgent(session, searched('doc12'))).sections.document?.hits[0].passage?.text).toBe(LICENSED_SNIPPET_NOTE)
+    vi.mocked(licenceOfDocument).mockRejectedValueOnce(new Error('db down'))
+    expect((await similarForAgent(session, similar('doc12'))).groups[0].documents[0].passages[0].snippet).toBe(LICENSED_SNIPPET_NOTE)
+  })
+
+  it('of a held copy of any class reach an agent as the note', async () => {
+    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
+    expect((await searchForAgent(session, searched('doc12b'))).sections.document?.hits[0].passage?.text).toBe(LICENSED_SNIPPET_NOTE)
+    expect((await similarForAgent(session, similar('doc12b'))).groups[0].documents[0].passages[0].snippet).toBe(LICENSED_SNIPPET_NOTE)
   })
 
   it('of any other document, and for the person, are as found', async () => {

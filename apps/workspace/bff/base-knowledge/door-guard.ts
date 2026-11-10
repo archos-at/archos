@@ -13,8 +13,10 @@
  *   `document-preview-get`, `document-thumbnail-get`, `document-version-content-get`,
  *   `document-version-diff`) of a licensed copy are not sent to an agent at all:
  *   each is the whole norm, past any quote cap.
- * - **Text** (`document-text-get`) of a licensed copy is refused while the copy
- *   is unconfirmed or its office has not attested AI processing; otherwise each
+ * - **Held copies.** Any base-knowledge copy whose text is held (`textHeldFor`: no
+ *   person confirmed it, whatever its class, or it is licensed and unattested) gives
+ *   an agent no text and no bytes: `BASE_COPY_HELD`, one code for all of it.
+ * - **Text** (`document-text-get`) of a confirmed, attested licensed copy: each
  *   agent reads at most three times the licence's `quoteMaxChars` of one
  *   edition per person and calendar day (UTC), cumulatively, and a call past
  *   that is refused (E19: a session that reads a norm 500 characters at a time
@@ -52,8 +54,12 @@ export const LICENSED_SNIPPET_NOTE =
 
 type Licence = NonNullable<Awaited<ReturnType<typeof licenceOfDocument>>>
 
-/** The licence of a document an AGENT asks for, when it is a licensed copy; null for a person or any other document. */
-async function licensedCopyForAgent(session: AuthorizedSession, documentId: string): Promise<Licence | null> {
+/**
+ * The record of a document an AGENT asks for, when the door holds it: a licensed copy, or any copy whose text is
+ * held (`textHeldFor`: unconfirmed, whatever its class, or licensed and unattested). Null for a person or any
+ * other document.
+ */
+async function guardedCopyForAgent(session: AuthorizedSession, documentId: string): Promise<Licence | null> {
   if (!actingReaderIsAgent()) return null
   // A copy the person cannot open is not found, whatever its licence: the refusal below would say it exists.
   await getAccessibleDocument(session, documentId)
@@ -64,7 +70,16 @@ async function licensedCopyForAgent(session: AuthorizedSession, documentId: stri
     // The records cannot be read: for an agent, a copy we cannot classify is treated as licensed and unattested.
     throw notSent('LICENSED_COPY_UNKNOWN', 'Whether this document is a licensed copy could not be read; try again.')
   }
-  return licence?.licensed ? licence : null
+  return licence?.licensed || licence?.held ? licence : null
+}
+
+/** One answer for every held copy: nothing of it reaches an agent until a person confirms it (ADR-0158). */
+function held(): ApiError {
+  return notSent(
+    'BASE_COPY_HELD',
+    'This copy in the office’s base knowledge is held: no person has confirmed it, or its licence does not cover ' +
+      'processing by AI services. No text or file of it is sent. Name the document, its edition and the clause.'
+  )
 }
 
 function notSent(code: string, message: string): ApiError {
@@ -73,7 +88,9 @@ function notSent(code: string, message: string): ApiError {
 
 /** Refuse a licensed copy's file, link or version to an agent. A person, and every other document, pass. */
 export async function refuseLicensedFileForAgent(session: AuthorizedSession, documentId: string): Promise<void> {
-  if (!(await licensedCopyForAgent(session, documentId))) return
+  const copy = await guardedCopyForAgent(session, documentId)
+  if (!copy) return
+  if (copy.held) throw held()
   throw notSent(
     'LICENSED_COPY_NOT_SENT',
     'This is the office’s licensed copy of a standard: its file, versions and links are not sent to an agent. ' +
@@ -104,15 +121,9 @@ export async function doorTextOf<T extends { text: string; truncated: boolean }>
   documentId: string,
   read: () => Promise<T>
 ): Promise<T> {
-  const licence = await licensedCopyForAgent(session, documentId)
+  const licence = await guardedCopyForAgent(session, documentId)
   if (!licence) return read()
-  if (!licence.confirmed || !licence.aiProcessingAttested) {
-    throw notSent(
-      'LICENSED_TEXT_WITHHELD',
-      'This is the office’s licensed copy of a standard, and the office has not confirmed that its licence covers ' +
-        'processing by AI services: no text of it is sent. Name the document, its edition and the clause.'
-    )
-  }
+  if (licence.held || !licence.aiProcessingAttested) throw held()
   const budget = DOOR_QUOTE_FACTOR * licence.quoteMaxChars
   const key = doorQuoteKey(session, licence, documentId)
   const used = (await incrementCounter(key, 0, DOOR_QUOTE_WINDOW_MS)) ?? 0
@@ -127,15 +138,16 @@ export async function doorTextOf<T extends { text: string; truncated: boolean }>
 }
 
 /**
- * The documents among `documentIds` whose passages an AGENT may not see: licensed copies, and any whose licence
- * cannot be read (fail closed). Empty for a person.
+ * The documents among `documentIds` whose passages an AGENT may not see: licensed copies, held copies, and any
+ * whose record cannot be read (fail closed). Empty for a person.
  */
 export async function licensedCopiesForAgent(session: AuthorizedSession, documentIds: string[]): Promise<Set<string>> {
   if (!actingReaderIsAgent()) return new Set()
   const verdicts = await Promise.all(
     [...new Set(documentIds)].map(async (id) => {
       try {
-        return (await licenceOfDocument(session.organizationId, id))?.licensed ? id : null
+        const copy = await licenceOfDocument(session.organizationId, id)
+        return copy?.licensed || copy?.held ? id : null
       } catch {
         return id
       }

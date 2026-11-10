@@ -62,19 +62,20 @@ export async function copyMarkForIngest(
 /**
  * The licence lookup by document id, for the licensed seam (ADR-0159): whether
  * the document is an office copy marked licensed, and whether the office stated
- * its licence covers AI processing. Null for a document that is no base-knowledge
- * copy. A proposed copy counts: its text is withheld until confirmation.
+ * its licence covers AI processing, and whether its text is held (`textHeldFor`: unconfirmed, or licensed
+ * and unattested). Null for a document that is no base-knowledge copy.
  */
 export async function licenceOfDocument(
   organizationId: string,
   documentId: string
-): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean; editionId: string }) | null> {
+): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean; held: boolean; editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
   if (!copy) return null
   return {
     ...licenceMarkOf(copy.licenceClass, copy.terms),
     licensed: copy.licenceClass === 'licensed',
     confirmed: copy.confirmed,
+    held: textHeldFor(copy),
     editionId: copy.editionId,
   }
 }
