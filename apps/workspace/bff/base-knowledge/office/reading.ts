@@ -1,9 +1,10 @@
 /**
- * What the upload's reading says about a base-knowledge document (ADR-0158):
- * kind, designation, edition, territory, issuer and, for a directive, the
- * authority. Pure. The input is what the ingest already read of the file
- * (title, summary, document type and the references it cites, from the search
- * projection) and its file name; nothing here calls a model.
+ * What a base-knowledge document's name and masthead say (ADR-0158): kind,
+ * designation, edition, territory, issuer and, for a directive, the authority.
+ * Pure; nothing here calls a model. Today the service passes the file name
+ * alone: the copy's text is held until a person confirms it, so no summary or
+ * search projection of it may feed the proposal. `title` and `summary` stay for
+ * a masthead read that the licensed seam can make without retaining the text.
  *
  * A proposal, never a decision: the person confirms or corrects every value,
  * and an agent that read the masthead itself proposes through the same

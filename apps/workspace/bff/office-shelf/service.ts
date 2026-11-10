@@ -155,9 +155,15 @@ export function uploadOfficeShelfDocument(
     screeningRelease,
     uploadBatchId,
     revisionOf,
+    beforeDispatch,
   }: Omit<ShelfUploadInput, 'file' | 'folderId'> & { folderId?: string | null } = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
-  return uploadToShelf(session, OFFICE_SHELF, { file, folderId, originPath, screeningRelease, uploadBatchId, revisionOf }, request)
+  return uploadToShelf(
+    session,
+    OFFICE_SHELF,
+    { file, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch },
+    request,
+  )
 }
 
 /**

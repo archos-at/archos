@@ -119,7 +119,7 @@ vi.mock('@/lib/storage/admission', () => ({
 // The office shelf's base-knowledge guard reads its own tables; this spec has no
 // database, and the guard fails closed (ADR-0158), so it answers for itself here.
 vi.mock('@/lib/base-knowledge/text-guard', () => ({
-  isMetadataOnlyCopy: vi.fn(async () => false),
+  isTextHeld: vi.fn(async () => false),
   copyMarkForIngest: vi.fn(async () => null),
 }))
 vi.mock('./repository', () => ({

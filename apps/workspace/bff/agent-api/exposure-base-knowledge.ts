@@ -26,4 +26,5 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   'base-knowledge-propose': OFFERED,
   'base-knowledge-remove': OFFERED,
   'base-knowledge-update': OFFERED,
+  'base-knowledge-upload': OFFERED,
 } as const satisfies Record<string, Exposure>

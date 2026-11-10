@@ -367,6 +367,17 @@ export async function documentHasEntry(organizationId: string, documentId: strin
   return rows.length > 0
 }
 
+/** Which of `documentIds` are base-knowledge copies: one query for a batch, so the search projection pays one read. */
+export async function documentsWithEntries(organizationId: string, documentIds: readonly string[]): Promise<string[]> {
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .selectDistinct({ documentId: knowledgeRecords.documentId })
+      .from(knowledgeRecords)
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds])))
+  )
+  return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
+}
+
 /** The copy a document is, as its newest revision states it (a confirmed head, or a proposal). */
 export interface DocumentCopy {
   licenceClass: LicenceClass

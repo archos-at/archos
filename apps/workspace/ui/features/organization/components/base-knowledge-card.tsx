@@ -20,6 +20,7 @@ import {
   listBaseKnowledge,
   listShelfCandidates,
   proposeBaseKnowledge,
+  uploadBaseKnowledge,
   recordBaseKnowledgeCheck,
   removeBaseKnowledge,
   setBaseKnowledgeLicence,
@@ -245,6 +246,26 @@ const ProposalRow: FC<ProposalProps> = ({ entry, canManage, busy, onConfirm, onR
   )
 }
 
+const UploadCopy: FC<{ busy: boolean; onUpload: (file: File) => void }> = ({ busy, onUpload }) => {
+  const t = useTranslations(organizationCopy)
+  return (
+    <Field>
+      <FieldLabel htmlFor="base-knowledge-upload">{t('baseKnowledge.upload')}</FieldLabel>
+      <Input
+        id="base-knowledge-upload"
+        type="file"
+        disabled={busy}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (file) onUpload(file)
+        }}
+      />
+      <p className="text-xs text-muted-foreground">{t('baseKnowledge.uploadHint')}</p>
+    </Field>
+  )
+}
+
 const AddFromShelf: FC<{ recorded: ReadonlySet<string>; busy: boolean; onPropose: (documentId: string) => void }> = ({
   recorded,
   busy,
@@ -359,6 +380,7 @@ export const BaseKnowledgeCard: FC = () => {
           )}
         </ul>
       )}
+      {list.canManage && <UploadCopy busy={busy} onUpload={(file) => void act(() => uploadBaseKnowledge(file))} />}
       {list.canManage && <AddFromShelf recorded={recorded} busy={busy} onPropose={(id) => void act(() => proposeBaseKnowledge(id))} />}
     </div>
   )

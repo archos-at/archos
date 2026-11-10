@@ -61,9 +61,12 @@ operator switches this on (the `office-conventions` flag)
 
 Under **Organisation → „Grundlagen des Büros“** you record the standards,
 commentaries and authority directives your office owns (an ÖNORM you bought, a
-commentary on the Bauordnung, an MA 37 Weisung). Choose a document from the
-Büroablage; the agent proposes its kind, designation, edition, where it applies and,
-for a directive, the authority, and you correct and **Bestätigen** it. For a
+commentary on the Bauordnung, an MA 37 Weisung). **Datei hochladen** stores a
+file and proposes it; for a bought standard use this rather than the Büroablage's
+own upload, which reads a file at once. You can also choose a document already in
+the Büroablage. The proposal comes from the file name: its kind, designation,
+edition, where it applies and, for a directive, the authority. Nothing reads the
+text (no search, no summary) until you correct and **Bestätigen** it. For a
 licensed copy you confirm that your licence covers everyone in the office, and,
 separately, whether it also covers processing by the hosted AI services
 (indexing, reading, quoting). Without that second confirmation the copy stays

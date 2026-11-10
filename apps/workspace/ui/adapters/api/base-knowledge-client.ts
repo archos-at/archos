@@ -34,6 +34,13 @@ export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnow
     'propose base knowledge',
   )
 
+/** Upload a file as base knowledge: stored and proposed, its text held until confirmed. */
+export const uploadBaseKnowledge = async (file: File): Promise<BaseKnowledgeEntry> => {
+  const form = new FormData()
+  form.append('file', file)
+  return json(await fetch(`${ENDPOINT}/upload`, { method: 'POST', body: form }), 'upload base knowledge')
+}
+
 export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
   json(
     await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/confirm`, {

@@ -2650,6 +2650,16 @@
    "withheld": null,
    "reason": null
   },
+  "base-knowledge-upload": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "knowledge-base-get": {
    "kind": "catalog",
    "domain": "knowledge",

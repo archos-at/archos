@@ -10,6 +10,7 @@
  * own operation; search is the knowledge search over the office shelf.
  */
 
+import { z } from 'zod'
 import {
   confirmEntryBodySchema,
   licenceEntryBodySchema,
@@ -20,6 +21,7 @@ import {
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
 import type { AgentOperation } from '../operation'
+import { uploadBodySchemaWith } from '../upload-wire'
 
 const ENTRY =
   'An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), ' +
@@ -59,6 +61,22 @@ export const baseKnowledgeOperations = [
     path: '/api/base-knowledge',
     body: proposeEntryBodySchema,
     load: () => import('@/app/api/base-knowledge/route'),
+  },
+  {
+    name: 'base-knowledge-upload',
+    domain: 'knowledge',
+    summary: 'Upload a standard, commentary or directive as base knowledge',
+    description:
+      'Stores one file on the office shelf and proposes it from its file name. Its text is not read (no index, no ' +
+      'summary) until a person confirms the copy. Send `body.files[0]` as { name, mimeType, contentBase64 }. ' +
+      'Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/upload',
+    body: uploadBodySchemaWith({
+      folderId: z.string().optional().describe('From office-shelf-folder-list; omit for the root.'),
+    }),
+    bodyEncoding: 'multipart',
+    load: () => import('@/app/api/base-knowledge/upload/route'),
   },
   {
     name: 'base-knowledge-confirm',

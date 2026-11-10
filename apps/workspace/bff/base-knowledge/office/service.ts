@@ -24,7 +24,7 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
-import { deleteOfficeShelfDocument } from '@/lib/office-shelf/service'
+import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
@@ -54,7 +54,7 @@ import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
-import { readDocumentReading, visibleOfficeDocuments, type EntryDocument } from './repository'
+import { readShelfDocument, visibleOfficeDocuments, type EntryDocument } from './repository'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
@@ -160,9 +160,12 @@ function valuesOf(body: Partial<EntryValues>): Partial<EntryValues> {
 }
 
 /**
- * Propose an entry for one Archiv document: the reading's values, any given
- * values over them. `proposedBy` says whose they are; an agent's call through
- * the door is `agent`. One entry per document.
+ * Propose an entry for one Archiv document: what its file name says, any given
+ * values over it. `proposedBy` says whose they are; an agent's call through the
+ * door is `agent`. One entry per document. The proposal reads no text: a
+ * summary the upload may have written is a reading of what may be a licensed
+ * copy, and from now on the copy's text is held until a person confirms it
+ * (its passages and search row go now; `text-guard.ts`).
  */
 export async function proposeBaseKnowledge(
   session: AuthorizedSession,
@@ -170,13 +173,25 @@ export async function proposeBaseKnowledge(
   proposedBy: KnowledgeProvenance['proposedBy'] = 'reading'
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
-  const reading = await readDocumentReading(session.organizationId, body.documentId, await reader(session))
-  if (!reading) throw new NotFoundError('No Archiv document with this id; list the Archiv first.')
+  const document = await readShelfDocument(session.organizationId, body.documentId, await reader(session))
+  if (!document) throw new NotFoundError('No Archiv document with this id; list the Archiv first.')
+  const workId = await recordProposal(session, body, document.fileName, proposedBy)
+  await withholdText(session, body.documentId)
+  return (await findEntry(session, workId)).entry
+}
+
+/** The proposed records for one document, from its file name and the given values; the work's id. */
+async function recordProposal(
+  session: AuthorizedSession,
+  body: ProposeEntryBody,
+  fileName: string,
+  proposedBy: KnowledgeProvenance['proposedBy']
+): Promise<string> {
   if (await documentHasEntry(session.organizationId, body.documentId)) {
     throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
   }
   const given = valuesOf(body)
-  const values = merged(proposeFromReading(reading), given)
+  const values = merged(proposeFromReading({ fileName }), given)
   const source = Object.values(given).some((value) => value !== undefined) ? proposedBy : 'reading'
   const ids = await insertProposedEntry(body.documentId, values, {
     organizationId: session.organizationId,
@@ -184,10 +199,31 @@ export async function proposeBaseKnowledge(
     provenance: { proposedBy: source },
     terms: {},
   })
-  // A licensed copy is metadata-only until the office states its licence covers
-  // AI processing: the passages the upload indexed leave the index now.
-  if (textUseOf(values.licenceClass, {}) === 'metadata_only') await withholdText(session, body.documentId)
-  return (await findEntry(session, ids.workId)).entry
+  return ids.workId
+}
+
+/**
+ * Upload a file to the office shelf as base knowledge: the proposal is recorded
+ * before the dispatch, so the dispatch finds the copy held and reads nothing:
+ * no embedding, no summary, no facets until a person confirms it public or
+ * attested. A re-upload of bytes the shelf already holds proposes that document.
+ */
+export async function uploadBaseKnowledge(
+  session: AuthorizedSession,
+  file: File,
+  request: Request,
+  { folderId = null, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null } = {}
+): Promise<BaseKnowledgeEntry> {
+  requireManage(session)
+  let workId: string | null = null
+  const uploaded = await uploadOfficeShelfDocument(session, file, request, {
+    folderId,
+    beforeDispatch: async (documentId) => {
+      workId = await recordProposal(session, { ...given, documentId }, file.name, 'person')
+    },
+  })
+  if (workId) return (await findEntry(session, workId)).entry
+  return proposeBaseKnowledge(session, { ...given, documentId: uploaded.documentId }, 'person')
 }
 
 function requireAttestation(values: EntryValues, body: ConfirmEntryBody): void {
@@ -218,7 +254,8 @@ async function writeValues(
     terms,
     firstCheck,
   })
-  const before = textUseOf(stored.values.licenceClass, stored.terms)
+  // A proposal's text is held whatever its class: confirming is what releases it.
+  const before = stored.confirmed ? textUseOf(stored.values.licenceClass, stored.terms) : 'metadata_only'
   const after = textUseOf(values.licenceClass, terms)
   if (after === 'metadata_only') await withholdText(session, stored.documentId)
   else if (before === 'metadata_only') await releaseText(session, stored.documentId)

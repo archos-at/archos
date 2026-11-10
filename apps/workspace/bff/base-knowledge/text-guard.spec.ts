@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./store/repository', () => ({ copyForDocument: vi.fn() }))
+vi.mock('./store/repository', () => ({ copyForDocument: vi.fn(), documentsWithEntries: vi.fn() }))
 
-import { copyForDocument } from './store/repository'
-import { copyMarkForIngest, isMetadataOnlyCopy, licenceOfDocument } from './text-guard'
+import { copyForDocument, documentsWithEntries } from './store/repository'
+import { copyMarkForIngest, heldAmong, isTextHeld, licenceOfDocument } from './text-guard'
 
 const ATTESTED = { aiProcessingAttestedBy: 'u', aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z' }
 
@@ -45,6 +45,30 @@ describe('what the ingest path asks', () => {
 
   it('keeps the text out when the records cannot be read', async () => {
     vi.mocked(copyForDocument).mockRejectedValue(new Error('down'))
-    expect(await isMetadataOnlyCopy('org_1', 'doc-1')).toBe(true)
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(true)
+  })
+})
+
+describe('whose text is held', () => {
+  it('holds every copy until a person confirms it, whatever its class', async () => {
+    vi.mocked(copyForDocument).mockResolvedValue({ licenceClass: 'public_open', editionId: 'ed-1', terms: {}, confirmed: false })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(true)
+  })
+
+  it('releases a confirmed public copy and a confirmed attested one, and holds a confirmed unattested licensed one', async () => {
+    vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'public_open', editionId: 'ed-1', terms: {}, confirmed: true })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(false)
+    vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: ATTESTED, confirmed: true })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(false)
+    vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: {}, confirmed: true })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(true)
+  })
+
+  it('names the held copies of a batch, and holds the whole batch when the records cannot be read', async () => {
+    vi.mocked(documentsWithEntries).mockResolvedValue(['doc-2'])
+    vi.mocked(copyForDocument).mockResolvedValue({ licenceClass: 'licensed', editionId: 'ed-1', terms: {}, confirmed: false })
+    expect(await heldAmong('org_1', ['doc-1', 'doc-2'])).toEqual(new Set(['doc-2']))
+    vi.mocked(documentsWithEntries).mockRejectedValue(new Error('down'))
+    expect(await heldAmong('org_1', ['doc-1', 'doc-2'])).toEqual(new Set(['doc-1', 'doc-2']))
   })
 })
