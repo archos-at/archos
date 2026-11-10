@@ -67,7 +67,7 @@ def test_a_backend_change_runs_the_backend_tier_and_no_ui_suite(verify_plan, fil
 
 
 def test_a_backend_change_runs_only_what_it_reaches_once_the_databases_are_recorded(verify_plan, filters) -> None:
-    tests = {"packages/agent/tests/test_prompt.py": "PROMPT = 'agents/piloti/prompts/chat_static.md'"}
+    tests = {"tests/test_config.py": "load('configs/config_oib_openrouter.yml')"}
     changed = ["packages/agent/src/agent/common/source_kinds.py"]
     assert verify_plan.plan(changed, filters, READERS, tests).tasks == ("be:verify:affected",)
 
