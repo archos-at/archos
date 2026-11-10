@@ -127,6 +127,21 @@ describe('PUT /api/organization/model-config/zdr', () => {
     expect(getZdrCoverage).not.toHaveBeenCalled()
   })
 
+  it('refuses to turn ZDR off inside a residency cell, and writes nothing (ADR-0167)', async () => {
+    vi.stubEnv('RESIDENCY_CELL', 'eu-at-1')
+    const res = await put({ enabled: false })
+    expect(res.status).toBe(409)
+    expect(upsertOrganization).not.toHaveBeenCalled()
+    expect(recordAuditEvent).not.toHaveBeenCalled()
+  })
+
+  it('still turns ZDR on inside a residency cell', async () => {
+    vi.stubEnv('RESIDENCY_CELL', 'eu-at-1')
+    stored.settings = { zdrOnly: false }
+    expect((await put({ enabled: true })).status).toBe(200)
+    expect(stored.settings.zdrOnly).toBe(true)
+  })
+
   it('turns ZDR on without refusing, and returns the groups it blocks', async () => {
     stored.settings = { zdrOnly: false }
     const res = await put({ enabled: true })

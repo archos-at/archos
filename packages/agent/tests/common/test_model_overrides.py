@@ -15,6 +15,10 @@ from agent.common.model_overrides import apply_model_override
 from agent.common.model_overrides import override_model
 from agent.common.model_overrides import parse_model_overrides
 from agent.common.model_overrides import sanitize_model_overrides
+from agent.common.residency import ProcessingPolicy
+from agent.common.residency import policy_to_json
+
+DEFAULT_POLICY = ProcessingPolicy()
 
 
 def _encode(payload: object) -> str:
@@ -288,7 +292,9 @@ class TestOrgScopedFallbackResolution:
 
         monkeypatch.setattr("agent.project_context._read_header", lambda name: None)
         monkeypatch.setattr("agent.project_context.get_organization_id_from_context", lambda: "org_ABC123")
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False))
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY)
+        )
 
         assert M.get_model_overrides_from_context() == {"deep_research": "x-ai/grok-4.5"}
 
@@ -308,7 +314,7 @@ class TestOrgScopedFallbackResolution:
 
         def fake_fetch(org):
             calls.append(org)
-            return {"shallow_research": "vendor/x"}, True
+            return {"shallow_research": "vendor/x"}, True, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", fake_fetch)
         # A single fetch populates BOTH the overrides and the ZDR flag.
@@ -350,7 +356,7 @@ class TestOrgScopedFallbackResolution:
 
         monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
         monkeypatch.setattr("httpx.get", lambda *a, **k: FakeResponse())
-        assert M._fetch_org_config("org_A") == ({"deep_research": "x-ai/grok-4.5"}, True)
+        assert M._fetch_org_config("org_A")[:2] == ({"deep_research": "x-ai/grok-4.5"}, True)
 
     def test_no_internal_token_is_yaml_models_with_zdr_pinned(self, monkeypatch):
         """Without a trust channel nobody was asked: the org's ZDR bit is unknown, so it is on."""
@@ -364,7 +370,7 @@ class TestOrgScopedFallbackResolution:
         import agent.common.model_overrides as M
 
         monkeypatch.setattr("agent.project_context.get_organization_id_from_context", lambda: "org_ZDR")
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True))
+        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({}, True, DEFAULT_POLICY))
         assert M.get_zdr_only_from_context() is True
 
     def test_zdr_only_defaults_false_without_org(self, monkeypatch):
@@ -407,7 +413,7 @@ class TestSharedTier:
 
         def fake_fetch(org):
             fetches.append(org)
-            return {"deep_research": "x-ai/grok-4.5"}, True
+            return {"deep_research": "x-ai/grok-4.5"}, True, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", fake_fetch)
         first = M._resolve_org_config("org_1")
@@ -423,7 +429,12 @@ class TestSharedTier:
         from agent.common import cache
         from agent.common import model_overrides as M
 
-        answers = iter([({"deep_research": "old/model"}, False), ({"deep_research": "new/model"}, False)])
+        answers = iter(
+            [
+                ({"deep_research": "old/model"}, False, DEFAULT_POLICY),
+                ({"deep_research": "new/model"}, False, DEFAULT_POLICY),
+            ]
+        )
         monkeypatch.setattr(M, "_fetch_org_config", lambda org: next(answers))
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "old/model"}
 
@@ -470,14 +481,18 @@ class TestSharedTier:
 
         def empty(org):
             calls.append(org)
-            return {}, False
+            return {}, False, DEFAULT_POLICY
 
         # A trust channel means `_fetch_org_config` actually ASKED the BFF, so
         # ({}, False) is the BFF's answer rather than "we never asked".
         monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
         monkeypatch.setattr(M, "_fetch_org_config", empty)
         assert M.resolve_org_model_overrides("org_1") == {}
-        assert cache.get_json(M.shared_model_config_key("org_1")) == {"overrides": {}, "zdr_only": False}
+        assert cache.get_json(M.shared_model_config_key("org_1")) == {
+            "overrides": {},
+            "zdr_only": False,
+            "processing": policy_to_json(DEFAULT_POLICY),
+        }
 
     def test_concurrent_turns_for_one_org_share_a_single_fetch(self, monkeypatch):
         """The ~1s negative TTL is affordable only because the fetch is coalesced.
@@ -503,7 +518,7 @@ class TestSharedTier:
             calls.append(org)
             entered.set()
             proceed.wait(timeout=5)
-            return {"deep_research": "x-ai/grok-4.5"}, False
+            return {"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY
 
         monkeypatch.setattr(M, "_fetch_org_config", slow)
         results = []
@@ -556,7 +571,9 @@ class TestSharedTier:
         from agent.common import model_overrides as M
 
         cache.set_json(M.shared_model_config_key("org_1"), {"overrides": "nope"}, 60)
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False))
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "x-ai/grok-4.5"}, False, DEFAULT_POLICY)
+        )
         assert M._resolve_org_config("org_1").overrides == {"deep_research": "x-ai/grok-4.5"}
 
 
@@ -676,7 +693,9 @@ class TestSignedEnvelopeBeatsTheRawHeaders:
             {"organizationId": "org-1"},
             **{M.MODEL_OVERRIDES_HEADER: {"shallow_research": "vendor/caller-choice"}},
         )
-        monkeypatch.setattr(M, "_fetch_org_config", lambda org: ({"deep_research": "vendor/org"}, False))
+        monkeypatch.setattr(
+            M, "_fetch_org_config", lambda org: ({"deep_research": "vendor/org"}, False, DEFAULT_POLICY)
+        )
 
         assert M.get_model_overrides_from_context() == {"deep_research": "vendor/org"}
 

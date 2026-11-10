@@ -221,6 +221,9 @@ const BOUNDARY_MIGRATIONS = [
   // (organization_id NULL) and each office. Layered: an office reads its own rows
   // and platform rows in force, writes only its own; history is never updated.
   '0202_base_knowledge.sql',
+  // Adds organization_processing_policies (ADR-0167): what an office's data may
+  // be processed for, one row per organization, keyed by it.
+  '0205_residency.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

@@ -36,6 +36,7 @@ import { getWorkOS } from '@/lib/workos/client'
 import type { AuthoredRefKind } from '@/lib/documents/document-authors'
 import { AUDIT_ACTIONS } from './schemas.mjs'
 import { DOCUMENT_NAME_KEYS, type AuditDocumentPlacement, type DocumentNameAction } from './document-names'
+import { residencyAuditMetadata } from '@/lib/residency/audit-names'
 
 export { AUDIT_ACTIONS }
 export {
@@ -276,9 +277,9 @@ async function mayNameDocument(organizationId: string, placement: AuditDocumentP
   }
 }
 
-/** The metadata that goes on the wire: compacted, and without a restricted document's names. */
+/** The metadata that goes on the wire: compacted, names hashed in a residency cell, a restricted document's withheld. */
 async function wireMetadata(input: AuditEventInput): Promise<AuditMetadata> {
-  const metadata = compactMetadata(input.metadata)
+  const metadata = residencyAuditMetadata(input.organizationId, compactMetadata(input.metadata))
   if (await mayNameDocument(input.organizationId, input.filedIn)) return metadata
   const withheld = Object.fromEntries(
     Object.entries(metadata).filter(([key]) => !(DOCUMENT_NAME_KEYS as readonly string[]).includes(key))

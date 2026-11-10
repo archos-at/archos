@@ -15,7 +15,10 @@
  * unless the org explicitly opted out (`isZdrOnlyForOrg`), so an org that never
  * touched the switch is reported as ZDR, not as an absent field. Both reuse
  * write-invalidated caches, so a config save/toggle — by the tenant OR by the
- * platform owner — is visible on the next backend fetch.
+ * platform owner — is visible on the next backend fetch. `processingPolicy` is
+ * the org's residency cell and allowed purposes (ADR-0167,
+ * `bff/residency/processing-policy.ts`), read uncached: two primary-key reads
+ * the backend itself caches per org.
  */
 
 import { z } from 'zod'
@@ -23,6 +26,7 @@ import { internalApiRoute, parseQuery } from '@/lib/api/handler'
 import { withTenant } from '@/lib/db/tenant-context'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { isZdrOnlyForOrg } from '@/lib/organizations/service'
+import { getProcessingPolicy } from '@/lib/residency/processing-policy'
 
 const querySchema = z.object({
   organizationId: z.string().regex(/^org_[A-Za-z0-9]+$/, 'not a WorkOS organization id'),
@@ -35,11 +39,12 @@ export const GET = internalApiRoute(
     // Reads the org's own configuration plus the platform defaults, which every
     // tenant is allowed to read but none may write.
     return withTenant({ organizationId }, async () => {
-      const [overrides, zdrOnly] = await Promise.all([
+      const [overrides, zdrOnly, processingPolicy] = await Promise.all([
         getEffectiveModelOverrides(organizationId),
         isZdrOnlyForOrg(organizationId),
+        getProcessingPolicy(organizationId),
       ])
-      return { overrides, zdrOnly }
+      return { overrides, zdrOnly, processingPolicy }
     })
   },
   { tenancy: { fromPayload: '?organizationId' } }

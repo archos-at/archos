@@ -71,6 +71,7 @@ import httpx
 
 from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common import residency
 from agent.common.licensed_text import licensed_scope_active
 from agent.common.licensed_text import refuse_unattested_model_read
 
@@ -225,6 +226,8 @@ def data_policy_for(organization_id: str | None) -> DataPolicy:
         from agent.common.model_overrides import resolve_org_zdr_only
 
         return ZERO_DATA_RETENTION if resolve_org_zdr_only(organization_id) else NO_RETENTION_LIMITS
+    except residency.ResidencyViolation:
+        raise
     except Exception:  # noqa: BLE001 - fails closed, and says so
         logger.error("ZDR policy lookup failed for org %s; pinning ZDR routing", organization_id, exc_info=True)
         return ZERO_DATA_RETENTION
@@ -292,6 +295,7 @@ def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request
     Inside a licensed document's scope (``licensed_text.licensed_document_scope``) the policy is zero retention
     whatever the caller passed, and a request it may not send (an unattested copy, a BYOK endpoint) is refused.
     """
+    request = _routed_request(request)
     on_openrouter = targets_openrouter(str(request.url))
     refuse_unattested_model_read(str(request.url.host), openrouter=on_openrouter)
     if licensed_scope_active():
@@ -314,6 +318,19 @@ def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request
         content=json.dumps(policy.apply(body)).encode("utf-8"),
         extensions=request.extensions,
     )
+
+
+def _routed_request(request: httpx.Request) -> httpx.Request:
+    """``request`` sent into the deployment's residency zone, or refused outside it (``common/residency``)."""
+    target, _route = residency.enforce(str(request.url))
+    if target == str(request.url):
+        return request
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
+    try:  # a JSON body is read already; a multipart upload (dictation) still streams, and must not be read here
+        body: dict[str, Any] = {"content": request.content}
+    except httpx.RequestNotRead:
+        body = {"stream": request.stream}
+    return httpx.Request(request.method, target, headers=headers, extensions=request.extensions, **body)
 
 
 _MODEL_FIELD = re.compile(rb'"model"\s*:\s*"([^"]{1,120})"')

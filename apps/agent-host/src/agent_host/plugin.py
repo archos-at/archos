@@ -44,6 +44,7 @@ from pydantic import model_validator
 
 from agent.common.data_flow_register import assert_no_latent_vendor
 from agent.common.log_redaction import install_presigned_url_scrubbing
+from agent.common.residency import assert_residency
 from agent.knowledge.leader_lock import require_direct_dsns
 from agent.observability import posthog_exceptions
 from agent.stages.delivery import register_stage_frame_sink
@@ -467,13 +468,13 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         log_boot_line()
         logger.info("Web role: %s", self._role.value)
 
-        # A web process on Postgres needs the direct lock DSN (session advisory
-        # locks), and the api role also the direct LISTEN DSN, because it serves
-        # the job SSE streams. The chat role serves none: its stream is the
+        # A web process on Postgres needs the direct lock DSN (session advisory locks), and the api role also the
+        # direct LISTEN DSN, because it serves the job SSE streams. The chat role serves none: its stream is the
         # socket, over Dragonfly. Fail the boot, not every request (ADR-0083).
         require_direct_dsns(listen=self._role is WebRole.API)
         # No data to a processor the legal page does not name (configs/subprocessors).
         assert_no_latent_vendor()
+        assert_residency()  # no model call outside the cell's zone (ADR-0167)
 
         app = super().build_app()
 
