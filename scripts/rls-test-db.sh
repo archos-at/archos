@@ -241,6 +241,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
+    bff/base-knowledge/platform/organization-countries.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
