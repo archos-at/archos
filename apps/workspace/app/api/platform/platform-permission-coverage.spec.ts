@@ -56,6 +56,10 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/records/route.ts POST': 'settingsManage',
   'knowledge/change-requests/[changeRequestId]/territories/route.ts POST': 'settingsManage',
   'knowledge/change-requests/[changeRequestId]/captures/route.ts POST': 'settingsManage',
+  'knowledge/sources/route.ts GET': 'settingsView',
+  // A POST that can fetch live: the operator's permission, as the change requests' writes.
+  'knowledge/sources/[sourceKey]/test/route.ts POST': 'settingsManage',
+  'knowledge/sources/[sourceKey]/credential/route.ts PUT': 'settingsManage',
   'knowledge/change-requests/[changeRequestId]/validation/route.ts GET': 'settingsView',
   'knowledge/schemas/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/submit/route.ts POST': 'settingsManage',

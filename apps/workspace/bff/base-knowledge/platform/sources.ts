@@ -125,7 +125,7 @@ export async function activeSources(tx: Tx): Promise<RegisteredSource[]> {
 }
 
 /** Every source proposed in open requests, newest revision per record and request, with the request. */
-export async function draftSources(tx: Tx, now = new Date()): Promise<(RegisteredSource & { changeRequestId: string })[]> {
+export async function draftSources(tx: Tx): Promise<(RegisteredSource & { changeRequestId: string })[]> {
   const rows = await tx
     .select({
       body: knowledgeSourceRevisions,

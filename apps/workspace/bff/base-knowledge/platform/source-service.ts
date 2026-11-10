@@ -209,7 +209,7 @@ export async function platformSourceStatus(session: UserSession | null, query: {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   const now = new Date()
   const sources = await platformTransaction(async (tx) => {
-    const all = [...(await activeSources(tx)), ...(await draftSources(tx, now))].filter(
+    const all = [...(await activeSources(tx)), ...(await draftSources(tx))].filter(
       (source) => !query.sourceKey || source.key === query.sourceKey,
     )
     const ids = [...new Set(all.map((source) => source.recordId))]

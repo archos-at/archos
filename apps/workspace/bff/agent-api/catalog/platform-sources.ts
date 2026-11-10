@@ -4,7 +4,7 @@
  * source in and keep it current. A source is proposed as a `source` record in
  * a change request; these test it, read its state, and set its key.
  *
- * Reads take `platform:settings:view`; the live probe and the key
+ * The status takes `platform:settings:view`; a test (it may fetch live) and the key
  * `platform:settings:manage`; the key is the person's own yes. A monitor's
  * work is found with `platform-knowledge-change-request-list {origin: monitor}`.
  */
