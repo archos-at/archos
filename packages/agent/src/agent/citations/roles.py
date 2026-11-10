@@ -23,19 +23,24 @@ status the citation chip shows stays the one the UI knows:
 
 Per turn and fail closed: bound once before the graph starts, ``None``
 included (that is the reset), and a malformed use is dropped, never guessed.
-Only a base-corpus passage maps to an edition: an office's copy that happens
-to share a file name is the office's, and its label is the office layer's.
+A base-corpus passage maps to an edition by its corpus file, and a passage
+read through a legal database (RIS) by an identity the edition's records carry
+(``sourceRefs``: a Gesetzesnummer, a document number, an ELI), matched as a
+whole token. An office's copy that happens to share a file name is the
+office's, and its label is the office layer's.
 """
 
 from __future__ import annotations
 
 import contextvars
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
+from agent.citations.source_identity import is_legal_database_source
 from agent.common.norm_registry import canonical_oib_file_name
 from agent.common.source_kinds import Shelf
 
@@ -87,6 +92,9 @@ class EditionUse:
     corpus_files: tuple[str, ...] = ()
     designation: str | None = None
     edition_label: str | None = None
+    #: The edition's identities in a legal database (a RIS Gesetzesnummer or document number, an ELI), from
+    #: its manifestation records: what a passage read through RIS is matched by (``use_for_entry``).
+    source_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -109,7 +117,7 @@ def _use(raw: object) -> EditionUse | None:
     work_id, role, via = _text(raw.get("workId")), raw.get("role"), raw.get("via")
     if work_id is None or role not in EDITION_ROLES or via not in ROUTE_VIAS:
         return None
-    files = raw.get("corpusFiles")
+    files, refs = raw.get("corpusFiles"), raw.get("sourceRefs")
     return EditionUse(
         work_id=work_id,
         edition_id=_text(raw.get("editionId")),
@@ -119,6 +127,9 @@ def _use(raw: object) -> EditionUse | None:
         corpus_files=tuple(name for name in files if isinstance(name, str)) if isinstance(files, list) else (),
         designation=_text(raw.get("designation")),
         edition_label=_text(raw.get("editionLabel")),
+        source_refs=tuple(ref for ref in refs if isinstance(ref, str) and ref.strip())
+        if isinstance(refs, list)
+        else (),
     )
 
 
@@ -152,10 +163,32 @@ def get_turn_building_law() -> BuildingLaw | None:
     return _turn_building_law.get()
 
 
+def _ref_in(ref: str, text: str) -> bool:
+    """Whether a legal-database identity stands in ``text`` as a whole token, never inside a longer number."""
+    return bool(re.search(rf"(?<![0-9A-Za-z]){re.escape(ref)}(?![0-9A-Za-z])", text, re.IGNORECASE))
+
+
+def _use_for_legal_database(law: BuildingLaw, entry: SourceEntry) -> EditionUse | None:
+    """The edition a passage read through a legal database (RIS) is, by an identity its records carry."""
+    where = " ".join(part for part in (entry.url, entry.citation_key, entry.collection) if part)
+    if not where:
+        return None
+    return next((use for use in law.uses if any(_ref_in(ref, where) for ref in use.source_refs)), None)
+
+
 def use_for_entry(entry: SourceEntry) -> EditionUse | None:
-    """The edition a base-corpus passage is a text of, with its role here; None when the records do not say."""
+    """The edition a passage is a text of, with its role here; None when the records do not say.
+
+    A base-corpus passage maps by its corpus file; a passage read through a legal database by the
+    identities the edition's manifestation records carry (``sourceRefs``). Anything else maps to nothing,
+    and its status is ``unknown`` (fail closed).
+    """
     law = _turn_building_law.get()
-    if law is None or not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
+    if law is None:
+        return None
+    if is_legal_database_source(entry):
+        return _use_for_legal_database(law, entry)
+    if not entry.citation_key or entry_shelf(entry) is not Shelf.BASE:
         return None
     file_name, _page = parse_citation_key(entry.citation_key)
     base_name = canonical_oib_file_name(file_name.rsplit("/", 1)[-1])

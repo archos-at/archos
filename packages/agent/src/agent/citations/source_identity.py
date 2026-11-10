@@ -18,7 +18,7 @@ from agent.citations.entries import normalize_url
 from agent.citations.registry import SourceRegistry
 
 
-def _is_legal_database_source(entry: SourceEntry) -> bool:
+def is_legal_database_source(entry: SourceEntry) -> bool:
     """Whether a source came from a legal-database tool (RIS): its tool name, or the collection ``ris_lookup`` states.
 
     A display fact about where a passage was read, never about what it is at the site: the same text
@@ -139,7 +139,7 @@ def source_origin_token(entry: SourceEntry) -> str:
     # RIS first: a ``ris_lookup`` passage is a grounding-block hit, so it is a
     # ``knowledge_layer`` entry too, and checked second it went out as ``[KB]``
     # on every Bauordnung answer the suite read.
-    if _is_legal_database_source(entry):
+    if is_legal_database_source(entry):
         return "[RIS]"
     if entry.source_type == "knowledge_layer":
         return "[KB]"

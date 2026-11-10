@@ -1,8 +1,9 @@
 """Roles from the platform's records decide a cited edition's status (ADR-0168).
 
 With the turn's building law bound, an OIB-RL 2:2023 passage is guidance in
-Steiermark (where 2019 binds) and declared binding in Wien; without it, every
-source keeps exactly the status ``citations/binding.py`` gave it.
+Steiermark (where 2019 binds) and declared binding in Wien, and a RIS passage
+takes the role of the edition whose records name its identity. Without the
+records nothing binds: every source is ``unknown`` (ADR-0175).
 """
 
 from __future__ import annotations
@@ -151,3 +152,65 @@ def test_a_published_spelling_finds_its_edition_on_either_side(published):
         found = use_for_entry(entry)
         assert found is not None and found.edition_id == "edition:oib-rl-2-2-2023"
         assert source_entry_to_wire(entry)["binding_status"] == "interpretive"
+
+
+VIENNA_BO = {
+    "text": "Building law at this site, Wien (AT-9, AT, EU) …",
+    "chain": ["AT-9", "AT", "EU"],
+    "date": "2026-11-10",
+    "uses": [
+        {
+            "workId": "work:bo-wien",
+            "editionId": None,
+            "role": "binding",
+            "qualifier": None,
+            "via": "territory",
+            "corpusFiles": [],
+            "designation": "BO für Wien",
+            "sourceRefs": ["20000006", "https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11"],
+        }
+    ],
+}
+
+
+def _ris(url: str, tool: str = "ris_fetch_document") -> SourceEntry:
+    return SourceEntry(url=url, title="Bauordnung für Wien", tool_name=tool)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+        "https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11/P63",
+    ],
+)
+def test_a_ris_passage_takes_the_role_of_the_edition_whose_records_name_it(url):
+    """Coordinator's decision: the Wiener Bauordnung keeps its binding badge, from the records."""
+    set_turn_building_law(parse_building_law(VIENNA_BO))
+    wire = source_entry_to_wire(_ris(url))
+    assert wire["binding_status"] == "binding"
+    assert wire["role"] == "binding"
+
+
+def test_a_ris_passage_no_record_names_is_unknown():
+    set_turn_building_law(parse_building_law(VIENNA_BO))
+    wire = source_entry_to_wire(
+        _ris("https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000099")
+    )
+    assert wire["binding_status"] == "unknown" and "role" not in wire
+
+
+def test_an_identity_matches_as_a_whole_token_only():
+    set_turn_building_law(parse_building_law(VIENNA_BO))
+    longer = _ris("https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=200000061")
+    assert use_for_entry(longer) is None
+
+
+def test_a_web_page_carrying_a_ris_number_is_not_matched():
+    """Only a passage read through the legal database takes a role by its identity."""
+    set_turn_building_law(parse_building_law(VIENNA_BO))
+    assert use_for_entry(_ris("https://example.org/bauordnung?Gesetzesnummer=20000006", tool="tavily_search")) is None
+
+
+def test_a_use_without_source_refs_reads_none():
+    assert parse_building_law(STYRIA).uses[0].source_refs == ()
