@@ -32,6 +32,7 @@ import {
 import { SectionCard } from '@/features/platform/components/section-card'
 import { countryName } from './change-request-format'
 import { ChangeRequestReview } from './change-request-review'
+import { ApprovalBadges } from './approval-badges'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
@@ -155,7 +156,12 @@ export function CountryKnowledge(): JSX.Element {
             <TableBody>
               {ready.queue.map((request) => (
                 <TableRow key={request.id}>
-                  <TableCell className="font-medium">{request.title}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex flex-col gap-1">
+                      {request.title}
+                      <ApprovalBadges approval={request.approval} secondReview={request.secondReview} />
+                    </div>
+                  </TableCell>
                   <TableCell>{countryName(request.countryId, locale)}</TableCell>
                   <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
                   <TableCell className="text-right">

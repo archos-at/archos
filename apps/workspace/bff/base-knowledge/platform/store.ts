@@ -9,7 +9,7 @@
 
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { ConflictError } from '@/lib/api/errors'
@@ -24,13 +24,23 @@ import {
   knowledgeChangeRequests,
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
+  knowledgeSecondReviews,
 } from '@/lib/db/schema/knowledge-platform'
-import type { ApprovalRole, ChangeRequestOrigin, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision, ReviewDecisionSource } from '@/lib/base-knowledge/wire/vocab'
+import type {
+  ApprovalRole,
+  ChangeRequestOrigin,
+  ChangeRequestStatus,
+  KnowledgeRecordType,
+  ReviewDecision,
+  ReviewDecisionSource,
+  SecondReviewDecision,
+  SecondReviewState,
+} from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
-import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView } from './wire'
+import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView, SecondReviewRoleView } from './wire'
 
 const REASON = 'platform base knowledge: change requests'
 
@@ -79,7 +89,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin },
+  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -93,6 +103,7 @@ export async function listChangeRequests(
         and(
           filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
           filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
+          filter.secondReview ? eq(knowledgeChangeRequests.secondReview, filter.secondReview) : undefined,
         ),
       )
       .orderBy(desc(knowledgeChangeRequests.createdAt), desc(knowledgeChangeRequests.id))
@@ -114,6 +125,10 @@ export function summaryOf(request: ChangeRequestRow): Omit<ChangeRequestSummary,
     origin: request.origin,
     sourceRecordId: request.sourceRecordId,
     monitorFinding: request.monitorFinding,
+    approval: request.approval,
+    secondReview: request.secondReview
+      ? { state: request.secondReview, by: request.secondReviewBy, at: request.secondReviewAt?.toISOString() ?? null }
+      : null,
   }
 }
 
@@ -314,7 +329,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases, captures] = await Promise.all([
+    const [revisions, approvals, releases, captures, secondReviewRolesOf] = await Promise.all([
       reviewedRevisions(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
@@ -324,6 +339,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         .orderBy(knowledgeReleaseMoves.seq)
         .limit(2000),
       captureViews(tx, id),
+      secondReviewRoles(tx, id),
     ])
     return {
       ...summaryOf(request),
@@ -331,11 +347,13 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
       captures,
+      secondReviewRoles: secondReviewRolesOf,
       approvals: approvals.map((approval) => ({
         approver: approval.approver,
         role: approval.role,
         decisionSource: approval.decisionSource,
         decidedAt: approval.decidedAt.toISOString(),
+        overrideReason: approval.overrideReason,
       })),
       releases: releases.map((move) => ({
         seq: move.seq,
@@ -344,6 +362,8 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         action: move.action,
         toRevisionId: move.toRevisionId,
         releasedAt: move.releasedAt.toISOString(),
+        // A release carries how its request was approved: one published from a single approval says so.
+        approval: request.approval,
       })),
     }
   })
@@ -398,7 +418,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 
 export async function insertApproval(
   tx: Tx,
-  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation' },
+  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation'; overrideReason?: string },
 ): Promise<void> {
   try {
     await tx.insert(knowledgeApprovals).values({ id: randomUUID(), ...input })
@@ -408,10 +428,72 @@ export async function insertApproval(
     if (/revision they wrote/.test(message)) {
       throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
     }
+    if (/override approval is for an author/.test(message)) {
+      throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
+    }
     if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
     if (/no reviewer checked/.test(message)) {
       throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
     }
     throw error
   }
+}
+
+/** Everybody who wrote a revision in the request: whom four eyes keeps from approving or reviewing it. */
+export async function requestAuthors(tx: Tx, requestId: string): Promise<Set<string>> {
+  return new Set((await requestRevisions(tx, requestId)).map((revision) => revision.createdBy))
+}
+
+/** Each role approved alone, with its second review: due, or confirmed or disputed by whom and when (migration 0214). */
+export async function secondReviewRoles(tx: Tx, requestId: string): Promise<SecondReviewRoleView[]> {
+  const [alone, given] = await Promise.all([
+    tx
+      .selectDistinct({ role: knowledgeApprovals.role })
+      .from(knowledgeApprovals)
+      .where(and(eq(knowledgeApprovals.changeRequestId, requestId), isNotNull(knowledgeApprovals.overrideReason))),
+    tx.select().from(knowledgeSecondReviews).where(eq(knowledgeSecondReviews.changeRequestId, requestId)),
+  ])
+  return alone
+    .map(({ role }) => {
+      const review = given.find((row) => row.role === role)
+      return review
+        ? { role, state: review.decision, by: review.reviewer, at: review.decidedAt.toISOString() }
+        : { role, state: 'due' as const, by: null, at: null }
+    })
+    .sort((a, b) => a.role.localeCompare(b.role))
+}
+
+/**
+ * One role's second review of a request approved alone (migration 0214): the
+ * triggers hold that it is due, owed in that role and given by somebody who
+ * wrote nothing in the request, and close the request's review from it.
+ */
+export async function insertSecondReview(
+  tx: Tx,
+  input: { changeRequestId: string; role: ApprovalRole; decision: SecondReviewDecision; reviewer: string; decisionSource: 'app' | 'elicitation' },
+): Promise<void> {
+  try {
+    await tx.insert(knowledgeSecondReviews).values({ id: randomUUID(), ...input })
+  } catch (error) {
+    const message = errorText(error)
+    if (/second reviewer may not have written/.test(message)) {
+      throw new ConflictError('You wrote a revision in this change request, so another person gives its second review (four eyes).')
+    }
+    if (/knowledge_second_reviews_once/.test(message)) throw new ConflictError(`The second review in the ${input.role} role was given already.`)
+    if (/owed only in a role approved alone/.test(message)) {
+      throw new ConflictError(`No approval in the ${input.role} role was given alone, so no second review is owed in it.`)
+    }
+    if (/no reviewer checked/.test(message)) {
+      throw new ConflictError('A record cites an operator-supplied capture; check it against its source and record that verdict (sourceChecked) first.')
+    }
+    throw error
+  }
+}
+
+/** A rejected request reached no office: the review it owed is void (migration 0214). */
+export async function voidSecondReview(tx: Tx, requestId: string, by: string): Promise<void> {
+  await tx
+    .update(knowledgeChangeRequests)
+    .set({ secondReview: 'void', secondReviewBy: by, secondReviewAt: new Date() })
+    .where(eq(knowledgeChangeRequests.id, requestId))
 }

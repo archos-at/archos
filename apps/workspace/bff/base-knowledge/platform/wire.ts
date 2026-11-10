@@ -15,6 +15,7 @@ import {
   BINDING_MODES,
   CHANGE_REQUEST_ORIGINS,
   CHANGE_REQUEST_STATUSES,
+  type ChangeRequestApproval,
   CONNECTING_FACTORS,
   COVERAGE_LEVELS,
   KNOWLEDGE_WORK_KINDS,
@@ -23,6 +24,10 @@ import {
   RELATION_TYPES,
   RELEASE_CHANNELS,
   REVIEW_DECISIONS,
+  SECOND_REVIEW_STATES,
+  type ApprovalRole,
+  type SecondReviewDecision,
+  type SecondReviewState,
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
@@ -380,10 +385,29 @@ export const reviewBodySchema = z.object({
     .max(500),
 })
 
+/** The shortest reason an override takes: a sentence somebody can follow up, not a word (ADR-0176). */
+export const MIN_OVERRIDE_REASON = 20
+
 export const approvalBodySchema = z.object({
-  decision: z.enum(['approve', 'reject']),
+  decision: z
+    .enum(['approve', 'reject'])
+    .describe('On a request whose second review is due (secondReview.state due, past submitted): approve confirms it, reject disputes it.'),
   role: z.enum(APPROVAL_ROLES).default('domain_expert'),
+  override: z
+    .object({
+      reason: z
+        .string()
+        .trim()
+        .min(MIN_OVERRIDE_REASON)
+        .max(500)
+        .describe('Why nobody else can approve now; kept on the approval and in the audit trail.'),
+    })
+    .optional()
+    .describe(
+      'Approve a request you wrote without a second person (needs platform:knowledge:approve_alone and the person\'s own yes). Never implicit: the request is marked approval single and a second review stays due until another person gives it.',
+    ),
 })
+export type ApprovalBody = z.input<typeof approvalBodySchema>
 
 export const publishBodySchema = z.object({
   channel: z.enum(RELEASE_CHANNELS).describe('preview first; stable moves what offices read.'),
@@ -408,6 +432,10 @@ export const listChangeRequestsQuerySchema = z.object({
     .optional()
     .describe('monitor: the requests a source monitor opened because its source changed (ADR-0174).'),
   limit: z.coerce.number().int().min(1).max(MAX_CHANGE_REQUEST_PAGE).optional(),
+  secondReview: z
+    .enum(SECOND_REVIEW_STATES)
+    .optional()
+    .describe('due: the requests approved alone whose second review nobody has given yet (ADR-0176).'),
   cursor: z.string().regex(/^\d{1,6}$/).optional().describe('nextCursor of the previous page.'),
 })
 
@@ -440,8 +468,27 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   revisions: RevisionView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
-  approvals: { approver: string; role: string; decisionSource: string; decidedAt: string }[]
-  releases: { seq: number; recordId: string; channel: string; action: string; toRevisionId: string | null; releasedAt: string }[]
+  /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
+  secondReviewRoles: SecondReviewRoleView[]
+  /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */
+  approvals: { approver: string; role: string; decisionSource: string; decidedAt: string; overrideReason: string | null }[]
+  releases: {
+    seq: number
+    recordId: string
+    channel: string
+    action: string
+    toRevisionId: string | null
+    releasedAt: string
+    approval: ChangeRequestApproval
+  }[]
+}
+
+/** One role approved alone, and where its second review stands. */
+export interface SecondReviewRoleView {
+  role: ApprovalRole
+  state: 'due' | SecondReviewDecision
+  by: string | null
+  at: string | null
 }
 
 export interface ChangeRequestSummary {
@@ -458,6 +505,10 @@ export interface ChangeRequestSummary {
   sourceRecordId: string | null
   /** What the monitor found: the previous and current etag, sha256 and version, the terms, and needs[]. */
   monitorFinding: Record<string, unknown> | null
+  /** four_eyes, or single: its author approved it alone through the override, and a second review is owed (ADR-0176). */
+  approval: ChangeRequestApproval
+  /** The review a single approval owes; null on a four-eyes request. */
+  secondReview: { state: SecondReviewState; by: string | null; at: string | null } | null
 }
 
 export interface CountryCoverage {
