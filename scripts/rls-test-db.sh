@@ -3518,6 +3518,7 @@ echo "==> 0205 platform base knowledge and its down migration verified"
 # ---------------------------------------------------------------------------
 echo "==> verifying 0206 editions in time and its down migration on te_0206"
 migrate_until te_0206 0206_editions_in_time
+sql_in te_0206 <<<"INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('work_t0206', 'org_0206', 'work', 'user_author');"
 refused_in te_0206 "INSERT INTO knowledge_edition_revisions (revision_id, record_id, organization_id, work_id, label, transition) VALUES (gen_random_uuid(), 'edition_t0206', 'org_0206', 'work_t0206', 'x', '[]')" "knowledge_edition_revisions_transition_object" "a transition that is not a table"
 check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_work_revisions' AND column_name = 'history_available_from'" "1" "0206 adds the history start"
 apply_in te_0206 0206_editions_in_time.down.sql

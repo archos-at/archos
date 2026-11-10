@@ -147,7 +147,7 @@ describe('validateProposal', () => {
       edition('e2024', '2024-01-01', null),
     ])
     expect(validateProposal(overlapping, 'AT', KNOWN)).toEqual([
-      expect.objectContaining({ check: 'KC-3', key: 'e2024' }),
+      expect.objectContaining({ check: 'KC-3', key: 'e2018' }),
     ])
   })
 
@@ -165,5 +165,19 @@ describe('validateProposal', () => {
       },
     })
     expect(result.success).toBe(false)
+  })
+
+  it('KC-3: refuses a new edition overlapping one already on the platform, unless the batch closes the old one', () => {
+    const known = new Map<string, KnownRecord>([...KNOWN, ['work:wien-bo', { type: 'work', countryId: 'AT' }]])
+    const published = [{ id: 'edition:e2018', workId: 'work:wien-bo', inForceFrom: '2018-09-01', inForceTo: null }]
+    const edition = (key: string, inForceFrom: string, inForceTo: string | null) => ({ type: 'edition', key, workKey: 'wien-bo', label: key, inForceFrom, inForceTo })
+    const alone = parse([edition('e2024', '2024-01-01', null)])
+    expect(validateProposal(alone, 'AT', known, published)).toEqual([
+      expect.objectContaining({ check: 'KC-3', key: 'e2024', detail: expect.stringContaining('edition:e2018') }),
+    ])
+    const closing = parse([edition('e2018', '2018-09-01', '2023-12-31'), edition('e2024', '2024-01-01', null)])
+    expect(validateProposal(closing, 'AT', known, published)).toEqual([])
+    // An edition of another work does not count.
+    expect(validateProposal(alone, 'AT', known, [{ ...published[0], workId: 'work:other' }])).toEqual([])
   })
 })

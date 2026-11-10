@@ -243,3 +243,49 @@ describe('the transition wire', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('the walk ends on an edition in force where it was reached (review findings)', () => {
+  const decisionRule = filingRule('rule-decided', 'AT-9')
+  const decidedRule = {
+    ...decisionRule,
+    values: {
+      ...decisionRule.values,
+      body: {
+        kind: 'table' as const,
+        payloadSchema: 'decision_table.v1' as const,
+        payload: {
+          inputs: [{ key: 'decided_on' as const, type: 'date' as const }],
+          output: { type: 'event' as const, events: ['decided_on'] },
+          rows: [{ id: 'decided', when: { '<=': ['0000-01-01', { var: 'decided_on' }] }, then: 'decided_on' }],
+          otherwise: { undetermined: true as const },
+          examples: [],
+        },
+      },
+    },
+  }
+  const edition = (id: string, inForceFrom: string, inForceTo: string | null) => ({ id, label: id, inForceFrom, inForceTo, transition: null })
+  const run = (editions: ReturnType<typeof edition>[], filedOn: string, decidedOn: string) =>
+    editionForProcedure({
+      work: { id: 'work:x', historyAvailableFrom: '2018-01-01', editions },
+      rulesets: [decidedRule],
+      chain: ['AT-9', 'AT'],
+      procedure: parseProcedure({ filedOn, decidedOn }),
+      now: NOW,
+    })
+
+  it('a repealed work has no edition on a reference date after its end', () => {
+    expect(run([edition('A', '2018-01-01', '2021-12-31')], '2021-06-01', '2022-06-01')).toMatchObject({ reason: 'no_edition_in_force' })
+  })
+
+  it('a gap between editions on the reference date is no edition in force', () => {
+    const editions = [edition('A', '2018-01-01', '2021-12-31'), edition('B', '2022-06-01', null)]
+    expect(run(editions, '2021-06-01', '2022-03-01')).toMatchObject({ reason: 'no_edition_in_force' })
+    // Positive control: decided once B is in force.
+    expect(run(editions, '2021-06-01', '2022-07-01')).toMatchObject({ status: 'determined', edition: { id: 'B' } })
+  })
+
+  it('editions overlapping on the reference date are ambiguous, even when the walk started before the overlap', () => {
+    const editions = [edition('A', '2018-01-01', null), edition('B', '2022-01-01', null)]
+    expect(run(editions, '2021-06-01', '2023-01-01')).toMatchObject({ reason: 'ambiguous_editions', editionIds: ['A', 'B'] })
+  })
+})

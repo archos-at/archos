@@ -44,6 +44,7 @@ import {
   insertProposedRecords,
   insertReviewDecisions,
   knownPlatformRecords,
+  platformEditionsOf,
   listChangeRequests,
   lockChangeRequest,
   platformTransaction,
@@ -189,7 +190,9 @@ export async function proposePlatformRecords(
       ...namedTerritories(record),
     ]
     const known = await knownPlatformRecords(tx, idsOfBatch(body.records, named))
-    const problems = validateProposal(body.records, request.countryId, known)
+    const workIds = body.records.flatMap((record) => (record.type === 'edition' ? [`work:${record.workKey}`] : []))
+    const existing = await platformEditionsOf(tx, [...new Set(workIds)])
+    const problems = validateProposal(body.records, request.countryId, known, existing)
     if (body.dryRun) return { dryRun: true, problems, written: [] }
     if (problems.length > 0) {
       throw new UnprocessableError(

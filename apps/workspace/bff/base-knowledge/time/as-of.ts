@@ -203,6 +203,33 @@ function windowEnd(
   return zone ? dayIn(zone, now) : 'zone_unknown'
 }
 
+/** How the walk reached its edition: by the reference date, or by a transition's own outcome. */
+type Reached = { by: 'reference_date' } | { by: 'old_law' } | { by: 'new_law'; on: string }
+
+/**
+ * The walk's edition must be the one in force where it was reached: on the
+ * reference date, or on the boundary a `new_law` crossed. Only an explicit
+ * `old_law` keeps an edition past its end. So a repeal, a gap or two editions
+ * in force on that day answer as `editionInForce` does, never as determined.
+ */
+function unconfirmed(
+  work: WorkInTime,
+  current: DatedEdition,
+  reached: Reached,
+  referenceDay: string
+): Undetermined | null {
+  if (reached.by === 'old_law') return null
+  const day = reached.by === 'new_law' ? reached.on : referenceDay
+  const check = editionInForce(work.editions, day, work.historyAvailableFrom)
+  if (check.status !== 'determined') return check
+  if (check.edition.id === current.id) return null
+  return {
+    status: 'undetermined',
+    reason: 'ambiguous_editions',
+    editionIds: [check.edition.id, current.id].sort(),
+  }
+}
+
 /** The edition that applied to `procedure`, under the node `chain` (legislating node first). */
 export function editionForProcedure(input: {
   work: WorkInTime
@@ -230,11 +257,15 @@ export function editionForProcedure(input: {
   const first = editionInForce(work.editions, start, work.historyAvailableFrom)
   if (first.status !== 'determined') return first
   let current = first.edition
+  let reached: Reached = { by: 'reference_date' }
   const transitions: TransitionStep[] = []
   for (const boundary of boundariesBetween(work.editions, start, last)) {
     const boundaryFrom = boundary.inForceFrom as string
     if (!boundary.transition) {
-      if (stichtag.date >= boundaryFrom) current = boundary
+      if (stichtag.date >= boundaryFrom) {
+        current = boundary
+        reached = { by: 'reference_date' }
+      }
       transitions.push({ boundaryFrom, editionId: boundary.id, outcome: 'reference_date' })
       continue
     }
@@ -266,8 +297,11 @@ export function editionForProcedure(input: {
         boundary: step,
       }
     if (step.outcome === 'new_law') current = boundary
+    reached = step.outcome === 'new_law' ? { by: 'new_law', on: boundaryFrom } : { by: 'old_law' }
     transitions.push(step)
   }
+  const refused = unconfirmed(work, current, reached, stichtag.date)
+  if (refused) return refused
   return {
     status: 'determined',
     edition: editionRef(current),

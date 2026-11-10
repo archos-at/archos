@@ -62,22 +62,44 @@ function intervalProblems(record: ProposedRecord): Problem[] {
 }
 
 /** Editions of one work in one batch whose in-force intervals overlap (`inForceTo` is inclusive). */
-function overlapProblems(records: readonly ProposedRecord[]): Problem[] {
-  const editions = records.flatMap((record) =>
-    record.type === 'edition' && record.inForceFrom ? [record] : []
+/** An edition already on the platform (at its head), with its work and dates: what a proposal must not overlap. */
+export interface DatedPlatformEdition {
+  id: string
+  workId: string
+  inForceFrom: string | null
+  inForceTo: string | null
+}
+
+const overlaps = (a: { from: string; to: string | null }, b: { from: string; to: string | null }) =>
+  a.from <= (b.to ?? '9999-12-31') && b.from <= (a.to ?? '9999-12-31')
+
+/**
+ * Editions of one work in force on the same day (`inForceTo` is inclusive):
+ * two proposed in one batch, or one proposed beside one already on the
+ * platform. A batch that re-proposes the existing edition (closing its
+ * `inForceTo`) is compared against its new dates, not its old ones.
+ */
+function overlapProblems(records: readonly ProposedRecord[], existing: readonly DatedPlatformEdition[]): Problem[] {
+  const proposed = records.flatMap((record) =>
+    record.type === 'edition' && record.inForceFrom
+      ? [{ id: recordIdOf(record), key: record.key, workId: `work:${record.workKey}`, from: record.inForceFrom, to: record.inForceTo }]
+      : []
+  )
+  const inBatch = new Set(records.map(recordIdOf))
+  const others = existing.flatMap((edition) =>
+    edition.inForceFrom && !inBatch.has(edition.id)
+      ? [{ id: edition.id, key: edition.id, workId: edition.workId, from: edition.inForceFrom, to: edition.inForceTo }]
+      : []
   )
   const problems: Problem[] = []
-  for (const [index, first] of editions.entries()) {
-    for (const second of editions.slice(index + 1)) {
-      if (first.workKey !== second.workKey) continue
-      const firstEnd = first.inForceTo ?? '9999-12-31'
-      const secondEnd = second.inForceTo ?? '9999-12-31'
-      if ((first.inForceFrom as string) <= secondEnd && (second.inForceFrom as string) <= firstEnd)
-        problems.push({
-          check: 'KC-3',
-          key: second.key,
-          detail: `is in force on days ${first.key} is; end one before the other begins.`,
-        })
+  for (const [index, first] of proposed.entries()) {
+    for (const second of [...proposed.slice(index + 1), ...others]) {
+      if (first.workId !== second.workId || !overlaps(first, second)) continue
+      problems.push({
+        check: 'KC-3',
+        key: first.key,
+        detail: `is in force on days ${second.key} is; end one before the other begins.`,
+      })
     }
   }
   return problems
@@ -115,7 +137,8 @@ export function namedTerritories(record: ProposedRecord): string[] {
 export function validateProposal(
   records: readonly ProposedRecord[],
   countryId: string,
-  known: ReadonlyMap<string, KnownRecord>
+  known: ReadonlyMap<string, KnownRecord>,
+  existing: readonly DatedPlatformEdition[] = []
 ): Problem[] {
   const batch = new Map<string, KnowledgeRecordType>()
   const problems: Problem[] = []
@@ -176,5 +199,5 @@ export function validateProposal(
     }
     problems.push(...intervalProblems(record), ...exampleProblems(record))
   }
-  return [...problems, ...overlapProblems(records)]
+  return [...problems, ...overlapProblems(records, existing)]
 }
