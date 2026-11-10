@@ -81,7 +81,12 @@ class PublicOnlyBackend(httpcore.AsyncNetworkBackend):
         local_address: str | None = None,
         socket_options: Iterable[Any] | None = None,
     ) -> httpcore.AsyncNetworkStream:
-        addresses = await self._resolver(host, port)
+        try:
+            addresses = await self._resolver(host, port)
+        except OSError as exc:  # socket.gaierror (EAI_AGAIN, EAI_NONAME): a lookup failed, nothing was refused
+            # The connect error httpcore would raise had it resolved the name itself, so every caller
+            # keeps its handling of a transport failure (the RIS client retries it, then answers RisError).
+            raise httpcore.ConnectError(f"{host} could not be resolved: {exc}") from exc
         if not addresses:
             raise EgressRefused(f"{host} does not resolve")
         private = [address for address in addresses if not is_public_address(address)]
