@@ -20,16 +20,6 @@ import { ImageIcon, ImageOff } from 'lucide-react'
 import type { DocumentKind } from '../document-kind'
 import { cn } from '@/lib/utils'
 
-/**
- * Office-gold source tint for the image placeholder's format chip. Mirrors
- * `TINTS.office` in `../document-kind` (photos map to the office family) so the
- * colour never travels without an icon + label — never a lone glyph.
- */
-const OFFICE_TINT = {
-  background: 'var(--source-office-tint, var(--background-color-feedback-warning-subtle))',
-  color: 'var(--source-office-text, var(--text-color-feedback-warning))',
-} as const
-
 type SvgProps = Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'children'>
 
 /* --------------------------------------------------------------------------
@@ -431,7 +421,8 @@ export function DocumentKindThumbnail({
           data-state="failed"
           title={failedLabel}
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground',
+            // The sheet's own white, the glyph saying what failed: a grey well in the white sheet was a box in a box.
+            'absolute inset-0 flex flex-col items-center justify-center bg-sheet text-muted-foreground',
             className
           )}
         >
@@ -443,9 +434,10 @@ export function DocumentKindThumbnail({
       )
     }
 
-    // An image with no thumbnail: a WARM, intentional placeholder — soft paper
-    // wash + image glyph + a format chip (icon travels WITH a label, office-gold
-    // family) — never a lone glyph that reads as a browser broken-image icon.
+    // An image with no thumbnail: an intentional placeholder on the sheet's white,
+    // an image glyph over the format in words — never a lone glyph that reads as a
+    // browser broken-image icon. No tint: ochre says „needs you“ (paper on a desk,
+    // principle 7), and a format is no verdict.
     if (kind === 'photo') {
       return (
         <div
@@ -454,18 +446,16 @@ export function DocumentKindThumbnail({
           data-testid="document-kind-thumbnail"
           data-state="placeholder"
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-muted text-muted-foreground',
+            'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-sheet text-muted-foreground',
             className
           )}
         >
           <ImageIcon className="size-[26px] opacity-45" aria-hidden />
           {formatLabel && (
             <span
-              // The eyebrow ramp step's 10.5px, rendered as a tinted chip.
-              // Capitals and tracking because the label is a file-format code
-              // (PDF, DWG), not because the eyebrow is set in capitals.
-              className="inline-flex items-center rounded-control px-2 py-[3px] text-[10.5px] font-medium uppercase leading-none tracking-wider"
-              style={OFFICE_TINT}
+              // The codes' 11/16/500 (paper on a desk). Capitals and tracking because the label is a file-format
+              // code (PDF, DWG), not because the eyebrow is set in capitals.
+              className="text-[11px] font-medium uppercase leading-4 tracking-wider"
             >
               {formatLabel}
             </span>

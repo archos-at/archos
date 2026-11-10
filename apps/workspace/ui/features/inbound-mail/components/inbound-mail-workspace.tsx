@@ -68,6 +68,7 @@ import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/path
 import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
+import { useOpenFirstMail } from '../hooks/use-open-first-mail'
 import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
 import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
@@ -192,6 +193,8 @@ export function InboundMailWorkspace({
   const groups = useMemo(() => (list.kind === 'ready' ? list.threadGroups : []), [list])
   const sections = useMemo(() => listSections(items, { grouped: status === 'waiting', groups }), [items, status, groups])
   const rows = useMemo(() => visibleMails(sections, quietOpen), [sections, quietOpen])
+  // A desk-wide split never shows an empty reader: arriving with no mail open opens the first one (replaced).
+  const firstMail = useOpenFirstMail({ mailId, firstId: rows[0]?.id ?? null, scope: `${status}:${outcome ?? ''}`, open: (id) => router.replace(paths.mail(id, filter)) })
 
   // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
   const empty = list.kind === 'ready' && list.items.length === 0
@@ -449,18 +452,16 @@ export function InboundMailWorkspace({
   return (
     // Dateien's container, as every tab of the section: centred with the others from a 1440px section, so the title
     // and the tabs stand still when the tab changes (a full-width split moved them 80px).
-    <div className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
+    <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        {/* An opened mail on a phone shows the mail: the address is a press away, back in the list. Nothing is
-            portalled then, or the header kept an empty row's margin above the mail. */}
+        {/* An opened mail on a phone shows the mail; nothing is portalled, or the header kept an empty row's margin. */}
         {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
-      {/* The list's content stands on the title's edge (32px from a desk's side, 16px on a phone): `md:px-4` over its
-          own 16px, the right one given back at the split, where the pane's divider is its edge. 25rem keeps the
-          rows 22rem and the open row's fill as far from the divider as from the screen's side. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:pr-8')}>
-        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk', mailId ? 'hidden' : 'flex')}>
+      {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
+          apart and 24px off the foot, so both show their corners. The rows sit 8px inside the desk's edge. */}
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)] @3xl:gap-4 @3xl:px-8 @3xl:pb-6')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:rounded-surface @3xl:bg-desk @3xl:px-2', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -546,10 +547,9 @@ export function InboundMailWorkspace({
               now={now}
               decidedByOther={decidedByOther}
             />
-          ) : list.kind === 'loading' ? null /* nothing to pick yet: „Wählen Sie …“ only once there is a list */ : (
-            // Bare and in the pane's middle: a dashed grey panel was a box and a line around one sentence.
-            // Quiet is the normal case: one muted 14px line under a muted glyph, not a heading in ink. While mails are
-            // picked it says what the bar does, not „2 ausgewählt“ a second time beside the bar's own count.
+          ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
+            // Bare, in the pane's middle, one muted line under a muted glyph (a narrow window's case now, the desk opens the
+            // first mail). While mails are picked it says what the bar does, not „2 ausgewählt“ beside the bar's count.
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
               <MailSearch className="size-5" aria-hidden />
               <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>

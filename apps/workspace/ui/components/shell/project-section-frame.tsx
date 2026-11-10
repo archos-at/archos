@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from 'react'
 import { usePathname } from 'next/navigation'
-import { FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
+import { ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
@@ -49,8 +49,8 @@ const PROJECT_SECTION_KEY_SET: ReadonlySet<string> = new Set(PROJECT_SECTION_KEY
 
 const FILL_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['files', 'automation'])
 
+// Not Dateien: its header names the open place under a crumb, and each place's list says what it holds.
 const SUBTITLE_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set([
-  'files',
   'automation',
   'knowledge',
   'settings',
@@ -64,12 +64,14 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
 /**
- * Pages inside a section: Dateien's places. The section header stays the
- * section's („Dateien“), says what the open place is for (its subtitle), and
- * carries the places as tabs (Alle Dateien, E-Mail-Eingang, Offene Punkte,
- * Papierkorb), so a sub-page never draws a second title or its own way back,
- * and the E-Mail-Eingang is a place beside the files rather than a link in a
- * toolbar. The key is `<section>/<page>`, as in `nav.subpages`.
+ * Pages inside a section: Dateien's places. The header names the open place
+ * („E-Mail-Eingang“, 24/32/600) under a muted crumb of where it is („Projekt ›
+ * Dateien“), and carries the places as tabs (Alle Dateien, E-Mail-Eingang,
+ * Offene Punkte, Papierkorb), so a sub-page never draws a second title or its
+ * own way back, and the E-Mail-Eingang is a place beside the files rather than a
+ * link in a toolbar. No standing subtitle (paper on a desk, principle 8): each
+ * place's list already says what it holds. The key is `<section>/<page>`, as in
+ * `nav.subpages`.
  */
 const SUBPAGES = ['files/mail', 'files/bin', 'files/open-points'] as const
 type Subpage = (typeof SUBPAGES)[number]
@@ -242,6 +244,7 @@ export function ProjectSectionFrame({
     : RETURN_TARGET_SECTIONS.has(segment)
       ? t(`returnTargets.${segment}`)
       : t(`sections.${segment}`)
+  const files = segment === 'files'
   const sectionSubtitle = known && SUBTITLE_SECTIONS.has(segment) ? t(`sectionSubtitles.${segment}`) : undefined
   const fill = known && FILL_SECTIONS.has(segment)
   const subpage = subpageOf(pathname)
@@ -257,9 +260,18 @@ export function ProjectSectionFrame({
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}
           <PageHeader
-            title={sectionLabel}
-            subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle}
-            action={segment === 'files' && phone ? undefined : actions}
+            title={files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
+            crumb={
+              files ? (
+                <>
+                  <span className="min-w-0 truncate">{projectName}</span>
+                  <ChevronRight className="size-3 shrink-0 phone:hidden" aria-hidden />
+                  <span className="shrink-0 phone:hidden">{sectionLabel}</span>
+                </>
+              ) : undefined
+            }
+            subtitle={sectionSubtitle}
+            action={files && phone ? undefined : actions}
           />
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the

@@ -31,9 +31,8 @@ export function FileGrid({ children, className }: { children: ReactNode; classNa
 }
 
 /**
- * One loading cell in the tile's own shell ({@link TileShell}): the thumbnail's height, the
- * name, two summary lines and the meta line, on the page. It was a raised card with a border and a
- * shadow, the tray the tiles left, so the first paint promised a shape that never arrived.
+ * One loading cell in the tile's own shell ({@link TileShell}): the sheet's height, the name and
+ * the meta line, on the page, the tile's own anatomy, so the first paint promises the shape that arrives.
  */
 export function FileCardSkeleton() {
   return (
@@ -41,10 +40,8 @@ export function FileCardSkeleton() {
       <FileTileMedia className="h-[124px]">
         <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
       </FileTileMedia>
-      <div className="min-h-[68px] space-y-2 pt-3">
+      <div className="pt-3">
         <Skeleton className="h-3.5 w-3/4" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-2/3" />
       </div>
       <FileTileFooter>
         <Skeleton className="h-3 w-24" />

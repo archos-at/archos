@@ -278,5 +278,5 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   )
 }
 
-/** A hairline under each point, inset to its text (10px row inset + 24px marker + 12px gap). */
-const ROW_HAIRLINE_MARKS = `${ROW_HAIRLINE} after:left-[46px] after:right-2.5`
+/** A hairline under each point, the one inset rule: from its text (10px row inset + 24px marker + 12px gap) to the row's end. */
+const ROW_HAIRLINE_MARKS = `${ROW_HAIRLINE} [--row-text:46px] [--row-end:10px]`

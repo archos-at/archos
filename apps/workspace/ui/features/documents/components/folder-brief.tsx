@@ -521,7 +521,7 @@ function NeedsYouSection({
   if (failed + held + unplaced === 0) return null
   return (
     <section className="flex flex-col gap-1 px-3 pb-3 pt-2 phone:px-4" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
-      <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium" /* a heading: 13px ink; row labels 12px muted */>
+      <h3 id="folder-brief-needs" className="text-foreground text-name font-semibold" /* a heading by weight: 13/20/600 over 14/440 rows (rank by two channels) */>
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (

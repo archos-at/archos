@@ -107,7 +107,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           type="single"
           segmented
           // The track on the list's edge. 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
-          className="[&>button]:text-sm"
+          // A track is one step below the plane it lies on: on the split's desk that is the selected grey, or it vanished.
+          className="@3xl:bg-selected [&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -266,8 +267,14 @@ function ListBody({
   return (
     <div className="flex flex-col">
       {sections.map((section, index) => {
-        // Rows sit apart by a gap and answer with a fill, not a rule under each.
-        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col px-1 py-0.5">{row(section.mail)}</ul>
+        // A run of mails outside any group is one list, so the hairline between two of them is drawn as in a thread:
+        // the run is rendered at its first mail and skipped after it.
+        if (section.kind === 'mail') {
+          if (sections[index - 1]?.kind === 'mail') return null
+          const run = sections.slice(index).findIndex((next) => next.kind !== 'mail')
+          const mails = sections.slice(index, run < 0 ? undefined : index + run).flatMap((next) => (next.kind === 'mail' ? [next.mail] : []))
+          return <ul key={section.mail.id} className="flex flex-col px-1 py-0.5">{mails.map((mail) => row(mail))}</ul>
+        }
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)

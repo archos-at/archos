@@ -160,13 +160,16 @@ describe('FileBrowserPane — card grid', () => {
 })
 
 describe('FileBrowserPane — document descriptions', () => {
-  it('surfaces the AI-generated description on the card when one exists', () => {
+  it('keeps the AI-generated description off the tile and on the list view\'s row', () => {
     const withSummary: FileItem[] = [
       { ...files[0], summary: 'A ground-floor plan of the east wing.' },
       files[1],
     ]
-    renderPane({ files: withSummary })
-    // The description shows for the file that has one, and only for that file.
+    // Paper on a desk: a tile is the sheet, the name and one meta line; the summary is the list's and the preview's.
+    const { unmount } = renderPane({ files: withSummary })
+    expect(screen.queryByText('A ground-floor plan of the east wing.')).not.toBeInTheDocument()
+    unmount()
+    renderPane({ files: withSummary, view: 'list' })
     expect(screen.getByText('A ground-floor plan of the east wing.')).toBeInTheDocument()
   })
 })

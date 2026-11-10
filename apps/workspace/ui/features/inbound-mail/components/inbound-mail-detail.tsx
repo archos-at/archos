@@ -633,5 +633,9 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
   )
 }
 
-/** A group of the detail on the one grey: no border, no hairline between its rows, and on a phone a band across the screen. */
-const DETAIL_PANEL = 'bg-muted border-0 divide-y-0 phone:-mx-4 phone:rounded-none'
+/**
+ * A list of the reader (the attachments, the text's own row): on the reader's sheet, no box, its rows bleeding by their
+ * 16px inset so their boxes stand on the text's edge, and between two of them the one inset hairline (`ROW_HAIRLINE`,
+ * set on the rows, from the name past the box and the thumbnail). Paper on a desk: lines for lists, no grey box.
+ */
+const DETAIL_PANEL = '-mx-4 rounded-none border-0 divide-y-0 bg-transparent'

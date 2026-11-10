@@ -6,3 +6,18 @@ improvements:
     desk: documents are white with a soft edge, buttons are raised, headings are
     bolder and unread mail stands out. Each list row shows one action, and the
     rest appear on hover.
+  - >
+    Each place in Files is now titled by its own name, with the project above it
+    as a small breadcrumb, and the explanatory line under the title is gone.
+  - >
+    Project mail opens the first waiting email on a wide screen, so the reading
+    pane is never empty. On a phone the list stays first.
+  - >
+    File tiles show the name, format, size and date only, so more of a folder
+    fits on one screen; the summary stays in the list view and the preview.
+    A folder with more than 50 documents opens as a list unless you chose the
+    tiles yourself.
+  - >
+    Folders, the preview's side panel and the email reader use the same white
+    sheets, and list rows are separated by one even line. Dark mode keeps the
+    email list visible against the page.

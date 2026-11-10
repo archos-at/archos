@@ -22,6 +22,7 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
+import { TABLE_ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FileName } from './file-name'
 import { OpenMarksChip } from './open-marks-chip'
@@ -85,8 +86,8 @@ interface FileListViewProps {
   selection?: { active: boolean; selectedIds: ReadonlySet<string>; onToggle: (id: string) => void }
 }
 
-/** Dense explorer cells — tighter than the admin Table default. */
-const CELL = 'px-2 py-1.5 pointer-coarse:py-3'
+/** Dense explorer cells — a 40px row (paper on a desk: 32px content, 4px above and below), 44px+ under a finger. */
+const CELL = 'px-2 py-1 pointer-coarse:py-3'
 
 export function FileListView({
   files,
@@ -363,6 +364,7 @@ const FileListRowItem = memo(function FileListRowItem({
       data-testid="file-list-row"
       {...(draggable ? documentDragProps(file.id, file.folderId ?? null) : {})}
       data-state={isSelected || checked ? 'selected' : undefined}
+      data-filled={isSelected || checked || undefined}
       // Roving tabindex: one stop for the whole list, then arrows.
       tabIndex={isTabStop ? 0 : -1}
       aria-selected={picking ? checked : isSelected}
@@ -370,15 +372,16 @@ const FileListRowItem = memo(function FileListRowItem({
       onFocus={() => onFocusIndex(index)}
       onKeyDown={(event) => onRowKeyDown(event, index)}
       className={cn(
-        'cursor-pointer focus-visible:outline-none',
+        // The one inset hairline (`TABLE_ROW_HAIRLINE`): from the name, past the cell's 8px, the 32px format column and 10px.
+        'cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
         lit && HIGHLIGHT_OUTLINE_INSET,
         'transition-colors duration-snap ease-out motion-reduce:transition-none',
-        isSelected || checked ? 'bg-accent hover:bg-accent data-[state=selected]:bg-accent' : 'hover:bg-muted',
+        isSelected || checked ? 'bg-accent hover:bg-accent data-[state=selected]:bg-accent' : 'hover:bg-desk',
         'focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50'
       )}
     >
       {picking && (
-        <TableCell className="w-11 p-0 text-center" onClick={(event) => event.stopPropagation()}>
+        <TableCell className="w-11 p-0 text-center" data-row-skip onClick={(event) => event.stopPropagation()}>
           <Checkbox
             checked={checked}
             onCheckedChange={() => onToggle?.(file.id)}
@@ -387,17 +390,19 @@ const FileListRowItem = memo(function FileListRowItem({
           />
         </TableCell>
       )}
-      <TableCell className={CELL}>
-        <div className="flex min-h-8 min-w-0 items-center gap-2.5">
+      <TableCell className={CELL} data-row-text>
+        <div className="flex min-h-8 min-w-0 items-start gap-2.5 py-1.5" /* the format on the name's first line, wrapped or not */>
           {/* The format in words, as the tile's meta writes it (8.5px in a disc was illegible); 32px, a folder's glyph column. */}
-          <span className="text-muted-foreground w-8 shrink-0 text-[11px] font-medium uppercase" aria-hidden>
+          <span className="text-muted-foreground w-8 shrink-0 text-[11px] font-medium uppercase leading-5" aria-hidden>
             {fileExtensionLabel(file.filename) || '—'}
           </span>
           <span className="min-w-0 flex-1">
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
+            {/* Wraps rather than cut the name: a chip that does not fit beside it takes the next line (a phone's
+                „E…_Index-C.pdf“ beside „4 offen · 2 für Sie“ was the name cut to its last letters). */}
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
               {file.status && !isCitableStatus(file.status) && (
@@ -408,18 +413,14 @@ const FileListRowItem = memo(function FileListRowItem({
               {/* Where Piloti would file it: the same chip as on the card,
                   right after the name, so the row keeps its one height. */}
               <FilingSuggestionSlot documentId={file.id} className="max-w-[45%] shrink-0 self-center" />
+              {/* The summary on the name's line, in what is left of it (Gmail's snippet): one 40px row, not two lines.
+                  A narrow list (a phone) has nothing left of it, so there it is the second line. */}
+              {!semantic && file.summary && <span className="text-meta text-muted-foreground min-w-0 basis-full truncate font-normal @xl/filelist:flex-1 @xl/filelist:basis-0" title={file.summary}>{file.summary}</span>}
             </span>
             {file.sourceDeletedAt && <SourceDeletedNote at={file.sourceDeletedAt} />}
-            {/* The summary earns its line here in a way it cannot on
-                a card: the row is already one line tall, so a second
-                one doubles the information without doubling the
-                scroll the way a taller card would. */}
-            {/* In a ranked result the second line is WHY this row is
-                here. The summary describes the document; the snippet
-                answers the query, and a search result that hides it
-                asks the reader to take the ranking on trust. */}
-            {semantic ? (
-              (file.snippet ?? '') !== '' && (
+            {/* In a ranked result the second line is WHY this row is here: the snippet answers the query, and a
+                search result that hides it asks the reader to take the ranking on trust. */}
+            {semantic && (file.snippet ?? '') !== '' && (
                 <span
                   className="block truncate text-xs leading-tight text-muted-foreground"
                   title={file.snippet}
@@ -430,13 +431,6 @@ const FileListRowItem = memo(function FileListRowItem({
                   )}
                   <MarkedSnippet text={file.snippet ?? ''} query={query} />
                 </span>
-              )
-            ) : (
-              file.summary && (
-                <span className="block truncate text-xs leading-tight text-muted-foreground">
-                  {file.summary}
-                </span>
-              )
             )}
           </span>
         </div>

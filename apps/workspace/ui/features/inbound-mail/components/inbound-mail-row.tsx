@@ -36,6 +36,7 @@ import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FactLine } from '@/components/ui/fact-line'
 import { Item } from '@/components/ui/item'
+import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -118,8 +119,10 @@ export function InboundMailRow({
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
       // Picked holds the state grey as the open row does, as a picked tile does; what sits on it turns white.
       // A run of picked rows is one region: where two meet, their corners are square (no notch at the seam).
-      className={cn('group/row relative items-start rounded-control px-3 hover:bg-hairline pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0 after:pointer-events-none after:absolute after:bottom-0 after:left-[84px] after:right-3 after:h-px after:bg-hairline last:after:hidden data-current:after:hidden', checked && 'bg-selected hover:bg-selected [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none')}
+      // The hairline under it is the one inset rule (`ROW_HAIRLINE`): from the subject's edge, past the box and the disc.
+      className={cn('group/row items-start rounded-control px-3 [--row-end:12px] hover:bg-hairline pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-selected [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none')}
       data-checked={checked || undefined}
+      data-filled={checked || open || undefined}
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}

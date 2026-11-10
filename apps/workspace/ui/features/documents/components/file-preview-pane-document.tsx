@@ -51,7 +51,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                 // A PDF brings its own stage (the viewer's), so the well under it
                 // is no ground of its own: the document looks the same here as in
                 // every other place a PDF opens.
-                !peeking && !pdfInWell && 'bg-muted',
+                !peeking && !pdfInWell && 'bg-desk',
                 wellHostsViewer || (reader && (isModel || pdfInWell))
                   ? cn(
                       'h-full min-h-0 flex-1 overflow-hidden',
@@ -191,7 +191,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       setPreviewFailed(true)
                     }}
                     className={cn(
-                      'bg-background h-fit max-h-full w-auto max-w-full rounded-surface border object-contain',
+                      'bg-sheet shadow-sm h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
                       // The reader's well is the screen: the image fits it whole,
                       // on a phone on its side too (852px wide is past `@2xl`).
                       !reader && '@2xl:max-h-none',

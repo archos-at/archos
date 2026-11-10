@@ -9,6 +9,7 @@ import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
+import { WRAPPED_ROWS_LAST } from '@/components/ui/row-hairline'
 import { useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
@@ -937,8 +938,8 @@ export function FileBrowserPane({
           className={CONTENT_MAX}
         >
             {folderNav && childFolders.length > 0 && (
-              // The folders head the table as rows of their own, on the page like its rows: no box, no hairlines.
-              <div className="@container/filelist flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0" role="group" aria-label={t('folders.heading')}>
+              // The folders head the table as rows of their own, on the page like its rows: no box, its inset hairlines.
+              <div className={`@container/filelist flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0 ${WRAPPED_ROWS_LAST}`} role="group" aria-label={t('folders.heading')}>
                 {childFolders.map((folder) => (
                   <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
                 ))}
@@ -966,9 +967,7 @@ export function FileBrowserPane({
           // 4px on top: a folder tile's own 10px inset and a tile's 6px already part it from the brief.
           className={`${CONTENT_MAX} px-4 pb-4 pt-1`}
         >
-            {/* Section label — "Recently uploaded" at the corpus root, matching
-                the click-dummy. Hidden inside a folder (the breadcrumb already
-                names it) and while searching (the query is the context). */}
+            {/* The files' label at the root only: inside a folder the crumb names it, while searching the query does. */}
 
             {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
                 slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`

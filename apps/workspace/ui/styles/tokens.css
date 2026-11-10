@@ -696,18 +696,22 @@
   --elevation-lg: var(--elevation-3); /* dialog */
 }
 
+/* Dark is derived, not mirrored: nearness is lightness. The paper is the darkest plane, the desk (the rail, a list
+   column, the hover) one step lighter, as macOS's sidebar sits lighter than its content, and a sheet lighter still,
+   with its edge; selected and pressed keep lightening. A darker desk (#0a0908) was 1.03:1 against the paper: the
+   E-Mail-Eingang's list column vanished and every hover read as a hole. `brand-literals.spec.ts` holds the ladder. */
 .dark {
-  --sheet: #1f1d1b;
+  --sheet: #262422;
   --paper: #0f0e0d;
-  --desk: #0a0908;
-  --selected: #2a2825;
-  --pressed: #34312e;
+  --desk: #1f1e1c;
+  --selected: #2f2d2a;
+  --pressed: #3a3734;
   --hairline: rgb(245 244 242 / 0.1);
   --edge: rgb(245 244 242 / 0.16);
 
   --card: var(--sheet);
-  --popover: #232120;
-  --secondary: #262421;
+  --popover: #2a2826; /* a menu sits above a sheet: the lightest plane */
+  --secondary: var(--desk);
   --accent: var(--selected);
   --background-color-surface-overlay: var(--sheet);
   --overlay: rgb(0 0 0 / 0.6);

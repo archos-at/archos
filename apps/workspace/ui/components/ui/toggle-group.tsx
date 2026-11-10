@@ -115,7 +115,7 @@ const ToggleGroup = React.forwardRef<
               //
               // A track, not a box: the one grey with no border, and the
               // chosen segment a white thumb on it (the pill below).
-              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-muted p-0.5'
+              'w-fit max-w-full gap-0 overflow-x-auto scrollbar-hide rounded-control bg-desk p-0.5'
             : 'flex-wrap gap-1.5',
           className
         )}

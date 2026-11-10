@@ -234,9 +234,34 @@ describe('five neutrals, three elevations', () => {
     expect(tokens).toMatch(/--radius-inline:\s*6px;/)
     expect(tokens).not.toMatch(/^\s*--radius:/m)
   })
+  it('the neutral ladder steps at least 1.07:1 in both themes, and the dark desk is lighter than its paper', () => {
+    // Paper on a desk: two planes that must read apart differ by one neutral step at least, measured (WCAG relative
+    // luminance); a sheet also carries its edge (the elevation's ring, above). The critique's 1.15:1 is met in dark
+    // only: its own light neutrals step 1.08 (paper to desk), and they read apart, so the floor is the step they take.
+    // The dark desk was #0a0908, 1.03:1 under its paper: the E-Mail-Eingang's list column vanished.
+    const block = (selector: string) => light.slice(light.indexOf(`${selector} {`), light.indexOf('}', light.indexOf(`${selector} {`)))
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const ratio = (a: string, b: string) => {
+      const [low, high] = [luminance(a), luminance(b)].sort((x, y) => x - y)
+      return (high + 0.05) / (low + 0.05)
+    }
+    for (const selector of [':root', '.dark']) {
+      const hex = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6});`).exec(block(selector))?.[1] ?? ''
+      for (const [a, b] of [['paper', 'desk'], ['desk', 'selected'], ['selected', 'pressed']]) {
+        expect(ratio(hex(a), hex(b)), `${selector} ${a} → ${b}`).toBeGreaterThanOrEqual(1.07)
+      }
+      if (selector === '.dark') expect(luminance(hex('desk'))).toBeGreaterThan(luminance(hex('paper')))
+    }
+  })
   it('a sheet is white on every surface that draws a document or a floating bar', () => {
     const tile = files.find((f) => f.name === 'ui/features/documents/components/file-tile.tsx')?.text ?? ''
     expect(tile).toMatch(/bg-sheet shadow-sm/)
+    // A folder is a sheet too, and so is a group of the preview's rail (an inspector group on the desk).
+    expect(files.find((f) => f.name === 'ui/features/documents/components/folder-card-frame.tsx')?.text).toMatch(/FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'/)
+    expect(files.find((f) => f.name === 'ui/components/ui/inspector-group.tsx')?.text).toMatch(/'bg-sheet shadow-sm overflow-hidden rounded-surface'/)
     for (const name of ['ui/features/documents/components/selection-bar.tsx']) {
       expect(files.find((f) => f.name === name)?.text, name).toMatch(/bg-sheet shadow-md rounded-overlay/)
     }
@@ -268,7 +293,7 @@ const DATEIEN_SURFACE = [
   'ui/components/shell/project-section-frame.tsx',
   'ui/components/shell/section-nav.tsx',
   ...[
-    'file-browser-pane', 'file-workspace', 'folder-navigation', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
+    'file-browser-pane', 'file-workspace', 'folder-navigation', 'folder-card-frame', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
     'folder-brief', 'files-header-controls', 'selection-bar', 'open-marks-chip', 'phone-root-tools',
     'file-preview-pane-details', 'page-readings', 'folder-read-state', 'file-name', 'file-preview-reader',
     'file-preview-pane-chrome', 'file-search-bar', 'folder-bin-panel', 'open-points/open-points-panel',
@@ -296,7 +321,40 @@ describe('lines for lists, space for sections', () => {
     ]) {
       expect(files.find((f) => f.name === name)?.text, name).toContain('ROW_HAIRLINE')
     }
-    expect(files.find((f) => f.name === 'ui/features/inbound-mail/components/inbound-mail-row.tsx')?.text).toContain('after:bg-hairline')
+    expect(files.find((f) => f.name === 'ui/features/inbound-mail/components/inbound-mail-row.tsx')?.text).toContain('ROW_HAIRLINE')
+  })
+  it('one inset rule: every row line in Dateien is ROW_HAIRLINE or its table form, never a hairline of its own', () => {
+    // The mail list drew its own line at 84px while its text stood at 80px, and its loose mails were lists of one
+    // with no line at all; the bin's line started 16px left of its names. Now the rule lives in one file and each
+    // list only says where its text starts (`--row-text`, or `--row-lead` in a table).
+    const lists = [...DATEIEN_SURFACE, 'ui/features/inbound-mail/components/attachment-row.tsx']
+    const ownLines = files
+      .filter((f) => lists.some((path) => f.name.startsWith(path)))
+      .filter((f) => /after:bg-hairline|linear-gradient\(var\(--hairline\)/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(ownLines).toEqual([])
+    for (const name of [
+      'ui/features/inbound-mail/components/inbound-mail-row.tsx',
+      'ui/features/inbound-mail/components/attachment-row.tsx',
+      'ui/features/documents/components/folder-navigation.tsx',
+      'ui/features/documents/components/file-list-view.tsx',
+    ]) {
+      expect(files.find((f) => f.name === name)?.text, name).toMatch(/ROW_HAIRLINE/)
+    }
+  })
+  it('Dateien names its planes: no „one grey“ fill (bg-muted, bg-secondary) where a desk, a sheet or a selection is meant', () => {
+    // „One look, one meaning“: the one grey stood for the track, the press, the thumbnail, the hover, the band and the
+    // rail. A Dateien surface says which plane it means (`bg-desk`, `bg-sheet`, `bg-selected`, `bg-pressed`).
+    const surfaces = [
+      ...DATEIEN_SURFACE,
+      ...['document-kind-thumbnail', 'file-preview-pane-document', 'file-text-page'].map((name) => `ui/features/documents/components/${name}.tsx`),
+      'ui/components/ui/inspector-group.tsx',
+    ]
+    const offenders = files
+      .filter((f) => surfaces.some((path) => f.name.startsWith(path)))
+      .filter((f) => /(?<![\w:-])bg-(muted|secondary)(?![\w-])/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
   })
 })
 
@@ -405,8 +463,10 @@ describe('a choice sits on its track', () => {
   // as plain text beside a filled word, so „Bearbeitet“ did not read as the other half of a choice.
   it('the kit draws the track and has no trackless form', () => {
     const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/toggle-group.tsx')?.text ?? '')
-    expect(kit).toMatch(/rounded-control bg-muted p-0\.5/)
+    // The track is the desk, named as the plane it is (paper on a desk), and the section's tabs share it.
+    expect(kit).toMatch(/rounded-control bg-desk p-0\.5/)
     expect(kit).not.toMatch(/\bbare\b/)
+    expect(files.find((f) => f.name === 'ui/components/shell/section-nav.tsx')?.text).toMatch(/rounded-control bg-desk p-0\.5/)
   })
   it('Dateien’s tabs sit on the same track, so grey alone means a press and never „chosen“', () => {
     const frame = withoutComments(files.find((f) => f.name === 'ui/components/shell/project-section-frame.tsx')?.text ?? '')

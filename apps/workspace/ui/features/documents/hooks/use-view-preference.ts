@@ -14,13 +14,25 @@ export type FileView = 'cards' | 'list'
 const VIEW_STORAGE_KEY = 'files.view'
 
 /**
- * Cards or list, remembered per browser — and shared by every shelf, so the
- * choice made in Dateien is the one the Archiv opens in. A stored value that is
- * neither (the removed third view) falls back to cards rather than surviving as
- * a dead one.
+ * Above this many documents on a level the list is the default (paper on a
+ * desk, principle 8: dense by default). Tiles are for browsing by sight; past
+ * fifty a reader scans names, and a 40px row shows four times as many as a tile.
  */
-export function useViewPreference(): readonly [FileView, (next: FileView) => void] {
-  const [view, setView] = useState<FileView>('cards')
+export const LIST_VIEW_ABOVE = 50
+
+/** The view a level opens in: the reader's own choice, or by how many documents it holds. */
+export function fileViewFor(chosen: FileView | null, count: number): FileView {
+  return chosen ?? (count > LIST_VIEW_ABOVE ? 'list' : 'cards')
+}
+
+/**
+ * Cards or list as the reader chose it, remembered per browser — and shared by
+ * every shelf, so the choice made in Dateien is the one the Archiv opens in.
+ * Null until they choose: the level decides then ({@link fileViewFor}). A
+ * stored value that is neither (the removed third view) counts as no choice.
+ */
+export function useViewPreference(): readonly [FileView | null, (next: FileView) => void] {
+  const [view, setView] = useState<FileView | null>(null)
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(VIEW_STORAGE_KEY)

@@ -34,6 +34,8 @@ import { useLocale } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { cn } from '@/lib/utils'
+import { ROW_HAIRLINE_LINE } from '@/components/ui/row-hairline'
+import { FOLDER_SHEET, FOLDER_WELL, FolderCardFrame } from './folder-card-frame'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { FileTileBody, TileShell } from './file-tile'
 import { FolderAccessMark, FolderReadOnlyBadge, useFolderOwnAccessLabel } from './folder-access-mark'
@@ -575,7 +577,7 @@ function FolderActionsMenu({
 export const FOLDER_ROWS_ON_PHONE = 'phone:[&>*:has([data-folder-tile])]:col-span-full'
 
 /** The folder glyph's slot: as tall as the name and its count, as wide as the glyph, so the glyph stands on the column's edge. */
-const FOLDER_WELL = 'flex h-9 shrink-0 items-center'
+
 
 /**
  * A folder as a grid tile — visually DISTINCT from {@link FileCard}.
@@ -631,15 +633,15 @@ export function FolderCard({
   return (
     <TileShell
       interactive
-      // A folder is a compact tile at every width, its glyph and name on the page,
-      // not a 230px card with an empty well: the first screen shows the files, and
-      // a folder reads apart from them by its shape (a line, not a sheet). It wore
-      // the one grey until 2026-11, three grey blocks above a grid of grey sheets;
-      // the hover's fill is its only surface. On a phone the grid spans it into a
-      // row (`FOLDER_ROWS_ON_PHONE`).
+      // A folder is a compact tile at every width: a white sheet one line tall
+      // (glyph, name, what it holds) lying on the page as the documents' sheets do,
+      // inside the tile's 6px hover inset, so its edge stands on the thumbnails'
+      // edge. Paper on a desk: every object on the page is a sheet; a folder reads
+      // apart from a document by its shape (a strip, not a page). On a phone the
+      // grid spans it into a row (`FOLDER_ROWS_ON_PHONE`).
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -648,7 +650,7 @@ export function FolderCard({
       {...drop.dropProps}
     >
       <div
-        className="absolute right-1.5 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+        className="absolute right-3 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -670,7 +672,7 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-1.5 pr-10">
+        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-10">
           {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
@@ -708,31 +710,6 @@ export function FolderCard({
         </FileTileBody>
       </FolderCardFrame>
     </TileShell>
-  )
-}
-
-/** The tile's open button, or a plain box with the same layout while the name is being edited. */
-function FolderCardFrame({
-  editing,
-  onOpen,
-  openLabel,
-  children,
-}: {
-  editing: boolean
-  onOpen: () => void
-  openLabel: string
-  children: ReactNode
-}): JSX.Element {
-  if (editing) return <div className="flex h-full w-full flex-row items-center text-left">{children}</div>
-  return (
-    <button data-attr="files-open"
-      type="button"
-      onClick={onOpen}
-      aria-label={openLabel}
-      className="flex h-full w-full flex-row items-center rounded-surface text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-    >
-      {children}
-    </button>
   )
 }
 
@@ -798,15 +775,17 @@ export function FolderRow({
   // THE ROW THAT WAS YELLOW: its amber read as a warning, and that gold is a signal (`--source-office`). Neutral ramp;
   // glyph and chevron say „folder“. No entrance of its own: the level's keyed transition owns it.
   // A row of the table below it in all but its columns: on the page, the cells' 8px inset, a 24px round glyph
-  // where a file has its format, the name at 13px, the hover the one grey. It sat in a grey box with hairlines
-  // until 2026-11, a second list above the first. A drop target is marked inside its box (`ring-inset`).
+  // where a file has its format, the name at 13px, the hover the desk grey, and the table's inset hairline
+  // (`ROW_HAIRLINE`, from the name). A drop target is marked inside its box (`ring-inset`).
   return (
     <Item
       className={cn(
-        'group w-full gap-2 px-2 py-1.5 text-[13px] hover:bg-muted pointer-coarse:py-3',
+        'group w-full gap-2 px-2 py-1 text-[13px] [--row-end:8px] [--row-text:50px] hover:bg-desk pointer-coarse:py-3',
+        ROW_HAIRLINE_LINE,
         dropRing(drop, true),
       )}
       data-testid={`folder-row-${folder.id}`}
+      data-row
       data-drop-over={drop.isOver ? '' : undefined}
       {...(onDropFolder && !readOnly ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
       {...drop.dropProps}
@@ -881,8 +860,8 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <TileShell interactive={false} data-folder-tile="" className="p-0" data-testid="folder-card-skeleton">
-      <FileTileBody className="flex flex-1 items-center gap-3 py-2.5 pl-1.5 pr-2.5">
+    <TileShell interactive={false} data-folder-tile="" data-testid="folder-card-skeleton">
+      <FileTileBody className={cn(FOLDER_SHEET, 'flex flex-1 items-center gap-3 py-2 pl-3 pr-2.5')}>
         <span className={FOLDER_WELL}>
           <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
         </span>

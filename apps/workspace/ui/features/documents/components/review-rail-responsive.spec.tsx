@@ -117,12 +117,13 @@ describe('the review rail is a column on a wide container and a stacked block on
     // Stacked (the default, which is what a phone gets): full width, and part
     // of the body's single scroll.
     expect(cls).toContain('w-full')
-    // Split (@2xl and up only): a fixed column with its own scroll. White beside
-    // the stage's grey, so no line draws its edge at either width.
+    // Split (@2xl and up only): a fixed column with its own scroll. The stage's
+    // desk continued (paper on a desk: its groups are the sheets on it), so no
+    // line draws its edge at either width.
     expect(cls).toContain('@2xl:w-[280px]')
     expect(cls).toContain('@2xl:shrink-0')
     expect(cls).toContain('@2xl:overflow-y-auto')
-    expect(cls).toContain('bg-background')
+    expect(cls).toContain('bg-desk')
     expect(cls).not.toMatch(/\bborder-[tl]\b/)
     // The stacking is a container query, so the flip follows the PANE's width
     // rather than the viewport's — the pane is also 320px wide as a chat peek.

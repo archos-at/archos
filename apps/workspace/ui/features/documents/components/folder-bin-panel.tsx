@@ -142,12 +142,12 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
       {listing.entries.length === 0 ? (
         <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
-        // Rows on the page, no box and no hairlines; they bleed by their inset so the glyphs stand on the edge.
+        // Rows on the page, no box, a hairline between two; they bleed by their inset so the glyphs stand on the edge.
         <ul className="-mx-4 flex flex-col">
           {listing.entries.map((entry) => (
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
-            <Item key={entry.folderId} as="li" className={`group/row flex-wrap rounded-surface hover:bg-desk sm:flex-nowrap ${ROW_HAIRLINE}`} data-testid={`bin-entry-${entry.folderId}`}>
+            <Item key={entry.folderId} as="li" className={`group/row flex-wrap rounded-surface hover:bg-desk sm:flex-nowrap [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
               {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
               <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
                 {entry.document ? (

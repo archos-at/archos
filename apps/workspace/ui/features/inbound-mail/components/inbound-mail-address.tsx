@@ -60,7 +60,7 @@ import { refusalOf } from '../lib/refusal'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
 import { contactCard, contactCardFileName } from '../lib/vcard'
 import { useInboundMailAddress, type AddressState } from '../hooks/use-inbound-mail-address'
-import { FactLine, QuietPanel } from './inbound-mail-atoms'
+import { FactLine } from './inbound-mail-atoms'
 import { OwnDomainDkimLine } from './own-domain-dkim-line'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { settingsCopy } from '@/i18n/namespaces/settings'
@@ -215,8 +215,8 @@ export function InboundMailAddressBlock({
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
-      {/* In a dialog's sheet the panel keeps its card: the sheet's own inset is its edge. */}
-      <QuietPanel className={cn(surface === 'dialog' && 'phone:mx-0 phone:rounded-surface')}>
+      {/* Never used, the address is the page's one object: a white sheet on the paper. In a dialog the dialog is the sheet. */}
+      <div className={cn('flex flex-col gap-2', surface === 'never_used' && 'bg-sheet rounded-surface p-4 shadow-sm')} data-testid="inbound-mail-address-panel">
         {/* The eyebrow names the value; in the dialog its title already does. */}
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&
@@ -243,7 +243,7 @@ export function InboundMailAddressBlock({
             <>{CLAUSE_JOIN}{t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
           )}
         </p>
-      </QuietPanel>
+      </div>
       {surface !== 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
       {guideUrl && (
         <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">

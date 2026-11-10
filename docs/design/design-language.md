@@ -6,41 +6,72 @@ The single reference every page redesign builds against. Goal: an **understated,
 
 The visual language is **warm paper monochrome + provenance signal colors** (adopted from the click-dummy overhaul, see `docs/design/click-dummy-overhaul-spec.md` §1/§4): warm paper surfaces, a near-black ink ramp, hairline alpha-ink borders, layered soft shadows, **near-black action buttons** — and the *only* chroma in the app is the source/provenance signal system.
 
-**Where it is headed.** The corporate design system 3.0 (`packages/brand/`, its README's „Design rules“) is the source this document follows, at the app's lighter level (§„Weight, face and white“). Where the two disagree, the design system wins and this document is changed in the same change: so far tracking (never tighter than 0) and the one grey (no alpha steps, nothing grey on grey). Hairlines, soft shadows and boxes are the previous language's habits; a reworked surface separates by white space and the one grey first, as Dateien and the E-Mail-Eingang now do.
+**Where it is headed.** The corporate design system 3.0 (`packages/brand/`, its README's „Design rules“) is the source this document follows, at the app's lighter level (§„Weight, face and white“). Where the two disagree, the design system wins and this document is changed in the same change: so far tracking (never tighter than 0) and the one grey (no alpha steps, nothing grey on grey). Inside the app that last rule is **superseded by [Paper on a desk](#paper-on-a-desk-2026-11-10)**: three planes, sheets with an edge and a shadow, and hairlines between list rows.
 
 ## Paper on a desk (2026-11-10)
 
-**This section supersedes every conflicting surface rule below, including owner decision D4 (the tonal secondary press) and „one grey, nothing grey on grey“.** The owner approved it; the brand README (`packages/brand/README.md`) stays the website's rulebook, and the app keeps this layer on top of it. Rules below that it overrides carry a **Superseded** mark. Tokens: the final block of `apps/workspace/ui/styles/tokens.css`; ratchets: `apps/workspace/tests/brand-literals.spec.ts`.
+**This section supersedes every conflicting surface rule below, including owner decision D4 (the tonal secondary press) and „one grey, nothing grey on grey“.** The owner approved it; the brand README (`packages/brand/README.md`) stays the website's rulebook, and the app keeps this layer on top of it. Rules below that it overrides carry a **Superseded** mark. Tokens: the final block of `apps/workspace/ui/styles/tokens.css`; ratchets: `apps/workspace/tests/brand-literals.spec.ts` and `bff/utils.spec.ts`. Built in Dateien (Alle Dateien, E-Mail-Eingang, Offene Punkte, Papierkorb), the file preview and the folder brief; every other screen moves when it is reworked, by the recipes below.
 
-**Thesis.** The app is a desk, the office's documents are sheets lying on it, and ink is the only thing that speaks. Chrome recedes, sheets rise, one black action per view.
+**Thesis.** The app is a desk, the office's documents are sheets lying on it, and ink is the only thing that speaks. Chrome recedes, sheets rise, one black action per area.
 
-**Why.** The brand's rules are a website system: „hierarchy comes from size“ works at 44 to 96px display type, an app has 11 to 20px; „no lines, no shadows, one grey“ works for five sections a page, an app has two hundred objects a screen. Surfaces sat at 1.00 to 1.14:1 against each other, type at one weight, and the raised shadow (1px at 4%) rendered as nothing.
+**Why.** The brand's rules are a website system: „hierarchy comes from size“ works at 44 to 96px display type, an app has 11 to 24px; „no lines, no shadows, one grey“ works for five sections a page, an app has two hundred objects a screen. Surfaces sat at 1.00 to 1.14:1 against each other, type at one weight, and the raised shadow (1px at 4%) rendered as nothing.
+
+### The three planes
+
+Every pixel of a screen belongs to one plane. Name the plane in the class (`bg-paper`/`bg-background`, `bg-desk`, `bg-sheet`), never „the grey“ (`bg-muted`, `bg-secondary` are banned on reworked surfaces).
+
+| Plane | Token | Light | Dark | What it is | Lies on it |
+|---|---|---|---|---|---|
+| Paper | `--paper` (`bg-background`) | `#fafaf9` | `#0f0e0d` | The working page: a tab's listing, the header band | Rows with hairlines, tiles, sheets |
+| Desk | `--desk` | `#f2f1f0` | `#1f1e1c` | What sits beside or behind the page: the rail, a list column of a split view, the stage behind a document, a choice's track, the hover | Sheets, the selected row, the track's white thumb |
+| Sheet | `--sheet` + `shadow-sm` (elevation 1, its 1px edge included) | `#ffffff` | `#262422` | An object: a document's page or thumbnail, a folder, a card, the open mail, an inspector group, the never-used address | Text, rows with hairlines, asides (a left rule), never a second sheet with a shadow |
+
+Two state fills sit on the ladder after the desk: **selected** `#e9e7e4` / `#2f2d2a` (a picked row or tile, a nav pill off its track) and **pressed** `#dedbd7` / `#3a3734`. **A fill is one step down the ladder from the plane it lies on**: a track, a hover or a well is the desk on paper or on a sheet, and the selected grey on the desk (the E-Mail-Eingang's Wartet/Bearbeitet track vanished on its desk column until it took `@3xl:bg-selected`). **Dark is derived, not mirrored: nearness is lightness.** Paper is the darkest plane, the desk one step lighter (as macOS's sidebar sits lighter than its content), a sheet lighter again, and hover, selected and pressed keep lightening; a darker desk was 1.03:1 under its paper and the list column vanished. Overlays stack on top: a menu or floating bar is a sheet at elevation 2 (radius 16), a dialog a sheet at elevation 3 over a 40% ink scrim.
+
+### Its principles
 
 | # | Principle | Do | Do not |
 |---|---|---|---|
-| 1 | Three planes | Desk (grey: rail, list columns, the canvas behind a document), paper (the working page), sheet (white, edged, raised: documents, cards, menus) | Put a grey box on paper and call it a surface |
-| 2 | A sheet has an edge and a shadow | Every document, thumbnail, popover, floating bar | A shadow on buttons in a row of ten; a shadow without the 1px edge |
+| 1 | Three planes | Paper for the page, desk beside and behind it, sheets for objects (the table above) | A grey box on paper or on a sheet and call it a surface |
+| 2 | A sheet has an edge and a shadow | Every document, thumbnail, folder, card, popover, floating bar: `bg-sheet shadow-sm` (elevation 1 carries the edge) | A shadow on buttons in a row of ten; a shadow without the edge; a sheet with a shadow inside a sheet |
 | 3 | Rank by two channels | Each heading level differs from the next by 1.2x size or a weight step, plus spacing | Same size and weight for a heading and its rows |
-| 4 | One look, one meaning | Raised white = press; grey track with white thumb = choice; grey fill = selected; ink fill = the one primary | Reuse the press look for a thumbnail, a band or a hover |
-| 5 | Lines for lists, space for sections | An inset hairline between rows (`ROW_HAIRLINE`); 32px between sections | Boxes inside boxes; rules between page sections |
-| 6 | Actions appear where the hand is | One visible action per row, the rest behind ⋯ on hover, focus and selection (always shown on a coarse pointer, `ROW_REVEAL`) | A column of identical buttons |
-| 7 | Colour is a verdict | Ochre needs you, red failed or destroys, green done, always with glyph and word | A hue for decoration or for ranking buttons |
-| 8 | Dense by default, calm by alignment | 36 to 40px rows, one left edge, tabular numerals | Explanatory subtitles in permanent chrome |
+| 4 | One look, one meaning | Raised white = press; desk track with white thumb = choice; selected grey (+600 where it names) = selected; ink fill = the one primary of an area; desk grey = hover | Reuse the press look for a thumbnail, a band or a hover; a grey field that looks like a track |
+| 5 | Lines for lists, space for sections | One inset hairline between rows (the rule below); 32px between sections | Boxes inside boxes; rules between page sections; a hairline of a list's own |
+| 6 | Actions appear where the hand is | One visible action per row, the rest behind ⋯ on hover, focus and selection (always on a coarse pointer, `ROW_REVEAL`) | A column of identical buttons |
+| 7 | Colour is a verdict | Ochre needs you, red failed or destroys, green done, always with glyph and word | A hue for decoration, a format or a rank (the photo placeholder's gold PNG chip went) |
+| 8 | Dense by default, calm by alignment | 40px rows, tiles of sheet + name + one meta line, the list above 50 documents, one left edge, tabular numerals | Explanatory subtitles in permanent chrome; a description on every tile |
 
-**Hard numbers.**
+### Hard numbers
 
-- Type (General Sans, size/line/weight): 11/16/500 codes only; 12/16/440 meta (`text-meta`); 13/20/500 names and controls (`text-name`); 14/20/440 body; 16/24/600 section (`text-section`); 20/28/600 pane title (`text-pane-title`); 24/32/600 page title (`text-page-title`, the `PageHeader`). Weights 440, 500 and 600 only; 600 is for headings and for state (an unread subject, a row that needs you), 700 stays the wordmark's.
-- Spacing: 4, 8, 12, 16, 24, 32, 48. Row 40 (compact 32). Control 32 (touch 44).
-- Radius: 6 control (and the old 4px inline step), 10 sheet and card, 16 overlay and floating bar (and the old 18px bubble), full for pills. There is no `--radius`.
-- Neutrals: sheet `#ffffff` (`--sheet`), paper `#fafaf9` (`--paper`), desk `#f2f1f0` (`--desk`), selected `#e9e7e4` (`--selected`), pressed `#dedbd7` (`--pressed`). Dark mode derives warm-charcoal equivalents.
-- Lines: hairline `rgb(15 14 13 / 0.08)` (`--hairline`), edge `rgb(15 14 13 / 0.12)` (`--edge`), field border `#8a8784`.
-- Elevation 1 (sheet, `--elevation-1`, `shadow-sm`): `0 0 0 1px rgb(15 14 13 / .08), 0 1px 2px rgb(15 14 13 / .06), 0 2px 6px rgb(15 14 13 / .04)`. A raised press (`--elevation-xs`, `shadow-xs`): the edge at 12% and the 1px shadow. Elevation 2 (menu, floating bar, `--elevation-2`, `shadow-md`): `0 0 0 1px rgb(15 14 13 / .08), 0 4px 12px rgb(15 14 13 / .10), 0 12px 32px rgb(15 14 13 / .08)`. Elevation 3 (dialog, `--elevation-3`, `shadow-lg`): `0 0 0 1px rgb(15 14 13 / .10), 0 24px 64px rgb(15 14 13 / .22)` over a 40% ink scrim.
-- Colour roles: action = ink; selection = selected grey plus weight 600; hover = desk grey; status = ochre, red, green; provenance hues unchanged.
-- Contrast: text 4.5:1; control boundary 3:1; two adjacent surfaces that must read apart 1.15:1 or separated by an edge line.
+- **Type** (General Sans, size/line/weight): 11/16/500 codes only (a format: PDF, DWG); 12/16/440 meta (`text-meta`); 13/20/500 names and controls (`text-name`); 14/20/440 body; 16/24/600 section (`text-section`); 20/28/600 pane title (`text-pane-title`: the open mail's subject); 24/32/600 page title (`text-page-title`, the `PageHeader`). Weights 440, 500 and 600 only; 600 is for headings and for state (an unread subject, a row that needs you, a small heading over 14px rows), 700 stays the wordmark's. `cn()` knows these sizes (`TYPE_SCALE` in `bff/utils.ts`): before, tailwind-merge read `text-name` as a colour and dropped it beside `text-foreground`.
+- **Spacing**: 4, 8, 12, 16, 24, 32, 48. Row 40 (compact 32, not built). Control 32 (touch 44).
+- **Radius**: 6 control (and the old 4px inline step), 10 sheet and card, 16 overlay and floating bar (and the old 18px bubble), full for pills. There is no `--radius`.
+- **Neutrals**: the table above. **Lines**: hairline `rgb(15 14 13 / 0.08)` (`--hairline`; dark `rgb(245 244 242 / 0.1)`), edge `rgb(15 14 13 / 0.12)` (`--edge`), field border `#8a8784`.
+- **Elevation 1** (sheet, `--elevation-1`, `shadow-sm`): `0 0 0 1px rgb(15 14 13 / .08), 0 1px 2px rgb(15 14 13 / .06), 0 2px 6px rgb(15 14 13 / .04)`. A raised press (`--elevation-xs`, `shadow-xs`): the edge at 12% and the 1px shadow. **Elevation 2** (menu, floating bar, `shadow-md`): `0 0 0 1px rgb(15 14 13 / .08), 0 4px 12px rgb(15 14 13 / .10), 0 12px 32px rgb(15 14 13 / .08)`. **Elevation 3** (dialog, `shadow-lg`): `0 0 0 1px rgb(15 14 13 / .10), 0 24px 64px rgb(15 14 13 / .22)` over a 40% ink scrim.
+- **Colour roles**: action = ink; selection = selected grey; hover = desk grey; status = ochre, red, green; provenance hues unchanged.
+- **Contrast**: text 4.5:1; control boundary 3:1; **two neighbouring planes on the ladder (paper → desk → selected → pressed) step at least 1.07:1 in both themes**, and a sheet always carries its edge. Changed from the critique's 1.15:1: its own light neutrals step 1.08 (paper to desk) and 1.09 (desk to selected) and read apart in every capture, so 1.15 was a rule its numbers broke; dark meets 1.15. Held by „the neutral ladder“ in `brand-literals.spec.ts`.
 
-**What changed in the app.** The secondary press is raised white (`bg-sheet shadow-xs hover:bg-desk`). A Dateien tile's thumbnail is a white sheet with elevation 1. The selection bars (Dateien, E-Mail-Eingang) float as white bars at elevation 2 and radius 16. The mail split view is a list on the desk and a reader on a sheet. Papierkorb rows keep one visible ghost action and put the destructive one behind ⋯; Offene Punkte's file heading (16/600) is the link to the review, and both lists carry inset hairlines. The unread mail subject is 600, a read one 440.
+### Recipes for the next screen
 
-**Not yet done.** Opening the first mail by default; the project name as a crumb over the tab name as the title and dropping the standing subtitle; dropping tile descriptions and defaulting to the list view above 50 files; compact density mode; a test that fails a fill on a fill below 1.15:1. Surfaces other than the ones named still carry the previous rules.
+- **Page header** (`PageHeader` with `crumb`, as `ProjectSectionFrame` builds Dateien): a 12/16 muted crumb of where the place is („Projekt › Dateien“), the place itself as the 24/32/600 title („E-Mail-Eingang“, not „Dateien“ over the inbox), the places as tabs on a desk track under it, the page's tools on the title's line and the level's tools on the tabs' line. **No standing subtitle**: a place's list says what it holds. On a phone the crumb becomes the one visible line (16/24/600, the project), the h1 stays for the accessibility tree, and the tabs name the place.
+- **List row**: 40px (`py-1` around a 32px line), the hover the desk, a leading column (checkbox, avatar, format, glyph, marker) hanging left of the text. **One inset rule** (`ROW_HAIRLINE` in `ui/components/ui/row-hairline.ts`): the line runs from the row's first text to the list's text end. The list sets two numbers, `--row-text` (row edge to first text) and `--row-end` (its right padding), and nothing else; the last row has none, and a row with a fill of its own (`data-filled`: the open row's sheet, a picked or selected row) has none on either side. A table row takes `TABLE_ROW_HAIRLINE` (`--row-lead`, `data-row-text`, `data-row-skip`; a pseudo-element on a `<tr>` became a table column); rows each wrapped by a context menu take `ROW_HAIRLINE_LINE` and their list `WRAPPED_ROWS_LAST`. A list row's summary sits on the name's line in muted 12px, in what is left of it, never a second line.
+- **Tile**: a sheet (the document's first page or kind sketch, 124px, white even when there is no picture: the glyph says what failed), what is open and in progress on the sheet's foot, then the name (13/20/500, two lines at most, cut in the middle) and one meta line right under it, format · size · age. No description; the chat's card without a meta line keeps the summary as its second line. A folder is a sheet one line tall (glyph, name, what it holds) inside the same 6px hover inset. A level of more than 50 documents opens as the list (`fileViewFor`), unless the reader chose.
+- **Split view** (the E-Mail-Eingang): two whole objects on the title's edges, 16px apart and 24px off the foot so both show their corners: the list on the desk (its rows 8px inside), the reader a sheet. **The reader is never empty at desk width**: arriving with nothing open replaces the URL with the first mail (`useOpenFirstMail`, from a 48rem split; never on a phone, where opening hides the list). The open row is a sheet on the desk, picked rows the selected grey, and a selection's bar floats as a sheet at elevation 2.
+- **Inside a sheet** (the reader, a dialog): no grey boxes and no second shadow. A list keeps its hairlines and bleeds by its row inset; an aside (the header's details, a calendar invitation, what can still be restored) is set off by a 2px edge rule and 12px of indent, as a quote (`QuietPanel`); a disclosure is muted 12px with its chevron turning („Ganze E-Mail anzeigen ⌄“). The pinned action foot takes the sheet's own white.
+- **Inspector** (the preview's rail): the rail is the stage's desk continued, no line between; each group is a sheet (`InspectorGroup`) with hairlines between its rows; the one primary and the raised secondary stand on the desk.
+- **An empty state's object** (the never-used address) is a sheet on the paper; in a dialog the dialog is the sheet. The empty state's glyph sits on a small sheet too (`EmptyStateDisc`), never a grey tile.
+
+### What this round changed in the concept, and why
+
+1. **Dark desk lighter than paper** (was darker): measured 1.03:1, the list column disappeared and every hover read as a hole.
+2. **The surface contrast floor is 1.07:1 per ladder step, plus the sheet's edge** (was 1.15:1): the critique's own light neutrals step 1.08.
+3. **One inset rule is a mechanism, not a number**: the first pass hard-coded a left inset per list and three of four were off (the mail list's line 4px right of its subject, the Papierkorb's 16px left of its names, loose mails drawn as lists of one without a line).
+4. **The tile's meta line follows the name** instead of sharing a row's baseline: with descriptions gone, the shared baseline opened a 24px hole under every one-line name beside a two-line one.
+5. **The rail is desk, its groups sheets** (the rail was paper with grey groups): two greys beside a grey stage were three planes where there are two.
+6. **Asides in a sheet are a rule, not a box**: a grey panel on the white reader was a box in a box.
+7. **Planes are named in classes** (`bg-desk`, `bg-sheet`, `bg-selected`): `bg-muted` kept standing for six things.
+
+**Not yet done.** Compact density (32px rows); the rest of the app (chat, settings, the review canvas) still carries the previous rules; the search field is a desk well rather than a white field with the 3:1 field border.
 
 ## Principles
 
