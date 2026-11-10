@@ -55,7 +55,7 @@ column per Land cannot say.
 
 Chosen option 3.
 
-**Relations are records** (migration 0208): one `from` and one `to` (a work or
+**Relations are records** (migration 0209): one `from` and one `to` (a work or
 an edition), a type, a mode for `makes_binding` (`declared`, `static_reference`,
 `dynamic_reference`), paired AKN anchors, the provision, and a half-open
 interval. Append-only like every body; a platform relation names platform
