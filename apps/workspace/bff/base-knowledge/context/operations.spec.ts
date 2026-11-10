@@ -63,6 +63,7 @@ describe('project-base-confirm', () => {
   it('stores the base as the server resolves it, with the person’s decision source', async () => {
     await confirmProjectBase(SESSION, 'project_1', { packs: [{ packId: 'AT', seq: 41 }] })
     expect(requireProjectAccess).toHaveBeenCalledWith(SESSION, 'project_1', 'project:edit')
+    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org_1', 'project_1', undefined, null, 'operation')
     expect(inserted).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: 'project_1', decisionSource: 'app', packSeqs: { AT: 41 }, snapshot: expect.objectContaining({ chains: CONTEXT.chains }) }),
     )

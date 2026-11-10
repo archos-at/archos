@@ -38,7 +38,7 @@ collector, so nothing is exported there and every meter is a no-op.
 |---|---|---|
 | `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`). Research and the BFF's jobs run on Hatchet (ADR-0150) and report their queues in Hatchet's own dashboard. Read from the table by every replica, so chart it with `max` |
 | `grid.queue.oldest_age_seconds` | `queue` | The same queues; `max` as well. Absent while nothing is queued |
-| `knowledge_context.unavailable` | none | The BFF, once per turn whose knowledge context could not be read (ADR-0173): the turn then withholds retrieval, law lookup and classification. Behind `knowledge-context`. Any count is the `knowledge_context_available` alert's condition, a row for the Anwendung area once the flag is on in production |
+| `knowledge_context.unavailable` | none | The BFF, once per chat turn whose knowledge context could not be read (ADR-0173; an operation's failed read, `project-base-get` or `-confirm`, is not counted: its caller sees the error): the turn then withholds retrieval, law lookup and classification. Behind `knowledge-context`. Any count is the `knowledge_context_available` alert's condition, a row for the Anwendung area once the flag is on in production |
 | `grid.queue.claim_latency_ms` | `queue` | One claim round trip |
 | `grid.queue.job_duration_seconds` | `queue`, `kind` | One claimed job, to its end or its give-back |
 | `grid.queue.dead_total` | `queue` | Jobs moved to dead |

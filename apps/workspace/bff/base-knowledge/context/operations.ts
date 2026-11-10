@@ -95,7 +95,7 @@ export async function reportBaseKnowledge(session: AuthorizedSession, body: Base
 }
 
 async function contextOf(session: AuthorizedSession, projectId: string) {
-  const context = await knowledgeContextForTurn(session.organizationId, projectId)
+  const context = await knowledgeContextForTurn(session.organizationId, projectId, undefined, null, 'operation')
   // The route checks the flag first; a context withheld here is the flag going off between the two reads.
   if (!context) throw new NotFoundError('The knowledge context is not available for this office.')
   return context
