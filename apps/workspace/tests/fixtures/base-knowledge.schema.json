@@ -224,7 +224,8 @@
         "ris_xml",
         "akn",
         "html_statute",
-        "geojson"
+        "geojson",
+        "pdf_document"
       ]
     },
     "knowledge_source_revisions.data_flow": {

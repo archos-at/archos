@@ -8,7 +8,8 @@
  * `packages/public-sources`. The api tier's `POST /v1/public-sources/capture`
  * makes the request with the same transport every source reader uses and
  * answers the bytes' sha256, their size, and the page's text for the quote
- * check. A host the source does not list is refused there, never here.
+ * check: a PDF's text is ingestion's text pass over its pages, the text the
+ * corpus indexes. A host the source does not list is refused there, never here.
  */
 
 import 'server-only'
@@ -22,8 +23,12 @@ export interface FetchedPage {
   contentType: string | null
   sha256: string
   bytes: number
-  /** The page's text; null when the bytes hold none the reader can extract (a PDF, an image). */
+  /** The page's text; null when the bytes hold none the reader can extract (an image, a scanned PDF). A PDF's pages are joined by a form feed. */
   text: string | null
+  /** A PDF's pages; null for a page that has none. */
+  pages: number | null
+  /** What a reader of `text` must know, e.g. which pages of a PDF have no text layer; null when nothing. */
+  note: string | null
   retrievedAt: string
 }
 
@@ -31,7 +36,9 @@ export interface FetchedPage {
 export class CaptureFetchError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404 | 502 | 503,
+    readonly status: 403 | 404 | 422 | 502 | 503,
+    /** The api tier's problem code, when it named one: `pdf_encrypted`, `pdf_malformed`, `pdf_too_many_pages`, `pdf_parse_timeout`. */
+    readonly code: string | null = null,
   ) {
     super(message)
     this.name = 'CaptureFetchError'
@@ -54,6 +61,8 @@ function pageOf(body: unknown): FetchedPage {
     sha256: body.sha256,
     bytes: typeof body.bytes === 'number' ? body.bytes : 0,
     text: typeof body.text === 'string' ? body.text : null,
+    pages: typeof body.pages === 'number' ? body.pages : null,
+    note: typeof body.note === 'string' && body.note ? body.note : null,
     retrievedAt: typeof body.retrievedAt === 'string' ? body.retrievedAt : new Date().toISOString(),
   }
 }
@@ -113,6 +122,9 @@ export async function fetchSourcePage(sourceId: string, url: string, configured?
   }
   if (answer.status >= 200 && answer.status < 300) return pageOf(answer.body)
   const detail = refusalDetail(answer)
+  // A body the reader refused by name (a PDF behind a password, a broken one): the code says which.
+  const code = isRecord(answer.body) && typeof answer.body.code === 'string' ? answer.body.code : null
+  if (answer.status === 422 && code) throw new CaptureFetchError(`The page cannot be read: ${detail}`, 422, code)
   if (answer.status === 403 || answer.status === 400 || answer.status === 422) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
   if (answer.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
   throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or upload the page as operator_supplied.`, 502)

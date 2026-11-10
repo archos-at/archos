@@ -26,7 +26,8 @@ public addresses.
 | `configs/sources/<territory>/<name>/fixtures/` | The recorded responses its fixtures replay |
 | `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused |
 | `src/access/` | `rest`, `http_eli`, `web_document`, `ogc` (OGC API - Features, WFS 2.0), and the template language (`base.py`) |
-| `src/engines/` | `ris_xml`, `akn`, `html_statute`, `geojson` (a FeatureCollection, a passage per feature) |
+| `src/engines/` | `ris_xml`, `akn`, `html_statute`, `geojson` (a FeatureCollection, a passage per feature), `pdf_document` (a passage per page, `page_<n>`) |
+| `src/pdf.py` | A PDF's text for a capture and for `pdf_document`: ingestion's own text pass (`knowledge_layer.ingest.pdf_page_texts`), run in a child process with a deadline, a memory ceiling, a page cap and a problem code per refusal. One PDF pipeline, not a second reader |
 | `src/monitor.py` | One monitor check: the record's `monitor.probe` against what was seen last (`sha256`, `etag`, `version`) and the terms page's hash; no model call |
 | `src/capture.py` | One page for a citation capture (ADR-0170) |
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |

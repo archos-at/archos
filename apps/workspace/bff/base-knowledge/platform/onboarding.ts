@@ -15,7 +15,7 @@
 
 import 'server-only'
 import { z } from 'zod'
-import { ConflictError, NotFoundError, ServiceUnavailableError, UnprocessableError } from '@/lib/api/errors'
+import { ApiError, ConflictError, NotFoundError, ServiceUnavailableError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
@@ -128,6 +128,18 @@ export async function validatePlatformChangeRequest(session: UserSession | null,
   })
 }
 
+/**
+ * A page the reader refused by name: the api tier's code (`pdf_encrypted`) as
+ * the door problem's code (`PDF_ENCRYPTED`), so an agent branches on it.
+ */
+function unreadablePage(code: string, message: string): ApiError {
+  const hint =
+    code === 'pdf_parse_timeout'
+      ? 'Try again later; if it keeps timing out, upload the text as operator_supplied and say why in note.'
+      : 'Find a copy without a password or the publisher’s HTML version, or upload the text as operator_supplied and say why in note.'
+  return new ApiError(422, code.toUpperCase(), message, { hint })
+}
+
 /** Fetch the page now, or take the operator's text: the bytes' digest and the text the quote check reads. */
 async function captured(body: CaptureBody, configured: ConfiguredSource | undefined) {
   if (body.basis === 'operator_supplied') {
@@ -145,9 +157,10 @@ async function captured(body: CaptureBody, configured: ConfiguredSource | undefi
   }
   try {
     const page = await fetchSourcePage(body.sourceId, body.url, configured)
-    return { ...page, sourceId: body.sourceId, note: null, retrievedAt: new Date(page.retrievedAt) }
+    return { ...page, sourceId: body.sourceId, retrievedAt: new Date(page.retrievedAt) }
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
+    if (error.status === 422 && error.code) throw unreadablePage(error.code, error.message)
     if (error.status === 404) throw new NotFoundError(error.message)
     if (error.status === 403) throw new UnprocessableError(error.message, { hint: 'Use a URL on a host of the source, or upload the page as operator_supplied.' })
     // Nothing was stored; the agent retries, or uploads the page as operator_supplied.

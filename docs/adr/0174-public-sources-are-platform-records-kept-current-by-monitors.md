@@ -177,6 +177,35 @@ triggers, the one-open-request index and the down. The parts:
 `bff/base-knowledge/rulesets/advice.spec.ts`, the element ledger
 (`knowledge-consumers.spec.ts`) and `test_langfuse_scores.py`.
 
+## Amendment, 2026-11-10: a source's documents may be PDFs
+
+Much of a country's law and guidance is published only as PDF (the OIB
+guidelines, Land gazettes, municipal ordinances, authority guides). A capture
+of one kept no text, so KC-6 failed every record citing it, and no format read
+it.
+
+- **One PDF pipeline.** A PDF's text is ingestion's text pass, moved out of
+  `knowledge_layer/ingest/adapter.py` into `ingest/pdf_text.py` and offered on
+  the package surface as `pdf_page_texts(bytes)`. A capture and a `pdf_document`
+  source read the text the corpus indexes, so a quote KC-6 accepts is a quote
+  the index holds. A second extractor was written first and removed: two
+  readers give two texts for one document.
+- **The guard is public-sources'.** `public_sources/pdf.py` runs that pass in a
+  child process with a deadline and a memory ceiling, caps pages, and refuses
+  by code: `pdf_encrypted`, `pdf_malformed`, `pdf_too_many_pages`,
+  `pdf_parse_timeout` (the door's `PDF_*`). Bytes stay capped by the egress
+  ceiling and hosts by the source, as for every fetch.
+- **Pages are joined by a form feed**, as `pdftotext` joins them: the quote
+  check reads it as whitespace, and the capture view counts `pages` from it.
+  No column was added.
+- **A scan keeps no text** and says so in the capture's `note`. Ingestion
+  transcribes such pages with the vision model; a capture does not yet. The
+  follow-up is that same transcription behind the same guard, not OCR of our own.
+- **`pdf_document`** is a format (migration 0214 widens the CHECK): a passage
+  per page, anchor `page_<n>`, monitored by sha256 like every format. A fixture
+  response may carry a binary body as base64 (`encoding: base64`), within the
+  same length. Licensed documents still cannot be a source.
+
 ## More Information
 
 - Design §3.7, §4.1 to §4.5, §9b(b) on `claude/intl-design`.

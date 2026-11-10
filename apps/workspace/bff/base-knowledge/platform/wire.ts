@@ -325,6 +325,10 @@ export interface CaptureView {
   bytes: number
   /** Characters of text kept for the quote check; 0 when the capture holds none. */
   textChars: number
+  /** A PDF's pages, its text joined by form feeds; null for any other capture or a PDF that kept no text. */
+  pages: number | null
+  /** What the reader or the operator said about the text: a PDF's pages with no text layer, why it was not fetched. */
+  note: string | null
   retrievedAt: string
 }
 

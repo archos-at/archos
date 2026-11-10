@@ -11,7 +11,8 @@
  *
  * A record's fixtures carry their recorded responses inline (a repository
  * record keeps them as files beside it), so `platform-knowledge-source-test`
- * proves the record with no live call.
+ * proves the record with no live call. A binary body (a `pdf_document`
+ * source's PDF) is carried as base64, within the same length.
  */
 
 import { z } from 'zod'
@@ -83,13 +84,24 @@ const hostSchema = z
 
 const argsSchema = z.record(z.string().regex(/^\w{1,40}$/), z.string().max(500))
 
+/** Standard base64 (RFC 4648 §4), padded: what `public_sources.source.InlineResponse` decodes. */
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+
 /** One recorded response, inline: what the fixture run serves for the URL instead of a live call. */
 const recordedResponseSchema = z
   .object({
-    contentType: z.string().min(1).max(120).describe('e.g. text/html; charset=utf-8 or application/geo+json.'),
-    body: z.string().max(500_000).describe('The body as the source served it (text formats only).'),
+    contentType: z.string().min(1).max(120).describe('e.g. text/html; charset=utf-8, application/geo+json or application/pdf.'),
+    body: z.string().max(500_000).describe('The body as the source served it: the text itself, or base64 for a binary body.'),
+    encoding: z
+      .enum(['utf-8', 'base64'])
+      .default('utf-8')
+      .describe('utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.'),
   })
   .strict()
+  .refine((response) => response.encoding !== 'base64' || BASE64.test(response.body), {
+    path: ['body'],
+    message: 'a base64 body is standard padded base64 (RFC 4648), with no line breaks',
+  })
 
 export const sourceFixtureSchema = z
   .object({
@@ -187,7 +199,7 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
       operation: fixture.operation,
       args: fixture.args,
       responses: Object.fromEntries(
-        Object.entries(fixture.responses).map(([url, response]) => [url, { content_type: response.contentType, text: response.body }]),
+        Object.entries(fixture.responses).map(([url, response]) => [url, { content_type: response.contentType, text: response.body, encoding: response.encoding }]),
       ),
       expect: fixture.expect,
     })),

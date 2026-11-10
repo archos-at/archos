@@ -31932,7 +31932,8 @@
                                 "ris_xml",
                                 "akn",
                                 "html_statute",
-                                "geojson"
+                                "geojson",
+                                "pdf_document"
                               ]
                             },
                             "hosts": {
@@ -32117,12 +32118,21 @@
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 120,
-                                          "description": "e.g. text/html; charset=utf-8 or application/geo+json."
+                                          "description": "e.g. text/html; charset=utf-8, application/geo+json or application/pdf."
                                         },
                                         "body": {
                                           "type": "string",
                                           "maxLength": 500000,
-                                          "description": "The body as the source served it (text formats only)."
+                                          "description": "The body as the source served it: the text itself, or base64 for a binary body."
+                                        },
+                                        "encoding": {
+                                          "default": "utf-8",
+                                          "description": "utf-8 for a text body as it came; base64 for a binary one (a PDF), within the same length.",
+                                          "type": "string",
+                                          "enum": [
+                                            "utf-8",
+                                            "base64"
+                                          ]
                                         }
                                       },
                                       "required": [
