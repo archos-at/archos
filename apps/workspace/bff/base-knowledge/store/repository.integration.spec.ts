@@ -111,6 +111,14 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     expect(leaked).toHaveLength(0)
   })
 
+  it('keeps one entry per document: a second proposal that lost the race is a conflict', async () => {
+    const { documentId } = await propose()
+    const context = { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'reading' as const }, terms: {} }
+    await expect(repo.insertProposedEntry(documentId, VALUES, context)).rejects.toMatchObject({ name: 'ConflictError' })
+    // Positive control: another document still takes an entry.
+    await expect(propose()).resolves.toMatchObject({ ids: { workId: expect.any(String) } })
+  })
+
   it('states a proposed copy’s licence before any confirmation, so its text can be held back', async () => {
     const { documentId, ids } = await propose()
     expect(await repo.copyForDocument(ORG, documentId)).toEqual({
