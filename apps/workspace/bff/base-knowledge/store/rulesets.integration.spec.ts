@@ -108,7 +108,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   afterAll(async () => {
-    for (const organizationId of [ORG, OTHER_ORG, E32_ORG]) {
+    for (const organizationId of [ORG, OTHER_ORG, E32_ORG, `${ORG}_cap`]) {
       await as(organizationId, () =>
         db.execute(
           sql`DELETE FROM knowledge_records WHERE organization_id = ${organizationId} AND type = 'ruleset'`
@@ -171,6 +171,24 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
       db.execute(sql`DELETE FROM knowledge_records WHERE id = ${recordId}`)
     )
   })
+
+  it('reports a read past the cap as truncated, and returns no more than the cap', async () => {
+    const organizationId = `${ORG}_cap`
+    const territory = `DE:test:cap-${Date.now()}`
+    for (let index = 0; index <= store.MAX_RULESETS; index += 1) {
+      await store.insertOfficeRuleset(
+        organizationId,
+        { ...BERLIN, territoryIds: [territory] },
+        { ...CONTEXT, inForce: true }
+      )
+    }
+    const read = await store.readRulesetsInForce(organizationId, {
+      purpose: 'competence',
+      territoryIds: [territory],
+    })
+    expect(read.truncated).toBe(true)
+    expect(read.rulesets).toHaveLength(store.MAX_RULESETS)
+  }, 60_000)
 
   it('a proposal without a head does not count', async () => {
     const id = await store.insertOfficeRuleset(
