@@ -1,0 +1,18 @@
+---
+# area: building-law
+improvements:
+  - >
+    A project's setup now shows the law that applies at its site, each code and
+    guideline with the edition that binds there, the same law the chat answers
+    with. Where no law can be named yet, it says why: no site, or a country your
+    office has not enabled.
+  - >
+    Every office can now record its own standards, commentaries and directives,
+    and ask which edition of a law applied on an earlier date.
+operators:
+  - >
+    The cut-over removes five feature flags: knowledge-context,
+    building-law-chain, time-editions, platform-base-knowledge and
+    office-base-knowledge. Which country an office reads is its country
+    entitlement alone. Release only after the Austria records are published in
+    the environment; delete the flags in WorkOS once the release is out.

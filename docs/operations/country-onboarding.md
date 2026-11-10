@@ -61,8 +61,8 @@ record whose monitor names a probe and whose interval has passed, with no model
 call. A change opens one draft request, `origin: monitor`, holding the new page
 as a capture; a second change while it is open is recorded in the source's
 state only; a reviewer with nothing to do rejects the draft, which frees the
-source for the next one. It never publishes. It runs only with `source-monitors` and
-`platform-base-knowledge` on for the platform organization. Each run is the
+source for the next one. It never publishes. It runs only with `source-monitors` on for the
+platform organization. Each run is the
 Langfuse trace `source-monitor`, with `freshness-lag-days` per source.
 
 ## Counsel and privacy review

@@ -30,7 +30,7 @@ data, Austria is code and a second country is code again.
 - Adding a country adds records, never a branch: no country in the resolver.
 - Answers for Austrian projects stay what they were where nothing should change,
   and that is proven, not assumed (byte-identical prompt blocks, the same
-  status on every source with the flag off).
+  status on every source with the flag off). (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 - Fail closed: an edition a relation names that is not in the graph, a law out
   of force at the date, an unknown role, a graph that hit its bound: no use.
 - No free text from records reaches a prompt (design §3.7).
@@ -89,7 +89,7 @@ for a capture of its own change request and a quote from it, so the person
 proposing a pack captures the OIB's table and each Land's page first.
 `packs.spec.ts` holds every other check and pins that KC-6 is all that is left.
 
-**The turn.** Behind the `building-law-chain` flag the turn context carries the
+**The turn.** Behind the `building-law-chain` flag (removed by ADR-0175: every turn now) the turn context carries the
 chain text and each edition's role (`buildingLaw`). The agent renders the
 `<building_law>` block in the turn context only once the static prompt no
 longer holds it (`agent/turn/building_law.py`): the records' chain before the

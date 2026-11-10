@@ -33,7 +33,7 @@ offices. Onboarding a real country (Germany first) is run elsewhere.
   moves what an office reads.
 - **Fail closed on unknown**: an unchecked source, an expired testing window,
   an unreachable checker.
-- **What a flag gates is unchanged while it is off**: the monitor sweep is
+- **What a flag gates is unchanged while it is off** ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.): the monitor sweep is
   behind `source-monitors`; the source records, operations and KC-7 are behind
   the existing `platform-base-knowledge`, and accept only inputs that were
   refused before; a request with neither an advice policy nor a site-keyed
