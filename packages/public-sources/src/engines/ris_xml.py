@@ -8,7 +8,7 @@ through the shape-tolerant helpers below. Document pages are HTML whose
 ``#content`` holds the law and whose ``.sr-only`` twins repeat it for screen
 readers; both selectors are the source's configuration, not constants.
 
-Moved here from ``ris_adapter.client`` (ADR-0158), which re-exports every name,
+Moved here from ``ris_adapter.client`` (ADR-0162), which re-exports every name,
 so the RIS tools read and cite exactly as before.
 """
 

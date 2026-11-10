@@ -1,4 +1,4 @@
-"""Public legal and geodata sources as configured records (ADR-0158).
+"""Public legal and geodata sources as configured records (ADR-0162).
 
 A source is a YAML record under ``configs/sources/`` naming a protocol (an
 access type) and a format (an engine). Adding a country's statute database or

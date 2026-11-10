@@ -1,6 +1,6 @@
 # Public sources
 
-Legal and geodata sources as **configured records**, not code (ADR-0158). A
+Legal and geodata sources as **configured records**, not code (ADR-0162). A
 record names a protocol (an *access type*, which fetches bytes) and a format
 (an *engine*, which turns the bytes into anchored passages), and carries
 everything that belongs to that one source: its URLs, vocabularies, hosts,
@@ -44,7 +44,7 @@ recorded fixtures. Code is written only for a new protocol or a new format.
    A request the record builds that the fixture did not record fails the run,
    so the fixture proves the request as much as the parse.
 
-A source whose protocol or format is not in the tables of ADR-0158 needs an
+A source whose protocol or format is not in the tables of ADR-0162 needs an
 access type or an engine first: a class in `src/access/` or `src/engines/`
 with its configuration model, registered in that package's `__init__.py`, and
 tests. That is the only code a new country can need.

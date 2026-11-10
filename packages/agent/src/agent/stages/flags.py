@@ -76,7 +76,7 @@ class TurnFlags:
     #: all read as no.
     folder_cards_allowed: bool = False
     #: Whether this tenant's public-source requests (RIS today) go through the
-    #: sandboxed fetcher (the ``source-routing`` WorkOS flag, ADR-0158;
+    #: sandboxed fetcher (the ``source-routing`` WorkOS flag, ADR-0162;
     #: ``ris_adapter.routing``). OFF unless the BFF says yes, like
     #: :attr:`folder_cards_allowed`: off is the behaviour that shipped before it.
     source_routing_allowed: bool = False

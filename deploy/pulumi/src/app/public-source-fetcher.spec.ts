@@ -7,7 +7,7 @@ import { baseStackConfig, forProject } from "../test-support/stack-config";
 const PROJECT = "stack";
 
 /**
- * The public-source fetcher (ADR-0158). What plans clean and is still wrong:
+ * The public-source fetcher (ADR-0162). What plans clean and is still wrong:
  *   - a fetcher that can reach the cluster (a missing egress rule, a private
  *     range left out): any source whose DNS answers 10.x reads Qdrant;
  *   - a fetcher any pod may call: a turn-less process gets a free proxy;

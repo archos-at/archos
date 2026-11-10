@@ -61,7 +61,7 @@ describe('the registry', () => {
         'platform-agent-mcp',
         'runtime-model-config',
         'skills',
-        // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0158).
+        // Not a cost or a widening: an infrastructure switch whose default must be off (ADR-0162).
         'source-routing',
         'task-automation',
       ].sort()

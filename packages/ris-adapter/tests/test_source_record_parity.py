@@ -1,4 +1,4 @@
-"""The RIS adapter, read from its source record, sends what the code sent before (ADR-0158).
+"""The RIS adapter, read from its source record, sends what the code sent before (ADR-0162).
 
 ``configs/sources/at/ris/source.yml`` replaced the Austrian constants of
 ``client.py`` and ``register.py``. The functions below are the code it replaced,

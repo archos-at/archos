@@ -73,7 +73,7 @@ __all__ = [
     "search_terms",
 ]
 
-#: The source record this client is one configured instance of (ADR-0158):
+#: The source record this client is one configured instance of (ADR-0162):
 #: ``configs/sources/at/ris/source.yml``. Every Austrian value below is read from it.
 RIS_SOURCE_ID = "at-ris"
 _SOURCE = get_source(RIS_SOURCE_ID)

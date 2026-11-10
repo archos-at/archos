@@ -209,7 +209,7 @@ export interface DeployConfig {
   };
 
   /**
-   * The sandboxed fetcher of public legal and geodata sources (ADR-0158,
+   * The sandboxed fetcher of public legal and geodata sources (ADR-0162,
    * `app/public-source-fetcher.ts`): RIS and later sources, fetched from a pod
    * that reaches public hosts and nothing in the cluster.
    */

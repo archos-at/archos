@@ -10,7 +10,7 @@ import { API_TIERS, CHAT_TIERS } from "./tier-names";
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
 /**
- * The sandboxed fetcher of public sources (ADR-0158): RIS today, Fedlex and
+ * The sandboxed fetcher of public sources (ADR-0162): RIS today, Fedlex and
  * every later legal or geodata source configured under `configs/sources/`.
  * `python -m public_sources.fetcher` on the backend image.
  *

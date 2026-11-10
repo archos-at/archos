@@ -1,6 +1,6 @@
 # Austria's Rechtsinformationssystem (RIS), read through the OGD-RIS API v2.6.
 #
-# One configured `rest` + `ris_xml` source (ADR-0158). Every Austrian value the
+# One configured `rest` + `ris_xml` source (ADR-0162). Every Austrian value the
 # RIS adapter used to hold in code is here: the API and document hosts, the
 # application -> controller map, the document path segments, the nine
 # Bundesland search parameters and which date parameter each application takes.

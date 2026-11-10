@@ -239,7 +239,7 @@ const gotenberg = cfg.gotenberg.enabled
 const clamav = cfg.malwareScan.enabled
   ? installClamAV(cfg, provider, namespace, [ns])
   : undefined;
-// The sandboxed fetcher of public sources (ADR-0158). Off by default; the
+// The sandboxed fetcher of public sources (ADR-0162). Off by default; the
 // backend roles get its URL exactly when it is on (`publicSourceFetcherEnv`).
 if (cfg.publicSourceFetcher.enabled) installPublicSourceFetcher(cfg, provider, namespace, [ns]);
 

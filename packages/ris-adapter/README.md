@@ -162,7 +162,7 @@ use — so per-org runtime model overrides (ADR-0014) and BYOK credentials
 (ADR-0022) apply consistently. Outside the Piloti agent the wrappers degrade to
 no-ops.
 
-## The source record: RIS is configuration (ADR-0158)
+## The source record: RIS is configuration (ADR-0162)
 
 Every Austrian value this adapter uses is read from
 [`configs/sources/at/ris/source.yml`](../../configs/sources/at/ris/source.yml),

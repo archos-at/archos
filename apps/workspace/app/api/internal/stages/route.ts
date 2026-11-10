@@ -46,7 +46,7 @@ import { isProjectClosed } from '@/lib/projects/project-status'
  * build or show cards, so it needs no WorkOS client of its own. It is not
  * withdrawn by a closed project.
  *
- * `sourceRouting` (ADR-0158) tells the RIS adapter whether this organization's
+ * `sourceRouting` (ADR-0162) tells the RIS adapter whether this organization's
  * public-source requests go through the sandboxed fetcher; read per turn, not
  * withdrawn by a closed project.
  *

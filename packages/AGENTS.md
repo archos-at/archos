@@ -72,7 +72,7 @@ core suite (`be:test`, with the coverage gate) beside `tests/`, not in `be:test:
 `knowledge-layer` (ingestion and retrieval, the library the agent is built on),
 `ris-adapter` (the RIS legal adapter) and `tavily-web-search` (web search), all
 agent-runtime plugins, and `public-sources` (legal and geodata sources as
-configured records over protocol access types and format engines, ADR-0158;
+configured records over protocol access types and format engines, ADR-0162;
 a library and the sandboxed fetcher, no plugin). A new country's source is a
 record under `configs/sources/`, not a package: see its
 [`README.md`](public-sources/README.md). Each is its own uv workspace member with its own `pyproject.toml`

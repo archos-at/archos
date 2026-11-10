@@ -1,6 +1,6 @@
 # Fedlex, the Swiss Confederation's publication platform for federal law.
 #
-# One configured `http_eli` + `akn` source (ADR-0158). Proves the types with a
+# One configured `http_eli` + `akn` source (ADR-0162). Proves the types with a
 # second country and no code: a federal act's consolidation in force on a
 # date is found through the Fedlex SPARQL endpoint (JOLux), and its Akoma
 # Ntoso file is read into passages anchored by eId (`art_16_b/para_1`).

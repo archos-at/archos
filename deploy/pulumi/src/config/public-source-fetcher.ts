@@ -1,5 +1,5 @@
 /**
- * The public-source fetcher's deploy config (ADR-0158), its own module beside `malware-scan.ts`.
+ * The public-source fetcher's deploy config (ADR-0162), its own module beside `malware-scan.ts`.
  */
 
 import type * as pulumi from "@pulumi/pulumi";

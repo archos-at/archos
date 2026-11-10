@@ -1,4 +1,4 @@
-"""``sourceRouting``: the same RIS requests, made through the public-source fetcher (ADR-0158).
+"""``sourceRouting``: the same RIS requests, made through the public-source fetcher (ADR-0162).
 
 Off, ``RisClient`` makes its requests from its own process exactly as before.
 On, they go through ``public_sources.routing``: the request a source sees is

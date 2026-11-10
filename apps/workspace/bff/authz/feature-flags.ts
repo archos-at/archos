@@ -275,7 +275,7 @@ export const FEATURE_FLAGS = {
    */
   folderCards: 'folder-cards',
   /**
-   * Public sources through the sandboxed fetcher (ADR-0158): the agent's RIS
+   * Public sources through the sandboxed fetcher (ADR-0162): the agent's RIS
    * requests leave from the `public-source-fetcher` Deployment, which reaches
    * public hosts and nothing in the cluster, instead of from the agent's own
    * pod. The requests are the same either way. Read per organization by the

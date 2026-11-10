@@ -7,7 +7,7 @@
  *
  * `isRisUrl` decides whether a citation chip OFFERS the in-app reader;
  * the `hosts` of the RIS source record (`configs/sources/at/ris/source.yml`,
- * ADR-0158), which the RIS client and the fetcher enforce, decide whether the
+ * ADR-0162), which the RIS client and the fetcher enforce, decide whether the
  * fetch behind it succeeds. If the first is ever wider than the
  * second, a chip promises a viewer and delivers a 404 — worse than the
  * outbound link it replaced, because the reader has already committed a click.
