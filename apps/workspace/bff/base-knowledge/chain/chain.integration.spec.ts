@@ -61,8 +61,11 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     const id = await store.insertChangeRequest({ title, countryId, createdBy: AUTHOR })
     await store.platformTransaction(async (tx) => {
       const request = await store.lockChangeRequest(tx, id)
-      const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
-      await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
+      // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
+      for (let start = 0; start < raw.length; start += wire.MAX_PROPOSED_RECORDS) {
+        const records = wire.proposeRecordsBodySchema.parse({ records: raw.slice(start, start + wire.MAX_PROPOSED_RECORDS) }).records
+        await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
+      }
       await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
     })
     const view = await store.readChangeRequest(id)

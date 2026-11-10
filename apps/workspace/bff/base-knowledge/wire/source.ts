@@ -16,7 +16,17 @@
  */
 
 import { z } from 'zod'
-import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS, SOURCE_FORMATS, SOURCE_PROTOCOLS } from './vocab'
+import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generated'
+import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
+
+/**
+ * The access types and format engines a source record may name. Their one list is the Python
+ * registry that runs them (`ACCESS_TYPES`, `ENGINES` in `packages/public-sources`), generated
+ * into `shared/vocabularies.generated.ts`: a new engine is code there, once, with no migration
+ * (0216 dropped the CHECKs) and no second edit here.
+ */
+export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
+export type SourceFormat = (typeof SOURCE_FORMATS)[number]
 
 /**
  * The licences a configured source may have: its fixtures and its monitor's

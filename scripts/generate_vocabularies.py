@@ -23,6 +23,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import get_args
 
+from public_sources.access import ACCESS_TYPES
+from public_sources.engines import ENGINES
+
 from agent.cards.workspace_cards import TaskKind
 from agent.common.source_kinds import SOURCE_KINDS
 from agent.common.source_kinds import Shelf
@@ -45,6 +48,16 @@ VOCABULARIES: tuple[tuple[str, tuple[str, ...], str], ...] = (
         "SHELVES",
         tuple(shelf.value for shelf in Shelf),
         "The shelves a retrieved chunk can come from: `Shelf` in `packages/agent/src/agent/common/source_kinds.py`.",
+    ),
+    (
+        "SOURCE_PROTOCOLS",
+        tuple(ACCESS_TYPES),
+        "A source record's protocols: the keys of `ACCESS_TYPES` in `packages/public-sources/src/access`.",
+    ),
+    (
+        "SOURCE_FORMATS",
+        tuple(ENGINES),
+        "A source record's formats: the keys of `ENGINES` in `packages/public-sources/src/engines`.",
     ),
 )
 

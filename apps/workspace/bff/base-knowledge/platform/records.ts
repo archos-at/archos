@@ -90,7 +90,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         kind: record.kind,
         name: record.name,
         parents: record.parents,
-        // For builds before 0216 only, derived from `parents` and never a claim of their own.
+        // For builds before 0217 only, derived from `parents` and never a claim of their own.
         parentIds: record.parents.filter((parent) => !parent.validFrom && !parent.validTo).map((parent) => parent.id),
         datedParents: record.parents.filter((parent) => parent.validFrom || parent.validTo),
         aliases: record.aliases,

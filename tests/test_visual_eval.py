@@ -369,7 +369,7 @@ class TestTheSuiteWiring:
         assert "--look is for --set visual" in capsys.readouterr().err
 
     def test_the_rows_load_through_the_suite(self):
-        assert [q["id"] for q in suite._visual_questions()] == [r["id"] for r in ROWS]
+        assert [q["id"] for q in suite.set_questions("visual")] == [r["id"] for r in ROWS]
 
     def test_the_fixture_bff_serves_the_lookup_and_the_bytes(self, tmp_path):
         import http.client

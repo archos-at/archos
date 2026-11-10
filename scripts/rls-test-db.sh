@@ -169,6 +169,13 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+# Site resolution: alone and first. It asserts that no territory record holds a
+# Gemeinde yet (no_territory), and the platform suite in the batch below releases
+# that territory; in one batch whichever ran first decided the outcome (seen
+# 2026-11-10 once the batch's timing moved).
+echo "==> running the site-resolution suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
 echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
@@ -238,10 +245,17 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/time/time.integration.spec.ts
+    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+
+# Editions in time: alone, after the platform suite, since both release
+# Austria's territory and a release over one moved since a request was opened
+# is a 409 by design. In one batch the two raced, and whichever opened its
+# request first lost (seen 2026-11-10 once a file joined the batch).
+echo "==> running the editions-in-time suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
@@ -3779,15 +3793,15 @@ apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
 # ---------------------------------------------------------------------------
-# 0216: one parents field for a territory (design §3.2). A revision stored with
+# 0217: one parents field for a territory (design §3.2). A revision stored with
 # the two lists before it gets both in `parents`, undated first; the EU
-# entitlement reads `parents`; the down drops the column and 0216 applies again.
+# entitlement reads `parents`; the down drops the column and 0217 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0216 territory parents and its down migration on tp_0216"
-migrate_before tp_0216 0216_territory_parents
-CR="c0000000-0000-4000-8000-000000000216"
-RV="e0000000-0000-4000-8000-000000000216"
-sql_in tp_0216 <<SQL
+echo "==> verifying 0217 territory parents and its down migration on tp_0217"
+migrate_before tp_0217 0217_territory_parents
+CR="c0000000-0000-4000-8000-000000000217"
+RV="e0000000-0000-4000-8000-000000000217"
+sql_in tp_0217 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA territories', 'XA', 'user_author');
 INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('XA-1', NULL, 'territory', 'XA', 'user_author');
 INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
@@ -3795,12 +3809,12 @@ INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organizati
 INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids, dated_parents)
   VALUES ('$RV', 'XA-1', NULL, 'state', 'Eins', '{XA}', '[{"id": "EU", "validFrom": "1995-01-01"}]');
 SQL
-apply_in tp_0216 0216_territory_parents.sql
-check_in tp_0216 "SELECT parents::text FROM knowledge_territory_revisions WHERE revision_id = '$RV'" '[{"id": "XA"}, {"id": "EU", "validFrom": "1995-01-01"}]' "0216 folds both lists into parents, undated first"
-check_in tp_0216 "SELECT (pg_get_functiondef('knowledge_country_entitled(text)'::regprocedure) LIKE '%t.parents @>%')::text" "true" "0216: the EU entitlement reads parents"
-refused_in tp_0216 "UPDATE knowledge_territory_revisions SET parents = '[]'" "append-only" "a parents list rewritten"
-apply_in tp_0216 0216_territory_parents.down.sql
-check_in tp_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'parents'" "0" "0216 down drops parents"
-apply_in tp_0216 0216_territory_parents.sql
-check_in tp_0216 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0216 applies again after its down"
-echo "==> 0216 territory parents and its down migration verified"
+apply_in tp_0217 0217_territory_parents.sql
+check_in tp_0217 "SELECT parents::text FROM knowledge_territory_revisions WHERE revision_id = '$RV'" '[{"id": "XA"}, {"id": "EU", "validFrom": "1995-01-01"}]' "0217 folds both lists into parents, undated first"
+check_in tp_0217 "SELECT (pg_get_functiondef('knowledge_country_entitled(text)'::regprocedure) LIKE '%t.parents @>%')::text" "true" "0217: the EU entitlement reads parents"
+refused_in tp_0217 "UPDATE knowledge_territory_revisions SET parents = '[]'" "append-only" "a parents list rewritten"
+apply_in tp_0217 0217_territory_parents.down.sql
+check_in tp_0217 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'parents'" "0" "0217 down drops parents"
+apply_in tp_0217 0217_territory_parents.sql
+check_in tp_0217 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0217 applies again after its down"
+echo "==> 0217 territory parents and its down migration verified"
