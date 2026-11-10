@@ -256,7 +256,12 @@ from the scope list (`vector_store/scope.py`, `scope_filter`). Every search
 read (`search.hybrid_search`, `search.grouped_search`, `similar.find_similar`,
 `retrieval.search`, `retrieval.search_grouped`, `retrieval.find_text`,
 `retrieval.candidate_counts`) takes a keyword-only `office_id` with no default
-and builds a `ScopeRead(scopes, office_id)`; constructing one over a tenant scope
+and builds a `ScopeRead(scopes, office_id)`. The structural reads that return
+text by filter (`reads.fetch` and `reads.fetch_from`, which read_passage uses;
+the folder cards; the visual details) ask
+`vector_store.reading_office.office_read(scope)` themselves, so they refuse an
+office scope too. The ingest's own file listing (`_indexed_files`, names and
+pages, no text) does not, since it lists a collection for the BFF's status read; constructing one over a tenant scope
 (`schema.TENANT_PREFIXES`: the office shelf, `proj_`, `s_`) with no office raises
 `ValueError`. `scope.office_condition` is ANDed into the filter: a point passes
 when its scope is none of the read's tenant scopes, or its `office_id` is the

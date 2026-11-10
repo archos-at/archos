@@ -3562,11 +3562,11 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         for v1 chunks and non-drawings). Sorted by page, then content type,
         then segment.
         """
-        from knowledge_layer.vector_store import TEXT_FIELD
+        from knowledge_layer import vector_store
 
         visual = {"file_name": file_name, "content_type": {"$in": ["drawing", "image", "chart"]}}
         try:
-            records = list(self._store().scroll(collection_name, visual))
+            records = list(self._store().scroll(collection_name, visual, *vector_store.office_read(collection_name)))
         except Exception as e:
             logger.warning("Visual details lookup failed for %s in %s: %s", file_name, collection_name, e)
             return []
@@ -3574,7 +3574,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         items: list[dict[str, Any]] = []
         for record in records:
             meta = record.payload or {}
-            text = meta.get(TEXT_FIELD) or ""
+            text = meta.get(vector_store.TEXT_FIELD) or ""
             content_type = meta.get("content_type")
             if not text:
                 continue

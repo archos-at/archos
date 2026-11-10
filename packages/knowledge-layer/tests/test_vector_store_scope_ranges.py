@@ -9,12 +9,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from knowledge_layer.vector_store import reading_as as vector_store_reading_as
 from knowledge_layer.vector_store import reads
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import scope as scope_module
 from knowledge_layer.vector_store import scope_filter
 from knowledge_layer.vector_store import translate
 from qdrant_client import models
+
+# The structural reads carry the office they read as (``reading_office.office_read``).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
 def _conditions(flt: models.Filter) -> list[models.FieldCondition]:
@@ -110,6 +114,7 @@ class _Store:
 
     def scroll(self, scope: str, filters: Any = None, *extra: Any, limit: int | None = None, **_):
         self.calls.append((scope, filters))
+        self.extras = extra
         lower = 0
         for node in (filters or {}).get("$and", []):
             lower = max(lower, node.get("reading_order", {}).get("$gte", 0)) if isinstance(node, dict) else lower
@@ -202,3 +207,14 @@ def test_fetch_from_does_not_end_a_read_at_an_unnumbered_chunk_of_an_earlier_sec
     hits = reads.fetch_from("proj_a", None, reads._document_key(first), 10)
 
     assert [hit.chunk_id for hit in hits] == ["n7", "u3"]
+
+
+def test_a_structural_read_carries_the_office_and_refuses_without_one(monkeypatch):
+    store = _Store([_Record("proj_a", _payload("p1", 1, 0))])
+    monkeypatch.setattr(reads, "get_store", lambda: store)
+
+    reads.fetch("proj_a", {"file_name": "a.pdf"}, 5)
+    assert store.extras, "the office condition travels with the scroll"
+
+    with vector_store_reading_as(None), pytest.raises(ValueError, match="needs the office it reads as"):
+        reads.fetch("proj_a", {"file_name": "a.pdf"}, 5)
