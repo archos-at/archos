@@ -71,6 +71,14 @@ export interface AnswerDocumentInput {
    * asked for, read on screen and chose to export is not unreviewed. Marking
    * every export would make the marking mean nothing, which costs exactly the
    * documents that need it.
+   *
+   * This is the PRINTED notice only. The machine-readable marking (the
+   * `.docx` custom properties, `trainedAlgorithmicMedia`) is on every export
+   * of an answer regardless: Art. 50(2) AI Act asks the provider to mark
+   * generated text whether or not a person read it, and its only exceptions
+   * (the Commission's Art. 50 guidelines, 2026-11-05, points 90-91) are
+   * standard editing and non-substantial alteration, neither of which an
+   * answer is. See `service.ts`.
    */
   agentAuthored?: boolean
   /** Printed instead of a mermaid fence's source — see `diagramBlocks`. */

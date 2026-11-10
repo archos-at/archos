@@ -41,6 +41,7 @@ import {
 } from '@/lib/projects/project-wire'
 import { projectScreeningOverrideSchema } from '@/lib/upload-screening/project-policy'
 import type { AgentOperation } from '../operation'
+import { generatedAt } from '../ai-generated-meta'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const projectParams = z.object({ id: z.string().describe('The project id, from project-list.') })
@@ -569,6 +570,7 @@ export const projectsOperations = [
     path: '/api/projects/[id]/generate-summary',
     params: projectParams,
     body: generateSummaryRequestSchema,
+    generatedContent: generatedAt('summary'),
     idempotent: true,
     load: () => import('@/app/api/projects/[id]/generate-summary/route'),
   },

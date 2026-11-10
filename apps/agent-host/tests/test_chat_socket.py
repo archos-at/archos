@@ -1151,7 +1151,9 @@ async def test_a_hung_turn_ends_at_its_deadline_with_run_error(harness, monkeypa
     assert terminal["details"].startswith(chat_socket.DEADLINE_DETAILS)
     assert "too long" in terminal["message"]
     assert torn_down.is_set()  # the hung call was cancelled, not abandoned
-    assert h.registry.running(CONV) is None
+    # `run_turn` sends the terminal first and releases the turn after it, across
+    # an await: waited for, not read at once, or a loaded runner sees it held.
+    await until(lambda: h.registry.running(CONV) is None)
     assert persisted == []
 
 

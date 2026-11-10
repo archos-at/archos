@@ -572,10 +572,33 @@ library maps one-for-one onto PDFKit's `info` (checked in
 `node_modules/@react-pdf/renderer/index.d.ts` and `lib/react-pdf.js`; PDFKit's
 own `appendXML` is reachable only through the PDF/A/PDF-UA `subset` option,
 which `<Document>` does not expose). So the four properties ride in `Keywords`
-as `AIGenerated=true; AIGenerator=Piloti; AIHumanReviewed=false; AIRunId=…`,
+as `AIGenerated=true; AIGenerator=Piloti; AIHumanReviewed=false; DigitalSourceType=…/trainedAlgorithmicMedia; AIRunId=…`,
 with `Creator` = `Piloti` and `Subject` = the notice headline. A `.docx` names
-its properties; a PDF only lists them. If react-pdf grows an XMP escape hatch,
-`aiProvenanceKeywords` is the one function to change.
+its properties; a PDF only lists them.
+
+The standard term rides beside them. Article 50(2) asks for marking that is
+interoperable, and the Code of Practice on Transparency of AI-Generated Content
+(final, 2026-06-10, Measure 1.1.1) asks a format that carries metadata
+("containerised text": PDF, Word) to record there that the content is
+AI-generated. `AIGenerated=true` only a detector built for this product reads,
+so every carrier also holds IPTC's `trainedAlgorithmicMedia`: the `.docx` as a
+`DigitalSourceType` custom property, the PDF as an XMP packet
+(`aiProvenanceXmp`) that `@/lib/pdf/xmp-metadata` appends to the finished bytes
+as an incremental update (ISO 32000-1, 7.5.6), leaving react-pdf's output
+byte-for-byte intact. Not done yet: the Code also asks that metadata be
+digitally signed and time-stamped (Sub-measure 1.1.1) and that text carry an
+imperceptible watermark (1.1.2); the signature needs a key service, and the
+watermark is the model provider's layer.
+
+A file a person made with a model's part in it is marked IPTC
+`compositeWithTrainedAlgorithmicMedia` instead (`AiProvenance.composite`): the
+Anmerkungen-Protokoll (`bff/annotations/export.ts`, `holdsAgentText`) when it
+holds the agent's marks, replies or proposals, and nothing when it holds only the
+office's own.
+
+Every agent-written document also opens with the Art. 50(1) disclosure,
+`branding.aiDisclosure` from `answerExport.aiDisclosure.*`, under the header
+line: a letter to a Behörde is one of these documents.
 
 **A route that was outside every gate.** `POST /api/generate-pdf` — the research
 panel's Download-PDF button — was a **Pages-Router** handler with no session

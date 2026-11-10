@@ -47,6 +47,7 @@ import {
 } from './agent-document'
 import { GENERATED_DOCUMENT_PRODUCER_REF_KINDS } from './generated'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { getOrgSettings } from '@/lib/organizations/service'
 
 const session = { userId: 'user_1', organizationId: 'org_1', email: 'a@example.test' } as AuthorizedSession
 
@@ -61,6 +62,7 @@ describe('renderAgentDocumentMarkdown', () => {
     disclaimer: PLATFORM_DOCUMENT_BRANDING.copy.de.disclaimer,
     logo: null,
     aiGeneratorName: PRODUCT_NAME,
+    aiDisclosure: `Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`,
   }
 
   it('puts the marking IN the bytes, which is the only place Markdown has', () => {
@@ -76,6 +78,9 @@ describe('renderAgentDocumentMarkdown', () => {
     // Inside a fenced block, after the body. A `<!-- … -->` wrapper survives the
     // byte check and dies on the first "paste as plain text".
     expect(text).toMatch(/```\nAIGenerated=true;/)
+    // The standard's term, in the one carrier Markdown has: a detector that
+    // knows IPTC and not this product still finds it.
+    expect(text).toContain('DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia')
     expect(text.indexOf('# Aktenvermerk')).toBeLessThan(text.indexOf('AIGenerated=true'))
   })
 
@@ -111,6 +116,15 @@ describe('renderAgentDocumentMarkdown', () => {
     expect(text.indexOf('GK 4.')).toBeLessThan(text.indexOf(branding.prose))
     expect(text.indexOf(branding.prose)).toBeLessThan(text.indexOf('AIGenerated=true'))
   })
+
+  it('opens with the Art. 50(1) disclosure, above the title, a letter to a Behörde included', () => {
+    const text = new TextDecoder().decode(
+      renderAgentDocumentMarkdown('# Ansuchen um Fristerstreckung\n\nSehr geehrte Damen und Herren,', marking, branding)
+        .bytes,
+    )
+    expect(text.indexOf(branding.headerLine)).toBeLessThan(text.indexOf(branding.aiDisclosure))
+    expect(text.indexOf(branding.aiDisclosure)).toBeLessThan(text.indexOf('# Ansuchen'))
+  })
 })
 
 describe('the filing seam resolves the branding once', () => {
@@ -122,6 +136,28 @@ describe('the filing seam resolves the branding once', () => {
     })
     expect(branding.headerLine).toBe(`Erstellt mit ${PRODUCT_NAME} für Musterbüro ZT GmbH`)
     expect(branding.aiGeneratorName).toBe(PRODUCT_NAME)
+  })
+
+  it('discloses the AI system and the office it acts for, in the document’s language', async () => {
+    const de = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: 'Musterbüro ZT GmbH', locale: 'de' })
+    expect(de.aiDisclosure).toBe(`Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`)
+    const en = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: null, locale: 'en' })
+    expect(en.aiDisclosure).toBe(`Written by ${PRODUCT_NAME}, an AI system.`)
+  })
+
+  /**
+   * The positive control: the override DOES reach the header, so the
+   * disclosure staying put is the rule holding, not the override being ignored.
+   */
+  it('keeps the disclosure when an office overrides its branding copy', async () => {
+    vi.mocked(getOrgSettings).mockResolvedValueOnce({
+      displayName: null,
+      defaultLocale: 'de',
+      settings: { documentBranding: { copy: { de: { header: 'Büro {organization}', prose: 'Von uns.' } } } },
+    } as Awaited<ReturnType<typeof getOrgSettings>>)
+    const branding = await resolveDocumentBranding({ organizationId: 'org_1', organizationName: 'Musterbüro ZT GmbH', locale: 'de' })
+    expect(branding.headerLine).toBe('Büro Musterbüro ZT GmbH')
+    expect(branding.aiDisclosure).toBe(`Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`)
   })
 })
 
