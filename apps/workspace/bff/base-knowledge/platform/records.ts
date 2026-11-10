@@ -27,6 +27,11 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
       return [{ id: `work:${record.workKey}`, type: 'work' }]
     case 'manifestation':
       return [{ id: `edition:${record.editionKey}`, type: 'edition' }]
+    case 'relation':
+      return [
+        { id: `${record.from.type}:${record.from.key}`, type: record.from.type },
+        { id: `${record.to.type}:${record.to.key}`, type: record.to.type },
+      ]
     case 'work':
       return record.addressees.flatMap((addressee) =>
         addressee.authorityKey ? [{ id: `authority:${addressee.authorityKey}`, type: 'authority' as const }] : [],
@@ -80,7 +85,21 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         kind: record.kind,
         name: record.name,
         parentIds: record.parentIds,
+        datedParents: record.datedParents,
         aliases: record.aliases,
+        validFrom: record.validFrom,
+        validTo: record.validTo,
+      }
+    case 'relation':
+      return {
+        relationType: record.relationType,
+        mode: record.mode,
+        fromId: `${record.from.type}:${record.from.key}`,
+        fromType: record.from.type,
+        toId: `${record.to.type}:${record.to.key}`,
+        toType: record.to.type,
+        anchors: record.anchors,
+        provision: record.provision,
         validFrom: record.validFrom,
         validTo: record.validTo,
       }

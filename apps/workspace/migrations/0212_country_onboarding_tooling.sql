@@ -1,4 +1,4 @@
--- 0210: the country-neutral tooling to onboard a country and keep it current
+-- 0212: the country-neutral tooling to onboard a country and keep it current
 -- through the platform door (ADR-0174, design §3.7, §4.1 to §4.5, build split S16).
 --
 -- ## What was missing
@@ -31,9 +31,11 @@
 --
 -- ## RLS
 --
--- Every new table is platform-private (`secure_table(t, 'false')`), as the
--- change-request tables are: no office reads a source's configuration or
--- credential; the platform routes and the monitor run as the platform role.
+-- Every new table is platform-private, as the change-request tables are: no
+-- office reads a source's configuration, credential or monitor state; the
+-- platform routes and the monitor run as the platform role. The body's policy
+-- names `organization_id = current_org()`, which no row meets (the column is
+-- NULL by CHECK); the credential carries no `organization_id` at all.
 
 ALTER TABLE "knowledge_ruleset_revisions" DROP CONSTRAINT IF EXISTS knowledge_ruleset_revisions_schema_known;
 --> statement-breakpoint
@@ -48,7 +50,7 @@ ALTER TABLE "knowledge_ruleset_revisions" ADD CONSTRAINT knowledge_ruleset_revis
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 --> statement-breakpoint
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_type_known
-  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'source'));
+  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'));
 --> statement-breakpoint
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_platform_types;
 --> statement-breakpoint
@@ -100,7 +102,8 @@ CREATE TABLE IF NOT EXISTS "knowledge_source_credentials" (
   "id" uuid PRIMARY KEY NOT NULL,
   "record_id" text NOT NULL REFERENCES "knowledge_records" ("id") ON DELETE CASCADE,
   -- The organization the secret is bound to (the platform's): the AAD of a local envelope, Vault's context.
-  "organization_id" text NOT NULL,
+  -- Not `organization_id`: no tenant reads a key, the platform organization's members included.
+  "secret_owner_id" text NOT NULL,
   "secret_backend" text NOT NULL,
   "vault_object_id" text,
   "encrypted_key" text,
@@ -206,7 +209,8 @@ $$;
 CREATE TRIGGER knowledge_release_moves_required_roles BEFORE INSERT ON "knowledge_release_moves"
   FOR EACH ROW EXECUTE FUNCTION knowledge_publish_has_required_roles();
 --> statement-breakpoint
-SELECT secure_table('knowledge_source_revisions', 'false');
+-- A body is a platform row (organization_id is always NULL, by CHECK), so no tenant reads one.
+SELECT secure_table('knowledge_source_revisions', 'organization_id = current_org()');
 --> statement-breakpoint
 SELECT secure_table('knowledge_source_credentials', 'false');
 --> statement-breakpoint

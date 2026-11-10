@@ -84,6 +84,14 @@ function EvidenceChip({ evidence }: { evidence: ProfileEvidence }): JSX.Element 
       </Chip>
     )
   }
+  if (evidence.kind === 'register') {
+    return (
+      <Chip variant="muted" title={evidence.label}>
+        <MapPin aria-hidden />
+        <ChipLabel>{t('evidence.register')}</ChipLabel>
+      </Chip>
+    )
+  }
   if (evidence.kind === 'derivation') {
     return (
       <Chip variant="muted" title={evidence.citation}>

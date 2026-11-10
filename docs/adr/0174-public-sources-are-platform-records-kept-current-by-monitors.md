@@ -57,7 +57,7 @@ offices. Onboarding a real country (Germany first) is run elsewhere.
 
 ## Decision Outcome
 
-Chosen option 1, in migration 0210.
+Chosen option 1, in migration 0212.
 
 **A source is a platform record.** Record type `source`, platform only; its
 body (`knowledge_source_revisions`) keeps the record whole (`config`, the shape
@@ -82,6 +82,8 @@ hands the api tier the configuration of a registered source only; the api tier
 and the fetcher still refuse every hop off the configuration's hosts and every
 address that is not public, and the fetcher never lets a caller widen a
 repository record's hosts.
+
+**Every new table is platform-private**: the source body and the monitor state are read by no tenant, and the credential has no `organization_id` at all (`secret_owner_id` binds the secret), so not even the platform organization's members read a key as a tenant.
 
 **Three door operations** (`catalog/platform-sources.ts`):
 `platform-knowledge-source-test` (fixtures, and one live probe on request;
@@ -153,7 +155,7 @@ policy) to a green validation, counsel's approval and a stable release, and the
 monitor opens one change request when the source changes and no second while
 it is open. Its revert checks were run by hand: with the awaited-roles check
 removed from the decision, and with the request filter removed from the testing
-window, the spec fails. The 0210 block of `scripts/rls-test-db.sh` holds the
+window, the spec fails. The 0212 block of `scripts/rls-test-db.sh` holds the
 triggers, the one-open-request index and the down. The parts:
 `packages/public-sources/tests/test_configured_source.py`, `test_ogc.py`,
 `apps/agent-host/tests/test_public_source_capture_route.py`,

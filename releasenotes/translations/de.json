@@ -560,6 +560,10 @@
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
   },
   {
+    "en": "A project's address can now be confirmed against the Austrian address register, kept in our own database, so what you type is never sent to anyone else. A match names the Gemeinde and Bundesland; an address the register does not hold stays unconfirmed, with its candidates shown.",
+    "de": "Eine Projektadresse lässt sich jetzt mit dem österreichischen Adressregister abgleichen, das in unserer eigenen Datenbank gespeichert ist. Ihre Eingaben werden dabei nie an Dritte übermittelt. Bei einem Treffer werden Gemeinde und Bundesland angegeben; eine im Register nicht geführte Adresse bleibt unbestätigt, mögliche Treffer werden angezeigt."
+  },
+  {
     "en": "A project's completion month is now set when you close it. A running project shows \"ongoing\", and a month entered earlier is no longer shown; you are asked for it again when you close the project.",
     "de": "Der Abschlussmonat eines Projekts wird jetzt beim Schließen festgelegt. Ein laufendes Projekt zeigt „laufend“, und ein früher eingetragener Monat wird nicht mehr angezeigt; beim Schließen des Projekts wird er erneut abgefragt."
   },
@@ -1958,6 +1962,10 @@
   {
     "en": "Footnotes in an answer follow your language and their jump links work again.",
     "de": "Fußnoten in einer Antwort folgen Ihrer Sprache, und ihre Sprungmarken funktionieren wieder."
+  },
+  {
+    "en": "For a project in Austria, answers can now say which edition of the OIB-Richtlinien its Land declared binding and since when: the 2019 edition in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition that a Land has not adopted is marked as guidance in the sources, no longer as binding.",
+    "de": "Bei einem Projekt in Österreich können Antworten jetzt angeben, welche Ausgabe der OIB-Richtlinien das jeweilige Land für verbindlich erklärt hat und seit wann: die Ausgabe 2019 in der Steiermark, in Vorarlberg und im Burgenland, die Ausgabe 2023 in den Ländern, die sie übernommen haben, sowie RL 6 in der Ausgabe 2025 in Wien und Tirol. Eine neuere Ausgabe, die ein Land nicht übernommen hat, wird in den Quellen nicht mehr als verbindlich, sondern als Orientierung gekennzeichnet."
   },
   {
     "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",

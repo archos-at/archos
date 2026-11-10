@@ -57,6 +57,9 @@ The user has this file open, so every bare reference in their message („dieses
 {%- if parcel_note is defined and parcel_note %}
 {{ parcel_note }}
 {% endif %}
+{%- if building_law is defined and building_law %}
+{{ building_law }}
+{% endif %}
 {%- if oib_applicability is defined and oib_applicability %}
 {{ oib_applicability }}
 {% endif %}

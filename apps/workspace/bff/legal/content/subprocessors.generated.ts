@@ -177,7 +177,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "Google Gemini (direkt, ohne OpenRouter) (USA) — Chat-Nachrichten und Dokumentauszüge, falls ein Modell direkt angebunden wird."
     ],
     "publicSources": [
-      "Rechtsinformationssystem des Bundes (Bundeskanzleramt, Österreich): Suchbegriffe und Kennungen von Rechtsvorschriften, die aus Ihren Fragen abgeleitet sind"
+      "Rechtsinformationssystem des Bundes (Bundeskanzleramt, Österreich): Suchbegriffe und Kennungen von Rechtsvorschriften, die aus Ihren Fragen abgeleitet sind",
+      "Bundesamt für Eich- und Vermessungswesen (Österreich): das öffentliche Adressregister wird zweimal im Jahr als Ganzes heruntergeladen und bei uns gespeichert; eine eingegebene Adresse wird nur in unserer Datenbank gesucht und nie an das BEV gesendet"
     ],
     "build": [
       "GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.",
@@ -353,7 +354,8 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "Google Gemini (direct, without OpenRouter) (USA) — chat messages and document excerpts, if a model is connected directly."
     ],
     "publicSources": [
-      "Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions"
+      "Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions",
+      "Federal Office of Metrology and Surveying (Austria): the public address register is downloaded whole twice a year and stored with us; an address you type is looked up in our database only and never sent to the BEV"
     ],
     "build": [
       "GitHub (USA) — source-code hosting, CI pipelines, security scanning.",

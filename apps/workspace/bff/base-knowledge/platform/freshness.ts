@@ -11,6 +11,11 @@ import type { KnowledgeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 
 export const PLATFORM_FRESHNESS_DAYS: Readonly<Record<KnowledgeWorkKind, number>> = {
   statute: 14,
+  ordinance: 14,
+  administrative_regulation: 30,
+  directive: 90,
+  intergovernmental_agreement: 90,
+  model_code: 30,
   guideline: 30,
   authority_directive: 30,
   technical_standard: 90,

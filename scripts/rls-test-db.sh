@@ -238,6 +238,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/mail-thread/archive.integration.spec.ts \
     bff/base-knowledge/store/repository.integration.spec.ts \
     bff/base-knowledge/store/rulesets.integration.spec.ts \
+    bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 
@@ -267,13 +268,16 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # scheduler's due-scan is the same shape over task_definitions, every tenant's.
 # `orchestrator.integration.spec.ts` also needs an engine (HATCHET_CLIENT_TOKEN and
 # HATCHET_CLIENT_HOST_PORT, CI's hatchet-lite); without one it skips.
+# The country-pack suite publishes Austria's real territory ids, which the
+# platform suite above publishes too: alone, so neither publish meets the other's.
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
     bff/jobs-queue/repository.integration.spec.ts \
     bff/jobs-queue/task-run.integration.spec.ts \
     bff/jobs-queue/orchestrator.integration.spec.ts \
-    bff/scheduling/repository.integration.spec.ts
+    bff/scheduling/repository.integration.spec.ts \
+    bff/base-knowledge/chain/chain.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -3624,22 +3628,80 @@ check_in cc_0209 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0209 citation captures and their down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0210: the country onboarding tooling (ADR-0174).
+# Migration 0210: the official address registers in the cell (ADR-0172).
 #
-# On a database of its own, migrated through 0210: a source record's body
+# On a database of its own, migrated through 0210: an active release needs its
+# rows counted and a time, a register has one active release at a time, an
+# entry needs both keys, a release's entries go with it, and the down drops
+# both tables so 0210 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0210 address register and its down migration on addr_0210"
+migrate_until addr_0210 0210_address_register
+REL="a0000000-0000-4000-8000-000000000210"
+sql_in addr_0210 <<SQL
+INSERT INTO address_register_releases (id, register, country_id, reference_date, attribution) VALUES ('$REL', 'at-bev', 'AT', '2025-10-01', 'BEV');
+INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key, place_keys)
+  VALUES ('$REL', '5734380', '60101', 'Graz', '8010', 'Herrengasse', '16', 'herrengasse', '16', '{graz}');
+SQL
+refused_in addr_0210 "UPDATE address_register_releases SET status = 'active' WHERE id = '$REL'" "address_register_releases_active_has_rows" "a release active with no rows counted"
+sql_in addr_0210 <<<"UPDATE address_register_releases SET status = 'active', entry_count = 1, activated_at = now() WHERE id = '$REL';"
+refused_in addr_0210 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution, status, entry_count, activated_at) VALUES ('at-bev', 'AT', '2026-04-01', 'BEV', 'active', 1, now())" "address_register_releases_one_active" "a second active release of one register"
+refused_in addr_0210 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution) VALUES ('BEV', 'AT', '2026-04-01', 'BEV')" "address_register_releases_register_shape" "a register id of the wrong shape"
+refused_in addr_0210 "INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key) VALUES ('$REL', 'x', '60101', 'Graz', '8010', 'Herrengasse', '16', '', '16')" "address_register_entries_keys_present" "an entry without a street key"
+sql_in addr_0210 <<<"DELETE FROM address_register_releases WHERE id = '$REL';"
+check_in addr_0210 "SELECT count(*) FROM address_register_entries" "0" "0210: a release's entries go with it"
+check_in addr_0210 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('address_register_entries', 'address_register_releases')" "address_register_entries:true,address_register_releases:true" "0210: both tables are under row-level security"
+apply_in addr_0210 0210_address_register.down.sql
+check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "0" "0210 down drops both tables"
+apply_in addr_0210 0210_address_register.sql
+check_in addr_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0210 applies again after its down"
+echo "==> 0210 address register and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0211: relations are records (ADR-0168): a relation names two records of its
+# owner, a mode only for makes_binding; the down removes relations and their
+# records and the record type, and 0211 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0211 country pack and its down migration on cp_0211"
+migrate_until cp_0211 0211_country_pack
+sql_in cp_0211 <<'SQL'
+INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
+  ('work:t0211-ordinance', 'org_0211', 'work', 'user_author'),
+  ('work:t0211-norm', 'org_0211', 'work', 'user_author'),
+  ('relation:t0211', 'org_0211', 'relation', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'relation', 'org_0211', 'user_author');
+INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
+  VALUES ('00000000-0000-4000-8000-000000000211', 'relation:t0211', 'org_0211', 'makes_binding', 'declared',
+          'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work');
+SQL
+refused_in cp_0211 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0211', 'org_0211', 'supersedes', 'declared', 'work:t0211-ordinance', 'work', 'work:t0211-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
+refused_in cp_0211 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
+apply_in cp_0211 0211_country_pack.down.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0211 down drops the relation bodies"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0211 down removes the relation records"
+check_in cp_0211 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0211-%'" "2" "0211 down keeps the works"
+apply_in cp_0211 0211_country_pack.sql
+check_in cp_0211 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0211 applies again after its down"
+echo "==> 0211 country pack and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0212: the country onboarding tooling (ADR-0174).
+#
+# On a database of its own, migrated through 0212: a source record's body
 # names exact hosts and a known protocol, and is never rewritten; only a source
 # holds a credential, one active at a time; a monitor's request names its
 # source, and a second open one for the same source is refused; an advice
 # policy is published only with counsel's approval and a site-keyed source
 # only with a privacy reviewer's, whatever path reaches the release move. The
-# down drops it all, and 0210 applies again.
+# down drops it all, and 0212 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0210 onboarding tooling and its down migration on ot_0210"
-migrate_until ot_0210 0210_country_onboarding_tooling
-CR="c0000000-0000-4000-8000-000000000210"
-RV="e0000000-0000-4000-8000-000000000210"
-RS="e1000000-0000-4000-8000-000000000210"
-sql_in ot_0210 <<SQL
+echo "==> verifying the 0212 onboarding tooling and its down migration on ot_0212"
+migrate_until ot_0212 0212_country_onboarding_tooling
+CR="c0000000-0000-4000-8000-000000000212"
+RV="e0000000-0000-4000-8000-000000000212"
+RS="e1000000-0000-4000-8000-000000000212"
+sql_in ot_0212 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA', 'XA', 'user_author');
 INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('source:xa-gazette', NULL, 'source', 'XA', 'user_author');
 INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
@@ -3653,24 +3715,24 @@ INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organizati
 INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
   VALUES ('$RS', 'ruleset:xa-advice', NULL, 'advice_policy', '{XA}', '2026-01-01', 'advice_policy.v1', '{"topics": {"deadlines": "hedge"}}');
 SQL
-refused_in ot_0210 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('source:office', 'org_a', 'source', 'user_a')" "knowledge_records_platform_types" "an office owning a source"
-refused_in ot_0210 "UPDATE knowledge_source_revisions SET hosts = '{evil.example}'" "append-only" "a source's hosts rewritten"
-refused_in ot_0210 "INSERT INTO knowledge_source_credentials (id, record_id, organization_id, secret_backend, encrypted_key, key_hint, set_by, decision_source) VALUES (gen_random_uuid(), 'ruleset:xa-advice', 'org_p', 'local-aes-gcm', 'x', '…1234', 'user_a', 'app')" "belongs to a platform source record" "a credential on a ruleset"
-refused_in ot_0210 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-advice', NULL, 'classification', '{XA}', '2026-01-01', 'advice_policy.v1', '{}')" "knowledge_ruleset_revisions_prompt_purpose" "an advice policy under another purpose"
-sql_in ot_0210 <<SQL
+refused_in ot_0212 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('source:office', 'org_a', 'source', 'user_a')" "knowledge_records_platform_types" "an office owning a source"
+refused_in ot_0212 "UPDATE knowledge_source_revisions SET hosts = '{evil.example}'" "append-only" "a source's hosts rewritten"
+refused_in ot_0212 "INSERT INTO knowledge_source_credentials (id, record_id, secret_owner_id, secret_backend, encrypted_key, key_hint, set_by, decision_source) VALUES (gen_random_uuid(), 'ruleset:xa-advice', 'org_p', 'local-aes-gcm', 'x', '…1234', 'user_a', 'app')" "belongs to a platform source record" "a credential on a ruleset"
+refused_in ot_0212 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-advice', NULL, 'classification', '{XA}', '2026-01-01', 'advice_policy.v1', '{}')" "knowledge_ruleset_revisions_prompt_purpose" "an advice policy under another purpose"
+sql_in ot_0212 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin, source_record_id, monitor_finding)
   VALUES (gen_random_uuid(), 'Monitor', 'XA', 'system:source-monitor', 'monitor', 'source:xa-gazette', '{"needs": []}');
 SQL
-refused_in ot_0210 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin, source_record_id, monitor_finding) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'system:source-monitor', 'monitor', 'source:xa-gazette', '{}')" "knowledge_change_requests_one_open_per_source" "a second open monitor request for one source"
-refused_in ot_0210 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'user_a', 'monitor')" "knowledge_change_requests_monitor_names_source" "a monitor request that names no source"
-check_in ot_0210 "SELECT array_to_string(knowledge_required_approval_roles('$CR'), ',')" "counsel,privacy_reviewer" "0210: an advice policy needs counsel, a site-keyed source a privacy reviewer"
-sql_in ot_0210 <<SQL
+refused_in ot_0212 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin, source_record_id, monitor_finding) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'system:source-monitor', 'monitor', 'source:xa-gazette', '{}')" "knowledge_change_requests_one_open_per_source" "a second open monitor request for one source"
+refused_in ot_0212 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, origin) VALUES (gen_random_uuid(), 'Monitor', 'XA', 'user_a', 'monitor')" "knowledge_change_requests_monitor_names_source" "a monitor request that names no source"
+check_in ot_0212 "SELECT array_to_string(knowledge_required_approval_roles('$CR'), ',')" "counsel,privacy_reviewer" "0212: an advice policy needs counsel, a site-keyed source a privacy reviewer"
+sql_in ot_0212 <<SQL
 UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
 UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$CR';
 SQL
-refused_in ot_0210 "INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source) VALUES ('ruleset:xa-advice', 'preview', 'publish', '$RS', '$CR', 'user_expert', 'app')" "needs an approval as counsel, privacy_reviewer" "a publish without counsel and a privacy reviewer"
-sql_in ot_0210 <<SQL
+refused_in ot_0212 "INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source) VALUES ('ruleset:xa-advice', 'preview', 'publish', '$RS', '$CR', 'user_expert', 'app')" "needs an approval as counsel, privacy_reviewer" "a publish without counsel and a privacy reviewer"
+sql_in ot_0212 <<SQL
 UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_counsel', 'counsel', 'app');
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_privacy', 'privacy_reviewer', 'app');
@@ -3678,10 +3740,10 @@ UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$CR';
 INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
   VALUES ('ruleset:xa-advice', 'preview', 'publish', '$RS', '$CR', 'user_expert', 'app');
 SQL
-check_in ot_0210 "SELECT count(*) FROM knowledge_release_moves WHERE change_request_id = '$CR'" "1" "0210: the publish runs once counsel and the privacy reviewer approved"
-apply_in ot_0210 0210_country_onboarding_tooling.down.sql
-check_in ot_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_source_%'" "0" "0210 down drops the source tables"
-check_in ot_0210 "SELECT count(*) FROM knowledge_records WHERE id IN ('source:xa-gazette', 'ruleset:xa-advice')" "0" "0210 down drops the source and advice records"
-apply_in ot_0210 0210_country_onboarding_tooling.sql
-check_in ot_0210 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_change_requests' AND column_name = 'origin'" "1" "0210 applies again after its down"
-echo "==> 0210 onboarding tooling and its down migration verified"
+check_in ot_0212 "SELECT count(*) FROM knowledge_release_moves WHERE change_request_id = '$CR'" "1" "0212: the publish runs once counsel and the privacy reviewer approved"
+apply_in ot_0212 0212_country_onboarding_tooling.down.sql
+check_in ot_0212 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_source_%'" "0" "0212 down drops the source tables"
+check_in ot_0212 "SELECT count(*) FROM knowledge_records WHERE id IN ('source:xa-gazette', 'ruleset:xa-advice')" "0" "0212 down drops the source and advice records"
+apply_in ot_0212 0212_country_onboarding_tooling.sql
+check_in ot_0212 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_change_requests' AND column_name = 'origin'" "1" "0212 applies again after its down"
+echo "==> 0212 onboarding tooling and its down migration verified"

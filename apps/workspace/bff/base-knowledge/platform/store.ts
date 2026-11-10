@@ -383,7 +383,7 @@ function errorText(error: unknown): string {
 }
 
 /**
- * The roles a request still needs a yes in (migration 0210): those
+ * The roles a request still needs a yes in (migration 0212): those
  * `knowledge_required_approval_roles` names that no approval holds yet. Empty
  * for a request with neither an advice policy nor a site-keyed source, where
  * the first approval decides, as before.

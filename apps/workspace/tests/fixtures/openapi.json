@@ -2649,6 +2649,39 @@
                                 "type": "object",
                                 "properties": {
                                   "kind": {
+                                    "const": "register"
+                                  },
+                                  "addressId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "referenceDate": {
+                                    "type": "string",
+                                    "maxLength": 10
+                                  },
+                                  "resolvedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "addressId",
+                                  "label",
+                                  "referenceDate",
+                                  "resolvedAt"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
                                     "const": "derivation"
                                   },
                                   "rule": {
@@ -2834,6 +2867,39 @@
                                         "kind",
                                         "provider",
                                         "label",
+                                        "resolvedAt"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "register"
+                                        },
+                                        "addressId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 100
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "referenceDate": {
+                                          "type": "string",
+                                          "maxLength": 10
+                                        },
+                                        "resolvedAt": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "addressId",
+                                        "label",
+                                        "referenceDate",
                                         "resolvedAt"
                                       ]
                                     },
@@ -3103,6 +3169,39 @@
                                 "type": "object",
                                 "properties": {
                                   "kind": {
+                                    "const": "register"
+                                  },
+                                  "addressId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "referenceDate": {
+                                    "type": "string",
+                                    "maxLength": 10
+                                  },
+                                  "resolvedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "addressId",
+                                  "label",
+                                  "referenceDate",
+                                  "resolvedAt"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
                                     "const": "derivation"
                                   },
                                   "rule": {
@@ -3288,6 +3387,39 @@
                                         "kind",
                                         "provider",
                                         "label",
+                                        "resolvedAt"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "register"
+                                        },
+                                        "addressId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 100
+                                        },
+                                        "label": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 300
+                                        },
+                                        "referenceDate": {
+                                          "type": "string",
+                                          "maxLength": 10
+                                        },
+                                        "resolvedAt": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "addressId",
+                                        "label",
+                                        "referenceDate",
                                         "resolvedAt"
                                       ]
                                     },
@@ -3729,6 +3861,84 @@
         "x-mcp-annotations": {
           "title": "Find projects at an address",
           "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/projects/{id}/site": {
+      "post": {
+        "operationId": "project-site-set",
+        "summary": "Set a project’s site",
+        "description": "Pass `addressId` from site-resolve: the address, country, state and municipality become confirmed facts with the register as evidence. Or `typed`: kept unconfirmed unless exactly one register address matches. Replaces the previous site. Needs project:edit. Answers `{ resolution, profileVersion }`.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addressId": {
+                    "description": "From site-resolve.",
+                    "type": "string",
+                    "pattern": "^[a-z]{2}-[a-z0-9-]{2,30}:[A-Za-z0-9._-]{1,64}$"
+                  },
+                  "typed": {
+                    "description": "The address as typed.",
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 200
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Set a project’s site",
+          "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false
@@ -22228,6 +22438,62 @@
         }
       }
     },
+    "/api/sites/resolve": {
+      "get": {
+        "operationId": "site-resolve",
+        "summary": "Resolve a site address against official registers",
+        "description": "Looks a typed address (`q`) up in the official address registers hosted here (Austria: BEV); nothing leaves to a third party. `verified`: exactly one register address; `site` has country, `state`, `municipality`, the territory `chain` and the competent `authority` (`decided`, or `undetermined` with a reason). `unverified`: a `reason` and up to 8 `candidates` to ask the person about; never treat it as placed. Then project-site-set with an `addressId`.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200,
+              "description": "The address as typed."
+            },
+            "description": "The address as typed."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Resolve a site address against official registers",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/widgets/token": {
       "get": {
         "operationId": "widget-token-get",
@@ -29274,11 +29540,16 @@
                             "kind": {
                               "type": "string",
                               "enum": [
+                                "statute",
+                                "ordinance",
+                                "administrative_regulation",
+                                "directive",
+                                "intergovernmental_agreement",
+                                "model_code",
                                 "technical_standard",
                                 "guideline",
                                 "commentary",
-                                "authority_directive",
-                                "statute"
+                                "authority_directive"
                               ]
                             },
                             "title": {
@@ -29889,6 +30160,50 @@
                               "items": {
                                 "type": "string",
                                 "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                              }
+                            },
+                            "datedParents": {
+                              "default": [],
+                              "description": "Parents for an interval only, half-open: [{ id: \"EU\", validFrom: \"1995-01-01\" }] for AT.",
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
+                                  },
+                                  "validFrom": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "validTo": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id"
+                                ]
                               }
                             },
                             "aliases": {
@@ -31071,6 +31386,185 @@
                             "type",
                             "key",
                             "values"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "const": "relation"
+                            },
+                            "key": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"
+                            },
+                            "relationType": {
+                              "type": "string",
+                              "enum": [
+                                "makes_binding",
+                                "supersedes",
+                                "deviates_from",
+                                "interprets"
+                              ]
+                            },
+                            "mode": {
+                              "default": null,
+                              "description": "Only for makes_binding: declared, static_reference or dynamic_reference.",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "declared",
+                                    "static_reference",
+                                    "dynamic_reference"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "work",
+                                    "edition"
+                                  ]
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                                  "description": "The work or edition, proposed here or already published, in any pack."
+                                }
+                              },
+                              "required": [
+                                "type",
+                                "key"
+                              ],
+                              "description": "The instrument that binds, displaces, supersedes or interprets."
+                            },
+                            "to": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "work",
+                                    "edition"
+                                  ]
+                                },
+                                "key": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$",
+                                  "description": "The work or edition, proposed here or already published, in any pack."
+                                }
+                              },
+                              "required": [
+                                "type",
+                                "key"
+                              ]
+                            },
+                            "anchors": {
+                              "default": [],
+                              "description": "Paired clauses; empty for the whole instrument. A deviates_from names at least one.",
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "from": {
+                                    "type": "string",
+                                    "pattern": "^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$"
+                                  },
+                                  "to": {
+                                    "type": "string",
+                                    "pattern": "^[a-z]{2,6}_[A-Za-z0-9.]{1,20}(__[a-z]{2,6}_[A-Za-z0-9.]{1,20}){0,5}$"
+                                  }
+                                }
+                              }
+                            },
+                            "provision": {
+                              "default": null,
+                              "description": "Where the from-instrument says so, e.g. \"§ 1 WBTV 2023\".",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "validFrom": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "validTo": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "citations": {
+                              "default": [],
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "captureId": {
+                                    "description": "A capture of this change request, from platform-knowledge-citation-capture.",
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "quote": {
+                                    "description": "Words copied exactly from the capture that support the record; checked against the stored capture (KC-6).",
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "maxLength": 2000
+                                  },
+                                  "url": {
+                                    "description": "The page, for a person to open; the capture is what is checked.",
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "note": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "key",
+                            "relationType",
+                            "from",
+                            "to"
                           ]
                         },
                         {

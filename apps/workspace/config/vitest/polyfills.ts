@@ -77,3 +77,30 @@ for (const name of Object.keys(process.env)) {
 for (const [name, value] of Object.entries(baseline)) {
   if (process.env[name] !== value) process.env[name] = value
 }
+
+// The DOM's classes are shared the same way: happy-dom is loaded once per
+// worker, so `Element.prototype` and `HTMLElement.prototype` are one object for
+// every spec file the worker runs. A spec that stubbed
+// `HTMLElement.prototype.scrollTo` and "restored" it by assigning what it read
+// left an own property behind (the method it read was inherited from
+// `Element`), and that shadowed every later file's `Element.prototype` stub:
+// `intake-setup-view.spec.tsx` saw no scroll on CI's shard 6/8, never alone.
+// Every spec file starts from the methods specs stub, as the worker first had them.
+const DOM_BASELINE = Symbol.for('vitest.dom-baseline')
+const STUBBED_METHODS = ['scroll', 'scrollBy', 'scrollTo', 'scrollIntoView', 'getBoundingClientRect'] as const
+const domShared = process as unknown as Record<symbol, Map<object, (PropertyDescriptor | undefined)[]> | undefined>
+// Recorded the first time a file sees the prototype: a worker's first file may have no DOM.
+const domBaseline = (domShared[DOM_BASELINE] ??= new Map())
+const prototypes = typeof globalThis.HTMLElement === 'undefined' ? [] : [globalThis.Element.prototype, globalThis.HTMLElement.prototype]
+for (const prototype of prototypes) {
+  const descriptors = domBaseline.get(prototype)
+  if (!descriptors) {
+    domBaseline.set(prototype, STUBBED_METHODS.map((name) => Object.getOwnPropertyDescriptor(prototype, name)))
+    continue
+  }
+  STUBBED_METHODS.forEach((name, index) => {
+    const descriptor = descriptors[index]
+    if (descriptor) Object.defineProperty(prototype, name, descriptor)
+    else Reflect.deleteProperty(prototype, name)
+  })
+}

@@ -18,6 +18,7 @@ export function territoriesFromIso(rows: readonly { code: string; name: string; 
       kind: subdivision ? 'state' : 'country',
       name: row.name,
       parentIds: parent ? [parent] : [],
+      datedParents: [],
       aliases: {},
       validFrom: null,
       validTo: null,

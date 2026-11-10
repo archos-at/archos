@@ -1,4 +1,4 @@
--- Reverse 0210. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0212. ORDER: roll the frontend back first; the newer build writes
 -- source records, monitor requests and the two prompt-facing ruleset types.
 --
 -- Lossy: every source record goes with its whole history, credential and
@@ -36,7 +36,7 @@ ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_platform_types
   CHECK ("type" NOT IN ('territory', 'authority') OR "organization_id" IS NULL);
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_type_known
-  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority'));
+  CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation'));
 ALTER TABLE "knowledge_ruleset_revisions" DROP CONSTRAINT IF EXISTS knowledge_ruleset_revisions_prompt_purpose;
 ALTER TABLE "knowledge_ruleset_revisions" DROP CONSTRAINT IF EXISTS knowledge_ruleset_revisions_schema_known;
 ALTER TABLE "knowledge_ruleset_revisions" ADD CONSTRAINT knowledge_ruleset_revisions_schema_known CHECK (

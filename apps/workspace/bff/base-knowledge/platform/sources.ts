@@ -152,7 +152,7 @@ export async function revealedCredential(tx: Tx, recordId: string): Promise<stri
     .select()
     .from(knowledgeSourceCredentials)
     .where(and(eq(knowledgeSourceCredentials.recordId, recordId), isNull(knowledgeSourceCredentials.replacedAt)))
-  return row ? revealSecret(row) : null
+  return row ? revealSecret({ ...row, organizationId: row.secretOwnerId }) : null
 }
 
 export interface CredentialView {
@@ -187,7 +187,7 @@ export async function storeSourceCredential(
     .values({
       id,
       recordId: input.recordId,
-      organizationId: input.organizationId,
+      secretOwnerId: input.organizationId,
       secretBackend: stored.secretBackend,
       vaultObjectId: stored.vaultObjectId,
       encryptedKey: stored.encryptedKey,

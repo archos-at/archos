@@ -1,5 +1,5 @@
 /**
- * Public sources as platform records (migration 0210, ADR-0174): a source's
+ * Public sources as platform records (migration 0212, ADR-0174): a source's
  * body, its write-only credential, and what its monitor saw last.
  *
  * All three are platform-private (RLS `false` for the runtime role). The body
@@ -29,7 +29,7 @@ export const knowledgeSourceRevisions = pgTable('knowledge_source_revisions', {
 export const knowledgeSourceCredentials = pgTable('knowledge_source_credentials', {
   id: uuid('id').primaryKey(),
   recordId: text('record_id').notNull(),
-  organizationId: text('organization_id').notNull(),
+  secretOwnerId: text('secret_owner_id').notNull(),
   secretBackend: text('secret_backend').$type<'workos-vault' | 'local-aes-gcm'>().notNull(),
   vaultObjectId: text('vault_object_id'),
   encryptedKey: text('encrypted_key'),

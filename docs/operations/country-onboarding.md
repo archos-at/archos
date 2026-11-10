@@ -67,7 +67,7 @@ Langfuse trace `source-monitor`, with `freshness-lag-days` per source.
 A request holding an advice policy needs a `counsel` approval, and one holding
 a site-keyed source a `privacy_reviewer` approval, besides the domain expert's.
 The request stays `submitted` until each has said yes; a trigger refuses a
-publish without them (migration 0210).
+publish without them (migration 0212).
 
 ## The measure
 

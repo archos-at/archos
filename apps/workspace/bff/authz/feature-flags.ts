@@ -359,6 +359,34 @@ export const FEATURE_FLAGS = {
    */
   platformBaseKnowledge: 'platform-base-knowledge',
   /**
+   * The building law of a project's site from the platform's records
+   * (ADR-0168): the chain text that says which edition binds in its Land and
+   * why, in the turn context, and each edition's role on the sources an answer
+   * cites (`bff/base-knowledge/chain/`). With it on, an office entitled to
+   * Austria reads OIB-RL 2:2019 as binding in Steiermark and 2023 as guidance
+   * there, where the static prompt and the host regex called 2023 binding in
+   * every Land.
+   *
+   * An entitlement, off until an operator targets the organization. With it
+   * off the turn context carries no chain and every source keeps the status
+   * `citations/binding.py` gave it before, byte for byte. The chain text only
+   * reaches a prompt once the static prompt no longer carries `<building_law>`
+   * (the country-neutral push); until then it rides along unread.
+   */
+  buildingLawChain: 'building-law-chain',
+  /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
+  /**
    * Base knowledge in time (ADR-0171, migration 0206): which edition of a work
    * applied on a date or to a permit procedure, by the legislating node's
    * reference-date ruleset and the amending editions' transitions
@@ -374,7 +402,7 @@ export const FEATURE_FLAGS = {
    */
   timeEditions: 'time-editions',
   /**
-   * Source monitors (ADR-0174, migration 0210): the `source-monitor` sweep
+   * Source monitors (ADR-0174, migration 0212): the `source-monitor` sweep
    * checks every published public source whose monitor names a probe and, when
    * one changed, opens a change request (origin `monitor`) holding a capture of
    * the new page for a reviewer. It never publishes. Read on the platform
@@ -420,6 +448,8 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'inbound-mail': 'entitlement',
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
+  'building-law-chain': 'entitlement',
+  'site-resolution': 'rollout',
   'time-editions': 'entitlement',
   'source-monitors': 'entitlement',
   'web-search': 'rollout',
