@@ -2872,6 +2872,10 @@
     "de": "Fragen zum österreichischen Recht beantwortet Piloti jetzt mit zitierbaren Paragraphen aus dem RIS, jeweils mit der Fundstelle, wie ein Bescheid sie nennt, etwa „Bauordnung für Wien, § 63 Abs 1“. Der Absatz steht als Quelle unter der Antwort und lässt sich in den Fachtext übernehmen."
   },
   {
+    "en": "Questions about an older submission can be answered with the law that applied then: give a procedure's filing and decision dates (or a date) and the answer names the edition in force, follows the Land's reference date and transitional rules, and says which date is still missing instead of assuming today. The law lookup can read the version of a past day from RIS.",
+    "de": "Fragen zu einer älteren Einreichung lassen sich mit dem damals geltenden Recht beantworten: Geben Sie das Einreichungs- und Entscheidungsdatum eines Verfahrens oder ein einzelnes Datum an. Die Antwort nennt die geltende Fassung, berücksichtigt den maßgeblichen Stichtag des Landes und die Übergangsbestimmungen und weist darauf hin, welches Datum noch fehlt, statt das heutige Datum anzunehmen. Die Rechtssuche kann die an einem vergangenen Tag geltende Fassung aus dem RIS abrufen."
+  },
+  {
     "en": "Questions about one of the office's working methods (Gebäudeklasse, Brandschutz, Einreichcheck, Bestand and the others) get answers faster. Piloti recognizes from the start which method a question is about, with no separate step, and the section “Skills used for this answer” still names the methods it followed.",
     "de": "Fragen zu einer der Arbeitsmethoden des Büros (Gebäudeklasse, Brandschutz, Einreichcheck, Bestand und die übrigen) werden schneller beantwortet. Piloti erkennt von Anfang an, welche Methode eine Frage betrifft, ohne einen eigenen Schritt, und der Abschnitt „Für diese Antwort verwendete Skills“ nennt weiterhin die Methoden, denen es gefolgt ist."
   },
