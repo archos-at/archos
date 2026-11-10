@@ -168,9 +168,13 @@ const graz = (authority: RegisterSite['authority']): RegisterSite => ({
 
 describe('the profile a resolution writes', () => {
   const now = new Date('2026-11-10T10:00:00Z')
+  const NO_SITE = { facts: {}, assumptions: {} }
+  const confirmed = (value: string, evidence: unknown[] = []) => ({
+    value, confidence: 'confirmed' as const, source: 'user_confirmed' as const, updatedAt: now.toISOString(), evidence: evidence as never,
+  })
 
   it('writes a verified site as confirmed facts with the register as evidence, after clearing the old site', () => {
-    const operations = siteProfileOperations({ status: 'verified', typed: 'Herrengasse 16, 8010 Graz', site: graz({ status: 'undetermined', reason: 'no_rule' }) }, 'user_1', now)
+    const operations = siteProfileOperations({ status: 'verified', typed: 'Herrengasse 16, 8010 Graz', site: graz({ status: 'undetermined', reason: 'no_rule' }) }, 'user_1', now, NO_SITE)
     const removes = operations.filter((operation) => operation.op === 'remove').map((operation) => operation.path)
     expect(removes).toContain('/facts/federal_state')
     expect(removes).toContain('/assumptions/site_address')
@@ -187,14 +191,31 @@ describe('the profile a resolution writes', () => {
   })
 
   it('keeps an unverified line as an assumption, never a fact, with the Land its postcode suggests', () => {
-    const operations = siteProfileOperations({ status: 'unverified', typed: 'Herrengasse 16, 8010 Graz', reason: 'no_register', statedCountry: null, candidates: [] }, 'user_1', now)
+    const operations = siteProfileOperations({ status: 'unverified', typed: 'Herrengasse 16, 8010 Graz', reason: 'no_register', statedCountry: null, candidates: [] }, 'user_1', now, NO_SITE)
     const adds = operations.filter((operation) => operation.op === 'add')
     expect(adds.map((operation) => operation.path)).toEqual(['/assumptions/site_address', '/assumptions/federal_state'])
     expect(adds.every((operation) => (operation.value as { status: string }).status === 'unconfirmed')).toBe(true)
   })
 
+  it('never takes away a site a person confirmed when the new line is unverified', () => {
+    const personConfirmed = { facts: { country: confirmed('at'), federal_state: confirmed('styria'), site_address: confirmed('Herrengasse 16, 8010 Graz') }, assumptions: {} }
+    const operations = siteProfileOperations({ status: 'unverified', typed: 'Herrengasse 999, 8010 Graz', reason: 'no_register_hit', statedCountry: null, candidates: [] }, 'user_1', now, personConfirmed)
+    const removed = operations.filter((operation) => operation.op === 'remove' && operation.path.startsWith('/facts/')).map((operation) => operation.path)
+    expect(removed).toEqual(['/facts/site_address'])
+    // The confirmed Land stands, so no postcode suggestion is laid beside it.
+    expect(operations.filter((operation) => operation.op === 'add').map((operation) => operation.path)).toEqual(['/assumptions/site_address'])
+  })
+
+  it('removes, with an unverified line, the facts a register derived from the old address', () => {
+    const register = { kind: 'register', addressId: 'at-bev:5734380', label: 'Herrengasse 16, 8010 Graz', referenceDate: '2025-10-01', resolvedAt: now.toISOString() }
+    const registerPlaced = { facts: { country: confirmed('at', [register]), federal_state: confirmed('styria', [register]), municipality: confirmed('Graz', [register]) }, assumptions: {} }
+    const operations = siteProfileOperations({ status: 'unverified', typed: 'Hauptplatz 1, 8700 Leoben', reason: 'no_register', statedCountry: null, candidates: [] }, 'user_1', now, registerPlaced)
+    const removed = operations.filter((operation) => operation.op === 'remove' && operation.path.startsWith('/facts/')).map((operation) => operation.path)
+    expect(removed).toEqual(['/facts/site_address', '/facts/country', '/facts/federal_state', '/facts/municipality'])
+  })
+
   it('keeps a stated foreign country as stated, unverified (invariant A1)', () => {
-    const operations = siteProfileOperations({ status: 'unverified', typed: 'Marienplatz 8, D-80331 München', reason: 'no_register', statedCountry: 'DE', candidates: [] }, 'user_1', now)
+    const operations = siteProfileOperations({ status: 'unverified', typed: 'Marienplatz 8, D-80331 München', reason: 'no_register', statedCountry: 'DE', candidates: [] }, 'user_1', now, NO_SITE)
     const adds = Object.fromEntries(operations.filter((operation) => operation.op === 'add').map((operation) => [operation.path, (operation.value as { value: string; status: string })]))
     expect(Object.keys(adds)).toEqual(['/assumptions/site_address', '/assumptions/country'])
     expect(adds['/assumptions/country']).toMatchObject({ value: 'de', status: 'unconfirmed' })

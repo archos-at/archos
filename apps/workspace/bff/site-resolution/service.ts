@@ -13,7 +13,7 @@
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
-import { patchProjectProfile } from '@/lib/project-profile/profile-service'
+import { getProjectProfile, patchProjectProfile } from '@/lib/project-profile/profile-service'
 import type { ProjectProfilePatchOperation } from '@/lib/project-profile/types'
 import { competentAuthorities } from './competence'
 import { houseKeysOf, narrow, outcomeOf, placeKeysOf, usablePostcode } from './match'
@@ -146,7 +146,8 @@ export async function setProjectSite(
   } else {
     resolution = await resolveSite(session, body.typed ?? '', now)
   }
-  const operations: ProjectProfilePatchOperation[] = siteProfileOperations(resolution, session.userId, now)
+  const { profile } = await getProjectProfile(session, projectId)
+  const operations: ProjectProfilePatchOperation[] = siteProfileOperations(resolution, session.userId, now, profile)
   const patched = await patchProjectProfile(session, projectId, operations, undefined, { registerEvidence: true })
   return { resolution, profileVersion: patched.profileVersion }
 }

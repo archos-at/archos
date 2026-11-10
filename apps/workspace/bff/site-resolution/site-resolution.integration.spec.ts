@@ -292,6 +292,12 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(typed.facts.site_address).toBeUndefined()
     expect(typed.assumptions.site_address).toMatchObject({ value: 'Herrengasse 999, 8010 Graz', status: 'unconfirmed' })
     expect(typed.assumptions.federal_state).toMatchObject({ value: 'styria', status: 'unconfirmed' })
+
+    // A Land a person confirmed outlives an unverified line.
+    const { patchProjectProfile } = await import('@/lib/project-profile/profile-service')
+    await patchProjectProfile(session, projectId, [{ op: 'add', path: '/facts/federal_state', value: 'styria' }])
+    await service.setProjectSite(session, projectId, { typed: 'Herrengasse 998, 8010 Graz' }, now)
+    expect((await read()).facts.federal_state).toMatchObject({ value: 'styria', source: 'user_confirmed' })
   })
 
   it('refuses register evidence through the generic profile patch, and keeps it through it (ADR-0172)', async () => {
