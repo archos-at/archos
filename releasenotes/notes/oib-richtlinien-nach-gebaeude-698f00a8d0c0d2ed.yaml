@@ -9,6 +9,6 @@ improvements:
     and opens its text.
 operators:
   - >
-    Migration 0216 lets an edition state which buildings it applies to.
+    Migration 0217 lets an edition state which buildings it applies to.
     Propose Austria's scopes for OIB-RL 2.1, 2.2 and 2.3 as one change request
     for AT after the Austria pack; until they are published, nothing narrows.
