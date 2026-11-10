@@ -75,7 +75,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Record shape (S1 owns the tables).** One set of tables for platform and office knowledge, told apart by an owner column (`organization_id`, NULL for platform). Works, editions and manifestations (design 3.4); append-only revisions; a "last checked" record. Platform rows can arrive later as additions, with no data migration.
 - **Licence values** S2 keys on: `public_open`, `public_restricted`, `licensed`. Licensed text is marked on its search-index points (S1 writes the mark, S2 enforces it at the model seam).
 - **Owner filter in search:** a mandatory office filter on tenant scopes (S1 adds it; everyone else reads through it).
-- **Flags,** default off: `officeGrundlagen` (S1), `licensedSeam` (S2), `knowledgeDoor` (S4), `sourceRouting` (S6), `knowledgeContext` (later).
+- **Flags,** default off: `officeGrundlagen` (S1), `licensedSeam` (S2), `sourceRouting` (S6), `knowledgeContext` (later).
 - **Files nobody but the orchestrator edits during Wave 1:** `apps/workspace/bff/agent-api/exposure.config.ts` (except S4, which classifies every platform operation in it) and `catalog/platform.ts` are over the 600-line limit. New operations go in new files (`catalog/base-knowledge.ts`, `exposure/<area>.ts`) with a one-line spread; the session adding the first one makes the spread.
 - **Numbers:** the next free migration and ADR number at the time of writing (`scripts/check_adrs.py --next`); the orchestrator renumbers on merge if two collide.
 
@@ -106,6 +106,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Design suggests:** a separate knowledge door (`/api/platform/knowledge/mcp`), or a server-side tool allowlist per OAuth client; every platform operation classified `platform_public` or `tenant_content`; tenant-content operations withheld from any external agent client.
 - **Why:** the platform door today also serves cross-office conversation search and feedback (the `conversations` block of `exposure.config.ts`), and WorkOS cannot narrow a token. Claude onboarding a country must never see tenant text.
 - **Fixed, ownership:** `agent-api/door/`, `door-principal.ts`, the MCP server routing, a new exposure test.
+- **As built (#1548):** no `knowledgeDoor` flag, because a default-off flag would keep the leak open by default; the knowledge door is the existing `/api/platform/mcp`, with all 55 platform operations classified in `agent-api/exposure/platform.ts` (37 platform-public, 18 tenant-content, withheld from every door). The gateway's `/langfuse/mcp` route is now a per-tool allowlist.
 - **Outcome, measured by:** a test proves no `tenant_content` operation is reachable from the knowledge door or an external agent client.
 
 ### S5 Data-flow register
@@ -169,6 +170,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S10 Agent-grade door
 - **Design suggests:** v7 4.3. The onboarding guide resource, `schema-get`, idempotency keys, batches of 200, `dryRun`, RFC 9457 problems, citation capture, the quote-span check for every proposer, `personDecides` on approve, publish, rollback and entitlement; `onboarding-door.spec.ts`, a scripted client with no model.
+- **Also (from S4, 2026-11-10):** `platform-skill-create` and `-update` are still on the door and publish instructions to every office; put them behind `personDecides` or withhold them. S4 took ADR-0158 for the door split, so the design's "a country is a data release" ADR takes the next free number.
 - **Outcome, measured by:** Claude takes AT-9 to a green validation using door operations only.
 
 ### S11 Time and editions (ticket 30)
