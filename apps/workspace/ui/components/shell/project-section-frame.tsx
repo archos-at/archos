@@ -130,6 +130,14 @@ interface LevelTools {
 const ToolTierContext = createContext<SectionToolTier | null>(null)
 const LevelToolsContext = createContext<LevelTools | null>(null)
 
+/** True inside the tool row: its Hochladen is the one that steps back, folds to its glyph and takes „Neuer Ordner“. */
+const ToolRowContext = createContext(false)
+
+/** Whether this control stands in Dateien's tool row (the empty state's Hochladen does not, and keeps its ink). */
+export function useInSectionToolRow(): boolean {
+  return useContext(ToolRowContext)
+}
+
 /** The tool row's tier, or null outside the section's frame (the Büroablage, a spec), which keeps its own header. */
 export function useSectionToolTier(): SectionToolTier | null {
   return useContext(ToolTierContext)
@@ -523,7 +531,7 @@ export function ProjectSectionFrame({
           {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
           {toolRow && (
             <div ref={tier.ref} className="mt-4 flex min-w-0 items-center" data-testid="files-tool-row" data-tier={tier.value}>
-              {actions}
+              <ToolRowContext.Provider value>{actions}</ToolRowContext.Provider>
             </div>
           )}
         </div>

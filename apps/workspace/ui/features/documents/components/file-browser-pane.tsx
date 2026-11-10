@@ -1005,7 +1005,7 @@ export function FileBrowserPane({
                     {t('folders.heading')}
                   </SectionLabel>
                 )}
-                <FileGrid>
+                <FileGrid className="md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]" /* a name of one line: 196px cut half */>
                   {childFolders.map((folder) => (
                     <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
                   ))}

@@ -130,6 +130,7 @@ vi.mock('@/components/shell/project-section-frame', () => ({
   SectionLevelTools: () => null,
   useSectionNewFolder: () => null,
   useSectionPrimaryYields: () => false,
+  useInSectionToolRow: () => false,
 }))
 
 // useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.

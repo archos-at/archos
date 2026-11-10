@@ -82,6 +82,19 @@ describe('Dateien’s tool row', () => {
     expect(within(row).getByRole('button', { name: /Upload/ }).className).not.toMatch(/\bbg-primary\b/)
   })
 
+  it('leaves the empty state’s own Hochladen its ink: only the tool row’s steps back', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1100, height: 32, top: 0, left: 0, right: 1100, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+    render(
+      <ProjectSectionFrame projectId="p1" projectName="Holzbau Wien">
+        <FolderBreadcrumbRow folders={FOLDERS} currentFolderId={null} onNavigate={vi.fn()} onCreateFolder={vi.fn(async () => true)} emptyLevel />
+        <div data-testid="empty-state">
+          <ProjectUppyUpload onUpload={vi.fn()} isUploading={false} allowFolders />
+        </div>
+      </ProjectSectionFrame>
+    )
+    expect(within(screen.getByTestId('empty-state')).getByRole('button', { name: /Upload/ }).className).toMatch(/\bbg-primary\b/)
+  })
+
   it('keeps Hochladen the ink press where the level has something in it', () => {
     const { row } = renderRow({ width: 1100 })
     expect(within(row).getByRole('button', { name: /Upload/ }).className).toMatch(/\bbg-primary\b/)

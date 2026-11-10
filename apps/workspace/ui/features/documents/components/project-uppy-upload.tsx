@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import { useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
+import { useInSectionToolRow, useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLocale, useTranslations } from '@/i18n'
 import { captureCopy } from '@/i18n/namespaces/capture'
@@ -96,13 +96,13 @@ export function ProjectUppyUpload({
     }
   }, [pickFilesRef, pickFolderRef])
   const buttonLabel = label ?? t('upload.upload')
-  // The header's Hochladen (the one with the menu) in the section's tool row: its glyph alone on a narrow row, the
+  // The section tool row's Hochladen (`useInSectionToolRow`; never the empty state's own): its glyph alone on a narrow row, the
   // raised press while an empty level's own Hochladen is the pane's primary, and „Neuer Ordner“ in its menu where the
   // row has no room for that press.
   const tier = useSectionToolTier()
   const yields = useSectionPrimaryYields()
   const newFolder = useSectionNewFolder()
-  const headerInstance = allowFolders && !glyphOnly
+  const headerInstance = useInSectionToolRow() && !glyphOnly
   const compact = headerInstance && tier === 'narrow'
   // Server-computed, flag-gated accept-list and size limit (image types only
   // when the `image-upload` flag allows). Falls back to the static defaults if
