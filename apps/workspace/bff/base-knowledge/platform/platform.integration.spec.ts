@@ -189,7 +189,8 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
 
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
     const raw = await withTenant({ organizationId: SECOND_ORG }, () =>
-      db.execute(sql`SELECT 1 FROM knowledge_records WHERE organization_id IS NULL`),
+      // Austria's records only: suites running beside this one publish other countries' platform rows into the same database.
+      db.execute(sql`SELECT 1 FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'AT'`),
     )
     expect(raw).toHaveLength(0)
 
