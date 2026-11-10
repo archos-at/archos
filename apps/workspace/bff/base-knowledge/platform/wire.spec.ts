@@ -39,7 +39,7 @@ describe('a work’s identifiers at its source', () => {
 
   it('refuses a scheme it does not know, a document number of one paragraph among them', () => {
     expect(work({ 'ris_dokumentnummer': 'LWI40000225' }).success).toBe(false)
-    expect(work({ gesetzesnummer: '20000006' }).success).toBe(false)
+    expect(work({ 'gesetzesnummer': '20000006' }).success).toBe(false)
   })
 
   it('refuses an ELI that does not end with "/": …/1930/11 would also name …/1930/110', () => {
