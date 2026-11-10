@@ -2376,6 +2376,10 @@
     "de": "Auf dem Smartphone hat Piloti jetzt eine Leiste am unteren Bildschirmrand: Innerhalb eines Projekts finden Sie darin Frag Piloti, Dateien, Übersicht und Postfach, außerhalb eines Projekts Projekte, Büroablage und Postfach. Tippen Sie oben auf den Projektnamen, um das Projekt über ein Auswahlfenster zu wechseln, in dem die zuletzt verwendeten Projekte zuerst angezeigt werden. Über die Lupe öffnen Sie die Suche."
   },
   {
+    "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
+    "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+  },
+  {
     "en": "On a phone, the Herleitung under an answer used to swallow every swipe: a finger anywhere on it moved nothing, so you could not scroll past it to the answer itself. It now scrolls like the rest of the page.",
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
@@ -3890,6 +3894,10 @@
   {
     "en": "The terms and number checks your office sets now also cover what you type into the chat: before a message with an IBAN or a listed term goes out, Piloti shows what it found and sends only a masked version, or lets you edit it first.",
     "de": "Die Begriffe und Nummernprüfungen, die Ihr Büro festlegt, gelten jetzt auch für alles, was Sie in den Chat tippen: Bevor eine Nachricht mit einer IBAN oder einem aufgeführten Begriff hinausgeht, zeigt Piloti, was es gefunden hat, und sendet nur eine maskierte Version oder lässt Sie sie vorher bearbeiten."
+  },
+  {
+    "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",
+    "de": "Der Text einer E-Mail zu einem Projekt ließ sich nicht ablegen, wenn ARCHOS dafür einen Ordner vorgeschlagen hatte, und blieb dauerhaft bei „Ablage …“ stehen. Jetzt wird er wie jeder andere Text in diesem Ordner abgelegt."
   },
   {
     "en": "The upload area now states the largest file you can upload as a size per file, and the number it shows is the one your organization is held to. It no longer shows 95 MB for a 100 MB limit.",
