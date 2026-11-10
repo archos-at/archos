@@ -1,4 +1,4 @@
-"""The conversation layout (ADR-0154): a stable head after the system prompt, the turn's note before the question.
+"""The conversation layout (ADR-0177): a stable head after the system prompt, the turn's note before the question.
 
 What it has to hold: the head is the same bytes on every turn of a project
 (so the provider's cache carries it), every template value is in exactly one of

@@ -151,7 +151,7 @@ models cannot be rewritten per call (their client is built at boot), so a cell s
   carries a block breakpoint (`common/prompt_caching.py`), which is why
   `research_llm` runs on Chat Completions: the Responses API drops per-block
   `cache_control`. The project and office context sits right after it with a
-  breakpoint of its own, and history is pruned and trimmed in steps (ADR-0175);
+  breakpoint of its own, and history is pruned and trimmed in steps (ADR-0177);
   `test_cross_turn_prefix.py` measures the request builders, and the ledger's
   `cache_write_tokens` says what each call wrote.
 - **What zero data retention leaves open on price (2026-11-04,

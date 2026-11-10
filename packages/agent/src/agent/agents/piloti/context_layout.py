@@ -1,4 +1,4 @@
-"""Where a chat turn's context sits in the request: a stable head and a turn note (ADR-0154).
+"""Where a chat turn's context sits in the request: a stable head and a turn note (ADR-0177).
 
 WHY
 ===
@@ -46,7 +46,7 @@ from typing import Any
 # every turn, and only the turn's own note before the question, so the
 # provider's prompt cache holds the project context across turns and
 # conversations. `turn`: one turn-context message right before the newest
-# question, the layout before ADR-0154; the rollback.
+# question, the layout before ADR-0177; the rollback.
 LAYOUT_ENV = "CHAT_CONTEXT_LAYOUT"
 TURN_LAYOUT = "turn"
 CONVERSATION_LAYOUT = "conversation"
