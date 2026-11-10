@@ -21,7 +21,6 @@ recorded fixtures. Code is written only for a new protocol or a new format.
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
 | `src/routing.py` | The transport a caller uses: through the fetcher when `PUBLIC_SOURCE_FETCHER_URL` is set, the guard in process when not |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
-| `src/monitor.py` | Deterministic change monitors and the review item they produce |
 | `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures |
 
 ## Adding a source

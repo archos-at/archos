@@ -104,13 +104,13 @@ default off, any failure read as off. The requests are identical either way;
 
 ### Monitors
 
-Deterministic, no model call: a `Snapshot` of the bytes' sha256, the server's
-ETag, the protocol's version and a hash per passage anchor; `changes_since`
-under the record's `monitor.kind` yields a `Change` with the changed, added and
-removed anchors and `needs` (`review_text`, `new_edition`, `recheck_relations`).
-`Change.review_item()` is the shape a review queue takes. The queue, the inbox
-item and the change request belong to the platform records (build S7); nothing
-here schedules a monitor yet.
+The record declares how a change is noticed (`monitor.kind`: `sha256`, `etag`,
+`version` or `none`, deterministic, no model call), and the access types return
+what a monitor compares: the bytes' sha256, the server's ETag, the version the
+protocol states, and passages by anchor. The monitor itself, its schedule and
+the review item it opens are a later session's (S16 in the build split), which
+also owns `ogc` and the door operations `source-test`, `source-status` and
+`source-credential-set`.
 
 ### Consequences
 
@@ -134,7 +134,7 @@ here schedules a monitor yet.
 ### Confirmation
 
 `packages/public-sources/tests` (every record's fixtures, the guard, the
-fetcher, the engines, the monitors), `packages/ris-adapter/tests/test_source_record_parity.py`,
+fetcher, the engines), `packages/ris-adapter/tests/test_source_record_parity.py`,
 `test_source_routing.py`, `deploy/pulumi/src/app/public-source-fetcher.spec.ts`,
 and the answer suite before and after with `SOURCE_ROUTING=on`.
 

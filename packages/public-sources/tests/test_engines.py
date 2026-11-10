@@ -97,3 +97,16 @@ def test_ris_xml_reads_the_document_inside_content_without_the_screen_reader_twi
     document = RisXml({"content_selector": "#content", "drop_selectors": [".sr-only"]}).document(page)
     text = document.passages[0].text
     assert "Art. 3" in text and "Litera a" not in text and "Zum Inhalt" not in text and "Impressum" not in text
+
+
+def test_akn_eids_are_the_anchors_at_any_unit_the_record_names():
+    # A citation to an Absatz resolves to `document + art_16_b/para_1`: the eId
+    # Fedlex wrote, kept verbatim, at whatever level the record makes a passage.
+    document = Akn({"unit": "paragraph", "language": "de"}).document(RPG)
+    anchors = [p.anchor for p in document.passages]
+    assert "art_16_b/para_1" in anchors and "art_16_b/para_2" in anchors
+    assert anchors.index("art_1/para_1") < anchors.index("art_16_b/para_1")
+    assert len(anchors) == len(set(anchors)), "an eId is unique within the document"
+    absatz = document.passage("art_16_b/para_2")
+    assert absatz is not None and absatz.number == "2"
+    assert absatz.text.startswith("Wurde die Bewilligung befristet")
