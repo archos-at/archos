@@ -82,13 +82,13 @@ class ElIConfig(AccessConfig):
         if self.resolve == "sparql" and self.sparql is None:
             raise ValueError("resolve: sparql needs a 'sparql' block")
         templates = [self.eli] + ([self.sparql.query] if self.sparql else [])
-        for template in templates:
-            for name, arg in placeholders(template):
-                argument = name if arg is None else arg
-                if argument not in self.args:
-                    raise ValueError(f"template argument {argument!r} has no declared pattern in 'args'")
-                if arg is not None and name not in self.tables:
-                    raise ValueError(f"template refers to unknown table {name!r}")
+        refs = [ref for template in templates for ref in placeholders(template)]
+        undeclared = sorted({name if arg is None else arg for name, arg in refs} - set(self.args))
+        if undeclared:
+            raise ValueError(f"template arguments {undeclared} have no declared pattern in 'args'")
+        unknown = sorted({name for name, arg in refs if arg is not None} - set(self.tables))
+        if unknown:
+            raise ValueError(f"template refers to unknown tables {unknown}")
         return self
 
 

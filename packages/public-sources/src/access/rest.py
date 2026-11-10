@@ -65,10 +65,9 @@ class RestConfig(AccessConfig):
     def _tables_exist(self) -> RestConfig:
         for name, operation in self.operations.items():
             templates = [operation.path] + [t for p in operation.params for t in (p.name, p.value)]
-            for template in templates:
-                for table, arg in placeholders(template):
-                    if arg is not None and table not in self.tables:
-                        raise ValueError(f"operation {name!r} refers to unknown table {table!r}")
+            tables = {table for template in templates for table, arg in placeholders(template) if arg is not None}
+            if unknown := sorted(tables - set(self.tables)):
+                raise ValueError(f"operation {name!r} refers to unknown tables {unknown}")
         return self
 
 

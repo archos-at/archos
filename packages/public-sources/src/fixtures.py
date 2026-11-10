@@ -89,12 +89,14 @@ def _check_search(search, expect: dict, result: FixtureResult) -> None:
     if len(search.hits) < int(expect.get("min_hits", 1)):
         result.failures.append(f"{len(search.hits)} hits, expected at least {expect.get('min_hits', 1)}")
     first = expect.get("first")
-    if isinstance(first, dict) and search.hits:
-        hit = search.hits[0]
-        for name, value in first.items():
-            actual = getattr(hit, name, None)
-            if actual != value:
-                result.failures.append(f"first hit {name} is {actual!r}, expected {value!r}")
+    if not (isinstance(first, dict) and search.hits):
+        return
+    hit = search.hits[0]
+    result.failures.extend(
+        f"first hit {name} is {getattr(hit, name, None)!r}, expected {value!r}"
+        for name, value in first.items()
+        if getattr(hit, name, None) != value
+    )
 
 
 def _check_document(document, version: str, expect: dict, result: FixtureResult) -> None:

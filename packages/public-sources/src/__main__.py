@@ -33,15 +33,11 @@ def main(argv: list[str] | None = None) -> int:
     if unknown:
         print(f"unknown source ids: {unknown}", file=sys.stderr)
         return 1
-    failed = 0
-    for source in chosen:
-        for result in asyncio.run(run_source(source)):
-            status = "ok" if result.ok else "FAIL"
-            print(f"{status}  {source.id}  {result.fixture}")
-            for failure in result.failures:
-                print(f"      {failure}")
-            failed += not result.ok
-    return 1 if failed else 0
+    results = [result for source in chosen for result in asyncio.run(run_source(source))]
+    for result in results:
+        print(f"{'ok' if result.ok else 'FAIL'}  {result.source_id}  {result.fixture}")
+        print("".join(f"      {failure}\n" for failure in result.failures), end="")
+    return 0 if all(result.ok for result in results) else 1
 
 
 if __name__ == "__main__":

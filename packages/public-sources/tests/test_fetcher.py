@@ -38,7 +38,7 @@ async def test_a_request_goes_through_the_fetcher_and_comes_back_unchanged(monke
     async with await _client_through_fetcher(monkeypatch, calls) as client:
         response = await client.get(
             "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.html",
-            headers={"Accept": "text/html", "X-Grid-Organization-Id": "org_1"},
+            headers={"Accept": "text/html", "X-Organization-Id": "org_1"},
         )
     assert response.status_code == 200
     assert response.text == "<p>law</p>"
@@ -46,14 +46,14 @@ async def test_a_request_goes_through_the_fetcher_and_comes_back_unchanged(monke
     assert "set-cookie" not in response.headers
     [upstream] = calls
     assert str(upstream.url) == "https://www.ris.bka.gv.at/Dokumente/Landesnormen/LWI40000066/LWI40000066.html"
-    assert "x-grid-organization-id" not in upstream.headers
+    assert "x-organization-id" not in upstream.headers
 
 
 async def test_a_host_off_the_source_is_refused_before_the_fetcher_is_asked(monkeypatch):
     calls: list[httpx.Request] = []
     async with await _client_through_fetcher(monkeypatch, calls) as client:
         with pytest.raises(EgressRefused):
-            await client.get("https://qdrant.grid.svc.cluster.local:6333/collections")
+            await client.get("https://qdrant.app.svc.cluster.local:6333/collections")
     assert calls == []
 
 

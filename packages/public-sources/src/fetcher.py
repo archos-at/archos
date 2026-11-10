@@ -113,16 +113,21 @@ async def _send(client: httpx.AsyncClient, method: str, url: str, headers: dict,
     request = client.build_request(method, url, headers=headers, content=body or None)
     response = await client.send(request, stream=True)
     try:
-        chunks: list[bytes] = []
-        size = 0
-        async for chunk in response.aiter_bytes():
-            size += len(chunk)
-            if size > MAX_BODY_BYTES:
-                raise _TooLarge(f"body exceeds {MAX_BODY_BYTES} bytes")
-            chunks.append(chunk)
-        return response.status_code, b"".join(chunks), response.headers
+        return response.status_code, await _bounded_body(response), response.headers
     finally:
         await response.aclose()
+
+
+async def _bounded_body(response: httpx.Response) -> bytes:
+    """The body, refused past :data:`MAX_BODY_BYTES` while it streams rather than after."""
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in response.aiter_bytes():
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            raise _TooLarge(f"body exceeds {MAX_BODY_BYTES} bytes")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def main() -> None:  # pragma: no cover - process entry point

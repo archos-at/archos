@@ -290,9 +290,8 @@ def html_to_text(
         # spelled out ("Paragraph 118, Absatz eins"). Kept, the spoken twin was
         # a third of the Bauordnung für Wien and half of some §§, and it pushed
         # the provision itself out of the passage the agent reads.
-        for selector in drop_selectors:
-            for tag in soup.select(selector):
-                tag.decompose()
+        for tag in [tag for selector in drop_selectors for tag in soup.select(selector)]:
+            tag.decompose()
         root = (soup.select_one(content_selector) if content_selector else None) or soup
         text = root.get_text("\n")
     except ImportError:  # pragma: no cover - bs4 is a declared dependency

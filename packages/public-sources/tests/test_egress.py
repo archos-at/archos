@@ -102,11 +102,11 @@ async def test_only_the_named_headers_leave():
             headers={
                 "Authorization": "Bearer x",
                 "Cookie": "a=b",
-                "X-Grid-Organization-Id": "org_1",
+                "X-Organization-Id": "org_1",
                 "Accept": "text/html",
             },
         )
-    assert "authorization" not in seen and "cookie" not in seen and "x-grid-organization-id" not in seen
+    assert "authorization" not in seen and "cookie" not in seen and "x-organization-id" not in seen
     assert seen["accept"] == "text/html"
 
 
@@ -115,3 +115,90 @@ async def test_only_reads_leave():
     async with guarded_client(source, transport=httpx.MockTransport(lambda r: httpx.Response(200))) as client:
         with pytest.raises(EgressRefused, match="not a read"):
             await client.delete("https://law.example.org/bo.html")
+
+
+# --- The fixed safety point (build-split S6): every internal destination is refused
+# --- after DNS, on the first request and on a redirect, at the address actually dialled.
+
+_REFUSED_AFTER_DNS = {
+    "loopback": "127.0.0.1",
+    "loopback_v6": "::1",
+    "private_10": "10.12.0.7",
+    "private_172": "172.20.1.1",
+    "private_192": "192.168.0.10",
+    "cluster_service_cidr": "10.96.0.1",
+    "cluster_pod_cidr": "10.244.3.17",
+    "link_local": "169.254.10.10",
+    "cloud_metadata_v4": "169.254.169.254",
+    "cloud_metadata_v6": "fd00:ec2::254",
+    "link_local_v6": "fe80::1",
+    "unique_local_v6": "fd12:3456::1",
+    "cgnat": "100.64.1.1",
+    "unspecified": "0.0.0.0",
+    "v4_mapped_private": "::ffff:192.168.1.1",
+    "multicast": "239.1.1.1",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_REFUSED_AFTER_DNS))
+async def test_an_allowed_host_that_resolves_internally_is_refused_before_connecting(case):
+    inner = _Recorder()
+    backend = PublicOnlyBackend(inner=inner, resolver=await _resolver_to(_REFUSED_AFTER_DNS[case]))
+    with pytest.raises(EgressRefused, match="non-public"):
+        await backend.connect_tcp("law.example.org", 443)
+    assert inner.connected == [], f"{case}: a connection was opened"
+
+
+async def test_a_redirect_to_an_allowed_host_that_resolves_internally_is_refused_at_that_hop():
+    # The host list cannot catch this one: the redirect stays on a listed host,
+    # whose DNS now answers with the metadata address. The dial is what refuses.
+    source = parse_source(html_source(hosts=["law.example.org", "files.example.org"]))
+    answers = {"law.example.org": ["93.184.216.34"], "files.example.org": ["169.254.169.254"]}
+    dialled: list[str] = []
+
+    async def resolve(host, port):
+        return answers[host]
+
+    class _Answering(httpcore.AsyncNetworkBackend):
+        async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+            dialled.append(host)
+            return httpcore.AsyncMockStream(
+                [b"HTTP/1.1 302 Found\r\nLocation: https://files.example.org/bo.html\r\nContent-Length: 0\r\n\r\n"]
+            )
+
+        async def sleep(self, seconds):
+            return None
+
+    transport = GuardedTransport(PublicOnlyBackend(inner=_Answering(), resolver=resolve))
+    # Plain-text mock streams: no TLS handshake to fake, so the client speaks http to the mock.
+    transport._pool._ssl_context = None
+    async with guarded_client(source, transport=_PlainHttpsForMock(transport)) as client:
+        with pytest.raises(EgressRefused, match="169.254.169.254"):
+            await client.get("https://law.example.org/bo.html")
+    assert dialled == ["93.184.216.34"]
+
+
+class _PlainHttpsForMock(httpx.AsyncBaseTransport):
+    """Hands the guarded transport an http URL so the mock stream needs no TLS; the host is unchanged."""
+
+    def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
+        self.inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        request.url = request.url.copy_with(scheme="http", port=443)
+        return await self.inner.handle_async_request(request)
+
+
+async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():
+    # Pinning: one resolution decides both the check and the connection, so a
+    # name that answers public first and private second cannot slip through.
+    answers = iter([["93.184.216.34"], ["10.0.0.5"]])
+    inner = _Recorder()
+
+    async def flipping(host, port):
+        return next(answers)
+
+    backend = PublicOnlyBackend(inner=inner, resolver=flipping)
+    with pytest.raises(httpcore.ConnectError):
+        await backend.connect_tcp("law.example.org", 443)
+    assert inner.connected == ["93.184.216.34"]

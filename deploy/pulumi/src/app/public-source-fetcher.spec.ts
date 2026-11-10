@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { baseStackConfig } from "../test-support/stack-config";
+import { baseStackConfig, forProject } from "../test-support/stack-config";
+
+/** Any project name: the program reads its keys through the running project (ADR-0147). */
+const PROJECT = "stack";
 
 /**
  * The public-source fetcher (ADR-0158). What plans clean and is still wrong:
@@ -22,7 +25,7 @@ pulumi.runtime.setMocks(
     },
     call: () => ({}),
   },
-  "grid-oib",
+  PROJECT,
   "test",
   false,
 );
@@ -43,13 +46,13 @@ describe("public-source-fetcher", () => {
   let cfgOff: typeof cfgOn;
 
   beforeAll(async () => {
-    pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false" });
+    pulumi.runtime.setAllConfig({ ...forProject(baseStackConfig(), PROJECT), [`${PROJECT}:observabilityEnabled`]: "false" });
     const { loadConfig } = await import("../config");
     mod = await import("./public-source-fetcher");
     cfgOff = loadConfig();
     cfgOn = { ...cfgOff, publicSourceFetcher: { enabled: true, replicas: 1 } };
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
-    const fetcher = mod.installPublicSourceFetcher(cfgOn, provider, "grid", []);
+    const fetcher = mod.installPublicSourceFetcher(cfgOn, provider, "app", []);
     await new Promise((done) => fetcher.service.id.apply(done));
   });
 
