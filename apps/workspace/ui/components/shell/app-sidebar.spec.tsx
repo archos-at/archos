@@ -295,41 +295,27 @@ describe('AppSidebar - mobile top bar', () => {
 })
 
 describe('AppSidebar - the phone top band', () => {
-  test('names the project as a quiet line, and is not the project selector', () => {
-    // The selector is the first row of „Mehr“ on a phone (2026-11-10): the
-    // band was a 56px row round a 44px press on every page.
+  // The founder (2026-11-10), of a 44px band with the project's name and the
+  // search over the page's title: „this tiny thing up top is still a bit weird“.
+  test('draws no band over a page that has a header: the header names the project and holds the search', () => {
     pathname = '/app/projects/p1/files'
     render(<AppSidebar {...baseProps} />)
     const banner = screen.getByRole('banner')
-    const crumb = within(banner).getByTestId('project-crumb')
-    expect(crumb).toHaveTextContent('Project One')
-    expect(crumb).toHaveClass('text-muted-foreground', 'text-name')
-    // One control in the band: the search. Nothing opens a project list from here.
-    expect(within(banner).getAllByRole('button').map((button) => button.getAttribute('data-testid'))).toEqual(['shell-search'])
-    expect(banner.querySelector('.min-h-11')).not.toBeNull()
-    expect(banner.querySelector('.min-h-14')).toBeNull()
+    expect(within(banner).queryByTestId('project-crumb')).toBeNull()
+    expect(within(banner).queryAllByRole('button')).toEqual([])
+    expect(within(banner).queryAllByRole('link')).toEqual([])
+    expect(banner.querySelector('[data-slot="phone-bare-line"]')).toBeNull()
   })
 
-  test('carries the search that opens the command palette', async () => {
-    pathname = '/app/projects/p1/files'
+  test('a bare flow has no page header, so its way back, the project and the search keep one line', async () => {
+    pathname = '/app/projects/p1/setup'
     const user = userEvent.setup()
     render(<AppSidebar {...baseProps} />)
-    await user.click(within(screen.getByRole('banner')).getByTestId('shell-search'))
+    const line = screen.getByRole('banner').querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
+    expect(within(line).getByRole('link', { name: 'Back to Overview' })).toHaveAttribute('href', '/app/projects/p1/settings')
+    expect(within(line).getByTestId('project-crumb')).toHaveTextContent('Project One')
+    await user.click(within(line).getByTestId('shell-search'))
     expect(useShellOverlays.getState().paletteOpen).toBe(true)
-  })
-
-  test('offers a way back from a page one level below a tab, and none on a tab root', () => {
-    pathname = '/app/projects/p1/files/bin'
-    const { unmount } = render(<AppSidebar {...baseProps} />)
-    expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Back to Files' })).toHaveAttribute(
-      'href',
-      '/app/projects/p1/files'
-    )
-    unmount()
-
-    pathname = '/app/projects/p1/files'
-    render(<AppSidebar {...baseProps} />)
-    expect(within(screen.getByRole('banner')).queryByRole('link', { name: /^Back to/ })).toBeNull()
   })
 
   test('shows the connection on a phone, where the rail footer is out of sight', () => {

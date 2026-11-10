@@ -1,4 +1,4 @@
-// @disk-inputs: ui/components/shell/*.tsx, ui/components/shell/*.ts, ui/components/ui/sidebar.tsx, ui/features/layout/components/ChatProjectContext.tsx
+// @disk-inputs: ui/components/shell/*.tsx, ui/components/shell/*.ts, ui/components/ui/sidebar.tsx, ui/features/layout/components/ChatProjectContext.tsx, ui/components/ui/page-header.tsx
 /**
  * The app rail's material (docs/design/design-language.md, „The app rail“): the
  * rail is the desk beside the page (Paper on a desk). Two things on it are
@@ -107,22 +107,37 @@ describe('the app rail’s material', () => {
     expect(withInitials).toEqual(['ui/components/shell/project-switcher.tsx'])
   })
 
-  it('on a phone, keeps the project selector in „Mehr“: the top band and the chat’s context row name the project and open nothing', () => {
+  it('on a phone, keeps the project selector in „Mehr“ and the top of a page one header block, with no band over it', () => {
     const band = source('ui/components/shell/app-sidebar.tsx')
+    const frame = source('ui/components/shell/project-section-frame.tsx')
+    const header = withoutComments(readFileSync(join(ROOT, 'ui/components/ui/page-header.tsx'), 'utf8'))
     const chat = withoutComments(readFileSync(join(ROOT, 'ui/features/layout/components/ChatProjectContext.tsx'), 'utf8'))
     const crumb = source('ui/components/shell/project-crumb.tsx')
-    for (const text of [band, chat]) {
-      // The name is the quiet line, and nothing in either place opens a project list.
-      expect(text).toMatch(/<ProjectCrumb\b/)
+    // Nothing at the top of a page opens a project list.
+    for (const text of [band, frame, chat]) {
       expect(text).not.toMatch(/ProjectPill|PhoneProjectList|data-project-selector|setMoreSheetOpen|projectSwitcher\.switch/)
     }
-    // A line of text, not a control: muted, the name's 13/20/500, one line cut in the middle.
-    expect(crumb).toMatch(/text-muted-foreground text-name/)
+    // The shell draws its own line only where the page has no header (a bare flow); never a band over one.
+    expect(band).toMatch(/\{!pageHasHeader && \(\s*<div data-slot="phone-bare-line"/)
+    expect(band.match(/<ProjectCrumb\b/g)).toHaveLength(1)
+    expect(band.match(/<ShellSearchButton\b/g)).toHaveLength(1)
+    expect(band).not.toMatch(/min-h-14/)
+    // The page's header is the block: the project as its crumb (4px over the title, at every width the same
+    // muted 12/16), the search once, on the title's line, below the rail's width only.
+    expect(header).toMatch(/'text-meta text-muted-foreground mb-1 flex min-w-0 items-center gap-1'/)
+    expect(header).not.toMatch(/phone:sr-only|phone:mb-0|phone:text-foreground/)
+    expect(frame).toMatch(/titleEnd=\{[\s\S]*?<ShellSearchButton className="-mr-2\.5 md:hidden" \/>/)
+    expect(frame.match(/<ShellSearchButton\b/g)).toHaveLength(1)
+    expect(frame).toMatch(/<MiddleTruncate text=\{projectName\}/)
+    // Dateien has no second way back: its places are tabs, and an opened mail draws its own.
+    expect(source('ui/components/shell/phone-tabs.ts')).not.toMatch(/\/files\/`\)\) return/)
+    // The chat has no page header: one crumb line over its pills, 16px, the search hanging into it.
+    expect(chat).toMatch(/<div className="flex h-4 items-center/)
+    expect(chat).toMatch(/<ProjectCrumb\b/)
+    // A line of text, not a control: the header crumb's muted 12/16, one line cut in the middle.
+    expect(crumb).toMatch(/text-muted-foreground text-meta/)
     expect(crumb).toMatch(/<MiddleTruncate\b/)
     expect(crumb).not.toMatch(/<button|onClick|role=|aria-haspopup|bg-sheet|shadow-/)
-    // The band is the search glyph's 44px, not the 56px that stood round the press.
-    expect(band).toMatch(/flex min-h-11 items-center gap-1 pl-\[max/)
-    expect(band).not.toMatch(/min-h-14/)
     // The list has one door on a phone.
     const doors = RAIL_FILES.filter((file) => /<PhoneProjectList\b/.test(source(file)))
     expect(doors).toEqual(['ui/components/shell/phone-more-sheet.tsx'])

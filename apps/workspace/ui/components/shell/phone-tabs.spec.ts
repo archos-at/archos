@@ -150,10 +150,9 @@ describe('where the bar stands down', () => {
 
 describe('the phone header back', () => {
   it('leads out of a page one level below a tab', () => {
-    expect(phoneBackTarget('/app/projects/p1/files/bin', 'p1')).toEqual({
-      href: '/app/projects/p1/files',
-      sectionKey: 'files',
-    })
+    // Dateien's places are tabs of its header, and an opened mail has its own way back: no second arrow.
+    expect(phoneBackTarget('/app/projects/p1/files/bin', 'p1')).toBeNull()
+    expect(phoneBackTarget('/app/projects/p1/files/mail/m1', 'p1')).toBeNull()
     expect(phoneBackTarget('/app/projects/p1/settings/members', 'p1')).toEqual({
       href: '/app/projects/p1/settings',
       sectionKey: 'settings',

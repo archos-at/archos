@@ -168,18 +168,20 @@ export function phoneTabBarHiddenOnRoute(pathname: string): boolean {
 export interface PhoneBackTarget {
   href: string
   /** Key under `nav.sections`. */
-  sectionKey: 'files' | 'settings'
+  sectionKey: 'settings'
 }
 
 /**
  * Where the phone header's back control goes, for a page one level below a
- * tab's root. Tab roots have none: the bar is their way out. The Papierkorb
- * sits under Dateien; a settings page, the Projekterfassung and the
- * Einrichtung sit under the Übersicht.
+ * tab's root. Tab roots have none: the bar is their way out. A settings page,
+ * the Projekterfassung and the Einrichtung sit under the Übersicht. Dateien's
+ * places have none: each is a tab of Dateien's header (the Papierkorb, the
+ * E-Mail-Eingang, Offene Punkte), and an opened mail draws its own way back to
+ * its list („← E-Mail-Eingang“). A second arrow above it, to Dateien's root,
+ * was two ways back 60px apart.
  */
 export function phoneBackTarget(pathname: string, projectId: string): PhoneBackTarget | null {
   const base = `/app/projects/${projectId}`
-  if (pathname.startsWith(`${base}/files/`)) return { href: `${base}/files`, sectionKey: 'files' }
   if (pathname.startsWith(`${base}/settings/`))
     return { href: `${base}/settings`, sectionKey: 'settings' }
   if (isUnder(pathname, `${base}/setup`) || isUnder(pathname, `${base}/intake`)) {

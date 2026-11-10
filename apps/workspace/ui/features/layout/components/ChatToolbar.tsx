@@ -297,7 +297,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
           row there instead of taking a line of 393px. */}
       <ChatProjectContext
         projectName={projectName}
-        className={cn(THREAD_COLUMN_INNER, 'mb-1 max-md:landscape:mx-0 max-md:landscape:mb-0 max-md:landscape:w-auto max-md:landscape:max-w-[16rem] max-md:landscape:shrink-0')}
+        className={cn(THREAD_COLUMN_INNER, 'mb-2 mt-1 max-md:landscape:mx-0 max-md:landscape:mb-0 max-md:landscape:w-auto max-md:landscape:max-w-[16rem] max-md:landscape:shrink-0')}
       />
       {/* The thread's one column (`thread-column.ts`), less the gutter the header
           already carries, so the pills stand on the answer's and composer's edges. */}

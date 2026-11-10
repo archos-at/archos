@@ -7,8 +7,13 @@ improvements:
   - >
     On a phone you switch projects from „Mehr“: its first entry shows the
     project you are in, and „Projekt wechseln“ opens the list of projects.
-    The top of each page names the project in one quiet line and leaves more
-    room for the page.
+  - >
+    On a phone the top of each page is one header: the project's name in a
+    small line over the page's title, with the search at the end of the
+    title's line, and the page's content starts higher.
+  - >
+    An opened mail on a phone has one way back, „← E-Mail-Eingang“, instead
+    of two arrows above each other.
   - >
     A project name too long for the selector is shortened in the middle, so
     its end stays readable, and is never wrapped onto a second line.

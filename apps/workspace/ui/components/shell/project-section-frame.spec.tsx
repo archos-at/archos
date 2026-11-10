@@ -96,4 +96,51 @@ describe('ProjectSectionFrame', () => {
     expect(screen.getByRole('link', { name: 'All files' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { level: 1, name: 'All files' })).toBeInTheDocument()
   })
+
+  // Below `md` there is no rail and no band: the page's header is the one block that says which project this is,
+  // and holds the way back and the app's search.
+  describe('the header below the rail’s width', () => {
+    const show = (path: string) => {
+      pathname = path
+      return render(
+        <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien">
+          <p>body</p>
+        </ProjectSectionFrame>,
+      )
+    }
+
+    test('names the project as the title’s crumb on every section, and ends the title’s line with the search', () => {
+      show('/app/projects/p1/automation')
+      const crumb = screen.getByTestId('page-header-crumb')
+      expect(crumb).toHaveTextContent('Stadthaus Wien')
+      // Outside Dateien the rail names the project at desk width: the crumb is the rail-less widths' alone.
+      expect(crumb).toHaveClass('text-meta', 'text-muted-foreground', 'mb-1', 'md:hidden')
+      const line = screen.getByRole('banner').querySelector('[data-slot="page-header-title-line"]')!
+      expect(line.querySelector('h1')).toHaveTextContent('Automation')
+      const search = line.querySelector('[data-testid="shell-search"]')!
+      expect(search).toHaveClass('md:hidden')
+      expect(screen.getAllByTestId('shell-search')).toHaveLength(1)
+    })
+
+    test('Dateien keeps its crumb at every width, and no way back: its places are tabs', () => {
+      show('/app/projects/p1/files/bin')
+      expect(screen.getByTestId('page-header-crumb')).not.toHaveClass('md:hidden')
+      expect(screen.queryByTestId('page-header-back')).toBeNull()
+    })
+
+    test('an opened mail has one way back, its own: the header adds none', () => {
+      show('/app/projects/p1/files/mail/m1')
+      expect(screen.queryByTestId('page-header-back')).toBeNull()
+    })
+
+    test('a page under the Übersicht has its way back on the crumb’s line, before the project', () => {
+      show('/app/projects/p1/settings/members')
+      const crumb = screen.getByTestId('page-header-crumb')
+      const back = screen.getByTestId('page-header-back')
+      expect(crumb.firstElementChild).toBe(back)
+      expect(back).toHaveAttribute('href', '/app/projects/p1/settings')
+      expect(back).toHaveAccessibleName('Back to Overview')
+      expect(back).toHaveClass('size-11', 'md:hidden')
+    })
+  })
 })

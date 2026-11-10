@@ -38,10 +38,12 @@ export const ChatProjectContext: FC<ChatProjectContextProps> = ({ projectName, c
       data-testid="chat-project-context"
       className={cn('pointer-events-none flex flex-col md:hidden', className)}
     >
-      <div className="flex items-center justify-between gap-2">
-        {/* The thread scrolls under this row: the name stands on a strip of the page's paper. */}
-        {projectName && <ProjectCrumb name={projectName} className="bg-background max-w-[75%] rounded-control px-2 py-1" />}
-        <ShellSearchButton className="pointer-events-auto ml-auto" />
+      {/* The project is the crumb of the chat's own header: a 16px line on the pills' left edge, 8px over them, as
+          a page's crumb stands over its title. The search hangs into that line (a 44px target, -14px each side) so
+          the row is not a band of its own. The toolbar's header is paper, so the line needs no backing. */}
+      <div className="flex h-4 items-center justify-between gap-2">
+        {projectName && <ProjectCrumb name={projectName} className="max-w-[75%] pl-1" />}
+        <ShellSearchButton className="pointer-events-auto -my-3.5 -mr-2.5 ml-auto" />
       </div>
       {isMobile && <ConnectionBand appearance="line" />}
     </div>

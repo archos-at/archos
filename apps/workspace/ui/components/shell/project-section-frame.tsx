@@ -19,16 +19,20 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
 
+import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
 import { PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { phoneBackTarget } from './phone-tabs'
 import { SectionNav, type SectionNavItem } from './section-nav'
+import { ShellSearchButton } from './shell-search-button'
 import { cn } from '@/lib/utils'
 
 const PROJECT_SECTION_KEYS = [
@@ -103,6 +107,14 @@ const TabActionsContext = createContext<((node: ReactNode) => void) | null>(null
 
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
   return PROJECT_SECTION_KEY_SET.has(segment)
+}
+
+/**
+ * Whether the frame heads this page (every project page but the chat and the bare flows). Where it does, the page's
+ * header carries the phone's project line, way back and search, and the shell draws no band above it (`AppSidebar`).
+ */
+export function framesProjectPage(pathname: string, projectId: string): boolean {
+  return !isProjectChatPath(pathname, projectId) && !BARE_SECTIONS.has(projectSectionSegment(pathname))
 }
 
 function isProjectChatPath(pathname: string, projectId: string): boolean {
@@ -259,6 +271,14 @@ export function ProjectSectionFrame({
   const sectionSubtitle = known && SUBTITLE_SECTIONS.has(segment) ? t(`sectionSubtitles.${segment}`) : undefined
   const fill = known && FILL_SECTIONS.has(segment)
   const subpage = subpageOf(pathname)
+  // Below `md` there is no rail: the header says which project this is, as its crumb, and holds the way back and the
+  // app's search. One header block: a band above the page with a small grey name and a lone glyph read as leftover
+  // chrome, detached from the title under it (the founder, 2026-11-10: „this tiny thing up top is still a bit weird“).
+  const back = phoneBackTarget(pathname, projectId)
+  // On a phone an opened mail (`files/mail/<id>`) is a page of its own, and its own first line is its way back to its
+  // place („← E-Mail-Eingang“). The header then names the section, not the place a second time 45px above that line.
+  const openedOnPhone = files && phone && pathname.split('/').filter(Boolean).length > 5
+  const projectCrumb = known ? <MiddleTruncate text={projectName} tail={12} className={files ? undefined : 'md:hidden'} /> : null
 
   return (
     <ActionsContext.Provider value={setActions}>
@@ -266,33 +286,55 @@ export function ProjectSectionFrame({
       <div className="@container/section flex h-full min-h-0 flex-col">
         {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
             section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
-        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
+        <div className={cn(SECTION_HEADER_CLASS, 'phone:pt-3', segment === 'files' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
           {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}
           <PageHeader
-            title={files ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
+            title={files && !openedOnPhone ? t(`subpages.${subpage ?? 'files/all'}.title`) : sectionLabel}
             crumb={
-              files ? (
+              projectCrumb && (
                 <>
-                  {/* On a phone the band's project selector stands right above this line and names the project: the line
-                      names the section, so project, section and place (the open tab) are each said once. */}
-                  <span className="min-w-0 truncate phone:hidden">{projectName}</span>
-                  <ChevronRight className="size-3 shrink-0 phone:hidden" aria-hidden />
-                  <span className="shrink-0">{sectionLabel}</span>
+                  {/* The way back and the project share the crumb's line: a 44px target on a 16px line, its arrow on
+                      the title's edge. */}
+                  {back && (
+                    <Link
+                      href={back.href}
+                      aria-label={t('backTo', { label: t(`sections.${back.sectionKey}`) })}
+                      data-testid="page-header-back"
+                      className="text-muted-foreground active:bg-desk -my-3.5 -ml-3.5 -mr-2.5 flex size-11 shrink-0 items-center justify-center rounded-control md:hidden"
+                    >
+                      <ChevronLeft className="size-4" aria-hidden />
+                    </Link>
+                  )}
+                  {projectCrumb}
+                  {files && !openedOnPhone && (
+                    <>
+                      <ChevronRight className="size-3 shrink-0" aria-hidden />
+                      <span className="shrink-0">{sectionLabel}</span>
+                    </>
+                  )}
                 </>
-              ) : undefined
+              )
             }
+            // Outside Dateien the rail names the project at desk width, so the crumb is the rail-less widths' alone.
+            crumbClassName={files ? undefined : 'md:hidden'}
             subtitle={sectionSubtitle}
-            // On a phone a page whose tools fold into one ⋯ (`onTitleLine`) puts it at the end of the title's line: a row of
-            // its own under the tabs cost 60px before the first mail or point. Alle Dateien's search keeps its row.
-            action={files && phone && !actionsOnTitle ? undefined : actions}
-            actionInline={files && phone && actionsOnTitle}
+            // The title's line ends in the app's search below `md`, at one place on every page (the page's own search
+            // field, where it has one, is a field in its toolbar, two rows down). On a phone a page whose tools fold into
+            // one ⋯ (`onTitleLine`) puts it there too: a row of its own under the tabs cost 60px before the first mail.
+            titleEnd={
+              <>
+                <ShellSearchButton className="-mr-2.5 md:hidden" />
+                {files && phone && actionsOnTitle ? actions : null}
+              </>
+            }
+            action={files && phone ? undefined : actions}
           />
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold.
-            <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
+            <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', openedOnPhone && 'hidden')}>
               {/* The track on the title's edge: a fill always drawn is the edge, not given back. */}
               <div className="min-w-0">
                 <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
