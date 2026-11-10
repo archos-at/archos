@@ -17,6 +17,7 @@ vars:
     tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
     tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
     tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
+    tests/test_verify_plan.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
@@ -359,6 +360,17 @@ tasks:
       - task: be:test:ci
       - task: be:test:api
       # The Python packages are part of the tier, and CI's backend-test job runs them too.
+      - task: be:test:sources
+
+  be:verify:fast:
+    desc: The backend tier without coverage instrumentation, as verify:fast runs it
+    cmds:
+      # The 65% gate stays in be:verify and in CI (be:test:coverage). The
+      # instrumentation is 30 seconds of the core suite (168s against 138s,
+      # 2026-11-10) for a gate the suite clears at 93%.
+      - task: be:lint
+      - task: be:test
+      - task: be:test:api
       - task: be:test:sources
 
   be:test:postgres:
