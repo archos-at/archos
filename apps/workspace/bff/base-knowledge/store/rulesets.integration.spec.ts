@@ -172,7 +172,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
-        // Through the lifecycle the status trigger holds (migration 0216), never straight to approved.
+        // Through the lifecycle the status trigger holds (migration 0217), never straight to approved.
         await approveSeededRequest(tx, requestId, [revisionId], 'reviewer')
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)

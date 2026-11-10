@@ -82,7 +82,7 @@ export const PLATFORM_PERMISSIONS = {
   /**
    * Approve a platform knowledge change request in a role (ADR-0165): the role
    * an approval records is one the approver holds, never what a client sent.
-   * Every request needs a domain expert (migration 0216).
+   * Every request needs a domain expert (migration 0217).
    */
   knowledgeApproveAsDomainExpert: 'platform:knowledge:approve_as_domain_expert',
   knowledgeApproveAsCounsel: 'platform:knowledge:approve_as_counsel',

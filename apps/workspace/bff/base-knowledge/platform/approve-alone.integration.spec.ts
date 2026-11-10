@@ -428,7 +428,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(await approvalRows(id)).toHaveLength(0)
   })
 
-  describe('the lifecycle the database holds (migration 0216)', () => {
+  describe('the lifecycle the database holds (migration 0217)', () => {
     const STATUSES = ['draft', 'submitted', 'approved', 'published', 'rejected', 'rolled_back'] as const
     type Status = (typeof STATUSES)[number]
     const LEGAL = new Set(['draft>submitted', 'draft>rejected', 'submitted>approved', 'submitted>rejected', 'approved>published', 'approved>rejected', 'published>rolled_back'])

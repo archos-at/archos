@@ -260,7 +260,7 @@ describe('CountryKnowledge', () => {
     expect(screen.queryByRole('button', { name: 'Publish to preview' })).not.toBeInTheDocument()
   })
 
-  test('offers no approval alone while a pasted page is unchecked: another person checks it first (migration 0216)', async () => {
+  test('offers no approval alone while a pasted page is unchecked: another person checks it first (migration 0217)', async () => {
     viewer.id = 'u'
     serve(200, { ...REQUEST, sourcesUnchecked: true } as typeof REQUEST)
     const user = userEvent.setup()
