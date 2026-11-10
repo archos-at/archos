@@ -140,3 +140,83 @@ def test_a_date_with_trailing_text_is_no_date_but_a_timestamp_is_its_day():
     assert parse_day("2015-01-01T00:00:00") == date(2015, 1, 1)
     assert parse_day("2015-01-01T00:00:00+01:00") == date(2015, 1, 1)
     assert in_force_on({"In Kraft seit": "2015-01-01 (provisional)"}, date(2020, 1, 1)) is False
+
+
+async def _tool():
+    """The registered tool as the chat model is handed it: the agent runtime's LangChain wrapper."""
+    from unittest.mock import MagicMock
+
+    from ris_adapter.lookup import RisLookupToolConfig
+    from ris_adapter.lookup import ris_lookup
+    from ris_adapter_testing.lookup import _LookupProbeConfig
+
+    from nat.builder.function import LambdaFunction  # noqa: TID251
+    from nat.plugins.langchain.tool_wrapper import langchain_tool_wrapper
+
+    async with ris_lookup(RisLookupToolConfig(), MagicMock()) as info:
+        fn = LambdaFunction.from_info(config=_LookupProbeConfig(), info=info)
+        yield langchain_tool_wrapper("ris_lookup_tool", fn, MagicMock())
+
+
+def _offered(tool) -> tuple[str, set[str]]:
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+
+    function = convert_to_openai_tool(tool)["function"]
+    return function["description"], set(function["parameters"]["properties"])
+
+
+@pytest.mark.asyncio
+async def test_without_the_flag_the_payload_offers_no_as_of():
+    """The registered tool is the contract before ADR-0171: no argument, no line about it."""
+    from ris_adapter.lookup.tool import RIS_LOOKUP_DESCRIPTION
+
+    async for tool in _tool():
+        description, arguments = _offered(tool)
+
+    assert arguments == {"question", "conclusion", "jurisdiction", "instrument", "application"}
+    assert description == RIS_LOOKUP_DESCRIPTION and "as_of" not in description
+
+
+@pytest.mark.asyncio
+async def test_with_the_flag_the_turn_binds_a_copy_that_offers_as_of_and_reaches_the_tool(lookup, monkeypatch):
+    from ris_adapter.lookup.tool import RIS_LOOKUP_AS_OF_DESCRIPTION
+    from ris_adapter.lookup.tool import offer_as_of
+
+    monkeypatch.setenv(ENV_OVERRIDE, "off")
+    async for tool in _tool():
+        [offered] = offer_as_of([tool])
+        description, arguments = _offered(offered)
+        output = await offered.ainvoke({"question": "Was sagt § 3?", "as_of": "2019-06-01"})
+
+    assert "as_of" in arguments and description == RIS_LOOKUP_AS_OF_DESCRIPTION
+    # The argument arrives at the tool, whose own gate still decides: here, refused.
+    assert output == AS_OF_REFUSED
+
+
+@pytest.mark.asyncio
+async def test_an_as_of_the_hidden_schema_receives_anyway_is_refused_without_the_flag(lookup, monkeypatch):
+    monkeypatch.setenv(ENV_OVERRIDE, "off")
+    async for tool in _tool():
+        output = await tool.ainvoke({"question": "Was sagt § 3?", "as_of": "2019-06-01"})
+
+    assert output == AS_OF_REFUSED
+    assert lookup.client.search_calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_flag_lookup_that_fails_refuses_as_of(lookup, monkeypatch):
+    """Off is the safe answer: a BFF that cannot be asked never opens a past day."""
+    import agent.project_context
+    import agent.stages.flags
+
+    def _down(**_kwargs):
+        raise RuntimeError("BFF unreachable")
+
+    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
+    monkeypatch.setattr(agent.project_context, "get_organization_id_from_context", lambda: "org-1")
+    monkeypatch.setattr(agent.stages.flags, "fetch_turn_flags", _down)
+
+    output = await lookup.run(question="Was sagt § 3?", as_of="2019-06-01")
+
+    assert output == AS_OF_REFUSED
+    assert lookup.client.search_calls == [] and lookup.client.fetch_calls == []
