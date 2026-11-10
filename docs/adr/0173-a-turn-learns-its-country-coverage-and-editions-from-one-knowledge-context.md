@@ -28,7 +28,7 @@ editions apply, and what does it do when it cannot learn it?
 - Fail closed: an unknown office placement, site, country, coverage or a read
   that fails gives a refusal the answer can say, never a guess (design A1).
 - One resolver, no country in code: adding a country adds records (ADR-0168).
-- Flag off is today, byte for byte.
+- Flag off is today, byte for byte. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 - Tenant isolation holds in the cache too: two offices never share a context.
 - Licensed text never lands in our stores: the context is ids and tokens.
 - The `knowledge` phase stays inside p95 ≤ 40 ms warm, ≤ 150 ms cold (design §5.5).
@@ -80,7 +80,8 @@ Chosen option 3.
   release sequence, so a running research turn can pin them (E42) and an
   answer can record them.
 - **Carried in the turn context** (`/api/internal/turn-context`,
-  `knowledgeContext`) behind the rollout flag `knowledge-context`. With it off
+  `knowledgeContext`) behind the rollout flag `knowledge-context` (removed by
+  ADR-0175: every turn carries it, `knowledge_unavailable` when unreadable). With it off
   the key is absent, nothing is read and no phase is timed. With it on the
   phase is timed as `knowledge` in `Server-Timing`.
 - **The flag reads off when WorkOS cannot be asked** (`isOrgFeatureEnabled`

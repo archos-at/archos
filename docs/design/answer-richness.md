@@ -113,7 +113,7 @@ Five primitives (matrix, sequence, disclosure, excerpt, chip) sit behind the nam
 
 - **`:::overview`** (Phase B)
   - *Renders:* a tile index of the parts of a Regelwerk, each with a "betrifft Ihr Projekt" badge and its `[N]`.
-  - *Relevance:* computed from `common/applicability.py` (mirrored in `lib/oib/applicable-standards.ts`), not claimed by the model.
+  - *Relevance:* computed from `common/applicability.py` (its TS mirror went with the cut-over, ADR-0175), not claimed by the model.
   - *Rule:* replaces the mindmap in the same answer, never sits beside it.
 
 **Disclosure and excerpt:**

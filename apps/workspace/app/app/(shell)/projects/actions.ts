@@ -88,7 +88,7 @@ export async function createProject(
   // layouts, so the new name reaches the switcher without a server action.)
   revalidatePath('/app', 'layout')
   // Land new projects directly in their setup: the brief is what makes Piloti's
-  // answers (and the applicable-standards panel) useful, so creating flows
+  // answers (and the Steckbrief's law at the site) useful, so creating flows
   // straight into it. „Piloti richtet ein" lands on the setup page, where the
   // documents are dropped and read (ADR-0111); „Selbst ausfüllen" on the wizard.
   // A project created closed the old way lands on its overview instead: intake

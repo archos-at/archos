@@ -23,11 +23,9 @@ import 'server-only'
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
-import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument, type OfficeShelfRemoval } from '@/lib/office-shelf/service'
 import { forgetKeysFor } from '../http/idempotency'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import type { KnowledgeProvenance } from '@/lib/db/schema/knowledge-records'
@@ -63,19 +61,8 @@ import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
 
-/** Thrown when the organization does not have base knowledge switched on. */
-export class BaseKnowledgeDisabledError extends ForbiddenError {
-  constructor() {
-    super('Base knowledge is not enabled for this organization.')
-  }
-}
-
-function requireEnabled(session: AuthorizedSession): void {
-  if (!isFeatureEnabled(session, FEATURE_FLAGS.officeBaseKnowledge)) throw new BaseKnowledgeDisabledError()
-}
 
 function requireManage(session: AuthorizedSession): void {
-  requireEnabled(session)
   if (!canManageOfficeShelf(session)) throw new ForbiddenError()
 }
 
@@ -110,9 +97,7 @@ export async function listBaseKnowledge(
   session: AuthorizedSession,
   query: Partial<ListEntriesQuery> = {}
 ): Promise<BaseKnowledgeList> {
-  const enabled = isFeatureEnabled(session, FEATURE_FLAGS.officeBaseKnowledge)
-  const canManage = enabled && canManageOfficeShelf(session)
-  if (!enabled) return { enabled, canManage, entries: [], nextCursor: null }
+  const canManage = canManageOfficeShelf(session)
   const stored = await readOfficeEntries(session.organizationId)
   const documents = await visibleOfficeDocuments(
     session.organizationId,
@@ -127,7 +112,7 @@ export async function listBaseKnowledge(
   const matching = entries.filter((entry) => matches(entry, query))
   const start = query.cursor ? Number(query.cursor) : 0
   const end = start + (query.limit ?? ENTRY_PAGE)
-  return { enabled, canManage, entries: matching.slice(start, end), nextCursor: end < matching.length ? String(end) : null }
+  return { canManage, entries: matching.slice(start, end), nextCursor: end < matching.length ? String(end) : null }
 }
 
 async function findEntry(
@@ -143,7 +128,6 @@ async function findEntry(
 }
 
 export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
-  requireEnabled(session)
   return (await findEntry(session, entryId)).entry
 }
 
@@ -371,7 +355,6 @@ export interface BaseKnowledgeTurn {
 }
 
 export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
-  if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.officeBaseKnowledge, organizationId))) return null
   const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed)
   const held = stored.flatMap((entry) => (entry.values.designation ? [entry.values.designation] : []))
   const [documents, profile, listed] = await Promise.all([

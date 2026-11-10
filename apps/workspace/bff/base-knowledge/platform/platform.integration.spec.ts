@@ -10,22 +10,22 @@
  * The outcomes S7 is measured by, each with its positive control:
  * - a rollback round trip: publish, publish over it, roll back twice, and each
  *   head is where it was, with every move kept;
- * - an MA 37 directive is excluded for a project in Graz and applies in Vienna;
+ * - an MA 37 directive is excluded for a project in Graz and applies in Vienna,
+ *   by the competence rulesets of the site's chain;
  * - a published text gets its indexing run, and reads indexed once the corpus
  *   says so (the corpus itself is the backend's, and stands in here);
  * - a second office sees the std-asi listing as "gelistet, kein Text" once it
- *   is entitled to Austria, and nothing before (or with the flag off).
+ *   is entitled to Austria, and nothing before.
  * And the guards: four eyes on verdicts and approvals, preview before stable, a conflict on a record
  * released since, and a tenant reading nothing of the change requests.
  */
 
 import { sql } from 'drizzle-orm'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-const flag = { on: true }
-vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => flag.on }))
+vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 
 const corpus = { queued: [] as string[], unknown: [] as string[], ingested: [] as string[], marks: {} as Record<string, unknown> }
 vi.mock('@/lib/knowledge/service', () => ({
@@ -139,10 +139,6 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     ])
   })
 
-  beforeEach(() => {
-    flag.on = true
-  })
-
   afterAll(async () => {
     await withPlatformAccess('pbk spec cleanup', async () => {
       await db.execute(sql`DELETE FROM organization_countries WHERE organization_id IN (${ORG}, ${SECOND_ORG})`)
@@ -198,17 +194,13 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     const { renderBaseKnowledgeBlock } = await import('../office/turn-block')
     expect(renderBaseKnowledgeBlock([], { territoryId: null, label: null }, listed)).toContain('gelistet, kein Text')
 
-    // Flag off: the office reads what the stub answered, nothing.
-    flag.on = false
-    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
-    flag.on = true
     // Withdrawn: gone again.
     await entitlements.setEntitlement(SECOND_ORG, 'AT', false, ACTOR)
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
   })
 
-  it('excludes an MA 37 directive for a project in Graz, and applies it in Vienna', async () => {
-    await published('MA 37 and its directive', [
+  it('excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets', async () => {
+    await published('MA 37, its directive and Vienna’s competence', [
       {
         type: 'authority',
         key: key('at-wien-ma37'),
@@ -224,6 +216,38 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
         title: 'Weisung Stellplätze',
         territoryIds: ['AT-9'],
         addressees: [{ name: 'MA 37', territoryId: 'AT-9', authorityKey: key('at-wien-ma37') }],
+      },
+      {
+        type: 'ruleset',
+        key: key('competence-at'),
+        values: {
+          purpose: 'competence',
+          territoryIds: ['AT-6', 'AT-9'],
+          validFrom: '2000-01-01',
+          body: {
+            kind: 'table',
+            payloadSchema: 'decision_table.v1',
+            payload: {
+              inputs: [{ key: 'state', type: 'code' }],
+              output: { type: 'bodies' },
+              rows: [
+                {
+                  id: 'vienna',
+                  when: { '===': [{ var: 'state' }, 'AT-9'] },
+                  then: { bodies: [{ authorityId: `authority:${key('at-wien-ma37')}`, role: 'decides' }] },
+                  provision: { citation: 'fixture: § 132 BO für Wien' },
+                },
+                {
+                  id: 'styria',
+                  when: { '===': [{ var: 'state' }, 'AT-6'] },
+                  then: { bodies: [{ authorityId: `authority:${key('at-graz-bba')}`, role: 'decides' }] },
+                  provision: { citation: 'fixture: § 95 Stmk. BauG' },
+                },
+              ],
+              otherwise: { undetermined: true },
+            },
+          },
+        },
       },
     ])
     const titles = async (territoryId: string | null) =>
