@@ -95,6 +95,7 @@ from agent.common.content_screen import findings_summary
 from agent.common.content_screen import mask_text
 from agent.common.human_prompt import human_response
 from agent.common.human_prompt import interaction_request
+from agent.common.licensed_text import LICENSED_TRACE_TAG
 from agent.common.steering import SteerInbox
 from agent.common.steering import SteerNote
 from agent.common.steering import bind_steer_inbox
@@ -152,6 +153,7 @@ from agent.observability.turn_outcome import begin_turn_outcome
 from agent.observability.turn_outcome import end_turn_outcome
 from agent.observability.turn_outcome import record_turn_error
 from agent.observability.turn_outcome import record_turn_finished
+from agent.observability.turn_outcome import turn_tagged
 from agent.observability.turn_trace import TRACE_ID_METADATA_KEY
 from agent.observability.turn_trace import pinned_trace
 from agent.observability.turn_trace import trace_id_for_message
@@ -450,8 +452,7 @@ def _org_id_from_scope(scope: Mapping[str, Any]) -> str | None:
 # Persistence: the finished answer is the server's to keep
 # ---------------------------------------------------------------------------
 
-#: What the row does not keep: its id and text travel as columns, cards are
-#: stored unkeyed, and a queue notice or a run hand-off is not an answer.
+#: What the row does not keep: id and text are columns, cards unkeyed, a queue notice or run hand-off no answer.
 _NOT_METADATA = {"message_id", "text", "cards", "job_admission_rejected", "retry_after_seconds", "run"}
 
 
@@ -471,8 +472,7 @@ def turn_row_metadata(finished: RunFinishedBody) -> dict[str, Any] | None:
         metadata["cards"] = [keyed.card for keyed in result.cards]
     if finished.outcome == "cancelled":
         metadata["stopped"] = True
-    # The trace this answer was produced in: the one `_drive` pinned from the
-    # same id, so the BFF can score and link it (`observability.turn_trace`).
+    # The trace `_drive` pinned from the same id, so the BFF can score and link it (`observability.turn_trace`).
     trace_id = trace_id_hex(trace_id_for_message(result.message_id))
     if trace_id:
         metadata[TRACE_ID_METADATA_KEY] = trace_id
@@ -494,6 +494,8 @@ async def persist_turn_result(
     metadata = turn_row_metadata(finished)
     if metadata is None:
         return False
+    if turn_tagged(LICENSED_TRACE_TAG):  # read licensed text: the distiller takes no vote on it (E44, ADR-0159)
+        metadata["licensed_text"] = True
     try:
         check_write(guard)
     except TurnFenced:
@@ -513,7 +515,7 @@ async def persist_turn_result(
 def _persist_in_background(
     conversation_id: str, organization_id: str | None, finished: RunFinishedBody, guard: WriteFence | None = None
 ) -> asyncio.Task[Any]:
-    """Persist off the frame's path: the stage events behind it must not wait on the BFF."""
+    """Persist off the frame's path; its task copies the turn's context, so the turn-outcome box's tags too."""
     return in_background(
         persist_turn_result(
             conversation_id=conversation_id, organization_id=organization_id, finished=finished, guard=guard

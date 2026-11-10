@@ -123,11 +123,15 @@ while the model still reads what the office licensed for this use.
     it (`none of`): its trace holds references, so a judge would grade the answer against the wrong
     evidence. It carries the score `licensed-quote-capped` (quotes a reply had cut; 0 when it kept
     to the cap).
-  - The lessons distiller takes no vote on an answer whose turn read licensed text (design E44): the
-    turn's first licensed passage emits the technical step `licensed-text`, which rests in the
-    answer's `messages.metadata`, and `platform-lessons/licensed-text.ts` excludes such a message.
-    It reads the seam's own marker and nothing else, so with the flag off (no passage expanded, no
-    marker) the distiller's input is what it was. A lesson reaches every office.
+  - The lessons distiller takes no vote on an answer whose turn read licensed text (design E44). The
+    seam tags such a turn on its turn-outcome box; the socket reads the tag where it persists the
+    answer and writes `licensed_text` into the server's answer row (`chat_socket.persist_turn_result`),
+    stored as `licensedText` (`agent-answer-metadata.ts`). When the asking tab stored the answer first
+    (inserts no-op on conflict), the mark is merged into the tab's row
+    (`persistInternalConversationMessages`). The browser never writes it, so a closed tab or a stopped
+    turn keeps it, and `platform-lessons/licensed-text.ts` excludes such an answer. With the flag off
+    nothing is read, so nothing is marked and the distiller's input is what it was. Deep research reads
+    no licensed text (see below), so its job-written answers need no mark. A lesson reaches every office.
   - The `Licence:` line asks for the answer's label ("Norm, Büroexemplar Ausgabe 2017, zuletzt
     geprüft am …"), read from the office base knowledge block by the hit's `knowledge_edition_id`,
     and for every quote in the language the passage is written in: a translation is no quote and
@@ -143,7 +147,9 @@ while the model still reads what the office licensed for this use.
   - Derived text is stored as written. A document summary or a folder dossier a model wrote while
     reading a licensed copy (in its licensed scope, so at zero retention) is model output stored in
     the database; it is not the licensed text, and this seam does not cap a paraphrase or a quote
-    inside it.
+    inside it. A revision comparison of an attested copy's pages (`routes/revision_compare.py`) is
+    derived text of the same kind: its reply, the model's account of what changed between the two
+    pages, is kept in the shared cache (Dragonfly, `_remember`, 30 days) as written.
 - **The flag.** `licensed-seam` (entitlement, read per turn through `GET /api/internal/stages`)
   decides whether the turn's capture may expand at all. Off, a licensed hit is listed (document,
   page, clause) with no text, nothing is recalled, and the web search's description and the

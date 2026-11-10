@@ -321,6 +321,29 @@ class TestAPageOfALicensedCopy:
         assert "4,25 m" not in text, "the reading is the page's text: a reference, never the text"
         assert model["requests"][0]["provider"]["zdr"] is True
 
+    async def test_a_licensed_page_with_no_place_of_its_own_still_sends_no_image(
+        self, sees, model, licensed, monkeypatch
+    ) -> None:
+        """The licence is read off the document, not off its place: a copy on the base shelf, or a collection of
+        no known shelf (``place_facts`` answers None), was looked at with its image before."""
+        from agent.tools.look import register
+
+        monkeypatch.setattr(register, "place_facts", lambda *_args: None)
+        result = await self._look()
+
+        assert all(block["type"] == "text" for block in result) and "no look may read" in result[0]["text"]
+        assert model["requests"] == [], "nothing of the page went to a model"
+
+    async def test_a_workspace_document_with_no_collection_to_ask_is_treated_as_unattested(self) -> None:
+        from types import SimpleNamespace
+
+        from agent.tools.look import register
+
+        licence = await register._licence_of(SimpleNamespace(collection="", file_name="norm.pdf", target=object()))
+        assert licence.licensed and not licence.ai_processing
+        base = SimpleNamespace(collection="", file_name="OIB-RL2.pdf", target=None)
+        assert await register._licence_of(base) is None, "the published legal corpus holds no office copy"
+
     async def test_one_its_office_has_not_attested_is_not_looked_at(self, sees, model, licensed) -> None:
         from agent.common.licensed_text import LicenceTerms
 

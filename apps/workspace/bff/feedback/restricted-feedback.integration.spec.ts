@@ -464,22 +464,28 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
 
   /**
    * Design E44: a down-voted answer that read the office's licensed text becomes no platform lesson, whose
-   * text reaches every other office. Told apart by the seam's own mark on the turn (slot `licensed-text`),
-   * on whatever shelf the copy sits.
+   * text reaches every other office. Seeded as production stores it: the asking tab writes the answer row
+   * first and the Herleitung onto the QUESTION row; the server's persist then finds the answer row taken and
+   * merges its mark into it (`mergeMessageMetadata`, as `persistInternalConversationMessages` does).
    */
   it('leaves a vote on an answer that read licensed text out of the lessons input, and keeps one that did not', async () => {
     const licensedChat = randomUUID()
     const lawChat = randomUUID()
     const licensedAnswer = await seedVotedChat(licensedChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
     const lawAnswer = await seedVotedChat(lawChat, 'Was sagt die OIB-RL 4?', 'Laut OIB-RL 4 100 cm.', false)
-    const stored = (slot: string) =>
+    const herleitung = (slot: string) =>
       JSON.stringify({ thinkingSteps: [{ id: `status:${slot}`, kind: 'status', slot, isComplete: true }] })
-    await inOrg((executor) =>
-      executor.execute(sql`update messages set metadata = ${stored('licensed-text')}::jsonb where id = ${licensedAnswer}`)
-    )
-    await inOrg((executor) =>
-      executor.execute(sql`update messages set metadata = ${stored('synthesis')}::jsonb where id = ${lawAnswer}`)
-    )
+    for (const [chat, slot] of [[licensedChat, 'licensed-text'], [lawChat, 'synthesis']]) {
+      await inOrg((executor) =>
+        executor.execute(
+          sql`update messages set metadata = ${herleitung(slot)}::jsonb where conversation_id = ${chat} and role = 'user'`
+        )
+      )
+    }
+    const { mergeMessageMetadata } = await import('@/lib/conversations/repository')
+    const { LICENSED_TEXT_KEY } = await import('@/lib/conversations/agent-answer-metadata')
+    await inOrg(() => mergeMessageMetadata(licensedChat, licensedAnswer, { [LICENSED_TEXT_KEY]: true }))
+    expect(lawAnswer).toBeTruthy()
 
     const { reports } = await readers()
     const answers = reports.map((report) => report.answer)

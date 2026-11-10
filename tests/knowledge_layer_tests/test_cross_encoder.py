@@ -396,3 +396,49 @@ async def test_an_org_with_no_key_of_its_own_still_reranks(monkeypatch, tracker)
     await _reranker(api_key="platform-key").rerank("Fluchtweg", [_chunk("a")])  # pragma: allowlist secret
 
     assert seen[0].headers["Authorization"] == "Bearer platform-key"
+
+
+def _licensed(chunk_id: str, content: str, *, attested: bool) -> SimpleNamespace:
+    metadata = {"licence_class": "licensed", "ai_processing_attested": attested}
+    return SimpleNamespace(chunk_id=chunk_id, content=content, metadata=metadata)
+
+
+def _byok(monkeypatch) -> None:
+    from agent.common import credential_resolution
+
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: "org_byok")
+    monkeypatch.setattr(
+        credential_resolution,
+        "resolve_llm_credential",
+        lambda **_kw: credential_resolution.ResolvedCredential(
+            api_key="org-own-key",  # pragma: allowlist secret
+            base_url="https://byok.example/api/v1",
+            model="m",
+            source="byok",
+        ),
+    )
+
+
+async def test_licensed_text_never_goes_to_an_org_s_own_reranker(monkeypatch, tracker) -> None:
+    """ADR-0159: licensed text reaches zero-retention endpoints through OpenRouter only. A BYOK reranker is
+    outside those terms, so a search holding licensed text keeps its retrieval order and sends nothing."""
+    seen = _serve(monkeypatch, _ranked)
+    _byok(monkeypatch)
+
+    ranked = await _reranker().rerank("Brüstung", [_chunk("a"), _licensed("b", "Mindesthöhe 111 cm", attested=True)])
+
+    assert ranked is None and seen == []
+    await _reranker().rerank("Brüstung", [_chunk("a")])
+    assert len(seen) == 1, "positive control: the same org reranks text that is not licensed"
+
+
+async def test_an_unattested_licensed_chunk_is_sent_to_no_reranker_at_all(monkeypatch, tracker) -> None:
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+
+    await _reranker().rerank(
+        "Brüstung", [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=False)]
+    )
+
+    sent = seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" not in sent and "Geländer" in sent

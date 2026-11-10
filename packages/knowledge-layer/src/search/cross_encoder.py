@@ -47,6 +47,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from .licensed_rerank import rerank_documents
+
 logger = logging.getLogger(__name__)
 
 PROVIDER = "openrouter"
@@ -297,14 +299,13 @@ def _resolve_api_key(base_url: str, model: str, organization_id: str | None) -> 
     return _resolve_credential(base_url, model, organization_id).api_key
 
 
-def _pinned_body(body: dict[str, Any], base_url: str) -> dict[str, Any] | None:
+def _pinned_body(body: dict[str, Any], base_url: str, *, licensed: bool = False) -> dict[str, Any] | None:
     """``body`` pinned to zero-data-retention endpoints, or ``None`` to skip the rerank.
 
-    The reranker is the platform's, not an organization's choice, so an
-    OpenRouter rerank is always pinned (``openrouter.PLATFORM_FIXED``, ADR-0074)
-    and its model must have a ZDR endpoint (the default does). Imported here,
-    not at module level, because this package imports without ``agent``;
-    without the seam the rerank is skipped rather than sent unpinned.
+    The reranker is the platform's choice, so an OpenRouter rerank is always pinned (``openrouter.PLATFORM_FIXED``,
+    ADR-0074) and its model must have a ZDR endpoint. Imported here because this package imports without
+    ``agent``; without the seam the rerank is skipped rather than sent unpinned. A ``licensed`` body goes to
+    OpenRouter or nowhere (ADR-0159): an org's own reranker is outside the zero-retention terms.
     """
     try:
         from agent.common.openrouter import PLATFORM_FIXED
@@ -312,7 +313,7 @@ def _pinned_body(body: dict[str, Any], base_url: str) -> dict[str, Any] | None:
     except ImportError:
         _throttled_warning("Cross-encoder skipped: the zero-data-retention seam (agent) is not installed")
         return None
-    return PLATFORM_FIXED.apply(body) if targets_openrouter(base_url) else body
+    return PLATFORM_FIXED.apply(body) if targets_openrouter(base_url) else (None if licensed else body)
 
 
 def _organization_id_in_scope() -> str | None:
@@ -521,10 +522,10 @@ class CrossEncoderReranker:
             logger.debug("Cross-encoder breaker tripped; keeping retrieval order")
             return None
 
-        documents = [str(getattr(chunk, "content", ""))[: self.max_doc_chars] for chunk in chunks]
+        documents, licensed = rerank_documents(chunks, self.max_doc_chars)
         credential = await self._credential_for_search()
         url = f"{credential.base_url}{_PATH}"
-        body = _pinned_body(self._build_body(query, documents, top_n), credential.base_url)
+        body = _pinned_body(self._build_body(query, documents, top_n), credential.base_url, licensed=licensed)
         if body is None:
             return None
         try:

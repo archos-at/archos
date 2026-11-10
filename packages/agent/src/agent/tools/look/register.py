@@ -121,6 +121,22 @@ def _observe(
     )
 
 
+async def _licence_of(resolved: Any) -> Any:
+    """The licence of the document a look reads, read off the document itself, whatever shelf it sits on.
+
+    The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
+    Anything else with no collection to ask fails closed, as a licensed copy nobody attested, so no image of it
+    goes out (ADR-0159). The lookup itself answers a store it cannot read the same way.
+    """
+    from agent.common.licensed_text import LICENSED
+    from agent.common.licensed_text import LicenceTerms
+
+    collection = (getattr(resolved, "collection", "") or "").strip()
+    if not collection:
+        return None if getattr(resolved, "target", None) is None else LicenceTerms(licence_class=LICENSED)
+    return await asyncio.to_thread(document_licence, collection, resolved.file_name)
+
+
 def refuse_unattested_look(licence: Any) -> None:
     """Refuse a look at a licensed copy the office has not attested for AI processing: no model may read it."""
     if licence is not None and licence.licensed and not licence.ai_processing:
@@ -279,9 +295,7 @@ async def _run_look(
                 rendered = await render
             if isinstance(rendered, View):
                 place = place_facts(resolved, page, rendered.region, image_index)
-                licence = (
-                    await asyncio.to_thread(document_licence, place.collection, place.file_name) if place else None
-                )
+                licence = await _licence_of(resolved)
                 refuse_unattested_look(licence)
                 sees = await turn_sees()
                 result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)

@@ -128,6 +128,12 @@ def record_turn_tag(tag: str) -> None:
         logger.debug("Failed to record a turn tag for its trace", exc_info=True)
 
 
+def turn_tagged(tag: str) -> bool:
+    """Whether :func:`record_turn_tag` put ``tag`` on this turn, read in the context that bound the box."""
+    box = _TURN_OUTCOME.get()
+    return bool(box) and tag in (box.get(_TAGS) or [])
+
+
 def record_turn_finished(body: Any) -> None:
     """Remember a finished turn's outcome for its root span. Never raises."""
     try:
