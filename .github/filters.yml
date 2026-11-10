@@ -152,6 +152,7 @@ backend:
   - 'contracts/thread-index.json'
   - 'deploy/compose/docker-compose.yaml'
   - 'deploy/postgres/rename-legacy-names.sh'
+  - 'deploy/posthog/README.md'
   - 'deploy/posthog/support/copy.de.json'
   - 'deploy/pulumi/src/app/config.ts'
   - 'docs/README.md'
