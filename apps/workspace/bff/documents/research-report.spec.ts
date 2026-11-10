@@ -299,6 +299,15 @@ describe('fileResearchReport', () => {
     expect(pdf.text).toContain(normalizePdfText(`Erstellt mit ${PRODUCT_NAME} für Musterbüro ZT GmbH`))
     expect(pdf.text).toContain(normalizePdfText('Es ist ein Arbeitsstand und keine Freigabe'))
     expect(pdf.text).toContain(normalizePdfText('Entwurf, nicht freigegeben'))
+    // The Art. 50(1) disclosure, under the header line on the cover: a report
+    // filed with an Einreichung reaches a Behörde, and its reader starts here.
+    const disclosure = normalizePdfText(
+      `Verfasst von ${PRODUCT_NAME}, einem KI-System, für Musterbüro ZT GmbH.`
+    )
+    expect(pdf.text).toContain(disclosure)
+    expect(pdf.text.indexOf(normalizePdfText(`Erstellt mit ${PRODUCT_NAME} für`))).toBeLessThan(
+      pdf.text.indexOf(disclosure)
+    )
 
     // The marking is still IN the bytes. The branding is added matter and must
     // never displace the one thing the filing seam refuses a document without.
