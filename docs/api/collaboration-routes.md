@@ -16,14 +16,16 @@ assignment (who is professionally on the hook — ADR-0047).
 - **All are gated**, in one of two ways. The collaboration-only routes (sharing,
   mentions, inbox, assignments, `/api/stream`, `/api/conversations/{id}/{awaiting,
   mention-candidates,live}`) call `requireCollaborationEnabled(session)` as their
-  first statement and return
-  `403 { error: 'feature-disabled', feature: 'collaboration' }` when off. The
+  first statement and answer `403` with the one RFC 9457 problem of a
+  switched-off feature (`application/problem+json`, `code: 'feature_disabled'`,
+  `feature: 'collaboration'`, `featureDisabledProblem` in
+  `bff/authz/feature-disabled.ts`) when off. The
   routes that **pre-date** the feature and were extended by it —
   `…/messages`, `…/read`, `…/typing` — cannot answer `403` without breaking chat
   for orgs that never had collaboration, so the gate sits in the service and only
   the collaboration *behaviour* switches off: a message with no mentions persists
   exactly as it always did while one carrying `mentions` is refused
-  `403 details.reason = 'feature-disabled'`, `…/read` still moves the high-water
+  with the same problem (`FeatureDisabledError`, thrown by the service), `…/read` still moves the high-water
   mark but skips the ambient inbox clear, and `publishTypingPresence` returns
   without publishing (`204` either way). Both forms read the same
   **default-deny** flag (the per-org `collaboration` WorkOS flag, an entitlement:

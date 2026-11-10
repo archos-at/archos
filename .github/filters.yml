@@ -125,6 +125,7 @@ backend:
   - 'apps/workspace/tests/fixtures/estate-tree.schema.json'
   - 'apps/workspace/tests/fixtures/exposure.json'
   - 'apps/workspace/tests/fixtures/job_fire_headers.json'
+  - 'apps/workspace/tests/fixtures/knowledge-context.schema.json'
   - 'apps/workspace/tests/fixtures/precedent/office.json'
   - 'apps/workspace/tests/fixtures/precedent/permits.json'
   - 'apps/workspace/tests/fixtures/proposals.schema.json'
@@ -263,6 +264,7 @@ workspace:
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
+  - 'tests/fixtures/base-knowledge/turn_law_austria.json'
   # End of the files this tier's tests read.
 site:
   # The Node version every job of this tier runs on (setup-node reads it).

@@ -38,6 +38,19 @@ vi.mock('./repository', () => ({
 }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn(), findProjectProfileInOrg: vi.fn() }))
 vi.mock('@/lib/projects/service', () => ({ setProjectStatus: vi.fn() }))
+// The project's knowledge context: Austria's records name law here unless a case says otherwise.
+const { contextForPage } = vi.hoisted(() => ({ contextForPage: vi.fn() }))
+vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage }))
+const contextWith = (state: 'core' | 'not_entitled') => ({
+  gate: { state, reason: null, leaves: [] },
+  packs: [],
+  chains: {},
+  date: '2026-11-10',
+  procedures: [],
+  uses: [],
+  text: null,
+  retrieval: { countries: state === 'core' ? ['AT'] : [] },
+})
 vi.mock('@/lib/project-profile/profile-service', () => ({ patchProjectProfile: vi.fn() }))
 vi.mock('@/lib/project-experience/readable-files', () => ({ extractableDocuments: vi.fn() }))
 vi.mock('@/lib/upload-screening/service', () => ({
@@ -194,6 +207,7 @@ const op = (path: string, call = 0) => written(call).find((operation) => operati
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
+  contextForPage.mockResolvedValue(contextWith('core'))
   vi.mocked(findProjectIntake).mockResolvedValue(intake())
   vi.mocked(findProjectInOrg).mockResolvedValue({
     id: PROJECT,
@@ -385,6 +399,21 @@ describe('recordIntakeValues — what a value becomes', () => {
         ]),
       }),
     ])
+  })
+
+  it('derives no building class where the knowledge context withholds law, as classification-evaluate answers (ADR-0169)', async () => {
+    contextForPage.mockResolvedValue(contextWith('not_entitled'))
+    useProfile({
+      ...emptyProfile(),
+      facts: {
+        federal_state: { value: 'vienna', confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
+        'building_type@bldg1': { value: 'building', confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
+      },
+    })
+
+    await recordIntakeValues(SESSION, PROJECT, JOB, [value('storeys_above_ground@bldg1', 3)])
+
+    expect(op('/assumptions/building_class@bldg1')).toBeUndefined()
   })
 
   // Defect 5 (design 2.2): the OIB building class was derived for a project in any country.

@@ -196,6 +196,19 @@ export const COVERAGE_LEVELS = ['none', 'open', 'core', 'full'] as const
  */
 export const GATE_STATES = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', ...COVERAGE_LEVELS] as const
 export type GateState = (typeof GATE_STATES)[number]
+
+/** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
+export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const
+
+/**
+ * The schemes a work's identifiers are read in, so a passage the agent reads
+ * live at its source finds its work (ADR-0175): RIS's Gesetzesnummer (the
+ * `Gesetzesnummer` query parameter of a consolidated text), RIS's
+ * Dokumentnummer (one paragraph's document, a whole token), and an ELI (a URL
+ * prefix). A scheme added here is matched by the agent only once it learns it.
+ */
+export const SOURCE_REF_SCHEMES = ['ris_gesetzesnummer', 'eli'] as const
+export type SourceRefScheme = (typeof SOURCE_REF_SCHEMES)[number]
 export type CoverageLevel = (typeof COVERAGE_LEVELS)[number]
 
 /**

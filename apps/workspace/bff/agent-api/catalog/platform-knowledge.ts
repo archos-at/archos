@@ -27,6 +27,7 @@ import {
   homeCountryBodySchema,
   listOrganizationCountriesQuerySchema,
   listChangeRequestsQuerySchema,
+  PROPOSED_RECORD_TYPES,
   proposeRecordsBodySchema,
   publishBodySchema,
   reviewBodySchema,
@@ -105,8 +106,8 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Read the JSON Schema of each platform record type',
     description:
-      'What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, ' +
-      'manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the ' +
+      `What platform-knowledge-records-propose takes, per record type (${PROPOSED_RECORD_TYPES.join(', ')}; \`type\` for one), ` +
+      'the citation every record carries, the batch limit and the checks of the ' +
       'validation kit with what to do about each. Read it before the first proposal.',
     method: 'GET',
     path: '/api/platform/knowledge/schemas',
@@ -139,7 +140,7 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Propose up to 200 cited records into a draft change request',
     description:
-      'Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes ' +
+      `Records of any type by key (a territory by its id): ${PROPOSED_RECORD_TYPES.join(', ')}; shapes ` +
       'from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every ' +
       'record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a ' +
       'problem is refused whole (422). The same key again adds a revision to the same record; the same proposal ' +

@@ -456,6 +456,10 @@
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
   {
+    "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
+    "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
+  },
+  {
     "en": "A long answer no longer freezes the page while it arrives, and its cards land when they are ready instead of long after the text.",
     "de": "Eine lange Antwort friert die Seite beim Eintreffen nicht mehr ein, und ihre Karten erscheinen, sobald sie fertig sind, statt lange nach dem Text."
   },
@@ -694,6 +698,10 @@
   {
     "en": "A research report can now show a file from the project or the office archive as a card, as the chat already could.",
     "de": "Auch ein Recherchebericht kann jetzt eine Datei aus dem Projekt oder dem Büroarchiv als Karte zeigen, wie es der Chat schon konnte."
+  },
+  {
+    "en": "A research run now works from the same law as the chat: the editions that apply at the project's site, in their role there, or a clear note when that law cannot be named.",
+    "de": "Ein Recherchelauf arbeitet jetzt mit derselben Rechtsgrundlage wie der Chat: mit den am Projektstandort geltenden Fassungen und ihrer dortigen Funktion – oder mit einem klaren Hinweis, wenn sich die Rechtsgrundlage nicht benennen lässt."
   },
   {
     "en": "A research run or task that finished during a brief outage now shows its result, instead of staying \"running\" with an empty message forever.",
@@ -1078,6 +1086,10 @@
   {
     "en": "An imported Outlook archive now files each mail's text into the project's mail threads, beside the mail that came to the project's address, instead of a note per mail. A reply joins its conversation, and a mail the project already has is not filed twice.",
     "de": "Beim Import eines Outlook-Archivs wird der Text jeder E-Mail nun im Mail-Thread des Projekts abgelegt, neben der E-Mail an die Projektadresse, statt als eigene Notiz. Antworten werden dem jeweiligen Gespräch zugeordnet, und bereits im Projekt vorhandene E-Mails werden nicht doppelt abgelegt."
+  },
+  {
+    "en": "An office's base knowledge entry keeps who proposed it after it is confirmed, and names who confirmed it.",
+    "de": "Ein Eintrag in der Wissensbasis eines Büros zeigt auch nach der Bestätigung, wer ihn vorgeschlagen hat, und nennt die bestätigende Person."
   },
   {
     "en": "An office's default language under Organisation → Einstellungen is now \"Nicht festgelegt\" until an administrator picks one, and each person then starts in their browser's language. Offices that had the English preset stored have it reset; set it again there if your office wants English.",
@@ -4838,6 +4850,14 @@
   {
     "en": "Where an office has upload screening switched on, Piloti checks the text of each upload on its servers before any AI model reads it. A file the check holds back waits in Quarantine, where no model reads it, until an office or project admin releases or deletes it under Organization → Quarantine.",
     "de": "Wo eine Organisation die Prüfung von Uploads eingeschaltet hat, prüft Piloti den Text jedes Uploads auf Pilotis Servern, bevor ein KI-Modell ihn liest. Eine Datei, die die Prüfung zurückhält, wartet unter Organisation → Quarantäne, wo kein Modell sie liest, bis ein Büro- oder Projekt-Admin sie freigibt oder löscht."
+  },
+  {
+    "en": "Where nobody has reviewed a country's records yet, the chat says it reads that law from an uncurated official source, and it says when a newer edition is known.",
+    "de": "Wenn die Unterlagen eines Landes noch niemand geprüft hat, weist der Chat darauf hin, dass er das betreffende Gesetz aus einer nicht kuratierten offiziellen Quelle bezieht, und nennt, falls bekannt, eine neuere Fassung."
+  },
+  {
+    "en": "Where the law of a project's site cannot be named (the office is not entitled to its country, or it cannot be read), no building class is named either: not in the evaluation, the setup or the project profile.",
+    "de": "Kann das am Projektstandort geltende Baurecht nicht bestimmt werden (weil das Büro für das betreffende Bundesland nicht berechtigt ist oder die Bauordnung nicht ausgelesen werden kann), wird auch keine Gebäudeklasse angegeben – weder in der Auswertung noch in der Konfiguration oder im Projektprofil."
   },
   {
     "en": "Where your office has switched it on, Piloti now checks a newly uploaded document against the project's other documents. If a key figure disagrees, for example the number of dwellings, it marks the place as a proposal with both sources; when everything agrees it says nothing.",

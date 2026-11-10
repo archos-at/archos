@@ -219,10 +219,13 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   })
 
   it('verifies the address and places it nowhere while no territory record holds its Gemeinde (no_territory)', async () => {
-    const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
+    // Knittelfeld: a Gemeinde no spec publishes a territory for. Graz would depend on
+    // the order of the suites, since platform.integration.spec.ts publishes AT:gkz:60101
+    // into the same database.
+    const resolution = await service.resolveSite(session, 'Hauptplatz 1, 8720 Knittelfeld', now)
     expect(resolution).toMatchObject({
       status: 'verified',
-      site: { municipality: { territoryId: 'AT:gkz:60101', name: 'Graz' }, chain: [], authority: { status: 'undetermined', reason: 'no_territory' } },
+      site: { municipality: { territoryId: 'AT:gkz:62041', name: 'Knittelfeld' }, chain: [], authority: { status: 'undetermined', reason: 'no_territory' } },
     })
   })
 

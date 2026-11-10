@@ -6,14 +6,16 @@
  * The inputs that decide the context are cheap (the office row, its
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
- * digest, and the resolved context is cached, with the names a person reads
- * for its uses (never on the wire), under `knowledge-context-v2:<org>:<project>:<digest>`: the organization and the
+ * digest, and the resolved context is cached under
+ * `knowledge-context-v3:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
  * Fails closed: a read that throws gives `knowledge_unavailable`, which
  * withholds retrieval, law lookup and classification while documents still
- * answer, and logs the `knowledge_context_available` alert line.
+ * answer. A turn's failed read logs the `knowledge_context_available` alert
+ * line; a page's logs its own marker, so a page polling an outage does not
+ * fire the turn alert.
  */
 
 import 'server-only'
@@ -27,10 +29,7 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
-import type { PhaseTimer } from '../chain/turn'
 import { loadGraph } from '../chain/load'
-import type { KnowledgeGraph } from '../chain/graph'
-import { nameOf } from '../chain/text'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
 import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
@@ -53,6 +52,9 @@ const PROCEDURE_IDS = ['p1'] as const
 const unavailableTurns = metrics
   .getMeter('base-knowledge')
   .createCounter('knowledge_context.unavailable', { description: 'Turns whose knowledge context could not be read' })
+
+/** Times one phase of the turn context's load (`TurnContextTiming.time`); the identity when nobody measures. */
+export type PhaseTimer = <T>(name: string, load: () => Promise<T>) => Promise<T>
 
 const untimed: PhaseTimer = (_name, load) => load()
 
@@ -84,7 +86,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v2:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v3:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
@@ -135,47 +137,14 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
   })
 }
 
-/**
- * The names a person reads for a context's uses: each work's designation and
- * each edition's label, from the graph the context was resolved on. Kept beside
- * the context, never on its wire, so the page names exactly the uses the turn
- * reads without reading the graph again.
- */
-export interface UseNames {
-  works: Record<string, string | null>
-  editions: Record<string, string | null>
-}
-
-/** A resolved context and the names of its uses: what the cache holds. */
-export interface ContextResolution {
-  context: KnowledgeContext
-  names: UseNames
-}
-
-const NO_NAMES: UseNames = { works: {}, editions: {} }
-
-/** The names of the uses `context` carries, read from `graph`. Pure. */
-export function namesOf(graph: KnowledgeGraph, context: KnowledgeContext): UseNames {
-  const names: UseNames = { works: {}, editions: {} }
-  for (const use of context.uses) {
-    const designation = graph.works.get(use.workId)?.designation
-    names.works[use.workId] = designation ? nameOf(designation) : null
-    if (use.editionId) {
-      const label = graph.editions.get(use.editionId)?.label
-      names.editions[use.editionId] = label ? nameOf(label) : null
-    }
-  }
-  return names
-}
-
 /** Resolve the context from what was read; the graph is read only for a site the office is entitled to. */
-async function resolveFor(organizationId: string, inputs: ContextDigestInputs, time: PhaseTimer): Promise<ContextResolution> {
+async function resolveFor(organizationId: string, inputs: ContextDigestInputs, time: PhaseTimer): Promise<KnowledgeContext> {
   const first = inputs.sites[0]
   const country = first ? countryOf(first.territoryId) : null
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
-  const context = resolveKnowledgeContext({
+  return resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
@@ -186,33 +155,34 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
   })
-  return { context, names: graph ? namesOf(graph, context) : NO_NAMES }
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */
-async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer): Promise<ContextResolution> {
+async function resolution(organizationId: string, projectId: string | null, time: PhaseTimer): Promise<KnowledgeContext> {
   const inputs = await readContextInputs(organizationId, projectId)
   const key = contextCacheKey(organizationId, projectId, contextDigest(inputs))
   return getCached(key, CONTEXT_TTL_MS, () => resolveFor(organizationId, inputs, time))
 }
 
 /**
- * The context of a project as a person's page reads it, with the names of its
- * uses (`projectLawFor`): the same resolution the turn reads, from the same
- * cache. Fails closed like the turn: a read that throws is `knowledge_unavailable`.
+ * The context of a project as a person's page reads it (`projectLawFor`,
+ * `project-base-get`): the same resolution the turn reads, from the same
+ * cache. Fails closed like the turn: a read that throws is
+ * `knowledge_unavailable`. Logged under its own marker, never the turn
+ * alert's (ADR-0173): an intake polls every few seconds.
  */
-export async function contextWithNames(organizationId: string, projectId: string): Promise<ContextResolution> {
+export async function contextForPage(organizationId: string, projectId: string): Promise<KnowledgeContext> {
   try {
     return await resolution(organizationId, projectId, untimed)
   } catch (error) {
-    console.error('[knowledge_context_available=false] the knowledge context could not be read for a page', { organizationId, projectId, error })
-    return { context: unavailableContext(calendarDayIn('UTC')), names: NO_NAMES }
+    console.error('[knowledge_context_page_read=false] the knowledge context could not be read for a page', { organizationId, projectId, error })
+    return unavailableContext(calendarDayIn('UTC'))
   }
 }
 
 /** The context with nothing readable: retrieval, law lookup and classification withheld. */
 export function unavailableContext(date: string): KnowledgeContext {
-  return { gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, packs: [], chains: {}, date, procedures: [], uses: [], retrieval: { countries: [] } }
+  return { gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, packs: [], chains: {}, date, procedures: [], uses: [], text: null, retrieval: { countries: [] } }
 }
 
 /** The inputs that decide a turn's context, read as the office. */
@@ -238,8 +208,11 @@ export async function readContextInputs(organizationId: string, projectId: strin
   }
 }
 
-/** Who reads a context: a chat turn, or an operation (`project-base-get`, `-confirm`) a person or an agent called. */
-export type ContextReader = 'turn' | 'operation'
+/**
+ * Who reads a context: a chat turn; an operation (`project-base-get`, `-confirm`)
+ * a person or an agent called; or a background run, which carries its own.
+ */
+export type ContextReader = 'turn' | 'operation' | 'run'
 
 /**
  * The turn's knowledge context, always present: a read that fails gives
@@ -257,7 +230,7 @@ export async function knowledgeContextForTurn(
 ): Promise<KnowledgeContext> {
   return time('knowledge', async () => {
     try {
-      const { context } = await resolution(organizationId, projectId, time)
+      const context = await resolution(organizationId, projectId, time)
       if (!conversationId) return context
       // What this turn is answered on: its answer records from it, not from a later resolution (E42).
       await rememberTurnContext(organizationId, conversationId, context)
@@ -265,8 +238,13 @@ export async function knowledgeContextForTurn(
       const previous = await lastAnswerPackSeqs(organizationId, conversationId)
       return { ...context, updatedSinceLastAnswer: packsUpdatedSince(context.packs, previous) }
     } catch (error) {
-      if (reader === 'turn') unavailableTurns.add(1)
-      console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })
+      // Only a chat turn's failure is the alert's: an operation's is in its own response, and logs its own marker.
+      if (reader === 'turn') {
+        unavailableTurns.add(1)
+        console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })
+      } else {
+        console.error(`[knowledge_context_page_read=false] the knowledge context could not be read for ${reader === 'run' ? 'a background run' : 'an operation'}`, { organizationId, error })
+      }
       return unavailableContext(calendarDayIn('UTC'))
     }
   })
