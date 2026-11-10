@@ -320,7 +320,7 @@ export async function buildCollectionScopeFromRequest(
   } satisfies ScopeContext)
 
   // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // undefined with `knowledge-context` off, so the scope is byte for byte what it was.
+  // an office entitled to nothing reads none of it (ADR-0175).
   const corpusCountries =
     scope.includes(baseCollection) && session?.organizationId && !anonymous
       ? await corpusCountriesFor(session.organizationId)

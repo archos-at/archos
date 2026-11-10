@@ -6,6 +6,7 @@
  * the same records: `<type>:<key>`, and a territory's own id.
  */
 
+import { createHash } from 'node:crypto'
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
 import { sourceConfigOf } from '@/lib/base-knowledge/wire/source'
 import { rulesetColumns } from '../rulesets/columns'
@@ -146,10 +147,33 @@ function unstated(path: string, value: unknown): boolean {
   return false
 }
 
-/** The claims of a stored body: every column a reviewer accepts, edits or rejects. */
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * A source's configuration as a reviewer reads it: a recorded response carried
+ * as base64 (a `pdf_document` source's PDF) shows its type, size and sha256 in
+ * place of the bytes. Nobody reviews base64, and the bytes would fill the view
+ * an agent reads past the door's result cap; the record keeps them whole.
+ */
+function reviewedConfig(config: unknown): unknown {
+  if (!isObject(config) || !Array.isArray(config.fixtures)) return config
+  const digest = (response: unknown) => {
+    if (!isObject(response) || response.encoding !== 'base64' || typeof response.text !== 'string') return response
+    const bytes = Buffer.from(response.text, 'base64')
+    return { content_type: response.content_type, encoding: 'base64', bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }
+  }
+  const fixtures = config.fixtures.map((fixture: unknown) =>
+    isObject(fixture) && isObject(fixture.responses)
+      ? { ...fixture, responses: Object.fromEntries(Object.entries(fixture.responses).map(([url, response]) => [url, digest(response)])) }
+      : fixture,
+  )
+  return { ...config, fixtures }
+}
+
+/** The claims of a stored body: every column a reviewer accepts, edits or rejects, as the reviewer reads it. */
 export function claimsOf(body: Record<string, unknown>): { path: string; value: unknown }[] {
   return Object.entries(body)
     .filter(([path]) => !NOT_CLAIMS.has(path))
     .filter(([path, value]) => !unstated(path, value))
-    .map(([path, value]) => ({ path, value }))
+    .map(([path, value]) => ({ path, value: path === 'config' ? reviewedConfig(value) : value }))
 }

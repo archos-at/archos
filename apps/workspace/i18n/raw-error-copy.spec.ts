@@ -43,7 +43,6 @@ const ERROR_MESSAGE_CHILD_ALLOWED: Record<string, string> = {
 }
 
 const TOAST_OF_BODY_ALLOWED: Record<string, string> = {
-  'features/platform/components/norm-registry.tsx': 'platform staff surface, off the project path: known debt',
 }
 
 function sourceFiles(dir: string): string[] {

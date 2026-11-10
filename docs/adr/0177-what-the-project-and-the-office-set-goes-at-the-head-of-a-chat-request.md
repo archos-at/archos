@@ -51,7 +51,7 @@ Chosen: the conversation layout (the chat agent's `context_layout.py`), on by
 default, and history edited in steps rather than on every turn.
 
 * The values the project and the office set (`CONVERSATION_VALUES`: the
-  inventory of settled files, the project context and memory, the office's
+  inventory of settled files, the project's profile, the office's
   instructions and lessons, OIB applicability, the parcel note, the per-tenant
   switches) are one `<conversation_context>` message right after the system
   prompt.
@@ -132,7 +132,13 @@ outstanding; it is the gate for keeping both defaults.
   tool results (compacted to the cited passages), read from the cache at a
   twentieth of the price, and a window cut to 62.5 % holds up to 15 k tokens
   less history right after a step than one cut to the budget.
-* Neutral: a settled upload or a changed memory note rewrites the head once,
+* Found by the independent review of the port, 2026-11-10: the project context
+  carries the memory digest, which the BFF picks and orders by the question,
+  so in the head it would have rewritten it on most turns. The head takes the
+  profile only; the memory part (digest, proposal and review decisions, folder
+  notes, the office's base knowledge) rides the turn note
+  (`context_layout.split_project_context`, held by `test_context_layout.py`).
+* Neutral: a settled upload or a changed profile rewrites the head once,
   and the history behind it, on the next turn.
 
 ## Slices

@@ -701,3 +701,64 @@ class TestCacheWritesReachTheLedger:
     def test_absent_is_zero(self):
         event = extract_usage_event(_openrouter_result())
         assert event is not None and event.to_payload()["cacheWriteTokens"] == 0
+
+
+class TestAStreamedChatCompletionKeepsItsCost:
+    """The answering call streams on Chat Completions; OpenRouter's ``cost`` rides only its last chunk.
+
+    langchain-openai turned that chunk into token counts and dropped the cost, so
+    every streamed answer was booked at zero, ``missing`` (found by review when
+    ``research_llm`` left the Responses API, 2026-11-10;
+    ``provider_usage.install_chat_stream_cost_carrier``).
+    """
+
+    USAGE = {
+        "prompt_tokens": 1000,
+        "completion_tokens": 5,
+        "total_tokens": 1005,
+        "cost": 0.02,
+        "is_byok": False,
+        "prompt_tokens_details": {"cached_tokens": 600, "cache_write_tokens": 300},
+    }
+
+    def _llm(self):
+        import httpx
+        from langchain_openai import ChatOpenAI
+
+        def chunk(**fields):
+            return {"id": "gen-1", "object": "chat.completion.chunk", "created": 0, "model": "m", **fields}
+
+        stream = [
+            chunk(choices=[{"index": 0, "delta": {"role": "assistant", "content": "hi"}, "finish_reason": None}]),
+            chunk(choices=[{"index": 0, "delta": {}, "finish_reason": "stop"}]),
+            chunk(choices=[], usage=self.USAGE),
+        ]
+        body = "".join(f"data: {json.dumps(c)}\n\n" for c in stream) + "data: [DONE]\n\n"
+
+        def handler(request):
+            return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+        return ChatOpenAI(
+            model="openai/gpt-6.1-terra",
+            api_key="test",
+            base_url="https://openrouter.ai/api/v1",
+            http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    async def test_the_cost_and_both_cache_counts_reach_the_ledger(self):
+        from langchain_core.callbacks import AsyncCallbackHandler
+
+        seen = []
+
+        class Ledger(AsyncCallbackHandler):
+            async def on_llm_end(self, response, **kwargs):
+                seen.append(extract_usage_event(response))
+
+        from langchain_core.messages import HumanMessage
+
+        await self._llm().bind(stream=True).ainvoke([HumanMessage(content="q")], config={"callbacks": [Ledger()]})
+
+        assert len(seen) == 1 and seen[0] is not None
+        payload = seen[0].to_payload()
+        assert (payload["costUsd"], payload["costSource"]) == (pytest.approx(0.02), "usage_field")
+        assert (payload["cachedTokens"], payload["cacheWriteTokens"]) == (600, 300)

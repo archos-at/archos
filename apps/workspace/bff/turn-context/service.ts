@@ -164,10 +164,10 @@ export async function loadTurnContext(
     // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
     timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
     // Which edition binds at the project's site, and why, from the platform's records (ADR-0168).
-    // Timed inside, once its flag is on: a turn without it records no new phase.
+    // Timed inside, as `building-law`.
     advisory('load the building law', () => buildingLawForTurn(organizationId, projectId ?? null, timed)),
     // Which country, coverage and editions apply, and what the turn may retrieve (ADR-0173).
-    // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge` once its flag is on.
+    // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge`.
     knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
     // Which model files the project holds, so the agent binds its measuring tools only where there is one.
     projectId
@@ -186,8 +186,8 @@ export async function loadTurnContext(
     baseKnowledge: baseKnowledge?.block ?? null,
     baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
     buildingLaw: buildingLaw ?? null,
-    // Absent with the flag off: the response stays byte for byte what it was.
-    ...(knowledgeContext ? { knowledgeContext } : {}),
+    // Always present (ADR-0175): unreadable is `knowledge_unavailable`, never no context.
+    knowledgeContext,
     projectModels,
   }
 }

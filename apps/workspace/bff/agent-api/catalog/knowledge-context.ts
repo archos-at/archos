@@ -50,7 +50,9 @@ export const knowledgeContextOperations = [
     description:
       'What answers about the project’s site rest on: the gate (organization_unplaced, site_unknown, not_entitled, ' +
       'knowledge_unavailable, or coverage none to full), each leaf’s chain, every edition with its role, qualifier and ' +
-      'freshness, the procedures, the packs with their release sequence, and the newest confirmation. Needs project:view.',
+      'freshness, the procedures, the packs with their release sequence, and the newest confirmation; and `law`: the gate and ' +
+      'each edition the context names with its role, qualifier, designation and edition label, empty where the gate refuses. ' +
+      'Needs project:view.',
     method: 'GET',
     path: '/api/projects/[id]/base',
     params: projectParams,

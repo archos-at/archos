@@ -21,6 +21,7 @@ from knowledge_layer.ingest import QUARANTINED_PREFIX
 from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import transcription
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 from knowledge_layer_testing.vector_store import FakeEmbedder
@@ -376,7 +377,7 @@ def _text_pass_loses_page(monkeypatch, lost: int) -> None:
             raise ValueError("unreadable page")
         return read(page, page_num, previous, pdf_path)
 
-    monkeypatch.setattr(adapter, "_read_pdf_page", _read)
+    monkeypatch.setattr(pdf_text, "_read_pdf_page", _read)
 
 
 class TestTablesAndCapsAreScreened:

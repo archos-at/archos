@@ -622,6 +622,32 @@ task be:eval:answer-suite -- --out /tmp/suite/before         # on the base branc
 task be:eval:answer-suite -- --out /tmp/suite/after --baseline /tmp/suite/before/results.json
 ```
 
+**The edition set** (`-- --set editions`, `--only r1 r3` for groups) asks which
+OIB-RL edition binds in an Austrian Land on a given day: market requirements R1,
+R2, R3 and R5 (`docs/design/international/research/market-2026-11.md`, (d)). The
+134 rows are in `tests/fixtures/editions/at_edition_questions.yaml`: 54 Land × RL
+items, 24 changeover days, 20 abstentions and 36 false premises. Its checks
+(`scripts/turn_census/edition_eval.py`, which the suite dispatches to by the row's
+`set`; `suite.load_questions` marks each row of a norm set other than the loop one) are:
+
+- `binding`: which edition the answer says applies that day. That is a meaning, so
+  it fails without asking when the edition is never named, passes without asking
+  only when it is the one edition named and no sentence naming it negates it, names
+  another date than the asked and in-force days, or another Land; otherwise it asks
+  the judge to confirm a stated claim.
+- patterns: the LGBl, the in-force day, a link to `ris.bka.gv.at` or
+  `ogd.ris.bka.gv.at` (`ris_lgbl` also wants it to name that gazette), and
+  `no_substitute`, which bans citing a Richtlinie whose binding edition has no text
+  (the pack holds only the 2023 texts), and in r3 `no_held_edition` and
+  `no_remembered_requirement` (no edition named with a measure);
+- judge rubrics: `abstains`, `corrects_premise`, and `transition`, the quoted
+  transitional rule of the Verordnung across an r2 changeover.
+
+A judged check with no judge is a recorded failure (`judge_unavailable:<kind>`).
+Every expected value is read off the relation records in
+`configs/knowledge-packs/at.json`; `tests/test_edition_eval.py` holds every row to
+the pack, so a pack change fails CI until the set follows.
+
 **The precedent set** (`-- --set precedent`) asks whether the agent uses the
 office's other projects well (docs/roadmap/office-experience.md, step A). Each
 turn is asked in the current project of a fixture office

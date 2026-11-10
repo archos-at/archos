@@ -119,7 +119,7 @@ register itself and no typed text leaves the cell.
   postcode's Land suggestion. The previous site's entries are removed first.
 - **Behind a flag.** `site-resolution` (a rollout: public data, no cost per
   office). Off, both routes answer 403 and nothing else changes: the typed
-  address is kept unconfirmed, and the geocoder is whatever the deployment set.
+  address is kept unconfirmed, and the geocoder is whatever the deployment set. ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.)
 
 ### Amendments
 

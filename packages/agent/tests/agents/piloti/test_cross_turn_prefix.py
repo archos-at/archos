@@ -29,7 +29,7 @@ conversation edited on every turn.
 
 The floors are ratchets: a change that sends more new characters, or shares
 less, fails; one that does better lowers or raises them. Ported from the
-unmerged ``feat/chat-conversation-context-layout`` branch (ADR-0154), where it
+unmerged ``feat/chat-conversation-context-layout`` branch (drafted there as ADR-0154; ADR-0177 here), where it
 was first measured on 2026-11-04.
 """
 

@@ -79,7 +79,7 @@ reference (https://openrouter.ai/docs/api_reference/overview):
   `completion_tokens`, `total_tokens`,
   `prompt_tokens_details.cached_tokens` (read from the cache),
   `prompt_tokens_details.cache_write_tokens` (written to it, billed at 1.25x
-  on Claude and GPT-5.6+; ledger column `cache_write_tokens`, migration 0214),
+  on Claude and GPT-5.6+; ledger column `cache_write_tokens`, migration 0216),
   `completion_tokens_details.reasoning_tokens`, `is_byok`;
   `cost_details.upstream_inference_cost` applies to BYOK only.
 - **Streaming**: the usage object arrives on the **final SSE chunk**.

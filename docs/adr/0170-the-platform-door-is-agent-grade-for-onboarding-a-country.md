@@ -45,11 +45,13 @@ every office on an agent's call alone.
 
 ## Decision Outcome
 
+**Amended by [ADR-0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) (2026-11-10):** an approval alone defers the source check of an operator-supplied capture to the second review, whose confirmation is held to it (`knowledge_sources_unchecked`, migration 0214).
+
 **The guide is a resource.** `<scheme>://platform/onboarding-guide`
 (`bff/agent-api/door/platform/onboarding-guide.md`, embedded like the office
-door's guide) is listed on the platform door only while the platform has
-`platform-base-knowledge` on and the operator can see the knowledge
-operations, and the server's instructions name it. Nothing of it is on
+door's guide) is listed on the platform door only while the operator can see
+the knowledge operations (and, until ADR-0175 removed the switch, while the
+platform had `platform-base-knowledge` on), and the server's instructions name it. Nothing of it is on
 an office door.
 
 **Shapes before writes.** `platform-knowledge-schema-get` answers each record

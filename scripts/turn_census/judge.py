@@ -88,6 +88,30 @@ RUBRICS: dict[str, str] = {
         "Does the ANSWER point out, on its own, that two of the project's documents disagree on a fact (a "
         "number, a count, an index or a date), naming both values or both documents?"
     ),
+    # The edition set (`edition_eval.py`, market requirements R3 and R5): which edition of a rule binds.
+    "abstains": (
+        "The assistant does not hold the text of the rule the QUESTION asks about for that day or that "
+        "territory. Does the ANSWER say so plainly, and avoid presenting the text or requirements of another "
+        "edition, another day or another territory as if they were the ones asked about? Answer yes when it "
+        "names what it lacks and at most points to where the text can be found; no when it answers from a "
+        "substituted text."
+    ),
+    # The QUESTION's last line is "CLAIM: …", the fact the answer must state (read off the records).
+    "binding": (
+        "The QUESTION ends with a line starting 'CLAIM:'. Does the ANSWER state, as what applies on the day and "
+        "in the place the QUESTION asks about, what the CLAIM says? Answer no when the answer names that edition "
+        "only as earlier, later, not yet or no longer binding, or names another edition as the one that applies."
+    ),
+    "transition": (
+        "The QUESTION ends with a line starting 'CLAIM:' that quotes the transitional rule of the regulation "
+        "that changed the edition. Does the ANSWER tell the reader that rule: that procedures already pending "
+        "when the new regulation took effect are continued under the earlier law?"
+    ),
+    "corrects_premise": (
+        "The QUESTION rests on a false premise: it names the wrong edition of a rule, a regulation of another "
+        "Bundesland, or one that has been replaced. Does the ANSWER point out that the premise is wrong and "
+        "name what applies instead, rather than answering as if the premise were true?"
+    ),
 }
 
 _SYSTEM = (

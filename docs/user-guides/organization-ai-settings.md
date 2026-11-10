@@ -77,5 +77,5 @@ a commentary as interpretation only and apply a directive only where its
 authority decides. **Als aktuell geprüft** records a check; after a year (half a
 year for a directive) the entry shows „Prüfung überfällig“ and answers say so.
 **Entfernen** deletes the document and the entry. Other offices see none of it.
-Your organization's operator switches this on (the `office-base-knowledge` flag)
-([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md)).
+Every organization has it
+([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md), [ADR-0175](../adr/0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md)).

@@ -409,6 +409,22 @@
         },
         {
           "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
+            "de": "Im Projekt-Setup sehen Sie jetzt, welches Recht am Standort gilt, sowie jede Vorschrift und Richtlinie in der dort verbindlichen Fassung – dieselbe Rechtsgrundlage, auf der auch die Antworten im Chat beruhen. Wenn noch kein Recht angegeben werden kann, erfahren Sie warum: weil kein Standort hinterlegt ist oder Ihr Büro das betreffende Land nicht aktiviert hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
+            "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",
@@ -537,6 +553,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers now name the editions the Landesgesetzblatt itself makes binding: OIB-RL 6 Ausgabe 2025 in Burgenland from 5 November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg, and the 2023 guidelines in Salzburg from 1 September 2026 and in Niederösterreich from 20 March 2025.",
+            "de": "Die Antworten nennen jetzt die Ausgaben, die das Landesgesetzblatt selbst für verbindlich erklärt: OIB-RL 6 Ausgabe 2025 im Burgenland ab 5. November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg sowie die Richtlinien 2023 in Salzburg ab 1. September 2026 und in Niederösterreich ab 20. März 2025."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
@@ -605,6 +629,14 @@
           "text": {
             "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
             "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+          }
+        },
+        {
+          "section": "deprecations",
+          "area": "building-law",
+          "text": {
+            "en": "For now the setup no longer marks the OIB guidelines that only some buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for each. They return shortly, worked out from the building's facts.",
+            "de": "Fürs Erste kennzeichnet das Setup die OIB-Richtlinien, die nur für bestimmte Gebäude gelten (Betriebsbau, Garage, Hochhaus), nicht mehr jeweils mit einer Begründung. Sie kommen bald zurück und werden anhand der Gebäudedaten ermittelt."
           }
         }
       ]

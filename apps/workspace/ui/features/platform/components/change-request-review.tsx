@@ -24,6 +24,13 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { Stepper } from '@/components/ui/stepper'
+import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/adapters/auth/use-auth'
+import { usePlatformCan } from '@/features/platform/platform-access'
+import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
+import { MIN_OVERRIDE_REASON } from '@/lib/base-knowledge/platform/wire'
+import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
+import { ApprovalBadges } from './approval-badges'
 import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
@@ -42,7 +49,10 @@ import {
 
 const BASE = '/api/platform/knowledge/change-requests'
 
-type Step = 'approve' | 'reject' | 'preview' | 'stable' | 'rollback'
+type Step = 'approve' | 'reject' | 'preview' | 'stable' | 'rollback' | 'alone' | 'confirm' | 'dispute'
+
+/** Where a due second review is given, as the server has it (`decide.ts`). */
+const REVIEWED_AFTER_APPROVAL: readonly ChangeRequestStatus[] = ['approved', 'published', 'rolled_back']
 type Verdict = 'accepted' | 'rejected'
 
 const KIND_WORDS = new Set([
@@ -224,6 +234,16 @@ export function ChangeRequestReview({
   const [failed, setFailed] = useState(false)
   const [confirming, setConfirming] = useState<Step | null>(null)
   const [busy, setBusy] = useState(false)
+  const [reason, setReason] = useState('')
+  const { user } = useAuth()
+  const canApproveAlone = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAlone)
+  // Each second review is given in a role approved alone that the reviewer holds (ADR-0176).
+  const holds: Record<ApprovalRole, boolean> = {
+    domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
+    counsel: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel),
+    second_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer),
+    privacy_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer),
+  }
 
   const load = useCallback(async () => {
     const response = await fetch(`${BASE}/${id}`).catch(() => null)
@@ -265,7 +285,18 @@ export function ChangeRequestReview({
   const wrong = claims.filter((claim) => claim.decision === 'rejected' || claim.decision === 'edited').length
   const open = claims.length - checked - wrong
   const stage = stageOf(view, open, wrong)
-  const canDecide = canManage && view.status === 'submitted'
+  // A request approved alone stays under review until another person gives its second review (ADR-0176).
+  // Keyed off status as the server is: only an approved request (or later) takes its second review.
+  const secondReviewDue = view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status)
+  const disputed = view.secondReview?.state === 'disputed'
+  const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
+  const dueRoles = (view.secondReviewRoles ?? []).filter((role) => role.state === 'due').map((role) => role.role)
+  const reviewRole = dueRoles.find((role) => holds[role]) ?? null
+  const canDecide = canManage && (view.status === 'submitted' || (secondReviewDue && !authored))
+  const canReview = canManage && secondReviewDue && !authored && reviewRole !== null
+  // The UI approves as domain expert; once that role is approved, alone or not, another override can only answer 409.
+  const approvedAsExpert = view.approvals.some((approval) => approval.role === 'domain_expert')
+  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert
   const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[], sourceChecked = false) =>
     void post(
       'review',
@@ -280,12 +311,16 @@ export function ChangeRequestReview({
   }))
   const primary: { step: Step; enabled: boolean; why?: string } | null = !canManage
     ? null
-    : view.status === 'submitted'
+    : view.status === 'submitted' && offerAlone
+      ? { step: 'alone', enabled: true, why: t('countryKnowledge.why.alone') }
+      : view.status === 'submitted'
       ? {
           step: 'approve',
           enabled: open === 0 && wrong === 0,
           why: wrong > 0 ? t('countryKnowledge.why.wrong', { count: wrong }) : open > 0 ? t('countryKnowledge.why.open', { count: open }) : undefined,
         }
+      : view.status === 'approved' && disputed
+        ? { step: 'reject', enabled: true }
       : view.status === 'approved'
         ? { step: stage.index === 3 ? 'stable' : 'preview', enabled: true }
         : view.status === 'published'
@@ -293,6 +328,11 @@ export function ChangeRequestReview({
           : null
 
   const run = (step: Step) => {
+    if (step === 'alone') {
+      return post('decision', { decision: 'approve', role: 'domain_expert', override: { reason: reason.trim() } }, t('countryKnowledge.done.alone'))
+    }
+    if (step === 'confirm') return post('decision', { decision: 'approve', role: reviewRole }, t('countryKnowledge.done.confirm'))
+    if (step === 'dispute') return post('decision', { decision: 'reject', role: reviewRole }, t('countryKnowledge.done.dispute'))
     if (step === 'approve') return post('decision', { decision: 'approve', role: 'domain_expert' }, t('countryKnowledge.done.approve'))
     if (step === 'reject') return post('decision', { decision: 'reject', role: 'domain_expert' }, t('countryKnowledge.done.reject'))
     if (step === 'rollback') return post('rollback', { reason: t('countryKnowledge.rollbackReason') }, t('countryKnowledge.done.rollback'))
@@ -306,6 +346,7 @@ export function ChangeRequestReview({
         <DialogDescription>
           {countryName(view.countryId, locale)} · {t(`countryKnowledge.status.${view.status}`)}
         </DialogDescription>
+        <ApprovalBadges approval={view.approval} secondReview={view.secondReview} />
       </DialogHeader>
 
       {stage.index >= 0 ? (
@@ -322,8 +363,19 @@ export function ChangeRequestReview({
       ) : null}
 
       <div className="bg-muted mt-5 flex flex-col gap-2 rounded-md p-4" data-testid="change-request-next">
-        <p className="text-sm font-medium">{t(`countryKnowledge.next.${stage.say}`)}</p>
-        {view.status === 'submitted' ? (
+        <p className="text-sm font-medium">
+          {secondReviewDue
+            ? t('countryKnowledge.secondReviewNext.due')
+            : disputed
+              ? t('countryKnowledge.secondReviewNext.disputed')
+              : t(`countryKnowledge.next.${stage.say}`)}
+        </p>
+        {secondReviewDue && dueRoles.length > 0 ? (
+          <p className="text-muted-foreground text-xs" data-testid="second-review-roles">
+            {t('countryKnowledge.secondReviewDueIn', { roles: dueRoles.map((role) => t(`countryKnowledge.roles.${role}`)).join(', ') })}
+          </p>
+        ) : null}
+        {view.status === 'submitted' || secondReviewDue ? (
           <>
             <Progress value={claims.length ? (checked / claims.length) * 100 : 0} aria-label={t('countryKnowledge.progressLabel')} />
             <p className="text-muted-foreground text-xs tabular-nums">
@@ -347,22 +399,40 @@ export function ChangeRequestReview({
         ))}
       </div>
 
-      {primary ? (
+      {primary || canReview ? (
         <div className="bg-card sticky -bottom-6 -mx-6 -mb-6 mt-6 flex flex-wrap items-center justify-end gap-3 border-t px-6 py-4">
-          {primary.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
+          {primary?.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
+          {canReview ? (
+            <>
+              <Button variant="outline" disabled={busy} onClick={() => setConfirming('dispute')} data-testid="second-review-dispute">
+                {t('countryKnowledge.steps.dispute')}
+              </Button>
+              <Button
+                variant={primary ? 'outline' : 'default'}
+                disabled={busy || open > 0 || wrong > 0}
+                onClick={() => setConfirming('confirm')}
+                data-testid="second-review-confirm"
+              >
+                {t('countryKnowledge.steps.confirm')}
+              </Button>
+            </>
+          ) : null}
           {view.status === 'submitted' && wrong > 0 ? (
             <Button variant="outline" disabled={busy} onClick={() => setConfirming('reject')}>
               {t('countryKnowledge.steps.reject')}
             </Button>
           ) : null}
-          <Button
-            variant={primary.step === 'rollback' ? 'outline' : 'default'}
-            disabled={busy || !primary.enabled}
-            onClick={() => setConfirming(primary.step)}
-            className={cn(primary.step === 'rollback' && 'text-destructive')}
-          >
-            {t(`countryKnowledge.steps.${primary.step}`)}
-          </Button>
+          {primary ? (
+            <Button
+              variant={primary.step === 'rollback' ? 'outline' : 'default'}
+              disabled={busy || !primary.enabled}
+              onClick={() => setConfirming(primary.step)}
+              className={cn(primary.step === 'rollback' && 'text-destructive')}
+              data-testid={`change-request-step-${primary.step}`}
+            >
+              {t(`countryKnowledge.steps.${primary.step}`)}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -373,9 +443,18 @@ export function ChangeRequestReview({
         description={confirming ? t(`countryKnowledge.confirm.${confirming}.body`) : ''}
         confirmLabel={confirming ? t(`countryKnowledge.steps.${confirming}`) : ''}
         cancelLabel={t('countryKnowledge.cancel')}
-        tone={confirming === 'rollback' || confirming === 'stable' || confirming === 'reject' ? 'warning' : 'default'}
+        tone={['rollback', 'stable', 'reject', 'alone', 'dispute'].includes(confirming ?? '') ? 'warning' : 'default'}
+        confirmDisabled={confirming === 'alone' && reason.trim().length < MIN_OVERRIDE_REASON}
         onConfirm={() => (confirming ? void run(confirming) : undefined)}
-      />
+      >
+        {confirming === 'alone' ? (
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium">{t('countryKnowledge.aloneReason')}</span>
+            <Textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={500} data-testid="approve-alone-reason" />
+            <span className="text-muted-foreground text-xs">{t('countryKnowledge.aloneReasonHint')}</span>
+          </label>
+        ) : null}
+      </ConfirmDialog>
     </div>
   )
 }

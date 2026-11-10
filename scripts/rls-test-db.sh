@@ -241,6 +241,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
+    bff/base-knowledge/platform/approve-alone.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
@@ -257,6 +258,13 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 echo "==> running the synthetic country suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/agent-api/synthetic-country-door.integration.spec.ts
+
+# A source whose documents are PDFs (ADR-0174 amendment): a pdf_document source
+# record, a real public PDF captured through it, and a quote from its page 2
+# that passes KC-6. Its own synthetic country (XP), so it shares no territory.
+echo "==> running the PDF source suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused

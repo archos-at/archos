@@ -593,6 +593,23 @@ class TestChatAgent:
         assert result.answer_confidence_marker == "medium"
 
     @pytest.mark.asyncio
+    async def test_a_provider_that_rejects_tool_choice_gets_the_tool_free_call(
+        self, mock_llm_provider, mock_llm, real_tool
+    ):
+        """A 400 on ``tool_choice: "none"`` must not end the turn the old tool-free call answered."""
+        rejected = RuntimeError("tool_choice not supported")
+        rejected.status_code = 400
+        bound = self._bindable(mock_llm, "")
+        bound.ainvoke = AsyncMock(side_effect=[rejected, AIMessage(content=self._envelope_reply(fenced=False))])
+        agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
+
+        result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
+
+        kinds = [next(iter(call.kwargs)) for call in mock_llm.bind.call_args_list]
+        assert kinds == ["tool_choice", "response_format"]
+        assert result.answer_confidence_marker == "medium"
+
+    @pytest.mark.asyncio
     async def test_a_transport_error_is_not_retried_down_the_ladder(self, mock_llm_provider, mock_llm, real_tool):
         """Auth, quota and network faults fail the same way on every rung.
 

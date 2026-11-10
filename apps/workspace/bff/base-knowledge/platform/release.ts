@@ -106,6 +106,8 @@ export async function publishChangeRequest(requestId: string, channel: ReleaseCh
     if (request.status !== 'approved') {
       throw new ConflictError(`The change request is ${request.status}; only an approved one is published.`)
     }
+    // Read under the lock: a dispute given while this publish waited still stops it (the release trigger holds it too).
+    if (request.secondReview === 'disputed') throw new ConflictError(DISPUTED_NOT_PUBLISHED)
     if (channel === 'stable' && !(await hasPreview(tx, requestId))) {
       throw new ConflictError('Publish to preview first, and check it there; then publish to stable.')
     }
@@ -138,6 +140,42 @@ export async function publishChangeRequest(requestId: string, channel: ReleaseCh
     )
     return { channel, moved: revisions.length, indexRuns }
   })
+}
+
+/** What a publish of a disputed request answers: the two ways out, by status (ADR-0176). */
+export const DISPUTED_NOT_PUBLISHED =
+  'The second review disputed this change request, so it is not published further. Reject it, which withdraws its preview, or roll it back once it is published.'
+
+/**
+ * Withdraw the preview of a disputed request before it is rejected (ADR-0176):
+ * each record's preview back to where it was before this request, as appended
+ * inverse moves. Stable is untouched; nothing of an approved request is there.
+ */
+export async function retractPreview(tx: Tx, requestId: string, actor: ReleaseActor, reason: string): Promise<number> {
+  const previews = await tx
+    .select()
+    .from(knowledgeReleaseMoves)
+    .where(and(eq(knowledgeReleaseMoves.changeRequestId, requestId), eq(knowledgeReleaseMoves.channel, 'preview')))
+    .orderBy(knowledgeReleaseMoves.seq)
+  // The first publish of each record names where its preview stood before this request; a rollback already retracted it.
+  const first = new Map<string, (typeof previews)[number]>()
+  for (const move of previews) if (!first.has(move.recordId)) first.set(move.recordId, move)
+  const retracted = new Set(previews.filter((move) => move.action === 'rollback').map((move) => move.recordId))
+  const open = [...first.values()].filter((move) => move.action === 'publish' && !retracted.has(move.recordId))
+  for (const move of open) {
+    await tx.insert(knowledgeReleaseMoves).values({
+      recordId: move.recordId,
+      channel: 'preview',
+      action: 'rollback',
+      fromRevisionId: await newestPreview(tx, move.recordId),
+      toRevisionId: move.fromRevisionId,
+      changeRequestId: requestId,
+      releasedBy: actor.by,
+      decisionSource: actor.decisionSource,
+      reason,
+    })
+  }
+  return open.length
 }
 
 export interface RollbackOutcome {

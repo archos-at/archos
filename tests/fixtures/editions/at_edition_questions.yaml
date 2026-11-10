@@ -1,0 +1,2034 @@
+# The Austrian edition set: which OIB-RL edition binds, in which Land, on which day.
+#
+# Run it with `task be:eval:answer-suite -- --set editions` (every row) or
+# `-- --set editions --only r3` (one group; ids work too). The checks are in
+# scripts/turn_census/edition_eval.py, the requirements in
+# docs/design/international/research/market-2026-11.md, section (d):
+#
+#   r1  9 Länder × OIB-RL 1–6 on 10.11.2026: edition, LGBl, in-force day, RIS link (R1)
+#   r2  one Land and Richtlinie on both sides of a changeover day (R2); `pair` groups them
+#   r3  a day or territory the records hold no edition for: abstain, quote nothing (R3)
+#   r5  a false premise: wrong edition, another Land's instrument, a superseded one (R5)
+#
+# WHERE EVERY VALUE COMES FROM
+# ----------------------------
+# `relation` names the record in configs/knowledge-packs/at.json the expected
+# values are read off: the edition's year, the LGBl in its `provision`, its
+# `validFrom`. tests/test_edition_eval.py resolves every row against the pack, so
+# a pack change that moves a value fails CI until this file follows it.
+#
+# The pack follows the authentic gazette on RIS where the OIB's table differs
+# (Salzburg, Niederösterreich, Burgenland; each record cites its LgblAuth
+# document). The OIB table's values are asked as false premises in r5.
+#
+# `transition` quotes a Verordnung's transitional rule, read off the gazette text
+# the later relation cites; r2 rows across that changeover expect the answer to
+# state it. Only Wien LGBl. 26/2026, Salzburg LGBl. 83/2026 and NÖ LGBl. 41/2025
+# were read for one, so other changeovers carry none.
+#
+# An `expect` value the pack does not hold is left out, never filled from
+# memory: the 2019 adoptions in Steiermark and Oberösterreich RL 6 name no LGBl.
+#
+#   edition        the edition that binds that day: `binding` fails when it is never named, passes when it
+#                  is the only one named and its sentences hold no negation, no other date than the asked
+#                  and in-force days and no other Land; anything else the judge decides
+#   other_edition  r2: the edition on the other side of the changeover, which the answer names too
+#   lgbl           the Landesgesetzblatt number that makes it binding („LGBl. Nr. 83/2026")
+#   in_force       the day that relation took effect, ISO; any common German date form matches
+#   ris_link       a link to ris.bka.gv.at or ogd.ris.bka.gv.at; `ris_lgbl` also asks that it point at the LGBl
+#   no_substitute  the corpus holds no text of the binding edition (the pack holds only the 2023 texts):
+#                  the answer cites no passage of that Richtlinie, since any it cites is another edition's
+#   abstain        no OIB-RL passage cited (`no_substitute`), the judge reads an abstention (`abstains`),
+#                  and in r3 no edition the pack holds is named (`no_held_edition`) and no sentence
+#                  gives a measure from any edition (`no_remembered_requirement`)
+#   transition     r2: the judge reads the quoted transitional rule in the answer (`transition`)
+#   premise        r5: the false part of the question; the judge reads a correction (`corrects_premise`)
+#
+# A judged check whose judge cannot answer is a recorded failure (`judge_unavailable:<kind>`).
+
+questions:
+- id: r1-bgld-rl1
+  group: r1
+  land: AT-1
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Wir reichen am 10. November 2026 im Burgenland ein. Welche Fassung der OIB-RL 1 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-1-oib-rl-1-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r1-bgld-rl2
+  group: r1
+  land: AT-1
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Gilt im Burgenland bei Einreichung am 10. November 2026 die OIB-RL 2 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-1-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r1-bgld-rl3
+  group: r1
+  land: AT-1
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 3 ist im Burgenland für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-1-oib-rl-3-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r1-bgld-rl4
+  group: r1
+  land: AT-1
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Wir reichen am 10. November 2026 im Burgenland ein. Welche Fassung der OIB-RL 4 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-1-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r1-bgld-rl5
+  group: r1
+  land: AT-1
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Gilt im Burgenland bei Einreichung am 10. November 2026 die OIB-RL 5 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-1-oib-rl-5-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r1-bgld-rl6
+  group: r1
+  land: AT-1
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 6 ist im Burgenland für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-1-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 75/2026
+    in_force: '2026-11-05'
+    ris_link: true
+    no_substitute: true
+- id: r1-ktn-rl1
+  group: r1
+  land: AT-2
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Gilt in Kärnten bei Einreichung am 10. November 2026 die OIB-RL 1 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-2-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-ktn-rl2
+  group: r1
+  land: AT-2
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 2 ist in Kärnten für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-2-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-ktn-rl3
+  group: r1
+  land: AT-2
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Wir reichen am 10. November 2026 in Kärnten ein. Welche Fassung der OIB-RL 3 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-2-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-ktn-rl4
+  group: r1
+  land: AT-2
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Gilt in Kärnten bei Einreichung am 10. November 2026 die OIB-RL 4 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-2-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-ktn-rl5
+  group: r1
+  land: AT-2
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 5 ist in Kärnten für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-2-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-ktn-rl6
+  group: r1
+  land: AT-2
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Wir reichen am 10. November 2026 in Kärnten ein. Welche Fassung der OIB-RL 6 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-2-oib-rl-6-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r1-noe-rl1
+  group: r1
+  land: AT-3
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 1 ist in Niederösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-3-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-noe-rl2
+  group: r1
+  land: AT-3
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Wir reichen am 10. November 2026 in Niederösterreich ein. Welche Fassung der OIB-RL 2 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-3-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-noe-rl3
+  group: r1
+  land: AT-3
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Gilt in Niederösterreich bei Einreichung am 10. November 2026 die OIB-RL 3 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-3-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-noe-rl4
+  group: r1
+  land: AT-3
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 4 ist in Niederösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-3-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-noe-rl5
+  group: r1
+  land: AT-3
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Wir reichen am 10. November 2026 in Niederösterreich ein. Welche Fassung der OIB-RL 5 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-3-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-noe-rl6
+  group: r1
+  land: AT-3
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Gilt in Niederösterreich bei Einreichung am 10. November 2026 die OIB-RL 6 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-3-oib-rl-6-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+- id: r1-ooe-rl1
+  group: r1
+  land: AT-4
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Wir reichen am 10. November 2026 in Oberösterreich ein. Welche Fassung der OIB-RL 1 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-4-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r1-ooe-rl2
+  group: r1
+  land: AT-4
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Gilt in Oberösterreich bei Einreichung am 10. November 2026 die OIB-RL 2 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-4-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r1-ooe-rl3
+  group: r1
+  land: AT-4
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 3 ist in Oberösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-4-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r1-ooe-rl4
+  group: r1
+  land: AT-4
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Wir reichen am 10. November 2026 in Oberösterreich ein. Welche Fassung der OIB-RL 4 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-4-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r1-ooe-rl5
+  group: r1
+  land: AT-4
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Gilt in Oberösterreich bei Einreichung am 10. November 2026 die OIB-RL 5 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-4-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r1-ooe-rl6
+  group: r1
+  land: AT-4
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 6 ist in Oberösterreich für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-4-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-sbg-rl1
+  group: r1
+  land: AT-5
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Gilt in Salzburg bei Einreichung am 10. November 2026 die OIB-RL 1 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-5-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+- id: r1-sbg-rl2
+  group: r1
+  land: AT-5
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 2 ist in Salzburg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-5-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+- id: r1-sbg-rl3
+  group: r1
+  land: AT-5
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Wir reichen am 10. November 2026 in Salzburg ein. Welche Fassung der OIB-RL 3 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-5-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+- id: r1-sbg-rl4
+  group: r1
+  land: AT-5
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Gilt in Salzburg bei Einreichung am 10. November 2026 die OIB-RL 4 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-5-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+- id: r1-sbg-rl5
+  group: r1
+  land: AT-5
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 5 ist in Salzburg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-5-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+- id: r1-sbg-rl6
+  group: r1
+  land: AT-5
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Wir reichen am 10. November 2026 in Salzburg ein. Welche Fassung der OIB-RL 6 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-5-oib-rl-6-2015
+  expect:
+    edition: '2015'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    abstain: true
+- id: r1-stmk-rl1
+  group: r1
+  land: AT-6
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 1 ist in der Steiermark für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-6-oib-rl-1-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-stmk-rl2
+  group: r1
+  land: AT-6
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Wir reichen am 10. November 2026 in der Steiermark ein. Welche Fassung der OIB-RL 2 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-6-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-stmk-rl3
+  group: r1
+  land: AT-6
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Gilt in der Steiermark bei Einreichung am 10. November 2026 die OIB-RL 3 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-6-oib-rl-3-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-stmk-rl4
+  group: r1
+  land: AT-6
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 4 ist in der Steiermark für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-6-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-stmk-rl5
+  group: r1
+  land: AT-6
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Wir reichen am 10. November 2026 in der Steiermark ein. Welche Fassung der OIB-RL 5 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-6-oib-rl-5-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-stmk-rl6
+  group: r1
+  land: AT-6
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Gilt in der Steiermark bei Einreichung am 10. November 2026 die OIB-RL 6 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-6-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-tirol-rl1
+  group: r1
+  land: AT-7
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Wir reichen am 10. November 2026 in Tirol ein. Welche Fassung der OIB-RL 1 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-7-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r1-tirol-rl2
+  group: r1
+  land: AT-7
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Gilt in Tirol bei Einreichung am 10. November 2026 die OIB-RL 2 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-7-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r1-tirol-rl3
+  group: r1
+  land: AT-7
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 3 ist in Tirol für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-7-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r1-tirol-rl4
+  group: r1
+  land: AT-7
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Wir reichen am 10. November 2026 in Tirol ein. Welche Fassung der OIB-RL 4 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-7-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r1-tirol-rl5
+  group: r1
+  land: AT-7
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Gilt in Tirol bei Einreichung am 10. November 2026 die OIB-RL 5 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-7-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r1-tirol-rl6
+  group: r1
+  land: AT-7
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 6 ist in Tirol für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-7-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl1
+  group: r1
+  land: AT-8
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Gilt in Vorarlberg bei Einreichung am 10. November 2026 die OIB-RL 1 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-8-oib-rl-1-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl2
+  group: r1
+  land: AT-8
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 2 ist in Vorarlberg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-8-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl3
+  group: r1
+  land: AT-8
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Wir reichen am 10. November 2026 in Vorarlberg ein. Welche Fassung der OIB-RL 3 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-8-oib-rl-3-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl4
+  group: r1
+  land: AT-8
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Gilt in Vorarlberg bei Einreichung am 10. November 2026 die OIB-RL 4 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-8-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl5
+  group: r1
+  land: AT-8
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 5 ist in Vorarlberg für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-8-oib-rl-5-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-vbg-rl6
+  group: r1
+  land: AT-8
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Wir reichen am 10. November 2026 in Vorarlberg ein. Welche Fassung der OIB-RL 6 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-8-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    no_substitute: true
+- id: r1-wien-rl1
+  group: r1
+  land: AT-9
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 1 ist in Wien für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-9-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r1-wien-rl2
+  group: r1
+  land: AT-9
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Wir reichen am 10. November 2026 in Wien ein. Welche Fassung der OIB-RL 2 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-9-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r1-wien-rl3
+  group: r1
+  land: AT-9
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: Gilt in Wien bei Einreichung am 10. November 2026 die OIB-RL 3 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-9-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r1-wien-rl4
+  group: r1
+  land: AT-9
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Welche Ausgabe der OIB-Richtlinie 4 ist in Wien für eine Einreichung am 10. November 2026 verbindlich, und durch welche Verordnung?
+  relation: at-9-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r1-wien-rl5
+  group: r1
+  land: AT-9
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Wir reichen am 10. November 2026 in Wien ein. Welche Fassung der OIB-RL 5 müssen wir einhalten, und seit wann gilt sie dort?
+  relation: at-9-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r1-wien-rl6
+  group: r1
+  land: AT-9
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Gilt in Wien bei Einreichung am 10. November 2026 die OIB-RL 6 in der Ausgabe 2019, 2023 oder 2025? Bitte mit LGBl und Link.
+  relation: at-9-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 26/2026
+    in_force: '2026-07-15'
+    ris_link: true
+    no_substitute: true
+- id: r2-wien-rl6-2026-07-14
+  group: r2
+  land: AT-9
+  guideline: '6'
+  day: '2026-07-14'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen in Wien wird am 14. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-9-oib-rl-6-2023
+  transition:
+    source: LGBLA_WI_20260715_26
+    provision: Art. II
+    quote: Für alle zur Zeit des Inkrafttretens dieser Verordnung anhängigen Verfahren gilt die bisherige Rechtslage.
+  pair: wien-rl6
+  expect:
+    edition: '2023'
+    other_edition: '2025'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+    transition: true
+- id: r2-wien-rl6-2026-07-15
+  group: r2
+  land: AT-9
+  guideline: '6'
+  day: '2026-07-15'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen in Wien wird am 15. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-9-oib-rl-6-2025
+  transition:
+    source: LGBLA_WI_20260715_26
+    provision: Art. II
+    quote: Für alle zur Zeit des Inkrafttretens dieser Verordnung anhängigen Verfahren gilt die bisherige Rechtslage.
+  pair: wien-rl6
+  expect:
+    edition: '2025'
+    other_edition: '2023'
+    lgbl: 26/2026
+    in_force: '2026-07-15'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-wien-rl4-2024-02-22
+  group: r2
+  land: AT-9
+  guideline: '4'
+  day: '2024-02-22'
+  family: OIB-RL 4
+  suite: core
+  question: Unser Bauansuchen in Wien wird am 22. Februar 2024 eingereicht. Welche Ausgabe der OIB-Richtlinie 4 ist für dieses Projekt maßgeblich?
+  relation: at-9-oib-rl-4-2019
+  pair: wien-rl4
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2020-02-01'
+    ris_link: true
+    no_substitute: true
+- id: r2-wien-rl4-2024-02-23
+  group: r2
+  land: AT-9
+  guideline: '4'
+  day: '2024-02-23'
+  family: OIB-RL 4
+  suite: core
+  question: Unser Bauansuchen in Wien wird am 23. Februar 2024 eingereicht. Welche Ausgabe der OIB-Richtlinie 4 ist für dieses Projekt maßgeblich?
+  relation: at-9-oib-rl-4-2023
+  pair: wien-rl4
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+- id: r2-sbg-rl2-2026-08-05
+  group: r2
+  land: AT-5
+  guideline: '2'
+  day: '2026-08-05'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 5. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl2
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-10-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-sbg-rl2-2026-08-06
+  group: r2
+  land: AT-5
+  guideline: '2'
+  day: '2026-08-06'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 6. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl2
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-10-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-sbg-rl2-2026-08-31
+  group: r2
+  land: AT-5
+  guideline: '2'
+  day: '2026-08-31'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-2-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl2
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-10-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-sbg-rl2-2026-09-01
+  group: r2
+  land: AT-5
+  guideline: '2'
+  day: '2026-09-01'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-2-2023
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl2
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    transition: true
+- id: r2-sbg-rl3-2026-08-31
+  group: r2
+  land: AT-5
+  guideline: '3'
+  day: '2026-08-31'
+  family: OIB-RL 3
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 31. August 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-3-2019
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl3
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-10-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-sbg-rl3-2026-09-01
+  group: r2
+  land: AT-5
+  guideline: '3'
+  day: '2026-09-01'
+  family: OIB-RL 3
+  suite: core
+  question: Unser Bauansuchen in Salzburg wird am 1. September 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
+  relation: at-5-oib-rl-3-2023
+  transition:
+    source: LGBLA_SA_20260806_83
+    provision: § 9 Abs 2
+    quote: Die zu dem im Abs 1 bestimmten Zeitpunkt anhängigen baurechtlichen Verfahren sind nach den bis dahin geltenden Bestimmungen fortzuführen.
+  pair: sbg-rl3
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    transition: true
+- id: r2-tirol-rl6-2026-07-15
+  group: r2
+  land: AT-7
+  guideline: '6'
+  day: '2026-07-15'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen in Tirol wird am 15. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-7-oib-rl-6-2019
+  pair: tirol-rl6
+  expect:
+    edition: '2019'
+    other_edition: '2025'
+    in_force: '2020-06-01'
+    ris_link: true
+    no_substitute: true
+- id: r2-tirol-rl6-2026-07-16
+  group: r2
+  land: AT-7
+  guideline: '6'
+  day: '2026-07-16'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen in Tirol wird am 16. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-7-oib-rl-6-2025
+  pair: tirol-rl6
+  expect:
+    edition: '2025'
+    other_edition: '2019'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    no_substitute: true
+- id: r2-tirol-rl3-2026-07-15
+  group: r2
+  land: AT-7
+  guideline: '3'
+  day: '2026-07-15'
+  family: OIB-RL 3
+  suite: core
+  question: Unser Bauansuchen in Tirol wird am 15. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
+  relation: at-7-oib-rl-3-2019
+  pair: tirol-rl3
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2020-06-01'
+    ris_link: true
+    no_substitute: true
+- id: r2-tirol-rl3-2026-07-16
+  group: r2
+  land: AT-7
+  guideline: '3'
+  day: '2026-07-16'
+  family: OIB-RL 3
+  suite: core
+  question: Unser Bauansuchen in Tirol wird am 16. Juli 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 3 ist für dieses Projekt maßgeblich?
+  relation: at-7-oib-rl-3-2023
+  pair: tirol-rl3
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+- id: r2-ktn-rl4-2024-12-30
+  group: r2
+  land: AT-2
+  guideline: '4'
+  day: '2024-12-30'
+  family: OIB-RL 4
+  suite: core
+  question: Unser Bauansuchen in Kärnten wird am 30. Dezember 2024 eingereicht. Welche Ausgabe der OIB-Richtlinie 4 ist für dieses Projekt maßgeblich?
+  relation: at-2-oib-rl-4-2019
+  pair: ktn-rl4
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2020-09-12'
+    ris_link: true
+    no_substitute: true
+- id: r2-ktn-rl4-2024-12-31
+  group: r2
+  land: AT-2
+  guideline: '4'
+  day: '2024-12-31'
+  family: OIB-RL 4
+  suite: core
+  question: Unser Bauansuchen in Kärnten wird am 31. Dezember 2024 eingereicht. Welche Ausgabe der OIB-Richtlinie 4 ist für dieses Projekt maßgeblich?
+  relation: at-2-oib-rl-4-2023
+  pair: ktn-rl4
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+- id: r2-noe-rl2-2025-03-17
+  group: r2
+  land: AT-3
+  guideline: '2'
+  day: '2025-03-17'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Niederösterreich wird am 17. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-3-oib-rl-2-2019
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
+  pair: noe-rl2
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-07-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-noe-rl2-2025-03-18
+  group: r2
+  land: AT-3
+  guideline: '2'
+  day: '2025-03-18'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Niederösterreich wird am 18. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-3-oib-rl-2-2019
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
+  pair: noe-rl2
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2021-07-01'
+    ris_link: true
+    no_substitute: true
+    transition: true
+- id: r2-noe-rl2-2025-03-20
+  group: r2
+  land: AT-3
+  guideline: '2'
+  day: '2025-03-20'
+  family: OIB-RL 2
+  suite: core
+  question: Unser Bauansuchen in Niederösterreich wird am 20. März 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 2 ist für dieses Projekt maßgeblich?
+  relation: at-3-oib-rl-2-2023
+  transition:
+    source: LGBLA_NI_20250319_41
+    provision: § 45 Abs 6
+    quote: Die an diesem Tag anhängigen Verfahren sind nach der bisherigen Rechtslage zu Ende zu führen.
+  pair: noe-rl2
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+    transition: true
+- id: r2-ooe-rl1-2025-09-30
+  group: r2
+  land: AT-4
+  guideline: '1'
+  day: '2025-09-30'
+  family: OIB-RL 1
+  suite: core
+  question: Unser Bauansuchen in Oberösterreich wird am 30. September 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 1 ist für dieses Projekt maßgeblich?
+  relation: at-4-oib-rl-1-2019
+  pair: ooe-rl1
+  expect:
+    edition: '2019'
+    other_edition: '2023'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r2-ooe-rl1-2025-10-01
+  group: r2
+  land: AT-4
+  guideline: '1'
+  day: '2025-10-01'
+  family: OIB-RL 1
+  suite: core
+  question: Unser Bauansuchen in Oberösterreich wird am 1. Oktober 2025 eingereicht. Welche Ausgabe der OIB-Richtlinie 1 ist für dieses Projekt maßgeblich?
+  relation: at-4-oib-rl-1-2023
+  pair: ooe-rl1
+  expect:
+    edition: '2023'
+    other_edition: '2019'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+- id: r2-bgld-rl6-2026-11-04
+  group: r2
+  land: AT-1
+  guideline: '6'
+  day: '2026-11-04'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen im Burgenland wird am 4. November 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-1-oib-rl-6-2019
+  pair: bgld-rl6
+  expect:
+    edition: '2019'
+    other_edition: '2025'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    no_substitute: true
+- id: r2-bgld-rl6-2026-11-05
+  group: r2
+  land: AT-1
+  guideline: '6'
+  day: '2026-11-05'
+  family: OIB-RL 6
+  suite: core
+  question: Unser Bauansuchen im Burgenland wird am 5. November 2026 eingereicht. Welche Ausgabe der OIB-Richtlinie 6 ist für dieses Projekt maßgeblich?
+  relation: at-1-oib-rl-6-2025
+  pair: bgld-rl6
+  expect:
+    edition: '2025'
+    other_edition: '2019'
+    lgbl: 75/2026
+    in_force: '2026-11-05'
+    ris_link: true
+    no_substitute: true
+- id: r2-ooe-rl6-2025-10-01
+  group: r2
+  land: AT-4
+  guideline: '6'
+  day: '2025-10-01'
+  family: OIB-RL 6
+  suite: core
+  question: Seit 1. Oktober 2025 gelten in Oberösterreich die neuen OIB-Richtlinien. Welche Ausgabe der OIB-RL 6 gilt für eine Einreichung am 1. Oktober 2025?
+  relation: at-4-oib-rl-6-2019
+  pair: ooe-rl6
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    no_substitute: true
+- id: r3-wien-rl2-2020-01-31
+  group: r3
+  land: AT-9
+  guideline: '2'
+  day: '2020-01-31'
+  family: OIB-RL 2
+  suite: core
+  question: 'Für ein Altprojekt in Wien, eingereicht am 31. Jänner 2020: Was verlangte damals die OIB-Richtlinie 2, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-tirol-rl4-2020-05-31
+  group: r3
+  land: AT-7
+  guideline: '4'
+  day: '2020-05-31'
+  family: OIB-RL 4
+  suite: core
+  question: 'Für ein Altprojekt in Tirol, eingereicht am 31. Mai 2020: Was verlangte damals die OIB-Richtlinie 4, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-ooe-rl3-2020-08-31
+  group: r3
+  land: AT-4
+  guideline: '3'
+  day: '2020-08-31'
+  family: OIB-RL 3
+  suite: core
+  question: 'Für ein Altprojekt in Oberösterreich, eingereicht am 31. August 2020: Was verlangte damals die OIB-Richtlinie 3, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-stmk-rl1-2020-08-31
+  group: r3
+  land: AT-6
+  guideline: '1'
+  day: '2020-08-31'
+  family: OIB-RL 1
+  suite: core
+  question: 'Für ein Altprojekt in der Steiermark, eingereicht am 31. August 2020: Was verlangte damals die OIB-Richtlinie 1, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-ktn-rl5-2020-09-11
+  group: r3
+  land: AT-2
+  guideline: '5'
+  day: '2020-09-11'
+  family: OIB-RL 5
+  suite: core
+  question: 'Für ein Altprojekt in Kärnten, eingereicht am 11. September 2020: Was verlangte damals die OIB-Richtlinie 5, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-bgld-rl2-2021-04-09
+  group: r3
+  land: AT-1
+  guideline: '2'
+  day: '2021-04-09'
+  family: OIB-RL 2
+  suite: core
+  question: 'Für ein Altprojekt im Burgenland, eingereicht am 9. April 2021: Was verlangte damals die OIB-Richtlinie 2, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-noe-rl6-2021-06-30
+  group: r3
+  land: AT-3
+  guideline: '6'
+  day: '2021-06-30'
+  family: OIB-RL 6
+  suite: core
+  question: 'Für ein Altprojekt in Niederösterreich, eingereicht am 30. Juni 2021: Was verlangte damals die OIB-Richtlinie 6, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-sbg-rl4-2021-09-30
+  group: r3
+  land: AT-5
+  guideline: '4'
+  day: '2021-09-30'
+  family: OIB-RL 4
+  suite: core
+  question: 'Für ein Altprojekt in Salzburg, eingereicht am 30. September 2021: Was verlangte damals die OIB-Richtlinie 4, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-vbg-rl3-2021-12-31
+  group: r3
+  land: AT-8
+  guideline: '3'
+  day: '2021-12-31'
+  family: OIB-RL 3
+  suite: core
+  question: 'Für ein Altprojekt in Vorarlberg, eingereicht am 31. Dezember 2021: Was verlangte damals die OIB-Richtlinie 3, in der damals verbindlichen Ausgabe?'
+  relation: null
+  expect:
+    abstain: true
+- id: r3-wien-rl6-2013-06-03
+  group: r3
+  land: AT-9
+  guideline: '6'
+  day: '2013-06-03'
+  family: OIB-RL 6
+  suite: core
+  question: Wir prüfen einen Bescheid in Wien vom 3. Juni 2013. Bitte zitiere die damals geltende Fassung der OIB-RL 6 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-stmk-rl2-2016-03-15
+  group: r3
+  land: AT-6
+  guideline: '2'
+  day: '2016-03-15'
+  family: OIB-RL 2
+  suite: core
+  question: Wir prüfen einen Bescheid in der Steiermark vom 15. März 2016. Bitte zitiere die damals geltende Fassung der OIB-RL 2 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-tirol-rl3-2012-01-10
+  group: r3
+  land: AT-7
+  guideline: '3'
+  day: '2012-01-10'
+  family: OIB-RL 3
+  suite: core
+  question: Wir prüfen einen Bescheid in Tirol vom 10. Jänner 2012. Bitte zitiere die damals geltende Fassung der OIB-RL 3 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-ktn-rl4-2017-05-02
+  group: r3
+  land: AT-2
+  guideline: '4'
+  day: '2017-05-02'
+  family: OIB-RL 4
+  suite: core
+  question: Wir prüfen einen Bescheid in Kärnten vom 2. Mai 2017. Bitte zitiere die damals geltende Fassung der OIB-RL 4 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-noe-rl1-2015-09-01
+  group: r3
+  land: AT-3
+  guideline: '1'
+  day: '2015-09-01'
+  family: OIB-RL 1
+  suite: core
+  question: Wir prüfen einen Bescheid in Niederösterreich vom 1. September 2015. Bitte zitiere die damals geltende Fassung der OIB-RL 1 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-vbg-rl5-2014-11-20
+  group: r3
+  land: AT-8
+  guideline: '5'
+  day: '2014-11-20'
+  family: OIB-RL 5
+  suite: core
+  question: Wir prüfen einen Bescheid in Vorarlberg vom 20. November 2014. Bitte zitiere die damals geltende Fassung der OIB-RL 5 zum Thema, mit Punkt.
+  relation: null
+  expect:
+    abstain: true
+- id: r3-by-rl2
+  group: r3
+  land: DE-BY
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  relation: null
+  question: Wir planen ein Projekt in Bayern. Welche Anforderungen der OIB-Richtlinie 2 gelten dort am 10. November 2026? Bitte mit dem Wortlaut.
+  expect:
+    abstain: true
+- id: r3-bz-rl4
+  group: r3
+  land: IT-32
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  relation: null
+  question: Wir planen ein Projekt in Südtirol. Welche Anforderungen der OIB-Richtlinie 4 gelten dort am 10. November 2026? Bitte mit dem Wortlaut.
+  expect:
+    abstain: true
+- id: r3-li-rl3
+  group: r3
+  land: LI
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  relation: null
+  question: Wir planen ein Projekt in Liechtenstein. Welche Anforderungen der OIB-Richtlinie 3 gelten dort am 10. November 2026? Bitte mit dem Wortlaut.
+  expect:
+    abstain: true
+- id: r3-sg-rl6
+  group: r3
+  land: CH-SG
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  relation: null
+  question: Wir planen ein Projekt im Kanton St. Gallen. Welche Anforderungen der OIB-Richtlinie 6 gelten dort am 10. November 2026? Bitte mit dem Wortlaut.
+  expect:
+    abstain: true
+- id: r3-bw-rl1
+  group: r3
+  land: DE-BW
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  relation: null
+  question: Wir planen ein Projekt in Baden-Württemberg. Welche Anforderungen der OIB-Richtlinie 1 gelten dort am 10. November 2026? Bitte mit dem Wortlaut.
+  expect:
+    abstain: true
+- id: r5-stmk-rl2
+  group: r5
+  land: AT-6
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Welche Anforderungen stellt die OIB-RL 2 2023 in der Steiermark?
+  relation: at-6-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-stmk-rl4
+  group: r5
+  land: AT-6
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: 'Für unser Grazer Projekt: Was verlangt die OIB-RL 4 Ausgabe Mai 2023 bei Absturzsicherungen?'
+  relation: at-6-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-stmk-rl6
+  group: r5
+  land: AT-6
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: In der Steiermark gilt ja jetzt die OIB-RL 6 Ausgabe 2025. Welche Höchstwerte gelten für den Heizwärmebedarf?
+  relation: at-6-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: '2025'
+    no_substitute: true
+- id: r5-vbg-rl1
+  group: r5
+  land: AT-8
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: Welche Nachweise verlangt die OIB-RL 1 Ausgabe 2023 in Vorarlberg?
+  relation: at-8-oib-rl-1-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-vbg-rl3
+  group: r5
+  land: AT-8
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: 'Ein Wohnbau in Dornbirn: Welche Belichtungsanforderungen stellt die OIB-RL 3 2023?'
+  relation: at-8-oib-rl-3-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-vbg-rl6
+  group: r5
+  land: AT-8
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Vorarlberg hat die OIB-RL 6 2025 übernommen. Welche U-Werte gelten für Außenwände?
+  relation: at-8-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    premise: '2025'
+    no_substitute: true
+- id: r5-bgld-rl2
+  group: r5
+  land: AT-1
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Im Burgenland gilt die OIB-RL 2 Ausgabe Mai 2023. Wie lang darf ein Fluchtweg sein?
+  relation: at-1-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-bgld-rl5
+  group: r5
+  land: AT-1
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Welche Schallschutzwerte verlangt die OIB-RL 5 2023 für ein Reihenhaus in Eisenstadt?
+  relation: at-1-oib-rl-5-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-ooe-rl6
+  group: r5
+  land: AT-4
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: In Oberösterreich gelten seit Oktober 2025 alle OIB-Richtlinien in der Ausgabe 2023, auch die RL 6. Welche Anforderungen stellt sie an Wohngebäude?
+  relation: at-4-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-ooe-rl6-2
+  group: r5
+  land: AT-4
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: 'Für Linz: Was ändert die OIB-RL 6 Ausgabe 2025 beim Endenergiebedarf gegenüber der Vorgängerfassung?'
+  relation: at-4-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: '2025'
+    no_substitute: true
+- id: r5-wien-rl6
+  group: r5
+  land: AT-9
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: 'Für eine Einreichung in Wien im November 2026: Was verlangt die OIB-RL 6 Ausgabe 2023 beim Heizwärmebedarf?'
+  relation: at-9-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 26/2026
+    in_force: '2026-07-15'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-tirol-rl6
+  group: r5
+  land: AT-7
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: In Tirol gilt die OIB-RL 6 2023. Welche Anforderungen gelten für größere Renovierungen?
+  relation: at-7-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    premise: '2023'
+    no_substitute: true
+- id: r5-ktn-rl2
+  group: r5
+  land: AT-2
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: 'Klagenfurt, Einreichung im November 2026: Welche Brandabschnittsgrößen erlaubt die OIB-RL 2 Ausgabe 2019?'
+  relation: at-2-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+    premise: '2019'
+- id: r5-ktn-rl6
+  group: r5
+  land: AT-2
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Kärnten hat die OIB-RL 6 Ausgabe 2025 verbindlich gemacht. Welche Anforderungen gelten für Neubauten?
+  relation: at-2-oib-rl-6-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+    premise: '2025'
+- id: r5-noe-rl4
+  group: r5
+  land: AT-3
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: 'Für St. Pölten: Was sagt die OIB-RL 4 Ausgabe 2019 zur Mindestbreite von Gängen?'
+  relation: at-3-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+    premise: '2019'
+- id: r5-noe-rl6
+  group: r5
+  land: AT-3
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: In Niederösterreich gilt die OIB-RL 6 2025. Welche Anforderungen gelten für den Gesamtenergieeffizienz-Faktor?
+  relation: at-3-oib-rl-6-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+    premise: '2025'
+- id: r5-wien-rl3
+  group: r5
+  land: AT-9
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: 'Wiener Projekt, Einreichung November 2026: Welche Raumhöhen verlangt die OIB-RL 3 Ausgabe April 2019?'
+  relation: at-9-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+    premise: '2019'
+- id: r5-tirol-rl1
+  group: r5
+  land: AT-7
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: 'Für Innsbruck im November 2026: Was verlangt die OIB-RL 1 Ausgabe 2019 zur Tragfähigkeit?'
+  relation: at-7-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    premise: '2019'
+- id: r5-sbg-rl4
+  group: r5
+  land: AT-5
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: 'Salzburg, Einreichung November 2026: Welche Geländerhöhen verlangt die OIB-RL 4 Ausgabe 2019?'
+  relation: at-5-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    premise: '2019'
+- id: r5-ooe-rl2
+  group: r5
+  land: AT-4
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: 'Für ein Projekt in Wels, Einreichung November 2026: Was sagt die OIB-RL 2 2019 zu Fluchtwegen?'
+  relation: at-4-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+    premise: '2019'
+- id: r5-stmk-rl2-2
+  group: r5
+  land: AT-6
+  guideline: '2'
+  day: '2026-11-10'
+  family: OIB-RL 2
+  suite: core
+  question: Nach der WBTV 2023 gilt in Graz die OIB-RL 2 Ausgabe 2023. Welche Fluchtweglängen gelten dann?
+  relation: at-6-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    in_force: '2020-09-01'
+    ris_link: true
+    premise: WBTV 2023
+    no_substitute: true
+- id: r5-ooe-rl4
+  group: r5
+  land: AT-4
+  guideline: '4'
+  day: '2026-11-10'
+  family: OIB-RL 4
+  suite: core
+  question: Die K-BTV 2024 macht in Linz die OIB-RL 4 verbindlich. Welche Ausgabe ist das?
+  relation: at-4-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+    premise: K-BTV 2024
+- id: r5-vbg-rl6-2
+  group: r5
+  land: AT-8
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Laut TBV 2026 gilt in Bregenz die OIB-RL 6 Ausgabe 2025. Was bedeutet das für unseren Neubau?
+  relation: at-8-oib-rl-6-2019
+  expect:
+    edition: '2019'
+    lgbl: 67/2021
+    in_force: '2022-01-01'
+    ris_link: true
+    premise: TBV 2026
+    no_substitute: true
+- id: r5-bgld-rl1
+  group: r5
+  land: AT-1
+  guideline: '1'
+  day: '2026-11-10'
+  family: OIB-RL 1
+  suite: core
+  question: In Eisenstadt gilt nach der NÖ BTV 2014 die OIB-RL 1 Ausgabe Mai 2023. Welche Nachweise brauchen wir?
+  relation: at-1-oib-rl-1-2019
+  expect:
+    edition: '2019'
+    lgbl: 22/2021
+    in_force: '2021-04-10'
+    ris_link: true
+    premise: NÖ BTV 2014
+    no_substitute: true
+- id: r5-tirol-rl3
+  group: r5
+  land: AT-7
+  guideline: '3'
+  day: '2026-11-10'
+  family: OIB-RL 3
+  suite: core
+  question: 'Für Innsbruck: Die WBTV 2023 verweist auf die OIB-RL 3. Welche Ausgabe gilt danach in Tirol?'
+  relation: at-7-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    premise: WBTV 2023
+- id: r5-wien-rl5
+  group: r5
+  land: AT-9
+  guideline: '5'
+  day: '2026-11-10'
+  family: OIB-RL 5
+  suite: core
+  question: Für Wien gilt die OIB-RL 5 nach der Oö. BauTV-Novelle 2025. Welche Ausgabe ist das?
+  relation: at-9-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+    premise: Oö. BauTV
+- id: r5-wien-rl6-2
+  group: r5
+  land: AT-9
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Die WBTV 2023 (LGBl. 14/2024) macht in Wien heute die OIB-RL 6 Ausgabe 2023 verbindlich, richtig? Einreichung am 10. November 2026.
+  relation: at-9-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 26/2026
+    in_force: '2026-07-15'
+    ris_link: true
+    premise: LGBl. 14/2024
+    no_substitute: true
+- id: r5-ktn-rl2-2
+  group: r5
+  land: AT-2
+  guideline: '2'
+  day: '2025-01-15'
+  family: OIB-RL 2
+  suite: core
+  question: 'Kärnten, Einreichung im Jänner 2025: Es gilt doch noch die OIB-RL 2 Ausgabe 2019, oder?'
+  relation: at-2-oib-rl-2-2023
+  expect:
+    edition: '2023'
+    lgbl: 105/2024
+    in_force: '2024-12-31'
+    ris_link: true
+    premise: '2019'
+- id: r5-tirol-rl4
+  group: r5
+  land: AT-7
+  guideline: '4'
+  day: '2026-08-17'
+  family: OIB-RL 4
+  suite: core
+  question: 'Tirol, Einreichung im August 2026: Nach den alten Technischen Bauvorschriften gilt die OIB-RL 4 Ausgabe 2019, richtig?'
+  relation: at-7-oib-rl-4-2023
+  expect:
+    edition: '2023'
+    lgbl: 59/2026
+    in_force: '2026-07-16'
+    ris_link: true
+    premise: '2019'
+- id: r5-ooe-rl3
+  group: r5
+  land: AT-4
+  guideline: '3'
+  day: '2025-11-12'
+  family: OIB-RL 3
+  suite: core
+  question: 'Oberösterreich, Einreichung im November 2025: Hier gilt noch die OIB-RL 3 Ausgabe 2019, oder?'
+  relation: at-4-oib-rl-3-2023
+  expect:
+    edition: '2023'
+    lgbl: 70/2025
+    in_force: '2025-10-01'
+    ris_link: true
+    premise: '2019'
+- id: r5-wien-rl5-2
+  group: r5
+  land: AT-9
+  guideline: '5'
+  day: '2024-03-11'
+  family: OIB-RL 5
+  suite: core
+  question: 'Wien, Einreichung im März 2024: Für den Schallschutz gilt die OIB-RL 5 Ausgabe April 2019, korrekt?'
+  relation: at-9-oib-rl-5-2023
+  expect:
+    edition: '2023'
+    lgbl: 14/2024
+    in_force: '2024-02-23'
+    ris_link: true
+    premise: '2019'
+- id: r5-noe-rl1
+  group: r5
+  land: AT-3
+  guideline: '1'
+  day: '2025-05-06'
+  family: OIB-RL 1
+  suite: core
+  question: 'Niederösterreich, Einreichung im Mai 2025: Es gilt die OIB-RL 1 Ausgabe 2019, richtig?'
+  relation: at-3-oib-rl-1-2023
+  expect:
+    edition: '2023'
+    lgbl: 41/2025
+    in_force: '2025-03-20'
+    ris_link: true
+    premise: '2019'
+- id: r5-sbg-rl2
+  group: r5
+  land: AT-5
+  guideline: '2'
+  day: '2026-08-20'
+  family: OIB-RL 2
+  suite: core
+  question: Laut OIB-Tabelle gelten in Salzburg die OIB-Richtlinien 2023 seit 06.08.2026. Für unsere Einreichung am 20. August 2026 gilt also die OIB-RL 2 Ausgabe 2023?
+  relation: at-5-oib-rl-2-2019
+  expect:
+    edition: '2019'
+    in_force: '2021-10-01'
+    ris_link: true
+    premise: 06.08.2026
+    no_substitute: true
+- id: r5-noe-rl4-2
+  group: r5
+  land: AT-3
+  guideline: '4'
+  day: '2025-03-19'
+  family: OIB-RL 4
+  suite: core
+  question: Die NÖ BTV mit den OIB-Richtlinien 2023 gilt seit 18.03.2025. Für eine Einreichung am 19. März 2025 gilt also schon die OIB-RL 4 Ausgabe 2023?
+  relation: at-3-oib-rl-4-2019
+  expect:
+    edition: '2019'
+    in_force: '2021-07-01'
+    ris_link: true
+    premise: 18.03.2025
+    no_substitute: true
+- id: r5-bgld-rl6
+  group: r5
+  land: AT-1
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Die OIB-Tabelle zeigt für das Burgenland keine Übernahme der OIB-RL 6 2025. Für eine Einreichung am 10. November 2026 gilt dort also weiter die Ausgabe 2019?
+  relation: at-1-oib-rl-6-2025
+  expect:
+    edition: '2025'
+    lgbl: 75/2026
+    in_force: '2026-11-05'
+    ris_link: true
+    premise: '2019'
+    no_substitute: true
+- id: r5-sbg-rl6
+  group: r5
+  land: AT-5
+  guideline: '6'
+  day: '2026-11-10'
+  family: OIB-RL 6
+  suite: core
+  question: Salzburg hat keine OIB-RL 6 verbindlich erklärt, die gilt dort nur als Empfehlung. Was heißt das für den Wärmeschutz bei einer Einreichung am 10. November 2026?
+  relation: at-5-oib-rl-6-2015
+  expect:
+    edition: '2015'
+    lgbl: 83/2026
+    in_force: '2026-09-01'
+    ris_link: true
+    premise: keine OIB-RL 6
+    abstain: true

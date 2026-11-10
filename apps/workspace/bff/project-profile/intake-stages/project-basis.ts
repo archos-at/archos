@@ -26,6 +26,19 @@ const AUSTRIA = (() => {
   return { label: subdivisions.label, options, country: austria.territoryIds[0].toLowerCase() }
 })()
 
+/**
+ * The subdivisions a site picker offers, from the same record: the country
+ * token they belong to, each subdivision's token, name and territory, and the
+ * token that places a site outside. The one list the create form, the
+ * contradiction check and the platform's reviewer read, never a copy of their own.
+ */
+export const SITE_SUBDIVISIONS = {
+  country: AUSTRIA.country,
+  label: AUSTRIA.label,
+  options: austria.body.payload.subdivisions.options.map(({ token, label, territoryId }) => ({ token, label, territoryId })),
+  outside: austria.body.payload.subdivisions.outside.token,
+} as const
+
 export const PROJECT_BASIS_STAGE: ProjectIntakeStage = {
   id: 'A',
   title: 'Projektbasis',

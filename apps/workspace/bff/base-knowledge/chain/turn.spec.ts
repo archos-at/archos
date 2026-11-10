@@ -1,25 +1,22 @@
 /**
  * @vitest-environment node
  *
- * With `building-law-chain` off a turn reads no records and times no phase:
- * its trace and its prompt stay what they were (ADR-0168).
+ * Every turn with a project reads its building law from the records; there is
+ * no switch any more (ADR-0175), so an office that never had one still reads it.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-const { isOrgFeatureEnabled, findProjectProfileInOrg, loadGraph, officeTimeZone } = vi.hoisted(() => ({
-  isOrgFeatureEnabled: vi.fn(),
+const { findProjectProfileInOrg, loadGraph, officeTimeZone } = vi.hoisted(() => ({
   findProjectProfileInOrg: vi.fn(),
   loadGraph: vi.fn(),
   officeTimeZone: vi.fn(),
 }))
-vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
 vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone }))
 vi.mock('./load', () => ({ loadGraph }))
 
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
 import { buildingLawForTurn } from './turn'
 
 const ORG = 'org_1'
@@ -33,26 +30,21 @@ describe('buildingLawForTurn', () => {
     officeTimeZone.mockResolvedValue('Europe/Vienna')
   })
 
-  it('reads the records once the flag is on (positive control)', async () => {
-    isOrgFeatureEnabled.mockResolvedValue(true)
+  it('reads the records for every office, with no switch to ask', async () => {
     const time = vi.fn((_name: string, load: () => Promise<unknown>) => load())
     await buildingLawForTurn(ORG, 'project_1', time as never)
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith(FEATURE_FLAGS.buildingLawChain, ORG)
     expect(time).toHaveBeenCalledWith('building-law', expect.any(Function))
     expect(loadGraph).toHaveBeenCalledWith(ORG, 'AT-9')
   })
 
-  it('with the flag off reads nothing, times nothing and carries nothing', async () => {
-    isOrgFeatureEnabled.mockResolvedValue(false)
+  it('without a project reads nothing and carries nothing', async () => {
     const time = vi.fn()
-    expect(await buildingLawForTurn(ORG, 'project_1', time as never)).toBeNull()
+    expect(await buildingLawForTurn(ORG, null, time as never)).toBeNull()
     expect(time).not.toHaveBeenCalled()
-    expect(findProjectProfileInOrg).not.toHaveBeenCalled()
     expect(loadGraph).not.toHaveBeenCalled()
   })
 
   it('carries nothing for a graph that hit its bound', async () => {
-    isOrgFeatureEnabled.mockResolvedValue(true)
     loadGraph.mockResolvedValue({ graph, truncated: true })
     expect(await buildingLawForTurn(ORG, 'project_1')).toBeNull()
   })

@@ -28,6 +28,7 @@ import {
   knowledgeRelationRevisions,
   knowledgeReleaseMoves,
   knowledgeReviewDecisions,
+  knowledgeSecondReviews,
   knowledgeTerritoryRevisions,
   organizationCountries,
 } from '@/lib/db/schema/knowledge-platform'
@@ -49,6 +50,7 @@ const TABLES: Table[] = [
   knowledgeChangeRequests,
   knowledgeReviewDecisions,
   knowledgeApprovals,
+  knowledgeSecondReviews,
   knowledgeReleaseMoves,
   knowledgeIndexRuns,
   knowledgeCitationCaptures,

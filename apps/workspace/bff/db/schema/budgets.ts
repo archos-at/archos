@@ -142,7 +142,7 @@ export const llmUsageEvents = pgTable(
     completionTokens: integer('completion_tokens').notNull().default(0),
     totalTokens: integer('total_tokens').notNull().default(0),
     cachedTokens: integer('cached_tokens').notNull().default(0),
-    /** Tokens the call wrote to the provider's prompt cache (1.25x on Claude and GPT-5.6+); 0 before 0214. */
+    /** Tokens the call wrote to the provider's prompt cache (1.25x on Claude and GPT-5.6+); 0 before 0216. */
     cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
     reasoningTokens: integer('reasoning_tokens').notNull().default(0),
     /** Cost in USD exactly as reported by OpenRouter usage accounting. */

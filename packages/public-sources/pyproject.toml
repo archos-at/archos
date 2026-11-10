@@ -21,6 +21,14 @@ dependencies = [
     "pyyaml>=6.0",
     "lxml>=6.1.0",
     "beautifulsoup4>=4.12.0",
+    # A PDF's text is ingestion's text pass (knowledge_layer.ingest.pdf_text): one PDF pipeline.
+    # Its two readers are an extra there, so they are named here with the same pins.
+    "knowledge-layer",
+    "pdfplumber>=0.11.10",
+    "pypdfium2>=5.12.1",
     "starlette>=0.40.0",
     "uvicorn>=0.30.0",
 ]
+
+[tool.uv.sources]
+knowledge-layer = { workspace = true }

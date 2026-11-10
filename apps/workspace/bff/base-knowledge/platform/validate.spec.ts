@@ -53,6 +53,11 @@ describe('validateProposal', () => {
     expect(found).toContainEqual(expect.stringContaining('KC-1 1 /id: DE-BY lies outside AT'))
   })
 
+  it('names a competence territory that is not imported, by pointer', () => {
+    const found = validateProposal(parse([ma37({ competenceTerritoryIds: ['AT-9', 'AT-8'] })]), 'AT', KNOWN, CAPTURES).map((p) => `${p.code} ${p.pointer}`)
+    expect(found).toContainEqual(expect.stringMatching(/^KC-1 \/competenceTerritoryIds\/1/))
+  })
+
   it('refuses an edition of a work that is neither on the platform nor in the batch, and an inverted interval', () => {
     const records = parse([{ type: 'edition', key: 'e1', workKey: 'nowhere', label: '2020', inForceFrom: '2021-01-01', inForceTo: '2020-01-01' }])
     expect(kit(records, 'AT', KNOWN).map((problem) => problem.code).sort()).toEqual(['KC-1', 'KC-3'])
@@ -92,6 +97,18 @@ describe('validateProposal', () => {
       ])
       expect(kc6(ma37({ citations: [{ captureId: CAPTURE }] }))).toEqual(['/citations/0/quote'])
       expect(kc6(ma37({ citations: [{ captureId: UPLOAD, quote: 'MA 37 – Baupolizei' }] }))).toEqual(['/citations/0/captureId'])
+    })
+
+    it('finds a compound a PDF hyphenated across a line, and still not the compound with a word changed', () => {
+      // As the BauNVO's PDF has it (page 6): the line ends at "Bundes-", the next begins "Immissionsschutzgesetzes".
+      const pdf = 'im Sinne des § 3 des Bundes-\nImmissionsschutzgesetzes sowie Auswirkungen'
+      const capture = new Map<string, KnownCapture>([[CAPTURE, { text: `MA 37 – Baupolizei. ${pdf}`, basis: 'fetched' }]])
+      const check = (quote: string) =>
+        validateProposal(parse([ma37({ citations: [...cited(), ...cited(quote)] })]), 'AT', KNOWN, capture)
+          .filter((problem) => problem.code === 'KC-6')
+          .map((problem) => problem.pointer)
+      expect(check('im Sinne des § 3 des Bundes-Immissionsschutzgesetzes')).toEqual([])
+      expect(check('im Sinne des § 3 des Landes-Immissionsschutzgesetzes')).toEqual(['/citations/1/quote'])
     })
 
     it('finds a quote across line breaks, typographic dashes and case, and nothing paraphrased', () => {

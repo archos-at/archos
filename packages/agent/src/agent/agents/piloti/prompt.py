@@ -396,7 +396,7 @@ class TurnPrompt(NamedTuple):
     """What one turn sends besides the transcript: the system prompt, the turn context, and the stable head.
 
     ``conversation`` is what the project and the office set, sent right after
-    the system prompt in the conversation layout (``context_layout``, ADR-0154);
+    the system prompt in the conversation layout (``context_layout``, ADR-0177);
     None in the turn layout or when nothing is set.
     """
 

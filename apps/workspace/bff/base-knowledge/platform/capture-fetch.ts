@@ -8,7 +8,8 @@
  * `packages/public-sources`. The api tier's `POST /v1/public-sources/capture`
  * makes the request with the same transport every source reader uses and
  * answers the bytes' sha256, their size, and the page's text for the quote
- * check. A host the source does not list is refused there, never here.
+ * check: a PDF's text is ingestion's text pass over its pages, the text the
+ * corpus indexes. A host the source does not list is refused there, never here.
  */
 
 import 'server-only'
@@ -22,8 +23,12 @@ export interface FetchedPage {
   contentType: string | null
   sha256: string
   bytes: number
-  /** The page's text; null when the bytes hold none the reader can extract (a PDF, an image). */
+  /** The page's text; null when the bytes hold none the reader can extract (an image, a scanned PDF). A PDF's pages are joined by a form feed. */
   text: string | null
+  /** A PDF's pages; null for a page that has none. */
+  pages: number | null
+  /** What a reader of `text` must know, e.g. which pages of a PDF have no text layer; null when nothing. */
+  note: string | null
   retrievedAt: string
 }
 
@@ -31,15 +36,38 @@ export interface FetchedPage {
 export class CaptureFetchError extends Error {
   constructor(
     message: string,
-    readonly status: 403 | 404 | 502 | 503,
+    readonly status: 403 | 404 | 422 | 502 | 503,
+    /** The api tier's problem code, when it named one ({@link CAPTURE_REFUSAL_CODES}). */
+    readonly code: string | null = null,
   ) {
     super(message)
     this.name = 'CaptureFetchError'
   }
 }
 
-/** A statute page is large and the source is a third party; a capture is no interactive read. */
-const CAPTURE_TIMEOUT_MS = 60_000
+/**
+ * Why the api tier refuses a capture, by name (`public_sources.capture`): a URL
+ * or a redirect off the source's hosts or onto no public address, a body past
+ * the egress ceiling, and the PDF reader's refusals (`public_sources.pdf`).
+ */
+export const CAPTURE_REFUSAL_CODES = [
+  'egress_refused',
+  'body_too_large',
+  'pdf_encrypted',
+  'pdf_malformed',
+  'pdf_too_many_pages',
+  'pdf_parse_timeout',
+  'pdf_reader_failed',
+] as const
+
+/**
+ * How long the BFF waits for the api tier. The longest call is a monitor's probe: two fetches (the page and
+ * its terms, at most 45 s each, `public_sources.capture.FETCH_TIMEOUT_SECONDS`) and, for a PDF, one parse
+ * (at most 45 s, `public_sources.pdf.PARSE_TIMEOUT_SECONDS`). Longer than all of them together, so a parse past
+ * its deadline reaches the door as `PDF_PARSE_TIMEOUT` and not as "the reader did not answer"
+ * (`packages/public-sources/tests/test_pdf.py` holds the two tiers to it).
+ */
+export const CAPTURE_TIMEOUT_MS = 150_000
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
@@ -54,6 +82,8 @@ function pageOf(body: unknown): FetchedPage {
     sha256: body.sha256,
     bytes: typeof body.bytes === 'number' ? body.bytes : 0,
     text: typeof body.text === 'string' ? body.text : null,
+    pages: typeof body.pages === 'number' ? body.pages : null,
+    note: typeof body.note === 'string' && body.note ? body.note : null,
     retrievedAt: typeof body.retrievedAt === 'string' ? body.retrievedAt : new Date().toISOString(),
   }
 }
@@ -113,6 +143,9 @@ export async function fetchSourcePage(sourceId: string, url: string, configured?
   }
   if (answer.status >= 200 && answer.status < 300) return pageOf(answer.body)
   const detail = refusalDetail(answer)
+  // A capture the api tier refused by name (a host off the source, a body too large, a PDF behind a password): the code says which.
+  const code = isRecord(answer.body) && typeof answer.body.code === 'string' ? answer.body.code : null
+  if (code && (answer.status === 403 || answer.status === 422)) throw new CaptureFetchError(`The capture was refused: ${detail}`, 422, code)
   if (answer.status === 403 || answer.status === 400 || answer.status === 422) throw new CaptureFetchError(`The fetch was refused: ${detail}`, 403)
   if (answer.status === 404) throw new CaptureFetchError(`No configured source ${sourceId}: ${detail}`, 404)
   throw new CaptureFetchError(`The source did not answer: ${detail}. Try again, or upload the page as operator_supplied.`, 502)

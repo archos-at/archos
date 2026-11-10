@@ -6,18 +6,10 @@
  * the machine's, not the person's. Pure.
  */
 
-/** ISO 3166-2 Länder of Austria, by code: what a reviewer recognises. */
-const AUSTRIAN_STATES: Readonly<Record<string, string>> = {
-  'AT-1': 'Burgenland',
-  'AT-2': 'Kärnten',
-  'AT-3': 'Niederösterreich',
-  'AT-4': 'Oberösterreich',
-  'AT-5': 'Salzburg',
-  'AT-6': 'Steiermark',
-  'AT-7': 'Tirol',
-  'AT-8': 'Vorarlberg',
-  'AT-9': 'Wien',
-}
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
+
+/** Subdivisions by territory code (Wien, AT-9), from the records' list: what a reviewer recognises. */
+const SUBDIVISIONS: ReadonlyMap<string, string> = new Map(SITE_SUBDIVISIONS.options.map((option) => [option.territoryId, option.label]))
 
 /** A country's name in `locale` (`AT` → Österreich), or the code when the runtime does not know it. */
 export function countryName(countryId: string, locale: string): string {
@@ -30,7 +22,8 @@ export function countryName(countryId: string, locale: string): string {
 
 /** A territory's name when it is one a reviewer would recognise by name, else null. */
 export function territoryName(territoryId: string, locale: string): string | null {
-  if (AUSTRIAN_STATES[territoryId]) return AUSTRIAN_STATES[territoryId]
+  const subdivision = SUBDIVISIONS.get(territoryId)
+  if (subdivision) return subdivision
   if (/^[A-Z]{2}$/.test(territoryId)) {
     const name = countryName(territoryId, locale)
     return name === territoryId ? null : name

@@ -34,8 +34,7 @@ export const turnContextResponseSchema = z.object({
    * The office's confirmed base knowledge (`lib/base-knowledge/office/turn-block.ts`,
    * ADR-0163): one line per licensed standard, commentary, directive, guideline
    * or law it holds, with edition, role, the project's directive verdict and the
-   * last check. Null when the `office-base-knowledge` flag is off or the office
-   * holds none; an older agent ignores it.
+   * last check. Null when the office holds none; an older agent ignores it.
    */
   baseKnowledge: z.string().nullable(),
   /**
@@ -48,8 +47,7 @@ export const turnContextResponseSchema = z.object({
   /**
    * The building law of the project's site from the platform's records
    * (`lib/base-knowledge/chain/`, ADR-0168): the chain text and each
-   * edition's role. Null when the `building-law-chain` flag is off, the
-   * project states no Land, or nothing binds there by the records; an older
+   * edition's role. Null when the project states no Land, or nothing binds there by the records; an older
    * agent ignores it.
    */
   buildingLaw: buildingLawTurnSchema.nullable(),
@@ -57,11 +55,11 @@ export const turnContextResponseSchema = z.object({
    * The turn's knowledge context (`lib/base-knowledge/context/`, ADR-0173):
    * the gate, the chain, each edition's role with its coverage qualifier and
    * freshness, the packs and their release sequence, and the countries the
-   * turn may retrieve from. Absent, not null, when the `knowledge-context` flag
-   * is off, so the response is byte for byte what it was; an older agent
-   * ignores it.
+   * turn may retrieve from. On every turn (ADR-0175): a context that could not
+   * be read is the gate's `knowledge_unavailable`, never absent, so the agent
+   * fails closed.
    */
-  knowledgeContext: knowledgeContextSchema.optional(),
+  knowledgeContext: knowledgeContextSchema,
   /**
    * Which kinds of model file the project holds and the agent may read
    * (`lib/bim/model-kinds-repository.ts`), so the agent binds its IFC and DXF

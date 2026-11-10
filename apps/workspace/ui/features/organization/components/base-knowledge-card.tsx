@@ -344,7 +344,6 @@ export const BaseKnowledgeCard: FC = () => {
 
   if (failed) return <EmptyState variant="bare" title={t('baseKnowledge.loadError')} />
   if (!list) return <Skeleton className="h-24 w-full" />
-  if (!list.enabled) return <EmptyState variant="bare" title={t('baseKnowledge.off')} />
   const recorded = new Set(list.entries.map((entry) => entry.documentId))
   return (
     <div className="space-y-4">

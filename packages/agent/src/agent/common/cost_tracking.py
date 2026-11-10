@@ -60,6 +60,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from agent.common import bff_http
 from agent.common.provider_usage import ACCOUNTING_FIELDS
 from agent.common.provider_usage import as_int as _as_int
+from agent.common.provider_usage import install_chat_stream_cost_carrier
 from agent.common.provider_usage import reported_cost as _reported_cost
 from agent.common.provider_usage import usage_from_langchain_metadata as _usage_from_langchain_metadata
 
@@ -68,10 +69,8 @@ logger = logging.getLogger(__name__)
 BUDGET_HEADER = "x-grid-budget"
 USER_ID_HEADER = "x-grid-user-id"
 
-#: Where a Responses-API message keeps the provider's accounting, which
-#: langchain-openai would otherwise drop (see install_responses_cost_carrier).
+#: Where a message keeps the accounting langchain drops (Responses, streamed Chat Completions).
 RESPONSES_ACCOUNTING_KEY = "grid_usage_accounting"
-#: The fields of OpenRouter's usage object the ledger prices from.
 
 _REQUEST_TIMEOUT_SECONDS = 5
 _FLUSH_BATCH_SIZE = 5
@@ -633,6 +632,7 @@ def install_responses_cost_carrier() -> bool:
 
 
 _RESPONSES_COST_CARRIER_INSTALLED = install_responses_cost_carrier()
+_CHAT_STREAM_COST_CARRIER_INSTALLED = install_chat_stream_cost_carrier()
 
 
 def record_usage_event(
