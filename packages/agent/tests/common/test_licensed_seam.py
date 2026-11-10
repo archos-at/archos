@@ -590,3 +590,43 @@ def test_outside_a_turn_capture_a_licensed_hit_is_listed_only():
     block = _block(_hit())
     assert licensed_text.WITHHELD_NOTE in block
     assert longest_licensed_run(block) < licensed_text.SHINGLE_CHARS
+
+
+# ---------------------------------------------------------------------------
+# Work on a licensed document goes to zero retention through OpenRouter, whatever the organization chose
+# ---------------------------------------------------------------------------
+
+
+def _sent_through(url: str, policy_name: str = "NO_RETENTION_LIMITS") -> dict:
+    from agent.common import openrouter
+
+    sent = {}
+
+    def serve(request):
+        sent["body"] = json.loads(request.content)
+        return httpx.Response(200, json={})
+
+    transport = openrouter._PinningTransport(getattr(openrouter, policy_name), inner=httpx.MockTransport(serve))
+    with httpx.Client(transport=transport) as client:
+        client.post(url, json={"model": "m", "input": "x"})
+    return sent["body"]
+
+
+def test_inside_a_licensed_scope_an_unpinned_call_is_pinned_to_zero_retention():
+    with licensed_ingest(TERMS):
+        body = _sent_through("https://openrouter.ai/api/v1/embeddings")
+    assert body["provider"]["zdr"] is True
+    assert "provider" not in _sent_through("https://openrouter.ai/api/v1/embeddings"), "positive control"
+
+
+def test_inside_a_licensed_scope_a_byok_endpoint_is_refused():
+    with licensed_ingest(TERMS), pytest.raises(licensed_text.UnattestedLicensedText):
+        _sent_through("https://llm.example-office.at/v1/embeddings")
+    assert _sent_through("https://llm.example-office.at/v1/embeddings") == {"model": "m", "input": "x"}
+
+
+async def test_inside_a_licensed_scope_the_chat_contract_pins_an_unpinned_model():
+    wire = Wire()
+    with licensed_ingest(TERMS):
+        await _model(wire, streaming=False, zero_retention=False).ainvoke([HumanMessage(content="Zusammenfassung")])
+    assert json.loads(wire.bodies[0])["provider"]["zdr"] is True

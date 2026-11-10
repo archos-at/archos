@@ -55,6 +55,8 @@ from agent.common import provider_limiter
 from agent.common.licensed_reply import ChunkCap
 from agent.common.licensed_reply import capped_result
 from agent.common.licensed_text import expand_messages
+from agent.common.licensed_text import licensed_scope_active
+from agent.common.licensed_text import refuse_unattested_model_read
 from agent.common.message_contract import normalize_chat_request
 from agent.common.openrouter import targets_openrouter
 from nat.plugin_api import LLMFrameworkEnum
@@ -305,7 +307,11 @@ def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any
     from agent.common.openrouter import ZERO_DATA_RETENTION
 
     body = {**(getattr(llm, "extra_body", None) or {}), **(kwargs.get("extra_body") or {})}
-    pinned = llm_targets_openrouter(llm) and ZERO_DATA_RETENTION.is_applied_to(body)
+    on_openrouter = llm_targets_openrouter(llm)
+    if licensed_scope_active():  # work on a licensed document goes to zero retention, whatever the org chose
+        refuse_unattested_model_read(_llm_base_url(llm), openrouter=on_openrouter)
+        body = kwargs["extra_body"] = ZERO_DATA_RETENTION.apply(body)
+    pinned = on_openrouter and ZERO_DATA_RETENTION.is_applied_to(body)
     return expand_messages(messages, zero_retention=pinned)
 
 

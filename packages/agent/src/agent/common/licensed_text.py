@@ -502,14 +502,19 @@ class UnattestedLicensedText(RuntimeError):
 
 
 @contextmanager
-def licensed_ingest(terms: LicenceTerms | None) -> Iterator[None]:
-    """The scope a document's ingest runs in: what its model calls may do, by the document's licence.
+def licensed_document_scope(terms: LicenceTerms | None) -> Iterator[None]:
+    """The scope work on ONE document runs in (its ingest, a look at its page): what its model calls may do.
 
-    A licensed document traces its direct generations as metadata only (length, sha256): its page reads and
-    transcriptions are the licensed text itself; the generation, its model, usage and cost are still recorded.
-    One the office has not attested for AI processing may reach no model at all (design 4.7): every model
-    request inside the scope is refused (:func:`refuse_unattested_model_read`), so it is never transcribed,
-    embedded or summarised, and stays listed by its metadata.
+    For a licensed document, every model call in the scope:
+
+    - goes to zero-retention endpoints, whatever the organization's setting: the OpenRouter transports pin it
+      (``openrouter._pinned_request``) and the chat contract refuses an unpinned call (``llm_factory``);
+    - reaches OpenRouter or nothing: a BYOK endpoint is outside our zero-retention terms and is refused;
+    - is traced as metadata only (length, sha256): its prompt and reply ARE the licensed text. The generation,
+      its model, usage and cost are still recorded.
+
+    One the office has not attested for AI processing may reach no model at all (design 4.7): every call is
+    refused, so it is never transcribed, embedded, summarised or looked at.
     """
     licensed = terms is not None and terms.licensed
     traced = _metadata_only.set(licensed or _metadata_only.get())
@@ -521,11 +526,28 @@ def licensed_ingest(terms: LicenceTerms | None) -> Iterator[None]:
         _metadata_only.reset(traced)
 
 
-def refuse_unattested_model_read() -> None:
-    """Raise inside the ingest of a licensed document no model may read. Called by every OpenRouter transport."""
+#: The ingest's name for :func:`licensed_document_scope`.
+licensed_ingest = licensed_document_scope
+
+
+def licensed_scope_active() -> bool:
+    """Whether the work in flight is on a licensed document (:func:`licensed_document_scope`)."""
+    return _metadata_only.get()
+
+
+def refuse_unattested_model_read(url: str | None = None, *, openrouter: bool = True) -> None:
+    """Raise when a model request may not leave inside a licensed scope. Called by every OpenRouter transport.
+
+    Refused: any request for an unattested licensed document, and one to an endpoint that is not OpenRouter
+    (``openrouter`` False: a BYOK base URL) for an attested one.
+    """
     if _reads_refused.get():
         raise UnattestedLicensedText(
             "this document is licensed and its licence is not attested for AI processing: no model may read it"
+        )
+    if _metadata_only.get() and not openrouter:
+        raise UnattestedLicensedText(
+            f"licensed text goes only to zero-retention endpoints through OpenRouter, not to {url or 'this endpoint'}"
         )
 
 
