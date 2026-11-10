@@ -3358,3 +3358,69 @@ refused_in faults_0199 "INSERT INTO inbound_mails (organization_id, project_id, 
 apply_in faults_0199 0199_receive_faults.sql
 check_in faults_0199 "SELECT count(*) FROM pg_constraint WHERE conname IN ('inbound_mails_sender_unchecked_not_direct', 'inbound_mails_sender_unchecked_full_window', 'inbound_mails_reader_fault_held', 'inbound_mails_receive_progress_received')" "4" "0199 applies again after its down"
 echo "==> 0199 receive faults and its down migration verified"
+# Migration 0200: every organization has a row and a home country (ADR-0158,
+# design 5.1).
+#
+# On a database of its own, migrated through 0199: an organization that only
+# ever made projects, one with a settings row already, and an id that is not
+# a WorkOS organization's. The backfill writes the first a row, gives both AT
+# and Europe/Vienna, and leaves the stray id out; the CHECKs hold the shape
+# (UTC is a zone too); the down drops both columns, and 0200 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0200 home country and its down migration on home_0200"
+migrate_before home_0200 0200_organization_home_country
+U200="user_01J0MA1LUSERA00000000000A2"
+sql_in home_0200 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES
+  ('a0000000-0000-4000-8000-000000000200', 'org_0200_projects', 'Only projects', '$U200', 'proj_0200_a'),
+  ('a1000000-0000-4000-8000-000000000200', 'legacy_0200', 'Not a WorkOS id', '$U200', 'proj_0200_b');
+INSERT INTO organizations (workos_organization_id) VALUES ('org_0200_settings');
+SQL
+apply_in home_0200 0200_organization_home_country.sql
+check_in home_0200 "SELECT string_agg(workos_organization_id || '=' || home_country || '/' || time_zone, ',' ORDER BY workos_organization_id) FROM organizations WHERE workos_organization_id LIKE '%0200%'" "org_0200_projects=AT/Europe/Vienna,org_0200_settings=AT/Europe/Vienna" "0200 backfills a row for an organization that only made projects, and places every row"
+refused_in home_0200 "UPDATE organizations SET home_country = 'at' WHERE workos_organization_id = 'org_0200_settings'" "organizations_home_country_iso" "a lower-case home country"
+refused_in home_0200 "UPDATE organizations SET time_zone = 'Vienna' WHERE workos_organization_id = 'org_0200_settings'" "organizations_time_zone_shape" "a time zone that is no IANA name"
+sql_in home_0200 <<<"UPDATE organizations SET time_zone = 'UTC' WHERE workos_organization_id = 'org_0200_settings';"
+sql_in home_0200 <<<"INSERT INTO organizations (workos_organization_id) VALUES ('org_0200_dashboard');"
+check_in home_0200 "SELECT coalesce(home_country, 'unplaced') FROM organizations WHERE workos_organization_id = 'org_0200_dashboard'" "unplaced" "0200: a row written later may still lack a country (the S15 gate refuses it)"
+apply_in home_0200 0200_organization_home_country.down.sql
+check_in home_0200 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'organizations' AND column_name IN ('home_country', 'time_zone')" "0" "0200 down drops home_country and time_zone"
+apply_in home_0200 0200_organization_home_country.sql
+check_in home_0200 "SELECT count(*) FROM pg_constraint WHERE conname IN ('organizations_home_country_iso', 'organizations_time_zone_shape')" "2" "0200 applies again after its down"
+echo "==> 0200 home country and its down migration verified"
+# Migration 0201: an existing Austrian project with a stored address and no
+# Land gets the Land its Postleitzahl names, as an unconfirmed suggestion
+# (ADR-0158).
+#
+# On a database of its own, migrated through 0200: a Graz address (typed, an
+# assumption), a Linz address kept as a confirmed fact, a Zürich address, a
+# project without an address, and one already placed. Only the two Austrian
+# ones get a Land, with its derivation; the rest stay as they were; a second
+# run changes nothing; the down takes back only what 0201 wrote.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0201 postal-code Land and its down migration on postal_0201"
+migrate_before postal_0201 0201_postal_code_land_backfill
+U201="user_01J0MA1LUSERA00000000000A3"
+sql_in postal_0201 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name, profile) VALUES
+  ('b0000000-0000-4000-8000-000000000201', 'org_0201', 'Graz', '$U201', 'proj_0201_a',
+   '{"facts":{},"goals":{},"unknowns":[],"assumptions":{"site_address":{"value":"Herrengasse 16, 8010 Graz","status":"unconfirmed","reason":"r","source":"onboarding_default","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
+  ('b1000000-0000-4000-8000-000000000201', 'org_0201', 'Linz', '$U201', 'proj_0201_b',
+   '{"facts":{"site_address":{"value":"Hauptplatz 1, 4020 Linz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}'),
+  ('b2000000-0000-4000-8000-000000000201', 'org_0201', 'Zürich', '$U201', 'proj_0201_c',
+   '{"facts":{"site_address":{"value":"Bahnhofstrasse 1, 8001 Zürich","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}'),
+  ('b3000000-0000-4000-8000-000000000201', 'org_0201', 'No address', '$U201', 'proj_0201_d', '{"facts":{},"goals":{},"unknowns":[],"assumptions":{}}'),
+  ('b4000000-0000-4000-8000-000000000201', 'org_0201', 'Placed', '$U201', 'proj_0201_e',
+   '{"facts":{"country":{"value":"de","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"},"site_address":{"value":"Herrengasse 16, 8010 Graz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}');
+SQL
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+LAND="SELECT string_agg(name || '=' || coalesce(profile -> 'assumptions' -> 'federal_state' ->> 'value', '-'), ',' ORDER BY name) FROM projects WHERE organization_id = 'org_0201'"
+check_in postal_0201 "$LAND" "Graz=styria,Linz=upper_austria,No address=-,Placed=-,Zürich=-" "0201 places the Austrian addresses only"
+check_in postal_0201 "SELECT (profile -> 'assumptions' -> 'federal_state' -> 'evidence' -> 0 ->> 'rule') || ',' || (profile -> 'assumptions' -> 'federal_state' -> 'evidence' -> 0 -> 'inputs' -> 0 ->> 'suggested') || ',' || (profile_prompt_view LIKE '%- federal_state=upper_austria [abgeleitet]%')::text FROM projects WHERE name = 'Linz'" "postal_code,false,true" "0201 records its derivation and the prompt line"
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+check_in postal_0201 "SELECT sum(profile_version) FROM projects WHERE organization_id = 'org_0201' AND name IN ('Graz', 'Linz')" "4" "0201 runs again without touching a placed project"
+apply_in postal_0201 0201_postal_code_land_backfill.down.sql
+check_in postal_0201 "$LAND" "Graz=-,Linz=-,No address=-,Placed=-,Zürich=-" "0201 down takes back only its own suggestions"
+apply_in postal_0201 0201_postal_code_land_backfill.sql
+check_in postal_0201 "$LAND" "Graz=styria,Linz=upper_austria,No address=-,Placed=-,Zürich=-" "0201 applies again after its down"
+echo "==> 0201 postal-code Land and its down migration verified"

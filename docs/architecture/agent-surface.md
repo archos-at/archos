@@ -1056,6 +1056,26 @@ these routes, so ADR-0131's "fix the route" does not apply. A per-operation decl
 than guessing from the shape, because `{ id }` is a project in one answer and a document in the
 next. The backend operations (`files-list`, `knowledge-search`) carry no links yet.
 
+### The AI mark on a generated answer
+
+Article 50(2) AI Act asks that text a model generates be marked in a machine-readable way. An
+operation whose answer carries such text says how much of it with `generatedContent`
+(`lib/agent-api/ai-generated-meta.ts`): `generatedAt('answer')` for `agent-ask-create` and
+`agent-ask-get`, `generatedAt('summary')` for `project-summary-generate`, and
+`generatedRows('messages', …)` for `conversation-message-list`, whose assistant messages a model
+wrote and whose people's messages it did not. `fromOperationResult` then adds
+`_meta: { aiGenerated: true, digitalSourceType }`, IPTC `trainedAlgorithmicMedia` when a model
+wrote all the text the answer carries and `compositeWithTrainedAlgorithmicMedia` when it carries
+a person's too. Every ask path goes through that seam: the single call, the progress stream and
+the tasks extension's inline result. An ask still `working`, an empty summary and a page of a
+person's messages carry no mark, and a stored document read back is not marked here: it carries
+its own marking (`@/lib/ai-provenance`). The A2A door marks the answer artifact the same way, in
+the artifact's `metadata` (`bff/a2a/task-mapping.ts`).
+
+The key carries no vendor prefix: MCP reserves prefixes for itself and allows a plain key, a
+prefix of ours would put the product's name into a wire name (ADR-0149), and no standard key for
+this exists yet. `digitalSourceType` beside it is the standard's own word.
+
 ### Sensitive operations
 
 `sensitivity: 'access'` marks an operation that widens who may do what (sharing

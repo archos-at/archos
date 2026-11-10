@@ -38,6 +38,12 @@ export interface OrgSettings {
   displayName: string | null
   /** The language members who never picked one start in; null until an admin chooses (their browser's then). */
   defaultLocale: Locale | null
+  /**
+   * ISO 3166-1 alpha-2 country of the office's seat (migration 0200); null when
+   * nobody has said. Stated when the organization is created, or once after.
+   * Never a project's jurisdiction.
+   */
+  homeCountry: string | null
   settings: Record<string, unknown>
 }
 
@@ -172,6 +178,7 @@ function toSettings(row: Organization | undefined): OrgSettings {
   return {
     displayName: row?.displayName ?? null,
     defaultLocale: isLocale(row?.defaultLocale) ? row.defaultLocale : null,
+    homeCountry: row?.homeCountry ?? null,
     settings: (row?.settings as Record<string, unknown> | undefined) ?? {},
   }
 }
@@ -357,6 +364,7 @@ async function writeOrgSettings(
   const next: OrgSettings = {
     displayName: patch.displayName !== undefined ? patch.displayName : current.displayName,
     defaultLocale: patch.defaultLocale !== undefined ? patch.defaultLocale : current.defaultLocale,
+    homeCountry: current.homeCountry,
     settings: patch.settings ? { ...current.settings, ...patch.settings } : current.settings,
   }
 
@@ -528,6 +536,7 @@ export function changedSettingsFields(before: OrgSettings, after: OrgSettings): 
   const fields: string[] = []
   if (before.displayName !== after.displayName) fields.push('displayName')
   if (before.defaultLocale !== after.defaultLocale) fields.push('defaultLocale')
+  if (before.homeCountry !== after.homeCountry) fields.push('homeCountry')
   const keys = new Set([...Object.keys(before.settings), ...Object.keys(after.settings)])
   for (const key of [...keys].sort()) {
     if (JSON.stringify(before.settings[key]) !== JSON.stringify(after.settings[key])) fields.push(`settings.${key}`)

@@ -80,12 +80,12 @@ _WITHDRAW_TEXT = {
     "nothing-suggested": "refused: nothing is suggested under this key",
     "confirmed": "refused: a person confirmed this value; it stays",
     "not-this-reading": (
-        "refused: not a suggestion of this reading (an earlier reading's, the derived Gebäudeklasse, a default); "
+        "refused: not a suggestion of this reading (an earlier reading's, the derived building class, a default); "
         "it stays for a person to decide"
     ),
 }
 _CLASS_REFUSAL = (
-    "refused: the Gebäudeklasse is derived from the inputs you record, never recorded; record the inputs the "
+    "refused: the building class is derived from the inputs you record, never recorded; record the inputs the "
     "document gives"
 )
 #: Keys one ``unknown-key`` refusal names as the closest it knows.
@@ -202,9 +202,9 @@ INTAKE_NEEDS_DESCRIPTION = (
     "What the project's profile still needs, from the intake API, as it stands now: every question the wizard "
     "would ask for what is known (key, label, type, option tokens, unit, where the value is usually found, why it "
     "is asked), and the files no reading has read yet. `decisive`: filling it could change a Bauwerk's "
-    "Gebäudeklasse. State `open`: nothing on the profile. `suggested`: a document's value is there, unconfirmed; "
+    "building class. State `open`: nothing on the profile. `suggested`: a document's value is there, unconfirmed; "
     "record it again only from another document, which corroborates it or, if different, is kept beside it for "
-    "a person. `confirmed`: a person confirmed a Gebäudeklasse input; record it only from a document that states "
+    "a person. `confirmed`: a person confirmed a building-class input; record it only from a document that states "
     "it (a newer Stand, say): the same value corroborates it, a different one becomes a contradiction a person "
     "decides, and the confirmed value is never overwritten. Answers change as values are recorded: a recorded "
     "value can open new questions (Nutzungen open the Wohnungen of a Wohnbau). A key you know from the "
@@ -270,7 +270,7 @@ RECORD_VALUES_DESCRIPTION = (
     "building), never a guess, a typical value or something you worked out. A value the document calls "
     "undecided, under review or one of several options is not stated: a person would be confirming a decision "
     "nobody made. A drawing's Planart (Einreichplan) names the drawing, not the project's phase. Never record "
-    "the Gebäudeklasse, even where a document states one: the system derives it from the inputs you record and "
+    "the building class, even where a document states one: the system derives it from the inputs you record and "
     "a person confirms it there, so record the inputs the document gives. Value: select, the option "
     "token exactly (multi_select: a list); number, "
     "a plain number in the question's unit, no unit text (`7,2 m` is 7.2); yes/no, true or false; text, the "
@@ -283,8 +283,8 @@ RECORD_VALUES_DESCRIPTION = (
     'oberirdische Geschoße"}]}. Outcomes, one per value: suggested (new on the profile, a person will check '
     "it); corroborated (the profile holds the same value; your evidence was added); contradiction (the profile "
     "holds a different value; yours is kept beside it for a person to decide); refused, with the reason and "
-    "what to do instead. The answer also names the needs your values opened (a Gebäude opens its Geschoße, "
-    "Fluchtniveau and areas), decisive ones marked: they are needs now, and intake_needs lists them with their "
+    "what to do instead. The answer also names the needs your values opened (a building opens its storeys, "
+    "heights and areas), decisive ones marked: they are needs now, and intake_needs lists them with their "
     "options."
 )
 
@@ -557,7 +557,7 @@ class WithdrawInput(BaseModel):
 WITHDRAW_VALUES_DESCRIPTION = (
     "Take back values you recorded in this run once you see a document does not state them for this project: "
     "undecided after all, one of several options, another building's, an older Fassung's. Only your own "
-    "suggestions from this run can go; a value a person gave or confirmed, the derived Gebäudeklasse and an "
+    "suggestions from this run can go; a value a person gave or confirmed, the derived building class and an "
     "earlier reading's suggestion stay, and the answer says so. A withdrawn value is not refused: no person said "
     "no, so a later reading may record it again from a document that states it. To replace a value with "
     "another, withdraw it and record the other."
@@ -684,7 +684,7 @@ async def finish_hold(session: IntakeSession) -> str | None:
         return None
     session.finish_held = True
     return (
-        f"Not finished yet. Decisive needs still open, each could change a Gebäudeklasse: {_named(decisive)}. "
+        f"Not finished yet. Decisive needs still open, each could change what applies: {_named(decisive)}. "
         f"Files no reading has opened: {_named(unread)}. Read those that could state them, or call finish_intake "
         "again to finish as it is."
     )

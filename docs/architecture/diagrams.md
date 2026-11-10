@@ -187,7 +187,7 @@ machine-drawn file that leaves the product has to say so in its own bytes: the
 therefore carries the human sentence in the root's **`<title>`** — which is the
 SVG's *accessible name*, so a browser tooltip and a screen reader announce it —
 and the machine vocabulary (`AIGenerated=true; AIGenerator=Piloti;
-AIHumanReviewed=false`, the same string the PDF puts in `Keywords` and the
+AIHumanReviewed=false; DigitalSourceType=…/trainedAlgorithmicMedia`, the same string the PDF puts in `Keywords` and the
 `.docx` in typed custom properties) in the root's **`<desc>`**. Both elements are
 already in the serialiser's allow-list with no attributes of their own, so the
 marking survives the re-serialisation **with the allow-list widened by nothing**

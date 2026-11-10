@@ -13,9 +13,10 @@ import { OIB_STANDARDS } from '@/lib/oib/standards-catalog'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
 import { byStatus, STANDARD_REASON_IDS, standardReasonId, standardShortId } from './standard-reasons'
 
+/** A profile placed in Austria: only such a project gets OIB verdicts. */
 const profile = (facts: Record<string, ProjectPrimitiveValue>): ProjectProfile => ({
   facts: Object.fromEntries(
-    Object.entries(facts).map(([key, value]) => [
+    Object.entries({ country: 'at', ...facts }).map(([key, value]) => [
       key,
       { value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-10-20T08:00:00.000Z' },
     ])
@@ -27,7 +28,15 @@ const profile = (facts: Record<string, ProjectPrimitiveValue>): ProjectProfile =
 
 /** Profiles that between them reach every branch of the verdicts. */
 const PROFILES: Array<ProjectProfile | null> = [
-  null,
+  // Placed in Austria by an assumed Land and nothing else: the six generic verdicts.
+  {
+    facts: {},
+    goals: {},
+    unknowns: [],
+    assumptions: {
+      federal_state: { value: 'vienna', status: 'unconfirmed', reason: 'typed', source: 'onboarding_default', updatedAt: '2026-10-20T08:00:00.000Z' },
+    },
+  },
   profile({ project_phase: 'design' }),
   ...['manufacturing', 'storage', 'agriculture', 'other', 'residential', 'lodging', 'office', 'healthcare', 'assembly'].map(
     (main_use) => profile({ main_use })
