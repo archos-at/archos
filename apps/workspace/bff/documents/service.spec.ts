@@ -2260,6 +2260,15 @@ describe('the authorship gate on the (collection, filename) join', () => {
   })
 
   describe('getDocumentVisualDetails', () => {
+    // The backend reads the collection as the office the BFF names (ADR-0158),
+    // so the call carries the internal token, which an internal-looking backend gets.
+    beforeEach(() => {
+      vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    })
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
     it('returns no page text for a machine-authored row, and asks for none', async () => {
       vi.mocked(findDocumentInOrg).mockResolvedValue(agentDoc)
 
