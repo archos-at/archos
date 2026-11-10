@@ -56,6 +56,14 @@
           }
         },
         {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Answers now name the standards the platform lists for your country even when your office holds no copy, saying the text is not available, and an authority's directives reach a project only where that authority decides.",
+            "de": "Antworten nennen jetzt die Normen, die die Plattform für Ihr Land auflistet, auch wenn Ihrem Büro keine Kopie vorliegt, und weisen darauf hin, dass der Text nicht verfügbar ist. Vorgaben einer Behörde gelten für ein Projekt nur, wenn die Behörde dies festlegt."
+          }
+        },
+        {
           "section": "improvements",
           "area": "documents",
           "text": {
