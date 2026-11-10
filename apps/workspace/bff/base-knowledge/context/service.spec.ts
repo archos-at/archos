@@ -107,6 +107,14 @@ describe('knowledgeContextForTurn', () => {
     expect(context?.uses).toEqual([])
     expect(unavailableAdd).toHaveBeenCalledWith(1)
   })
+
+  it('counts only a turn’s failed read toward the alert, not an operation’s', async () => {
+    readOrganizationCountries.mockRejectedValue(new Error('database gone'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const context = await knowledgeContextForTurn('org_a', 'project_1', undefined, null, 'operation')
+    expect(context?.gate.state).toBe('knowledge_unavailable')
+    expect(unavailableAdd).not.toHaveBeenCalled()
+  })
 })
 
 describe('contextDigest', () => {
@@ -118,5 +126,11 @@ describe('contextDigest', () => {
 
   it('changes with a release, so a publish is read on the next turn', () => {
     expect(contextDigest(inputs)).not.toBe(contextDigest({ ...inputs, packSeqs: { AT: 5, EU: 1 } }))
+  })
+
+  it('changes with an office record or a platform check, which move no pack sequence', () => {
+    const stamped = { ...inputs, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-01T00:00:00.000Z' }
+    expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T10:00:00.000Z/2026-12-01T00:00:00.000Z' }))
+    expect(contextDigest(stamped)).not.toBe(contextDigest({ ...stamped, recordsStamp: '2026-12-14T09:00:00.000Z/2026-12-14T08:00:00.000Z' }))
   })
 })

@@ -95,3 +95,10 @@ CREATE TRIGGER project_base_confirmations_append_only BEFORE UPDATE OR DELETE ON
 SELECT secure_table('message_edition_uses', 'organization_id = current_org()');
 --> statement-breakpoint
 SELECT secure_table('project_base_confirmations', 'organization_id = current_org()');
+--> statement-breakpoint
+-- The context digest's stamp (`recordsStamp`): the office's newest revision and the platform's newest check, read every turn.
+CREATE INDEX IF NOT EXISTS "knowledge_revisions_organization_created_idx"
+  ON "knowledge_revisions" ("organization_id", "created_at" DESC) WHERE "organization_id" IS NOT NULL;
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "knowledge_checks_platform_checked_idx"
+  ON "knowledge_checks" ("checked_at" DESC) WHERE "organization_id" IS NULL;

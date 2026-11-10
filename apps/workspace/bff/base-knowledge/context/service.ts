@@ -64,6 +64,8 @@ export interface ContextDigestInputs {
   date: string
   packSeqs: Readonly<Record<string, number>>
   procedures: readonly ProcedureContext[]
+  /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
+  recordsStamp?: string
 }
 
 /** A stable hash of the inputs: same inputs, same digest, in any key order. */
@@ -75,6 +77,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
     date: inputs.date,
     packSeqs: Object.fromEntries(Object.entries(inputs.packSeqs).sort(([a], [b]) => a.localeCompare(b))),
     procedures: inputs.procedures,
+    recordsStamp: inputs.recordsStamp ?? null,
   })
   return createHash('sha256').update(canonical).digest('hex').slice(0, 32)
 }
@@ -100,6 +103,22 @@ export async function packSequences(countries: readonly string[]): Promise<Recor
       GROUP BY r.country_id`),
   )
   return Object.fromEntries(rows.map((row) => [row.country_id, Number(row.seq)]))
+}
+
+/**
+ * When the office's own records last gained a revision and the platform last
+ * checked an edition: an office relation or a freshness check changes the
+ * context without moving a pack sequence, so the digest reads them and the
+ * next turn resolves again, rather than after the TTL.
+ */
+export async function recordsStamp(organizationId: string): Promise<string> {
+  const rows = await withPlatformAccess('knowledge context: when the office records and the platform checks last changed', () =>
+    getDb().execute<{ office: string | Date | null; checks: string | Date | null }>(sql`
+      SELECT (SELECT max(v.created_at) FROM knowledge_revisions v WHERE v.organization_id = ${organizationId}) AS office,
+        (SELECT max(k.checked_at) FROM knowledge_checks k WHERE k.organization_id IS NULL) AS checks`),
+  )
+  const row = rows[0]
+  return [row?.office, row?.checks].map((value) => (value ? new Date(value).toISOString() : '-')).join('/')
 }
 
 function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undefined>>, leaves: readonly SiteLeaf[]): ProcedureContext[] {
@@ -142,10 +161,11 @@ export function unavailableContext(date: string): KnowledgeContext {
 
 /** The inputs that decide a turn's context, read as the office. */
 export async function readContextInputs(organizationId: string, projectId: string | null): Promise<ContextDigestInputs> {
-  const [countries, profile, zone] = await Promise.all([
+  const [countries, profile, zone, stamp] = await Promise.all([
     readOrganizationCountries(organizationId),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
     officeTimeZone(organizationId),
+    recordsStamp(organizationId),
   ])
   const entitled = countries.entitled.map((entry) => entry.countryId)
   const sites = siteLeaves(profile?.profile)
@@ -158,18 +178,25 @@ export async function readContextInputs(organizationId: string, projectId: strin
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites),
+    recordsStamp: stamp,
   }
 }
+
+/** Who reads a context: a chat turn, or an operation (`project-base-get`, `-confirm`) a person or an agent called. */
+export type ContextReader = 'turn' | 'operation'
 
 /**
  * The turn's knowledge context, or undefined with the flag off (the key is
  * then absent from the turn context, not null). Timed as the `knowledge` phase.
+ * Only a turn's failed read counts toward the `knowledge_context_available`
+ * alert: an operation's failure is its caller's error, already in its response.
  */
 export async function knowledgeContextForTurn(
   organizationId: string,
   projectId: string | null,
   time: PhaseTimer = untimed,
   conversationId: string | null = null,
+  reader: ContextReader = 'turn',
 ): Promise<KnowledgeContext | undefined> {
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.knowledgeContext, organizationId))) return undefined
   return time('knowledge', async () => {
@@ -184,7 +211,7 @@ export async function knowledgeContextForTurn(
       const previous = await lastAnswerPackSeqs(organizationId, conversationId)
       return { ...context, updatedSinceLastAnswer: packsUpdatedSince(context.packs, previous) }
     } catch (error) {
-      unavailableTurns.add(1)
+      if (reader === 'turn') unavailableTurns.add(1)
       console.error('[knowledge_context_available=false] the knowledge context could not be read', { organizationId, error })
       return unavailableContext(calendarDayIn('UTC'))
     }
