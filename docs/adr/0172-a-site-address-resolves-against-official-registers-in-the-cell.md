@@ -167,20 +167,19 @@ resolves them (`task workspace:register:spike`):
 
 | Typed as | Verified | Verified and the typed address | Ambiguous or `multi_leaf` | Not found or `incomplete` | p50 / p95 |
 |---|---|---|---|---|---|
-| `Herrengasse 16, 8010 Graz` | 200 | 200 | 0 | 0 | 3.0 / 7.8 ms |
-| `herrengasse 16 8010 graz`, `Str.` abbreviated | 200 | 200 | 0 | 0 | 2.6 / 4.9 ms |
-| `8010 Graz, Herrengasse 16` | 200 | 200 | 0 | 0 | 3.4 / 7.1 ms |
-| with a door, `Herrengasse 16/2/5, …` | 196 | 196 | 0 | 4 | 3.0 / 7.5 ms |
-| without the postcode, `Herrengasse 16, Graz` | 199 | 199 | 1 | 0 | 3.0 / 6.8 ms |
-| street and number alone | 0 | 0 | 61 | 139 | 3.0 / 6.3 ms |
-| a house number the register does not hold | 0 | 0 | 0 | 200 | 1.4 / 3.4 ms |
+| `Herrengasse 16, 8010 Graz` | 200 | 200 | 0 | 0 | 4.3 / 7.5 ms |
+| `herrengasse 16 8010 graz`, `Str.` abbreviated | 200 | 200 | 0 | 0 | 3.9 / 6.2 ms |
+| `8010 Graz, Herrengasse 16` | 200 | 200 | 0 | 0 | 3.4 / 5.6 ms |
+| with a door, `Herrengasse 16/2/5, …` | 196 | 196 | 0 | 4 | 3.1 / 4.6 ms |
+| without the postcode, `Herrengasse 16, Graz` | 200 | 200 | 0 | 0 | 4.5 / 6.9 ms |
+| street and number alone | 0 | 0 | 61 | 139 | 5.2 / 21.3 ms |
+| a house number the register does not hold | 0 | 0 | 0 | 200 | 2.4 / 3.2 ms |
 
-The import took about a minute on the test machine. The four misses with a door
-are lot numbers (`GNR 310/4`) with a door appended, which nobody types.  The
-one line without a postcode that is not verified matched more than one
-register address and stays unverified with them as candidates; it was
-verified before the place match learned districts ("Wien-Innere Stadt"), which
-widens what a place matches. A
+The import took 87 s on the test machine. The four misses with a door
+are lot numbers (`GNR 310/4`) with a door appended, which nobody types.  An
+earlier run, while a place still matched a Gemeinde by key prefix, left one
+line without a postcode ambiguous; matching a district only after `-`, `,` or
+`/` ("Wien-Innere Stadt") verifies it. A
 verified answer was the typed address every time, and an absent number was
 never verified.
 
