@@ -40,7 +40,7 @@
  */
 
 import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
-
+import { PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS } from './schemas-platform-knowledge.mjs'
 export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
 
 /**
@@ -302,37 +302,6 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
       rootCauseStatus: 'string',
       reason: 'string',
     },
-  },
-  // The platform's base knowledge (ADR-0165): each a person's own yes on what
-  // offices read, in the platform org's trail; entitlements and a home move in
-  // the office's own.
-  'platform.knowledge.change_request_approved': {
-    targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string' },
-  },
-  'platform.knowledge.change_request_rejected': {
-    targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string' },
-  },
-  'platform.knowledge.published': {
-    targets: [{ type: 'knowledge_change_request' }],
-    metadata: { channel: 'string', moved: 'number', decisionSource: 'string', indexFailed: 'number' },
-  },
-  'platform.knowledge.rolled_back': {
-    targets: [{ type: 'knowledge_change_request' }],
-    metadata: { restored: 'number', decisionSource: 'string' },
-  },
-  'platform.organization.country_entitled': {
-    targets: [{ type: 'organization' }],
-    metadata: { countryId: 'string', changed: 'boolean', decisionSource: 'string' },
-  },
-  'platform.organization.country_withdrawn': {
-    targets: [{ type: 'organization' }],
-    metadata: { countryId: 'string', changed: 'boolean', decisionSource: 'string' },
-  },
-  'platform.organization.home_country_set': {
-    targets: [{ type: 'organization' }],
-    metadata: { homeCountry: 'string', previous: 'string', decisionSource: 'string' },
   },
   'platform.norm_registry.updated': {
     targets: [{ type: 'norm_registry' }],
@@ -959,7 +928,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'document' }],
     metadata: { subjectUserId: 'string' },
   },
-  ...INBOUND_MAIL_AUDIT_SCHEMAS,
+  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */

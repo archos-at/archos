@@ -302,7 +302,7 @@ function ChangeRequestPanel({
   return (
     <div className="flex flex-col gap-4 p-4" data-testid="change-request-panel">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">{view.title}</h2>
+        <h2 className="text-lg font-medium">{view.title}</h2>
         <p className="text-muted-foreground text-sm">
           {view.countryId} · {t(`countryKnowledge.status.${view.status}`)}
         </p>

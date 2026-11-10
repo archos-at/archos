@@ -134,10 +134,10 @@ elicitation`, and a tool-call trace with `decision_source: elicitation`.
 The route holds the same line a second time where the decision is one only a
 person makes (ADR-0165): it calls `requirePersonDecision`
 (`lib/agent-api/person-decision.ts`), which reads the yes the call carries in
-its acting session. The door passes the yes on only when it got one
-(`elicitation`, or `app` from a client that declared MCP Apps; never
-`app-unverified`); a person's own request reads as `app`, and so does a proposal
-the person accepted. Any other agent call is refused 403
+its acting session. The door passes on how it got the person's answer, and the
+route counts only `elicitation` and `app` (a client that declared MCP Apps),
+never `app-unverified`; a person's own request reads as `app`, and so does a
+proposal the person accepted. Any other agent call is refused 403
 `PERSON_DECISION_REQUIRED`, so a missed `personDecides` flag or a new door cannot
 run it on a model's word. The platform's approve, publish, rollback, entitlement
 and home-country operations use it, and record the decision source with the

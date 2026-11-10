@@ -13,7 +13,7 @@ vi.mock('server-only', () => ({}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { runAsActingSession } from './acting-session'
-import { PersonDecisionRequiredError, personYesOf, requirePersonDecision } from './person-decision'
+import { PersonDecisionRequiredError, requirePersonDecision } from './person-decision'
 
 const SESSION = { userId: 'user_a', organizationId: 'org_a' } as unknown as AuthorizedSession
 const decide = () => requirePersonDecision('publishing a change request')
@@ -31,12 +31,12 @@ describe('requirePersonDecision', () => {
 
   it('refuses an unverified MCP Apps call: it may be the model speaking', async () => {
     await expect(
-      runAsActingSession(SESSION, async () => decide(), 'agent', personYesOf('app-unverified')),
+      runAsActingSession(SESSION, async () => decide(), 'agent', { decisionSource: 'app-unverified' }),
     ).rejects.toBeInstanceOf(PersonDecisionRequiredError)
   })
 
   it('takes the elicited yes and records it as such', async () => {
-    await expect(runAsActingSession(SESSION, async () => decide(), 'agent', personYesOf('elicitation'))).resolves.toBe(
+    await expect(runAsActingSession(SESSION, async () => decide(), 'agent', { decisionSource: 'elicitation' })).resolves.toBe(
       'elicitation',
     )
   })

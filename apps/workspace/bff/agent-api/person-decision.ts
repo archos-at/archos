@@ -17,8 +17,7 @@
 
 import 'server-only'
 import { ApiError } from '@/lib/api/errors'
-import { actingDecision, type ActingDecisionSource } from './acting-session'
-import type { DecisionSource } from './telemetry'
+import { actingDecision } from './acting-session'
 
 /** What the decision records as how the person said yes. */
 export type PersonDecisionSource = 'app' | 'elicitation'
@@ -43,7 +42,3 @@ export function requirePersonDecision(what: string): PersonDecisionSource {
   throw new PersonDecisionRequiredError(what)
 }
 
-/** The door's decision source as a yes the acting session carries, or none: `app-unverified` is not one. */
-export function personYesOf(source: DecisionSource | undefined): { decisionSource?: ActingDecisionSource } {
-  return source === 'elicitation' || source === 'app' ? { decisionSource: source } : {}
-}

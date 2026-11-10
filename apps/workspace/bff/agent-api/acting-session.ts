@@ -22,6 +22,7 @@ import 'server-only'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import type { DecisionSource } from './telemetry'
 
 /**
  * Who reads the route's answer. `agent`: an agent called the operation (MCP), so
@@ -42,12 +43,11 @@ interface ActingCall {
 }
 
 /**
- * How the person said yes to an agent's call: answering the door's elicitation,
- * or an MCP Apps card in a client that declared it renders them. The door's
- * `app-unverified` is not one of these: a client that declared nothing may be
- * its model speaking, so it never counts as the person's yes.
+ * How the door says the person answered an agent's call (`telemetry.ts`):
+ * `elicitation`, `app`, or `app-unverified`, which `person-decision.ts` never
+ * counts as the person's yes (a client that declared nothing may be its model).
  */
-export type ActingDecisionSource = 'elicitation' | 'app'
+export type ActingDecisionSource = DecisionSource
 
 /** What else the call carries besides the person: the proposal it applies, or the yes it carries. */
 export interface ActingOrigin {
