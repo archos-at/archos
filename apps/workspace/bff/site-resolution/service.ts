@@ -66,7 +66,7 @@ async function recordedChains(session: Session, territoryIds: readonly string[])
   const chains = new Map<string, string[]>()
   await withTenant({ organizationId: session.organizationId }, async () => {
     for (const territoryId of new Set(territoryIds)) {
-      const parents = await readTerritoryParents(getDb(), territoryId)
+      const parents = await readTerritoryParents(getDb(), session.organizationId, territoryId)
       chains.set(territoryId, parents.has(territoryId) ? territoryChain(territoryId, parents) : [])
     }
   })

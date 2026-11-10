@@ -19,6 +19,7 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { readRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'
+import { recordReadable } from '@/lib/base-knowledge/store/visibility'
 import { decide, type StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import type { SiteAuthority } from './wire'
 
@@ -90,7 +91,7 @@ async function authorityNames(organizationId: string, ids: readonly string[]): P
     getDb().execute<{ id: string; name: string }>(sql`
       SELECT r.id, a.name FROM knowledge_records r
       JOIN knowledge_authority_revisions a ON a.revision_id = r.head_revision_id
-      WHERE r.type = 'authority' AND r.id = ANY(${sql.param([...ids])}::text[])`)
+      WHERE r.type = 'authority' AND r.id = ANY(${sql.param([...ids])}::text[]) AND ${recordReadable('r', organizationId)}`)
   )
   return new Map(rows.map((row) => [row.id, row.name]))
 }

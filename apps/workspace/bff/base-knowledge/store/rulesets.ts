@@ -26,6 +26,7 @@ import { failingExamples } from '../rulesets/decision-table'
 import { rulesetColumns } from '../rulesets/columns'
 import type { StoredRuleset } from '../rulesets/select'
 import { appendRevision, newRecordId, type RulesetBody } from './repository'
+import { recordReadable } from './visibility'
 
 /** Most rulesets one read returns: a country has one per purpose and node, so this is generous. */
 export const MAX_RULESETS = 500
@@ -155,6 +156,7 @@ export async function readRulesetsInForce(
         and(
           eq(knowledgeRecords.type, 'ruleset'),
           isNotNull(knowledgeRecords.headRevisionId),
+          recordReadable('knowledge_records', organizationId),
           eq(knowledgeRulesetRevisions.purpose, query.purpose),
           sql`${knowledgeRulesetRevisions.territoryIds} && ${sql.param([...query.territoryIds])}::text[]`
         )

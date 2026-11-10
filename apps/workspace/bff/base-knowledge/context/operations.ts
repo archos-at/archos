@@ -17,6 +17,7 @@ import { getDb } from '@/lib/db'
 import { projectBaseConfirmations } from '@/lib/db/schema/knowledge-context'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
+import { recordReadable } from '../store/visibility'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { insertChangeRequest } from '../platform/store'
 import type { CoverageLevel } from '../wire/vocab'
@@ -54,8 +55,8 @@ export async function readCoverage(session: AuthorizedSession, query: CoverageQu
     getDb().execute<CoverageRow>(sql`
       SELECT r.id, r.country_id, t.name, t.kind, t.coverage_level, t.municipal_law
       FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
-      WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.head_revision_id IS NOT NULL
-        AND knowledge_country_entitled(r.country_id) AND r.country_id = ANY(${sqlTextArray(countries)})
+      WHERE r.organization_id IS NULL AND r.type = 'territory' AND ${recordReadable('r', organizationId)}
+        AND r.country_id = ANY(${sqlTextArray(countries)})
         AND (t.coverage_level IS NOT NULL OR r.id = r.country_id)
       ORDER BY r.country_id, r.id
       LIMIT ${MAX_NODES * countries.length}`),
