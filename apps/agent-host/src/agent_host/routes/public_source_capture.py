@@ -6,8 +6,12 @@ public-source fetcher admits the backend roles only (ADR-0162, its
 NetworkPolicy). So the BFF asks here, and this route makes the request through
 :func:`public_sources.capture.capture_page`, which uses the same transport every
 source reader uses: the source's hosts checked at every redirect, a public
-address, GET only. It answers the bytes' sha256 and size and the page's text;
-the BFF stores them in the change request's capture.
+address, GET only. It answers the bytes' sha256 and size and the page's text
+(a PDF's pages joined by a form feed, with ``pages`` and a ``note`` when a scan
+has no text layer); the BFF stores them in the change request's capture. A refusal
+the reader names (a host off the source or no public address, ``egress_refused``;
+a body past the ceiling; a PDF behind a password, broken, too long or too slow)
+answers the problem's ``code`` beside its ``detail``.
 
 Public pages only, never a tenant's content, and nothing is kept here.
 Internal-token guarded like every other service-to-service route: reached from
@@ -20,6 +24,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -67,8 +72,10 @@ def _configured(config: dict[str, Any]):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-async def capture_public_source_page(body: CaptureRequest, _: None = Depends(_require_internal_token)) -> dict:
-    """Return ``{url, finalUrl, contentType, sha256, bytes, text, retrievedAt}`` for one page."""
+async def capture_public_source_page(
+    body: CaptureRequest, _: None = Depends(_require_internal_token)
+) -> dict | JSONResponse:
+    """Return ``{url, finalUrl, contentType, sha256, bytes, text, pages, note, retrievedAt}`` for one page."""
     from public_sources.capture import CaptureError
     from public_sources.capture import capture_page
     from public_sources.egress import EgressRefused
@@ -83,8 +90,10 @@ async def capture_public_source_page(body: CaptureRequest, _: None = Depends(_re
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except EgressRefused as exc:
         logger.info("public source capture refused: %s", exc)
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return JSONResponse(status_code=403, content={"detail": str(exc), "code": "egress_refused"})
     except CaptureError as exc:
+        if exc.code:
+            return JSONResponse(status_code=exc.status, content={"detail": str(exc), "code": exc.code})
         raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("public source capture failed for source %s", body.source)
@@ -96,6 +105,8 @@ async def capture_public_source_page(body: CaptureRequest, _: None = Depends(_re
         "sha256": page.sha256,
         "bytes": page.size,
         "text": page.text,
+        "pages": page.pages,
+        "note": page.note or None,
         "retrievedAt": page.retrieved_at,
     }
 
@@ -169,6 +180,8 @@ def add_public_source_capture_routes(router: APIRouter) -> None:
         "/v1/public-sources/capture",
         tags=["public-sources"],
         summary="Capture a page of a configured public source (internal)",
+        # A refusal with a problem code is a JSONResponse beside the dict, which no response model describes.
+        response_model=None,
     )(capture_public_source_page)
     router.post(
         "/v1/public-sources/check",

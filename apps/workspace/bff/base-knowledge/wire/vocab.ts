@@ -257,7 +257,7 @@ export const SOURCE_PROTOCOLS = ['rest', 'http_eli', 'web_document', 'ogc'] as c
 export type SourceProtocol = (typeof SOURCE_PROTOCOLS)[number]
 
 /** The format engines a source record may name (`packages/public-sources/src/engines`). */
-export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson'] as const
+export const SOURCE_FORMATS = ['ris_xml', 'akn', 'html_statute', 'geojson', 'pdf_document'] as const
 export type SourceFormat = (typeof SOURCE_FORMATS)[number]
 
 /** What may leave towards a source: nothing about a tenant, or a site point too (privacy review, design §6.4). */
