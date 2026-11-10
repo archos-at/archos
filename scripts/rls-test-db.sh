@@ -3359,3 +3359,39 @@ refused_in faults_0199 "INSERT INTO inbound_mails (organization_id, project_id, 
 apply_in faults_0199 0199_receive_faults.sql
 check_in faults_0199 "SELECT count(*) FROM pg_constraint WHERE conname IN ('inbound_mails_sender_unchecked_not_direct', 'inbound_mails_sender_unchecked_full_window', 'inbound_mails_reader_fault_held', 'inbound_mails_receive_progress_received')" "4" "0199 applies again after its down"
 echo "==> 0199 receive faults and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0200: office base knowledge (ADR-0158).
+#
+# On a database of its own, migrated through 0200: one entry per document (a
+# second work for the same document is refused), the records' identity is
+# fixed and revisions are append-only, a document's delete takes its records
+# with it, and the down drops the tables so 0200 applies again after it.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0200 base knowledge and its down migration on bk_0200"
+migrate_until bk_0200 0200_base_knowledge
+D200="d0000000-0000-4000-8000-000000000200"
+sql_in bk_0200 <<SQL
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope)
+  VALUES ('$D200', 'org_0200_a', 'user_0200', 'OENORM_B_1600.pdf', 'k/0200', 'archiv_org_0200_a', 'completed', 'office_shelf');
+INSERT INTO knowledge_records (id, organization_id, type, document_id, created_by)
+  VALUES ('work_0200', 'org_0200_a', 'work', '$D200', 'user_0200');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+  VALUES ('e0000000-0000-4000-8000-000000000200', 'work_0200', 'work', 'org_0200_a', 'user_0200');
+SQL
+check_in bk_0200 "SELECT count(*) FROM knowledge_records WHERE document_id = '$D200'" "1" "0200: a document's work record"
+refused_in bk_0200 "INSERT INTO knowledge_records (id, organization_id, type, document_id, created_by) VALUES ('work_0200_b', 'org_0200_a', 'work', '$D200', 'user_0200')" "knowledge_records_document_type_key" "a second work for one document"
+refused_in bk_0200 "INSERT INTO knowledge_records (id, organization_id, type, document_id, created_by) VALUES ('work_0200_p', NULL, 'work', '$D200', 'user_0200')" "knowledge_records_document_is_office" "a platform record that names an office's document"
+refused_in bk_0200 "UPDATE knowledge_records SET type = 'edition' WHERE id = 'work_0200'" "only head_revision_id" "a record's identity rewritten"
+refused_in bk_0200 "UPDATE knowledge_revisions SET created_by = 'someone' WHERE record_id = 'work_0200'" "append-only" "a revision rewritten"
+sql_in bk_0200 <<<"UPDATE knowledge_records SET head_revision_id = 'e0000000-0000-4000-8000-000000000200' WHERE id = 'work_0200';"
+check_in bk_0200 "SELECT head_revision_id FROM knowledge_records WHERE id = 'work_0200'" "e0000000-0000-4000-8000-000000000200" "0200: the head moves"
+# Removal is the document's delete: the records and their revisions go with it.
+sql_in bk_0200 <<<"DELETE FROM documents WHERE id = '$D200';"
+check_in bk_0200 "SELECT (SELECT count(*) FROM knowledge_records) + (SELECT count(*) FROM knowledge_revisions)" "0" "0200: a document's delete leaves no record or revision"
+# Down: the tables go; 0200 applies again.
+apply_in bk_0200 0200_base_knowledge.down.sql
+check_in bk_0200 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge\\_%'" "0" "0200 down drops every knowledge table"
+apply_in bk_0200 0200_base_knowledge.sql
+check_in bk_0200 "SELECT count(*) FROM pg_indexes WHERE indexname = 'knowledge_records_document_type_key'" "1" "0200 applies again after its down"
+echo "==> 0200 base knowledge and its down migration verified"
