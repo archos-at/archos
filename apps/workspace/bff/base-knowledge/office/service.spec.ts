@@ -226,8 +226,25 @@ describe('confirming', () => {
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.objectContaining({ workId: 'work_1' }),
       expect.objectContaining({ editionLabel: '2017-05-01' }),
-      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'person' } }),
+      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'reading', confirmedBy: 'user-1' } }),
     )
+  })
+
+  it('keeps who proposed the entry beside who confirmed it', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true, provenance: { proposedBy: 'agent', confirmedBy: 'user-1' } })])
+    const entry = await updateBaseKnowledge(MANAGER, 'work_1', { editionLabel: '2017-05-01' })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ provenance: { proposedBy: 'agent', confirmedBy: 'user-1' } }),
+    )
+    expect(entry).toMatchObject({ proposedBy: 'agent', confirmedBy: 'user-1' })
+  })
+
+  it('names nobody as confirming a proposal', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
+    const { entries } = await listBaseKnowledge(MANAGER, {})
+    expect(entries[0]).toMatchObject({ proposedBy: 'reading', confirmedBy: null })
   })
 
   it('keeps a licensed copy metadata-only when only office-wide use is stated', async () => {

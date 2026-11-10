@@ -25,6 +25,7 @@ function entry(id: string, values: Partial<BaseKnowledgeEntry['values']>, rest: 
     fileName: `${id}.pdf`,
     status: 'confirmed',
     proposedBy: 'person',
+    confirmedBy: 'user_1',
     textUse: 'used',
     aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
     createdAt: '2026-11-01T08:00:00.000Z',

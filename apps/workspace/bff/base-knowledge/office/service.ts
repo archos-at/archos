@@ -91,6 +91,7 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseK
     status: stored.confirmed ? 'confirmed' : 'proposed',
     values: stored.values,
     proposedBy: stored.provenance.proposedBy ?? 'reading',
+    confirmedBy: stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null,
     textUse: textUseOf(stored.values.licenceClass, stored.terms),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
@@ -258,7 +259,7 @@ async function writeValues(
   await writeConfirmedValues(stored, values, {
     organizationId: session.organizationId,
     createdBy: session.userId,
-    provenance: { proposedBy: 'person' },
+    provenance: { proposedBy: stored.provenance.proposedBy ?? 'reading', confirmedBy: session.userId },
     terms,
     firstCheck,
   })

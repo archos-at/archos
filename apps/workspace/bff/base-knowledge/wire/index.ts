@@ -153,8 +153,10 @@ export interface BaseKnowledgeEntry {
   textUse: 'used' | 'metadata_only'
   /** When the office stated that, or null. */
   aiProcessingAttestedAt: string | null
-  /** Who suggested the values in force: the masthead reading, an agent or a person. */
+  /** Who suggested the entry: the masthead reading, an agent or a person. Confirming keeps it. */
   proposedBy: 'reading' | 'agent' | 'person'
+  /** The user who confirmed the values in force, or last changed them; null while proposed or for an entry confirmed before this was kept. */
+  confirmedBy: string | null
   freshness: Freshness
   createdAt: string
 }
