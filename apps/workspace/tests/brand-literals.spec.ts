@@ -833,3 +833,11 @@ describe('a sheet keeps its edge on a filled section', () => {
     expect(frame).toContain("fill ? 'overflow-hidden pt-px'")
   })
 })
+
+describe('the row ⋯ hides nothing', () => {
+  it('the object menu trigger beside a name has no disc that would cover the line under it', () => {
+    const menu = withoutComments(readFileSync(join(ROOT, 'ui/features/documents/components/document-actions/document-object-menu.tsx'), 'utf8'))
+    expect(menu).toContain("className: 'size-8 shrink-0 rounded-full',")
+    expect(menu).not.toMatch(/bg-background\/\d+ backdrop-blur/)
+  })
+})
