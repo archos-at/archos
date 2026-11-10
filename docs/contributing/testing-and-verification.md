@@ -24,7 +24,7 @@ hour, and the tiers are far from equal (each task alone, 2026-11-10):
 
 | Task | Wall clock | CPU seconds |
 |---|---|---|
-| `workspace:test` (1,847 spec files) | 13m 24s | 2,310 |
+| `workspace:test` (1,872 spec files; 13m 24s and 2,310 CPU seconds before the vm pool) | 5m 51s | 946 |
 | `be:test:ci` (138s as `be:test`, without coverage) | 2m 48s | 463 |
 | `infra:test` | 1m 05s | 191 |
 | `be:test:api` | 44s | 127 |
@@ -95,6 +95,26 @@ Reach for the narrow task rather than the whole gate:
 Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
+
+**The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
+process runs many spec files, each in a fresh vm context, instead of one
+process per file (`pool: 'vmForks'` in `apps/workspace/vitest.config.ts`; the
+whole suite went from 800s to 351s on four cores, 2026-11-10). A context is a
+realm of its own, so specs still do not share globals, modules or mocks. Three
+things follow from the realm:
+
+- An object from Node itself (a `Buffer` off a socket, a `URL`, a
+  `DOMException` raised by a built-in) is not an `instanceof` the context's own
+  class. Test by shape, or list the spec in `PROCESS_PER_FILE` in the config
+  with the reason; those specs keep a process each (the `process` project).
+- `process.env` is shared by every spec a worker runs.
+  `config/vitest/polyfills.ts` puts it back to the worker's starting
+  environment before each spec file, so a spec may set a variable without
+  restoring it. Anything else a spec changes on `process` (`chdir`, a listener)
+  it must undo itself.
+- A worker's heap grows with every context; `vmMemoryLimit` replaces a worker
+  past 1.2 GB. Without it the first full run lost eleven workers to the heap
+  limit.
 
 **`next build` does not typecheck the specs; `task workspace:types` does.** The build
 reads `apps/workspace/tsconfig.build.json` (`typescript.tsconfigPath` in

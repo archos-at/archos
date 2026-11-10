@@ -62,3 +62,18 @@ if (typeof globalThis.EventSource === 'undefined') {
 if (typeof globalThis.BroadcastChannel === 'undefined') {
   globalThis.BroadcastChannel = BroadcastChannel as unknown as typeof globalThis.BroadcastChannel
 }
+
+// Under the vm pool a worker process runs many spec files, each in a context of
+// its own, and `process.env` is the one piece of state they share: a spec that
+// set a variable and never restored it handed it to whichever spec the worker
+// ran next (`bff/audit/service.spec.ts` read another spec's APP_URL). Every spec
+// file starts from the environment the worker started with.
+const ENV_BASELINE = Symbol.for('vitest.env-baseline')
+const shared = process as unknown as Record<symbol, Record<string, string | undefined> | undefined>
+const baseline = (shared[ENV_BASELINE] ??= { ...process.env })
+for (const name of Object.keys(process.env)) {
+  if (!(name in baseline)) delete process.env[name]
+}
+for (const [name, value] of Object.entries(baseline)) {
+  if (process.env[name] !== value) process.env[name] = value
+}
