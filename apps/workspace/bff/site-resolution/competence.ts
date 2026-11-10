@@ -22,17 +22,23 @@ import { readRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'
 import { decide, type StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import type { SiteAuthority } from './wire'
 
+const isState = (id: string): boolean => /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(id)
+const isCountry = (id: string): boolean => /^[A-Z]{2}$/.test(id)
+
 /**
  * The facts a competence table reads, from a chain read from the territory
  * records (leaf first): `municipality` the leaf, `state` its ISO 3166-2
  * subdivision, `country` its ISO 3166-1 code, and `district` a node between the
- * municipality and the state (a Bezirk), when the records hold one.
+ * municipality and the state (a Bezirk), when the records hold one. A chain
+ * whose leaf is a state or a country has no municipality.
  */
 export function siteFacts(chain: readonly string[]): Record<string, string> {
-  const [municipality, ...above] = chain
-  const state = above.find((id) => /^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(id))
-  const country = above.find((id) => /^[A-Z]{2}$/.test(id))
-  const district = above.find((id) => id !== state && id !== country)
+  const [leaf, ...above] = chain
+  const state = chain.find(isState)
+  const country = chain.find(isCountry)
+  // A site placed only to its Land (`AT-6`) has no municipality: its leaf is the state itself.
+  const municipality = leaf && !isState(leaf) && !isCountry(leaf) ? leaf : undefined
+  const district = municipality ? above.find((id) => id !== state && id !== country) : undefined
   return {
     ...(municipality ? { municipality } : {}),
     ...(district ? { district } : {}),

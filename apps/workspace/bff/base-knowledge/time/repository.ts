@@ -15,8 +15,7 @@ import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { transitionTableSchema, type DatedEdition } from '@/lib/base-knowledge/wire/time'
-import { territoryChain } from '../platform/applicability'
-import { readTerritoryParents } from '../platform/territories'
+import { readTerritoryParents, territoryChain } from '../platform/territories'
 import type { WorkInTime } from './as-of'
 
 /** Most editions one work has; a consolidated law has one per in-force date, so this is generous. */

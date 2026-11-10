@@ -87,11 +87,12 @@ const LISTING = {
   file: PLATFORM_SPEC,
   name: 'a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before',
 }
-const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna' }
+const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }
 const INDEX_FAILED = { file: PLATFORM_SPEC, name: 'records a corpus that does not know the file as failed, with why' }
 const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
+const COMPETENCE_IDS = { file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts', name: 'names a competence territory that is not imported, by pointer' }
 const SEAT = {
   file: 'apps/workspace/bff/base-knowledge/platform/validate.spec.ts',
   name: 'names a seat territory that is not imported, and a territory outside the request’s country, by pointer',
@@ -237,7 +238,8 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_authority_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_authority_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_authority_revisions.name', consumer: PLATFORM_READ, test: MA37 },
-  { element: 'knowledge_authority_revisions.competence_territory_ids', consumer: PLATFORM_READ, test: MA37 },
+  // Who is competent where is the competence rulesets since the cut-over (ADR-0175); the column is only validated on proposal.
+  { element: 'knowledge_authority_revisions.competence_territory_ids', consumer: PLATFORM_VALIDATE, test: COMPETENCE_IDS },
   { element: 'knowledge_authority_revisions.seat_territory_id', consumer: PLATFORM_VALIDATE, test: SEAT },
   { element: 'knowledge_authority_revisions.function_codes', awaits: SETUP },
   { element: 'knowledge_authority_revisions.identifiers', awaits: SETUP },
