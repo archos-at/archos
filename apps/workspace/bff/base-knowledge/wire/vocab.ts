@@ -1,6 +1,6 @@
 /**
  * Every closed vocabulary of the base knowledge records (migrations 0202,
- * 0204, 0205 and 0206, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
+ * 0204, 0205 and 0208, ADR-0163, ADR-0165 and ADR-0166): the one source of each word. The SQL CHECKs are held to these lists
  * by `vocab.spec.ts`, which also writes `tests/fixtures/base-knowledge.schema.json`,
  * the copy the Python tier reads (its licence classes are tested against it).
  * Pure, so the UI reads them too.
@@ -10,7 +10,7 @@ export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'rule
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /**
- * Every kind of instrument (design §3.5, migration 0206): how far it binds is
+ * Every kind of instrument (design §3.5, migration 0208): how far it binds is
  * its kind and its routes, never a flag on the record. Law binds in its
  * territory while in force; a model code, a standard or a guideline only where
  * a `makes_binding` route reaches it; a directive never binds a project

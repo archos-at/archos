@@ -2,7 +2,7 @@
  * The knowledge graph an office reads for a site (ADR-0168): the released
  * platform records it may read, and the office's own relations with the works
  * and editions they name. Every query runs as the office (`withTenant`) and
- * names the owner condition itself, so the layered RLS (0205, 0206) is the
+ * names the owner condition itself, so the layered RLS (0205, 0208) is the
  * backstop, not the filter:
  *
  * - a platform row has a head and belongs to a country the office is entitled

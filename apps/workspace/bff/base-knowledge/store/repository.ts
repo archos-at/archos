@@ -67,7 +67,7 @@ export interface StoredEntry extends EntryRecordIds {
 
 export const newRecordId = (type: KnowledgeRecordType) => `${type}_${randomUUID()}`
 
-/** The typed body table of each record type (0202, 0204, 0205, 0206). */
+/** The typed body table of each record type (0202, 0204, 0205, 0208). */
 const BODY_TABLES = {
   work: knowledgeWorkRevisions,
   edition: knowledgeEditionRevisions,

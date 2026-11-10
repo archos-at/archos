@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  *
- * The Austria pack in the records, against a REAL Postgres (migration 0206,
+ * The Austria pack in the records, against a REAL Postgres (migration 0208,
  * ADR-0168), every office read through the restricted runtime role:
  *
  *   bash scripts/rls-test-db.sh --only bff/base-knowledge/chain/chain.integration.spec.ts
@@ -210,7 +210,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     const [row] = await withPlatformAccess('chain spec relation', () =>
       db.execute<{ revision_id: string }>(sql`SELECT revision_id FROM knowledge_relation_revisions LIMIT 1`),
     )
-    // The runtime roles hold no UPDATE on a body (0206 revokes it); the append-only trigger stands behind that for the owner.
+    // The runtime roles hold no UPDATE on a body (0208 revokes it); the append-only trigger stands behind that for the owner.
     await expect(
       withPlatformAccess('chain spec update', () =>
         db.execute(sql`UPDATE knowledge_relation_revisions SET provision = 'x' WHERE revision_id = ${row.revision_id}`),

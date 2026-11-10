@@ -46,7 +46,7 @@ const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna
 const CHAIN_RESOLVE = 'apps/workspace/bff/base-knowledge/chain/resolve.ts'
 const CHAIN_TEXT = 'apps/workspace/bff/base-knowledge/chain/text.ts'
 const CHAIN_LOAD = 'apps/workspace/bff/base-knowledge/chain/load.ts'
-const CHAIN_MIGRATION = 'apps/workspace/migrations/0206_country_pack.sql'
+const CHAIN_MIGRATION = 'apps/workspace/migrations/0208_country_pack.sql'
 const RESOLVE_SPEC = 'apps/workspace/bff/base-knowledge/chain/resolve.spec.ts'
 const TEXT_SPEC = 'apps/workspace/bff/base-knowledge/chain/text.spec.ts'
 const CHAIN_SPEC = 'apps/workspace/bff/base-knowledge/chain/chain.integration.spec.ts'
@@ -177,7 +177,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
   { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },
-  // Migration 0206 (ADR-0168): relations, read by the resolver that gives every edition its role.
+  // Migration 0208 (ADR-0168): relations, read by the resolver that gives every edition its role.
   { element: 'knowledge_relation_revisions.revision_id', consumer: CHAIN_LOAD, test: STYRIA_DB },
   { element: 'knowledge_relation_revisions.record_id', consumer: CHAIN_MIGRATION, test: REACHED },
   { element: 'knowledge_relation_revisions.organization_id', consumer: CHAIN_LOAD, test: OFFICE_ROUTE },
