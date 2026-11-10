@@ -352,8 +352,15 @@ turns on the jurisdiction, say that the site is missing and ask for the country 
 def site_note(project_context: str | None) -> str | None:
     """The jurisdiction note for the turn context, or None for a covered site or no project.
 
-    A project placed in Austria reads nothing new: its prompt stays as it was.
+    A project placed in Austria reads nothing new: its prompt stays as it was. With the turn's
+    knowledge context bound (``knowledge-context``, ADR-0173) the BFF's gate speaks instead.
     """
+    from agent.common.knowledge_context import gate_note
+    from agent.common.knowledge_context import get_turn_knowledge_context
+
+    context = get_turn_knowledge_context()
+    if context is not None:
+        return gate_note(context)
     if not project_context or not project_context.strip():
         return None
     site = resolve_site(project_context)
@@ -362,6 +369,31 @@ def site_note(project_context: str | None) -> str | None:
     if site.country is None:
         return SITE_UNKNOWN_NOTE
     return UNCOVERED_SITE_NOTE.format(country=country_name(site.country), code=site.country)
+
+
+def jurisdiction_block(project_context: str | None, verdicts: Callable[[str], str | None]) -> str | None:
+    """The jurisdiction note and the project's verdicts (``verdicts``), as the turn context renders them.
+
+    Flag off: the note, else the verdicts. With the turn's knowledge context bound (ADR-0173) the
+    gate's note speaks, and a gate that withholds law renders no verdicts; one that reads it, both.
+    """
+    from agent.common.knowledge_context import get_turn_knowledge_context
+
+    note = site_note(project_context)
+    context = get_turn_knowledge_context()
+    if context is None:
+        return note or verdicts(project_context or "")
+    if context.withholds_law:
+        return note
+    return "\n\n".join(part for part in (note, verdicts(project_context or "")) if part) or None
+
+
+def doctrine_note(project_context: str | None) -> str | None:
+    """The note in place of the country's doctrine: the jurisdiction note, or a bound gate's that withholds law."""
+    from agent.common.knowledge_context import get_turn_knowledge_context
+
+    context = get_turn_knowledge_context()
+    return site_note(project_context) if context is None or context.withholds_law else None
 
 
 def austrian_corpus_applies(project_context: str | None) -> bool:
@@ -396,4 +428,9 @@ def austrian_only_sources(project_context: str | None) -> frozenset[str]:
     Joined to the switched-off sources, so a call is refused at the tools node with the same
     notice (the chat agent) or the tool is not offered (deep research), and the jurisdiction note says why.
     """
+    from agent.common.knowledge_context import law_tools_allowed
+
+    allowed = law_tools_allowed("AT")
+    if allowed is not None:
+        return frozenset() if allowed else AUSTRIAN_SOURCE_IDS
     return frozenset() if austrian_corpus_applies(project_context) else AUSTRIAN_SOURCE_IDS

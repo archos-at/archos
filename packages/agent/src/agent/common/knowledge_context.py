@@ -45,6 +45,8 @@ class KnowledgeContext:
     reason: str | None = None
     #: The coverage at the first leaf; None when not entitled, unplaced or unknown.
     coverage: str | None = None
+    #: The first leaf's country (ISO 3166-1 alpha-2); None when no site is placed.
+    site_country: str | None = None
     chains: dict[str, tuple[str, ...]] = field(default_factory=dict)
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
@@ -97,6 +99,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         return UNAVAILABLE
     leaves = [leaf for leaf in gate.get("leaves") or [] if isinstance(leaf, dict)][:MAX_LEAVES]
     coverage = leaves[0].get("coverage") if leaves and isinstance(leaves[0].get("coverage"), str) else None
+    site_country = leaves[0].get("country") if leaves and isinstance(leaves[0].get("country"), str) else None
     chains_raw = raw.get("chains")
     chains = {str(leaf): _strings(chain) for leaf, chain in chains_raw.items()} if isinstance(chains_raw, dict) else {}
     packs = {
@@ -109,6 +112,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         gate=str(gate["state"]),
         reason=gate.get("reason") if isinstance(gate.get("reason"), str) else None,
         coverage=coverage,
+        site_country=site_country,
         chains=chains,
         packs=packs,
         retrieval_countries=frozenset(countries),
@@ -183,9 +187,70 @@ def base_corpus_readable() -> bool | None:
     return None if context is None else bool(context.retrieval_countries)
 
 
+def law_tools_allowed(country: str) -> bool | None:
+    """Whether the turn may run ``country``'s law lookup; None when no context is bound (flag off).
+
+    Stricter than the corpus: a gate that withholds law (:attr:`KnowledgeContext.withholds_law`) withholds
+    the legal-database tools even where the turn may still read the office's entitled corpus (``site_unknown``).
+    """
+    context = _turn_knowledge_context.get()
+    if context is None:
+        return None
+    return not context.withholds_law and country.upper() in context.retrieval_countries
+
+
 def corpus_country_allowed(country: str) -> bool | None:
     """Whether the turn may read ``country``'s shared corpus and law tools; None when no context is bound (flag off)."""
     context = _turn_knowledge_context.get()
     if context is None:
         return None
     return country.upper() in context.retrieval_countries
+
+
+_GATE_NOTES: dict[str, str] = {
+    "organization_unplaced": (
+        "## Building law: the office's country is not set\n\n"
+        "No country's building law is read for this turn: the legal corpus and the legal-database tools are "
+        "withheld. Answer from the project's documents and general planning knowledge, present no rule as "
+        "binding, and say once that an administrator sets the office's country in the settings."
+    ),
+    "site_unknown": (
+        "## Building law: site not stated\n\n"
+        "Nothing places this project's site, so no country's building law is known to apply: no requirement is "
+        "presented as binding, no building class is derived, and the legal-database tools are not used. When the "
+        "answer turns on the jurisdiction, say that the site is missing and ask for the country and Land."
+    ),
+    "not_entitled": (
+        "## Building law: {country}, not included\n\n"
+        "The site is in {country}, whose building law this office's workspace does not include. Present no rule "
+        "as binding for it, derive no building class, and do not cite another country's law as a requirement "
+        "here. Say so once; the project's documents and general planning knowledge still answer."
+    ),
+    "knowledge_unavailable": (
+        "## Building law: not available this turn\n\n"
+        "The building-law base could not be read for this turn. Present no rule as binding and derive no "
+        "building class; say once that the building law could not be read just now and the person may ask again."
+    ),
+    "none": (
+        "## Building law: {country}, no base yet\n\n"
+        "No building-law base is held for {country} yet. Present no rule as binding for this site and derive "
+        "no building class; say once that its building law is not yet covered here."
+    ),
+    "open": (
+        "## Building law: {country}, open coverage\n\n"
+        "The base for {country} holds its works and editions, not yet reviewed in depth. Cite what it holds, and "
+        "say once that the coverage is open, so the person checks the source before relying on it."
+    ),
+}
+
+
+def gate_note(context: KnowledgeContext) -> str | None:
+    """What the turn context says about the gate (ADR-0173 §4.6); None for core or full with nothing moved. Pure."""
+    note = _GATE_NOTES.get(context.gate)
+    lines = [note.format(country=context.site_country or "the site's country")] if note else []
+    if context.updated_since_last_answer:
+        lines.append(
+            "The building-law base was updated since this conversation's last answer "
+            f"({', '.join(context.updated_since_last_answer)}). Where this answer differs from an earlier one, say so."
+        )
+    return "\n\n".join(lines) or None

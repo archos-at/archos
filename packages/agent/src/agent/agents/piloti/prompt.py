@@ -42,7 +42,7 @@ from agent.citations.roles import get_turn_building_law
 from agent.common import load_prompt
 from agent.common import render_prompt_template
 from agent.common.applicability import render_project_block
-from agent.common.country_profile import site_note
+from agent.common.country_profile import jurisdiction_block
 from agent.common.estate_paths import estate_path
 from agent.common.estate_paths import reads_the_estate
 from agent.common.norm_registry import parcel_note
@@ -365,10 +365,12 @@ def oib_applicability(project_context: str | None) -> str | None:
     A project placed outside Austria, or whose site nothing states, gets the
     jurisdiction note instead (``country_profile.site_note``, design A1): the
     verdicts are Austrian law. An Austrian project gets no note, and its block
-    renders as before. Fail-open, because a verdict list is never worth a turn.
+    renders as before. With the turn's knowledge context bound (ADR-0173) the gate's note
+    replaces the jurisdiction note, and a gate that withholds law renders no verdicts.
+    Fail-open, because a verdict list is never worth a turn.
     """
     try:
-        return site_note(project_context) or render_project_block(project_context or "")
+        return jurisdiction_block(project_context, render_project_block)
     except Exception:  # noqa: BLE001 — applicability must never break prompt building
         logger.warning("piloti: OIB applicability block failed — omitted", exc_info=True)
         return None
