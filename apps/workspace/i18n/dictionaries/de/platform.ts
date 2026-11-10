@@ -18,8 +18,8 @@ export const platform: typeof en.platform = {
     range: 'Geben Sie einen Wert von {min} bis {max} ein.',
   },
   countryKnowledge: {
-    disabledTitle: 'Plattformwissen ist nicht eingeschaltet',
-    disabledBody: 'Länder, ihre Einträge und die Prüfliste erscheinen hier, sobald die Plattform-Organisation das Flag platform-base-knowledge hat.',
+    disabledTitle: 'Kein Zugriff auf das Plattformwissen',
+    disabledBody: 'Länder, ihre Einträge und die Prüfliste sehen Mitglieder der Plattform-Organisation mit der Berechtigung, Plattformwissen zu lesen.',
     countriesTitle: 'Länder',
     countriesDescription: 'Was die Büros eines Landes von der Plattform lesen: freigegebene Einträge, offene Änderungsanträge, berechtigte Büros und Ausgaben, deren Prüfung fällig ist.',
     noneReleased: 'noch nichts freigegeben',
@@ -320,19 +320,14 @@ export const platform: typeof en.platform = {
       'Fügen Sie eine PDF hinzu oder ein ZIP mit vielen auf einmal — alle Projekte stützen ihre Antworten auf diesen Korpus.',
   },
   norms: {
+    retired: 'Normen ändern sich nur noch über einen geprüften Änderungsantrag im Länderwissen der Plattform. Dieser Katalog ist nur noch lesbar.',
+    retiredLink: 'Zum Länderwissen',
     title: 'Normenkatalog',
     description:
       'Kuratierte Zitierstellen des österreichischen Baurechts, die der Agent zitiert — im Unterschied zum Basiswissen, das die Volltexte enthält, gegen die geprüft wird.',
     entryCount: '{count} Einträge',
     entryCountOne: '1 Eintrag',
-    readOnly: 'Sie können den Katalog ansehen, aber nicht ändern.',
     loadError: 'Der Normenkatalog konnte nicht geladen werden.',
-    add: 'Neuer Eintrag',
-    save: 'Register speichern',
-    saved: 'Register gespeichert.',
-    saveError: 'Das Register konnte nicht gespeichert werden.',
-    invalid: 'Registry-Validierung fehlgeschlagen.',
-    unsaved: 'Ungespeichert',
     federal: 'Bund',
     empty: {
       title: 'Noch keine Einträge im Katalog',
@@ -341,13 +336,6 @@ export const platform: typeof en.platform = {
     noMatches: {
       title: 'Kein Eintrag passt zu diesen Filtern',
       description: 'Setzen Sie die Suche zurück oder wählen Sie einen anderen Rang bzw. Geltungsbereich.',
-    },
-    conflict: {
-      title: 'Der Katalog wurde parallel geändert',
-      description:
-        'Während Ihrer Bearbeitung wurde eine neuere Fassung gespeichert, Ihre Änderungen wurden daher nicht übernommen. Laden Sie neu, um auf dem aktuellen Katalog weiterzuarbeiten — dabei gehen sie verloren.',
-      reload: 'Verwerfen und neu laden',
-      toast: 'Der Katalog wurde parallel geändert — bitte vor dem Speichern neu laden.',
     },
     search: {
       placeholder: 'Titel, Kürzel, ID durchsuchen…',
@@ -445,12 +433,6 @@ export const platform: typeof en.platform = {
       advanced: 'Erweitert',
       advancedHint:
         'Selten nötig. Hier bleibt jedes gespeicherte Feld bearbeitbar — auch die von der RIS-Suche befüllten.',
-    },
-    delete: {
-      title: 'Eintrag löschen?',
-      description: 'Der Eintrag verlässt den Katalog. Wirksam erst nach dem Speichern.',
-      confirm: 'Löschen',
-      cancel: 'Abbrechen',
     },
     fields: {
       id: 'Katalog-ID',

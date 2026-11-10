@@ -259,6 +259,11 @@ describe('competence for a site', () => {
     })
   })
 
+  it('reads a site placed only to its Land as that state, with no municipality', () => {
+    expect(siteFacts(['AT-6', 'AT'])).toEqual({ state: 'AT-6', country: 'AT' })
+    expect(siteFacts(['AT'])).toEqual({ country: 'AT' })
+  })
+
   it('names the authority a ruleset in force decides for the Gemeinde (positive control)', () => {
     expect(authorityOf([competence([{ municipality: 'AT:gkz:60101', authorityId: 'authority:test-graz' }])], chain, '2026-11-10', names)).toEqual({
       status: 'decided',

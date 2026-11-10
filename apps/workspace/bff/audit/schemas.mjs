@@ -942,7 +942,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
 export const RETIRED_AUDIT_ACTIONS = /** @type {const} */ ([
   'archiv.document.uploaded',
   'archiv.document.deleted',
-  'archiv.document.renamed',
+  'archiv.document.renamed', 'platform.norm_registry.updated', // the registry takes no edits since ADR-0175
 ])
 
 /**

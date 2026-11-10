@@ -36,7 +36,7 @@ Three things decide the edition, and each varies by jurisdiction:
   `unknownInputs`, not a second implementation.
 - One store: editions, transitions and reference-date rules are platform records
   (ADR-0165), released through reviewed change requests, not a parallel table.
-- Flag off is today's behaviour.
+- Flag off is today's behaviour. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 
 ## Considered Options
 
@@ -92,7 +92,7 @@ Chosen option 2.
   (`packages/ris-adapter/src/lookup/as_of.py`).
 - **Flag.** `time-editions`, an entitlement. Off: the route answers 403 and
   `law-lookup` refuses `as_of` (the agent tier reads it as
-  `features.timeEditions` from `GET /api/internal/stages`).
+  `features.timeEditions` from `GET /api/internal/stages`). (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
 
 ### Rejected options and the premise each rests on
 

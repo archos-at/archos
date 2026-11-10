@@ -1,6 +1,6 @@
 /**
  * A territory's parents, read from the platform's territory records (ADR-0165),
- * so a pure caller can build its chain (`territoryChain` in `applicability.ts`).
+ * and the chain built from them (`territoryChain`).
  * Runs inside the caller's `withTenant`; names the owner and entitlement itself,
  * so the layered RLS is the backstop, not the filter.
  */
@@ -8,6 +8,21 @@
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import type { getDb } from '@/lib/db'
+
+/** Every territory `territoryId` lies in, itself first: its parents' chain, then its ISO 3166 country. Pure. */
+export function territoryChain(territoryId: string, parents: ReadonlyMap<string, readonly string[]>): string[] {
+  const chain: string[] = []
+  const queue = [territoryId]
+  while (queue.length > 0 && chain.length < 32) {
+    const next = queue.shift() as string
+    if (chain.includes(next)) continue
+    chain.push(next)
+    queue.push(...(parents.get(next) ?? []))
+    const iso = /^([A-Z]{2})-/.exec(next)
+    if (iso) queue.push(iso[1])
+  }
+  return chain
+}
 
 interface TerritoryRow extends Record<string, unknown> {
   id: string
