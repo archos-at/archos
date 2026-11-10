@@ -18,8 +18,8 @@ export const platform: typeof en.platform = {
     range: 'Geben Sie einen Wert von {min} bis {max} ein.',
   },
   countryKnowledge: {
-    disabledTitle: 'Plattformwissen ist nicht eingeschaltet',
-    disabledBody: 'Länder, ihre Einträge und die Prüfliste erscheinen hier, sobald die Plattform-Organisation das Flag platform-base-knowledge hat.',
+    disabledTitle: 'Kein Zugriff auf das Plattformwissen',
+    disabledBody: 'Länder, ihre Einträge und die Prüfliste sehen Mitglieder der Plattform-Organisation mit der Berechtigung, Plattformwissen zu lesen.',
     countriesTitle: 'Länder',
     countriesDescription: 'Was die Büros eines Landes von der Plattform lesen: freigegebene Einträge, offene Änderungsanträge, berechtigte Büros und Ausgaben, deren Prüfung fällig ist.',
     noneReleased: 'noch nichts freigegeben',

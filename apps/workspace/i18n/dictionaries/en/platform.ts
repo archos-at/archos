@@ -21,8 +21,8 @@ export const platform = {
     range: 'Enter a value from {min} to {max}.',
   },
   countryKnowledge: {
-    disabledTitle: 'Platform knowledge is not switched on',
-    disabledBody: 'Countries, their records and the review queue appear here once the platform organization has the platform-base-knowledge flag.',
+    disabledTitle: 'No access to platform knowledge',
+    disabledBody: 'Countries, their records and the review queue are shown to members of the platform organization who may read platform knowledge.',
     countriesTitle: 'Countries',
     countriesDescription: 'What offices in each country read from the platform: released records, open change requests, entitled offices, and editions overdue for a check.',
     noneReleased: 'nothing released yet',

@@ -54,14 +54,12 @@ describe('the registry', () => {
         'inbound-mail',
         'licensed-seam',
         'mail-import',
-        'office-base-knowledge',
         'office-conventions',
         'piloti-acts',
         'piloti-ask',
         'piloti-notices',
         'piloti-wakes',
         'platform-agent-mcp',
-        'platform-base-knowledge',
         'runtime-model-config',
         'skills',
         // Not a cost or a widening: a sweep that fetches public sources and opens review work (ADR-0174).
@@ -77,7 +75,7 @@ describe('the registry', () => {
 describe('the switches the cut-over removed (ADR-0175)', () => {
   // Which office reads which country is its entitlement rows, never a switch:
   // a slug coming back would bring a second, silent answer to that question.
-  const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions']
+  const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions', 'office-base-knowledge', 'platform-base-knowledge']
 
   it.each(RETIRED)('%s is not in the registry', (slug) => {
     expect(REGISTRY_FLAG_SLUGS as readonly string[]).not.toContain(slug)

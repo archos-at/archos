@@ -328,37 +328,6 @@ export const FEATURE_FLAGS = {
    */
   inboundMail: 'inbound-mail',
   /**
-   * The office's base knowledge (ADR-0163, ticket 32): an Archiv document can be
-   * recorded as a licensed standard, a commentary, an authority directive, a
-   * guideline or a law, with its edition, territory, authority and last check,
-   * and a turn tells the agent which of them the office holds and how far each
-   * binds. Read from the session by the routes (`requireFeature`) and per
-   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
-   *
-   * An entitlement, off until an operator targets the organization: licensed
-   * text reaches answers only once the licensed seam is in place. With it off
-   * the routes answer 403, the turn carries no base-knowledge block, and records
-   * already written stay untouched.
-   */
-  officeBaseKnowledge: 'office-base-knowledge',
-  /**
-   * The platform's own base knowledge (ADR-0165, migration 0205): territories,
-   * authorities, listed norms and texts as records that change only through a
-   * reviewed change request. For an office, its turn reads the norms the platform
-   * lists that it holds no copy of ("gelistet, kein Text") and the platform's
-   * authority directives that apply to the project, for the countries it is
-   * entitled to (`isOrgFeatureEnabled`). For the platform organization, its
-   * operators' view and routes answer (`isFeatureEnabled` on the session), and
-   * the norm registry stops taking edits (409): its pointers move into change
-   * requests.
-   *
-   * An entitlement, off until an operator targets the organization. With it off
-   * an office's turn is what it was (the stub's empty answers), the platform
-   * routes answer 403, the registry takes edits, and records already written
-   * stay untouched.
-   */
-  platformBaseKnowledge: 'platform-base-knowledge',
-  /**
    * Site resolution from official address registers hosted in the cell
    * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
    * hit places a project with its Gemeinde, Land and competent authority. Read
@@ -404,8 +373,6 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'office-conventions': 'entitlement',
   'licensed-seam': 'entitlement',
   'inbound-mail': 'entitlement',
-  'office-base-knowledge': 'entitlement',
-  'platform-base-knowledge': 'entitlement',
   'site-resolution': 'rollout',
   'source-monitors': 'entitlement',
   'web-search': 'rollout',

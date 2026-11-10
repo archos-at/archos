@@ -1,8 +1,7 @@
 /**
  * What the office layer asks of the platform's own base knowledge (ADR-0163,
  * ADR-0165), behind one interface. The platform's records (migration 0205)
- * answer it, behind the `platform-base-knowledge` flag per organization: with
- * the flag off an office reads exactly what the stub answered, nothing.
+ * answer it, for the countries each office is entitled to (ADR-0175).
  *
  * The outcome it serves: a norm the platform lists without text reads, for an
  * office that holds no copy, as "gelistet, kein Text"; for an office that holds

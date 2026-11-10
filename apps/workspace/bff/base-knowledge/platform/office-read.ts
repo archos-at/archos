@@ -11,8 +11,6 @@ import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
-import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import type { ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
 import { readTerritoryParents } from './territories'
 import { platformDirectiveApplies, type PlatformAddressee, type PlatformAuthority } from './applicability'
@@ -115,15 +113,13 @@ async function directivesFor(organizationId: string, territoryId: string | null)
   })
 }
 
-/** The platform as offices read it once its records exist; the stub's answers while the flag is off. */
+/** The platform as offices read it: the released records of the countries each office is entitled to. */
 export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return []
     const holds = new Set(held.map(designationKey))
     return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
   },
   async isReleased(organizationId, revisionId) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return false
     const rows = await withTenant({ organizationId }, () =>
       getDb().execute(sql`
         SELECT 1 FROM knowledge_revisions
@@ -133,7 +129,6 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
     return rows.length > 0
   },
   async directivesFor(organizationId, territoryId) {
-    if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.platformBaseKnowledge, organizationId))) return []
     return directivesFor(organizationId, territoryId)
   },
 }

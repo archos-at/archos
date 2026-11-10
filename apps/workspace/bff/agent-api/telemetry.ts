@@ -50,8 +50,6 @@ export interface McpCallContext {
    * 2025 era carries no capabilities), so the call may be its model's.
    */
   decisionSource?: DecisionSource
-  /** The platform has platform knowledge on, so the platform door offers the onboarding guide (ADR-0170). */
-  onboardingGuide?: boolean
   /**
    * Whether this caller's client renders MCP Apps (`mcp-apps.ts`): `declared`
    * on a 2026-07-28 request whose capabilities name the UI extension with the
