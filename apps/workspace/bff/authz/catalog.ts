@@ -260,6 +260,25 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
     tier: 'platform',
   },
   {
+    slug: 'platform:knowledge:approve_as_domain_expert',
+    name: 'Approve knowledge as domain expert',
+    description:
+      'Platform tier: approve a platform knowledge change request in the domain expert role. Never for a request the approver wrote in.',
+    tier: 'platform',
+  },
+  {
+    slug: 'platform:knowledge:approve_as_counsel',
+    name: 'Approve knowledge as counsel',
+    description: 'Platform tier: approve a platform knowledge change request in the counsel role.',
+    tier: 'platform',
+  },
+  {
+    slug: 'platform:knowledge:approve_as_second_reviewer',
+    name: 'Approve knowledge as second reviewer',
+    description: 'Platform tier: approve a platform knowledge change request in the second reviewer role.',
+    tier: 'platform',
+  },
+  {
     slug: 'platform:observability:view',
     name: 'View LLM observability',
     description:

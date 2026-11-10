@@ -15,7 +15,7 @@
  *   says so (the corpus itself is the backend's, and stands in here);
  * - a second office sees the std-asi listing as "gelistet, kein Text" once it
  *   is entitled to Austria, and nothing before (or with the flag off).
- * And the guards: four eyes, preview before stable, a conflict on a record
+ * And the guards: four eyes on verdicts and approvals, preview before stable, a conflict on a record
  * released since, and a tenant reading nothing of the change requests.
  */
 
@@ -73,7 +73,7 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
       await store.insertReviewDecisions(
         tx,
         id,
-        EXPERT,
+        { by: EXPERT, decisionSource: 'app' },
         view!.revisions.flatMap((revision) =>
           revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted' as const })),
         ),
@@ -288,6 +288,29 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
         store.insertApproval(tx, { changeRequestId: id, approver: AUTHOR, role: 'domain_expert', decisionSource: 'app' }),
       ),
     ).rejects.toThrow(/four eyes/)
+  })
+
+  it('refuses a verdict by the request’s own author (four eyes), and takes the expert’s with its source', async () => {
+    const id = await store.insertChangeRequest({ title: 'own review', countryId: 'AT', createdBy: AUTHOR })
+    await store.platformTransaction(async (tx) => {
+      const request = await store.lockChangeRequest(tx, id)
+      await store.insertProposedRecords(tx, request!, records([{ type: 'work', key: key('own-review'), kind: 'guideline', title: 'Eigen' }]), {
+        createdBy: AUTHOR,
+        proposedBy: 'agent',
+      })
+      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
+    })
+    const [revision] = (await store.readChangeRequest(id))!.revisions
+    const verdict = [{ revisionId: revision.revisionId, claimPath: 'title', decision: 'accepted' as const }]
+    await expect(
+      store.platformTransaction((tx) => store.insertReviewDecisions(tx, id, { by: AUTHOR, decisionSource: 'agent' }, verdict)),
+    ).rejects.toThrow(/four eyes/)
+    // Positive control: another person's verdict lands, with how it was given.
+    await store.platformTransaction((tx) => store.insertReviewDecisions(tx, id, { by: EXPERT, decisionSource: 'agent' }, verdict))
+    const sources = await withPlatformAccess('pbk spec verdicts', () =>
+      db.execute<{ source: string }>(sql`SELECT decision_source AS source FROM knowledge_review_decisions WHERE change_request_id = ${id}`),
+    )
+    expect(sources.map((row) => row.source)).toEqual(['agent'])
   })
 
   it('publishes to stable only after preview, and refuses a record released by another request since', async () => {

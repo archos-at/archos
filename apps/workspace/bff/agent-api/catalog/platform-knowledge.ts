@@ -138,7 +138,8 @@ export const platformKnowledgeOperations = [
     summary: 'Record verdicts on the claims of a submitted change request',
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
-      'rejected. A verdict is not an approval and changes nothing offices read.',
+      'rejected. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a ' +
+      'revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
@@ -151,8 +152,8 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Approve or reject a submitted change request',
     description:
-      'The person’s own decision, asked of them; approval needs every claim accepted and is refused (409) for anyone ' +
-      'who wrote a revision in the request. Audited.',
+      'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
+      'who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/decision',
     params: requestParams,

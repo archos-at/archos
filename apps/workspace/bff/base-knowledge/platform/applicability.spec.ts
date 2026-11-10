@@ -37,9 +37,21 @@ describe('platformDirectiveApplies', () => {
     expect(platformDirectiveApplies(ADDRESSEES, AUTHORITIES, PARENTS, null)).toEqual({ verdict: 'authority_unknown' })
   })
 
-  it('reads an addressee without a readable authority record by the territory it names', () => {
+  it('reads an addressee that names no authority record by the territory it names', () => {
     const named = [{ name: 'MA 37', territoryId: 'AT-9' }]
     expect(platformDirectiveApplies(named, new Map(), PARENTS, 'AT-6')).toEqual({ verdict: 'excluded' })
+    expect(platformDirectiveApplies(named, new Map(), PARENTS, 'AT-9').verdict).toBe('applies')
+  })
+
+  it('says the authority is unknown when its record cannot be read, rather than applying by its territory', () => {
+    // Rolled back, or a country the office is not entitled to: the record is gone from the map.
+    expect(platformDirectiveApplies(ADDRESSEES, new Map(), PARENTS, 'AT-9')).toEqual({ verdict: 'authority_unknown' })
+    expect(platformDirectiveApplies(ADDRESSEES, new Map(), PARENTS, 'AT-6')).toEqual({ verdict: 'authority_unknown' })
+  })
+
+  it('still applies by a readable addressee when another one cannot be read', () => {
+    const both = [{ name: 'gone', territoryId: 'AT-9', authorityId: 'authority:gone' }, ...ADDRESSEES]
+    expect(platformDirectiveApplies(both, AUTHORITIES, PARENTS, 'AT-9').verdict).toBe('applies')
   })
 })
 

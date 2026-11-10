@@ -46,7 +46,13 @@ points. A rollback appends the inverse moves. A publish over a record released
 by another request since this one was opened is a 409 (`base_release_seq`).
 
 **Four eyes, in the database.** An approval on a request holding a revision its
-approver wrote is refused by a trigger, not only by the service.
+approver wrote is refused by a trigger, not only by the service; so, since
+migration 0208, is a verdict on one of its claims, so the "every claim accepted"
+an approval checks never rests on the author's (or the author's agent's) word.
+A verdict needs no yes of its own, but records how it was given
+(`decision_source`: `app`, `elicitation`, or `agent` for an agent call the
+person did not confirm). An approval's role is one the approver holds in WorkOS
+(`platform:knowledge:approve_as_<role>`), never only what the client sent.
 
 **The person's own yes is a server-side primitive** (`requirePersonDecision`,
 `bff/agent-api/person-decision.ts`). Approve, publish, rollback, entitlement and
@@ -81,8 +87,10 @@ before.
 `apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts` under `task db:test:rls`
 (rollback round trip, MA 37 in Graz, indexing, the second office's listing, four eyes, the 409s,
 a tenant reading nothing of the change requests); the 0205 block of `scripts/rls-test-db.sh`
-(the triggers and the down); `bff/agent-api/person-decision.spec.ts` (the yes, through the real
-acting session); the element ledger (`bff/base-knowledge/consumers.ts`) for every new column.
+(the triggers and the down) and its 0208 block (four eyes on verdicts, the verdict's source);
+`bff/agent-api/person-decision.spec.ts` (the yes, through the real acting session);
+`bff/base-knowledge/platform/service.spec.ts` (approve, reject, publish, rollback, entitle and the
+home country each refused 403 without the person's yes, at the service; the approval role held); the element ledger (`bff/base-knowledge/consumers.ts`) for every new column.
 
 ### Consequences
 
