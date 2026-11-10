@@ -1357,7 +1357,7 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await user.type(await screen.findByRole('textbox', { name: /add tag/i }), 'Brandschutz{Enter}')
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
 
     // Switch to doc-b (the pane re-seeds from the newly selected file's tags)...
@@ -1376,9 +1376,9 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     // The reading is static again; open the editor to see what was saved.
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
-    expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeDefined()
   })
 })
 

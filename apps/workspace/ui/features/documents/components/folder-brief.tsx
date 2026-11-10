@@ -15,8 +15,8 @@ import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
+import { AsksYouChip } from '@/components/ui/asks-you-chip'
 import type { BulkReingestProgress } from '../hooks/use-bulk-reingest'
-import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { FolderReadState } from './folder-read-state'
 import { DocumentFindingsSection, useOpenOnFindingsLink } from './document-findings-panel'
 import { BRIEF_CHEVRON, BriefDisclosure } from './brief-disclosure'
@@ -146,15 +146,13 @@ export function FolderBrief({
   const td = useTranslations(dossierCopy)
   const { locale } = useLocale()
   const { tally } = brief
-  const phone = usePhoneLayout()
   // What it found, beside what it read: at the root, where the findings are the project's.
   const found = folderName === null && findings && findings.response.findings.length > 0 ? findings : null
   const foundCount = found?.response.findings.length ?? 0
   useOpenOnFindingsLink(foundCount > 0, collapsed, onCollapsedChange)
+  // On a phone too, at every level: shown at the root (for its finding) and gone in every folder, the read line was a
+  // rule nobody could see (review of 2026-11-10, finding 10).
   if (tally.total === 0) return null
-  // Nothing to act on, and a phone has no room for a line that only reassures: when every document is read the
-  // disclosure is gone. One unread, failed, held, unplaced or missing document, or a finding, brings it back, folded.
-  if (phone && briefHasNothingToSay(tally, folderName === null ? missing : null, foundCount)) return null
 
   // The title above names the folder; the line says only how far it reaches („and its subfolders“ where there are some).
   const scope = folderName
@@ -182,14 +180,18 @@ export function FolderBrief({
       role="region"
     >
       <Collapsible open={open} onOpenChange={(next) => onCollapsedChange(!next)}>
-        <h2 className="m-0">
+        {/* Folded, what it read is the quiet line and what asks the reader a chip of its own after it (`AsksYouChip`): at
+            the end of the grey sentence, 13px of ink had no weight (finding 12). */}
+        <h2 className={cn('m-0', !open && foundCount > 0 && 'flex flex-wrap items-center gap-x-2')}>
           <CollapsibleTrigger asChild>
             <button data-attr="folder-brief-toggle"
               type="button"
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                'hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs',
+                (open || foundCount === 0) && 'w-full',
+                'transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
                 open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */
               )}
               data-testid="folder-brief-toggle"
@@ -201,7 +203,7 @@ export function FolderBrief({
                 {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
                 {open && quietPages && <span className="text-muted-foreground tabular-nums">{CLAUSE_JOIN}{pagesLine}</span>}
                 {/* What it found is ink on the quiet line: one more clause, not a second strip (dev, 2026-11-10). */}
-                {foundCount > 0 && (
+                {open && foundCount > 0 && (
                   <span className="text-foreground tabular-nums" data-testid="folder-brief-findings-count">
                     {CLAUSE_JOIN}
                     {td('findings.count', { count: foundCount })}
@@ -211,6 +213,11 @@ export function FolderBrief({
               </span>
             </button>
           </CollapsibleTrigger>
+          {!open && foundCount > 0 && (
+            <AsksYouChip onPress={() => onCollapsedChange(false)} testId="folder-brief-findings-count">
+              {td('findings.count', { count: foundCount })}
+            </AsksYouChip>
+          )}
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
@@ -224,7 +231,9 @@ export function FolderBrief({
 
           {/* Ordered by what the reader has to do: what needs them first, open; then what is missing, what the folder
               is about and where the trouble sits, each folded to one line (open in full it was taller than a laptop). */}
-          <div className="flex flex-col gap-1" data-testid="folder-brief-sections">
+          {/* A measure for its sentences, and each action right after its own: across the page „Anzeigen“ stood 1300px
+              from the sentence it acts on (finding 12). */}
+          <div className="flex max-w-[720px] flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
@@ -251,19 +260,6 @@ type Translate = ReturnType<typeof useTranslations>
 /** Every document Piloti is meant to read has been read: nothing reading, failed or held. */
 export function everythingRead(tally: KnowledgeTally): boolean {
   return tally.reading + tally.failed + tally.held === 0 && tally.readable === tally.total - tally.unindexed
-}
-
-/**
- * True when the brief would only reassure: everything is read, nothing waits to
- * be placed in a document type, and the agent misses nothing here (`missing` is
- * the root's list, null in a folder or while unknown).
- */
-export function briefHasNothingToSay(
-  tally: KnowledgeTally,
-  missing: readonly MissingDocument[] | null | undefined,
-  findings = 0
-): boolean {
-  return everythingRead(tally) && tally.unplaced === 0 && (missing?.length ?? 0) === 0 && findings === 0
 }
 
 function briefHeadline(tally: KnowledgeTally, t: Translate): string {

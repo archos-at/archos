@@ -441,10 +441,9 @@ export const FileCard = memo(function FileCard({
             {/* The name the document goes by. The format chip beside it still
                 comes from the FILE name, because that is what the bytes are —
                 a rename changes the label, never the format. */}
-            {/* Two lines kept on every tile, the second empty under a short name, so every meta line of a row stands on
-                one baseline (findings 7 and 17): whole, broken between words, else cut in the middle (`FileName`). The
-                first line leaves its end to the ⋯, which stands there; the second has the whole width. */}
-            <p className="text-name text-foreground min-h-10 min-w-0">
+            {/* Two lines at most, whole and broken between words, else cut in the middle (`FileName`, findings 5 and 17).
+                The first line leaves its end to the ⋯, which stands there; the second has the whole width. */}
+            <p className="text-name text-foreground min-w-0">
               <FileName text={name} lines={2} firstLineInset={actions && !selection ? TILE_ACTIONS_INSET : 0} />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
@@ -526,7 +525,9 @@ export const FileCard = memo(function FileCard({
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot cursor-pointer flex-wrap items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground"
+          // `mt-auto` (the footer's own): the grid stretches a row's tiles to one height, so every meta line of a row
+          // stands on one baseline, the empty line under a one-line name beside a two-line one (finding 7).
+          className={cn('@container/foot group/foot cursor-pointer items-start justify-start gap-1.5 pt-0.5 text-xs text-muted-foreground', where ? 'flex-nowrap' : 'flex-wrap')}
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}

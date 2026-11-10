@@ -48,11 +48,12 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     if (cs.clip && cs.clip !== 'auto') return false
     return true
   }
-  // The text a reader sees: a screen reader's copy of a drawn name (`.sr-only` beside its `aria-hidden` lines) is not.
+  // The text a reader sees: a screen reader's copy of a drawn name (`.sr-only` beside its `aria-hidden` lines) is not,
+  // nor what is not drawn at this width (`phone:hidden`).
   const shownText = (el) => {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
     let text = ''
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (!node.parentElement?.closest('.sr-only')) text += node.textContent
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (!node.parentElement?.closest('.sr-only') && node.parentElement?.checkVisibility() !== false) text += node.textContent
     return text
   }
   const reachable = (el) => {

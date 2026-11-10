@@ -20,13 +20,13 @@ In a project chat that already has a file attached, **Dateien verwalten** also o
 
 Every way of uploading takes several files at once.
 
-In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files. Inside a folder the page's title is the folder's name, and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up; on a phone the arrow before the title goes up one level. „Auswählen“ and „Neuer Ordner“ stand at the end of the tabs' row (on a phone in the `⋯`). Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
+In Dateien, folders are the drill-down inside the listing, on the **„Ordner“** tab: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. At the top level the title is „Dateien“ under the project's name; inside a folder the title is the folder's name with what it holds beside it („240 Elemente“), and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up. The „Ordner“ tab takes you back to the top level from any folder. On a phone the line above the title names the parent folder (the levels above it behind „…“) and the arrow before the title goes up one level. The level's tools stand in one row under the tabs: the search, „Filter“ and the view on the left, „Auswählen“, „Ordner anlegen“, „Hochladen“ and `⋯` on the right; on a narrower window „Ordner anlegen“ moves into the „Hochladen“ menu (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
 The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — **„Neuer Ordner“** at the end of the tabs' row opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Create** — **„Ordner anlegen“** in the row under the tabs (or in the „Hochladen“ menu on a narrower window) opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
 - **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
 - **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
@@ -198,8 +198,8 @@ Additional limits:
 
 ## Moving a file into a folder
 
-Drag it onto the folder — a card, a row, or „Alle Dateien“ or any folder in the
-breadcrumb to move it up. The folder lights up as the target while you are over
+Drag it onto the folder — a card, a row, or „Dateien“ or any folder in the
+line above the title to move it up. The folder lights up as the target while you are over
 it. Folders move the same way.
 
 To reach a folder that is not on screen, hold the drag over a folder (or a
@@ -217,7 +217,7 @@ your desktop and a drag carrying a document already here are different things to
 the browser, and only the first raises the upload overlay.
 
 Files from your desktop go where you drop them, too: onto a folder card or row
-to upload into that folder, onto „Alle Dateien“ or a folder in the breadcrumb to
+to upload into that folder, onto „Dateien“ or a folder in the line above the title to
 upload there, anywhere else in the file area to upload into the folder you are
 looking at. The overlay names the folder before you let go.
 

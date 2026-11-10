@@ -143,7 +143,8 @@ describe('FolderBrief — what needs the reader comes first', () => {
   it('names what a folded section holds on its one line, and opens on a click', async () => {
     renderBrief()
     const toggle = screen.getByTestId('folder-brief-about-toggle')
-    expect(toggle).toHaveTextContent('Grundriss · Schnitt · Brandschutz')
+    // A tag still stored in German reads as its translation in English (finding 21).
+    expect(toggle).toHaveTextContent('Floor plan · Section · Fire safety')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -283,11 +284,17 @@ describe('FolderBrief — what it found', () => {
   }
   const READ = [file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] })]
 
-  it('counts the findings on the folded line, in the same block as what it read', () => {
-    renderBrief(READ, { missing: null, collapsed: true, findings })
-    const toggle = screen.getByTestId('folder-brief-toggle')
-    expect(toggle).toHaveTextContent('All 2 documents read in this project · 1 finding')
+  it('folded, says what it read quietly and what asks the reader as a chip of its own that opens the brief', async () => {
+    // „1 finding“ was 13px of ink at the end of a grey sentence (review of 2026-11-10, finding 12).
+    const onCollapsedChange = vi.fn()
+    renderBrief(READ, { missing: null, collapsed: true, findings, onCollapsedChange })
+    expect(screen.getByTestId('folder-brief-toggle')).toHaveTextContent(/^All 2 documents read in this project$/)
+    const chip = screen.getByTestId('folder-brief-findings-count')
+    expect(chip).toHaveAttribute('data-slot', 'asks-you-chip')
+    expect(chip).toHaveTextContent('1 finding')
     expect(screen.queryByTestId('document-findings-panel')).not.toBeInTheDocument()
+    await userEvent.click(chip)
+    expect(onCollapsedChange).toHaveBeenCalledWith(false)
   })
 
   it('opens to the findings as a section of the brief, under the id the upload report links to', () => {

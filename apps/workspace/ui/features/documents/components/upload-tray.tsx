@@ -26,7 +26,7 @@ import { AnimatePresence, iconSwapTransition, motion, motionBase, useMotionToken
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
+import { formatByteProgress, formatBytes, formatDurationShort, formatTransferRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { FilingViewBar } from './filing-bar'
@@ -245,7 +245,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           truncated to an ellipsis while three buttons sat beside them at full
           size. The summary now holds a readable floor and the actions drop to a
           second line when they no longer fit beside it. */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 phone:gap-2">
         <TrayGlyph summary={summary} offline={isWaitingForNetwork} />
 
         <button data-attr="files-toggle-expanded"
@@ -259,7 +259,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           // second line separated by `gap-3` (12px), and a 10px overhang eats
           // most of that gap, so a tap aimed at "Retry all" lands on the summary
           // instead. A hit box has to stay inside its own flex line.
-          className="min-w-40 flex-1 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+          className="min-w-32 flex-1 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11"
         >
           {/* Polite, not assertive: the phase changes two or three times per
               batch and each one is worth hearing, but the byte counter beneath
@@ -282,9 +282,11 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
             160px floor and the expander does not fit 390px, and the
             expander is what wrapped. */}
         {hasHeaderActions && (
-          <div className="order-3 flex basis-full items-center justify-end gap-3 sm:order-2 sm:basis-auto">
+          // While sending, „Alle abbrechen“ is a text press on the headline's own row: on its own row it left a 60px
+          // empty band on a phone (finding 20). Settled, the retry and dismiss presses take a row of their own there.
+          <div className={cn('flex items-center justify-end gap-3', summary.isSettled ? 'order-3 basis-full sm:order-2 sm:basis-auto' : 'order-2')}>
           {isTransferring && onCancelAll && (
-            <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={onCancelAll}>
+            <Button type="button" variant="ghost" size="sm" className="-mx-2 shrink-0" onClick={onCancelAll}>
               {t('uploads.actions.cancelAll')}
             </Button>
           )}
@@ -312,7 +314,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? t('uploads.actions.collapse') : t('uploads.actions.expand')}
-          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:size-11"
+          className="order-2 flex size-7 shrink-0 sm:order-3 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:-m-2 pointer-coarse:size-11"
         >
           <ChevronDown
             className={cn(
@@ -855,12 +857,7 @@ function trayDetail(
   const { bytesPerSecond, etaSeconds, processingElapsed, locale, t } = context
 
   if (summary.stage === 'transferring') {
-    const parts = [
-      t('uploads.detail.bytes', {
-        done: formatBytes(summary.uploadedBytes, locale),
-        total: formatBytes(summary.totalBytes, locale),
-      }),
-    ]
+    const parts = [t('uploads.detail.bytes', formatByteProgress(summary.uploadedBytes, summary.totalBytes, locale))]
     if (bytesPerSecond !== null) parts.push(formatTransferRate(bytesPerSecond, locale))
     if (etaSeconds !== null && etaSeconds > 0) {
       parts.push(t('uploads.detail.eta', { time: formatDurationShort(etaSeconds, locale) }))

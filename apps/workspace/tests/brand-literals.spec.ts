@@ -462,6 +462,9 @@ const WORD_GHOSTS_ALLOWED: Record<string, string> = {
   'ui/features/documents/components/file-filter-menu.tsx#file-filter-direction': 'a menu row: it flips the order the row above chose',
   'ui/features/inbound-mail/components/mail-text.tsx#text.showLess': 'disclosure: it shows the rest of the mail already there',
   'ui/features/inbound-mail/components/mail-text.tsx#text.hideQuoted': 'disclosure: it shows the quoted mail already there',
+  // Review of 2026-11-10, findings 18 and 20: beside a bar's one action, a press of its weight read as a second action.
+  'ui/features/documents/components/selection-bar.tsx#selection-all': 'it refines the pick beside the bar’s one action, the move',
+  'ui/features/documents/components/upload-tray.tsx#uploads.actions.cancelAll': 'the tray’s way out, on the headline’s row: as a press it took a row of its own on a phone',
 }
 
 describe('a press looks pressable', () => {
@@ -891,7 +894,11 @@ describe('Dateien in a real project (round 6)', () => {
 
   it('never cuts the selection’s count, and lets the brief’s line wrap rather than cut', () => {
     const bar = doc('selection-bar')
-    expect(bar).toMatch(/className="flex-1 whitespace-nowrap text-sm font-medium tabular-nums"/)
+    expect(bar).toMatch(/className="whitespace-nowrap text-sm font-medium tabular-nums"/)
+    // The move keeps its word on a phone and „Alle auswählen“ is a text press, not a second press of its weight
+    // (review of 2026-11-10, finding 18).
+    expect(bar).not.toMatch(/phone:sr-only/)
+    expect(bar).toMatch(/variant="link"[\s\S]{0,400}data-testid="selection-all"/)
     expect(bar).not.toMatch(/selection-count[\s\S]{0,40}truncate|truncate[^"]*"\s*role="status"/)
     expect(doc('folder-brief')).not.toMatch(/folder-brief-toggle[\s\S]{0,900}?\btruncate\b/)
   })
@@ -910,5 +917,36 @@ describe('Dateien in a real project (round 6)', () => {
     // Glyphs alone beside the rail were four boxes to guess (finding 2); a strip that scrolled cut „Papierkorb“ off.
     expect(nav).toMatch(/compactOnPhone && !active && 'phone:sr-only'\)/)
     expect(nav).toMatch(/onTrack && 'md:@max-\[44rem\]\/section:hidden'/)
+  })
+})
+
+describe('Dateien after the review of 2026-11-10 (round 7)', () => {
+  const doc = (component: string): string => source(`ui/features/documents/components/${component}.tsx`)
+
+  it('stands every meta line of a row on one baseline: the tiles stretch and the meta line keeps the foot', () => {
+    // Finding 7: a PDF's meta line stood 34px under its neighbour's, under an empty row and a two-line name.
+    const card = doc('file-card')
+    expect(card).not.toMatch(/group\/foot mt-0/)
+    expect(source('ui/features/documents/components/file-tile.tsx')).toMatch(/text-muted-foreground mt-auto flex w-full/)
+    expect(card).toMatch(/documentBadgeState\(\{ versionState: file\.versionState/)
+  })
+
+  it('gives the brief’s read line 24px over it and 32px under it, and the upload sheet 24px over it', () => {
+    // Finding 11: 24px over the first label, it read as the folders' caption.
+    expect(doc('file-browser-pane')).toMatch(/className=\{`\$\{CONTENT_MAX\} px-4 pb-4 pt-6`\}/)
+    expect(readFileSync(join(ROOT, 'ui/features/documents/components/upload-tray-sheet.ts'), 'utf8')).toMatch(/UPLOAD_TRAY_SHEET = 'mt-2 mb-4 /)
+  })
+
+  it('draws a request that asks the reader as an edged ink chip, never in a verdict’s colour', () => {
+    // Finding 12, and „Asks you“ in the design language.
+    const chip = source('ui/components/ui/asks-you-chip.tsx')
+    expect(chip).toMatch(/'bg-sheet shadow-press text-foreground [^']*h-7 [^']*rounded-full/)
+    expect(chip).not.toMatch(/ochre|warning|destructive|signal/)
+    expect(doc('folder-brief')).toMatch(/<AsksYouChip onPress=\{\(\) => onCollapsedChange\(false\)\}/)
+  })
+
+  it('keeps „Alle abbrechen“ on the upload tray’s headline row while it sends', () => {
+    // Finding 20: on its own row it left a 60px empty band on a phone.
+    expect(doc('upload-tray')).toMatch(/summary\.isSettled \? 'order-3 basis-full sm:order-2 sm:basis-auto' : 'order-2'/)
   })
 })

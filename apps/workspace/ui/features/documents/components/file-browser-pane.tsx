@@ -989,19 +989,19 @@ export function FileBrowserPane({
         <motion.div
           key={`grid-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 20)}
-          // 4px on top: a folder tile's own 10px inset and a tile's 6px already part it from the brief.
-          className={`${CONTENT_MAX} px-4 pb-4 pt-1`}
+          // 32px from the brief's read line to the first label, so the line reads as the level's and not as the
+          // folders' caption (finding 11); 24px under the tool row where there is no brief.
+          className={`${CONTENT_MAX} px-4 pb-4 pt-6`}
         >
             {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
                 slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`
                 until hydration. The level's transition carries the grid: one animation, a Finder-style drill. */}
-            {/* One grammar at every level: the folders first, a grid of their own, then the files, each under its label
-                when both kinds are there („Ordner“, „Dateien“, 32px apart, 12px over their tiles). A subfolder mixed
-                them in one grid and stretched „Index C“ to a thumbnail's height (finding 9). */}
+            {/* One grammar at every level: folders first, then files, each labelled when both are there (32px apart, 12px
+                over their tiles); a subfolder mixed them and stretched „Index C“ to a thumbnail's height (finding 9). */}
             {folderNav && childFolders.length > 0 && (
-              <section aria-label={t('folders.heading')} data-testid="folder-grid">
+              <section aria-label={t('folders.heading')} data-testid="folder-tiles">
                 {bothKinds && (
-                  <SectionLabel as="p" className="mb-3 px-0" data-testid="folders-label">
+                  <SectionLabel as="p" className="mb-1.5 px-0" /* 12px to the sheets, past the tiles' 6px inset */ data-testid="folders-label">
                     {t('folders.heading')}
                   </SectionLabel>
                 )}
@@ -1015,7 +1015,7 @@ export function FileBrowserPane({
             {orderedFiles.length > 0 && (
               <section aria-label={t('browser.recentlyUploaded')} className={cn(bothKinds && 'mt-8')}>
                 {bothKinds && (
-                  <SectionLabel as="p" className="mb-3 px-0">
+                  <SectionLabel as="p" className="mb-1.5 px-0">
                     {t('browser.recentlyUploaded')}
                   </SectionLabel>
                 )}

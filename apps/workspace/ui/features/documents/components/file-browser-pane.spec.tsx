@@ -250,6 +250,44 @@ describe('FileBrowserPane — folder drill-down', () => {
     expect(row.className).not.toMatch(/\brounded|\bshadow/)
   })
 
+  // Review of 2026-11-10, findings 9 and 10: a subfolder mixed its folders and files in one grid (a folder stretched to
+  // a thumbnail's height), and the root labelled its kinds while a subfolder did not.
+  it('draws every level in one grammar: its folders first, then its files, each labelled when both are there', () => {
+    renderPane({ files: [{ ...files[0], folderId: 'root-1' }], folderNav: folderNav('root-1') })
+    const folderTiles = screen.getByTestId('folder-tiles')
+    expect(within(folderTiles).getByTestId('folder-card-child-1')).toBeInTheDocument()
+    expect(within(folderTiles).queryByTestId('file-card')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folders-label')).toHaveTextContent('Folders')
+    expect(screen.getByText('Files', { selector: 'p' })).toBeInTheDocument()
+    expect(folderTiles.compareDocumentPosition(screen.getByTestId('file-card')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('labels neither kind where the level holds only one', () => {
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null) })
+    expect(screen.getByTestId('folder-tiles')).toBeInTheDocument()
+    expect(screen.queryByTestId('folders-label')).not.toBeInTheDocument()
+  })
+
+  it('starts each result’s meta line with the folder it lies in: a search spans every folder', async () => {
+    // Finding 13: results said nothing of where they were.
+    const user = userEvent.setup()
+    renderPane({ files: [], searchFiles: [{ ...files[1], folderId: 'root-2' }], folderNav: folderNav(null) })
+    await user.type(screen.getByRole('textbox', { name: /search files/i }), 'permit')
+    expect(screen.getByTestId('file-card-where')).toHaveTextContent('Bescheide')
+  })
+
+  it('keeps „Select“ in place where the level holds only folders, disabled, so nothing moves under the pointer', () => {
+    // Finding 19: the press came and went with the level's files and moved „Create folder“ under the pointer.
+    renderPane({ files: [], searchFiles: files, folderNav: folderNav(null), selection: { active: false, selectedIds: new Set(), onToggle: vi.fn(), onStart: vi.fn() } })
+    expect(screen.getByTestId('selection-start')).toBeDisabled()
+  })
+
+  it('marks an empty level so its own Hochladen is the pane’s one ink press', () => {
+    // Finding 8: two black Hochladen (the toolbar's and the empty state's; a phone's floating one and the empty state's).
+    const { container } = renderPane({ files: [], searchFiles: files, folderNav: folderNav('root-2') })
+    expect(container.querySelector('[data-empty-level]')).not.toBeNull()
+  })
+
   it('a typed query escapes the current folder and searches the corpus', async () => {
     const user = userEvent.setup()
     renderPane({

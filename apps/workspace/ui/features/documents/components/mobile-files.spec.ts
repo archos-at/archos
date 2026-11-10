@@ -114,3 +114,24 @@ describe('the Papierkorb', () => {
     expect(bin).toMatch(/<ConfirmDialog[\s\S]*?onConfirm=\{purge\}/)
   })
 })
+
+describe('the list keeps its columns at a laptop’s width and says them on a phone', () => {
+  // Review of 2026-11-10, findings 14, 15 and 22: at 1024px beside the rail Größe, Hinzugefügt and the head were gone,
+  // a phone's file row was one 40px line with nothing but its name, and a folder of 240 had no head to sort by.
+  const layout = read('file-list-layout.ts')
+  const list = read('file-list-view.tsx')
+  it('steps Größe and the head in from a 36rem list and Hinzugefügt from 42rem', () => {
+    expect(layout).toMatch(/FILE_LIST_SIZE_CELL = '[^']*@xl\/filelist:table-cell'/)
+    expect(layout).toMatch(/FILE_LIST_DATE_CELL = '[^']*@2xl\/filelist:table-cell'/)
+    expect(list).toMatch(/<TableHeader className="bg-background sticky top-0 z-10 hidden @xl\/filelist:table-header-group">/)
+  })
+  it('pins the head in the pane’s scroll, so the table does not scroll sideways on its own', () => {
+    expect(list).toMatch(/<Table\s+scrollX=\{false\}/)
+  })
+  it('says size and age on a narrow row’s second line, for files and folders alike', () => {
+    expect(layout).toMatch(/FILE_LIST_META_LINE = '[^']*@xl\/filelist:hidden'/)
+    expect(list).toMatch(/className=\{FILE_LIST_META_LINE\} data-testid="file-list-meta"/)
+    expect(read('folder-table-row.tsx')).toMatch(/<span className=\{FILE_LIST_META_LINE\}>/)
+    expect(read('folder-table-row.tsx')).toMatch(/changedAt \? <TimeAgo date=\{changedAt\} locale=\{locale\} \/> : '—'/)
+  })
+})

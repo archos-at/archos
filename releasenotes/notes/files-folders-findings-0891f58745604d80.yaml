@@ -1,14 +1,29 @@
 ---
 improvements:
   - >
-    Inside a folder in Dateien, the page's title is now the folder's name, and
-    the line above it shows the way there, with each step one click back up.
-    Long folder names show in full on two lines instead of being cut.
+    The first tab in Dateien is now called „Ordner“, and inside a folder the
+    page's title is the folder's name, with how many items it holds beside it.
+    The line above the title shows the way there, each step one click back up,
+    and on a phone it names the folder above.
   - >
-    Findings from the documents are now part of the overview at the top of
-    Dateien: its line says how many there are, and opening it lists them
-    with the documents they come from.
+    The search, the filter, the view and the buttons for the folder you are in
+    now stand in one row under the tabs, which no longer breaks into several
+    lines next to a long folder name. On a narrower window „Ordner anlegen“ is
+    in the „Hochladen“ menu.
   - >
-    The upload menu now says which formats you can upload and the size limit,
-    and that you can drop files anywhere on the page. The extra upload tile
-    among your files is gone.
+    Long file names are no longer broken in the middle of a word: a name that
+    does not fit on two lines keeps its beginning and its end, with the file
+    extension. Folder cards are all the same height, with the full name when
+    you point at it.
+  - >
+    Every folder shows its subfolders first and its files after them. The list
+    view keeps the size and date columns on a laptop screen, and on a phone
+    each row shows them under the name.
+  - >
+    Findings from the documents now stand as a button next to the line that
+    says what was read, and open the overview at the top of Dateien.
+  - >
+    The upload menu says which formats you can upload and the size limit, and
+    that you can drop files anywhere on the page. An empty folder shows one
+    „Hochladen“ button, and the upload panel shows its progress as „3,0 von
+    6,0 MB“.

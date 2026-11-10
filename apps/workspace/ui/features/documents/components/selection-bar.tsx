@@ -57,24 +57,29 @@ export function SelectionBar({
       >
         <X aria-hidden />
       </Button>
-      <p
-        // Never cut: on a phone the count was „2 a…“ beside two labelled presses; the move press gives way instead.
-        className="flex-1 whitespace-nowrap text-sm font-medium tabular-nums"
-        role="status"
-        data-testid="selection-count"
-      >
-        {t('selection.count', { count })}
-      </p>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onSelectAll}
-        disabled={count >= total}
-        data-testid="selection-all"
-      >
-        {t('selection.all')}
-      </Button>
+      {/* The count, and „Alle auswählen“ as a text press after it (under it on a phone): it was a press of the move's
+          weight, and on a phone the move lost its word to make room (review of 2026-11-10, finding 18). */}
+      <div className="flex min-w-0 flex-1 items-center gap-x-3 phone:flex-col phone:items-start">
+        <p
+          // Never cut: on a phone the count was „2 a…“ beside two labelled presses.
+          className="whitespace-nowrap text-sm font-medium tabular-nums"
+          role="status"
+          data-testid="selection-count"
+        >
+          {t('selection.count', { count })}
+        </p>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground h-auto px-0 py-0 font-normal phone:text-xs"
+          onClick={onSelectAll}
+          disabled={count >= total}
+          data-testid="selection-all"
+        >
+          {t('selection.all')}
+        </Button>
+      </div>
       {canMove && (
         <Button
           type="button"
@@ -82,11 +87,10 @@ export function SelectionBar({
           className="gap-2"
           onClick={onMove}
           disabled={count === 0}
-          title={t('selection.move')}
           data-testid="selection-move"
         >
           <FolderInput className="size-4" aria-hidden />
-          <span className="phone:sr-only">{t('selection.move')}</span>
+          {t('selection.move')}
         </Button>
       )}
       </div>
