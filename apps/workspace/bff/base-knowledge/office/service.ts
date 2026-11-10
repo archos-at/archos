@@ -24,7 +24,11 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
-import { deleteOfficeShelfDocument, uploadOfficeShelfDocument, type OfficeShelfRemoval } from '@/lib/office-shelf/service'
+import {
+  deleteOfficeShelfDocument,
+  uploadOfficeShelfDocument,
+  type OfficeShelfRemoval,
+} from '@/lib/office-shelf/service'
 import { forgetKeysFor } from '../http/idempotency'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
@@ -55,7 +59,12 @@ import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
-import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments, type EntryDocument } from './repository'
+import {
+  readShelfDocument,
+  shelfNameHasEntry,
+  visibleOfficeDocuments,
+  type EntryDocument,
+} from './repository'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
@@ -71,7 +80,8 @@ export class BaseKnowledgeDisabledError extends ForbiddenError {
 }
 
 function requireEnabled(session: AuthorizedSession): void {
-  if (!isFeatureEnabled(session, FEATURE_FLAGS.officeBaseKnowledge)) throw new BaseKnowledgeDisabledError()
+  if (!isFeatureEnabled(session, FEATURE_FLAGS.officeBaseKnowledge))
+    throw new BaseKnowledgeDisabledError()
 }
 
 function requireManage(session: AuthorizedSession): void {
@@ -79,7 +89,8 @@ function requireManage(session: AuthorizedSession): void {
   if (!canManageOfficeShelf(session)) throw new ForbiddenError()
 }
 
-const reader = (session: AuthorizedSession) => shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
+const reader = (session: AuthorizedSession) =>
+  shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
 
 function toEntry(stored: StoredEntry, document: EntryDocument, now: Date): BaseKnowledgeEntry {
   return {
@@ -127,29 +138,47 @@ export async function listBaseKnowledge(
   const matching = entries.filter((entry) => matches(entry, query))
   const start = query.cursor ? Number(query.cursor) : 0
   const end = start + (query.limit ?? ENTRY_PAGE)
-  return { enabled, canManage, entries: matching.slice(start, end), nextCursor: end < matching.length ? String(end) : null }
+  return {
+    enabled,
+    canManage,
+    entries: matching.slice(start, end),
+    nextCursor: end < matching.length ? String(end) : null,
+  }
 }
 
 async function findEntry(
   session: AuthorizedSession,
   entryId: string
 ): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry; document: EntryDocument }> {
-  const stored = (await readOfficeEntries(session.organizationId)).find((entry) => entry.workId === entryId)
-  if (!stored) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-  const documents = await visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session))
+  const stored = (await readOfficeEntries(session.organizationId)).find(
+    (entry) => entry.workId === entryId
+  )
+  if (!stored)
+    throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
+  const documents = await visibleOfficeDocuments(
+    session.organizationId,
+    [stored.documentId],
+    await reader(session)
+  )
   const document = documents.get(stored.documentId)
-  if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
+  if (!document)
+    throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
   return { stored, entry: toEntry(stored, document, new Date()), document }
 }
 
-export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
+export async function getBaseKnowledgeEntry(
+  session: AuthorizedSession,
+  entryId: string
+): Promise<BaseKnowledgeEntry> {
   requireEnabled(session)
   return (await findEntry(session, entryId)).entry
 }
 
 /** The given values over the base, field by field; `undefined` keeps the base's. */
 function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
-  const defined = Object.fromEntries(Object.entries(given).filter(([, value]) => value !== undefined))
+  const defined = Object.fromEntries(
+    Object.entries(given).filter(([, value]) => value !== undefined)
+  )
   const values = { ...base, ...defined } as EntryValues
   // Only a directive addresses an authority.
   return values.kind === 'authority_directive' ? values : { ...values, addressees: [] }
@@ -157,8 +186,28 @@ function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
 
 /** The entry values a body states; a body's other fields (its statements, its document) are not values. */
 function valuesOf(body: Partial<EntryValues>): Partial<EntryValues> {
-  const { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass } = body
-  return { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass }
+  const {
+    kind,
+    title,
+    designation,
+    editionLabel,
+    issuedOn,
+    territoryIds,
+    issuer,
+    addressees,
+    licenceClass,
+  } = body
+  return {
+    kind,
+    title,
+    designation,
+    editionLabel,
+    issuedOn,
+    territoryIds,
+    issuer,
+    addressees,
+    licenceClass,
+  }
 }
 
 /**
@@ -175,7 +224,11 @@ export async function proposeBaseKnowledge(
   proposedBy: KnowledgeProvenance['proposedBy'] = 'reading'
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
-  const document = await readShelfDocument(session.organizationId, body.documentId, await reader(session))
+  const document = await readShelfDocument(
+    session.organizationId,
+    body.documentId,
+    await reader(session)
+  )
   if (!document) throw new NotFoundError('No Archiv document with this id; list the Archiv first.')
   const workId = await recordProposal(session, body, document.fileName, proposedBy)
   await withholdText(session, body.documentId)
@@ -190,7 +243,9 @@ async function recordProposal(
   proposedBy: KnowledgeProvenance['proposedBy']
 ): Promise<string> {
   if (await documentHasEntry(session.organizationId, body.documentId)) {
-    throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
+    throw new ConflictError(
+      'This document is already recorded as base knowledge; edit that entry instead.'
+    )
   }
   const given = valuesOf(body)
   const values = merged(proposeFromReading({ fileName }), given)
@@ -214,14 +269,25 @@ export async function uploadBaseKnowledge(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  { folderId = null, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null } = {}
+  {
+    folderId = null,
+    ...given
+  }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null } = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   // Before any bytes are written: an upload under an existing name replaces that
   // document's file in place, and a recorded copy's file is changed through its
   // entry (remove it, or record the new edition under another name), never here.
-  if (await shelfNameHasEntry(session.organizationId, documentNameKey(file.name), await reader(session))) {
-    throw new ConflictError('A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.')
+  if (
+    await shelfNameHasEntry(
+      session.organizationId,
+      documentNameKey(file.name),
+      await reader(session)
+    )
+  ) {
+    throw new ConflictError(
+      'A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.'
+    )
   }
   let workId: string | null = null
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
@@ -263,7 +329,9 @@ async function writeValues(
     firstCheck,
   })
   // A proposal's text is held whatever its class: confirming is what releases it.
-  const before = stored.confirmed ? textUseOf(stored.values.licenceClass, stored.terms) : 'metadata_only'
+  const before = stored.confirmed
+    ? textUseOf(stored.values.licenceClass, stored.terms)
+    : 'metadata_only'
   const after = textUseOf(values.licenceClass, terms)
   if (after === 'metadata_only') await withholdText(session, stored.documentId)
   else if (before === 'metadata_only') await releaseText(session, stored.documentId)
@@ -278,7 +346,8 @@ export async function confirmBaseKnowledge(
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
-  if (found.stored.confirmed) throw new ConflictError('This entry is already confirmed; edit it instead.')
+  if (found.stored.confirmed)
+    throw new ConflictError('This entry is already confirmed; edit it instead.')
   const values = merged(found.stored.values, valuesOf(body))
   requireAttestation(values, body)
   await writeValues(session, found, values, body, true)
@@ -293,7 +362,8 @@ export async function updateBaseKnowledge(
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
-  if (!found.stored.confirmed) throw new ConflictError('This entry is still a proposal; confirm it instead.')
+  if (!found.stored.confirmed)
+    throw new ConflictError('This entry is still a proposal; confirm it instead.')
   await writeValues(session, found, merged(found.stored.values, valuesOf(body)), {}, false)
   return (await findEntry(session, entryId)).entry
 }
@@ -310,9 +380,11 @@ export async function setBaseKnowledgeLicence(
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
-  if (!found.stored.confirmed) throw new ConflictError('This entry is still a proposal; confirm it instead.')
+  if (!found.stored.confirmed)
+    throw new ConflictError('This entry is still a proposal; confirm it instead.')
   const values = merged(found.stored.values, valuesOf(body))
-  if (values.licenceClass === 'licensed' && found.stored.values.licenceClass !== 'licensed') requireAttestation(values, body)
+  if (values.licenceClass === 'licensed' && found.stored.values.licenceClass !== 'licensed')
+    requireAttestation(values, body)
   await writeValues(session, found, values, body, false)
   return (await findEntry(session, entryId)).entry
 }
@@ -340,11 +412,17 @@ export async function recordBaseKnowledgeCheck(
  * and the kept answers to repeated writes about it are dropped. The receipt
  * says what each store reports; `removed` only when nothing is left.
  */
-export async function removeBaseKnowledge(session: AuthorizedSession, entryId: string, request: Request): Promise<BaseKnowledgeRemoval> {
+export async function removeBaseKnowledge(
+  session: AuthorizedSession,
+  entryId: string,
+  request: Request
+): Promise<BaseKnowledgeRemoval> {
   requireManage(session)
   const { stored } = await findEntry(session, entryId)
   const stores = await deleteOfficeShelfDocument(session, stored.documentId, request)
-  const caches = (await forgetKeysFor(session.organizationId, [entryId, stored.documentId])) ? 'removed' : 'failed'
+  const caches = (await forgetKeysFor(session.organizationId, [entryId, stored.documentId]))
+    ? 'removed'
+    : 'failed'
   return {
     removed: stores.search !== 'failed' && stores.objects === 'removed' && caches === 'removed',
     stores: { ...stores, records: 'removed', caches },
@@ -370,17 +448,29 @@ export interface BaseKnowledgeTurn {
   labels: OfficeAnswerLabel[]
 }
 
-export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
+export async function baseKnowledgeForTurn(
+  organizationId: string,
+  projectId: string | null
+): Promise<BaseKnowledgeTurn | null> {
   if (!(await isOrgFeatureEnabled(FEATURE_FLAGS.officeBaseKnowledge, organizationId))) return null
   const stored = (await readOfficeEntries(organizationId)).filter((entry) => entry.confirmed)
-  const held = stored.flatMap((entry) => (entry.values.designation ? [entry.values.designation] : []))
+  const held = stored.flatMap((entry) =>
+    entry.values.designation ? [entry.values.designation] : []
+  )
   const [documents, profile, listed] = await Promise.all([
-    visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
+    visibleOfficeDocuments(
+      organizationId,
+      stored.map((entry) => entry.documentId),
+      SCREENED_ONLY
+    ),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
     platformKnowledge().listedNotHeld(organizationId, held),
   ])
   const facts = profile?.profile?.facts ?? {}
-  const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value })
+  const territory = projectTerritory({
+    federalState: facts.federal_state?.value,
+    country: facts.country?.value,
+  })
   const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
   const entries = stored.flatMap((entry) => {

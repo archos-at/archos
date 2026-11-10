@@ -7,6 +7,7 @@
  */
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
+import { rulesetColumns } from '../rulesets/columns'
 import type { ProposedRecord } from './wire'
 
 export function recordIdOf(record: ProposedRecord): string {
@@ -27,8 +28,17 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
       return [{ id: `edition:${record.editionKey}`, type: 'edition' }]
     case 'work':
       return record.addressees.flatMap((addressee) =>
-        addressee.authorityKey ? [{ id: `authority:${addressee.authorityKey}`, type: 'authority' as const }] : [],
+        addressee.authorityKey
+          ? [{ id: `authority:${addressee.authorityKey}`, type: 'authority' as const }]
+          : []
       )
+    case 'ruleset':
+      return [
+        ...record.values.workIds.map((id) => ({ id, type: 'work' as const })),
+        ...(record.values.basisEditionId
+          ? [{ id: record.values.basisEditionId, type: 'edition' as const }]
+          : []),
+      ]
     default:
       return []
   }
@@ -49,6 +59,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
           territoryId,
           ...(authorityKey ? { authorityId: `authority:${authorityKey}` } : {}),
         })),
+        historyAvailableFrom: record.historyAvailableFrom,
       }
     case 'edition':
       return {
@@ -57,6 +68,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         issuedOn: record.issuedOn,
         inForceFrom: record.inForceFrom,
         inForceTo: record.inForceTo,
+        transition: record.transition,
       }
     case 'manifestation':
       return {
@@ -75,6 +87,8 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         validFrom: record.validFrom,
         validTo: record.validTo,
       }
+    case 'ruleset':
+      return rulesetColumns(record.values)
     case 'authority':
       return {
         name: record.name,
@@ -87,7 +101,14 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
 }
 
 /** Body columns that are no claim a reviewer decides: keys and the copy's licence statements. */
-const NOT_CLAIMS = new Set(['revisionId', 'recordId', 'organizationId', 'terms', 'sha256', 'textStatus'])
+const NOT_CLAIMS = new Set([
+  'revisionId',
+  'recordId',
+  'organizationId',
+  'terms',
+  'sha256',
+  'textStatus',
+])
 
 /** The claims of a stored body: every column a reviewer accepts, edits or rejects. */
 export function claimsOf(body: Record<string, unknown>): { path: string; value: unknown }[] {

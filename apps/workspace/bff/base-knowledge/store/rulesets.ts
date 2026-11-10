@@ -23,6 +23,7 @@ import {
 import { rulesetValuesSchema, type RulesetValuesInput } from '../wire/ruleset'
 import type { RulesetPurpose } from '../wire/vocab'
 import { failingExamples } from '../rulesets/decision-table'
+import { rulesetColumns } from '../rulesets/columns'
 import type { StoredRuleset } from '../rulesets/select'
 import { appendRevision, newRecordId, type RulesetBody } from './repository'
 
@@ -53,18 +54,7 @@ export function writableRuleset(input: RulesetValuesInput) {
 }
 
 function bodyOf(values: ReturnType<typeof writableRuleset>): RulesetBody {
-  const table = values.body.kind === 'table' ? values.body : null
-  return {
-    purpose: values.purpose,
-    territoryIds: values.territoryIds,
-    workIds: values.workIds,
-    validFrom: values.validFrom,
-    validTo: values.validTo,
-    basisEditionId: values.basisEditionId,
-    inherits: table ? null : 'parent',
-    payloadSchema: table ? table.payloadSchema : null,
-    payload: table ? table.payload : null,
-  }
+  return rulesetColumns(values)
 }
 
 /**

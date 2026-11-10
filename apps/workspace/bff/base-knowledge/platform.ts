@@ -52,11 +52,20 @@ export const STUB_PLATFORM_KNOWLEDGE: PlatformKnowledge = {
  */
 const RECORDS: PlatformKnowledge = {
   listedNotHeld: async (organizationId, held) =>
-    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(organizationId, held),
+    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(
+      organizationId,
+      held
+    ),
   isReleased: async (organizationId, revisionId) =>
-    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.isReleased(organizationId, revisionId),
+    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.isReleased(
+      organizationId,
+      revisionId
+    ),
   directivesFor: async (organizationId, territoryId) =>
-    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.directivesFor(organizationId, territoryId),
+    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.directivesFor(
+      organizationId,
+      territoryId
+    ),
 }
 
 let current: PlatformKnowledge = RECORDS

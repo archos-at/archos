@@ -59,7 +59,10 @@ type Licence = NonNullable<Awaited<ReturnType<typeof licenceOfDocument>>>
  * held (`textHeldFor`: unconfirmed, whatever its class, or licensed and unattested). Null for a person or any
  * other document.
  */
-async function guardedCopyForAgent(session: AuthorizedSession, documentId: string): Promise<Licence | null> {
+async function guardedCopyForAgent(
+  session: AuthorizedSession,
+  documentId: string
+): Promise<Licence | null> {
   if (!actingReaderIsAgent()) return null
   // A copy the person cannot open is not found, whatever its licence: the refusal below would say it exists.
   await getAccessibleDocument(session, documentId)
@@ -68,7 +71,10 @@ async function guardedCopyForAgent(session: AuthorizedSession, documentId: strin
     licence = await licenceOfDocument(session.organizationId, documentId)
   } catch {
     // The records cannot be read: for an agent, a copy we cannot classify is treated as licensed and unattested.
-    throw notSent('LICENSED_COPY_UNKNOWN', 'Whether this document is a licensed copy could not be read; try again.')
+    throw notSent(
+      'LICENSED_COPY_UNKNOWN',
+      'Whether this document is a licensed copy could not be read; try again.'
+    )
   }
   return licence?.licensed || licence?.held ? licence : null
 }
@@ -87,7 +93,10 @@ function notSent(code: string, message: string): ApiError {
 }
 
 /** Refuse a licensed copy's file, link or version to an agent. A person, and every other document, pass. */
-export async function refuseLicensedFileForAgent(session: AuthorizedSession, documentId: string): Promise<void> {
+export async function refuseLicensedFileForAgent(
+  session: AuthorizedSession,
+  documentId: string
+): Promise<void> {
   const copy = await guardedCopyForAgent(session, documentId)
   if (!copy) return
   if (copy.held) throw held()
@@ -132,7 +141,10 @@ export async function doorTextOf<T extends { text: string; truncated: boolean }>
   const wanted = preview.text.slice(0, budget - used)
   // The add is atomic: two calls in flight cannot both spend what is left. Past the budget, this call keeps less.
   const total = await incrementCounter(key, wanted.length, DOOR_QUOTE_WINDOW_MS)
-  const text = total === null ? wanted : wanted.slice(0, Math.max(0, wanted.length - Math.max(0, total - budget)))
+  const text =
+    total === null
+      ? wanted
+      : wanted.slice(0, Math.max(0, wanted.length - Math.max(0, total - budget)))
   if (wanted.length > 0 && text.length === 0) throw capReached(budget)
   return { ...preview, text, truncated: preview.truncated || text.length < preview.text.length }
 }
@@ -141,7 +153,10 @@ export async function doorTextOf<T extends { text: string; truncated: boolean }>
  * The documents among `documentIds` whose passages an AGENT may not see: licensed copies, held copies, and any
  * whose record cannot be read (fail closed). Empty for a person.
  */
-export async function licensedCopiesForAgent(session: AuthorizedSession, documentIds: string[]): Promise<Set<string>> {
+export async function licensedCopiesForAgent(
+  session: AuthorizedSession,
+  documentIds: string[]
+): Promise<Set<string>> {
   if (!actingReaderIsAgent()) return new Set()
   const verdicts = await Promise.all(
     [...new Set(documentIds)].map(async (id) => {
@@ -157,14 +172,22 @@ export async function licensedCopiesForAgent(session: AuthorizedSession, documen
 }
 
 /** A search response as an agent may receive it: a licensed copy's passage replaced by the note. */
-export async function searchForAgent(session: AuthorizedSession, response: SearchResponse): Promise<SearchResponse> {
+export async function searchForAgent(
+  session: AuthorizedSession,
+  response: SearchResponse
+): Promise<SearchResponse> {
   const section = response.sections.document
   if (!section || !actingReaderIsAgent()) return response
   const withPassage = section.hits.filter((hit) => hit.passage)
-  const licensed = await licensedCopiesForAgent(session, withPassage.map((hit) => hit.id))
+  const licensed = await licensedCopiesForAgent(
+    session,
+    withPassage.map((hit) => hit.id)
+  )
   if (licensed.size === 0) return response
   const hits = section.hits.map((hit) =>
-    hit.passage && licensed.has(hit.id) ? { ...hit, passage: { ...hit.passage, text: LICENSED_SNIPPET_NOTE } } : hit
+    hit.passage && licensed.has(hit.id)
+      ? { ...hit, passage: { ...hit.passage, text: LICENSED_SNIPPET_NOTE } }
+      : hit
   )
   return { ...response, sections: { ...response.sections, document: { ...section, hits } } }
 }
@@ -175,7 +198,9 @@ export async function similarForAgent(
   response: SimilarPassagesResponse
 ): Promise<SimilarPassagesResponse> {
   if (!actingReaderIsAgent()) return response
-  const ids = response.groups.flatMap((group) => group.documents.map((document) => document.documentId))
+  const ids = response.groups.flatMap((group) =>
+    group.documents.map((document) => document.documentId)
+  )
   const licensed = await licensedCopiesForAgent(session, ids)
   if (licensed.size === 0) return response
   return {
@@ -184,7 +209,13 @@ export async function similarForAgent(
       ...group,
       documents: group.documents.map((document) =>
         licensed.has(document.documentId)
-          ? { ...document, passages: document.passages.map((passage) => ({ ...passage, snippet: LICENSED_SNIPPET_NOTE })) }
+          ? {
+              ...document,
+              passages: document.passages.map((passage) => ({
+                ...passage,
+                snippet: LICENSED_SNIPPET_NOTE,
+              })),
+            }
           : document
       ),
     })),

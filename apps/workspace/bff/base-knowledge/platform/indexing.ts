@@ -30,9 +30,16 @@ const MAX_RUNS = 500
 export const platformTextIndexPayloadSchema = z.object({ runId: z.uuid() })
 export type PlatformTextIndexPayload = z.infer<typeof platformTextIndexPayloadSchema>
 
-async function markRun(runId: string, state: 'queued' | 'failed', failure: string | null): Promise<void> {
+async function markRun(
+  runId: string,
+  state: 'queued' | 'failed',
+  failure: string | null
+): Promise<void> {
   await withPlatformAccess(REASON, () =>
-    getDb().update(knowledgeIndexRuns).set({ state, failure, updatedAt: new Date() }).where(eq(knowledgeIndexRuns.id, runId)),
+    getDb()
+      .update(knowledgeIndexRuns)
+      .set({ state, failure, updatedAt: new Date() })
+      .where(eq(knowledgeIndexRuns.id, runId))
   )
 }
 
@@ -42,7 +49,7 @@ async function markRun(runId: string, state: 'queued' | 'failed', failure: strin
  */
 export async function enqueueIndexRuns(
   platformOrganizationId: string | null,
-  runIds: readonly string[],
+  runIds: readonly string[]
 ): Promise<{ enqueued: number; failed: number }> {
   let failed = 0
   for (const runId of runIds) {
@@ -57,7 +64,11 @@ export async function enqueueIndexRuns(
       })
     } catch (error) {
       failed += 1
-      await markRun(runId, 'failed', `the indexing job was not enqueued: ${error instanceof Error ? error.message : String(error)}`)
+      await markRun(
+        runId,
+        'failed',
+        `the indexing job was not enqueued: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
   return { enqueued: runIds.length - failed, failed }
@@ -67,22 +78,30 @@ export async function enqueueIndexRuns(
 export async function runPlatformTextIndex(
   _organizationId: string,
   payload: PlatformTextIndexPayload,
-  attempt: { last: boolean },
+  attempt: { last: boolean }
 ): Promise<void> {
   const [run] = await withPlatformAccess(REASON, () =>
-    getDb().select().from(knowledgeIndexRuns).where(eq(knowledgeIndexRuns.id, payload.runId)),
+    getDb().select().from(knowledgeIndexRuns).where(eq(knowledgeIndexRuns.id, payload.runId))
   )
   if (!run || run.state !== 'requested') return
   try {
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile])
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
-      await markRun(run.id, 'failed', `the base corpus has no file ${run.corpusFile}; upload it, then publish again`)
+      await markRun(
+        run.id,
+        'failed',
+        `the base corpus has no file ${run.corpusFile}; upload it, then publish again`
+      )
       return
     }
     await markRun(run.id, 'queued', null)
   } catch (error) {
     if (!attempt.last) throw error
-    await markRun(run.id, 'failed', `the base corpus did not accept the file: ${error instanceof Error ? error.message : String(error)}`)
+    await markRun(
+      run.id,
+      'failed',
+      `the base corpus did not accept the file: ${error instanceof Error ? error.message : String(error)}`
+    )
   }
 }
 
@@ -94,19 +113,25 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
       .from(knowledgeIndexRuns)
       .where(eq(knowledgeIndexRuns.changeRequestId, changeRequestId))
       .orderBy(desc(knowledgeIndexRuns.requestedAt))
-      .limit(MAX_RUNS),
+      .limit(MAX_RUNS)
   )
   const queued = runs.some((run) => run.state === 'queued')
   // Only a queued run can have become indexed; the corpus answers for it, or the run stays queued.
   const files = queued
-    ? new Map((await getKnowledgeBaseStatus().catch(() => ({ files: [] }))).files.map((file) => [file.fileName, file.state]))
+    ? new Map(
+        (await getKnowledgeBaseStatus().catch(() => ({ files: [] }))).files.map((file) => [
+          file.fileName,
+          file.state,
+        ])
+      )
     : new Map<string, string>()
   return {
     changeRequestId,
     texts: runs.map((run) => ({
       revisionId: run.revisionId,
       corpusFile: run.corpusFile,
-      state: run.state === 'queued' && files.get(run.corpusFile) === 'ingested' ? 'indexed' : run.state,
+      state:
+        run.state === 'queued' && files.get(run.corpusFile) === 'ingested' ? 'indexed' : run.state,
       failure: run.failure,
     })),
   }

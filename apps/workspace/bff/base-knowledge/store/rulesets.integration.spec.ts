@@ -170,16 +170,22 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec platform release', () =>
       db.transaction(async (tx) => {
-        await tx.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`)
+        await tx.execute(
+          sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${requestId}`
+        )
         await tx.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${recordId}, 'stable', 'publish', ${revisionId}, ${requestId}, 'platform', 'app')`)
-        await tx.execute(sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`)
+        await tx.execute(
+          sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`
+        )
       })
     )
     // Released, but the office is not entitled to Germany: still nothing.
     expect((await read()).rulesets).toEqual([])
     await withPlatformAccess('rulesets spec entitlement', () =>
-      db.execute(sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source) VALUES (${ORG}, 'DE', 'platform', 'app')`)
+      db.execute(
+        sql`INSERT INTO organization_countries (organization_id, country_id, entitled_by, decision_source) VALUES (${ORG}, 'DE', 'platform', 'app')`
+      )
     )
     expect((await read()).rulesets.map((ruleset) => ruleset.id)).toEqual([recordId])
     await withPlatformAccess('rulesets spec platform cleanup', async () => {

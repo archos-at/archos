@@ -31,7 +31,10 @@ import {
   type LicenceClass,
   type KnowledgeRecordType,
 } from '@/lib/db/schema/knowledge-records'
-import { knowledgeAuthorityRevisions, knowledgeTerritoryRevisions } from '@/lib/db/schema/knowledge-platform'
+import {
+  knowledgeAuthorityRevisions,
+  knowledgeTerritoryRevisions,
+} from '@/lib/db/schema/knowledge-platform'
 import type { EntryCheck, EntryValues } from '../wire'
 
 /** Most entries one office lists or a turn reads. */
@@ -99,14 +102,28 @@ export async function appendRevision(
     changeRequestId: input.changeRequestId ?? null,
   })
   // The body's columns are the caller's typed values; each table's own CHECKs hold them.
-  await tx.insert(BODY_TABLES[input.type]).values({ ...base, ...body } as typeof knowledgeWorkRevisions.$inferInsert)
+  await tx
+    .insert(BODY_TABLES[input.type])
+    .values({ ...base, ...body } as typeof knowledgeWorkRevisions.$inferInsert)
   return revisionId
 }
 
-type WorkBody = Omit<typeof knowledgeWorkRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
-type EditionBody = Omit<typeof knowledgeEditionRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
-type CopyBody = Omit<typeof knowledgeManifestationRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
-export type RulesetBody = Omit<typeof knowledgeRulesetRevisions.$inferInsert, 'revisionId' | 'recordId' | 'organizationId'>
+type WorkBody = Omit<
+  typeof knowledgeWorkRevisions.$inferInsert,
+  'revisionId' | 'recordId' | 'organizationId'
+>
+type EditionBody = Omit<
+  typeof knowledgeEditionRevisions.$inferInsert,
+  'revisionId' | 'recordId' | 'organizationId'
+>
+type CopyBody = Omit<
+  typeof knowledgeManifestationRevisions.$inferInsert,
+  'revisionId' | 'recordId' | 'organizationId'
+>
+export type RulesetBody = Omit<
+  typeof knowledgeRulesetRevisions.$inferInsert,
+  'revisionId' | 'recordId' | 'organizationId'
+>
 
 function bodiesOf(
   values: EntryValues,
@@ -136,23 +153,47 @@ interface WriteContext {
 }
 
 /** Append one revision to each of the three records; returns the revision ids. */
-async function appendEntryRevisions(tx: Tx, ids: EntryRecordIds, values: EntryValues, context: WriteContext) {
+async function appendEntryRevisions(
+  tx: Tx,
+  ids: EntryRecordIds,
+  values: EntryValues,
+  context: WriteContext
+) {
   const bodies = bodiesOf(values, ids, context.terms)
-  const common = { organizationId: context.organizationId, createdBy: context.createdBy, provenance: context.provenance }
+  const common = {
+    organizationId: context.organizationId,
+    createdBy: context.createdBy,
+    provenance: context.provenance,
+  }
   return {
     work: await appendRevision(tx, { ...common, recordId: ids.workId, type: 'work' }, bodies.work),
-    edition: await appendRevision(tx, { ...common, recordId: ids.editionId, type: 'edition' }, bodies.edition),
-    copy: await appendRevision(tx, { ...common, recordId: ids.copyId, type: 'manifestation' }, bodies.copy),
+    edition: await appendRevision(
+      tx,
+      { ...common, recordId: ids.editionId, type: 'edition' },
+      bodies.edition
+    ),
+    copy: await appendRevision(
+      tx,
+      { ...common, recordId: ids.copyId, type: 'manifestation' },
+      bodies.copy
+    ),
   }
 }
 
-async function moveHeads(tx: Tx, ids: EntryRecordIds, revisions: { work: string; edition: string; copy: string }) {
+async function moveHeads(
+  tx: Tx,
+  ids: EntryRecordIds,
+  revisions: { work: string; edition: string; copy: string }
+) {
   for (const [recordId, revisionId] of [
     [ids.workId, revisions.work],
     [ids.editionId, revisions.edition],
     [ids.copyId, revisions.copy],
   ] as const) {
-    await tx.update(knowledgeRecords).set({ headRevisionId: revisionId }).where(eq(knowledgeRecords.id, recordId))
+    await tx
+      .update(knowledgeRecords)
+      .set({ headRevisionId: revisionId })
+      .where(eq(knowledgeRecords.id, recordId))
   }
 }
 
@@ -173,7 +214,11 @@ export async function insertProposedEntry(
   }
   await withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
-      const header = { organizationId: context.organizationId, documentId, createdBy: context.createdBy }
+      const header = {
+        organizationId: context.organizationId,
+        documentId,
+        createdBy: context.createdBy,
+      }
       // `knowledge_records_document_type_key` keeps one entry per document; a
       // proposal that loses the race to another is refused as a conflict below.
       await tx.insert(knowledgeRecords).values([
@@ -184,7 +229,10 @@ export async function insertProposedEntry(
       await appendEntryRevisions(tx, ids, values, context)
     })
   ).catch((error: unknown) => {
-    if (isUniqueViolation(error)) throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
+    if (isUniqueViolation(error))
+      throw new ConflictError(
+        'This document is already recorded as base knowledge; edit that entry instead.'
+      )
     throw error
   })
   return ids
@@ -228,7 +276,13 @@ export async function insertCopyCheck(
   await withTenant({ organizationId }, () =>
     getDb()
       .insert(knowledgeChecks)
-      .values({ id: randomUUID(), organizationId, targetId: copyId, targetType: 'manifestation', ...check })
+      .values({
+        id: randomUUID(),
+        organizationId,
+        targetId: copyId,
+        targetType: 'manifestation',
+        ...check,
+      })
   )
 }
 
@@ -241,10 +295,14 @@ interface RecordRow {
 }
 
 /** The revision in force of each record: its head, or its newest revision while it has none. */
-async function revisionInForce(tx: Tx, records: readonly RecordRow[]): Promise<Map<string, string>> {
+async function revisionInForce(
+  tx: Tx,
+  records: readonly RecordRow[]
+): Promise<Map<string, string>> {
   const result = new Map<string, string>()
   const headless = records.filter((record) => !record.headRevisionId).map((record) => record.id)
-  for (const record of records) if (record.headRevisionId) result.set(record.id, record.headRevisionId)
+  for (const record of records)
+    if (record.headRevisionId) result.set(record.id, record.headRevisionId)
   if (headless.length === 0) return result
   const latest = await tx
     .selectDistinctOn([knowledgeRevisions.recordId], {
@@ -268,27 +326,54 @@ async function latestChecks(tx: Tx, copyIds: readonly string[]): Promise<Map<str
   return new Map(
     rows.map((row) => [
       row.targetId,
-      { checkedAt: new Date(row.checkedAt).toISOString(), checkedBy: row.checkedBy, result: row.result, note: row.note },
+      {
+        checkedAt: new Date(row.checkedAt).toISOString(),
+        checkedBy: row.checkedBy,
+        result: row.result,
+        note: row.note,
+      },
     ])
   )
 }
 
 async function readBodies(tx: Tx, revisionIds: readonly string[]) {
   const ids = [...revisionIds]
-  if (ids.length === 0) return { works: [], editions: [], copies: [], provenance: new Map<string, KnowledgeProvenance>() }
+  if (ids.length === 0)
+    return {
+      works: [],
+      editions: [],
+      copies: [],
+      provenance: new Map<string, KnowledgeProvenance>(),
+    }
   const [works, editions, copies, revisions] = await Promise.all([
     tx.select().from(knowledgeWorkRevisions).where(inArray(knowledgeWorkRevisions.revisionId, ids)),
-    tx.select().from(knowledgeEditionRevisions).where(inArray(knowledgeEditionRevisions.revisionId, ids)),
-    tx.select().from(knowledgeManifestationRevisions).where(inArray(knowledgeManifestationRevisions.revisionId, ids)),
     tx
-      .select({ revisionId: knowledgeRevisions.revisionId, provenance: knowledgeRevisions.provenance })
+      .select()
+      .from(knowledgeEditionRevisions)
+      .where(inArray(knowledgeEditionRevisions.revisionId, ids)),
+    tx
+      .select()
+      .from(knowledgeManifestationRevisions)
+      .where(inArray(knowledgeManifestationRevisions.revisionId, ids)),
+    tx
+      .select({
+        revisionId: knowledgeRevisions.revisionId,
+        provenance: knowledgeRevisions.provenance,
+      })
       .from(knowledgeRevisions)
       .where(inArray(knowledgeRevisions.revisionId, ids)),
   ])
-  return { works, editions, copies, provenance: new Map(revisions.map((row) => [row.revisionId, row.provenance])) }
+  return {
+    works,
+    editions,
+    copies,
+    provenance: new Map(revisions.map((row) => [row.revisionId, row.provenance])),
+  }
 }
 
-function groupByDocument(records: readonly RecordRow[]): Map<string, Partial<Record<KnowledgeRecordType, RecordRow>>> {
+function groupByDocument(
+  records: readonly RecordRow[]
+): Map<string, Partial<Record<KnowledgeRecordType, RecordRow>>> {
   const groups = new Map<string, Partial<Record<KnowledgeRecordType, RecordRow>>>()
   for (const record of records) {
     if (!record.documentId) continue
@@ -304,7 +389,10 @@ function groupByDocument(records: readonly RecordRow[]): Map<string, Partial<Rec
  * last check. `documentIds` narrows to those documents; the caller has already
  * decided which documents its reader may see.
  */
-export async function readOfficeEntries(organizationId: string, documentIds?: readonly string[]): Promise<StoredEntry[]> {
+export async function readOfficeEntries(
+  organizationId: string,
+  documentIds?: readonly string[]
+): Promise<StoredEntry[]> {
   if (documentIds && documentIds.length === 0) return []
   return withTenant({ organizationId }, () =>
     getDb().transaction(async (tx) => {
@@ -329,7 +417,9 @@ export async function readOfficeEntries(organizationId: string, documentIds?: re
       const inForce = await revisionInForce(tx, records)
       const bodies = await readBodies(tx, [...inForce.values()])
       const groups = groupByDocument(records)
-      const copyIds = [...groups.values()].flatMap((group) => (group.manifestation ? [group.manifestation.id] : []))
+      const copyIds = [...groups.values()].flatMap((group) =>
+        group.manifestation ? [group.manifestation.id] : []
+      )
       const checks = await latestChecks(tx, copyIds)
       return assembleEntries(groups, inForce, bodies, checks)
     })
@@ -377,24 +467,40 @@ function assembleEntries(
 }
 
 /** Whether a document already has base-knowledge records (one entry per document). */
-export async function documentHasEntry(organizationId: string, documentId: string): Promise<boolean> {
+export async function documentHasEntry(
+  organizationId: string,
+  documentId: string
+): Promise<boolean> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .select({ one: sql<number>`1` })
       .from(knowledgeRecords)
-      .where(and(eq(knowledgeRecords.organizationId, organizationId), eq(knowledgeRecords.documentId, documentId)))
+      .where(
+        and(
+          eq(knowledgeRecords.organizationId, organizationId),
+          eq(knowledgeRecords.documentId, documentId)
+        )
+      )
       .limit(1)
   )
   return rows.length > 0
 }
 
 /** Which of `documentIds` are base-knowledge copies: one query for a batch, so the search projection pays one read. */
-export async function documentsWithEntries(organizationId: string, documentIds: readonly string[]): Promise<string[]> {
+export async function documentsWithEntries(
+  organizationId: string,
+  documentIds: readonly string[]
+): Promise<string[]> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .selectDistinct({ documentId: knowledgeRecords.documentId })
       .from(knowledgeRecords)
-      .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds])))
+      .where(
+        and(
+          eq(knowledgeRecords.organizationId, organizationId),
+          inArray(knowledgeRecords.documentId, [...documentIds])
+        )
+      )
   )
   return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
 }
@@ -413,7 +519,10 @@ export interface DocumentCopy {
  * statement is not indexed) and what it stamps on the points it writes. The
  * newest revision is the head once confirmed, since every write moves the head.
  */
-export async function copyForDocument(organizationId: string, documentId: string): Promise<DocumentCopy | null> {
+export async function copyForDocument(
+  organizationId: string,
+  documentId: string
+): Promise<DocumentCopy | null> {
   const [row] = await withTenant({ organizationId }, () =>
     getDb()
       .select({
@@ -423,8 +532,14 @@ export async function copyForDocument(organizationId: string, documentId: string
         head: knowledgeRecords.headRevisionId,
       })
       .from(knowledgeRecords)
-      .innerJoin(knowledgeManifestationRevisions, eq(knowledgeManifestationRevisions.recordId, knowledgeRecords.id))
-      .innerJoin(knowledgeRevisions, eq(knowledgeRevisions.revisionId, knowledgeManifestationRevisions.revisionId))
+      .innerJoin(
+        knowledgeManifestationRevisions,
+        eq(knowledgeManifestationRevisions.recordId, knowledgeRecords.id)
+      )
+      .innerJoin(
+        knowledgeRevisions,
+        eq(knowledgeRevisions.revisionId, knowledgeManifestationRevisions.revisionId)
+      )
       .where(
         and(
           eq(knowledgeRecords.organizationId, organizationId),
@@ -436,5 +551,10 @@ export async function copyForDocument(organizationId: string, documentId: string
       .limit(1)
   )
   if (!row) return null
-  return { licenceClass: row.licenceClass, editionId: row.editionId, terms: row.terms, confirmed: row.head !== null }
+  return {
+    licenceClass: row.licenceClass,
+    editionId: row.editionId,
+    terms: row.terms,
+    confirmed: row.head !== null,
+  }
 }

@@ -29,7 +29,10 @@ export type PlatformDirectiveVerdict =
   | { verdict: 'authority_unknown' }
 
 /** Every territory `territoryId` lies in, itself first: its parents' chain, then its ISO 3166 country. */
-export function territoryChain(territoryId: string, parents: ReadonlyMap<string, readonly string[]>): string[] {
+export function territoryChain(
+  territoryId: string,
+  parents: ReadonlyMap<string, readonly string[]>
+): string[] {
   const chain: string[] = []
   const queue = [territoryId]
   while (queue.length > 0 && chain.length < 32) {
@@ -47,7 +50,7 @@ export function platformDirectiveApplies(
   addressees: readonly PlatformAddressee[],
   authorities: ReadonlyMap<string, PlatformAuthority>,
   parents: ReadonlyMap<string, readonly string[]>,
-  projectTerritoryId: string | null,
+  projectTerritoryId: string | null
 ): PlatformDirectiveVerdict {
   if (!projectTerritoryId || addressees.length === 0) return { verdict: 'authority_unknown' }
   const chain = territoryChain(projectTerritoryId, parents)
@@ -56,7 +59,11 @@ export function platformDirectiveApplies(
     // An addressee whose authority record is not readable decides where the addressee says.
     const competence = authority?.competenceTerritoryIds ?? [addressee.territoryId]
     if (competence.some((territory) => chain.includes(territory))) {
-      return { verdict: 'applies', authority: authority?.name ?? addressee.name, territoryId: projectTerritoryId }
+      return {
+        verdict: 'applies',
+        authority: authority?.name ?? addressee.name,
+        territoryId: projectTerritoryId,
+      }
     }
   }
   return { verdict: 'excluded' }

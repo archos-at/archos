@@ -30,7 +30,12 @@ import {
   knowledgeReviewDecisions,
   knowledgeTerritoryRevisions,
 } from '@/lib/db/schema/knowledge-platform'
-import type { ApprovalRole, ChangeRequestStatus, KnowledgeRecordType, ReviewDecision } from '@/lib/base-knowledge/wire/vocab'
+import type {
+  ApprovalRole,
+  ChangeRequestStatus,
+  KnowledgeRecordType,
+  ReviewDecision,
+} from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, type Tx } from '../store/repository'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { KnownRecord } from './validate'
@@ -48,24 +53,36 @@ export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
 
 export type ChangeRequestRow = typeof knowledgeChangeRequests.$inferSelect
 
-export async function insertChangeRequest(input: { title: string; countryId: string; createdBy: string }): Promise<string> {
+export async function insertChangeRequest(input: {
+  title: string
+  countryId: string
+  createdBy: string
+}): Promise<string> {
   const id = randomUUID()
   await platformTransaction(async (tx) => {
-    const [newest] = await tx.select({ seq: sql<string | null>`max(${knowledgeReleaseMoves.seq})` }).from(knowledgeReleaseMoves)
-    await tx.insert(knowledgeChangeRequests).values({ id, ...input, baseReleaseSeq: Number(newest?.seq ?? 0) })
+    const [newest] = await tx
+      .select({ seq: sql<string | null>`max(${knowledgeReleaseMoves.seq})` })
+      .from(knowledgeReleaseMoves)
+    await tx
+      .insert(knowledgeChangeRequests)
+      .values({ id, ...input, baseReleaseSeq: Number(newest?.seq ?? 0) })
   })
   return id
 }
 
 /** The request, locked for the rest of the transaction; null when there is none. */
 export async function lockChangeRequest(tx: Tx, id: string): Promise<ChangeRequestRow | null> {
-  const [row] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id)).for('update')
+  const [row] = await tx
+    .select()
+    .from(knowledgeChangeRequests)
+    .where(eq(knowledgeChangeRequests.id, id))
+    .for('update')
   return row ?? null
 }
 
 export async function findChangeRequest(id: string): Promise<ChangeRequestRow | null> {
   const [row] = await withPlatformAccess(REASON, () =>
-    getDb().select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id)),
+    getDb().select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
   )
   return row ?? null
 }
@@ -74,7 +91,7 @@ export async function setChangeRequestStatus(
   tx: Tx,
   id: string,
   status: ChangeRequestStatus,
-  stamp: 'submittedAt' | 'decidedAt' | 'publishedAt' | null,
+  stamp: 'submittedAt' | 'decidedAt' | 'publishedAt' | null
 ): Promise<void> {
   await tx
     .update(knowledgeChangeRequests)
@@ -84,7 +101,7 @@ export async function setChangeRequestStatus(
 
 export async function listChangeRequests(
   status?: ChangeRequestStatus,
-  page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
+  page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS }
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
     getDb()
@@ -96,7 +113,7 @@ export async function listChangeRequests(
       .where(status ? eq(knowledgeChangeRequests.status, status) : undefined)
       .orderBy(desc(knowledgeChangeRequests.createdAt), desc(knowledgeChangeRequests.id))
       .offset(page.offset)
-      .limit(Math.min(page.limit, MAX_CHANGE_REQUESTS)),
+      .limit(Math.min(page.limit, MAX_CHANGE_REQUESTS))
   )
   return rows.map(({ request, revisionCount }) => ({
     id: request.id,
@@ -110,17 +127,27 @@ export async function listChangeRequests(
 }
 
 /** The platform records with these ids that exist, released or drafted: what a proposal may name. */
-export async function knownPlatformRecords(tx: Tx, ids: readonly string[]): Promise<Map<string, KnownRecord>> {
+export async function knownPlatformRecords(
+  tx: Tx,
+  ids: readonly string[]
+): Promise<Map<string, KnownRecord>> {
   if (ids.length === 0) return new Map()
   const rows = await tx
-    .select({ id: knowledgeRecords.id, type: knowledgeRecords.type, countryId: knowledgeRecords.countryId })
+    .select({
+      id: knowledgeRecords.id,
+      type: knowledgeRecords.type,
+      countryId: knowledgeRecords.countryId,
+    })
     .from(knowledgeRecords)
     .where(and(inArray(knowledgeRecords.id, [...ids]), isNull(knowledgeRecords.organizationId)))
   return new Map(rows.map((row) => [row.id, { type: row.type, countryId: row.countryId ?? '' }]))
 }
 
 /** Every record id a batch is or names: what {@link knownPlatformRecords} looks up for validation. */
-export function idsOfBatch(records: readonly ProposedRecord[], named: (record: ProposedRecord) => string[]): string[] {
+export function idsOfBatch(
+  records: readonly ProposedRecord[],
+  named: (record: ProposedRecord) => string[]
+): string[] {
   return [...new Set(records.flatMap((record) => [recordIdOf(record), ...named(record)]))]
 }
 
@@ -139,7 +166,7 @@ export async function insertProposedRecords(
   tx: Tx,
   request: ChangeRequestRow,
   records: readonly ProposedRecord[],
-  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy'] },
+  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy'] }
 ): Promise<ProposedRevision[]> {
   await tx
     .insert(knowledgeRecords)
@@ -150,7 +177,7 @@ export async function insertProposedRecords(
         countryId: request.countryId,
         type: record.type,
         createdBy: context.createdBy,
-      })),
+      }))
     )
     .onConflictDoNothing({ target: knowledgeRecords.id })
   const written: ProposedRevision[] = []
@@ -166,7 +193,7 @@ export async function insertProposedRecords(
         provenance: { proposedBy: context.proposedBy, citations: record.citations },
         changeRequestId: request.id,
       },
-      bodyOf(record),
+      bodyOf(record)
     )
     written.push({ key: proposalKey(record), recordId, revisionId })
   }
@@ -183,11 +210,17 @@ const BODY_TABLES = [
 ] as const
 
 /** Each revision's body columns, by revision id. */
-async function bodiesOf(tx: Tx, revisionIds: readonly string[]): Promise<Map<string, Record<string, unknown>>> {
+async function bodiesOf(
+  tx: Tx,
+  revisionIds: readonly string[]
+): Promise<Map<string, Record<string, unknown>>> {
   const bodies = new Map<string, Record<string, unknown>>()
   if (revisionIds.length === 0) return bodies
   for (const table of BODY_TABLES) {
-    const rows = (await tx.select().from(table).where(inArray(table.revisionId, [...revisionIds]))) as Record<string, unknown>[]
+    const rows = (await tx
+      .select()
+      .from(table)
+      .where(inArray(table.revisionId, [...revisionIds]))) as Record<string, unknown>[]
     for (const row of rows) bodies.set(String(row.revisionId), row)
   }
   return bodies
@@ -241,7 +274,7 @@ export async function reviewedRevisions(tx: Tx, requestId: string): Promise<Revi
   const [bodies, decisions] = await Promise.all([
     bodiesOf(
       tx,
-      revisions.map((revision) => revision.revisionId),
+      revisions.map((revision) => revision.revisionId)
     ),
     newestDecisions(tx, requestId),
   ])
@@ -260,11 +293,18 @@ export async function reviewedRevisions(tx: Tx, requestId: string): Promise<Revi
 
 export async function readChangeRequest(id: string): Promise<ChangeRequestView | null> {
   return platformTransaction(async (tx) => {
-    const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
+    const [request] = await tx
+      .select()
+      .from(knowledgeChangeRequests)
+      .where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
     const [revisions, approvals, releases] = await Promise.all([
       reviewedRevisions(tx, id),
-      tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
+      tx
+        .select()
+        .from(knowledgeApprovals)
+        .where(eq(knowledgeApprovals.changeRequestId, id))
+        .orderBy(knowledgeApprovals.decidedAt),
       tx
         .select()
         .from(knowledgeReleaseMoves)
@@ -304,7 +344,12 @@ export async function insertReviewDecisions(
   tx: Tx,
   requestId: string,
   reviewer: string,
-  decisions: readonly { revisionId: string; claimPath: string; decision: ReviewDecision; note?: string }[],
+  decisions: readonly {
+    revisionId: string
+    claimPath: string
+    decision: ReviewDecision
+    note?: string
+  }[]
 ): Promise<void> {
   await tx.insert(knowledgeReviewDecisions).values(
     decisions.map((decision) => ({
@@ -315,23 +360,34 @@ export async function insertReviewDecisions(
       decision: decision.decision,
       note: decision.note ?? null,
       reviewer,
-    })),
+    }))
   )
 }
 
 export async function insertApproval(
   tx: Tx,
-  input: { changeRequestId: string; approver: string; role: ApprovalRole; decisionSource: 'app' | 'elicitation' },
+  input: {
+    changeRequestId: string
+    approver: string
+    role: ApprovalRole
+    decisionSource: 'app' | 'elicitation'
+  }
 ): Promise<void> {
   try {
     await tx.insert(knowledgeApprovals).values({ id: randomUUID(), ...input })
   } catch (error) {
     // The four-eyes trigger and the once-per-role key: a person's own request, or a second yes.
-    const message = error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}` : ''
+    const message =
+      error instanceof Error
+        ? `${error.message} ${String((error as { cause?: unknown }).cause ?? '')}`
+        : ''
     if (/revision they wrote/.test(message)) {
-      throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
+      throw new ConflictError(
+        'You wrote a revision in this change request, so another person approves it (four eyes).'
+      )
     }
-    if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
+    if (/knowledge_approvals_once/.test(message))
+      throw new ConflictError('You already approved this change request in this role.')
     throw error
   }
 }

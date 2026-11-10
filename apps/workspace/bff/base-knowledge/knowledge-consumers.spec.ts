@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/knowledge-layer/src/vector_store/scope.py, ../../packages/knowledge-layer/src/vector_store/writes.py, ../../packages/knowledge-layer/tests/test_vector_store_office_filter.py, ../agent-host/src/agent_host/routes/knowledge_mark.py, ../agent-host/tests/test_knowledge_mark_route.py, bff/base-knowledge/office/freshness.spec.ts, bff/base-knowledge/office/freshness.ts, bff/base-knowledge/office/service.spec.ts, bff/base-knowledge/office/service.ts, bff/base-knowledge/office/text-use.spec.ts, bff/base-knowledge/office/text-use.ts, bff/base-knowledge/office/turn-block.spec.ts, bff/base-knowledge/office/turn-block.ts, bff/base-knowledge/platform/entitlements.ts, bff/base-knowledge/platform/indexing.ts, bff/base-knowledge/platform/office-read.ts, bff/base-knowledge/platform/platform.integration.spec.ts, bff/base-knowledge/platform/release.ts, bff/base-knowledge/platform/store.ts, bff/base-knowledge/platform/validate.spec.ts, bff/base-knowledge/platform/validate.ts, bff/base-knowledge/store/repository.integration.spec.ts, bff/base-knowledge/store/repository.ts
+// @disk-inputs: ../../packages/knowledge-layer/src/vector_store/scope.py, ../../packages/knowledge-layer/src/vector_store/writes.py, ../../packages/knowledge-layer/tests/test_vector_store_office_filter.py, ../agent-host/src/agent_host/routes/knowledge_mark.py, ../agent-host/tests/test_knowledge_mark_route.py, bff/base-knowledge/office/freshness.spec.ts, bff/base-knowledge/office/freshness.ts, bff/base-knowledge/office/service.spec.ts, bff/base-knowledge/office/service.ts, bff/base-knowledge/office/text-use.spec.ts, bff/base-knowledge/office/text-use.ts, bff/base-knowledge/office/turn-block.spec.ts, bff/base-knowledge/office/turn-block.ts, bff/base-knowledge/platform/entitlements.ts, bff/base-knowledge/platform/indexing.ts, bff/base-knowledge/platform/office-read.ts, bff/base-knowledge/platform/platform.integration.spec.ts, bff/base-knowledge/platform/release.ts, bff/base-knowledge/platform/store.ts, bff/base-knowledge/platform/territories.ts, bff/base-knowledge/platform/validate.spec.ts, bff/base-knowledge/platform/validate.ts, bff/base-knowledge/store/repository.integration.spec.ts, bff/base-knowledge/store/repository.ts, bff/base-knowledge/time/repository.ts, bff/base-knowledge/time/time.integration.spec.ts
 /**
  * @vitest-environment node
  *
@@ -52,13 +52,20 @@ const TABLES: Table[] = [
 ]
 
 /** The vocabularies whose values behave differently, so each value needs its own reader. */
-const BEHAVIOURAL = ['knowledge_work_revisions.kind', 'knowledge_manifestation_revisions.licence_class'] as const
+const BEHAVIOURAL = [
+  'knowledge_work_revisions.kind',
+  'knowledge_manifestation_revisions.licence_class',
+] as const
 
 const columns = (): string[] =>
-  TABLES.flatMap((table) => Object.values(getTableColumns(table)).map((column) => `${getTableName(table)}.${column.name}`))
+  TABLES.flatMap((table) =>
+    Object.values(getTableColumns(table)).map((column) => `${getTableName(table)}.${column.name}`)
+  )
 
 const values = (): string[] =>
-  BEHAVIOURAL.flatMap((qualified) => KNOWLEDGE_VOCABULARIES[qualified].map((value) => `${qualified}=${value}`))
+  BEHAVIOURAL.flatMap((qualified) =>
+    KNOWLEDGE_VOCABULARIES[qualified].map((value) => `${qualified}=${value}`)
+  )
 
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 
@@ -81,22 +88,33 @@ describe('the base knowledge element ledger', () => {
     expect(elements.filter((element, index) => elements.indexOf(element) !== index)).toEqual([])
   })
 
-  it.each(KNOWLEDGE_CONSUMERS.filter((entry) => 'consumer' in entry).map((entry) => [entry.element, entry]))(
-    '%s is read where the ledger says, and tested',
-    (element, entry) => {
-      if (!('consumer' in entry)) return
-      expect(existsSync(join(ROOT, entry.consumer)), entry.consumer).toBe(true)
-      const consumer = read(entry.consumer).toLowerCase()
-      expect(spellings(element).some((spelling) => consumer.includes(spelling.toLowerCase())), `${entry.consumer} names ${element}`).toBe(true)
-      expect(existsSync(join(ROOT, entry.test.file)), entry.test.file).toBe(true)
-      expect(read(entry.test.file), `${entry.test.file} has the test`).toContain(entry.test.name)
-    },
-  )
+  it.each(
+    KNOWLEDGE_CONSUMERS.filter((entry) => 'consumer' in entry).map((entry) => [
+      entry.element,
+      entry,
+    ])
+  )('%s is read where the ledger says, and tested', (element, entry) => {
+    if (!('consumer' in entry)) return
+    expect(existsSync(join(ROOT, entry.consumer)), entry.consumer).toBe(true)
+    const consumer = read(entry.consumer).toLowerCase()
+    expect(
+      spellings(element).some((spelling) => consumer.includes(spelling.toLowerCase())),
+      `${entry.consumer} names ${element}`
+    ).toBe(true)
+    expect(existsSync(join(ROOT, entry.test.file)), entry.test.file).toBe(true)
+    expect(read(entry.test.file), `${entry.test.file} has the test`).toContain(entry.test.name)
+  })
 
   it('only shrinks the elements nothing reads yet, each with the part that will', () => {
     const awaiting = KNOWLEDGE_CONSUMERS.flatMap((entry) => ('awaits' in entry ? [entry] : []))
     for (const entry of awaiting) expect(entry.awaits.length, entry.element).toBeGreaterThan(10)
-    expect(awaiting.map((entry) => entry.element).filter((element) => !AWAITING_BASELINE.includes(element))).toEqual([])
-    expect(AWAITING_BASELINE.filter((element) => !awaiting.some((entry) => entry.element === element))).toEqual([])
+    expect(
+      awaiting
+        .map((entry) => entry.element)
+        .filter((element) => !AWAITING_BASELINE.includes(element))
+    ).toEqual([])
+    expect(
+      AWAITING_BASELINE.filter((element) => !awaiting.some((entry) => entry.element === element))
+    ).toEqual([])
   })
 })

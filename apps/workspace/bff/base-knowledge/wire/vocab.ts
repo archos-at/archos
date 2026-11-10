@@ -6,7 +6,14 @@
  * Pure, so the UI reads them too.
  */
 
-export const KNOWLEDGE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority'] as const
+export const KNOWLEDGE_RECORD_TYPES = [
+  'work',
+  'edition',
+  'manifestation',
+  'ruleset',
+  'territory',
+  'authority',
+] as const
 export type KnowledgeRecordType = (typeof KNOWLEDGE_RECORD_TYPES)[number]
 
 /** The kinds an office can hold today (design §3.5); the platform widens the CHECK later. */
@@ -23,7 +30,12 @@ export type KnowledgeWorkKind = (typeof KNOWLEDGE_WORK_KINDS)[number]
 export const LICENCE_CLASSES = ['public_open', 'public_restricted', 'licensed'] as const
 export type LicenceClass = (typeof LICENCE_CLASSES)[number]
 
-export const KNOWLEDGE_CHECK_RESULTS = ['current', 'newer_known', 'withdrawn', 'source_unreachable'] as const
+export const KNOWLEDGE_CHECK_RESULTS = [
+  'current',
+  'newer_known',
+  'withdrawn',
+  'source_unreachable',
+] as const
 export type KnowledgeCheckResult = (typeof KNOWLEDGE_CHECK_RESULTS)[number]
 
 /** A copy's form: a text, a dataset, or a link to text held elsewhere. */
@@ -56,7 +68,12 @@ export const RULESET_PURPOSES = [
 ] as const
 export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
 
-export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'reference_date', 'competence'] as const satisfies readonly RulesetPurpose[]
+export const DECISION_TABLE_PURPOSES = [
+  'classification',
+  'derivation',
+  'reference_date',
+  'competence',
+] as const satisfies readonly RulesetPurpose[]
 
 /** The payload schemas the evaluator reads. A v2 arrives with a pure converter from v1 (design §3.7). */
 export const RULESET_PAYLOAD_SCHEMAS = ['decision_table.v1'] as const
@@ -67,14 +84,33 @@ export const FACT_TYPES = ['number', 'boolean', 'code', 'codes', 'date'] as cons
 export type FactType = (typeof FACT_TYPES)[number]
 
 /** The record types an office may own; territories and authorities are the platform's (migration 0205). */
-export const OFFICE_RECORD_TYPES = ['work', 'edition', 'manifestation', 'ruleset'] as const satisfies readonly KnowledgeRecordType[]
+export const OFFICE_RECORD_TYPES = [
+  'work',
+  'edition',
+  'manifestation',
+  'ruleset',
+] as const satisfies readonly KnowledgeRecordType[]
 
 /** A territory's level (design §3.2); ids are ISO 3166 (`AT-6`) or `<CC>:<scheme>:<code>`. */
-export const TERRITORY_KINDS = ['union', 'country', 'state', 'district', 'municipality', 'city_district'] as const
+export const TERRITORY_KINDS = [
+  'union',
+  'country',
+  'state',
+  'district',
+  'municipality',
+  'city_district',
+] as const
 export type TerritoryKind = (typeof TERRITORY_KINDS)[number]
 
 /** Where a platform change request stands (design §4.4). */
-export const CHANGE_REQUEST_STATUSES = ['draft', 'submitted', 'approved', 'rejected', 'published', 'rolled_back'] as const
+export const CHANGE_REQUEST_STATUSES = [
+  'draft',
+  'submitted',
+  'approved',
+  'rejected',
+  'published',
+  'rolled_back',
+] as const
 export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
 
 /** A reviewer's verdict on one claim. */

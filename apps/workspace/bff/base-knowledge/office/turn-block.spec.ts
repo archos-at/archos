@@ -3,7 +3,10 @@ import type { BaseKnowledgeEntry } from '../wire'
 import { projectTerritory } from './authority'
 import { BASE_KNOWLEDGE_HEADER, MAX_TURN_ENTRIES, renderBaseKnowledgeBlock } from './turn-block'
 
-function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Partial<BaseKnowledgeEntry> = {}): BaseKnowledgeEntry {
+function entry(
+  overrides: Partial<BaseKnowledgeEntry['values']> = {},
+  rest: Partial<BaseKnowledgeEntry> = {}
+): BaseKnowledgeEntry {
   return {
     id: 'work_1',
     editionId: 'edition_1',
@@ -29,7 +32,12 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
     },
     freshness: {
       intervalDays: 365,
-      lastCheck: { checkedAt: '2026-10-02T09:00:00.000Z', checkedBy: 'user_1', result: 'current', note: null },
+      lastCheck: {
+        checkedAt: '2026-10-02T09:00:00.000Z',
+        checkedBy: 'user_1',
+        result: 'current',
+        note: null,
+      },
       dueAt: '2027-10-02T09:00:00.000Z',
       overdue: false,
     },
@@ -45,7 +53,9 @@ describe('the base knowledge a turn carries', () => {
   it('names the standard, its edition, its file and its last check', () => {
     const block = renderBaseKnowledgeBlock([entry()], VIENNA)
     expect(block?.split('\n')[0]).toBe(BASE_KNOWLEDGE_HEADER)
-    expect(block).toContain('ÖNORM B 1600:2017 „Barrierefreies Bauen“: technical standard, edition 2017-04-01')
+    expect(block).toContain(
+      'ÖNORM B 1600:2017 „Barrierefreies Bauen“: technical standard, edition 2017-04-01'
+    )
     expect(block).toContain('file „ÖNORM B 1600.pdf“')
     expect(block).toContain('licensed copy')
     expect(block).toContain('last checked 2026-10-02 (current)')
@@ -54,13 +64,21 @@ describe('the base knowledge a turn carries', () => {
 
   it('says an overdue check must be named in the answer', () => {
     const stale = entry({}, { freshness: { ...entry().freshness, overdue: true } })
-    expect(renderBaseKnowledgeBlock([stale], VIENNA)).toContain('check OVERDUE (due every 365 days), say so')
-    const never = entry({}, { freshness: { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true } })
+    expect(renderBaseKnowledgeBlock([stale], VIENNA)).toContain(
+      'check OVERDUE (due every 365 days), say so'
+    )
+    const never = entry(
+      {},
+      { freshness: { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true } }
+    )
     expect(renderBaseKnowledgeBlock([never], VIENNA)).toContain('never checked; overdue')
   })
 
   it('marks a commentary as interpretation only', () => {
-    const block = renderBaseKnowledgeBlock([entry({ kind: 'commentary', designation: null, title: 'BO Wien Kommentar' })], VIENNA)
+    const block = renderBaseKnowledgeBlock(
+      [entry({ kind: 'commentary', designation: null, title: 'BO Wien Kommentar' })],
+      VIENNA
+    )
     expect(block).toContain('„BO Wien Kommentar“: commentary')
     expect(block).toContain('role: interpretation only')
   })
@@ -75,12 +93,19 @@ describe('the base knowledge a turn carries', () => {
     })
     expect(renderBaseKnowledgeBlock([directive], VIENNA)).toContain('applies to this project')
     expect(renderBaseKnowledgeBlock([directive], VIENNA)).toContain('not verified')
-    expect(renderBaseKnowledgeBlock([directive], GRAZ)).toContain('does NOT apply to this project (project in AT-6)')
-    expect(renderBaseKnowledgeBlock([directive], UNKNOWN)).toContain('authority unknown for this project')
+    expect(renderBaseKnowledgeBlock([directive], GRAZ)).toContain(
+      'does NOT apply to this project (project in AT-6)'
+    )
+    expect(renderBaseKnowledgeBlock([directive], UNKNOWN)).toContain(
+      'authority unknown for this project'
+    )
   })
 
   it('names a metadata-only copy as held, with no file to search and no text to quote', () => {
-    const block = renderBaseKnowledgeBlock([entry({}, { textUse: 'metadata_only', aiProcessingAttestedAt: null })], VIENNA)
+    const block = renderBaseKnowledgeBlock(
+      [entry({}, { textUse: 'metadata_only', aiProcessingAttestedAt: null })],
+      VIENNA
+    )
     expect(block).toContain('ÖNORM B 1600:2017')
     expect(block).toContain('TEXT NOT USED')
     expect(block).not.toContain('file „ÖNORM B 1600.pdf“')
@@ -93,7 +118,9 @@ describe('the base knowledge a turn carries', () => {
   })
 
   it('is bounded, and says how many it left out', () => {
-    const many = Array.from({ length: MAX_TURN_ENTRIES + 3 }, (_, index) => entry({ title: `Norm ${index}` }))
+    const many = Array.from({ length: MAX_TURN_ENTRIES + 3 }, (_, index) =>
+      entry({ title: `Norm ${index}` })
+    )
     const lines = renderBaseKnowledgeBlock(many, VIENNA)?.split('\n') ?? []
     expect(lines).toHaveLength(MAX_TURN_ENTRIES + 2)
     expect(lines.at(-1)).toBe('- … and 3 more not listed here.')

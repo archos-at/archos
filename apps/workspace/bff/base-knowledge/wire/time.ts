@@ -22,11 +22,13 @@ export type ProcedureEvent = (typeof PROCEDURE_EVENTS)[number]
 export const TRANSITION_OUTCOMES = ['old_law', 'new_law', 'choice'] as const
 export type TransitionOutcome = (typeof TRANSITION_OUTCOMES)[number]
 
+const procedureTypeSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,63}$/, 'a snake_case procedure type')
+
 export const procedureSchema = z
   .object({
-    procedureType: z
-      .string()
-      .regex(/^[a-z][a-z0-9_]{0,63}$/)
+    procedureType: procedureTypeSchema
       .nullable()
       .default(null)
       .describe(
@@ -88,31 +90,55 @@ export interface EditionRef {
   inForceTo: string | null
 }
 
-export const asOfBodySchema = z
+/**
+ * An ISO day in a query: a short pattern on the wire (the tool list's budget
+ * pays for every character of `z.iso.date()`'s leap-year pattern) and the
+ * calendar checked by zod's own date parser.
+ */
+const queryDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'an ISO date, YYYY-MM-DD')
+  .refine((value) => isoDate.safeParse(value).success, 'not a calendar day')
+
+const procedureIdSchema = z.string().regex(/^p[0-9]{1,3}$/, 'a procedure id such as p1')
+
+/**
+ * "Which edition of this work applied": on a date (`asOf`), to a procedure
+ * stored on a project's profile (`projectId` and `procedureId`, its facts
+ * `filed_on@p1`, `decided_on@p1`, …), or to a procedure given here.
+ */
+export const asOfQuerySchema = z
   .object({
-    workId: z
-      .string()
-      .min(1)
-      .max(120)
-      .describe('The work whose edition is asked for, e.g. work:at-wien-bo.'),
-    territoryId: z
-      .string()
-      .min(1)
-      .max(80)
-      .describe(
-        'The legislating node, e.g. AT-9; its parents are read from the territory records.'
-      ),
-    asOf: isoDate
-      .optional()
-      .describe('A date: the edition in force on it. Give this or procedure, not both.'),
-    procedure: procedureSchema
-      .optional()
-      .describe(
-        'A permit procedure: the edition that applies to it, by the node’s reference-date rule and transitions.'
-      ),
+    workId: z.string().min(1).max(120).describe('e.g. work:at-wien-bo'),
+    territoryId: z.string().min(1).max(80).describe('The legislating node, e.g. AT-9.'),
+    asOf: queryDay.optional(),
+    projectId: z.string().min(1).max(120).optional(),
+    procedureId: procedureIdSchema.optional(),
+    procedureType: procedureTypeSchema.optional(),
+    filedOn: queryDay.optional(),
+    decidedOn: z.union([queryDay, z.literal('pending')]).optional(),
+    worksStartedOn: z.union([queryDay, z.literal('not_started')]).optional(),
   })
   .strict()
-  .refine((body) => (body.asOf === undefined) !== (body.procedure === undefined), {
-    message: 'give asOf or procedure, exactly one',
+  .superRefine((query, context) => {
+    const given = query.procedureType ?? query.filedOn ?? query.decidedOn ?? query.worksStartedOn
+    const modes = [
+      query.asOf !== undefined,
+      query.projectId !== undefined || query.procedureId !== undefined,
+      given !== undefined,
+    ]
+    if (modes.filter(Boolean).length !== 1)
+      context.addIssue({
+        code: 'custom',
+        path: [],
+        message:
+          'ask by asOf, by projectId and procedureId, or by a procedure given here: exactly one',
+      })
+    if ((query.projectId === undefined) !== (query.procedureId === undefined))
+      context.addIssue({
+        code: 'custom',
+        path: ['procedureId'],
+        message: 'projectId and procedureId come together',
+      })
   })
-export type AsOfBody = z.infer<typeof asOfBodySchema>
+export type AsOfQuery = z.infer<typeof asOfQuerySchema>

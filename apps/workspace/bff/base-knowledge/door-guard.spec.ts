@@ -45,8 +45,19 @@ import { licenceOfDocument } from './text-guard'
 
 const session = { organizationId: 'org_a', userId: 'user_a' } as AuthorizedSession
 const NORM = 'Tabelle 3 – Mindesthöhe 100 cm bis 12 m Absturzhöhe. '.repeat(40)
-const read = async () => ({ text: NORM, truncated: false, contentType: 'text/markdown', filename: 'norm.md' })
-const attested = { licenceClass: 'licensed', licensed: true, confirmed: true, aiProcessingAttested: true, quoteMaxChars: 100 }
+const read = async () => ({
+  text: NORM,
+  truncated: false,
+  contentType: 'text/markdown',
+  filename: 'norm.md',
+})
+const attested = {
+  licenceClass: 'licensed',
+  licensed: true,
+  confirmed: true,
+  aiProcessingAttested: true,
+  quoteMaxChars: 100,
+}
 
 beforeEach(() => {
   reader.agent = true
@@ -61,7 +72,10 @@ describe('an agent at the door', () => {
     const first = await doorTextOf(session, 'doc1', read)
     expect(first.text).toHaveLength(DOOR_QUOTE_FACTOR * 100)
     expect(first.truncated).toBe(true)
-    await expect(doorTextOf(session, 'doc1', read)).rejects.toMatchObject({ status: 403, code: 'LICENSED_QUOTE_CAP_REACHED' })
+    await expect(doorTextOf(session, 'doc1', read)).rejects.toMatchObject({
+      status: 403,
+      code: 'LICENSED_QUOTE_CAP_REACHED',
+    })
   })
 
   it('adds reads of 120 characters up until the budget is spent', async () => {
@@ -69,7 +83,9 @@ describe('an agent at the door', () => {
     const lengths = []
     for (let i = 0; i < 3; i++) lengths.push((await doorTextOf(session, 'doc2', small)).text.length)
     expect(lengths).toEqual([120, 120, 60])
-    await expect(doorTextOf(session, 'doc2', small)).rejects.toMatchObject({ code: 'LICENSED_QUOTE_CAP_REACHED' })
+    await expect(doorTextOf(session, 'doc2', small)).rejects.toMatchObject({
+      code: 'LICENSED_QUOTE_CAP_REACHED',
+    })
   })
 
   it('counts each person apart', async () => {
@@ -80,21 +96,37 @@ describe('an agent at the door', () => {
 
   it('gets no text of a copy whose office has not attested AI processing, nor of an unconfirmed one', async () => {
     licence.value = { ...attested, aiProcessingAttested: false, held: true }
-    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({
+      code: 'BASE_COPY_HELD',
+    })
     licence.value = { ...attested, confirmed: false, held: true }
-    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
+    await expect(doorTextOf(session, 'doc4', read)).rejects.toMatchObject({
+      code: 'BASE_COPY_HELD',
+    })
   })
 
   it('gets no text and no bytes of ANY held copy, whatever its licence class (one code)', async () => {
-    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
-    await expect(doorTextOf(session, 'doc4b', read)).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
-    await expect(refuseLicensedFileForAgent(session, 'doc4b')).rejects.toMatchObject({ code: 'BASE_COPY_HELD' })
-    licence.value = { ...licence.value as object, confirmed: true, held: false }
+    licence.value = {
+      licenceClass: 'public_open',
+      licensed: false,
+      confirmed: false,
+      held: true,
+      quoteMaxChars: 500,
+    }
+    await expect(doorTextOf(session, 'doc4b', read)).rejects.toMatchObject({
+      code: 'BASE_COPY_HELD',
+    })
+    await expect(refuseLicensedFileForAgent(session, 'doc4b')).rejects.toMatchObject({
+      code: 'BASE_COPY_HELD',
+    })
+    licence.value = { ...(licence.value as object), confirmed: true, held: false }
     expect((await doorTextOf(session, 'doc4b', read)).text).toBe(NORM)
   })
 
   it('gets no file or link of a licensed copy', async () => {
-    await expect(refuseLicensedFileForAgent(session, 'doc5')).rejects.toMatchObject({ code: 'LICENSED_COPY_NOT_SENT' })
+    await expect(refuseLicensedFileForAgent(session, 'doc5')).rejects.toMatchObject({
+      code: 'LICENSED_COPY_NOT_SENT',
+    })
   })
 
   it('reads every other document whole', async () => {
@@ -110,19 +142,27 @@ describe('the budget', () => {
   it('is one per edition, so a second upload of the same copy does not reset it', async () => {
     licence.value = { ...attested, editionId: 'ed_1' }
     await doorTextOf(session, 'upload_a', read)
-    await expect(doorTextOf(session, 'upload_b', read)).rejects.toMatchObject({ code: 'LICENSED_QUOTE_CAP_REACHED' })
+    await expect(doorTextOf(session, 'upload_b', read)).rejects.toMatchObject({
+      code: 'LICENSED_QUOTE_CAP_REACHED',
+    })
   })
 
   it('is spent atomically: two reads in flight together get no more than the budget between them', async () => {
-    const both = await Promise.all([doorTextOf(session, 'doc8', read), doorTextOf(session, 'doc8', read)].map((call) =>
-      call.then((preview) => preview.text.length, () => 0)
-    ))
+    const both = await Promise.all(
+      [doorTextOf(session, 'doc8', read), doorTextOf(session, 'doc8', read)].map((call) =>
+        call.then(
+          (preview) => preview.text.length,
+          () => 0
+        )
+      )
+    )
     expect(both[0] + both[1]).toBe(DOOR_QUOTE_FACTOR * 100)
   })
 
   it('still cuts each call to the whole budget when the shared cache is down', async () => {
     store.down = true
-    for (let i = 0; i < 2; i++) expect((await doorTextOf(session, 'doc9', read)).text).toHaveLength(DOOR_QUOTE_FACTOR * 100)
+    for (let i = 0; i < 2; i++)
+      expect((await doorTextOf(session, 'doc9', read)).text).toHaveLength(DOOR_QUOTE_FACTOR * 100)
   })
 })
 
@@ -140,40 +180,70 @@ describe('search snippets', () => {
   const searched = (id: string): SearchResponse =>
     ({
       sections: {
-        document: { hits: [{ kind: 'document', id, passage: { text: NORM.slice(0, 200), page: 4 } }], total: 1 },
+        document: {
+          hits: [{ kind: 'document', id, passage: { text: NORM.slice(0, 200), page: 4 } }],
+          total: 1,
+        },
       },
     }) as unknown as SearchResponse
   const similar = (documentId: string): SimilarPassagesResponse =>
     ({
-      groups: [{ kind: 'office_shelf', project: null, documents: [{ documentId, passages: [{ page: 4, snippet: NORM.slice(0, 200), score: 0.9 }] }] }],
+      groups: [
+        {
+          kind: 'office_shelf',
+          project: null,
+          documents: [
+            { documentId, passages: [{ page: 4, snippet: NORM.slice(0, 200), score: 0.9 }] },
+          ],
+        },
+      ],
     }) as unknown as SimilarPassagesResponse
 
   it('of a licensed copy reach an agent as the note, its hit and page kept', async () => {
     const hit = (await searchForAgent(session, searched('doc11'))).sections.document?.hits[0]
     expect(hit?.passage).toEqual({ text: LICENSED_SNIPPET_NOTE, page: 4 })
-    const passage = (await similarForAgent(session, similar('doc11'))).groups[0].documents[0].passages[0]
+    const passage = (await similarForAgent(session, similar('doc11'))).groups[0].documents[0]
+      .passages[0]
     expect(passage).toMatchObject({ snippet: LICENSED_SNIPPET_NOTE, page: 4 })
   })
 
   it('are withheld when the licence cannot be read (fail closed), on both search paths', async () => {
     vi.mocked(licenceOfDocument).mockRejectedValueOnce(new Error('db down'))
-    expect((await searchForAgent(session, searched('doc12'))).sections.document?.hits[0].passage?.text).toBe(LICENSED_SNIPPET_NOTE)
+    expect(
+      (await searchForAgent(session, searched('doc12'))).sections.document?.hits[0].passage?.text
+    ).toBe(LICENSED_SNIPPET_NOTE)
     vi.mocked(licenceOfDocument).mockRejectedValueOnce(new Error('db down'))
-    expect((await similarForAgent(session, similar('doc12'))).groups[0].documents[0].passages[0].snippet).toBe(LICENSED_SNIPPET_NOTE)
+    expect(
+      (await similarForAgent(session, similar('doc12'))).groups[0].documents[0].passages[0].snippet
+    ).toBe(LICENSED_SNIPPET_NOTE)
   })
 
   it('of a held copy of any class reach an agent as the note', async () => {
-    licence.value = { licenceClass: 'public_open', licensed: false, confirmed: false, held: true, quoteMaxChars: 500 }
-    expect((await searchForAgent(session, searched('doc12b'))).sections.document?.hits[0].passage?.text).toBe(LICENSED_SNIPPET_NOTE)
-    expect((await similarForAgent(session, similar('doc12b'))).groups[0].documents[0].passages[0].snippet).toBe(LICENSED_SNIPPET_NOTE)
+    licence.value = {
+      licenceClass: 'public_open',
+      licensed: false,
+      confirmed: false,
+      held: true,
+      quoteMaxChars: 500,
+    }
+    expect(
+      (await searchForAgent(session, searched('doc12b'))).sections.document?.hits[0].passage?.text
+    ).toBe(LICENSED_SNIPPET_NOTE)
+    expect(
+      (await similarForAgent(session, similar('doc12b'))).groups[0].documents[0].passages[0].snippet
+    ).toBe(LICENSED_SNIPPET_NOTE)
   })
 
   it('of any other document, and for the person, are as found', async () => {
     licence.value = null
-    expect((await searchForAgent(session, searched('doc13'))).sections.document?.hits[0].passage?.text).toBe(NORM.slice(0, 200))
+    expect(
+      (await searchForAgent(session, searched('doc13'))).sections.document?.hits[0].passage?.text
+    ).toBe(NORM.slice(0, 200))
     licence.value = attested
     reader.agent = false
-    expect((await similarForAgent(session, similar('doc13'))).groups[0].documents[0].passages[0].snippet).toBe(NORM.slice(0, 200))
+    expect(
+      (await similarForAgent(session, similar('doc13'))).groups[0].documents[0].passages[0].snippet
+    ).toBe(NORM.slice(0, 200))
   })
 })
 

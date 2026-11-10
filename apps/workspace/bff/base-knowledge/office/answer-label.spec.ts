@@ -27,7 +27,12 @@ const ENTRY: BaseKnowledgeEntry = {
   },
   freshness: {
     intervalDays: 365,
-    lastCheck: { checkedAt: '2026-09-12T08:00:00.000Z', checkedBy: 'user_1', result: 'current', note: null },
+    lastCheck: {
+      checkedAt: '2026-09-12T08:00:00.000Z',
+      checkedBy: 'user_1',
+      result: 'current',
+      note: null,
+    },
     dueAt: '2027-09-12T08:00:00.000Z',
     overdue: false,
   },
@@ -56,9 +61,15 @@ describe('the data of an answer’s label on an office copy', () => {
     expect(officeAnswerLabel(commentary, projectTerritory({})).role).toBe('interpretation')
     const directive = {
       ...ENTRY,
-      values: { ...ENTRY.values, kind: 'authority_directive' as const, addressees: [{ name: 'MA 37', territoryId: 'AT-9' }] },
+      values: {
+        ...ENTRY.values,
+        kind: 'authority_directive' as const,
+        addressees: [{ name: 'MA 37', territoryId: 'AT-9' }],
+      },
     }
-    expect(officeAnswerLabel(directive, projectTerritory({ federalState: 'styria' }))).toMatchObject({
+    expect(
+      officeAnswerLabel(directive, projectTerritory({ federalState: 'styria' }))
+    ).toMatchObject({
       role: 'authority_practice',
       directive: { verdict: 'does_not_apply', territoryId: 'AT-6' },
     })

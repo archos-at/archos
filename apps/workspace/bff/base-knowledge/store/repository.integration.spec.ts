@@ -113,8 +113,15 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
 
   it('keeps one entry per document: a second proposal that lost the race is a conflict', async () => {
     const { documentId } = await propose()
-    const context = { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'reading' as const }, terms: {} }
-    await expect(repo.insertProposedEntry(documentId, VALUES, context)).rejects.toMatchObject({ name: 'ConflictError' })
+    const context = {
+      organizationId: ORG,
+      createdBy: 'user_bk',
+      provenance: { proposedBy: 'reading' as const },
+      terms: {},
+    }
+    await expect(repo.insertProposedEntry(documentId, VALUES, context)).rejects.toMatchObject({
+      name: 'ConflictError',
+    })
     // Positive control: another document still takes an entry.
     await expect(propose()).resolves.toMatchObject({ ids: { workId: expect.any(String) } })
   })
@@ -123,7 +130,9 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     const office = await import('../office/repository')
     const reader = { kind: 'member' as const, userId: 'user_bk' }
     const { documentId } = await propose()
-    const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
+    const [row] = await as(ORG, () =>
+      db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`)
+    )
     expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(true)
     // Positive control: an unrecorded name, and the same name in another office, are free.
     expect(await office.shelfNameHasEntry(ORG, 'not-recorded.pdf', reader)).toBe(false)
@@ -143,15 +152,23 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
 
   it('moves the heads on confirmation, records the first check, and keeps the proposal in the history', async () => {
     const { documentId, ids } = await propose()
-    await repo.writeConfirmedValues(ids, { ...VALUES, editionLabel: '2017-05-01' }, {
-      organizationId: ORG,
-      createdBy: 'user_bk',
-      provenance: { proposedBy: 'person' },
-      terms: AI_ALLOWED,
-      firstCheck: true,
-    })
+    await repo.writeConfirmedValues(
+      ids,
+      { ...VALUES, editionLabel: '2017-05-01' },
+      {
+        organizationId: ORG,
+        createdBy: 'user_bk',
+        provenance: { proposedBy: 'person' },
+        terms: AI_ALLOWED,
+        firstCheck: true,
+      }
+    )
     const [entry] = await repo.readOfficeEntries(ORG, [documentId])
-    expect(entry).toMatchObject({ confirmed: true, values: { editionLabel: '2017-05-01' }, lastCheck: { result: 'current' } })
+    expect(entry).toMatchObject({
+      confirmed: true,
+      values: { editionLabel: '2017-05-01' },
+      lastCheck: { result: 'current' },
+    })
     expect(await count('knowledge_revisions', 'record_id', ids.workId)).toBe(2)
     expect(await repo.copyForDocument(ORG, documentId)).toEqual({
       licenceClass: 'licensed',
@@ -163,7 +180,11 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
 
   it('refuses to update or delete a revision, a body or a check on its own', async () => {
     const { ids } = await propose()
-    await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'current', note: null })
+    await repo.insertCopyCheck(ORG, ids.copyId, {
+      checkedBy: 'user_bk',
+      result: 'current',
+      note: null,
+    })
     for (const statement of [
       sql`UPDATE knowledge_revisions SET created_by = 'x' WHERE record_id = ${ids.workId}`,
       sql`DELETE FROM knowledge_revisions WHERE record_id = ${ids.workId}`,
@@ -173,7 +194,11 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
       await expect(as(ORG, () => db.execute(statement))).rejects.toThrow()
     }
     // A record changes its head only.
-    await expect(as(ORG, () => db.execute(sql`UPDATE knowledge_records SET created_by = 'x' WHERE id = ${ids.workId}`))).rejects.toThrow()
+    await expect(
+      as(ORG, () =>
+        db.execute(sql`UPDATE knowledge_records SET created_by = 'x' WHERE id = ${ids.workId}`)
+      )
+    ).rejects.toThrow()
   })
 
   it('refuses a copy on another office’s edition, and a tenant write of a platform row', async () => {
@@ -192,7 +217,9 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     ).rejects.toThrow()
     await expect(
       as(ORG, () =>
-        db.execute(sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${`work_${randomUUID()}`}, NULL, 'work', 'user_bk')`)
+        db.execute(
+          sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${`work_${randomUUID()}`}, NULL, 'work', 'user_bk')`
+        )
       )
     ).rejects.toThrow()
   })
@@ -206,7 +233,11 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
       terms: AI_ALLOWED,
       firstCheck: true,
     })
-    await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'newer_known', note: null })
+    await repo.insertCopyCheck(ORG, ids.copyId, {
+      checkedBy: 'user_bk',
+      result: 'newer_known',
+      note: null,
+    })
     await as(ORG, () => db.execute(sql`DELETE FROM documents WHERE id = ${documentId}`))
     for (const id of [ids.workId, ids.editionId, ids.copyId]) {
       expect(await count('knowledge_records', 'id', id)).toBe(0)

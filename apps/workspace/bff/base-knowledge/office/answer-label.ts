@@ -6,7 +6,11 @@
  */
 
 import type { BaseKnowledgeEntry } from '../wire'
-import { directiveApplicability, type DirectiveApplicability, type ProjectTerritory } from './authority'
+import {
+  directiveApplicability,
+  type DirectiveApplicability,
+  type ProjectTerritory,
+} from './authority'
 
 export type AnswerRole = 'requirement_source' | 'interpretation' | 'authority_practice'
 
@@ -34,7 +38,10 @@ function roleOf(kind: BaseKnowledgeEntry['values']['kind']): AnswerRole {
   return 'requirement_source'
 }
 
-export function officeAnswerLabel(entry: BaseKnowledgeEntry, project: ProjectTerritory): OfficeAnswerLabel {
+export function officeAnswerLabel(
+  entry: BaseKnowledgeEntry,
+  project: ProjectTerritory
+): OfficeAnswerLabel {
   const { values } = entry
   return {
     documentId: entry.documentId,
@@ -48,6 +55,9 @@ export function officeAnswerLabel(entry: BaseKnowledgeEntry, project: ProjectTer
     lastCheckedOn: entry.freshness.lastCheck?.checkedAt.slice(0, 10) ?? null,
     checkOverdue: entry.freshness.overdue,
     textUse: entry.textUse,
-    directive: values.kind === 'authority_directive' ? directiveApplicability(values.addressees, project) : null,
+    directive:
+      values.kind === 'authority_directive'
+        ? directiveApplicability(values.addressees, project)
+        : null,
   }
 }

@@ -20,7 +20,11 @@ export const REVIEW_INTERVAL_DAYS: Readonly<Record<KnowledgeWorkKind, number>> =
   authority_directive: 180,
 }
 
-export function freshnessOf(kind: KnowledgeWorkKind, lastCheck: EntryCheck | null, now: Date): Freshness {
+export function freshnessOf(
+  kind: KnowledgeWorkKind,
+  lastCheck: EntryCheck | null,
+  now: Date
+): Freshness {
   const intervalDays = REVIEW_INTERVAL_DAYS[kind]
   if (!lastCheck) return { intervalDays, lastCheck: null, dueAt: null, overdue: true }
   const due = new Date(new Date(lastCheck.checkedAt).getTime() + intervalDays * DAY_MS)

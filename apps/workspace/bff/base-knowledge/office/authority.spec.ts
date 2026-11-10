@@ -20,15 +20,26 @@ describe('whether a directive belongs to the project’s building authority', ()
   })
 
   it('says the authority is unknown when the project’s Land is not recorded, or the directive names none', () => {
-    expect(directiveApplicability(MA37, projectTerritory({}))).toEqual({ verdict: 'authority_unknown' })
-    expect(directiveApplicability(MA37, projectTerritory({ federalState: 'outside_austria' }))).toEqual({
+    expect(directiveApplicability(MA37, projectTerritory({}))).toEqual({
       verdict: 'authority_unknown',
     })
-    expect(directiveApplicability([], projectTerritory({ federalState: 'vienna' }))).toEqual({ verdict: 'authority_unknown' })
+    expect(
+      directiveApplicability(MA37, projectTerritory({ federalState: 'outside_austria' }))
+    ).toEqual({
+      verdict: 'authority_unknown',
+    })
+    expect(directiveApplicability([], projectTerritory({ federalState: 'vienna' }))).toEqual({
+      verdict: 'authority_unknown',
+    })
   })
 
   it('reads a country outside Austria as its own territory, where an Austrian authority does not decide', () => {
-    expect(directiveApplicability(MA37, projectTerritory({ federalState: 'outside_austria', country: 'de' }))).toEqual({
+    expect(
+      directiveApplicability(
+        MA37,
+        projectTerritory({ federalState: 'outside_austria', country: 'de' })
+      )
+    ).toEqual({
       verdict: 'does_not_apply',
       territoryId: 'DE',
     })

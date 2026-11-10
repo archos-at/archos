@@ -26,11 +26,16 @@ export type DirectiveApplicability =
   | { verdict: 'authority_unknown' }
 
 /** The project's territory from its profile facts (`federal_state`, `country`). */
-export function projectTerritory(facts: { federalState?: unknown; country?: unknown }): ProjectTerritory {
+export function projectTerritory(facts: {
+  federalState?: unknown
+  country?: unknown
+}): ProjectTerritory {
   const state = typeof facts.federalState === 'string' ? facts.federalState : null
-  if (state && FEDERAL_STATE_TERRITORIES[state]) return { territoryId: FEDERAL_STATE_TERRITORIES[state], label: state }
+  if (state && FEDERAL_STATE_TERRITORIES[state])
+    return { territoryId: FEDERAL_STATE_TERRITORIES[state], label: state }
   const country = typeof facts.country === 'string' ? facts.country : null
-  if (country && /^[a-z]{2}$/.test(country) && country !== 'at') return { territoryId: country.toUpperCase(), label: country }
+  if (country && /^[a-z]{2}$/.test(country) && country !== 'at')
+    return { territoryId: country.toUpperCase(), label: country }
   return { territoryId: null, label: null }
 }
 
@@ -39,10 +44,16 @@ function contains(outer: string, inner: string): boolean {
   return inner === outer || inner.startsWith(`${outer}-`)
 }
 
-export function directiveApplicability(addressees: readonly Addressee[], project: ProjectTerritory): DirectiveApplicability {
+export function directiveApplicability(
+  addressees: readonly Addressee[],
+  project: ProjectTerritory
+): DirectiveApplicability {
   // Neither side known, nothing to match: the answer says the authority is unknown.
   if (!project.territoryId || addressees.length === 0) return { verdict: 'authority_unknown' }
-  const competent = addressees.find((addressee) => contains(addressee.territoryId, project.territoryId as string))
-  if (competent) return { verdict: 'applies', authority: competent.name, territoryId: project.territoryId }
+  const competent = addressees.find((addressee) =>
+    contains(addressee.territoryId, project.territoryId as string)
+  )
+  if (competent)
+    return { verdict: 'applies', authority: competent.name, territoryId: project.territoryId }
   return { verdict: 'does_not_apply', territoryId: project.territoryId }
 }

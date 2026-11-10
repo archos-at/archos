@@ -27,19 +27,34 @@ export interface Decision {
 }
 
 /** Entitle an office to a country, or withdraw it; returns whether anything changed. */
-export async function setEntitlement(organizationId: string, countryId: string, entitled: boolean, decision: Decision): Promise<boolean> {
+export async function setEntitlement(
+  organizationId: string,
+  countryId: string,
+  entitled: boolean,
+  decision: Decision
+): Promise<boolean> {
   return withPlatformAccess('platform base knowledge: entitle an office to a country', async () => {
     const db = getDb()
     if (!entitled) {
       const removed = await db
         .delete(organizationCountries)
-        .where(and(eq(organizationCountries.organizationId, organizationId), eq(organizationCountries.countryId, countryId)))
+        .where(
+          and(
+            eq(organizationCountries.organizationId, organizationId),
+            eq(organizationCountries.countryId, countryId)
+          )
+        )
         .returning({ countryId: organizationCountries.countryId })
       return removed.length > 0
     }
     const added = await db
       .insert(organizationCountries)
-      .values({ organizationId, countryId, entitledBy: decision.by, decisionSource: decision.decisionSource })
+      .values({
+        organizationId,
+        countryId,
+        entitledBy: decision.by,
+        decisionSource: decision.decisionSource,
+      })
       .onConflictDoNothing()
       .returning({ countryId: organizationCountries.countryId })
     return added.length > 0
@@ -47,7 +62,11 @@ export async function setEntitlement(organizationId: string, countryId: string, 
 }
 
 /** Move an office's seat; the old home stays an entitlement. Returns the previous home. */
-export async function moveHomeCountry(organizationId: string, homeCountry: HomeCountry, decision: Decision): Promise<string | null> {
+export async function moveHomeCountry(
+  organizationId: string,
+  homeCountry: HomeCountry,
+  decision: Decision
+): Promise<string | null> {
   return withPlatformAccess('platform base knowledge: set an office home country', () =>
     getDb().transaction(async (tx) => {
       const [row] = await tx
@@ -58,7 +77,11 @@ export async function moveHomeCountry(organizationId: string, homeCountry: HomeC
       const previous = row?.homeCountry ?? null
       await tx
         .insert(organizations)
-        .values({ workosOrganizationId: organizationId, homeCountry, timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry] })
+        .values({
+          workosOrganizationId: organizationId,
+          homeCountry,
+          timeZone: HOME_COUNTRY_TIME_ZONES[homeCountry],
+        })
         .onConflictDoUpdate({
           target: organizations.workosOrganizationId,
           set: { homeCountry, updatedAt: sql`now()` },
@@ -66,16 +89,23 @@ export async function moveHomeCountry(organizationId: string, homeCountry: HomeC
       if (previous && previous !== homeCountry) {
         await tx
           .insert(organizationCountries)
-          .values({ organizationId, countryId: previous, entitledBy: decision.by, decisionSource: decision.decisionSource })
+          .values({
+            organizationId,
+            countryId: previous,
+            entitledBy: decision.by,
+            decisionSource: decision.decisionSource,
+          })
           .onConflictDoNothing()
       }
       return previous
-    }),
+    })
   )
 }
 
 /** What an office is entitled to, read as the office (its own rows only). */
-export async function readOrganizationCountries(organizationId: string): Promise<OrganizationCountriesView> {
+export async function readOrganizationCountries(
+  organizationId: string
+): Promise<OrganizationCountriesView> {
   return withTenant({ organizationId }, async () => {
     const db = getDb()
     const [row] = await db
@@ -95,7 +125,11 @@ export async function readOrganizationCountries(organizationId: string): Promise
         ...(home ? [{ countryId: home, source: 'home' as const, entitledAt: null }] : []),
         ...rows
           .filter((entry) => entry.countryId !== home)
-          .map((entry) => ({ countryId: entry.countryId, source: 'platform' as const, entitledAt: entry.entitledAt.toISOString() })),
+          .map((entry) => ({
+            countryId: entry.countryId,
+            source: 'platform' as const,
+            entitledAt: entry.entitledAt.toISOString(),
+          })),
       ],
     }
   })

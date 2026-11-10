@@ -25,7 +25,10 @@ async function shelfDocument(session: AuthorizedSession, documentId: string) {
 }
 
 /** Take a held copy's text out of the index and the search rows; the row keeps its bytes and reads `stored`. */
-export async function withholdText(session: AuthorizedSession, documentId: string): Promise<boolean> {
+export async function withholdText(
+  session: AuthorizedSession,
+  documentId: string
+): Promise<boolean> {
   const doc = await shelfDocument(session, documentId)
   if (!doc) return false
   await markDocumentNotIndexed(doc.id, session.organizationId)
