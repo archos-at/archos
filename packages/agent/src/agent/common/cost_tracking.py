@@ -44,7 +44,6 @@ import base64
 import functools
 import json
 import logging
-import math
 from collections.abc import Mapping
 from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
@@ -59,6 +58,10 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 
 from agent.common import bff_http
+from agent.common.provider_usage import ACCOUNTING_FIELDS
+from agent.common.provider_usage import as_int as _as_int
+from agent.common.provider_usage import reported_cost as _reported_cost
+from agent.common.provider_usage import usage_from_langchain_metadata as _usage_from_langchain_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +72,6 @@ USER_ID_HEADER = "x-grid-user-id"
 #: langchain-openai would otherwise drop (see install_responses_cost_carrier).
 RESPONSES_ACCOUNTING_KEY = "grid_usage_accounting"
 #: The fields of OpenRouter's usage object the ledger prices from.
-_ACCOUNTING_FIELDS = ("cost", "is_byok")
 
 _REQUEST_TIMEOUT_SECONDS = 5
 _FLUSH_BATCH_SIZE = 5
@@ -210,6 +212,11 @@ class UsageEvent:
     role: str | None = None
     #: Seconds of audio the call transcribed, for the calls priced by duration.
     audio_seconds: float | None = None
+    #: Tokens the call WROTE to the provider's prompt cache (OpenRouter
+    #: ``prompt_tokens_details.cache_write_tokens``), billed above the input
+    #: price: 1.25x on Claude and on GPT-5.6+. The other half of
+    #: ``cached_tokens``: without it a breakpoint's net effect is unknowable.
+    cache_write_tokens: int = 0
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -220,6 +227,7 @@ class UsageEvent:
             "completionTokens": self.completion_tokens,
             "totalTokens": self.total_tokens,
             "cachedTokens": self.cached_tokens,
+            "cacheWriteTokens": self.cache_write_tokens,
             "reasoningTokens": self.reasoning_tokens,
             "costUsd": self.cost_usd,
             "costSource": self.cost_source,
@@ -231,61 +239,6 @@ class UsageEvent:
             "role": self.role,
             "audioSeconds": self.audio_seconds,
         }
-
-
-def _as_int(value: Any) -> int:
-    try:
-        return int(value)
-    except TypeError, ValueError:
-        return 0
-
-
-def _usage_from_langchain_metadata(usage_metadata: Any, accounting: Any = None) -> dict[str, Any]:
-    """LangChain's normalized ``usage_metadata``, reshaped as a provider usage object.
-
-    The token counts a Responses-API call carries. ``_construct_lc_result_from_responses_api``
-    returns a ``ChatResult`` with no ``llm_output`` at all and a
-    ``response_metadata`` that excludes ``usage``; what survives is this
-    normalized view, in which OpenRouter's ``input_tokens_details.cached_tokens``
-    has become ``input_token_details.cache_read``. Reading only the three
-    scalars, as this did before, is what silently zeroed ``cachedTokens`` on
-    every row written by an ``api_type: responses`` role.
-
-    ``accounting`` is the provider's ``cost`` and ``is_byok``, which
-    :func:`install_responses_cost_carrier` keeps on ``response_metadata``.
-    Without it the cost stays absent and is reported as ``missing``.
-    """
-    if not usage_metadata:
-        return {}
-    input_details = usage_metadata.get("input_token_details") or {}
-    output_details = usage_metadata.get("output_token_details") or {}
-    usage: dict[str, Any] = {
-        "prompt_tokens": usage_metadata.get("input_tokens", 0),
-        "completion_tokens": usage_metadata.get("output_tokens", 0),
-        "total_tokens": usage_metadata.get("total_tokens", 0),
-        "prompt_tokens_details": {"cached_tokens": input_details.get("cache_read", 0)},
-        "completion_tokens_details": {"reasoning_tokens": output_details.get("reasoning", 0)},
-    }
-    if isinstance(accounting, dict):
-        usage.update({key: accounting[key] for key in _ACCOUNTING_FIELDS if key in accounting})
-    return usage
-
-
-def _reported_cost(raw: Any, generation_id: str | None) -> float | None:
-    """The provider's ``cost`` in USD when it is a real one, else ``None`` (recorded as ``missing``).
-
-    ``bool`` is an ``int`` in Python, so ``cost: true`` would book $1.00; NaN
-    disables the budget gate (every comparison with it is false); and the BFF
-    rejects a non-finite or negative cost, dropping the whole batch with it.
-    A present value that is none of those is logged, never booked, so a
-    malformed field is visible rather than indistinguishable from an absent one.
-    """
-    if raw is None:
-        return None
-    if isinstance(raw, int | float) and not isinstance(raw, bool) and math.isfinite(raw) and raw >= 0:
-        return float(raw)
-    logger.warning("Ignoring malformed provider cost %r on generation %s; recorded as missing", raw, generation_id)
-    return None
 
 
 def extract_usage_event(response: Any) -> UsageEvent | None:
@@ -336,6 +289,7 @@ def extract_usage_event(response: Any) -> UsageEvent | None:
         completion_tokens=_as_int(usage.get("completion_tokens")),
         total_tokens=_as_int(usage.get("total_tokens")),
         cached_tokens=_as_int(prompt_details.get("cached_tokens")),
+        cache_write_tokens=_as_int(prompt_details.get("cache_write_tokens")),
         reasoning_tokens=_as_int(completion_details.get("reasoning_tokens")),
         cost_usd=cost_usd if cost_usd is not None else 0.0,
         cost_source="usage_field" if cost_usd is not None else "missing",
@@ -401,6 +355,7 @@ class CostTracker(BaseCallbackHandler):
         #: "did this turn's prefix stay cached across its iterations" is a
         #: question about the turn, and nothing else answers it in the log.
         self._cached_tokens = 0
+        self._cache_write_tokens = 0
         # Requested model per LLM run: deep research fires concurrent LLM
         # calls (possibly on different models), so a single shared slot would
         # attribute one call's usage to whichever model started last. Keyed by
@@ -479,6 +434,7 @@ class CostTracker(BaseCallbackHandler):
             self._prompt_tokens += event.prompt_tokens
             self._completion_tokens += event.completion_tokens
             self._cached_tokens += event.cached_tokens
+            self._cache_write_tokens += event.cache_write_tokens
             source = event.cost_source
             self._cost_sources[source] = self._cost_sources.get(source, 0) + 1
             should_flush = len(self._pending) >= _FLUSH_BATCH_SIZE
@@ -529,17 +485,19 @@ class CostTracker(BaseCallbackHandler):
         with self._lock:
             prompt_tokens = self._prompt_tokens
             cached = self._cached_tokens
+            written = self._cache_write_tokens
             calls = self._events_recorded
         if prompt_tokens <= 0:
             return
         share = 100.0 * cached / prompt_tokens
         logger.info(
-            "[PromptCache] %d call(s): %d/%d input tokens served from cache (%.1f%%), %d uncached",
+            "[PromptCache] %d call(s): %d/%d input tokens served from cache (%.1f%%), %d uncached, %d written",
             calls,
             cached,
             prompt_tokens,
             share,
             prompt_tokens - cached,
+            written,
         )
 
     @property
@@ -623,7 +581,7 @@ def _provider_accounting(usage: Any) -> dict[str, Any] | None:
     raw = usage if isinstance(usage, dict) else getattr(usage, "model_extra", None) or {}
     if not isinstance(raw, dict):
         return None
-    accounting = {key: raw[key] for key in _ACCOUNTING_FIELDS if raw.get(key) is not None}
+    accounting = {key: raw[key] for key in ACCOUNTING_FIELDS if raw.get(key) is not None}
     return accounting or None
 
 
@@ -754,6 +712,7 @@ def _usage_event_from_openai(response: Any, *, role: str, requested_model: str |
         completion_tokens=completion_tokens,
         total_tokens=_as_int(raw.get("total_tokens")) or prompt_tokens + completion_tokens,
         cached_tokens=_as_int(prompt_details.get("cached_tokens") if isinstance(prompt_details, dict) else 0),
+        cache_write_tokens=_as_int(prompt_details.get("cache_write_tokens") if isinstance(prompt_details, dict) else 0),
         reasoning_tokens=_as_int(
             completion_details.get("reasoning_tokens") if isinstance(completion_details, dict) else 0
         ),
