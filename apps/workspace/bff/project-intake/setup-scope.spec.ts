@@ -10,7 +10,8 @@ import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definiti
 import { deriveAll, withDerivedClass } from './derivation-view'
 import { planRecord } from './record'
 import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf, siteOfProfile } from './setup-scope'
-import { GERMAN_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
+import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
+import { GERMAN_RECORDS, SWISS_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
 
 const scope = (facts: Parameters<typeof placedProfile>[0], records = THREE_COUNTRIES) =>
   setupScopeOf(placedProfile(facts), { records, on: '2026-11-10' })
@@ -38,6 +39,26 @@ describe('setupScopeOf', () => {
     expect(geocoded('styria')).toEqual(['AT-6', 'AT'])
     expect(geocoded('bavaria')).toEqual(['DE-BY', 'DE'])
     expect(geocoded('atlantis')).toEqual([])
+  })
+
+  it('places nothing by a geocoded subdivision two countries list', () => {
+    // Switzerland lists a `bavaria` too: which country the geocoder meant is the open question.
+    const swissBavaria = SWISS_RECORDS.map((record) => {
+      const { body } = record.values
+      if (body.kind !== 'fact_definitions' || !body.payload.subdivisions) return record
+      const subdivisions = body.payload.subdivisions
+      const options = [...subdivisions.options, { token: 'bavaria', territoryId: 'CH-BV', label: 'Bavaria (CH)' }]
+      return {
+        ...record,
+        values: { ...record.values, body: { ...body, payload: { ...body.payload, subdivisions: { ...subdivisions, options } } } },
+      }
+    })
+    const records = [...SHIPPED_SETUP_RECORDS, ...GERMAN_RECORDS, ...swissBavaria]
+    const geocoded = (federalState: string) =>
+      setupScopeOf(placedProfile({}), { records, on: '2026-11-10', location: { federalState } }).chain
+    expect(geocoded('bavaria')).toEqual([])
+    // Positive control: a token only one country lists still places the project.
+    expect(geocoded('berlin')).toEqual(['DE-BE', 'DE'])
   })
 })
 
@@ -103,6 +124,17 @@ describe('siteOfProfile, for the BIM rules', () => {
     expect(siteOfProfile(placedProfile({ country: 'other' }))).toEqual({ chain: [] })
     expect(siteOfProfile(placedProfile({}))).toBeNull()
     expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }))).toBeNull()
+  })
+
+  it('reads the geocoded Land the intake reads, where the profile states none', () => {
+    // An Austrian project placed only by geocoding: without its Land every OIB rule stays open.
+    expect(siteOfProfile(placedProfile({ country: 'at' }), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
+    expect(siteOfProfile(placedProfile({}), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
+    expect(siteOfProfile(placedProfile({ country: 'at' }))).toEqual({ chain: ['AT'] })
+    // A stated Land outranks the geocoder's.
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { federalState: 'styria' })).toEqual({
+      chain: ['AT-9', 'AT'],
+    })
   })
 })
 
