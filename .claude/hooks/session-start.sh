@@ -120,6 +120,17 @@ if stale venv "$H" .venv/bin/python; then
   mark venv "$H"
 fi
 
+# Git hooks. AGENTS.md leaves `pre-commit install` as a step of its own after
+# `task setup`, and nothing ran it in a cloud session, so `.git/hooks` held only
+# samples and every local hook was silently off. The one that cost a force-push:
+# `merge-release-notes` never saw a merge that edited a release note (#1574), the
+# exact failure it exists to stop. A session gets the hooks a contributor would.
+# Not fatal: CI lints the whole repo either way.
+if ! grep -q "pre-commit" "$(git rev-parse --git-path hooks/pre-commit)" 2>/dev/null; then
+  step "git hooks (pre-commit install)"
+  .venv/bin/pre-commit install || step "pre-commit install failed; local hooks are off, CI still lints"
+fi
+
 # Bun, pinned where CI pins it (.github/actions/setup-bun). The container's own
 # Bun is whatever its image shipped, and `bun check` (`task workspace:types`) reports
 # what the pinned version reports, so a different one is a different gate.
