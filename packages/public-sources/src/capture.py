@@ -9,12 +9,17 @@ exactly as for every other read of the source.
 
 Answers the bytes' sha256 and size, where the fetch ended, and the page's text
 for the quote check. The text is what a person reads on the page: markup,
-scripts and styles dropped, block boundaries kept as line breaks. A body the
-reader cannot read as text (a PDF, an image) has no text; the caller says so.
+scripts and styles dropped, block boundaries kept as line breaks. A PDF's text
+is ingestion's text pass over its pages (:mod:`public_sources.pdf`), joined by a form feed, so a quote
+from a gazette or a guideline is checked the same way; a PDF that needs a
+password or cannot be parsed is refused with the problem's code, and a scan
+with no text layer keeps no text and says so in ``note``. A body the reader
+cannot read as text at all (an image) has no text.
 """
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
@@ -24,15 +29,21 @@ from datetime import datetime
 import httpx
 from lxml import html as lxml_html
 from public_sources.egress import MAX_BODY_BYTES
+from public_sources.egress import EgressRefused
+from public_sources.pdf import MAX_TEXT_CHARS
+from public_sources.pdf import PdfError
+from public_sources.pdf import is_pdf
+from public_sources.pdf import read_pdf
 from public_sources.routing import source_transport
 from public_sources.source import Source
 from public_sources.source import get_source
 
-#: What a capture asks for: a page a person reads, text before anything else.
-ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5"
+#: How long the fetch of one page may take; a PDF's parse has its own deadline after it (``pdf.PARSE_TIMEOUT_SECONDS``).
+FETCH_TIMEOUT_SECONDS = 45.0
 
-#: The most text a capture keeps; the BFF's column holds the same (0209).
-MAX_TEXT_CHARS = 2_000_000
+#: What a capture asks for: a page a person reads, text before anything else.
+ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,application/pdf;q=0.8,*/*;q=0.5"
+
 
 _TEXT_TYPES = ("text/html", "application/xhtml+xml", "application/xml", "text/xml", "text/plain")
 _DROPPED = ("script", "style", "noscript", "template", "head")
@@ -87,11 +98,12 @@ def _decoded(content: bytes, content_type: str | None) -> str:
 
 
 class CaptureError(Exception):
-    """The page could not be captured; ``status`` is what the route answers."""
+    """The page could not be captured; ``status`` is what the route answers, ``code`` a problem code when it has one."""
 
-    def __init__(self, message: str, status: int) -> None:
+    def __init__(self, message: str, status: int, code: str = "") -> None:
         super().__init__(message)
         self.status = status
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -103,6 +115,10 @@ class CapturedPage:
     size: int
     text: str | None
     retrieved_at: str
+    #: A PDF's pages the text holds; ``None`` for a body that has none.
+    pages: int | None = None
+    #: What a reader of ``text`` must know: pages of a PDF with no text layer, or a PDF read only in part.
+    note: str = ""
 
 
 def page_text(content: bytes, content_type: str | None) -> str | None:
@@ -136,7 +152,7 @@ async def _read_capped(response: httpx.Response) -> bytes:
     async for chunk in response.aiter_bytes():
         size += len(chunk)
         if size > MAX_BODY_BYTES:
-            raise CaptureError(f"the page is larger than {MAX_BODY_BYTES} bytes", 502)
+            raise CaptureError(f"the page is larger than {MAX_BODY_BYTES} bytes", 422, "body_too_large")
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -155,21 +171,43 @@ async def capture_page(
     source = get_source(source_id) if isinstance(source_id, str) else source_id
     if not source.allows(url):
         hosts = ", ".join(source.hosts)
-        raise CaptureError(f"{url} is not an https URL on a host of source {source.id} ({hosts})", 403)
+        raise CaptureError(
+            f"{url} is not an https URL on a host of source {source.id} ({hosts})", 403, "egress_refused"
+        )
     transport = source_transport(
         source_id if isinstance(source_id, str) else source, inner=inner, credential=credential
     )
-    client = httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=45.0, trust_env=False)
-    async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
-        content = await _read_capped(response)
-        content_type = response.headers.get("content-type")
-        final_url = str(response.url)
+    client = httpx.AsyncClient(
+        transport=transport, follow_redirects=True, timeout=FETCH_TIMEOUT_SECONDS, trust_env=False
+    )
+    try:
+        async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
+            content = await _read_capped(response)
+            content_type = response.headers.get("content-type")
+            final_url = str(response.url)
+    except EgressRefused as exc:  # a hop off the hosts, or a name that resolves to no public address
+        raise CaptureError(str(exc), 403, "egress_refused") from exc
+    text, pages, note = await _text_of(content, content_type)
     return CapturedPage(
         url=url,
         final_url=final_url,
         content_type=content_type,
         sha256=hashlib.sha256(content).hexdigest(),
         size=len(content),
-        text=page_text(content, content_type),
+        text=text,
         retrieved_at=datetime.now(UTC).isoformat(),
+        pages=pages,
+        note=note,
     )
+
+
+async def _text_of(content: bytes, content_type: str | None) -> tuple[str | None, int | None, str]:
+    """``(text, pages, note)``: a PDF's pages read in a child process, any other body as :func:`page_text` reads it."""
+    if not is_pdf(content, content_type):
+        return page_text(content, content_type), None, ""
+    try:
+        document = await asyncio.to_thread(read_pdf, content)
+    except PdfError as exc:
+        raise CaptureError(str(exc), 422, exc.code) from exc
+    # The reader cut the text at a page boundary within MAX_TEXT_CHARS and says so in the note.
+    return document.text, len(document.pages), document.note
