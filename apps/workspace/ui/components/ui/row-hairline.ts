@@ -17,12 +17,6 @@ export const ROW_HAIRLINE_LINE =
 export const ROW_HAIRLINE = `${ROW_HAIRLINE_LINE} last:after:hidden`
 
 /**
- * For rows each wrapped in an element of their own (a context menu's trigger box), where `last:` sees every row as
- * the last: the rows take {@link ROW_HAIRLINE_LINE} and their list this, which takes the last wrapped row's line.
- */
-export const WRAPPED_ROWS_LAST = '[&>:last-child_[data-row]]:after:hidden'
-
-/**
  * A row's secondary actions: hidden on a fine pointer until the row is
  * hovered, focused or selected, always shown on a coarse one (principle 6).
  * Put it on the ⋯ trigger; the row carries `group/row`.

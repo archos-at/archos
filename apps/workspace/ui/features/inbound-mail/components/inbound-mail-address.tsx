@@ -109,7 +109,7 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
   return (
     <CopyableValue
       value={value}
-      className={cn('text-foreground mx-0 text-left font-mono text-sm', className)}
+      className={cn('text-foreground mx-0 text-left font-mono text-[13px] leading-5 font-normal', className)}
       // Whether the address reaches anyone's Cc line: the first step of the funnel to the first mail.
       onCopied={() => capturePosthog('inbound_mail_address_copied', { surface })}
     >
@@ -220,8 +220,9 @@ export function InboundMailAddressBlock({
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&
           (surface === 'never_used' ? (
-            // Never used, the address is the page's focal point, read here and copied by the button below; 14px mono, under its heading's rank.
-            <p className="text-foreground font-mono text-sm [overflow-wrap:anywhere]" data-testid="address-value">
+            // Never used, the address is the page's focal point, read here and copied by the button below: a string to
+            // copy is mono 13/20/440 (the type scale), under its heading's rank.
+            <p className="text-foreground font-mono text-[13px] leading-5 font-normal [overflow-wrap:anywhere]" data-testid="address-value">
               <EmailAddress address={value} />
             </p>
           ) : (

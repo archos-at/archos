@@ -4,7 +4,8 @@ import { ApiRequestError } from '@/adapters/api/api-error'
 import type { FolderAccessResult, FolderAccessSetting } from '@/adapters/api/folder-access-client'
 import { FolderAccessDialog } from './folder-access-dialog'
 import { folderActionEntries } from './folder-action-entries'
-import { FolderCard, FolderRow } from './folder-navigation'
+import { FolderCard } from './folder-navigation'
+import { FolderRow } from './folder-table-row'
 import type { FolderItem } from './project-file-workspace'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
@@ -226,7 +227,7 @@ describe('folder tiles under read/write access', () => {
   })
 
   it('say when every project member reads a folder with its own list, in the list view too', () => {
-    render(<FolderRow folder={{ ...CUSTOM, ownAccess: { everyoneReads: true } }} {...tile} />)
+    render(<table><tbody><FolderRow folder={{ ...CUSTOM, ownAccess: { everyoneReads: true } }} {...tile} /></tbody></table>)
     expect(screen.getByTestId('folder-lock-f-1')).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
@@ -236,7 +237,7 @@ describe('folder tiles under read/write access', () => {
   })
 
   it('draw no lock on a folder that inherits, in the list view either', () => {
-    render(<FolderRow folder={INHERITS} {...tile} />)
+    render(<table><tbody><FolderRow folder={INHERITS} {...tile} /></tbody></table>)
     expect(screen.queryByTestId('folder-lock-f-1')).toBeNull()
     expect(screen.getByRole('button', { name: 'Open folder “Verträge”' })).toBeInTheDocument()
   })
@@ -245,7 +246,7 @@ describe('folder tiles under read/write access', () => {
     const { unmount } = render(<FolderCard folder={CUSTOM} readOnly {...tile} />)
     expect(screen.getByTestId('folder-read-only-f-1')).toHaveTextContent('Read only')
     unmount()
-    render(<FolderRow folder={CUSTOM} readOnly {...tile} />)
+    render(<table><tbody><FolderRow folder={CUSTOM} readOnly {...tile} /></tbody></table>)
     expect(screen.getByTestId('folder-read-only-f-1')).toBeInTheDocument()
   })
 

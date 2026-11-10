@@ -41,9 +41,11 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
-    expect(screen.getByText(/deleted by Gerda Fischer on/)).toBeDefined()
-    expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/kept until/)).toBeDefined()
+    // At desk width one meta line says it all; a phone says it in two lines that break only between clauses.
+    const desk = screen.getByTestId('bin-meta-f-vertraege')
+    expect(desk).toHaveTextContent(/14 documents · 2 folders · deleted by Gerda Fischer on .* · kept until/)
+    const phone = screen.getAllByTestId('bin-meta-phone-f-vertraege').map((line) => line.textContent?.replace(/\s+/g, ' '))
+    expect(phone).toEqual(['14 documents · 2 folders', expect.stringMatching(/^kept until .* · Gerda Fischer$/)])
   })
 
   test('says the bin is empty', () => {

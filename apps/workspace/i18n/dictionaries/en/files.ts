@@ -649,6 +649,12 @@ export const files = {
       project_closed: 'Cannot be restored: the project is closed.',
       no_write: 'Cannot be restored: you may not file in this project.',
     },
+    // The same as a clause of a phone's second line („stays until … · read only“); the whole sentence is in the title.
+    restoreBlockedShort: {
+      folder_read_only: 'read only',
+      project_closed: 'project closed',
+      no_write: 'no right to file',
+    },
     restored: '“{name}” is restored. Its documents are being read again.',
     restoredToRoot: '“{name}” is restored at the top of the project, because its parent folder is deleted.',
     restoreNameTaken: 'A folder named “{name}” already exists there. Rename it, then restore again.',
@@ -1617,6 +1623,8 @@ export const files = {
     title: 'Open points',
     filters: {
       label: 'Filters',
+      // No filter picked: every open point. A chip, so „all“ is a state you can see and press back to.
+      all: 'All',
       // The same predicate as „For you“ in the review and in Files (`isForReader`), so the same words.
       me: 'For you',
       overdue: 'Overdue',

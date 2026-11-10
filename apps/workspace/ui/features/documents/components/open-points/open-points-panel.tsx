@@ -68,11 +68,22 @@ function choicesOf(params: Pick<URLSearchParams, 'get'> | null): { assignee: Ass
   }
 }
 
-/** The chips picked, as the two filters: „Für Sie“ on or off, and the one due chip, the newest when both are picked. */
-function choicesFromChips(next: readonly string[], previousDue: DueChoice): { assignee: AssigneeChoice; due: DueChoice } {
+/**
+ * The chips picked, as the two filters: „Für Sie“ on or off, and the one due chip, the newest when both are picked.
+ * „Alle“ is picked exactly when nothing else is, and pressing it clears the rest.
+ */
+function choicesFromChips(
+  next: readonly string[],
+  previous: { assignee: AssigneeChoice; due: DueChoice }
+): { assignee: AssigneeChoice; due: DueChoice } {
+  const filtered = previous.assignee !== 'all' || previous.due !== 'all'
+  if (filtered && next.includes(ALL_CHIP)) return { assignee: 'all', due: 'all' }
   const dues = next.filter((value): value is ProjectMarkDue => (PROJECT_MARK_DUE as readonly string[]).includes(value))
-  return { assignee: next.includes('me') ? 'me' : 'all', due: dues.find((value) => value !== previousDue) ?? dues[0] ?? 'all' }
+  return { assignee: next.includes('me') ? 'me' : 'all', due: dues.find((value) => value !== previous.due) ?? dues[0] ?? 'all' }
 }
+
+/** The chip that stands for no filter. */
+const ALL_CHIP = 'all'
 
 /**
  * This page's address with the filters on it, leaving out the defaults and
@@ -136,7 +147,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
     <div className="h-full overflow-y-auto">
       {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
           tab had a left edge of its own. */}
-      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:px-8" data-testid="open-points">
+      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:gap-8 md:px-8" data-testid="open-points" /* 32px between sections (paper on a desk, principle 5); 24 on a phone */>
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
         <ProjectSectionActions onTitleLine>
           <ProjectProtocolMenu
@@ -148,20 +159,24 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           />
         </ProjectSectionActions>
 
-        {/* The Jour fixe's two questions as one row of filter chips: none picked is every point. Two tracks each
-            showing „Alle“, under the tabs' track, were three choices stacked where one row answers both; „Überfällig“
-            and „Bald“ exclude each other, „Für Sie“ goes with either. A chip is a press that stays picked (the
-            selected grey and its tick), never a thumb: a thumb lives on a track. */}
+        {/* The Jour fixe's two questions as one row of filter chips, „Alle“ picked while none of the others is. Two
+            tracks each showing „Alle“, under the tabs' track, were three choices stacked where one row answers both;
+            „Überfällig“ and „Bald“ exclude each other, „Für Sie“ goes with either. A chip is a 28px pill of the desk's
+            fill, picked the selected grey and its tick: never the press's shape, never a thumb (a thumb lives on a track). */}
         <ToggleGroup
           type="multiple"
-          value={[...(assignee === 'me' ? ['me'] : []), ...(due === 'all' ? [] : [due])]}
-          onValueChange={(next) => choose(choicesFromChips(next, due))}
+          value={filtered ? [...(assignee === 'me' ? ['me'] : []), ...(due === 'all' ? [] : [due])] : [ALL_CHIP]}
+          onValueChange={(next) => choose(choicesFromChips(next, { assignee, due }))}
           variant="chip"
           size="sm"
           className="gap-2 [&>button]:text-name"
           aria-label={t('openPoints.filters.label')}
           data-testid="open-points-filters"
         >
+          <ToggleGroupItem value={ALL_CHIP} data-testid="open-points-all">
+            <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+            {t('openPoints.filters.all')}
+          </ToggleGroupItem>
           <ToggleGroupItem value="me" data-testid="open-points-assignee-me">
             <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
             {t('openPoints.filters.me')}
@@ -237,7 +252,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                         className={cn(markRowClassName(), 'hover:bg-desk')}
                         data-testid="open-point-row"
                       >
-                        <MarkRowContent annotation={mark} viewerId={currentUserId} showPage marker="verdict" />
+                        <MarkRowContent annotation={mark} viewerId={currentUserId} showPage marker="verdict" columns />
                       </Link>
                     </li>
                   ))}

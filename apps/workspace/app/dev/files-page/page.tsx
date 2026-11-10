@@ -109,7 +109,7 @@ function FilesPage(): JSX.Element {
       {/* The phone's Hochladen, floating at the foot as the workspace draws it (`uploadFab`). */}
       {phone && (
         <UploadFab inSheet={false}>
-          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />
+          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders glyphOnly onSendByMail={() => {}} />
         </UploadFab>
       )}
     </div>

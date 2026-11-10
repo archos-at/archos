@@ -137,7 +137,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                         </ItemTitle>
                         <ItemDescription className="text-meta">{t('assignment.responsible')}</ItemDescription>
                       </ItemContent>
-                      <ItemActions className="-mr-2" /* the press's 8px given back: „Ändern“ ends 12px from the card's edge, as the facts do */>
+                      <ItemActions /* the press's box 12px off the sheet's right edge, as the face is off its left (round 3 gave 8px back and left 4px) */>
                         <AssignPopover
                           documentId={file.id}
                           assignees={file.assignees ?? []}

@@ -879,7 +879,7 @@ export function FileWorkspace({
    */
   const inSheet = shelf.source === 'office'
   const uploadFab =
-    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef }) : undefined
+    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef, glyphOnly: true }) : undefined
 
   /*
    * One menu per card and row, built lazily (`DocumentObjectMenu`) and handed

@@ -1,7 +1,6 @@
 'use client'
 
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
-import type { JSX } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { FileItem } from './project-file-workspace'
@@ -11,6 +10,10 @@ import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
+import { FILE_LIST_CELL as CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
+
+export { FILE_LIST_CELL, FILE_LIST_DATE_CELL, FILE_LIST_SIZE_CELL, FileListLayoutContext } from './file-list-layout'
+export { FileListSkeleton } from './file-list-skeleton'
 import { fileExtensionLabel } from '../document-kind'
 import { MarkedSnippet } from './semantic-match'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
@@ -22,8 +25,7 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
-import { TABLE_ROW_HAIRLINE } from '@/components/ui/row-hairline'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ROW_REVEAL, TABLE_ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { FileName } from './file-name'
 import { OpenMarksChip } from './open-marks-chip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -84,10 +86,13 @@ interface FileListViewProps {
    * drags. Absent is the ordinary list.
    */
   selection?: { active: boolean; selectedIds: ReadonlySet<string>; onToggle: (id: string) => void }
+  /**
+   * The level's folders, as rows of this table under its column head (`FolderRow`): one head, one set of columns,
+   * one row height. Round 3 drew them as a block above the table, its own head mid-table and the counts 10px off
+   * the Größe column.
+   */
+  folderRows?: ReactNode
 }
-
-/** Dense explorer cells — a 40px row (paper on a desk: 32px content, 4px above and below), 44px+ under a finger. */
-const CELL = 'px-2 py-1 pointer-coarse:py-3'
 
 export function FileListView({
   files,
@@ -101,6 +106,7 @@ export function FileListView({
   onSortChange,
   draggable = false,
   selection,
+  folderRows,
 }: FileListViewProps) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
@@ -116,7 +122,9 @@ export function FileListView({
   const bodyRef = useRef<HTMLTableSectionElement>(null)
 
   const rows = useMemo(() => sortFiles(files, sort, locale), [files, sort, locale])
-  const columns = useMemo(() => listColumns(files), [files])
+  const fileColumns = useMemo(() => listColumns(files), [files])
+  // A folder fills the size column with what it holds, so folders alone keep it.
+  const columns = useMemo(() => (folderRows ? { ...fileColumns, size: true } : fileColumns), [fileColumns, folderRows])
 
   // A press means „open it" in the ordinary list and „pick it" in a selection.
   // One function per mode, so the memoised rows are not re-rendered by a
@@ -204,12 +212,15 @@ export function FileListView({
           rest to the one `w-auto` column, so the name gets whatever the viewport
           has left and the ellipsis finally engages. Desktop is unchanged in
           practice — there the name column was already taking the remainder. */}
+      <FileListLayoutContext.Provider value={{ picking, showRank, columns, actions: renderActions !== undefined }}>
       <Table
         role="grid"
         className="table-fixed border-separate border-spacing-0 text-left"
         data-testid="file-list-view"
       >
-        <TableHeader>
+        {/* Below the reference columns the head is a lone „Name“ over the one column, a head that says nothing: the
+            filter menu sorts there. */}
+        <TableHeader className="hidden @3xl/filelist:table-header-group">
           <TableRow className="hover:bg-transparent">
             {picking && <TableHead scope="col" className="h-auto w-11 p-0" aria-label={t('selection.column')} />}
             <SortHeader
@@ -263,18 +274,19 @@ export function FileListView({
                 className="hidden w-[104px] @3xl/filelist:table-cell"
               />
             )}
+            {/* Dates left-align, as their head reads; numbers (Größe, Seiten, Relevanz) right-align to theirs. */}
             <SortHeader
               label={t('list.columns.added')}
               column="added"
               sort={sort}
               onSort={setSort}
-              align="right"
               className="hidden w-[120px] @4xl/filelist:table-cell"
             />
             {renderActions && <TableHead scope="col" className="h-auto w-10 p-0" />}
           </TableRow>
         </TableHeader>
         <TableBody ref={bodyRef}>
+          {folderRows}
           {rows.map((file, index) => (
             <FileListRowItem
               key={file.id}
@@ -299,6 +311,7 @@ export function FileListView({
           ))}
         </TableBody>
       </Table>
+      </FileListLayoutContext.Provider>
     </div>
   )
 }
@@ -373,7 +386,7 @@ const FileListRowItem = memo(function FileListRowItem({
       onKeyDown={(event) => onRowKeyDown(event, index)}
       className={cn(
         // The one inset hairline (`TABLE_ROW_HAIRLINE`): from the name, past the cell's 8px, the 32px format column and 10px.
-        'cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
+        'group/row cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
         lit && HIGHLIGHT_OUTLINE_INSET,
         'transition-colors duration-snap ease-out motion-reduce:transition-none',
         isSelected || checked ? 'bg-accent hover:bg-accent data-[state=selected]:bg-accent' : 'hover:bg-desk',
@@ -406,7 +419,7 @@ const FileListRowItem = memo(function FileListRowItem({
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
               {file.status && !isCitableStatus(file.status) && (
-                <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="shrink-0 self-center px-2" />
+                <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="h-5 shrink-0 self-center px-2 py-0" /* 20px, the open-marks chip's: a 22px badge made its row 42 */ />
               )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
               <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
@@ -481,16 +494,11 @@ const FileListRowItem = memo(function FileListRowItem({
         </TableCell>
       )}
       {columns.size && (
-        <TableCell className={cn('hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell', CELL)}>
+        <TableCell className={cn(FILE_LIST_SIZE_CELL, CELL)}>
           {typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : '—'}
         </TableCell>
       )}
-      <TableCell
-        className={cn(
-          'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @4xl/filelist:table-cell',
-          CELL
-        )}
-      >
+      <TableCell className={cn(FILE_LIST_DATE_CELL, CELL)}>
         <time
           dateTime={file.createdAt}
           title={formatAbsoluteTime(file.createdAt, locale)}
@@ -501,11 +509,14 @@ const FileListRowItem = memo(function FileListRowItem({
       </TableCell>
       {renderActions && (
         <TableCell
-          className="px-1 py-1.5 text-right"
+          // 40px wide, and its 32px trigger 4px off the row's top and foot: 44px here made a file row taller than a folder's.
+          className="w-10 px-1 py-1 text-right"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          {picking ? null : renderActions(file)}
+          {/* Every row offers the same menu: at rest it waits, under the pointer, on focus and on the selected row it
+              shows, and a finger always sees it (`ROW_REVEAL`, principle 6), as a folder row's does. */}
+          {picking ? null : <span className={cn('inline-flex', ROW_REVEAL)}>{renderActions(file)}</span>}
         </TableCell>
       )}
     </TableRow>
@@ -571,57 +582,5 @@ function SortHeader({
         />
       </button>
     </TableHead>
-  )
-}
-
-/**
- * The detail view, waiting.
- *
- * A card grid was drawn here whatever the reader had chosen, so running a search
- * from the list showed a wall of card skeletons and then snapped to a table —
- * a layout flash announcing a change that was never going to happen. Shaped like
- * the rows it stands in for, so what arrives lands where the placeholder was.
- */
-export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
-  return (
-    <div className="@container/filelist space-y-1 px-2 pb-4 pt-6 md:-mx-2 md:px-0" data-testid="file-list-skeleton">
-      {/*
-        THE COLUMN HEADINGS ARE PART OF THE SHAPE.
-        This drew rows and no header, so the detail view's first frame was six
-        grey lines that then jumped down by a header's height the moment the
-        answer arrived — on the one view a reader chooses precisely because it
-        is dense and stable. The headings are real words, not grey bars: they
-        are known before the listing is, and they tell a reader what they are
-        about to be looking at while they wait for it.
-      */}
-      <FileListSkeletonHeader />
-      {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="flex items-center gap-2.5 px-2 py-1.5">
-          <Skeleton className="h-3 w-8 shrink-0" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className="h-3.5 w-1/3" />
-            <Skeleton className="h-3 w-2/3" />
-          </div>
-          <Skeleton className="h-4 w-16 shrink-0 rounded-full" />
-          <Skeleton className="hidden h-4 w-20 shrink-0 rounded-full @3xl/filelist:block" />
-          <Skeleton className="hidden h-3 w-12 shrink-0 @3xl/filelist:block" />
-          <Skeleton className="hidden h-3 w-16 shrink-0 @4xl/filelist:block" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/** The heading strip above the placeholder rows — same widths as the real columns. */
-function FileListSkeletonHeader(): JSX.Element {
-  const t = useTranslations(filesCopy)
-  return (
-    <div className="text-muted-foreground flex items-center gap-2.5 px-2 pb-1.5 card-eyebrow" /* no line: the real header has none */>
-      <span className="min-w-0 flex-1">{t('list.columns.name')}</span>
-      <span className="hidden w-[120px] shrink-0 @3xl/filelist:block">{t('list.columns.approval')}</span>
-      <span className="hidden w-[76px] shrink-0 text-right @5xl/filelist:block">{t('list.columns.pages')}</span>
-      <span className="hidden w-[104px] shrink-0 text-right @3xl/filelist:block">{t('list.columns.size')}</span>
-      <span className="hidden w-[104px] shrink-0 text-right @4xl/filelist:block">{t('list.columns.added')}</span>
-    </div>
   )
 }

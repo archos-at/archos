@@ -143,7 +143,8 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
         <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
         // Rows on the page, no box, a hairline between two; they bleed by their inset so the glyphs stand on the edge.
-        <ul className="-mx-4 flex flex-col">
+        // 880px of text at most: across the 1216px column the restore press stood a screen's width from the name.
+        <ul className="-mx-4 flex max-w-[calc(880px+2rem)] flex-col">
           {listing.entries.map((entry) => {
             const meta = binMetaLine(entry, t, date)
             return (
@@ -163,18 +164,25 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle title={entry.path} className="text-name">{entry.name}</ItemTitle>
-                  {/* What it holds, who deleted it and when it goes, on one line: three lines of meta per row was a form. */}
-                  <ItemDescription className="text-meta whitespace-normal first-letter:uppercase sm:truncate" title={meta.text}>
+                  {/* What it holds, who deleted it and when it goes, on one line: three lines of meta per row was a form.
+                      What stays is the line's point, in ink at 500. On a phone the line is two fixed ones (below). */}
+                  <ItemDescription className="text-meta truncate first-letter:uppercase max-sm:hidden" title={meta.text} data-testid={`bin-meta-${entry.folderId}`}>
                     {meta.lead}
                     {CLAUSE_JOIN}
                     {/* Before its clause („◌ wird gerade …“). */}
                     {entry.status === 'purging' && <Spinner size="xs" className="mr-1 inline-block align-[-2px]" />}
-                    {meta.fate}
+                    <span className="text-foreground font-medium">{meta.fate}</span>
                   </ItemDescription>
-                  {/* On a phone the reason a row cannot come back is its second meta line; on a desk it takes the press's slot. */}
-                  {!entry.canRestore && entry.restoreBlocked && (
-                    <ItemDescription className="text-meta whitespace-normal sm:hidden">{t(`bin.restoreBlocked.${entry.restoreBlocked}`)}</ItemDescription>
-                  )}
+                  {/* A phone's row is 72px: what it holds, then what stays and who deleted it (or why it cannot come
+                      back), each one line that breaks only between clauses. Round 3 wrapped one long line into three
+                      with a „·“ left at a line's end. */}
+                  {meta.phone.map((line, index) => (
+                    <ItemDescription key={index} className="text-meta truncate first-letter:uppercase sm:hidden" title={meta.text} data-testid={`bin-meta-phone-${entry.folderId}`}>
+                      {index === 1 && entry.status === 'purging' && <Spinner size="xs" className="mr-1 inline-block align-[-2px]" />}
+                      {index === 1 ? <span className="text-foreground font-medium">{line[0]}</span> : line[0]}
+                      {line.slice(1).map((clause) => `${CLAUSE_JOIN}${clause}`).join('')}
+                    </ItemDescription>
+                  ))}
                 </ItemContent>
                 <ItemActions className="gap-1">
                   {/* One visible action per row; the one that destroys sits behind the ⋯ (hover, focus, a coarse pointer),
@@ -213,18 +221,21 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                       {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
                     </span>
                   )}
+                  {/* Every row offers the same action, so at rest it is a ghost glyph and the labelled press comes
+                      under the pointer and on focus (principle 6): five „Wiederherstellen“ in a column was round 3. A
+                      coarse pointer keeps the 44px glyph. */}
                   {entry.canRestore && (
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="max-sm:size-11 max-sm:px-0"
+                      className={RESTORE_PRESS}
                       aria-label={t('bin.restore')}
                       disabled={busyId === entry.folderId}
                       onClick={() => void restore(entry)}
                       data-testid={`bin-restore-${entry.folderId}`}
                     >
                       <RotateCcw className="size-3.5" aria-hidden />
-                      <span className="max-sm:sr-only">{t('bin.restore')}</span>
+                      <span className="sr-only pointer-fine:group-hover/row:not-sr-only pointer-fine:group-focus-within/row:not-sr-only">{t('bin.restore')}</span>
                     </Button>
                   )}
                 </ItemActions>
@@ -262,7 +273,7 @@ function binMetaLine(
   entry: FolderBinEntry,
   t: Translator,
   date: (iso: string) => string,
-): { text: string; lead: string; fate: string } {
+): { text: string; lead: string; fate: string; phone: string[][] } {
   const contents = entry.document
     ? null
     : [
@@ -277,8 +288,23 @@ function binMetaLine(
   const fate =
     entry.status === 'purging' ? t('bin.purging') : entry.status === 'failed' ? t('bin.failed') : t('bin.purgeOn', { date: date(entry.purgeAfter) })
   const lead = [contents, deleted].filter(Boolean).join(CLAUSE_JOIN)
-  return { text: `${lead}${CLAUSE_JOIN}${fate}`, lead, fate }
+  // A phone's two lines: what it holds (a document: when it was deleted), then what stays and by whom, or why it
+  // cannot come back.
+  const blocked = !entry.canRestore && entry.restoreBlocked ? t(`bin.restoreBlockedShort.${entry.restoreBlocked}`) : null
+  const phone = [
+    [contents ?? t('bin.deletedOn', { date: date(entry.deletedAt) })],
+    [fate, blocked ?? entry.deletedBy.name].filter((clause): clause is string => Boolean(clause)),
+  ]
+  return { text: `${lead}${CLAUSE_JOIN}${fate}`, lead, fate, phone }
 }
+
+/**
+ * The restore press: on a fine pointer a ghost glyph at rest (no fill, no edge, muted), the raised labelled press while
+ * its row is hovered or holds focus; on a coarse pointer the 44px glyph with its edge, as there is no hover.
+ */
+const RESTORE_PRESS =
+  'pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 pointer-fine:px-0 pointer-fine:text-muted-foreground pointer-fine:shadow-none pointer-fine:bg-transparent pointer-fine:group-hover/row:w-auto pointer-fine:group-hover/row:px-3.5 pointer-fine:group-hover/row:text-foreground pointer-fine:group-hover/row:bg-sheet pointer-fine:group-hover/row:shadow-press pointer-fine:group-focus-within/row:w-auto pointer-fine:group-focus-within/row:px-3.5 pointer-fine:group-focus-within/row:text-foreground pointer-fine:group-focus-within/row:bg-sheet pointer-fine:group-focus-within/row:shadow-press dark:pointer-fine:group-hover/row:bg-transparent dark:pointer-fine:group-focus-within/row:bg-transparent'
+
 
 /** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */
 const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 pb-4 md:px-8' // starts under the tabs, as every tab

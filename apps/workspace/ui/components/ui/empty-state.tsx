@@ -116,9 +116,10 @@ export function EmptyState({
           className="mb-4 animate-in zoom-in-95 duration-base ease-entrance motion-reduce:animate-none"
         />
       )}
-      <p className="text-balance text-sm font-medium text-foreground">{title}</p>
+      {/* The headline is the section step, 16/24/600 (paper on a desk, type): at 14/500 it was the size of the body under it. */}
+      <p className="text-balance text-section text-foreground">{title}</p>
       {description && (
-        <p className="mt-1.5 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mt-1 max-w-sm text-pretty text-sm leading-5 text-muted-foreground">{description}</p>
       )}
       {action && <div className="mt-5 shrink-0">{action}</div>}
     </div>

@@ -29,6 +29,7 @@ import { Item, ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useInView } from '@/hooks/use-in-view'
 import { documentFilesHref } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -320,6 +321,7 @@ export function InboundMailDetail({
     }
   }
 
+  const [choiceRef, choiceInView] = useInView<HTMLElement>({ rootMargin: '0px 0px -96px 0px' }) // the choice the foot's sentence repeats
   const attachments = useMemo(
     () => (view ? view.parts.filter((part) => part.kind === 'attachment').map((part) => attachmentCase(part, view)) : []),
     [view]
@@ -444,8 +446,6 @@ export function InboundMailDetail({
           originalUrl={client.originalUrl(projectId, view.id)}
           now={now}
         />
-
-
         <MailText state={text} onRetry={() => void loadText()} />
 
         {/* After the text, beside the choice it shapes: on a phone the mail itself is the first screen. */}
@@ -476,7 +476,7 @@ export function InboundMailDetail({
         )}
 
         {!stopped && !readOnly && messagePart && draft?.message && (
-          <section className="flex flex-col gap-2" aria-label={t('message.label')}>
+          <section ref={choiceRef} className="flex flex-col gap-2" aria-label={t('message.label')}>
             <ItemList data-surface="sunken" className={DETAIL_PANEL}>
               <MessageRow
                 projectId={projectId}
@@ -576,6 +576,7 @@ export function InboundMailDetail({
           filing={filing}
           dismissing={dismissing}
           yieldPrimary={yieldPrimary}
+          choiceInView={choiceInView}
         />
       )}
       {previewEntry && (

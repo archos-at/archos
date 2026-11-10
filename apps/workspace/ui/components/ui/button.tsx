@@ -58,9 +58,11 @@ const buttonVariants = cva(
         // no drop shadow at rest, the 1px shadow under the pointer, the pressed
         // grey while down. A track's thumb keeps the shadow at rest and a
         // sheet is elevation 1 at radius 10, so the three never share a look.
-        // Replaces the tonal secondary (D4, 2026-11-10).
+        // Replaces the tonal secondary (D4, 2026-11-10). In dark only a sheet or a thumb is lighter than its plane:
+        // a press is its plane's own fill with the 16% edge, a white wash one step up under the pointer. Round 3's
+        // dark press was the sheet's fill, and a press, a folder sheet and a chip were one filled box.
         secondary:
-          'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press',
+          'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:bg-transparent dark:hover:bg-foreground/[0.06] dark:hover:shadow-press dark:active:bg-foreground/[0.1]',
         // Ghost is the quietest action: one step to secondary, not accent.
         ghost: 'hover:bg-secondary hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',

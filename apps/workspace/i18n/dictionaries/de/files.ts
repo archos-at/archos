@@ -639,6 +639,12 @@ export const files: typeof en.files = {
       project_closed: 'Nicht wiederherstellbar: Das Projekt ist abgeschlossen.',
       no_write: 'Nicht wiederherstellbar: Sie dürfen in diesem Projekt nicht ablegen.',
     },
+    // Dasselbe als Satzteil der zweiten Zeile auf dem Telefon („bleibt bis … · nur lesbar“); der ganze Satz steht im Titel.
+    restoreBlockedShort: {
+      folder_read_only: 'nur lesbar',
+      project_closed: 'Projekt abgeschlossen',
+      no_write: 'ohne Recht abzulegen',
+    },
     restored: '„{name}“ ist wiederhergestellt. Die Dokumente werden neu eingelesen.',
     restoredToRoot:
       '„{name}“ ist wiederhergestellt, und zwar direkt im Projekt: Sein übergeordneter Ordner ist gelöscht.',
@@ -1586,6 +1592,8 @@ export const files: typeof en.files = {
     title: 'Offene Punkte',
     filters: {
       label: 'Filter',
+      // Kein Filter gewählt: jeder offene Punkt. Ein Chip, damit der Zustand „alle“ sichtbar ist und ein Druck dorthin zurückführt.
+      all: 'Alle',
       // Dasselbe Prädikat wie „Für Sie“ in der Prüfansicht und in Dateien (`isForReader`), also dieselben Worte.
       me: 'Für Sie',
       overdue: 'Überfällig',

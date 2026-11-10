@@ -9,7 +9,6 @@ import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
-import { WRAPPED_ROWS_LAST } from '@/components/ui/row-hairline'
 import { useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
@@ -26,6 +25,7 @@ import { FileCard, type FileCardProps } from './file-card'
 import { FilingViewBar } from './filing-bar'
 import { FileGrid, FileCardSkeleton } from './file-grid'
 import { FileListSkeleton, FileListView } from './file-list-view'
+import { FolderRow } from './folder-table-row'
 import { FolderActionsTrigger, FolderObjectMenu } from './folder-object-menu'
 import { FolderDescriptionLine } from './folder-description-dialog'
 import { listingActionEntries } from './listing-action-entries'
@@ -38,9 +38,7 @@ import {
   FolderBreadcrumbRow,
   FolderCard,
   FolderCardSkeleton,
-  FolderRow,
   FolderRowSkeleton,
-  FOLDER_ROWS_ON_PHONE,
   type DropFilesInFolder,
 } from './folder-navigation'
 import type { FileDropAim } from '../hooks/use-document-drag'
@@ -480,6 +478,7 @@ export function FileBrowserPane({
         onDelete={() => void folderNav.onDeleteFolder(folder.id)}
         readOnly={folder.access === 'read'}
         moveInSheet={moveInSheet}
+        asChild={asRow}
       >
         {tile}
       </FolderObjectMenu>
@@ -937,16 +936,10 @@ export function FileBrowserPane({
           {...levelTransition(navDirection, 16)}
           className={CONTENT_MAX}
         >
-            {folderNav && childFolders.length > 0 && (
-              // The folders head the table as rows of their own, on the page like its rows: no box, its inset hairlines.
-              <div className={`@container/filelist flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0 ${WRAPPED_ROWS_LAST}`} role="group" aria-label={t('folders.heading')}>
-                {childFolders.map((folder) => (
-                  <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
-                ))}
-              </div>
-            )}
-            {orderedFiles.length > 0 && (
+            {(orderedFiles.length > 0 || (folderNav && childFolders.length > 0)) && (
               <FileListView
+                // The folders are the table's first rows, under its one head and in its columns.
+                folderRows={folderNav && childFolders.length > 0 ? childFolders.map((folder) => <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>) : undefined}
                 files={orderedFiles}
                 selectedFileId={selectedFileId}
                 onSelectFile={onSelectFile}
@@ -972,18 +965,21 @@ export function FileBrowserPane({
             {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
                 slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`
                 until hydration. The level's transition carries the grid: one animation, a Finder-style drill. */}
-            <FileGrid className={FOLDER_ROWS_ON_PHONE}>
+            <FileGrid>
+              {/* Two sections at the root under their labels, „Ordner“ and „Dateien“, 32px apart (a folder's 6px inset, the
+                  grid's 10px and 16px); a phone drops „Ordner“ for its chrome budget, the glyphs say it. */}
+              {currentFolderId === null && folderNav && childFolders.length > 0 && (
+                <SectionLabel as="p" className="col-span-full -mb-2 px-1.5 phone:hidden" data-testid="folders-label">
+                  {t('folders.heading')}
+                </SectionLabel>
+              )}
               {folderNav &&
                 childFolders.map((folder) => (
                   <Fragment key={folder.id}>{folderTile(folder, false)}</Fragment>
                 ))}
-              {/* The label heads the FILES: it sat above the folder tiles and
-                  promised recent uploads over a block of folders. A grid child
-                  spanning the row, so it falls between the two. */}
               {currentFolderId === null && orderedFiles.length > 0 && (
-                // On the column's edge (the grid bleeds by the tile's inset), and 8px nearer the tiles it heads than
-                // the grid's gap: a label belongs to what follows it.
-                <SectionLabel as="p" className="col-span-full -mb-2 px-1.5">
+                // On the column's edge (the grid bleeds by the tile's inset), 8px nearer the tiles it heads than the gap.
+                <SectionLabel as="p" className={cn('col-span-full -mb-2 px-1.5', folderNav && childFolders.length > 0 && 'mt-4 phone:mt-0')}>
                   {t('browser.recentlyUploaded')}
                 </SectionLabel>
               )}
@@ -1101,7 +1097,7 @@ export function FileBrowserSkeleton({
         </div>
       ) : (
         <div className={`${CONTENT_MAX} px-4 pb-4 pt-1`} /* the grid's own start, as the level draws it */>
-          <FileGrid className={FOLDER_ROWS_ON_PHONE}>
+          <FileGrid>
             {Array.from({ length: folderCount }).map((_, index) => (
               <FolderCardSkeleton key={`folder-${index}`} />
             ))}

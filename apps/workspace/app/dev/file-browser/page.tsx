@@ -258,8 +258,7 @@ function FolderDropTargetFixture(): JSX.Element {
 }
 
 /**
- * Folders in the DETAIL view — the one composition of this pane that had no
- * shot at all.
+ * Folders in the DETAIL view — the one composition of this pane that had no shot at all.
  *
  * Every existing file-browser target photographs the card grid, or a search. The
  * detail view's folder band was captured nowhere, which is how it came to be
@@ -278,7 +277,7 @@ function FoldersInListViewFixture(): JSX.Element {
       <div>
         <h1 className="text-lg font-semibold">Files browser — folders in the detail view</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The level’s folders as rows above the sortable file table, at the root.
+          The level’s folders as the first rows of the sortable file table, under its head, at the root.
         </p>
       </div>
       <div
@@ -295,7 +294,8 @@ function FoldersInListViewFixture(): JSX.Element {
             search={search}
             view="list"
             folderNav={folderNav}
-            renderActions={() => <DocumentActionsTrigger />} /* as the workspace passes it: the folder menus' column */
+            wrapFileRow={(file, row) => <DocumentObjectMenu document={file} scope="files" folders={FOLDERS} onOpen={() => setSelected(file.id)} asChild>{row}</DocumentObjectMenu>}
+            renderActions={() => <DocumentActionsTrigger />} /* as the workspace wires both: each row's menu supplies its ⋯ */
           />
         </div>
       </div>

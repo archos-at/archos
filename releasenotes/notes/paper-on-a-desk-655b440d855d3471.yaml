@@ -4,8 +4,8 @@ improvements:
   - >
     Files, project mail, open points and the bin now read as sheets lying on a
     desk: documents are white with a soft edge, buttons are raised, headings are
-    bolder and mail that needs you stands out. Each list row shows one action, and the
-    rest appear on hover.
+    bolder and mail that needs you stands out. Where every row offers the same
+    action, it shows as a small icon until you point at the row.
   - >
     Each place in Files is now titled by its own name, with the project above it
     as a small breadcrumb, and the explanatory line under the title is gone.
@@ -27,12 +27,27 @@ improvements:
     different: a folder shows an arrow to open it.
   - >
     Open points mark a point in colour only when it is yours or overdue, and
-    the two filters are one row of chips. The bin lists each item on two lines
-    with one Restore button.
+    the filters are one row of rounded chips with „Alle“ to clear them. Who has
+    a point and by when stand in their own column on the right.
+  - >
+    The bin keeps its list to a readable width and says how long each item
+    stays in bold; on a phone each item has two short lines.
+  - >
+    In the list view folders are rows of the file table, under the same column
+    headings, and every row has the same height. Dates line up on the left.
+  - >
+    On a phone folders sit two to a row and Hochladen is a round button, so
+    the first files show sooner. The search field is a white field with a
+    clear border.
+  - >
+    Dark mode tells buttons, chips and sheets apart: buttons are outlined,
+    the open email stands clearly above selected ones, and the point markers
+    in open points are no longer bright white discs.
   - >
     In project mail the filing button is one short word, with a line beside it
-    saying what it files, and it sits at the foot of the email. While emails are
-    selected for a batch, only the batch's button is black.
+    saying what it files once the choice above has scrolled away, and it sits at
+    the foot of the email. While emails are selected for a batch, only the
+    batch's buttons are offered for discarding and filing in bulk.
   - >
     On a phone the places in Files fit on one line, and the email address and
     the export sit behind one menu next to the project name.

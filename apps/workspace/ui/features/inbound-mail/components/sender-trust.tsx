@@ -198,7 +198,7 @@ export function SenderWaitLine({
     // What the mail asks of the reader: attention, so ochre on the glyph and the words in ink (colour never alone).
     <p className="text-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
       <Clock className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
+      <span className="min-w-0 max-w-[64ch] [overflow-wrap:anywhere]" /* a measure: across a 750px reader it ran two lines of 120 characters */>{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
     </p>
   )
 }

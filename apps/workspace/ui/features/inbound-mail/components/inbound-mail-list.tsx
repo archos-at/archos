@@ -92,8 +92,7 @@ export interface InboundMailListProps {
   notice: ReactNode
 }
 
-/** A thread group's press: quiet text at the line's end, a finger's 44px under touch. */
-/** A row-end press of a heading or a thread line: tonal, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
+/** A row-end press of a heading or a thread line: the raised press, so „Als Fassung 4–6 ablegen“ reads as a press, not a label. */
 const GROUP_ACTION = 'shrink-0 gap-1.5'
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
@@ -213,8 +212,9 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="mx-auto box-content flex max-w-lg flex-col gap-6 p-4 sm:p-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel, inside the padding */>
-          {/* One column, one edge: the words stand left on the panel's inner edge, 24px above it, not centred over a left-aligned sheet. */}
+        <div className="box-content flex max-w-lg flex-col gap-6 px-4 pb-4 pt-2 sm:pb-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel */>
+          {/* One column, one edge: the glyph, the words and the sheet stand on the column's left edge, where the title
+              and the tabs stand. Centred in the pane at 464px it was an edge of its own (round 3). */}
           <EmptyState
             variant="bare"
             className="items-start py-0 text-left phone:px-0 [&>p]:max-w-none"
@@ -321,9 +321,9 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              {/* A line as tall as its tonal press (32px, 44px under touch), so the press's fill never reaches the first row;
-                  4px less above it keeps the label where the 24px line with an overhanging word press had it. */}
-              <div className="box-content flex h-8 items-center justify-between gap-2 px-4 pt-1 pointer-coarse:h-11 [[data-readiness]+section>&]:pt-0" /* fixed: one height with its press or without, so ticking a box moves nothing */>
+              {/* A 40px line (44px under touch) with the 32px press centred in it, and 8px under it before the first row:
+                  round 2 and 3 drew the line as tall as the press, and the press sat on the open row's sheet edge. */}
+              <div className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11" /* fixed: one height with its press or without, so ticking a box moves nothing */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}

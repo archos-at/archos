@@ -54,6 +54,11 @@ export interface DecisionBarProps {
    * replaces its pane's primary while it is shown).
    */
   yieldPrimary?: boolean
+  /**
+   * The choice the sentence summarises is on screen (the message's E-Mail-Verlauf radios): the sentence would repeat
+   * it word for word 270px above, so it stays only as the press's accessible description until the choice scrolls away.
+   */
+  choiceInView?: boolean
   className?: string
 }
 
@@ -92,6 +97,7 @@ export function DecisionBar({
   filing,
   dismissing,
   yieldPrimary = false,
+  choiceInView = false,
   className,
 }: DecisionBarProps): JSX.Element {
   const summaryId = useId()
@@ -140,11 +146,13 @@ export function DecisionBar({
           the mail; the sentence keeps it legible, and the press's description reads it to a screen reader. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         {offersFiling && !onlyDismiss && (
-          <p id={summaryId} className="text-muted-foreground text-meta min-w-0 sm:mr-auto sm:truncate" data-testid="decision-summary" title={primaryLabel(summary, t)}>
+          <p id={summaryId} className={cn('text-muted-foreground text-meta min-w-0 sm:mr-auto sm:truncate', choiceInView && 'hidden')} data-testid="decision-summary" title={primaryLabel(summary, t)}>
             {primaryLabel(summary, t)}
           </p>
         )}
-        {!onlyDismiss && (
+        {/* While a batch bar is up its „Verwerfen“ is the one on screen: two raised „Verwerfen“ for two scopes, and a
+            reader foot of two identical white presses, was round 3. This mail is dismissed from the bar once ticked. */}
+        {!onlyDismiss && !(yieldPrimary && !impersonation) && (
           <BusyButton
             type="button"
             size="sm"

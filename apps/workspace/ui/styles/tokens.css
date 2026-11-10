@@ -506,6 +506,7 @@
   --color-pressed: var(--pressed);
   --color-hairline: var(--hairline);
   --color-edge: var(--edge);
+  --color-field-border: var(--field-border);
   --color-paper-ink: var(--paper-ink);
   --color-paper-ink-foreground: var(--paper-ink-foreground);
 
@@ -680,6 +681,7 @@
   --pressed: #d9d6d2; /* a control while the button is down */
   --hairline: rgb(15 14 13 / 0.08); /* between list rows */
   --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
+  --field-border: #8a8784; /* a field's border: 3.3:1 on the paper, the 3:1 a control's boundary needs */
 
   --background: var(--paper); /* the brand's #fafaf9 was 1.04:1 under a white sheet: tiles were carried by a faint edge alone */
   --background-color-surface-base: var(--paper); /* the body's own plane, so the header band and the page are one paper */
@@ -705,16 +707,17 @@
    with its edge; selected and pressed keep lightening. A darker desk (#0a0908) was 1.03:1 against the paper: the
    E-Mail-Eingang's list column vanished and every hover read as a hole. `brand-literals.spec.ts` holds the ladder. */
 .dark {
-  --sheet: #2c2a27; /* the lightest plane a list holds: the open mail's row above the picked ones (1.16:1 on the desk) */
+  --sheet: #363330; /* the lightest plane a list holds: the open mail's row 1.23:1 above a picked one (#2c2a27 was 1.08:1, one grey) */
   --paper: #0f0e0d;
   --desk: #1f1e1c;
   --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
   --pressed: #3a3734;
   --hairline: rgb(245 244 242 / 0.1);
   --edge: rgb(245 244 242 / 0.16);
+  --field-border: #77736e; /* 3.5:1 on the dark paper, 3.2:1 on the desk */
 
   --card: var(--sheet);
-  --popover: #32302d; /* a menu sits above a sheet: the lightest plane */
+  --popover: #3d3a37; /* a menu sits above a sheet: the lightest plane */
   --secondary: var(--desk);
   --accent: var(--selected);
   --background-color-surface-overlay: var(--sheet);

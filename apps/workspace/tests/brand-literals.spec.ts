@@ -261,6 +261,9 @@ describe('five neutrals, three elevations', () => {
       // The open row is the lightest thing in the list column: in dark, nearness is lightness, so the open mail's sheet
       // sits above a picked row's fill (round 2 drew the picked rows lighter than the open one).
       if (selector === '.dark') expect(luminance(hex('sheet'))).toBeGreaterThan(luminance(hex('selected')))
+      // Current (the open row's sheet) and picked, side by side in the mail list, step at least 1.2:1 in both themes:
+      // round 3's dark pair was 1.08:1 and read as one grey.
+      expect(ratio(hex('sheet'), hex('selected')), `${selector} sheet → selected`).toBeGreaterThanOrEqual(1.2)
       // A white sheet reads off the paper by its plane as well as its edge (round 2: 1.04:1, the tiles carried by the edge alone).
       expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.07)
     }
@@ -290,7 +293,7 @@ describe('the secondary press', () => {
   // button.
   it('the kit draws secondary as the raised white press', () => {
     const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/button.tsx')?.text ?? '')
-    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press'/)
+    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press /)
     expect(kit).not.toMatch(/in-data-\[surface=sunken\]/)
   })
   it('Dateien and the E-Mail-Eingang set no outline button', () => {
@@ -352,7 +355,7 @@ describe('lines for lists, space for sections', () => {
     for (const name of [
       'ui/features/inbound-mail/components/inbound-mail-row.tsx',
       'ui/features/inbound-mail/components/attachment-row.tsx',
-      'ui/features/documents/components/folder-navigation.tsx',
+      'ui/features/documents/components/folder-table-row.tsx',
       'ui/features/documents/components/file-list-view.tsx',
     ]) {
       expect(files.find((f) => f.name === name)?.text, name).toMatch(/ROW_HAIRLINE/)
@@ -387,7 +390,7 @@ describe('one left edge', () => {
   })
   it('the file list bleeds by its cells’ inset on a desk', () => {
     const list = read('file-list-view')
-    const cell = list.match(/const CELL = 'px-(\d(?:\.\d)?) /)?.[1]
+    const cell = (files.find((f) => f.name === 'ui/features/documents/components/file-list-layout.ts')?.text ?? '').match(/export const FILE_LIST_CELL = 'px-(\d(?:\.\d)?)/)?.[1]
     const bleed = list.match(/@container\/filelist px-\d pb-4 pt-1 md:-mx-(\d(?:\.\d)?) md:px-0/)?.[1]
     expect(cell).toBeDefined()
     expect(bleed).toBe(cell)
@@ -579,19 +582,33 @@ describe('one size for a segmented control', () => {
 })
 
 describe('a folder row in the table’s columns', () => {
-  // In the list view a folder's size and date stand in the table's Größe and Hinzugefügt columns, at their widths,
-  // so a folder's date is where a file's is (2026-11: it stood inline after „2 Elemente“). Change a column's width
-  // and the folder row's together.
-  const read = (component: string): string => files.find((f) => f.name === `ui/features/documents/components/${component}.tsx`)?.text ?? ''
-  it('the folder row uses the size and date columns’ widths', () => {
+  // Paper on a desk, tables: the column head is the table's first row, above the folders; a folder is a row of the
+  // file table (`FileListView`'s `folderRows`), its count in the Größe column's own cells and its date in the
+  // Hinzugefügt column's, so it cannot end anywhere but on that column's edge. Round 2 and 3 drew the folders as a
+  // block above the table: the head stood mid-table, the counts ended 10px left of Größe, the rows were 36px against
+  // 40. Numbers right-align to their head, dates left-align, in every variant of the list.
+  const read = (component: string): string => source(`ui/features/documents/components/${component}.tsx`)
+  it('the folders are the table’s first rows, in the size and date columns’ own cells', () => {
     const list = read('file-list-view')
-    const size = list.match(/column="size"[\s\S]*?className="hidden (w-\[\d+px\]) @3xl\/filelist:table-cell"/)?.[1]
-    const added = list.match(/column="added"[\s\S]*?className="hidden (w-\[\d+px\]) @4xl\/filelist:table-cell"/)?.[1]
-    expect(size).toBeDefined()
-    expect(added).toBeDefined()
-    const row = read('folder-navigation')
-    expect(row).toContain(`hidden ${size} shrink-0 px-2 text-right text-xs tabular-nums @3xl/filelist:block`)
-    expect(row).toContain(`hidden ${added} shrink-0 px-2 text-right text-xs tabular-nums @4xl/filelist:block`)
+    expect(list).toMatch(/<TableBody ref=\{bodyRef\}>\s*\{folderRows\}\s*\{rows\.map\(/)
+    const row = read('folder-table-row')
+    expect(row).toMatch(/<TableRow\b/)
+    expect(row).toMatch(/<TableCell className=\{cn\(FILE_LIST_SIZE_CELL, FILE_LIST_CELL\)\}>\{count\}<\/TableCell>/)
+    expect(row).toMatch(/<TableCell className=\{cn\(FILE_LIST_DATE_CELL, FILE_LIST_CELL\)\}>/)
+    expect(read('file-browser-pane')).not.toMatch(/<FolderRow\b[^>]*\/>\s*<\/div>/)
+  })
+  it('dates left-align with their head, numbers right-align with theirs', () => {
+    const list = read('file-list-view')
+    const layout = source('ui/features/documents/components/file-list-layout.ts')
+    expect(layout).toMatch(/export const FILE_LIST_DATE_CELL = 'hidden whitespace-nowrap text-left /)
+    expect(layout).toMatch(/export const FILE_LIST_SIZE_CELL = 'hidden whitespace-nowrap text-right /)
+    expect(list).not.toMatch(/column="added"\s+sort=\{sort\}\s+onSort=\{setSort\}\s+align="right"/)
+  })
+  it('every row is 40px: a chip in a name line is 20px, the actions cell holds its 32px trigger in 40', () => {
+    const list = read('file-list-view')
+    expect(list).toMatch(/<DocumentStatusBadge [^>]*className="h-5 /)
+    expect(list).toMatch(/className="w-10 px-1 py-1 text-right"/)
+    expect(read('folder-table-row')).toMatch(/className="w-10 px-1 py-1 text-right"/)
   })
 })
 
@@ -617,7 +634,22 @@ describe('press, thumb and sheet', () => {
   it('the press rests on its edge alone and lifts under the pointer', () => {
     expect(tokens).toMatch(/--elevation-press: 0 0 0 1px var\(--edge\);/)
     expect(tokens).toMatch(/--shadow-press: var\(--elevation-press\);/)
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press'/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:/)
+  })
+  it('in dark only a sheet or a thumb is lighter than its plane: a press is its plane’s fill with the 16% edge', () => {
+    // Round 3: the dark press took the sheet's fill, so a press, a folder sheet and a chip were one filled box.
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-foreground\/\[0\.06\] dark:hover:shadow-press/)
+  })
+  it('a chip is never the press’s shape: a 28px pill of the desk, no edge; picked, the selected grey and a tick', () => {
+    // Round 3 drew Offene Punkte's filter chips as the press: „Für Sie“ read as a command beside „Protokoll exportieren“.
+    const toggle = source('ui/components/ui/toggle.tsx')
+    const chip = toggle.match(/chip: '([^']*)'/)?.[1] ?? ''
+    expect(chip).toMatch(/^rounded-full bg-desk /)
+    expect(chip).toMatch(/data-\[state=on\]:bg-selected/)
+    expect(chip).not.toMatch(/shadow|bg-sheet|border/)
+    expect(toggle).toMatch(/variant: 'chip',\s*className:\s*'relative h-7 /)
+    const panel = source('ui/features/documents/components/open-points/open-points-panel.tsx')
+    expect(panel).toMatch(/<ToggleGroupItem value=\{ALL_CHIP\}/)
   })
   it('the thumb is white with the 1px shadow, and only ever on a track', () => {
     const group = source('ui/components/ui/toggle-group.tsx')
@@ -657,7 +689,10 @@ describe('colour is a verdict', () => {
   it('Offene Punkte rings its points by verdict: ink, ochre only for the reader’s or an overdue one', () => {
     expect(source('ui/features/documents/components/open-points/open-points-panel.tsx')).toMatch(/<MarkRowContent[^>]*marker="verdict"/)
     const row = source('ui/features/documents/components/review/mark-row.tsx')
-    expect(row).toMatch(/const VERDICT_RING = \{ ink: 'var\(--paper-ink\)', needsYou: 'var\(--text-color-feedback-warning\)' \} as const/)
+    expect(row).toMatch(/const VERDICT_RING = \{ ink: 'var\(--foreground\)', needsYou: 'var\(--text-color-feedback-warning\)' \} as const/)
+    // A verdict pin is a small sheet in both themes (round 3: a fixed white face, the brightest thing on a dark page);
+    // ink at 1.5px, ochre at 2px.
+    expect(row).toMatch(/marker === 'verdict' && 'bg-sheet text-foreground shadow-none', marker === 'verdict' && !needsReader && 'border-\[1\.5px\]'/)
     expect(row).toMatch(/const needsReader = isLive\(annotation\) && \(overdue \|\| isForReader\(annotation, viewerId\)\)/)
   })
   it('a mention of the reader in a mark wins by weight on the desk, not by ochre', () => {
@@ -695,10 +730,17 @@ describe('one primary per area', () => {
 describe('rows, weights and the phone', () => {
   it('a list row is a name and one meta line: the Papierkorb says the rest once, in a second line only on a phone', () => {
     const bin = source('ui/features/documents/components/folder-bin-panel.tsx')
-    const descriptions = [...bin.matchAll(/<ItemDescription className="([^"]*)"/g)].map(([, classes]) => classes)
-    expect(descriptions.filter((classes) => !/\bsm:hidden\b/.test(classes))).toHaveLength(1)
-    // Its one visible action is the raised press on the column's edge (no ghost word), a 44px glyph on a phone.
-    expect(bin).toMatch(/variant="secondary"\s+size="sm"\s+className="max-sm:size-11 max-sm:px-0"/)
+    // One meta line at desk width (`max-sm:hidden`), the phone's lines (`sm:hidden`) apart.
+    const descriptions = [...bin.matchAll(/<ItemDescription (?:key=\{index\} )?className="([^"]*)"/g)].map(([, classes]) => classes)
+    expect(descriptions.filter((classes) => !/(?<![\w-])sm:hidden\b/.test(classes))).toHaveLength(1)
+    // Every row offers the same action, so at rest it is a ghost glyph and the labelled press comes under the pointer
+    // and on focus (round 3: a column of five „Wiederherstellen“); a coarse pointer keeps the 44px glyph.
+    expect(bin).toMatch(/variant="secondary"\s+size="sm"\s+className=\{RESTORE_PRESS\}/)
+    expect(bin).toMatch(/const RESTORE_PRESS =\s*'pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 /)
+    expect(bin).toMatch(/<span className="sr-only pointer-fine:group-hover\/row:not-sr-only pointer-fine:group-focus-within\/row:not-sr-only">\{t\('bin\.restore'\)\}<\/span>/)
+    // 880px of text at most; on a phone two fixed meta lines that break only between clauses.
+    expect(bin).toMatch(/<ul className="-mx-4 flex max-w-\[calc\(880px\+2rem\)\] flex-col">/)
+    expect(bin).toMatch(/meta\.phone\.map\(\(line, index\) => \(\s*<ItemDescription key=\{index\} className="text-meta truncate first-letter:uppercase sm:hidden"/)
     // 56px: 10px around a 20px name and a 16px meta line, in the bin, the mail list and Offene Punkte alike.
     expect(bin).toMatch(/group\/row items-center gap-3 rounded-surface py-2\.5 /)
     expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(/'group\/row items-start rounded-control px-3 py-2\.5 /)
@@ -708,6 +750,45 @@ describe('rows, weights and the phone', () => {
     expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(
       /needsReader \? 'text-foreground font-semibold' : waiting \? 'text-foreground font-medium' : 'text-foreground font-normal'/
     )
+    // A row's name is `text-name` (13/20) in every list: the mail list's 14px subject was the one name of its own size.
+    expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(/line-clamp-2 text-name text-pretty/)
+  })
+  it('a thread’s press sits in a 40px line with 8px under it, so it never touches the open row’s sheet', () => {
+    // Round 2 and 3: the line was as tall as the press, and „Als Fassung 4–6 ablegen“ sat on the open row's top edge.
+    expect(source('ui/features/inbound-mail/components/inbound-mail-list.tsx')).toMatch(/className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11"/)
+  })
+  it('the reader’s foot says what one press files only once the choice it repeats has scrolled away', () => {
+    const bar = source('ui/features/inbound-mail/components/decision-bar.tsx')
+    expect(bar).toMatch(/choiceInView && 'hidden'/)
+    // While a batch bar is up its „Verwerfen“ is the one on screen.
+    expect(bar).toMatch(/\{!onlyDismiss && !\(yieldPrimary && !impersonation\) && \(/)
+    expect(source('ui/features/inbound-mail/components/inbound-mail-detail.tsx')).toMatch(/<section ref=\{choiceRef\}/)
+    // The „Wartet“ notice is a measure, not the reader's width.
+    expect(source('ui/features/inbound-mail/components/sender-trust.tsx')).toMatch(/min-w-0 max-w-\[64ch\]/)
+  })
+  it('an empty state’s headline is the section step, and a string to copy is mono 13/20/440', () => {
+    expect(source('ui/components/ui/empty-state.tsx')).toMatch(/<p className="text-balance text-section text-foreground">\{title\}<\/p>/)
+    const address = source('ui/features/inbound-mail/components/inbound-mail-address.tsx')
+    expect(address.match(/font-mono text-\[13px\] leading-5 font-normal/g)?.length ?? 0).toBe(2)
+    expect(address).not.toMatch(/font-mono text-sm/)
+  })
+  it('a field is white with the 3:1 field border, never a desk well', () => {
+    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+    expect(tokens).toMatch(/--field-border: #8a8784;/)
+    expect(source('ui/features/documents/components/file-search-bar.tsx')).toMatch(/inputClassName="[^"]*border-field-border bg-sheet /)
+  })
+  it('on a phone a folder is a 48px sheet in two columns, and Hochladen a 56px glyph', () => {
+    const tile = source('ui/features/documents/components/folder-navigation.tsx')
+    expect(tile).not.toMatch(/FOLDER_ROWS_ON_PHONE/)
+    expect(tile).toMatch(/phone:min-h-12 phone:gap-2\.5 phone:py-1\.5/)
+    expect(source('ui/features/documents/components/upload-fab.tsx')).toMatch(/\[&_button\]:size-14 \[&_button\]:rounded-full/)
+    expect(source('ui/features/documents/components/file-workspace.tsx')).toMatch(/glyphOnly: true/)
+  })
+  it('Offene Punkte keeps its text to a measure and stands who and by when on the column’s edge', () => {
+    expect(source('ui/features/documents/components/open-points/open-points-panel.tsx')).toMatch(/<MarkRowContent[^>]*\bcolumns\b/)
+    const row = source('ui/features/documents/components/review/mark-row.tsx')
+    expect(row).toMatch(/columns && 'max-w-\[720px\]'/)
+    expect(row).toMatch(/text-muted-foreground ml-auto hidden shrink-0 items-start gap-4/)
   })
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/track\s+compactOnPhone/)

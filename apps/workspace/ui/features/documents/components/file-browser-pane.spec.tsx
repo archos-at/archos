@@ -234,16 +234,18 @@ describe('FileBrowserPane — folder drill-down', () => {
   })
 
   /**
-   * In the list view the folders head the file table as rows like its rows: on
-   * the page, no box, no hairlines, no pill. A row with its own radius, border
-   * or shadow is a pill; a grey box with lines around them was a second list.
+   * In the list view the folders are the file table's first rows, under its one column head and in its columns
+   * (paper on a desk, tables): a block above the table put the head mid-table and the counts off the Größe column.
+   * A row with its own radius or shadow would be a pill.
    */
-  it('lists the level’s folders as rows on the page above the table, with no box around them', () => {
+  it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')
-    expect(row.closest('[data-slot="item-list"]')).toBeNull()
-    expect(row.closest('[role="group"]')?.className ?? '').not.toMatch(/\bbg-|\bborder\b|\bdivide-y\b/)
-    expect(row.className).not.toMatch(/\brounded|\bborder\b|\bshadow/)
+    expect(row.tagName).toBe('TR')
+    const table = row.closest('table')
+    expect(table).toBe(screen.getByTestId('file-list-view'))
+    expect(table?.querySelector('tbody > tr')).toBe(row)
+    expect(row.className).not.toMatch(/\brounded|\bshadow/)
   })
 
   it('a typed query escapes the current folder and searches the corpus', async () => {
