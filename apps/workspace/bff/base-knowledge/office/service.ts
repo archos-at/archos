@@ -337,17 +337,17 @@ export async function removeBaseKnowledge(session: AuthorizedSession, entryId: s
   requireManage(session)
   const { stored } = await findEntry(session, entryId)
   const stores = await deleteOfficeShelfDocument(session, stored.documentId, request)
-  await forgetKeysFor(session.organizationId, [entryId, stored.documentId])
+  const caches = (await forgetKeysFor(session.organizationId, [entryId, stored.documentId])) ? 'removed' : 'failed'
   return {
-    removed: stores.search !== 'failed' && stores.objects === 'removed',
-    stores: { ...stores, records: 'removed', caches: 'removed' },
+    removed: stores.search !== 'failed' && stores.objects === 'removed' && caches === 'removed',
+    stores: { ...stores, records: 'removed', caches },
   }
 }
 
 /** What a removal left: `removed` is true only when every store reports nothing left. */
 export interface BaseKnowledgeRemoval {
   removed: boolean
-  stores: OfficeShelfRemoval & { records: 'removed'; caches: 'removed' }
+  stores: OfficeShelfRemoval & { records: 'removed'; caches: 'removed' | 'failed' }
 }
 
 /**

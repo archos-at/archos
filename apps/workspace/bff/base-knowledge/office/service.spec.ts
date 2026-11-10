@@ -20,7 +20,7 @@ vi.mock('./repository', () => ({
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
-vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn() }))
+vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn(async () => true) }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
 vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(), uploadOfficeShelfDocument: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
@@ -306,6 +306,13 @@ describe('removing', () => {
     })
     expect(deleteOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, 'doc-1', request)
     expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['work_1', 'doc-1'])
+  })
+
+  it('does not say removed when the kept answers could not be dropped', async () => {
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'removed', objects: 'removed' })
+    vi.mocked(forgetKeysFor).mockResolvedValueOnce(false)
+    const receipt = await removeBaseKnowledge(MANAGER, 'work_1', request)
+    expect(receipt).toMatchObject({ removed: false, stores: { caches: 'failed' } })
   })
 
   it('does not say removed when the search purge was not confirmed', async () => {

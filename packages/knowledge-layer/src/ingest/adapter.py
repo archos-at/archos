@@ -3425,50 +3425,48 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         afterwards; it takes them back out itself once it has indexed, when
         the BFF answers that the document is gone
         (``document_presence``, ``_deleted_while_indexing``).
+
+        Raises when the status store or Qdrant fails: a failure must never read
+        as "nothing was there" (``delete_files`` reports it under ``failed``).
         """
-        try:
-            file_name = self._file_name_of(file_id, collection_name)
-            # First, and raising: a delete that cannot reach the status store
-            # fails whole, before it has removed anything it could not retry.
-            forgotten = ingest_status_store.forget_file(collection_name, file_name)
+        file_name = self._file_name_of(file_id, collection_name)
+        # First, and raising: a delete that cannot reach the status store
+        # fails whole, before it has removed anything it could not retry.
+        forgotten = ingest_status_store.forget_file(collection_name, file_name)
 
-            # Every stored spelling the delete's rule accepts: the exact name,
-            # a tmp-prefixed upload, a percent-encoded presigned-URL path.
-            spellings = [
-                stored
-                for stored in self._store().file_counts(collection_name)
-                if stored == file_name or _stored_name_matches(file_name, stored)
-            ]
-            # By the ids the store holds now, never by name: what an ingest
-            # still running under the same name adds is left alone (the
-            # docstring above).
-            chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
+        # Every stored spelling the delete's rule accepts: the exact name,
+        # a tmp-prefixed upload, a percent-encoded presigned-URL path.
+        spellings = [
+            stored
+            for stored in self._store().file_counts(collection_name)
+            if stored == file_name or _stored_name_matches(file_name, stored)
+        ]
+        # By the ids the store holds now, never by name: what an ingest
+        # still running under the same name adds is left alone (the
+        # docstring above).
+        chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
 
-            from agent.knowledge import unregister_summary
+        from agent.knowledge import unregister_summary
 
-            if not chunk_ids:
-                # No chunks. Whatever else the document left behind — the job
-                # record of a FAILED file, the summary row the inventory is
-                # built from — is forgotten regardless: a delete that returned
-                # early here left a file with no chunks in the agent's
-                # inventory for good, and every later delete took the same exit.
-                if forgotten:
-                    logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
-                else:
-                    logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
-                unregister_summary(collection_name, file_name, permanent=permanent)
-                # True only when something of the file was actually removed.
-                return forgotten > 0
-
-            self._store().delete_chunks(collection_name, chunk_ids)
-            bump_collection_version(collection_name)
-            logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
+        if not chunk_ids:
+            # No chunks. Whatever else the document left behind — the job
+            # record of a FAILED file, the summary row the inventory is
+            # built from — is forgotten regardless: a delete that returned
+            # early here left a file with no chunks in the agent's
+            # inventory for good, and every later delete took the same exit.
+            if forgotten:
+                logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
+            else:
+                logger.warning(f"No chunks found for file_name={file_name}; clearing its summary")
             unregister_summary(collection_name, file_name, permanent=permanent)
-            return True
+            # True only when something of the file was actually removed.
+            return forgotten > 0
 
-        except Exception as e:
-            logger.error(f"Failed to delete file {file_id}: {e}")
-            return False
+        self._store().delete_chunks(collection_name, chunk_ids)
+        bump_collection_version(collection_name)
+        logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
+        unregister_summary(collection_name, file_name, permanent=permanent)
+        return True
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
         """``file_name -> FileInfo`` for each file the collection holds chunks of: the store says what is indexed."""

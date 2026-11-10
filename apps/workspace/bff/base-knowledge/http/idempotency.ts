@@ -65,7 +65,8 @@ export async function onceForKey<T>(
   return stored.result
 }
 
-/** Drop every kept answer about these subjects (an entry's id, its document's id); the cache fails open. */
-export async function forgetKeysFor(organizationId: string, subjects: readonly string[]): Promise<void> {
-  await Promise.all(subjects.map((subject) => invalidateCachedPrefix(subjectPrefix(organizationId, subject))))
+/** Drop every kept answer about these subjects (an entry's id, its document's id); whether the cache confirmed it. */
+export async function forgetKeysFor(organizationId: string, subjects: readonly string[]): Promise<boolean> {
+  const dropped = await Promise.all(subjects.map((subject) => invalidateCachedPrefix(subjectPrefix(organizationId, subject))))
+  return dropped.every(Boolean)
 }

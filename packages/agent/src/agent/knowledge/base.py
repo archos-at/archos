@@ -558,8 +558,8 @@ class BaseIngestor(ABC):
         Args:
             name: Collection name to delete.
 
-        Returns:
-            True if deleted successfully, False otherwise.
+        Returns True when something was removed, False when nothing of the file
+        was there. Raises when a store fails, so a failure is never "not found".
         """
 
     @abstractmethod
