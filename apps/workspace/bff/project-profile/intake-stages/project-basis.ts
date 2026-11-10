@@ -1,7 +1,6 @@
 /** Stage A, Projektbasis: master data, location and the kind of project. */
 
 import austria from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-definitions.json'
-import { factDefinitionsSchema } from '@/lib/base-knowledge/wire/setup-facts'
 import { FOUND_IN } from '../intake-options'
 import type { ProjectIntakeOption, ProjectIntakeStage } from '../intake-types'
 
@@ -16,14 +15,14 @@ const COUNTRY_OPTIONS: ProjectIntakeOption[] = [
 /**
  * Austria's subdivisions, read from its `fact_definitions` record (ADR-0169)
  * rather than written here: the Bundesländer and the option that places a site
- * outside Austria. A record that does not parse fails the module, so the wizard
- * never offers a list nobody checked.
+ * outside Austria. Read as JSON, not through the zod wire: this stage is in
+ * every spec's import graph, and the seed is parsed by `setup-facts.spec.ts`
+ * and at boot by `rulesets/shipped.ts`, so a seed nobody checked never ships.
  */
 const AUSTRIA = (() => {
-  const subdivisions = factDefinitionsSchema.parse(austria.body.payload).subdivisions
-  if (!subdivisions) throw new Error('Austria’s fact definitions list its Bundesländer')
+  const subdivisions = austria.body.payload.subdivisions
   const options: ProjectIntakeOption[] = subdivisions.options.map((option) => ({ value: option.token, label: option.label }))
-  if (subdivisions.outside) options.push({ value: subdivisions.outside.token, label: subdivisions.outside.label })
+  options.push({ value: subdivisions.outside.token, label: subdivisions.outside.label })
   return { label: subdivisions.label, options, country: austria.territoryIds[0].toLowerCase() }
 })()
 
