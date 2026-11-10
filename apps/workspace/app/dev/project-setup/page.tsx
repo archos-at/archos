@@ -5,7 +5,7 @@
  * every state can be looked at and screenshotted without a database, a worker
  * or a reading: `?step=project | filing | reading | questions | profile`
  * (default: the step the page itself would open on) and
- * `?state=waiting | reading | failed | ready | closing | completed` (default
+ * `?state=waiting | reading | failed | ready | closing | completed | register` (default
  * `ready`), plus `?busy=1` for a call in flight. The step rides the address as
  * it does on the real page, so the stepper, back and forward work here too.
  * The document chips open a PDF built from the fixtures' own quotes, in the
