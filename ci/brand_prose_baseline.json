@@ -1541,7 +1541,7 @@
   "packages/ris-adapter/README.md": 4,
   "packages/ris-adapter/pyproject.toml": 1,
   "packages/ris-adapter/src/client.py": 1,
-  "packages/ris-adapter/src/register.py": 3,
+  "packages/ris-adapter/src/register.py": 2,
   "packages/tavily-web-search/pyproject.toml": 1,
   "packages/tavily-web-search/src/register.py": 3,
   "pyproject.toml": 2,

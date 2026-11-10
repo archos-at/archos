@@ -78,6 +78,18 @@ so an admin re-pointing a group never sends a field a provider rejects. The
 key (:func:`prompt_cache_key`) hashes the block's TEXT, so moving to the block
 form did not re-key a single shard.
 
+A CALL MADE ONCE WRITES NOTHING
+===============================
+Automatic caching writes at the tail of a request, and a write is billed at
+1.25x: on Claude when the marker below is sent, and on GPT-5.6+ always ("a
+prompt of 1024 tokens or more that is only sent once costs more with caching on
+than off", OpenRouter prompt caching guide, on or after 2026-10-07). A call
+whose tail is unique to it (the claim judge over one answer's evidence, the
+follow-ups, the memory reflection, the RIS planner over one request) writes an
+entry nobody reads. Inside :func:`one_shot_calls` such a call carries
+``prompt_cache_options: {"mode": "explicit"}`` and no breakpoint on the
+OpenAI family, which turns caching off, and no automatic marker on Claude.
+
 WHAT CLAUDE NEEDS ON TOP: ONE TOP-LEVEL ``cache_control``
 =========================================================
 Anthropic models cache nothing unless the request asks. This module used to
@@ -128,8 +140,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
+from contextlib import contextmanager
 from contextvars import ContextVar
 from contextvars import Token
 from typing import Any
@@ -149,6 +163,13 @@ PROMPT_CACHE_KEY_FIELD = "prompt_cache_key"
 
 #: OpenRouter's automatic-caching switch for providers that cache only on request.
 CACHE_CONTROL_FIELD = "cache_control"
+
+#: OpenRouter's caching mode switch; ``explicit`` with no breakpoint caches nothing.
+PROMPT_CACHE_OPTIONS_FIELD = "prompt_cache_options"
+_NO_CACHE_WRITES = {"mode": "explicit"}
+
+#: Families that cache, and bill the write, without being asked.
+AUTOMATIC_WRITE_FAMILIES = ("openai",)
 
 #: The default five-minute entry: a turn's calls are seconds apart. The one-hour
 #: TTL costs 2x on every write, which a turn's repeats would not pay back.
@@ -180,6 +201,27 @@ _DIGEST_CHARS = 24
 #: ``request_messages``), so Piloti's system prompt IS the stable prefix; naming
 #: it still guards any agent whose system prompt has a per-turn tail.
 _STABLE_PREFIX: ContextVar[str | None] = ContextVar("prompt_cache_stable_prefix", default=None)
+
+
+_ONE_SHOT: ContextVar[bool] = ContextVar("prompt_cache_one_shot", default=False)
+
+
+@contextmanager
+def one_shot_calls() -> Iterator[None]:
+    """Model calls made inside write nothing to the provider's cache: their tail is sent once."""
+    token = _ONE_SHOT.set(True)
+    try:
+        yield
+    finally:
+        _ONE_SHOT.reset(token)
+
+
+def _without_cache_writes(extra_body: Any, model: str | None) -> dict[str, Any] | None:
+    """The ``extra_body`` of a one-shot call: caching off where it is on by default, no marker anywhere."""
+    merged: dict[str, Any] = dict(extra_body) if isinstance(extra_body, Mapping) else {}
+    if _family(model) in AUTOMATIC_WRITE_FAMILIES:
+        merged.setdefault(PROMPT_CACHE_OPTIONS_FIELD, dict(_NO_CACHE_WRITES))
+    return merged or None
 
 
 def begin_stable_prefix(prefix: str | None) -> Token[str | None]:
@@ -382,6 +424,8 @@ def prompt_cache_extra_body(
     — and is read, never mutated: the tool payload and the response format both
     sit in the cached prefix, so both go into the key.
     """
+    if _ONE_SHOT.get():
+        return _without_cache_writes(extra_body, model)
     system_prompt = _system_text(messages)
     if system_prompt is None:
         return with_cache_marker(extra_body, model) if needs_cache_marker(model) else None
