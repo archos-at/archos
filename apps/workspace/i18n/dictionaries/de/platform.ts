@@ -1627,7 +1627,7 @@ export const platform: typeof en.platform = {
     missingCited: '{turns} Turn(s) · {organizations} Org.',
     missingCaveat:
       'Jede Schaltfläche öffnet die zuständige Verwaltung und legt die Kennung in die Zwischenablage. Ein PDF muss von Ihnen kommen, und ein Eintrag im Normenkatalog braucht bestätigten Rechtsrang und Bundesland, bevor {productName} ihn als verbindlich zitieren darf.',
-    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattform-Einstellungen zu verwalten.',
+    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattformwissen zu schreiben, oder für den Normenkatalog, Plattform-Einstellungen zu verwalten.',
     shownOfTotal: '{shown} von {total} angezeigt.',
     missingInventoryUnknown:
       'Der Bestand der Plattform konnte nicht geprüft werden. Ob diese Quellen schon vorhanden sind, ist offen; Ergänzen ist ausgeblendet, bis die Prüfung wieder klappt.',

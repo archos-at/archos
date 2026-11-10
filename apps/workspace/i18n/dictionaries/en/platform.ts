@@ -1629,7 +1629,7 @@ export const platform = {
     missingCited: '{turns} turn(s) · {organizations} org(s)',
     missingCaveat:
       'Each button opens the manager that owns the add flow and copies the identifier to your clipboard. A PDF has to come from you, and a norm-catalog entry needs its legal rank and Bundesland confirmed before {productName} may quote it as binding.',
-    missingReadOnly: 'Adding sources needs permission to manage platform settings.',
+    missingReadOnly: 'Adding sources needs permission to write platform knowledge, or to manage platform settings for the norm catalog.',
     shownOfTotal: 'Showing {shown} of {total}.',
     missingInventoryUnknown:
       'The platform inventory could not be checked, so it is unknown whether these sources are already held. Adding is hidden until the check works again.',
