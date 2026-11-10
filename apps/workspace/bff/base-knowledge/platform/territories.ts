@@ -1,13 +1,14 @@
 /**
  * A territory's parents, read from the platform's territory records (ADR-0165),
  * and the chain built from them (`territoryChain`).
- * Runs inside the caller's `withTenant`; names the owner and entitlement itself,
- * so the layered RLS is the backstop, not the filter.
+ * Runs inside the caller's `withTenant`; names the office's read itself
+ * (`store/visibility.ts`), so the layered RLS is the backstop, not the filter.
  */
 
 import 'server-only'
 import { sql } from 'drizzle-orm'
 import type { getDb } from '@/lib/db'
+import { recordReadable } from '../store/visibility'
 
 /** Every territory `territoryId` lies in, itself first: its parents' chain, then its ISO 3166 country. Pure. */
 export function territoryChain(territoryId: string, parents: ReadonlyMap<string, readonly string[]>): string[] {
@@ -32,6 +33,7 @@ interface TerritoryRow extends Record<string, unknown> {
 /** Each territory on `territoryId`'s way up (itself included, at most 16 levels) with its parent ids. */
 export async function readTerritoryParents(
   db: ReturnType<typeof getDb>,
+  organizationId: string,
   territoryId: string
 ): Promise<Map<string, string[]>> {
   const rows = await db.execute<TerritoryRow>(sql`
@@ -43,10 +45,10 @@ export async function readTerritoryParents(
       JOIN knowledge_records r ON r.id = c.id AND r.organization_id IS NULL AND r.type = 'territory'
       JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
       CROSS JOIN LATERAL unnest(t.parent_ids) AS p(parent_id)
-      WHERE c.depth < 16 AND knowledge_country_entitled(r.country_id)
+      WHERE c.depth < 16 AND ${recordReadable('r', organizationId)}
     )
     SELECT r.id, t.parent_ids
     FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
-    WHERE r.organization_id IS NULL AND r.id IN (SELECT id FROM chain) AND knowledge_country_entitled(r.country_id)`)
+    WHERE r.organization_id IS NULL AND r.id IN (SELECT id FROM chain) AND ${recordReadable('r', organizationId)}`)
   return new Map(rows.map((row) => [row.id, row.parent_ids]))
 }
