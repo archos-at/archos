@@ -9,4 +9,4 @@ features:
 operators:
   - >
     Office base knowledge is off until an organization gets the
-    office-base-knowledge flag; migration 0200 adds its tables.
+    office-base-knowledge flag; migration 0202 adds its tables.
