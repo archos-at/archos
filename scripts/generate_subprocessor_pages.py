@@ -170,6 +170,18 @@ def _gaps(register: Register) -> list[str]:
     return lines
 
 
+def _flow_rows(register: Register) -> list[str]:
+    lines = ["| Recipient | Flow | Data classes | Purposes (DPV) | Processed in |", "|---|---|---|---|---|"]
+    for row in register.rows:
+        for flow in row.get("flows") or []:
+            purposes = ", ".join(sorted({DPV_PURPOSE[p] for p in flow["purposes"]}))
+            lines.append(
+                f"| {_cell(row['name'])} | {_cell(flow['what']['en'])} | {', '.join(flow['data_classes'])} "
+                f"| {purposes} | {', '.join(flow['processing_location'])} |"
+            )
+    return lines
+
+
 def render_annex(register: Register) -> str:
     """The DPA annex in Markdown."""
     unconfirmed = [_cell(row["name"]) for row in register.rows if row["status"] in LISTED and row["contract"] != "dpa"]
@@ -184,6 +196,10 @@ def render_annex(register: Register) -> str:
         "`latent` is reachable in code but refused at boot in a deployment people sign in to.",
         "## Recipients",
         "\n".join(_annex_rows(register)),
+        "## Flows per recipient",
+        "Where one recipient serves several purposes, each flow with the place it is processed (`per_model`: "
+        "the upstream follows the model an office chose).",
+        "\n".join(_flow_rows(register)),
         "## Contracts still to confirm",
         "Listed recipients whose contract the register does not record as a signed DPA: "
         + (", ".join(unconfirmed) or "none")

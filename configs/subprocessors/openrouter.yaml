@@ -61,11 +61,40 @@ copy:
     de: KI-Gateway für alle Sprachmodell-, Embedding-, Bildmodell- und Transkriptionsanfragen
     en: AI gateway for all language-model, embedding, vision-model and transcription requests
   data:
-    de: Chat-Nachrichten, Dokumentauszüge, abgerufene Vorschriftenpassagen, erzeugte Antworten, Audio von Diktaten
-    en: Chat messages, document excerpts, retrieved regulation passages, generated answers, dictation audio
+    de: Chat-Nachrichten; Dokumentinhalte, die eine Frage braucht (Passagen, bei Bedarf ganze Seiten); beim Einlesen jede Seite eines Dokuments; abgerufene Vorschriften; erzeugte Antworten; Audio von Diktaten
+    en: Chat messages; the document content a question needs (passages, and whole pages where needed); every page of a document when it is read in; retrieved regulations; generated answers; dictation audio
   location:
     de: USA (Gateway); vorgelagerter Modellanbieter variiert — siehe Hinweis unten
     en: USA (gateway); upstream model provider varies — see notice below
   required:
     de: Ja
     en: 'Yes'
+# One flow per role (design §6.2). `processing_location` is where the upstream
+# runs: `per_model` follows the model an office chose; residency enforcement
+# narrows it per organization.
+flows:
+  - id: answers
+    what: {de: 'Chat, Recherche, Projekterfassung und Auslesen von Bescheiden', en: 'Chat, research, project intake and permit extraction'}
+    data_classes: [model_io, tenant_content]
+    purposes: [service_provision]
+    processing_location: [per_model]
+  - id: embeddings
+    what: {de: Suchindex (Embeddings) jedes Dokuments und jeder Frage, en: Search index (embeddings) of every document and question}
+    data_classes: [tenant_content]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: vision
+    what: {de: Texterkennung jeder Seite beim Einlesen, en: Text recognition of every page when a document is read in}
+    data_classes: [tenant_content]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: reranking
+    what: {de: Sortierung der Suchtreffer, en: Re-ranking of search hits}
+    data_classes: [model_io]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: judges
+    what: {de: Qualitätsbewertung einer Stichprobe von Antworten, en: Quality evaluation of a sample of answers}
+    data_classes: [model_io]
+    purposes: [quality_evaluation]
+    processing_location: [per_model]

@@ -31,6 +31,22 @@ Statuses: `active` is in use; `conditional` only when an organization or the ope
 | Anthropic, PBC (direct) | latent | US | US | model_io | dpv:ServiceProvision | eu-gdpr:A46-2-c (eu-gdpr:A45-3 where DPF-certified) | **no contract** | **not_used**: Not in use; a deployment people sign in to does not start while the key is set. |
 | Google LLC (Gemini API, direct) | latent | US | US | model_io | dpv:ServiceProvision | eu-gdpr:A46-2-c (eu-gdpr:A45-3 where DPF-certified) | **no contract** | **not_used**: Not in use; a deployment people sign in to does not start while the key is set. |
 
+## Flows per recipient
+
+Where one recipient serves several purposes, each flow with the place it is processed (`per_model`: the upstream follows the model an office chose).
+
+| Recipient | Flow | Data classes | Purposes (DPV) | Processed in |
+|---|---|---|---|---|
+| OpenRouter, Inc. | Chat, research, project intake and permit extraction | model_io, tenant_content | dpv:ServiceProvision | per_model |
+| OpenRouter, Inc. | Search index (embeddings) of every document and question | tenant_content | dpv:ServiceProvision | US |
+| OpenRouter, Inc. | Text recognition of every page when a document is read in | tenant_content | dpv:ServiceProvision | US |
+| OpenRouter, Inc. | Re-ranking of search hits | model_io | dpv:ServiceProvision | US |
+| OpenRouter, Inc. | Quality evaluation of a sample of answers | model_io | dpv:ImproveExistingProductsAndServices | per_model |
+| PostHog, Inc. | Events, masked session recordings, errors, surveys | telemetry | dpv:ImproveExistingProductsAndServices | DE |
+| PostHog, Inc. | Warning-level logs, spans and metrics through the OTel collector | operational_log | dpv:ServiceOptimisation | DE |
+| PostHog, Inc. | Support tickets with a report's masked text | support_text | dpv:CustomerCare | DE |
+| PostHog, Inc. | AI metadata and answer ratings from Langfuse | trace_metadata | dpv:ImproveExistingProductsAndServices | DE |
+
 ## Contracts still to confirm
 
 Listed recipients whose contract the register does not record as a signed DPA: IPAX OG, OpenRouter, Inc., Upstream AI model providers (via OpenRouter), ElevenLabs, Inc. (via OpenRouter), WorkOS, Inc., PostHog, Inc., Slack Technologies, LLC, Tavily, Cloudflare, Inc., komoot GmbH, Browser push services (Google FCM, Mozilla, Apple), OpenAI, L.L.C. (direct).

@@ -69,3 +69,25 @@ copy:
   required:
     de: Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen
     en: Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings
+# PostHog's four flows (design §6.1).
+flows:
+  - id: product-analytics
+    what: {de: 'Ereignisse, maskierte Sitzungsaufzeichnungen, Fehler, Umfragen', en: 'Events, masked session recordings, errors, surveys'}
+    data_classes: [telemetry]
+    purposes: [product_improvement]
+    processing_location: [DE]
+  - id: operational-logs
+    what: {de: 'Protokolle ab Warnstufe, Spans und Metriken über den OTel-Collector', en: 'Warning-level logs, spans and metrics through the OTel collector'}
+    data_classes: [operational_log]
+    purposes: [operations]
+    processing_location: [DE]
+  - id: support
+    what: {de: Support-Tickets mit dem maskierten Text einer Rückmeldung, en: Support tickets with a report's masked text}
+    data_classes: [support_text]
+    purposes: [customer_support]
+    processing_location: [DE]
+  - id: langfuse-export
+    what: {de: 'KI-Metadaten und Antwort-Bewertungen aus Langfuse', en: 'AI metadata and answer ratings from Langfuse'}
+    data_classes: [trace_metadata]
+    purposes: [product_improvement]
+    processing_location: [DE]

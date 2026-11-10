@@ -1,5 +1,7 @@
 # The data-flow register
 
+Decision: [ADR-0158](../adr/0158-every-outbound-flow-is-a-row-in-one-data-flow-register.md).
+
 Every place data leaves our cluster is one row in `configs/subprocessors/`: which
 processor, which data, for what purpose, where it is processed, on which transfer
 safeguard, and what deletion at contract end reaches. Two things are generated
@@ -72,6 +74,7 @@ One file per recipient, named by its `id`. The four list files (`in-cluster.yaml
 | `purposes` | `service_provision`, `quality_evaluation`, `product_improvement`, `customer_support`, `security`, `operations` (mapped to DPV in the annex) |
 | `holds_tenant_text`, `deletion` | whether an office's text rests there, and `deletion.status` (`covered`, `partial`, `gap`, `unknown`, `not_retained`, `no_tenant_text`, `vendor_retention`, `controller_designated`, `not_used`) with German and English text |
 | `hosts`, `env`, `activation_env`, `hog_files`, `posthog_destinations`, `sdks` | what the scan matches against |
+| `flows` | optional, one per purpose a recipient serves: `id`, `what` (de/en), `data_classes` and `purposes` from the row's, and `processing_location` (ISO 3166 codes, or `per_model`). Residency enforcement reads it; the annex lists it |
 | `copy` | `name`, `purpose`, `data`, `location`, `required`, each `de` and `en`: the page's cells. `{productName}` is filled in |
 | `evidence` | files that show the flow; each must exist |
 

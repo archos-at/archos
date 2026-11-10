@@ -35,7 +35,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         [
           "OpenRouter, Inc.",
           "KI-Gateway für alle Sprachmodell-, Embedding-, Bildmodell- und Transkriptionsanfragen",
-          "Chat-Nachrichten, Dokumentauszüge, abgerufene Vorschriftenpassagen, erzeugte Antworten, Audio von Diktaten",
+          "Chat-Nachrichten; Dokumentinhalte, die eine Frage braucht (Passagen, bei Bedarf ganze Seiten); beim Einlesen jede Seite eines Dokuments; abgerufene Vorschriften; erzeugte Antworten; Audio von Diktaten",
           "USA (Gateway); vorgelagerter Modellanbieter variiert — siehe Hinweis unten",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
           "Ja"
@@ -210,7 +210,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         [
           "OpenRouter, Inc.",
           "AI gateway for all language-model, embedding, vision-model and transcription requests",
-          "Chat messages, document excerpts, retrieved regulation passages, generated answers, dictation audio",
+          "Chat messages; the document content a question needs (passages, and whole pages where needed); every page of a document when it is read in; retrieved regulations; generated answers; dictation audio",
           "USA (gateway); upstream model provider varies — see notice below",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
           "Yes"

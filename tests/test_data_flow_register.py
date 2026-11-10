@@ -129,3 +129,15 @@ def test_the_shipped_packages_are_all_classified() -> None:
     """The scan reads real manifests: the workspace's SDKs, PostHog's among them, are found."""
     packages = check.scan_packages()
     assert {"js:posthog-node", "js:@workos-inc/node", "py:langchain-tavily", "js:web-push"} <= set(packages)
+
+
+def test_a_flow_needs_a_processing_location_and_the_rows_classes(register) -> None:
+    """Residency enforcement reads ``processing_location`` per flow; a flow cannot widen its row."""
+    row = {**next(row for row in register.rows if row["id"] == "posthog")}
+    row["flows"] = [
+        {"id": "x", "what": {"de": "x", "en": "x"}, "data_classes": ["voice_audio"], "purposes": ["security"]}
+    ]
+    errors = check.row_errors(row)
+    assert any("needs `processing_location`" in error for error in errors)
+    assert any("data class the row does not list" in error for error in errors)
+    assert any("purpose the row does not list" in error for error in errors)

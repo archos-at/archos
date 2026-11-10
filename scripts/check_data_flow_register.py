@@ -219,6 +219,7 @@ def row_errors(row: dict, repo_root: Path = REPO_ROOT) -> list[str]:
     )
     errors += [f"{where}: {message}" for ok, message in checks if not ok]
     errors += _status_errors(row, where)
+    errors += _flow_errors(row, where)
     errors += [
         f"{where}: evidence {path} does not exist"
         for path in row.get("evidence", [])
@@ -241,6 +242,26 @@ def _status_errors(row: dict, where: str) -> list[str]:
         errors.append(f"{where}: a listed row needs de/en {LISTED_COPY_FIELDS} in `copy`")
     if row["holds_tenant_text"] and row["deletion"]["status"] in {"no_tenant_text", "not_used"}:
         errors.append(f"{where}: holds tenant text, so `deletion.status` cannot say it holds none")
+    return errors
+
+
+def _flow_errors(row: dict, where: str) -> list[str]:
+    """Each optional ``flows`` entry: an id, its classes and purposes from the row's, and a processing location.
+
+    ``processing_location`` is ISO 3166 codes, or ``per_model`` where the
+    upstream follows the model an office chose. Residency enforcement reads it.
+    """
+    errors = []
+    for flow in row.get("flows") or []:
+        name = flow.get("id", "?")
+        if not _bilingual(flow.get("what")):
+            errors.append(f"{where}: flow {name} needs de/en `what`")
+        if not set(flow.get("data_classes") or ["?"]) <= set(row["data_classes"]):
+            errors.append(f"{where}: flow {name} has a data class the row does not list")
+        if not set(flow.get("purposes") or ["?"]) <= set(row["purposes"]):
+            errors.append(f"{where}: flow {name} has a purpose the row does not list")
+        if not flow.get("processing_location"):
+            errors.append(f"{where}: flow {name} needs `processing_location`")
     return errors
 
 

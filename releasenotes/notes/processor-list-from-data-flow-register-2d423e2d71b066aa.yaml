@@ -4,7 +4,8 @@ improvements:
   - >
     The subprocessor page in the legal section now names everyone who receives
     your data, including address search, voice dictation and our team's Slack
-    notices, with the legal basis for each transfer.
+    notices, with the legal basis for each transfer, and says plainly that
+    the AI reads whole pages of a document when a question needs them.
 operators:
   - >
     A deployment with sign-in now refuses to start while a vendor that is not
