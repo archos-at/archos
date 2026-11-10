@@ -35,11 +35,14 @@ Consumers (kept current — update when re-pointing):
 Where the project is (``resolve_site``) is a separate axis from which profile
 exists (design ``docs/design/international/design.md`` 3.1, invariant A1). A
 project is placed by its own facts: a ``country`` line, else a Land token. A
-project nothing places has NO country, never the default one: no country's law
-is then applicable to it, and every consumer below says what is missing instead
-of falling back to Austria. A project placed outside the covered countries gets
-``UNCOVERED_SITE_NOTE``, never Austrian doctrine. The office's own seat never
-places a project.
+project nothing places has NO country, never the default one, and no country's
+law is presented as applying to it: no OIB verdicts, and the chat turn reads
+``SITE_UNKNOWN_NOTE``. Austrian sources stay readable for it as information:
+deep research keeps the Austrian doctrine and catalogue, labelled by
+``JURISDICTION_GROUNDING`` as binding nothing for an unplaced project. A
+project placed outside the covered countries gets ``UNCOVERED_SITE_NOTE``,
+never Austrian doctrine or the catalogue. The office's own seat never places a
+project.
 """
 
 from __future__ import annotations

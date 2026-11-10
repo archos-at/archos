@@ -2067,7 +2067,7 @@
       "findings": []
     },
     {
-      "name": "a tax ID inside an IBAN's digits is the IBAN's",
+      "name": "an IBAN printed in groups of four is never read as a tax ID, even on a page that names one",
       "terms": [],
       "detectors": [
         "iban",

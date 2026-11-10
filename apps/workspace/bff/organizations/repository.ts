@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { organizations, type Organization } from '@/lib/db/schema/organizations'
+import type { HomeCountry } from './home-country'
 
 /** The stored settings row for an organization, or null before its first write. */
 export async function findOrganization(organizationId: string): Promise<Organization | null> {
@@ -106,7 +107,7 @@ export async function upsertOrganization(values: {
  * country on a row a settings write already made. Only the creation route
  * calls it: the office states its seat once, when it creates the organization.
  */
-export async function placeOrganization(organizationId: string, homeCountry: string): Promise<void> {
+export async function placeOrganization(organizationId: string, homeCountry: HomeCountry): Promise<void> {
   const db = getDb()
   await withTenant({ organizationId }, () =>
     db

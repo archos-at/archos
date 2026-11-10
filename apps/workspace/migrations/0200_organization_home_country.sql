@@ -24,15 +24,18 @@
 -- organization served before this migration is an Austrian planning office
 -- (the product was sold in Austria only), so their home country is AT. That is
 -- a statement about the office's seat, made once, here; no code defaults to it.
+-- Before this is applied in production, a person checks the WorkOS roster for
+-- an organization that is not Austrian and sets its row by hand afterwards.
 --
 -- ## What stays NULL
 --
--- An organization created in the WorkOS dashboard after this migration, that
--- has not yet touched a tenant table, has no row until its first write, and a
--- row written by a settings save has no home country. Both read as unplaced;
--- the platform sets it (design 5.1, `platform-organization-home-country-set`,
--- a later slice). The column therefore stays nullable until that operation
--- exists.
+-- Every row that exists when this runs gets AT. After it, the creation route
+-- is the only writer of the value (`placeOrganization`). An organization made
+-- in the WorkOS dashboard after this migration has no row until its first
+-- write, and a row its first settings save creates has no home country. Both
+-- read as unplaced; the platform sets it (design 5.1,
+-- `platform-organization-home-country-set`, a later slice). The column
+-- therefore stays nullable until that operation exists.
 
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS home_country char(2);
 
