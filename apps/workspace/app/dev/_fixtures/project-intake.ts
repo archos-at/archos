@@ -374,7 +374,7 @@ export const INTAKE_COMPLETED: IntakeView = {
   canComplete: false,
 }
 
-/** The address confirmed by the address register in the cell (ADR-0172) instead of the geocoder: `?state=register`. */
+/** The address confirmed by the address register in the cell (ADR-0172) instead of the geocoder: `?site=register`. */
 const REGISTER_EVIDENCE: ProfileEvidence = {
   kind: 'register',
   addressId: 'at-bev:6744151',
@@ -399,7 +399,6 @@ export const INTAKE_FIXTURES = {
   ready: INTAKE_READY,
   closing: INTAKE_CLOSING,
   completed: INTAKE_COMPLETED,
-  register: INTAKE_REGISTER,
 } as const
 
 export type IntakeFixtureName = keyof typeof INTAKE_FIXTURES
