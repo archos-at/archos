@@ -13,7 +13,8 @@
  * does not count; a body is never updated; a row that is both a table and a
  * deferral, or a table for a purpose with no table schema, is refused by the
  * database itself; a tenant never writes a platform ruleset. And end to end,
- * E32 decided from a stored synthetic ruleset.
+ * E32 decided from a stored synthetic ruleset. Since 0206, a setup record
+ * (`fact_definitions.v1`, `fact_sources.v1`) under its own purpose only.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -265,6 +266,30 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
     await expect(
       rawBody(ORG, `purpose, inherits|'reference_date', 'parent'`)
     ).resolves.toBeUndefined()
+  })
+
+  it('stores a setup record and reads it back as written (migration 0206, ADR-0169)', async () => {
+    const sources = (await import('../rulesets/seeds/at-setup-fact-sources.json')).default as RulesetValuesInput
+    const recordId = await store.insertOfficeRuleset(ORG, sources, { ...CONTEXT, inForce: true })
+    const read = await store.readRulesetsInForce(ORG, { purpose: 'fact_sources', territoryIds: ['AT'] })
+    expect(read.unreadable).toEqual([])
+    const stored = read.rulesets.find((ruleset) => ruleset.id === recordId)
+    const { rulesetValuesSchema } = await import('../wire/ruleset')
+    expect(stored?.values).toEqual(rulesetValuesSchema.parse(sources))
+  })
+
+  it('refuses in SQL a setup record under another purpose', async () => {
+    expect(
+      await refusedBy(rawBody(ORG, `purpose, payload_schema, payload|'classification', 'fact_sources.v1', '{}'::jsonb`))
+    ).toBe('knowledge_ruleset_revisions_setup_purpose')
+    expect(
+      await refusedBy(rawBody(ORG, `purpose, payload_schema, payload|'fact_sources', 'fact_definitions.v1', '{}'::jsonb`))
+    ).toBe('knowledge_ruleset_revisions_setup_purpose')
+    expect(await refusedBy(rawBody(ORG, `purpose, payload_schema, payload|'fact_sources', 'fact_sources.v2', '{}'::jsonb`))).toBe(
+      'knowledge_ruleset_revisions_schema_known'
+    )
+    // Positive control: each schema under its own purpose.
+    await expect(rawBody(ORG, `purpose, payload_schema, payload|'fact_definitions', 'fact_definitions.v1', '{}'::jsonb`)).resolves.toBeUndefined()
   })
 
   it('never lets a tenant write a platform ruleset', async () => {
