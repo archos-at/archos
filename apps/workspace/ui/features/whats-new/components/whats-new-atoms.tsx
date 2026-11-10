@@ -55,7 +55,7 @@ export function WeekEntry({
 
 /** The week's name: its dates, or its version. */
 export function WeekHeading({ className, ...props }: ComponentProps<'h2'>): JSX.Element {
-  return <h2 className={cn('text-base font-medium tracking-tight text-balance', className)} {...props} />
+  return <h2 className={cn('text-base font-medium text-balance', className)} {...props} />
 }
 
 /** What the week holds, by section: a row on a phone, a column in the rail. */
