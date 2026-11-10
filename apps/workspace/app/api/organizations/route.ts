@@ -12,6 +12,7 @@
  * the callers this endpoint exists for.
  */
 
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { refreshSession } from '@workos-inc/authkit-nextjs'
 import { z } from 'zod'
@@ -20,10 +21,23 @@ import { publicApiRoute } from '@/lib/api/handler'
 import { BadRequestError, UnauthorizedError } from '@/lib/api/errors'
 import { getWorkOS } from '@/lib/workos/client'
 import { recordAuditEvent } from '@/lib/audit/service'
+import { HOME_COUNTRIES, homeCountrySchema } from '@/lib/organizations/home-country'
+import { placeOrganization } from '@/lib/organizations/repository'
 
 const createOrganizationSchema = z.object({
   name: z.string().min(1).max(100).trim(),
+  /** The office's own seat (migration 0200). Never the law of its projects' sites. */
+  homeCountry: homeCountrySchema,
 })
+
+/**
+ * The WorkOS idempotency key of one person creating one organization name. A
+ * double submit or a retry within WorkOS's window returns the organization the
+ * first call made; another name, or another person, is another organization.
+ */
+function creationKey(userId: string, name: string): string {
+  return `organization-create:${createHash('sha256').update(`${userId}\n${name}`).digest('hex')}`
+}
 
 /**
  * Sign-up policy for the onboarding UI: whether self-service organization
@@ -42,10 +56,12 @@ export const POST = publicApiRoute(
     const parsed = createOrganizationSchema.safeParse(body)
 
     if (!parsed.success) {
-      throw new BadRequestError('Organization name is required and must be 1-100 characters.')
+      throw new BadRequestError(
+        'Organization name (1-100 characters) and home country (one of ' + HOME_COUNTRIES.join(', ') + ') are required.'
+      )
     }
 
-    const { name } = parsed.data
+    const { name, homeCountry } = parsed.data
 
     let session
     try {
@@ -69,13 +85,27 @@ export const POST = publicApiRoute(
     const workos = getWorkOS()
 
     try {
-      const organization = await workos.organizations.createOrganization({ name })
-
-      await workos.userManagement.createOrganizationMembership({
+      // Idempotent: a retry after a failed later step (the membership, the row)
+      // gets the same organization back from WorkOS, never a second one, and
+      // the membership is made only if it is missing.
+      const organization = await workos.organizations.createOrganization(
+        { name },
+        { idempotencyKey: creationKey(session.user.id, name) }
+      )
+      const existing = await workos.userManagement.listOrganizationMemberships({
         userId: session.user.id,
         organizationId: organization.id,
-        roleSlug: 'admin',
       })
+      if (existing.data.length === 0) {
+        await workos.userManagement.createOrganizationMembership({
+          userId: session.user.id,
+          organizationId: organization.id,
+          roleSlug: 'admin',
+        })
+      }
+
+      // The row and its home country exist from the start: every organization is placed (design 5.1).
+      await placeOrganization(organization.id, homeCountry)
 
       await refreshSession({ organizationId: organization.id, ensureSignedIn: true })
 
@@ -85,7 +115,7 @@ export const POST = publicApiRoute(
         action: 'org.created',
         targetType: 'organization',
         targetId: organization.id,
-        metadata: { name },
+        metadata: { name, homeCountry },
         request,
       })
       // The server is the truth for this event (ADR-0100): the browser's copy

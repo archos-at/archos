@@ -159,7 +159,8 @@ open. Cite the edition declared binding, never automatically the newest.
 **Parcel questions: settle them at the plot first.** Zoning (Widmung), building class (Bauklasse), building
 height, building lines (Fluchtlinien) and the like are answered by the plot's zoning plan and development
 plan (Flächenwidmungs- und Bebauungsplan) — not by OIB or the building code in general. If the plan is not in
-the knowledge base, say so openly (wien.gv.at/flaechenwidmung/public) instead of answering generically.
+the knowledge base, say so openly and point to the Land's or Gemeinde's plan portal (in Wien:
+wien.gv.at/flaechenwidmung/public) instead of answering generically.
 **Terms follow the level of the question.** The same term can be defined differently in OIB, state law and federal
 law (example: „Gebäudehöhe"). Always name the definition level used.
 
@@ -170,53 +171,6 @@ reproduce ÖNORM content from memory.
 **Existing buildings/transitional law:** If the project is not a new build (refurbishment, extension,
 alteration), point out that grandfathering (Bestandsschutz) and transitional provisions may apply and that
 this must be checked under building law."""
-# The jurisdiction + project-hard-limits grounding, injected into every deep-research
-# prompt as {{ jurisdiction_grounding }} — ONE copy, rendered by the prompt factories
-# (same pattern as NORM_DOCTRINE). Keep the rendered prompts long and specific; only
-# the authorship is deduplicated here so the four prompts cannot drift apart.
-JURISDICTION_GROUNDING = """## Jurisdiction & Country Handling
-
-The project context (injected at the bottom of this prompt) carries a `country=<cc>` line: an ISO-2 country
-code (e.g. `at`, `de`, `ch`) or the sentinel `other` for any country without a dedicated pipeline. When the
-line is absent the country is UNCONFIRMED: default to the Austrian pipeline but treat it as provisional (see
-below), never as a confirmed `country=at`. For Austrian projects there is also a `federal_state=<token>` line
-naming the state.
-
-- **country=at (confirmed)**: Full Austrian building-regulation pipeline applies. OIB-Richtlinien,
-  Landesbauordnung, and RIS are authoritative; cite ÖNORM only as a reference unless its binding incorporation
-  and applicable text are verified; never reproduce ÖNORM full text as binding. Answer with binding-law
-  precision, name the exact regulation/edition/Punkt, and state the applicable Bundesland.
-- **country != at** (any other ISO-2 code, or the `other` sentinel): The OIB corpus and RIS tools are
-  Austrian-only. Provide general/comparative guidance based on available sources, but clearly state that the
-  answer draws on Austrian law and may not be binding in the project's jurisdiction. Always recommend local
-  verification by a qualified professional. Do NOT cite OIB/RIS findings as binding for a non-AT jurisdiction.
-- **country absent (unconfirmed)**: Use the Austrian pipeline provisionally, but do NOT present
-  OIB/RIS/Landesbauordnung findings as binding. State that the jurisdiction is unconfirmed, ask for (or
-  explicitly flag the assumption of) `country=at`, and add the same local-verification disclaimer as for a
-  non-AT project.
-- The `federal_state=outside_austria` token means the project is outside Austria (functionally the same
-  as `country != at`), even when no explicit non-AT country line is present.
-
-## Project Hard Limits & Grounding
-
-The project context includes confirmed facts (hard constraints), unknowns (gaps), and assumptions
-(provisional). Use them as follows:
-
-- **Confirmed facts** are binding — never contradict them. If research sources conflict with a confirmed
-  fact, flag the conflict and explain.
-- **Unknowns** are known gaps — if a critical fact for the answer (especially building-class relevant:
-  escape_level_m, storeys, gfa, uses, federal_state) is flagged unknown, the answer must either ask for
-  it or state the gap clearly.
-- **Assumptions** are provisional estimates — treat as likely but note the uncertainty.
-- Wizard facts that constrain building-regulation outputs: **escape_level_m** → Gebäudeklasse per OIB-RL 2;
-  **storeys_above_ground / storeys_below_ground**; **max_building_height**; **gfa_above_ground**;
-  **work_type** (new_build/extension/conversion/refurbishment/...); **uses** (residential/office/retail/...);
-  **construction_method**; **elevator**; **conditioning**; **fireplaces**; **public_access**; **hazard_zones**;
-  **fire_safety_systems**; **heat_supply**; **further_technology** (pv/ventilation/cooling/infiltration).
-- Keys with `@bldgN` suffix apply to a specific building; keys with `@zone` suffix to a use zone.
-- When the plan or synthesis concerns a building-regulation question, cross-check the projected output
-  against the project's hard limits. If the research produces a requirement that contradicts a confirmed
-  fact, note the contradiction in the output rather than blindly repeating both."""
 
 
 class VerifySeed(BaseModel):
@@ -549,21 +503,17 @@ def resolve_federal_state(text: str | None) -> str | None:
     return extract_federal_state(text)
 
 
-_STRUCTURED_COUNTRY_RE = re.compile(r"\bcountry=([a-z]{2})\b")
+def resolve_country(text: str | None) -> str | None:
+    """The project's country: ``agent.common.country_profile.resolve_site``'s, or None when nothing places it.
 
-
-def resolve_country(text: str | None) -> str:
-    """ISO country code for the project: structured `country=<cc>` fact, else 'at'.
-
-    Austria-only intake today; the structured fact ships with the first second
-    country. Consumer: CountryProfile selection (doctrine, corpus note, parcel
-    tags, retrieval base collection).
+    None is ``site_unknown``: no country's law applies, and no caller may read it
+    as Austria. ``country=other`` and ``federal_state=outside_austria`` give
+    ``other``. Consumers: CountryProfile selection (doctrine, corpus note,
+    parcel tags, retrieval base collection).
     """
-    if text:
-        match = _STRUCTURED_COUNTRY_RE.search(text.lower())
-        if match:
-            return match.group(1)
-    return "at"
+    from agent.common.country_profile import resolve_site
+
+    return resolve_site(text).country
 
 
 def load_norms_file(country: str = "at") -> NormsFile | None:
@@ -589,11 +539,22 @@ def load_norms_file(country: str = "at") -> NormsFile | None:
 
 
 def doctrine_for(project_context: str | None) -> str:
-    """The Normenhierarchie doctrine for the project's country (fail-open to AT)."""
+    """The Normenhierarchie doctrine for the project's site.
+
+    Austria's (the profile's) for a project in Austria, or a run with no project.
+    A project placed in a country no profile covers, or one nothing places, gets
+    its jurisdiction note (``site_note``) in its place, never the Austrian
+    doctrine (ADR-0158: a project without a known site gets no country law).
+    """
     try:
         from agent.common.country_profile import get_country_profile
+        from agent.common.country_profile import resolve_site
+        from agent.common.country_profile import site_note
 
-        profile = get_country_profile(resolve_country(project_context))
+        note = site_note(project_context)
+        if note is not None:
+            return note
+        profile = get_country_profile(resolve_site(project_context).country or "at")
         if profile is not None:
             return profile.doctrine
     except Exception:  # noqa: BLE001 — prompt building must never break on profile lookup
@@ -701,15 +662,25 @@ def render_prompt_block(
 
 
 def render_block_for_prompt(project_context: str | None, norms_dir: str | None = None) -> str | None:
-    """Prompt-ready catalog block, Bundesland-aware when detectable; None when unavailable."""
+    """Prompt-ready catalog block, Bundesland-aware when detectable; None when unavailable.
+
+    None for a project placed outside Austria or not placed at all: the catalogue
+    is Austrian law, and the doctrine (``doctrine_for``) tells that project what
+    is not covered, or asks for its site.
+    """
+    from agent.common.country_profile import austrian_corpus_applies
+    from agent.common.country_profile import get_country_profile
+    from agent.common.country_profile import resolve_site
+
+    site = resolve_site(project_context)
+    if not austrian_corpus_applies(project_context):
+        return None
     registry = load_registry(norms_dir)
     if registry is None or not registry.entries:
         return None
     corpus_note = None
     try:
-        from agent.common.country_profile import get_country_profile
-
-        profile = get_country_profile(resolve_country(project_context))
+        profile = get_country_profile(site.country or "at")
         corpus_note = profile.corpus_note if profile else None
     except Exception:  # noqa: BLE001
         logger.warning("norm_registry: corpus-note profile lookup failed", exc_info=True)
@@ -775,9 +746,8 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
                 by_tag.setdefault(tag, []).append(name)
     if not by_tag:
         return None
-    lines = [
-        "## Parcel sources of this project (authoritative for zoning, building class, building height, building lines)"
-    ]
+    klass = "building class, " if country == "at" else ""  # the Bauklasse is an Austrian zoning class
+    lines = [f"## Parcel sources of this project (authoritative for zoning, {klass}building height, building lines)"]
     for tag in parcel_tags:
         if tag in by_tag:
             files = ", ".join(sorted(by_tag[tag]))

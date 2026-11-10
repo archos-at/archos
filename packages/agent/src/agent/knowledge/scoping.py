@@ -282,16 +282,16 @@ def get_scoped_collections_from_context_or(
         session_id: Resolved per-session collection name, if any.
 
     Returns:
-        Ordered, de-duplicated scoped collections (never empty). The legacy
-        fallback knows each layer's shelf STRUCTURALLY (it builds the layers),
-        so it states one rather than guessing from the name.
+        Ordered, de-duplicated scoped collections (empty only for a project the
+        base corpus does not serve). The legacy fallback knows each layer's shelf
+        STRUCTURALLY (it builds the layers), so it states one, never guessing it.
     """
     scope = get_scoped_collections_from_context()
     if scope:
         return scope
-    from knowledge_layer.search import resolve_scoped_collections
+    from knowledge_layer.search import scoped_collections_for_site
 
-    return resolve_scoped_collections(config, session_id)
+    return scoped_collections_for_site(config, session_id)
 
 
 def get_collection_scope_from_context_or(

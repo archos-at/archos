@@ -80,9 +80,17 @@ class TestTriggerHints:
         assert "DMSG" in hints[0]
 
     def test_string_true_triggers_hint(self):
-        assert trigger_hints({"parking_relevant": "true"}) == [
+        assert trigger_hints({"parking_relevant": "true"}, "vienna") == [
             "Stellplatzverpflichtung (parking obligation): check the Wiener Garagengesetz (or state law)."
         ]
+
+    @pytest.mark.parametrize("land", ["tyrol", "styria", None])
+    def test_a_viennese_law_is_named_only_in_vienna(self, land):
+        """Defect 4: the Kleingarten- and Garagengesetz of Wien were named for every Land."""
+        hints = trigger_hints({"parking_relevant": True, "allotment_garden_area": True}, land)
+        assert len(hints) == 2
+        assert not any("Wien" in hint for hint in hints)
+        assert any("Kleingartengesetz" in hint for hint in hints)
 
     def test_false_does_not_trigger(self):
         assert trigger_hints({"allotment_garden_area": False, "commercial_facility": "false"}) == []
@@ -105,7 +113,7 @@ class TestTriggerHints:
 #: A profile whose LAST section is ``confirmed:``, and the memory the turn context
 #: composes after it (``compose_project_context``): lines holding ``=`` that are
 #: no confirmed fact of the project.
-PROFILE_ENDING_CONFIRMED = "PROJECT_CONTEXT v1\n\nconfirmed:\n- floors_above=5\n- use=residential"
+PROFILE_ENDING_CONFIRMED = "PROJECT_CONTEXT v1\n\nconfirmed:\n- country=at\n- floors_above=5\n- use=residential"
 MEMORY_WITH_EQUALS = (
     "PROJECT_MEMORY v1\n"
     "- [constraint, high, unverified] Brandabschnitt: Fläche=1200 m² laut Konzept\n\n"
@@ -124,8 +132,9 @@ class TestFactsFromProjectContext:
         out as a confirmed fact.
         """
         composed = compose_project_context(PROFILE_ENDING_CONFIRMED, MEMORY_WITH_EQUALS)
-        assert facts_from_project_context(PROFILE_ENDING_CONFIRMED) == {"floors_above": 5, "use": "residential"}
-        assert facts_from_project_context(composed) == {"floors_above": 5, "use": "residential"}
+        expected = {"country": "at", "floors_above": 5, "use": "residential"}
+        assert facts_from_project_context(PROFILE_ENDING_CONFIRMED) == expected
+        assert facts_from_project_context(composed) == expected
 
     def test_parses_confirmed_facts(self):
         text = (
@@ -215,7 +224,7 @@ class TestRenderProjectBlock:
         assert render_project_block("PROJECT_CONTEXT v1\ngoals:\n- x\n") is None
 
     def test_renders_section_with_verdicts_and_reasons(self):
-        context = "PROJECT_CONTEXT v1\nconfirmed:\n- hauptnutzung=lager\n"
+        context = "PROJECT_CONTEXT v1\nconfirmed:\n- country=at\n- hauptnutzung=lager\n"
         block = render_project_block(context)
         assert block is not None
         assert "### Likely relevant for this project" in block
@@ -224,13 +233,35 @@ class TestRenderProjectBlock:
         assert "OIB 6 — to be checked —" in block
 
     def test_appends_trigger_hints(self):
-        context = "PROJECT_CONTEXT v1\nconfirmed:\n- hauptnutzung=wohnen\n- denkmalschutz=true\n"
+        context = "PROJECT_CONTEXT v1\nconfirmed:\n- country=at\n- hauptnutzung=wohnen\n- denkmalschutz=true\n"
         block = render_project_block(context)
         assert block is not None
         assert "Denkmalschutz (heritage protection):" in block
 
+    @pytest.mark.parametrize(
+        "placing",
+        ["- country=de", "- country=ch", "- country=other", "- federal_state=outside_austria", ""],
+    )
+    def test_no_oib_verdicts_outside_austria_or_without_a_site(self, placing):
+        """Defects 1 and 2: a German, Swiss, other or unplaced project got the OIB verdicts."""
+        context = f"PROJECT_CONTEXT v1\nconfirmed:\n{placing}\n- main_use=residential\n- building_class=4\n"
+        assert render_project_block(context) is None
+
+    def test_an_assumed_austrian_land_still_places_the_project(self):
+        context = "PROJECT_CONTEXT v1\nconfirmed:\n- main_use=residential\n\nassumptions:\n- federal_state=vienna\n"
+        block = render_project_block(context)
+        assert block is not None
+        assert "OIB 1 — required —" in block
+        # Review of #1545, fix 8: migration 0018's default Vienna is said to be unverified.
+        assert "The site (vienna) is an unconfirmed assumption" in block
+
+    def test_a_confirmed_land_says_nothing_about_verification(self):
+        block = render_project_block("PROJECT_CONTEXT v1\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n")
+        assert block is not None
+        assert "unconfirmed assumption" not in block
+
     def test_no_trigger_lines_when_no_triggers(self):
-        context = "PROJECT_CONTEXT v1\nconfirmed:\n- hauptnutzung=wohnen\n"
+        context = "PROJECT_CONTEXT v1\nconfirmed:\n- country=at\n- hauptnutzung=wohnen\n"
         block = render_project_block(context)
         assert block is not None
         assert "Denkmalschutz" not in block

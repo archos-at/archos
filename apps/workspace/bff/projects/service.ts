@@ -7,6 +7,7 @@
  * typed errors from `@/lib/api/errors`.
  */
 
+import { officeMonth } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { getWorkOS } from '@/lib/workos/client'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -36,7 +37,7 @@ import {
   openToOrganizationWhenClosed,
   type ProjectOutcome,
 } from './project-status'
-import { currentMonth, dateToMonth, isMonth, monthToDate, type Month } from './month'
+import { dateToMonth, isMonth, monthToDate, type Month } from './month'
 import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
@@ -245,10 +246,11 @@ export interface CreateProjectInput {
   description?: string
   /** The address search's hit. Seeds the profile (address, country, Bundesland). */
   location?: GeocodeResult
-  /** The address as the person typed it, when no search hit was chosen. Seeds `site_address` only. */
+  /** The address as typed, when no search hit was chosen: `site_address`, and the Land its PLZ suggests. */
   address?: string
-  /** A Bundesland token chosen by hand (API callers; the dialog no longer asks). */
+  /** The Bundesland and the country (`at`, `de`, `ch`, `other`) chosen by hand; a country but Austria outranks the Land. */
   federalState?: string
+  country?: string
 }
 
 /**
@@ -267,10 +269,8 @@ export interface CreateProjectInput {
  * is no repair path in the product, so the project was simply lost while still
  * counting against the tenant.
  *
- * Postgres is the side that can be undone cleanly, so it is: on any failure the
- * row is removed and the caller sees the error. A leaked WorkOS resource with no
- * row pointing at it is inert (nothing resolves it, and project ids are UUIDs so
- * it can never be re-hit), which makes it the right thing to leak of the two.
+ * Postgres is the side undone cleanly: on any failure the row is removed and the
+ * caller sees the error. A leaked WorkOS resource with no row is inert.
  *
  * ## Creating a closed project
  *
@@ -285,12 +285,11 @@ export interface CreateProjectInput {
  *
  * ## Piloti sets it up
  *
- * With `setup: 'piloti'` the project gets its intake row, status
- * `waiting`, and the profile facts the chosen address decides, in one write
- * after the FGA steps and inside the same compensating delete (the intake row
- * cascades with the project). A closing given with it is NOT carried out: the
- * project stays active while its documents are read and is closed when the
- * person finishes the review, so the intake keeps the closing as an intent.
+ * With `setup: 'piloti'` the project gets its intake row (`waiting`) and the
+ * profile entries the place decides, in one write after the FGA steps, inside
+ * the compensating delete. A closing given with it is NOT carried out: the
+ * project stays active while its documents are read and closes when the
+ * review is finished, so the intake keeps the closing as an intent.
  * Without it this is the function it always was.
  */
 export async function createProject(
@@ -303,7 +302,7 @@ export async function createProject(
   request?: Request,
   now: Date = new Date()
 ): Promise<Project> {
-  const closing = input.closing ? closingOrRefuse(input.closing, currentMonth(now)) : undefined
+  const closing = input.closing ? closingOrRefuse(input.closing, await officeMonth(session.organizationId, now)) : undefined
   const piloti = input.setup === 'piloti'
   // A closing Piloti sets up is carried out when the review is finished.
   const closeNow = closing && !piloti ? closing : undefined
@@ -346,6 +345,7 @@ export async function createProject(
           location: input.location,
           address: input.address,
           federalState: input.federalState,
+          country: input.country,
           closing: closing && { outcome: closing.outcome, startedOn: closing.startedOn, endedOn: closing.endedOn },
         },
         now
@@ -525,7 +525,7 @@ export async function setProjectStatus(
           at: now,
           closedBy: session.userId,
           outcome: change.outcome,
-          endedOn: monthToDate(endedOnOrRefuse(change.endedOn, dateToMonth(current.startedOn), currentMonth(now))),
+          endedOn: monthToDate(endedOnOrRefuse(change.endedOn, dateToMonth(current.startedOn), await officeMonth(session.organizationId, now))),
         }
       : change.status === 'paused'
         ? { status: 'paused', at: now }
