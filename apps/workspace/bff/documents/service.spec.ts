@@ -1794,6 +1794,7 @@ describe('deleteDocument', () => {
     const order: string[] = []
     vi.mocked(eraseDocumentObjectsOrKeepRow).mockImplementationOnce(async () => {
       order.push('objects')
+      return { versionsLeft: 0 }
     })
     vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
       order.push('row')
@@ -1846,6 +1847,7 @@ describe('deleteDocument', () => {
     })
     vi.mocked(eraseDocumentObjectsOrKeepRow).mockImplementationOnce(async () => {
       order.push('objects')
+      return { versionsLeft: 0 }
     })
     vi.mocked(deleteProjectDocument).mockImplementationOnce(async () => {
       order.push('row')

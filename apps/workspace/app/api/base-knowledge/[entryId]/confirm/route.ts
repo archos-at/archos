@@ -17,8 +17,8 @@ export const POST = apiRoute<Params>(
   async ({ session, params, request }) =>
     asProblem(async () => {
       const body = await parseJsonBody(request, confirmEntryBodySchema)
-      const operation = `base-knowledge-confirm:${params.entryId}`
-      return onceForKey({ request, organizationId: session.organizationId, operation, body }, () =>
+      const operation = 'base-knowledge-confirm'
+      return onceForKey({ request, organizationId: session.organizationId, subject: params.entryId, operation, body }, () =>
         confirmBaseKnowledge(session, params.entryId, body),
       )
     }),

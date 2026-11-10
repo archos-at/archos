@@ -4,7 +4,8 @@
  * GET    — any member.
  * PATCH  — change a confirmed entry's values; appends a revision, never rewrites one.
  * DELETE — remove the entry and its Archiv document (the Archiv's own delete);
- *          the records go with the document.
+ *          the records go with the document. Answers a receipt per store, and
+ *          `removed: true` only when nothing is left anywhere.
  *
  * Writes need org:office_shelf:manage, checked in `@/lib/base-knowledge/office/service`.
  */
@@ -32,9 +33,6 @@ export const PATCH = apiRoute<Params>(
 
 export const DELETE = apiRoute<Params>(
   async ({ session, params, request }) =>
-    asProblem(async () => {
-      await removeBaseKnowledge(session, params.entryId, request)
-      return { removed: true }
-    }),
+    asProblem(() => removeBaseKnowledge(session, params.entryId, request)),
   { authz: { enforcedBy: 'removeBaseKnowledge (canManageOfficeShelf)' } }
 )

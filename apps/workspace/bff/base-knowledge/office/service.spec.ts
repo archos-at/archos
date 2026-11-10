@@ -20,6 +20,7 @@ vi.mock('./repository', () => ({
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
+vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn() }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
 vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(), uploadOfficeShelfDocument: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
@@ -47,6 +48,7 @@ import { markCopyPoints } from './mark'
 import { readShelfDocument, visibleOfficeDocuments } from './repository'
 import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
+import { forgetKeysFor } from '../http/idempotency'
 import {
   BaseKnowledgeDisabledError,
   baseKnowledgeForTurn,
@@ -294,10 +296,23 @@ describe('the licence, the person’s call alone', () => {
 })
 
 describe('removing', () => {
-  it('runs the office shelf’s own delete, which takes the records with it', async () => {
-    const request = new Request('http://localhost/api/base-knowledge/work_1', { method: 'DELETE' })
-    await removeBaseKnowledge(MANAGER, 'work_1', request)
+  const request = new Request('http://localhost/api/base-knowledge/work_1', { method: 'DELETE' })
+
+  it('runs the office shelf’s own delete, which takes the records with it, and forgets the kept answers', async () => {
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'removed', objects: 'removed' })
+    expect(await removeBaseKnowledge(MANAGER, 'work_1', request)).toEqual({
+      removed: true,
+      stores: { database: 'removed', search: 'removed', objects: 'removed', records: 'removed', caches: 'removed' },
+    })
     expect(deleteOfficeShelfDocument).toHaveBeenCalledWith(MANAGER, 'doc-1', request)
+    expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['work_1', 'doc-1'])
+  })
+
+  it('does not say removed when the search purge was not confirmed', async () => {
+    vi.mocked(deleteOfficeShelfDocument).mockResolvedValue({ database: 'removed', search: 'failed', objects: 'removed' })
+    const receipt = await removeBaseKnowledge(MANAGER, 'work_1', request)
+    expect(receipt.removed).toBe(false)
+    expect(receipt.stores.search).toBe('failed')
   })
 })
 

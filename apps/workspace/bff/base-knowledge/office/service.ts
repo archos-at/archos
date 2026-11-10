@@ -24,7 +24,8 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
-import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
+import { deleteOfficeShelfDocument, uploadOfficeShelfDocument, type OfficeShelfRemoval } from '@/lib/office-shelf/service'
+import { forgetKeysFor } from '../http/idempotency'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
@@ -328,12 +329,25 @@ export async function recordBaseKnowledgeCheck(
 
 /**
  * Remove an entry and its document: the Archiv's own delete (holds, chunks,
- * objects), after which the records, revisions and checks are gone by cascade.
+ * objects), after which the records, revisions and checks are gone by cascade,
+ * and the kept answers to repeated writes about it are dropped. The receipt
+ * says what each store reports; `removed` only when nothing is left.
  */
-export async function removeBaseKnowledge(session: AuthorizedSession, entryId: string, request: Request): Promise<void> {
+export async function removeBaseKnowledge(session: AuthorizedSession, entryId: string, request: Request): Promise<BaseKnowledgeRemoval> {
   requireManage(session)
   const { stored } = await findEntry(session, entryId)
-  await deleteOfficeShelfDocument(session, stored.documentId, request)
+  const stores = await deleteOfficeShelfDocument(session, stored.documentId, request)
+  await forgetKeysFor(session.organizationId, [entryId, stored.documentId])
+  return {
+    removed: stores.search !== 'failed' && stores.objects === 'removed',
+    stores: { ...stores, records: 'removed', caches: 'removed' },
+  }
+}
+
+/** What a removal left: `removed` is true only when every store reports nothing left. */
+export interface BaseKnowledgeRemoval {
+  removed: boolean
+  stores: OfficeShelfRemoval & { records: 'removed'; caches: 'removed' }
 }
 
 /**

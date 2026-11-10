@@ -167,15 +167,29 @@ export function uploadOfficeShelfDocument(
 }
 
 /**
- * Delete an Archiv document: purge its RAG chunks (best-effort), remove the
- * SeaweedFS object, delete the row, purge the chunks once more, and audit.
- * Requires `org:office_shelf:manage`.
+ * What an Archiv delete removed, store by store, as it is and not as hoped:
+ * `search` is `failed` when the purge after the row went was not confirmed (chunks may still
+ * answer; the platform vector reconcile is the sweep, and the audit row names
+ * it), `none` for a row that owned no chunks; `objects` is `partial` when a
+ * superseded version's file survived. The row and the live object are gone or
+ * the delete threw.
+ */
+export interface OfficeShelfRemoval {
+  database: 'removed'
+  search: 'removed' | 'failed' | 'none'
+  objects: 'removed' | 'partial'
+}
+
+/**
+ * Delete an Archiv document: purge its RAG chunks, remove the SeaweedFS
+ * objects, delete the row, purge the chunks once more, and audit. Returns what
+ * each store reports. Requires `org:office_shelf:manage`.
  */
 export async function deleteOfficeShelfDocument(
   session: AuthorizedSession,
   documentId: string,
   request: Request,
-): Promise<void> {
+): Promise<OfficeShelfRemoval> {
   if (!canManageOfficeShelf(session)) throw new ForbiddenError()
 
   // Through the hold (ADR-0086); a curator reviews the Büroablage's quarantine.
@@ -206,7 +220,7 @@ export async function deleteOfficeShelfDocument(
 
   // Every version's objects and derivatives, or a 502 and the row stays — the
   // same erasure the project delete runs (`eraseDocumentObjectsOrKeepRow`).
-  await eraseDocumentObjectsOrKeepRow(doc, session.organizationId)
+  const { versionsLeft } = await eraseDocumentObjectsOrKeepRow(doc, session.organizationId)
 
   await deleteOfficeShelfDocumentRow(documentId, session.organizationId)
   publishShelfChanged(session.organizationId, OFFICE_SHELF)
@@ -216,7 +230,9 @@ export async function deleteOfficeShelfDocument(
   // and kept chunks it inserted after the first purge (ADR-0054, correction
   // 18). Any check from here on reads „gone“ and discards its own. Logged
   // inside, never thrown: the row is gone, and the orphan sweep is the net.
-  if (purgeRef) await purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true })
+  const purgedAgain = purgeRef
+    ? await purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true })
+    : null
 
   await recordAuditEvent({
     organizationId: session.organizationId,
@@ -224,7 +240,11 @@ export async function deleteOfficeShelfDocument(
     action: 'office_shelf.document.deleted',
     targetType: 'document',
     targetId: documentId,
-    metadata: { filename: doc.filename.slice(0, 200), collectionName: doc.collectionName, chunksPurged },
+    metadata: { filename: doc.filename.slice(0, 200), collectionName: doc.collectionName, chunksPurged, purgedAgain },
     request,
   })
+  // The purge after the row went is the one that counts: chunks an ingest wrote
+  // between the two purges are gone only if it was confirmed.
+  const search = purgeRef ? (purgedAgain ? 'removed' : 'failed') : 'none'
+  return { database: 'removed', search, objects: versionsLeft > 0 ? 'partial' : 'removed' }
 }

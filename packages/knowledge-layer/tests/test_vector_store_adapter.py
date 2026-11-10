@@ -198,6 +198,24 @@ def test_deletes_go_by_chunk_file_and_scope(retriever):
     assert store.count("proj_b") == 1, "a delete names its scope and never reaches another"
 
 
+def test_removing_an_office_copy_leaves_no_point_of_it(retriever):
+    """Zero residue for a base-knowledge removal (ADR-0158): every point of the
+    file goes, its mark included; the positive control is that the points were
+    there before and another file of the same office stays."""
+    scope = "office_shelf_org_test"
+    mark = {"licence_class": "licensed", "ai_processing_attested": True, "knowledge_edition_id": "ed-1"}
+    _ingest(retriever, scope, [_row("Abschnitt 1", "OENORM.pdf"), _row("Abschnitt 2", "OENORM.pdf")], **mark)
+    _ingest(retriever, scope, [_row("Andere", "Kommentar.pdf")])
+    store = store_module.get_store()
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 2, "the control: the copy was indexed"
+
+    store.delete_file(scope, "OENORM.pdf")
+
+    assert store.count(scope, {"file_name": "OENORM.pdf"}) == 0
+    assert store.count(scope, {"knowledge_edition_id": "ed-1"}) == 0
+    assert store.count(scope, {"file_name": "Kommentar.pdf"}) == 1, "a removal names its file and never reaches another"
+
+
 def test_a_long_delete_goes_in_bounded_requests(retriever, monkeypatch):
     rows = [_row(f"Chunk {index}", "a.pdf") for index in range(7)]
     _ingest(retriever, "proj_a", rows)
