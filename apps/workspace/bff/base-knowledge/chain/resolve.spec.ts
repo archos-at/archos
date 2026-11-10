@@ -19,8 +19,7 @@ const territory = (id: string, kind: string, parentIds: string[] = [], datedPare
   id,
   kind,
   name: id,
-  parentIds,
-  datedParents,
+  parents: [...parentIds.map((parent) => ({ id: parent })), ...datedParents],
 })
 const work = (key: string, kind: string, territoryIds: string[] = [], extra: object = {}) => ({
   type: 'work',

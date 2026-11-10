@@ -160,7 +160,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
         id: 'GB',
         kind: 'country',
         name: 'United Kingdom',
-        datedParents: [{ id: 'EU', validFrom: '1973-01-01', validTo: '2020-02-01' }],
+        parents: [{ id: 'EU', validFrom: '1973-01-01', validTo: '2020-02-01' }],
       },
     ])
     expect(await euRecords(BRITISH)).toHaveLength(0)

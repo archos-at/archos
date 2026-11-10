@@ -5,6 +5,7 @@
  * by hand ("paper" fixtures).
  */
 
+import type { TerritoryParent } from './territory-chain'
 import type { BindingMode, ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
 
 /** Who owns a record: the platform, or the office reading it. Another office's records are never in a graph. */
@@ -14,10 +15,8 @@ export interface GraphTerritory {
   id: string
   kind: TerritoryKind
   name: string
-  /** Undated parents, nearest first. */
-  parentIds: readonly string[]
-  /** Parents for an interval only, half-open: `AT` lies in `EU` from 1995-01-01. */
-  datedParents: readonly { id: string; validFrom?: string | null; validTo?: string | null }[]
+  /** Every parent, nearest first; one for an interval only states it, half-open: `AT` lies in `EU` from 1995-01-01. */
+  parents: readonly TerritoryParent[]
   validFrom: string | null
   validTo: string | null
   /** How far the records go here (0213); absent or null inherits from the parent. */

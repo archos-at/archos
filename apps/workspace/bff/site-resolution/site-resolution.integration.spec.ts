@@ -101,10 +101,10 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     const wire = await import('@/lib/base-knowledge/platform/wire')
     const records = [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-      { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parentIds: ['AT-6'] },
-      { type: 'territory', id: 'AT:bezirk:611', kind: 'district', name: 'Leoben (Bezirk)', parentIds: ['AT-6'] },
-      { type: 'territory', id: 'AT:gkz:61108', kind: 'municipality', name: 'Leoben', parentIds: ['AT:bezirk:611'] },
+      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+      { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parents: [{ id: 'AT-6' }] },
+      { type: 'territory', id: 'AT:bezirk:611', kind: 'district', name: 'Leoben (Bezirk)', parents: [{ id: 'AT-6' }] },
+      { type: 'territory', id: 'AT:gkz:61108', kind: 'municipality', name: 'Leoben', parents: [{ id: 'AT:bezirk:611' }] },
       {
         type: 'authority',
         key: authorityKey,

@@ -3774,3 +3774,29 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
+# ---------------------------------------------------------------------------
+# 0216: one parents field for a territory (design §3.2). A revision stored with
+# the two lists before it gets both in `parents`, undated first; the EU
+# entitlement reads `parents`; the down drops the column and 0216 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0216 territory parents and its down migration on tp_0216"
+migrate_before tp_0216 0216_territory_parents
+CR="c0000000-0000-4000-8000-000000000216"
+RV="e0000000-0000-4000-8000-000000000216"
+sql_in tp_0216 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA territories', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('XA-1', NULL, 'territory', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'XA-1', 'territory', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids, dated_parents)
+  VALUES ('$RV', 'XA-1', NULL, 'state', 'Eins', '{XA}', '[{"id": "EU", "validFrom": "1995-01-01"}]');
+SQL
+apply_in tp_0216 0216_territory_parents.sql
+check_in tp_0216 "SELECT parents::text FROM knowledge_territory_revisions WHERE revision_id = '$RV'" '[{"id": "XA"}, {"id": "EU", "validFrom": "1995-01-01"}]' "0216 folds both lists into parents, undated first"
+check_in tp_0216 "SELECT (pg_get_functiondef('knowledge_country_entitled(text)'::regprocedure) LIKE '%t.parents @>%')::text" "true" "0216: the EU entitlement reads parents"
+refused_in tp_0216 "UPDATE knowledge_territory_revisions SET parents = '[]'" "append-only" "a parents list rewritten"
+apply_in tp_0216 0216_territory_parents.down.sql
+check_in tp_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_territory_revisions' AND column_name = 'parents'" "0" "0216 down drops parents"
+apply_in tp_0216 0216_territory_parents.sql
+check_in tp_0216 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0216 applies again after its down"
+echo "==> 0216 territory parents and its down migration verified"

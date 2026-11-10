@@ -15,7 +15,7 @@ const DATE = '2026-11-10'
 
 const territories = [
   { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+  { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
 ]
 const law = [
   { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', territoryIds: ['AT-9'] },

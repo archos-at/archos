@@ -2530,7 +2530,7 @@ platform only.
 
 | Table | What a row is | Rules the database holds |
 |---|---|---|
-| `knowledge_territory_revisions` | A territory: `kind`, `name`, `parent_ids` (nearest first), `aliases`, `valid_from`/`to` | Append-only; platform only |
+| `knowledge_territory_revisions` | A territory: `kind`, `name`, `parents` (0216: `[{id, validFrom?, validTo?}]`, nearest first, half-open; `parent_ids` and `dated_parents` are written beside it for older builds until a contract migration drops them), `aliases`, `valid_from`/`to` | Append-only; platform only |
 | `knowledge_authority_revisions` | An authority: `name`, `function_codes`, `seat_territory_id`, `competence_territory_ids` (at least one), `identifiers` | Append-only; platform only |
 | `knowledge_change_requests` | One country's proposed change: `status` (`draft` → `submitted` → `approved`/`rejected` → `published` → `rolled_back`), `base_release_seq` | Platform-private (`secure_table(…, 'false')`); a platform revision goes only into a draft (`knowledge_revision_into_draft`) |
 | `knowledge_change_requests` (0212 columns) | `origin` (`operator`, `monitor`), and for a monitor's request `source_record_id` and `monitor_finding` (previous and current state, terms changed, `needs[]`) | At most one open (draft, submitted, approved) monitor request per source |

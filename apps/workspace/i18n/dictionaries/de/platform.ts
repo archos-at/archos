@@ -109,7 +109,7 @@ export const platform: typeof en.platform = {
       functionCodes: 'Aufgaben',
       territoryIds: 'Gilt in',
       addressees: 'Gerichtet an',
-      parentIds: 'Liegt in',
+      parents: 'Liegt in',
       issuedOn: 'Herausgegeben am',
       inForceFrom: 'In Kraft seit',
       inForceTo: 'In Kraft bis',

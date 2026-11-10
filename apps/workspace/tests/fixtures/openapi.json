@@ -30433,20 +30433,10 @@
                               "minLength": 1,
                               "maxLength": 200
                             },
-                            "parentIds": {
+                            "parents": {
                               "default": [],
-                              "description": "Nearest first, e.g. [\"AT\"] for AT-6.",
-                              "maxItems": 10,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$|^[A-Z]{2}:[a-z]{2,8}:[A-Za-z0-9]{1,20}$"
-                              }
-                            },
-                            "datedParents": {
-                              "default": [],
-                              "description": "Parents for an interval only, half-open: [{ id: \"EU\", validFrom: \"1995-01-01\" }] for AT.",
-                              "maxItems": 10,
+                              "description": "Every territory it lies in directly, nearest first; a parent for an interval only states it, half-open: [{ id: \"EU\", validFrom: \"1995-01-01\" }] for AT, [{ id: \"AT\" }] for AT-6.",
+                              "maxItems": 20,
                               "type": "array",
                               "items": {
                                 "type": "object",
@@ -30590,7 +30580,8 @@
                             "id",
                             "kind",
                             "name"
-                          ]
+                          ],
+                          "additionalProperties": false
                         },
                         {
                           "type": "object",

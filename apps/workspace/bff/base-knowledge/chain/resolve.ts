@@ -30,6 +30,7 @@
  */
 
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
+import { chainAt as walkChain, inInterval } from './territory-chain'
 import type {
   Displacement,
   EditionUse,
@@ -40,6 +41,7 @@ import type {
   ResolvedChain,
   RouteStep,
 } from './graph'
+
 
 /** How deep a route is followed (design §3.6). */
 export const MAX_ROUTE_DEPTH = 8
@@ -68,29 +70,9 @@ const INFORMATION_KINDS: ReadonlySet<KnowledgeWorkKind> = new Set(['directive', 
 
 const ROLE_ORDER: readonly EditionRole[] = ['binding', 'authority_practice', 'guidance', 'interpretation', 'information']
 
-/** Half-open: from inclusive, to exclusive; a missing end is open. */
-export function inInterval(date: string, from: string | null | undefined, to: string | null | undefined): boolean {
-  return (!from || from <= date) && (!to || date < to)
-}
-
-/** The site's leaf, then every territory it lies in at `date`. */
+/** The site's leaf, then every territory it lies in at `date`, by the one walk (`./territory-chain.ts`). */
 export function chainAt(leafId: string, date: string, graph: KnowledgeGraph): string[] {
-  const chain: string[] = []
-  const queue = [leafId]
-  while (queue.length > 0 && chain.length < 32) {
-    const next = queue.shift() as string
-    if (chain.includes(next)) continue
-    chain.push(next)
-    const territory = graph.territories.get(next)
-    if (territory) {
-      queue.push(...territory.parentIds)
-      queue.push(...territory.datedParents.filter((parent) => inInterval(date, parent.validFrom, parent.validTo)).map((parent) => parent.id))
-    }
-    // An ISO 3166-2 subdivision lies in its country whether or not its record says so.
-    const iso = /^([A-Z]{2})-/.exec(next)
-    if (iso) queue.push(iso[1])
-  }
-  return chain
+  return walkChain(leafId, date, (id) => graph.territories.get(id)?.parents)
 }
 
 const editionDate = (edition: GraphEdition): string => edition.inForceFrom ?? edition.issuedOn ?? ''

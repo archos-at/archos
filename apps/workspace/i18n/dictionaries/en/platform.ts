@@ -112,7 +112,7 @@ export const platform = {
       functionCodes: 'Responsible for',
       territoryIds: 'Applies in',
       addressees: 'Addressed to',
-      parentIds: 'Lies in',
+      parents: 'Lies in',
       issuedOn: 'Issued on',
       inForceFrom: 'In force from',
       inForceTo: 'In force until',

@@ -58,7 +58,7 @@ const ASOF_VIENNA = { file: RESOLVE_SPEC, name: 'asof-vienna: Wien binds RL 6 in
 const DEVIATION = { file: RESOLVE_SPEC, name: 'deviation-wbtv-pkt: a WBTV clause displaces an OIB-RL 2 Punkt in Wien, and nowhere else' }
 const OFFICE_ROUTE = { file: RESOLVE_SPEC, name: 'E37: an office relation makes a DIN edition binding as office_maintained, and a platform relation displaces it' }
 const CROSS_PACK = { file: RESOLVE_SPEC, name: 'li-sia500: Liechtenstein law reaches SIA and VKF works in another pack through relations' }
-const DATED_PARENT = { file: RESOLVE_SPEC, name: 'gb-2021-no-eu: Great Britain lies in the EU until the end of 2020, and not after' }
+const LEGACY_PARENTS = { file: 'apps/workspace/bff/base-knowledge/platform/records.spec.ts', name: 'writes the older builds’ parent_ids and dated_parents from parents' }
 const EVERY_KIND = { file: RESOLVE_SPEC, name: '%s reads as its kind and route say' }
 const CHAIN_NAMED = { file: TEXT_SPEC, name: 'names what binds in Wien, why, and the clause the Land displaces' }
 const STYRIA_DB = { file: CHAIN_SPEC, name: 'reads the chain for Steiermark: OIB-RL 2 binds in 2019, and 2023 only guides (defect 7)' }
@@ -218,10 +218,12 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
-  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_TERRITORIES, test: MA37 },
+  // Migration 0216: one parents field; the two lists before it are written, derived, for older builds only.
+  { element: 'knowledge_territory_revisions.parents', consumer: PLATFORM_TERRITORIES, test: MA37 },
+  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_RECORDS, test: LEGACY_PARENTS },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
-  { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },
+  { element: 'knowledge_territory_revisions.dated_parents', consumer: PLATFORM_RECORDS, test: LEGACY_PARENTS },
   // Migration 0213 (ADR-0173): coverage and the connecting factor, read by the turn's knowledge context.
   { element: 'knowledge_territory_revisions.coverage_level', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E02' } },
   { element: 'knowledge_territory_revisions.municipal_law', consumer: CONTEXT_RESOLVE, test: { file: EDGE_CASES, name: 'id: E-core-AT' } },

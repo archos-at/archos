@@ -36,7 +36,7 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
   const graph = graphFromProposals(
     [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich', coverageLevel },
-      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
+      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
       { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', designation: 'BO für Wien', territoryIds: ['AT-9'] },
       { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'LGBl. 2024/1', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
       { type: 'work', key: 'oib-rl-2', kind: 'model_code', title: 'Brandschutz', designation: 'OIB-RL 2', territoryIds: ['AT'] },

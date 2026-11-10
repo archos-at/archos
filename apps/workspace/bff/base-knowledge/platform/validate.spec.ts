@@ -46,7 +46,7 @@ describe('validateProposal', () => {
   it('names a seat territory that is not imported, and a territory outside the request’s country, by pointer', () => {
     const records = parse([
       ma37({ seatTerritoryId: 'AT-8' }),
-      { type: 'territory', id: 'DE-BY', kind: 'state', name: 'Bayern', parentIds: ['AT'], citations: cited() },
+      { type: 'territory', id: 'DE-BY', kind: 'state', name: 'Bayern', parents: [{ id: 'AT' }], citations: cited() },
     ])
     const found = validateProposal(records, 'AT', KNOWN, CAPTURES).map((p) => `${p.code} ${p.index} ${p.pointer}: ${p.detail}`)
     expect(found).toContainEqual(expect.stringContaining('KC-1 0 /seatTerritoryId: names territory AT-8'))
@@ -64,7 +64,7 @@ describe('validateProposal', () => {
   })
 
   it('keeps a record’s type and its country', () => {
-    const records = parse([{ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] }])
+    const records = parse([{ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] }])
     const known = new Map<string, KnownRecord>([...KNOWN, ['AT-9', { type: 'territory', countryId: 'DE' }]])
     expect(kit(records, 'AT', known)).toContainEqual(expect.objectContaining({ detail: expect.stringContaining('belongs to DE') }))
   })
@@ -84,7 +84,7 @@ describe('validateProposal', () => {
 
     it('refuses a quote too short to show anything: "Wi" is in "Wien"', () => {
       expect(kc6(ma37({ citations: cited('MA 37') }))).toEqual(['/citations/0/quote'])
-      expect(kc6({ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'], citations: cited('Wi') })).toContain('/citations/0/quote')
+      expect(kc6({ type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }], citations: cited('Wi') })).toContain('/citations/0/quote')
     })
 
     it('refuses quotes that never name what the record claims to be', () => {

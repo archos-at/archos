@@ -133,9 +133,9 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     // Austria's territories, one request: what authorities and directives name.
     await published('Austria: territories', [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich' },
-      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parentIds: ['AT'] },
-      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parentIds: ['AT'] },
-      { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parentIds: ['AT-6'] },
+      { type: 'territory', id: 'AT-6', kind: 'state', name: 'Steiermark', parents: [{ id: 'AT' }] },
+      { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
+      { type: 'territory', id: 'AT:gkz:60101', kind: 'municipality', name: 'Graz', parents: [{ id: 'AT-6' }] },
     ])
   })
 
