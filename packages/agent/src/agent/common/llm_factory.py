@@ -296,6 +296,19 @@ def _needs_reasoning_floor(llm: Any, target: Any, error: BaseException) -> bool:
     return True
 
 
+def _expanded(llm: Any, messages: Any, kwargs: dict[str, Any]) -> tuple[Any, Any]:
+    """The request's licensed references expanded, when the call is pinned to zero-retention endpoints.
+
+    Read after :func:`prepare_request` has merged the instance's ``extra_body`` with the call's, so the
+    provider routing the request will carry is what decides (``openrouter.DataPolicy.is_applied_to``).
+    """
+    from agent.common.openrouter import ZERO_DATA_RETENTION
+
+    body = {**(getattr(llm, "extra_body", None) or {}), **(kwargs.get("extra_body") or {})}
+    pinned = llm_targets_openrouter(llm) and ZERO_DATA_RETENTION.is_applied_to(body)
+    return expand_messages(messages, zero_retention=pinned)
+
+
 def _capped_chunk(chunk: Any, cap: Any, run_manager: Any) -> Any:
     """``chunk`` as the stream may yield it: unchanged without a cap, else capped and then reported."""
     if cap is None:
@@ -338,7 +351,7 @@ def _contract_generate(base: type) -> Any:
     """The contract's ``_generate``, over ``base``'s."""
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared, cap = expand_messages(prepare_request(self, messages, kwargs))
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         with _provider_slot(self):
             try:
@@ -357,7 +370,7 @@ def _contract_agenerate(base: type) -> Any:
     """The contract's ``_agenerate``, over ``base``'s."""
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared, cap = expand_messages(prepare_request(self, messages, kwargs))
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         async with _provider_slot_async(self):
             try:
@@ -377,7 +390,7 @@ def _contract_stream(base: type) -> Any:
     """The contract's ``_stream``, over ``base``'s."""
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared, cap = expand_messages(prepare_request(self, messages, kwargs))
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         inner_manager = None if cap is not None else run_manager
         with _provider_slot(self):
@@ -401,7 +414,7 @@ def _contract_astream(base: type) -> Any:
     """The contract's ``_astream``, over ``base``'s."""
 
     async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
-        prepared, cap = expand_messages(prepare_request(self, messages, kwargs))
+        prepared, cap = _expanded(self, prepare_request(self, messages, kwargs), kwargs)
         target = _with_reasoning_floor(self)
         inner_manager = None if cap is not None else run_manager
         async with _provider_slot_async(self):

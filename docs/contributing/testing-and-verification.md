@@ -836,7 +836,12 @@ on) and `off` (licensed, flag off: listed, no text; the floor). The report count
 values stated, unreadable values pointed to, guesses, the longest licensed stretch
 in an answer against the cap, and the longest a LangChain callback or the
 checkpointed messages held; it exits 1 when a `seam` or `off` run leaked past the
-cap. Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
+cap. `--calls N` sends each turn N times, as an agent loop re-sends it, and reports
+the share of prompt tokens read from the provider's cache, the cost and the later
+calls' seconds; `--no-cache-marker` drops the `cache_control` breakpoint for the
+comparison (it matters for a model that caches only when asked, Claude). An
+`unattested` arm holds a licensed copy whose office has not confirmed AI
+processing: listed, no text. Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
 
 ## The socket-level streaming harness
 

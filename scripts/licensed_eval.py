@@ -73,6 +73,12 @@ class Run:
     cap: int = 0
     capped_runs: int = 0
     input_tokens: int = 0
+    #: Across the run's calls: prompt tokens read from the provider's cache, the cost billed, and the seconds of the
+    #: first call against the median of the later ones (``--calls``, the agent loop re-sending the turn).
+    cache_read_tokens: int = 0
+    cost_usd: float = 0.0
+    first_call_s: float = 0.0
+    later_call_s: float = 0.0
     output_tokens: int = 0
     error: str | None = None
 
@@ -241,7 +247,27 @@ def _recorder():
     return Recorder(), strings
 
 
-async def run_one(question: dict[str, Any], document: dict[str, Any], arm: str, index: int, model: str) -> Run:
+async def _calls(record: Run, messages: list, model: str, recorder: Any, calls: int) -> Any:
+    """Send the turn ``calls`` times, as an agent loop re-sends it; record cache reads, cost and seconds per call."""
+    seconds: list[float] = []
+    reply = None
+    for _ in range(calls):
+        started = time.monotonic()
+        reply = await _model(model).ainvoke(messages, config={"callbacks": [recorder]})
+        seconds.append(time.monotonic() - started)
+        usage = reply.usage_metadata or {}
+        record.input_tokens += usage.get("input_tokens", 0)
+        record.output_tokens += usage.get("output_tokens", 0)
+        record.cache_read_tokens += (usage.get("input_token_details") or {}).get("cache_read", 0) or 0
+        record.cost_usd += float(((reply.response_metadata or {}).get("token_usage") or {}).get("cost") or 0.0)
+    record.first_call_s = round(seconds[0], 2)
+    record.later_call_s = round(statistics.median(seconds[1:]), 2) if len(seconds) > 1 else 0.0
+    return reply
+
+
+async def run_one(
+    question: dict[str, Any], document: dict[str, Any], arm: str, index: int, model: str, calls: int = 1
+) -> Run:
     """One question, one arm, one run, measured."""
     from langchain_core.load import dumpd
 
@@ -256,10 +282,8 @@ async def run_one(question: dict[str, Any], document: dict[str, Any], arm: str, 
     try:
         messages = _messages(question, _block(document, arm))
         record.checkpoint_run = longest_licensed_run("\n".join(strings(dumpd(messages))), licensed)
-        reply = await _model(model).ainvoke(messages, config={"callbacks": [recorder]})
+        reply = await _calls(record, messages, model, recorder, calls)
         record.answer = str(reply.content)
-        usage = reply.usage_metadata or {}
-        record.input_tokens, record.output_tokens = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
     except Exception as error:  # noqa: BLE001 - one failed run is a row in the report, not a dead eval
         record.error = f"{type(error).__name__}: {error}"[:300]
     finally:
@@ -292,11 +316,15 @@ def _arm_row(arm: str, runs: list[Run]) -> str:
     over_cap = sum(1 for run in mine if arm != "public" and run.answer_run > run.cap)
     seconds = statistics.median(run.seconds for run in mine)
     tokens = statistics.median(run.input_tokens for run in mine)
+    read = sum(run.cache_read_tokens for run in mine) / max(1, sum(run.input_tokens for run in mine))
+    cost = sum(run.cost_usd for run in mine)
+    later = statistics.median(run.later_call_s for run in mine)
     return (
         f"| {arm} | {_share([run.value_found for run in mine])} | {_share([run.pointed for run in mine])} "
         f"| {sum(1 for run in mine if run.guessed)} | {max(run.answer_run for run in mine)} | {over_cap} "
         f"| {max(run.callback_run for run in mine)} | {max(run.checkpoint_run for run in mine)} | {leaks} "
-        f"| {seconds:.1f} | {tokens:.0f} | {sum(1 for run in mine if run.error)} |"
+        f"| {seconds:.1f} | {later:.1f} | {tokens:.0f} | {read:.0%} | {cost:.4f} "
+        f"| {sum(1 for run in mine if run.error)} |"
     )
 
 
@@ -305,12 +333,14 @@ def report(runs: list[Run], meta: dict[str, Any]) -> str:
     lines = [
         "# Licensed-seam eval",
         "",
-        f"Model `{meta['model']}`, {meta['runs']} run(s) per question and arm, commit `{meta['commit']}`.",
+        f"Model `{meta['model']}`, {meta['runs']} run(s) per question and arm, {meta.get('calls', 1)} call(s) "
+        f"per run, cache marker {'on' if meta.get('cache_marker', True) else 'off'}, commit `{meta['commit']}`.",
         "",
         "| Arm | Value stated | Unreadable value pointed to | Runs that guessed "
         "| Longest licensed stretch in an answer | Answers over the cap | Longest in a callback "
-        "| Longest in the checkpoint | Leak runs | Median s | Median input tokens | Errors |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Longest in the checkpoint | Leak runs | Median s | Median s, later calls | Median input tokens "
+        "| Read from cache | Cost USD | Errors |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         *(row for arm in ARMS if (row := _arm_row(arm, runs))),
         "",
         "A leak is a `seam` or `off` run in which a callback or the checkpointed messages held a licensed stretch "
@@ -356,7 +386,7 @@ async def _run_all(args: argparse.Namespace, fixture: dict[str, Any]) -> list[Ru
 
     async def one(question: dict[str, Any], arm: str, index: int) -> Run:
         async with limit:
-            return await run_one(question, documents[question["document"]], arm, index, args.model)
+            return await run_one(question, documents[question["document"]], arm, index, args.model, args.calls)
 
     jobs = [one(q, arm, index) for q in questions for arm in arms for index in range(args.runs)]
     return list(await asyncio.gather(*jobs))
@@ -370,6 +400,12 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--only", nargs="*", default=[])
     parser.add_argument("--model", default=os.environ.get("DEFAULT_MODEL") or BOOT_MODEL)
+    parser.add_argument("--calls", type=int, default=1, help="calls per run, as an agent loop re-sends a turn")
+    parser.add_argument(
+        "--no-cache-marker",
+        action="store_true",
+        help="send no cache_control (the arm without a breakpoint, for a model that caches only when asked)",
+    )
     parser.add_argument("--report", type=Path, help="re-render a results.json without model calls")
     args = parser.parse_args()
     if args.report:
@@ -379,9 +415,19 @@ def main() -> int:
     if not os.environ.get("OPENROUTER_API_KEY"):
         print("OPENROUTER_API_KEY is not set; every run is a model call.", file=sys.stderr)
         return 2
+    if args.no_cache_marker:
+        from agent.common import prompt_caching
+
+        prompt_caching.EXPLICIT_CACHE_FAMILIES = ()
     fixture = yaml.safe_load(FIXTURE.read_text())
     runs = asyncio.run(_run_all(args, fixture))
-    meta = {"model": args.model, "runs": args.runs, "commit": _commit()}
+    meta = {
+        "model": args.model,
+        "runs": args.runs,
+        "calls": args.calls,
+        "cache_marker": not args.no_cache_marker,
+        "commit": _commit(),
+    }
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "results.json").write_text(json.dumps({"meta": meta, "runs": [asdict(run) for run in runs]}, indent=1))
     text = report(runs, meta)

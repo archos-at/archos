@@ -63,11 +63,23 @@ while the model still reads what the office licensed for this use.
 - **A reference, not the text.** `render_grounding_block` renders a licensed hit with a `Licence:`
   line and a reference token `⟦licensed:lp_…⟧` in its fence; the text is filed in the turn's
   `LicensedCapture`, opened with the grounding capture and dropped with it, never serialised.
-- **Expanded inside the call.** The chat-request contract (`llm_factory`) replaces references with
-  their text after LangChain has reported the messages to every callback, so Langfuse and the agent
-  runtime's spans log the token. A reference from an earlier turn expands to a note that says so:
-  licensed text is not carried between turns.
-- **Capped on the way out.** A call that expanded anything returns through `QuoteCap`, a matcher on
+- **Expanded inside the call, whole, and only to zero retention.** The chat-request contract
+  (`llm_factory`) replaces references with their text after LangChain has reported the messages to
+  every callback, so Langfuse and the agent runtime's spans log the token. The model reads each
+  passage whole, as its tool returned it (a section, pages, a clause, as the question needs); nothing
+  caps what it reads. The text goes only to a request pinned to zero-retention endpoints (ADR-0074):
+  an organization that switched retention limits off, or a BYOK endpoint, gets a note instead. A
+  reference from an earlier turn expands to a note that says so: licensed text is not carried
+  between turns.
+- **The provider's prompt cache keeps working.** "No licensed text in caches" means our persistent
+  stores (Dragonfly, LangGraph checkpoints, job payloads, Langfuse, logs), not the provider's
+  short-lived in-memory prompt cache, which the zero-retention endpoints' terms cover. Expansion is
+  deterministic, so every call of a turn sends the same bytes: the OpenAI family caches that prefix
+  automatically, and for Claude the existing top-level `cache_control` (`prompt_caching`) moves its
+  breakpoint to the end of each request, which lies after every expanded norm. The later calls of an
+  agent loop read the norm from the cache. `task be:eval:licensed -- --calls 3` measures cache reads,
+  cost and the later calls' seconds, and `--no-cache-marker` is the arm without the breakpoint.
+- **Capped on the way out, the quotes only.** A call that expanded anything returns through `QuoteCap`, a matcher on
   24-character shingles that lets a run of licensed text through up to the passage's
   `quote_max_chars` and drops the rest, writing `[…]`, in the content, reasoning and tool-call
   arguments (escape-aware for JSON), before any callback sees a token. A capped stream reports its

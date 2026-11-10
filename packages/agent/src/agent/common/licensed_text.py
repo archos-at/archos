@@ -24,7 +24,9 @@ know. This module is everything that follows from the mark, in four moves:
 2. **Expanded inside the call.** The chat-request contract (``llm_factory``)
    calls :func:`expand_messages` on the messages it is about to send. LangChain has
    already reported them to every callback, Langfuse's included, so the trace
-   logs the token and only the provider sees the text. A token from an earlier
+   logs the token and only the provider sees the text: whole, never cut, and only on a request pinned
+   to zero-retention endpoints, whose terms cover the provider's short-lived prompt cache (identical
+   bytes on every call of a turn, so the later calls read the norm from it). A token from an earlier
    turn finds nothing to expand and says so (:data:`EXPIRED_NOTE`): licensed text
    is not carried between turns.
 3. **Capped on the way out.** A call that expanded anything returns through
@@ -84,8 +86,9 @@ DEFAULT_QUOTE_MAX_CHARS = 500
 #: match by accident, short enough that a quote is caught within a line.
 SHINGLE_CHARS = 24
 
-#: How many licensed passages one turn may hold; the oldest goes first (it is the least likely to be read again).
-MAX_PASSAGES_PER_TURN = 256
+#: How many licensed passages one turn may hold, a memory bound far above what a turn reads (its rounds are
+#: bounded); past it the oldest goes first. It never cuts a passage: the model reads each one whole.
+MAX_PASSAGES_PER_TURN = 2048
 
 #: Written where a capped quote was cut. Plain text, safe inside a JSON string; no leading space, which would
 #: extend the quote it closes by one character.
@@ -114,6 +117,12 @@ UNATTESTED_NOTE = (
     "[Licensed text: listed only. The office has not confirmed that its licence covers processing by AI "
     "services, so no text of it is available. Name the document, its edition and the clause; quote nothing and "
     "state no value from it.]"
+)
+
+#: What a reference expands to on a request that is not pinned to zero-retention endpoints.
+NOT_ZERO_RETENTION_NOTE = (
+    "[Licensed text: not sent, because this model call is not limited to zero-data-retention providers. "
+    "Name the document, its page and clause; quote nothing from it.]"
 )
 
 #: What a reference from an earlier turn expands to: the text is not carried between turns.
@@ -238,31 +247,44 @@ def quotable(body: str, terms: LicenceTerms | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _expand_text(text: str, passages: Mapping[str, tuple[str, int]], used: dict[str, tuple[str, int]]) -> str:
+def _expand_text(
+    text: str, passages: Mapping[str, tuple[str, int]], used: dict[str, tuple[str, int]], send: bool
+) -> str:
     def replace(match: re.Match[str]) -> str:
         found = passages.get(match.group(1))
         if found is None:
             return EXPIRED_NOTE
+        if not send:
+            return NOT_ZERO_RETENTION_NOTE
         used[match.group(1)] = found
         return neutralise_tags(found[0])
 
     return _REF_RE.sub(replace, text)
 
 
-def _expand_content(content: Any, passages: Mapping[str, tuple[str, int]], used: dict[str, tuple[str, int]]) -> Any:
+def _expand_content(
+    content: Any, passages: Mapping[str, tuple[str, int]], used: dict[str, tuple[str, int]], send: bool
+) -> Any:
     if isinstance(content, str):
-        return _expand_text(content, passages, used) if "⟦licensed:" in content else content
+        return _expand_text(content, passages, used, send) if "⟦licensed:" in content else content
     if isinstance(content, list):
-        expanded = [_expand_content(part, passages, used) for part in content]
+        expanded = [_expand_content(part, passages, used, send) for part in content]
         return content if all(a is b for a, b in zip(expanded, content, strict=True)) else expanded
     if isinstance(content, dict) and isinstance(content.get("text"), str):
-        text = _expand_content(content["text"], passages, used)
+        text = _expand_content(content["text"], passages, used, send)
         return content if text is content["text"] else {**content, "text": text}
     return content
 
 
-def expand_messages(messages: Any) -> tuple[Any, QuoteCap | None]:
+def expand_messages(messages: Any, *, zero_retention: bool) -> tuple[Any, QuoteCap | None]:
     """``messages`` with each reference replaced by its text, and the cap for the reply; ``(messages, None)`` when none.
+
+    The text is the passage whole, as its tool returned it: the model reads what the question needs, and
+    only what the answer quotes back is capped. It goes only to a request pinned to zero-retention
+    endpoints (``zero_retention``, ADR-0074), whose terms cover the provider's short-lived prompt cache; any
+    other request (an organization that switched retention limits off, a BYOK endpoint) gets
+    :data:`NOT_ZERO_RETENTION_NOTE` instead. Expansion is deterministic, so every call of a turn sends the
+    same bytes and the provider's prompt cache serves the norm to the later calls.
 
     A message with no reference is returned as the same object, so a call that
     touches no licensed text sends exactly what it sent before.
@@ -275,7 +297,7 @@ def expand_messages(messages: Any) -> tuple[Any, QuoteCap | None]:
     out: list[Any] = []
     for message in messages:
         content = message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
-        expanded = _expand_content(content, passages, used)
+        expanded = _expand_content(content, passages, used, zero_retention)
         if expanded is content:
             out.append(message)
         elif isinstance(message, dict):

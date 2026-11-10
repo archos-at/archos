@@ -230,7 +230,7 @@ class Recorder(AsyncCallbackHandler):
         return "\n".join(self.seen)
 
 
-def _model(wire: Wire, *, streaming: bool):
+def _model(wire: Wire, *, streaming: bool, zero_retention: bool = True):
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
@@ -241,7 +241,14 @@ def _model(wire: Wire, *, streaming: bool):
         http_async_client=httpx.AsyncClient(transport=httpx.MockTransport(wire.handle)),
         max_retries=0,
     )
-    return enforce_chat_request_contract(llm)
+    from agent.common.openrouter import PLATFORM_FIXED
+    from agent.common.openrouter import pin_chat_model
+
+    return (
+        pin_chat_model(enforce_chat_request_contract(llm), PLATFORM_FIXED)
+        if zero_retention
+        else (enforce_chat_request_contract(llm))
+    )
 
 
 def _turn_messages(block: str) -> list:
@@ -253,13 +260,16 @@ def _turn_messages(block: str) -> list:
     ]
 
 
-async def _turn(*, licence: LicenceTerms | None, allowed: bool = True, streaming: bool = True):
+async def _turn(
+    *, licence: LicenceTerms | None, allowed: bool = True, streaming: bool = True, zero_retention: bool = True
+):
     """One turn: render the hit, call the model, return the wire, the recorder, the messages and the reply."""
     wire, recorder = Wire(), Recorder()
     token = begin_grounding_capture(licensed_text=allowed)
     try:
         messages = _turn_messages(_block(_hit(licence=licence)))
-        reply = await _model(wire, streaming=streaming).ainvoke(messages, config={"callbacks": [recorder]})
+        model = _model(wire, streaming=streaming, zero_retention=zero_retention)
+        reply = await model.ainvoke(messages, config={"callbacks": [recorder]})
     finally:
         end_grounding_capture(token)
     return wire, recorder, messages, reply
@@ -489,3 +499,29 @@ def test_the_ingest_of_an_unattested_licensed_document_calls_no_model():
     with licensed_ingest(TERMS):
         assert _openrouter_call().status_code == 200, "an attested copy is read, and traced as metadata only"
     assert _openrouter_call().status_code == 200, "positive control: outside the scope nothing is refused"
+
+
+async def test_a_call_not_pinned_to_zero_retention_gets_no_licensed_text():
+    """An organization that switched retention limits off, or a BYOK endpoint: the provider may keep what it reads."""
+    wire, _, _, reply = await _turn(licence=TERMS, zero_retention=False)
+
+    sent = _all_text(wire.bodies[0])
+    assert licensed_text.NOT_ZERO_RETENTION_NOTE in sent
+    assert longest_licensed_run(sent) < licensed_text.SHINGLE_CHARS
+
+
+async def test_the_model_reads_the_passage_whole_and_every_call_sends_the_same_bytes():
+    """Nothing caps what the model READS; and identical bytes per call are what the provider's prompt cache keys on."""
+    wire, recorder = Wire(), Recorder()
+    token = begin_grounding_capture(licensed_text=True)
+    try:
+        model = _model(wire, streaming=False)
+        messages = _turn_messages(_block(_hit()))
+        await model.ainvoke(messages, config={"callbacks": [recorder]})
+        await model.ainvoke(messages, config={"callbacks": [recorder]})
+    finally:
+        end_grounding_capture(token)
+
+    first, second = (_all_text(body) for body in wire.bodies)
+    assert _norm(LICENSED) in _norm(first), "the expanded passage is the whole passage"
+    assert first == second
