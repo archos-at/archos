@@ -22,6 +22,8 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 - **A thin contract, as text.** Only S2 depends on S1's tables, so there is no code contract to wait for. The shared points (record shape, licence values, flag names, file ownership) are written in each brief, and S1 owns the tables. Wave 0 is only the design on a branch every session can read. A session that finds a better shape proposes it in its PR, and the orchestrator reconciles.
 - **The orchestrator** spawns sessions, watches them (`get_session`, `list_events`), reviews each PR against its intent (not against the suggestions) with an independent reviewer, carries good deviations to dependent sessions, fixes the stacking order and rebases. Cloud sessions cannot message back, so each session finishes by opening its PR with the sections the orchestrator reads.
 - **Gates in every session:** `task verify:fast`, plus `task db:test:rls` for a tenant-boundary change, `task pkg:test` for `packages/`, and `task be:eval:answer-suite` before and after anything that shapes answers, with the report in the PR. Conventional PR title, a release note per slug, and the definition-of-done checklist.
+- **Scout with Haiku, build with the session's own model.** Reading the code to find where something lives, which callers a change touches, or what a test asserts is scouting: hand it to Haiku subagents, several in parallel, each with a narrow question and a short written answer. The session's own context stays for design and code. Scouts report findings; the session re-checks any fact before it relies on it or writes it down.
+- **Push after every green slice.** A session can stop at any moment on a budget or container limit, and a container is reclaimed after a few idle days. On 6 November all six Wave 1 sessions stopped on a budget limit within half an hour, and three had pushed nothing. Work that is not on `origin` does not exist.
 - **Ask-first steps stay with a person:** `task prompts:push -- --apply`, `task workspace:provision:authz -- --apply`, migrations against a shared database, and Langfuse provisioning. Sessions prepare them and stop.
 
 ## Waves
@@ -149,6 +151,9 @@ Fixed (others depend on these; change one only by flagging it in your PR first):
 Design suggests (not binding; beat it if you can): <the design's approach, with pointers to design/v7.md sections>.
 
 You decide how. Read the code, question the suggestion, prefer the simpler design, reuse what exists, and follow the repo's AGENTS.md.
+
+Scout with Haiku subagents: send several in parallel, each with one narrow question (where does X live, who calls Y, what does test Z assert), and keep your own context for design and code. Re-check a scout's fact before you rely on it.
+Push to your branch after every green slice; you can be stopped at any moment, and unpushed work is lost.
 
 Branch claude/intl-<slug>, based on develop; PR into develop. Read the design with: git fetch origin claude/intl-design && git show origin/claude/intl-design:docs/design/international/design.md
 Gates: task verify:fast; plus <db:test:rls | pkg:test | be:eval:answer-suite before and after> where your change needs it.
