@@ -1,6 +1,16 @@
 {
  "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (UPDATE_FIXTURES=1). `agent` is true, false or \"native:<tool>\" (the in-product agent uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
  "operations": {
+  "classification-evaluate": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-cleanup-confirm": {
    "kind": "catalog",
    "domain": "projects",
@@ -2589,6 +2599,16 @@
    "platform": false,
    "withheld": null,
    "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
+  },
+  "base-knowledge-edition-as-of": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
   },
   "base-knowledge-get": {
    "kind": "catalog",

@@ -3,6 +3,15 @@
  "limit": 10,
  "operations": [
   {
+   "name": "classification-evaluate",
+   "domain": "projects",
+   "summary": "Evaluate a building’s class under its site’s rules",
+   "description": "One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"classification-evaluate\",\"domain\":\"projects\",\"summary\":\"Evaluate a building’s class under its site’s rules\",\"description\":\"One building’s class (in Austria the OIB class), planned and, for a Bestand, today: the shift, open inputs and the document settling each. `planned`/`existing` values (by fact key) try a variant; writes nothing. Needs project:view.\",\"annotations\":{\"title\":\"Evaluate a building’s class under its site’s rules\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"buildingId\":{\"default\":\"bldg1\",\"type\":\"string\",\"maxLength\":12},\"planned\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"existing\":{\"type\":\"object\",\"propertyNames\":{\"type\":\"string\",\"maxLength\":64},\"additionalProperties\":{}},\"on\":{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))$\"}},\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+  },
+  {
    "name": "project-cleanup-confirm",
    "domain": "projects",
    "summary": "Move the chosen documents to the bin",
@@ -1767,6 +1776,15 @@
    "describe": "{\"name\":\"base-knowledge-check-record\",\"domain\":\"knowledge\",\"summary\":\"Record that a base-knowledge entry was checked\",\"description\":\"Records that somebody checked whether the copy is still the edition in force, and the result; anything but `current` keeps it overdue. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"Record that a base-knowledge entry was checked\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"entryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"From base-knowledge-list.\"}},\"required\":[\"entryId\"]},\"body\":{\"type\":\"object\",\"properties\":{\"result\":{\"type\":\"string\",\"enum\":[\"current\",\"newer_known\",\"withdrawn\",\"source_unreachable\"],\"description\":\"current: still the edition in force.\"},\"note\":{\"description\":\"Where it was checked.\",\"type\":\"string\",\"maxLength\":1000}},\"required\":[\"result\"],\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
+   "name": "base-knowledge-edition-as-of",
+   "domain": "knowledge",
+   "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
+   "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"base-knowledge-edition-as-of\",\"domain\":\"knowledge\",\"summary\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"description\":\"Answers \\\"what applied when this was submitted\\\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today.\",\"annotations\":{\"title\":\"Which edition of a law or norm applied on a date or to a permit procedure\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"workId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120,\"description\":\"e.g. work:at-wien-bo\"},\"territoryId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80,\"description\":\"The legislating node, e.g. AT-9.\"},\"asOf\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"projectId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":120},\"procedureId\":{\"type\":\"string\",\"pattern\":\"^p[0-9]{1,3}$\"},\"procedureType\":{\"type\":\"string\",\"pattern\":\"^[a-z][a-z0-9_]{0,63}$\"},\"filedOn\":{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},\"decidedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"pending\"}]},\"worksStartedOn\":{\"anyOf\":[{\"type\":\"string\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"},{\"const\":\"not_started\"}]}},\"required\":[\"workId\",\"territoryId\"],\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
+  },
+  {
    "name": "base-knowledge-get",
    "domain": "knowledge",
    "summary": "Read one base-knowledge entry",
@@ -2087,7 +2105,7 @@
    "project-annotation-list",
    "project-task-run-list",
    "document-list",
-   "project-person-add"
+   "document-role-list"
   ],
   "Projekte auflisten": [
    "project-list",
@@ -2177,10 +2195,10 @@
    "office-shelf-folder-update",
    "document-bin",
    "project-folder-bin-list",
-   "document-summary-get",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "project-folder-bin-purge"
+   "project-folder-bin-purge",
+   "project-folder-list"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
@@ -2376,6 +2394,7 @@
    "conversation-update"
   ],
   "": [
+   "classification-evaluate",
    "project-cleanup-confirm",
    "project-cleanup-propose",
    "project-consistency-check",
@@ -2384,8 +2403,7 @@
    "project-experience-extract",
    "project-get",
    "project-intake-complete",
-   "project-intake-decide",
-   "project-intake-definition-get"
+   "project-intake-decide"
   ],
   "a project list": [
    "project-list",

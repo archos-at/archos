@@ -16,17 +16,19 @@
  * already opens the building questions the reading should look for.
  */
 
-import { siteCountry } from '@/lib/project-profile/site'
 import { answerKeyFor, isBuildingId, modeKeyFor, type BuildingInstance } from '@/lib/project-profile/intake-building-keys'
 import { evaluateIntakeCondition } from '@/lib/project-profile/intake-conditions'
 import { answersFromProfile } from '@/lib/project-profile/intake-profile'
+import { siteCountry } from '@/lib/project-profile/site'
 import type { ProjectIntakeDefinition, ProjectIntakeQuestion, ProjectIntakeStage } from '@/lib/project-profile/intake-types'
 import type {
   ProjectFact,
   ProjectPrimitiveValue,
   ProjectProfile,
 } from '@/lib/project-profile/types'
-import { decisiveInputs, BUILDING_CLASS_DERIVATION } from './derivations'
+import { deriveBuildingClass } from './derivations'
+import { buildingClassificationOf, classificationInputs, setupScopeOf, type BuildingClassification } from './setup-scope'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import {
   INTAKE_NEED_TYPES,
   MAX_INTAKE_NEEDS,
@@ -44,6 +46,8 @@ export interface ComputeNeedsOptions {
   dismissed: ReadonlyArray<{ key: string; value: ProjectPrimitiveValue }>
   /** Keys a person marked „nicht bekannt"; not a need. Defaults to the profile's `unknowns`. */
   unknownKeys?: ReadonlyArray<string>
+  /** The setup records the site selects its classification from; the shipped pack by default. */
+  records?: readonly StoredRuleset[]
 }
 
 type Answers = Record<string, ProjectPrimitiveValue>
@@ -196,9 +200,9 @@ function knownAnswer(answers: Answers, answerKey: string): ProjectPrimitiveValue
 
 /** Which building question writes each building class input, in the wizard's order. */
 function buildingClassReaders(
-  definition: ProjectIntakeDefinition
+  definition: ProjectIntakeDefinition,
+  inputs: readonly string[]
 ): Array<{ questionId: string; input: string }> {
-  const inputs: readonly string[] = BUILDING_CLASS_DERIVATION.inputs
   return definition.stages
     .filter((stage) => stage.scope === 'building')
     .flatMap((stage) => stage.questions)
@@ -233,46 +237,48 @@ function inputsFromAnswers(
 export function buildingClassInputsFor(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
-  buildingId: string
+  buildingId: string,
+  inputs: readonly string[]
 ): Record<string, ProjectPrimitiveValue | undefined> {
   const { answers } = answersFromProfile(knownProfile(profile), definition)
-  return inputsFromAnswers(buildingClassReaders(definition), answers, buildingId)
+  return inputsFromAnswers(buildingClassReaders(definition, inputs), answers, buildingId)
 }
 
 /** Per building, the building class inputs that are open and could still change the class. */
 function decisiveKeysFor(
   definition: ProjectIntakeDefinition,
   answers: Answers,
-  buildings: BuildingInstance[]
+  buildings: BuildingInstance[],
+  classification: BuildingClassification
 ): Set<string> {
-  const readers = buildingClassReaders(definition)
+  const readers = buildingClassReaders(definition, classificationInputs(classification))
   const decisive = new Set<string>()
   for (const building of buildings) {
     const known = inputsFromAnswers(readers, answers, building.id)
-    for (const input of decisiveInputs(known)) decisive.add(answerKeyFor(input, building.id))
+    for (const input of deriveBuildingClass(classification, known).missing)
+      decisive.add(answerKeyFor(input, building.id))
   }
   return decisive
 }
 
 /**
- * What is decisive depends on where the project is (ADR-0158): in Austria, what
- * could change a building's class; for a project nothing places, the site
- * itself, since no law is known until it is; abroad, nothing the intake knows.
+ * What is decisive depends on where the project is (ADR-0158, ADR-0169): where
+ * the site selects a classification (Austria's OIB table), what could change a
+ * building's class; for a project nothing places, the site itself, since no
+ * law is known until it is; elsewhere, nothing the intake knows.
  */
 function decisiveFor(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   answers: Answers,
-  buildings: BuildingInstance[]
+  buildings: BuildingInstance[],
+  classification: BuildingClassification | null
 ): Set<string> {
-  const country = siteCountry(profile)
-  if (country === 'at') return decisiveKeysFor(definition, answers, buildings)
-  return country === null ? new Set(SITE_KEYS) : new Set<string>()
+  if (classification) return decisiveKeysFor(definition, answers, buildings, classification)
+  return siteCountry(profile) === null ? new Set(SITE_KEYS) : new Set<string>()
 }
 
 const SITE_KEYS = ['country', 'federal_state'] as const
-
-const BUILDING_CLASS_INPUTS: readonly string[] = BUILDING_CLASS_DERIVATION.inputs
 
 /**
  * What the project still needs: every question whose conditions hold for what
@@ -291,13 +297,17 @@ export function computeNeeds(
 ): Need[] {
   const { answers, buildings } = answersFromProfile(knownProfile(profile), definition)
   const unknown = new Set(options.unknownKeys ?? profile.unknowns)
+  const classification = buildingClassificationOf(setupScopeOf(profile, { records: options.records }))
+  const classInputs: readonly string[] = classificationInputs(classification)
   const decisive =
-    options.mode === 'closing' ? new Set<string>() : decisiveFor(profile, definition, answers, buildings)
+    options.mode === 'closing'
+      ? new Set<string>()
+      : decisiveFor(profile, definition, answers, buildings, classification)
   const needs = candidatesFor(definition, answers, buildings)
     .filter((candidate) => !(candidate.key in profile.goals))
     .filter(
       (candidate) =>
-        !(candidate.key in profile.facts) || BUILDING_CLASS_INPUTS.includes(candidate.baseKey)
+        !(candidate.key in profile.facts) || classInputs.includes(candidate.baseKey)
     )
     .filter((candidate) => !unknown.has(candidate.key))
     .map((candidate) =>

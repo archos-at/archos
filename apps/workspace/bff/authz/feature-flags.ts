@@ -374,6 +374,18 @@ export const FEATURE_FLAGS = {
    * (the country-neutral push); until then it rides along unread.
    */
   buildingLawChain: 'building-law-chain',
+  /**
+   * Base knowledge in time (ADR-0171, migration 0206): which edition of a work
+   * applied on a date or to a permit procedure, by the legislating node's
+   * reference-date ruleset and the amending editions' transitions
+   * (`base-knowledge-edition-as-of`), and `asOf` on `law-lookup`.
+   *
+   * An entitlement, off until an operator targets the organization: it widens
+   * what an answer claims (an edition for a past date). With it off the as-of
+   * route answers 403 and `law-lookup` drops `asOf` before the backend sees it,
+   * so every answer is what it was.
+   */
+  timeEditions: 'time-editions',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -409,6 +421,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
   'building-law-chain': 'entitlement',
+  'time-editions': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

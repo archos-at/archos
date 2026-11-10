@@ -12,6 +12,7 @@
 
 import { z } from 'zod'
 import { geocodeResultSchema } from '@/lib/geocoding/types'
+import { SETUP_DETERMINANTS, type SetupDeterminant } from '@/lib/base-knowledge/wire/vocab'
 import type { ApplicableStatus } from '@/lib/oib/applicable-standards'
 import {
   DERIVATION_RULES,
@@ -286,14 +287,9 @@ export type SuggestionGroup = z.infer<typeof suggestionGroupSchema>
 // Step 4, Rückfragen: the location register (`location-register.ts`)
 // ---------------------------------------------------------------------------
 
-/**
- * What the location decides about a project, by the ticket's table
- * „Standortinformationen aus den Unterlagen": the plot (Grundbuch), Widmung
- * and Bebauungsbestimmungen, Denkmalschutz, Naturgefahren and Altlasten (one
- * profile key holds both, `gefahrenzonen`), and Lärm.
- */
-export const LOCATION_DETERMINANTS = ['plot', 'zoning', 'heritage', 'hazards', 'noise'] as const
-export type LocationDeterminant = (typeof LOCATION_DETERMINANTS)[number]
+/** What the location decides about a project: one list, the setup records' (`SETUP_DETERMINANTS`). */
+export const LOCATION_DETERMINANTS = SETUP_DETERMINANTS
+export type LocationDeterminant = SetupDeterminant
 
 /**
  * Where a register entry comes from. `needsReview`: the entry names the law
@@ -381,7 +377,7 @@ export const intakeViewSchema = z.object({
   canDecide: z.boolean(),
   /** The reader may finish the review: `project:manage` for a closing intent, else profile write. */
   canComplete: z.boolean(),
-  // --- Step 5, Steckbrief (ticket 26) -------------------------------------
+  // --- Step 5, Steckbrief (ticket 31) -------------------------------------
   /**
    * The rule set's Ampel: which OIB-Richtlinien apply, required / likely /
    * check, as `getApplicableStandards` (`lib/oib/applicable-standards.ts`)

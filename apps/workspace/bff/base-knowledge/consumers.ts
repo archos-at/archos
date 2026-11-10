@@ -57,11 +57,16 @@ const OFFICE_ROUTE = { file: RESOLVE_SPEC, name: 'E37: an office relation makes 
 const CROSS_PACK = { file: RESOLVE_SPEC, name: 'li-sia500: Liechtenstein law reaches SIA and VKF works in another pack through relations' }
 const DATED_PARENT = { file: RESOLVE_SPEC, name: 'gb-2021-no-eu: Great Britain lies in the EU until the end of 2020, and not after' }
 const EVERY_KIND = { file: RESOLVE_SPEC, name: '%s reads as its kind and route say' }
-const LAW_DATED = { file: RESOLVE_SPEC, name: 'a law with editions none of which is in force at the date applies to nothing then' }
 const CHAIN_NAMED = { file: TEXT_SPEC, name: 'names what binds in Wien, why, and the clause the Land displaces' }
 const STYRIA_DB = { file: CHAIN_SPEC, name: 'reads the chain for Steiermark: OIB-RL 2 binds in 2019, and 2023 only guides (defect 7)' }
 const REACHED = { file: CHAIN_SPEC, name: 'reads a record of another pack only where a released relation reaches it, and not after its rollback' }
 const RELATION_GUARDS = { file: CHAIN_SPEC, name: 'keeps a relation append-only, and refuses a platform relation to an office record' }
+const TIME_READ = 'apps/workspace/bff/base-knowledge/time/repository.ts'
+const PLATFORM_TERRITORIES = 'apps/workspace/bff/base-knowledge/platform/territories.ts'
+const TIME_READ_TEST = {
+  file: 'apps/workspace/bff/base-knowledge/time/time.integration.spec.ts',
+  name: 'reads the released editions with their dates, transition and history start',
+}
 
 const PLATFORM_SPEC = 'apps/workspace/bff/base-knowledge/platform/platform.integration.spec.ts'
 const PLATFORM_STORE = 'apps/workspace/bff/base-knowledge/platform/store.ts'
@@ -115,6 +120,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_work_revisions.territory_ids', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.issuer', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.addressees', consumer: TURN, test: DIRECTIVE },
+  { element: 'knowledge_work_revisions.history_available_from', consumer: TIME_READ, test: TIME_READ_TEST },
   // knowledge_edition_revisions
   { element: 'knowledge_edition_revisions.revision_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_edition_revisions.record_id', consumer: STORE, test: HEADS },
@@ -122,8 +128,9 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_edition_revisions.work_id', consumer: STORE, test: CROSS_OWNER },
   { element: 'knowledge_edition_revisions.label', consumer: TURN, test: NAMED },
   { element: 'knowledge_edition_revisions.issued_on', consumer: SERVICE, test: PROPOSAL },
-  { element: 'knowledge_edition_revisions.in_force_from', consumer: CHAIN_RESOLVE, test: LAW_DATED },
-  { element: 'knowledge_edition_revisions.in_force_to', consumer: CHAIN_RESOLVE, test: LAW_DATED },
+  { element: 'knowledge_edition_revisions.in_force_from', consumer: TIME_READ, test: TIME_READ_TEST },
+  { element: 'knowledge_edition_revisions.in_force_to', consumer: TIME_READ, test: TIME_READ_TEST },
+  { element: 'knowledge_edition_revisions.transition', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.outline', awaits: 'S8: clause anchors from the masthead outline' },
   // knowledge_manifestation_revisions
   { element: 'knowledge_manifestation_revisions.revision_id', consumer: STORE, test: HEADS },
@@ -173,7 +180,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_territory_revisions.revision_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.record_id', consumer: PLATFORM_READ, test: MA37 },
   { element: 'knowledge_territory_revisions.organization_id', consumer: PLATFORM_READ, test: MA37 },
-  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_READ, test: MA37 },
+  { element: 'knowledge_territory_revisions.parent_ids', consumer: PLATFORM_TERRITORIES, test: MA37 },
   { element: 'knowledge_territory_revisions.kind', awaits: ADDRESS },
   { element: 'knowledge_territory_revisions.name', consumer: CHAIN_TEXT, test: CHAIN_NAMED },
   { element: 'knowledge_territory_revisions.dated_parents', consumer: CHAIN_RESOLVE, test: DATED_PARENT },

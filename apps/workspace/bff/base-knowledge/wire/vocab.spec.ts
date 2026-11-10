@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0208_country_pack.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0208_country_pack.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -19,6 +19,7 @@ const MIGRATIONS = [
   'migrations/0202_base_knowledge.sql',
   'migrations/0204_rulesets.sql',
   'migrations/0205_platform_base_knowledge.sql',
+  'migrations/0207_setup_fact_records.sql',
   'migrations/0208_country_pack.sql',
 ].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
