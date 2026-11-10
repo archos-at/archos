@@ -121,6 +121,7 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
   /** What the source serves now; a test moves it to make the monitor see a change. */
   let served = PAGE_V1
   let checkerDown = false
+  let builtInDown = false
 
   /** The api tier's public-source routes, answered as `packages/public-sources` answers them. */
   function stubPublicSources() {
@@ -150,6 +151,7 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
         return Response.json({ url: page, finalUrl: page, contentType: 'text/html', sha256: sha(text), bytes: text.length, text, retrievedAt: new Date().toISOString() })
       }
       if (path === '/v1/public-sources/built-in') {
+        if (builtInDown) return Response.json({ detail: 'broken' }, { status: 500 })
         // The repository's own sources, as the api tier lists them (one, abridged).
         return Response.json({
           sources: [
@@ -338,6 +340,15 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(listed.find((one) => one.sourceKey === 'at-ris')).toMatchObject({ origin: 'built_in', recordId: null, fixtures: { valid: true } })
     expect(listed.find((one) => one.sourceKey === SOURCE)).toMatchObject({ origin: 'record', fixtures: null })
     expect(every.builtInUnavailable).toBeNull()
+
+    // An api tier that cannot list them costs the built-in sources only: the records are listed, and the answer says why.
+    builtInDown = true
+    const degraded = await ok(author, 'platform-knowledge-source-status', { query: {} })
+    builtInDown = false
+    const left = degraded.sources as { sourceKey: string; origin: string }[]
+    expect(left.some((one) => one.origin === 'built_in')).toBe(false)
+    expect(left.find((one) => one.sourceKey === SOURCE)).toMatchObject({ origin: 'record' })
+    expect(String(degraded.builtInUnavailable)).toContain('did not answer')
 
     const input = { params: { sourceKey: SOURCE }, body: { secret: 'xa-key-0123456789' } }
     const cannotAsk = await door(expert, 'platform-knowledge-source-credential-set', input, { elicits: false })

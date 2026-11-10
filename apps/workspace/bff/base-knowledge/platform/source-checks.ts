@@ -59,9 +59,12 @@ export interface BuiltInSource {
   fixtures: SourceCheck
 }
 
+/** How long source-status waits for the built-in list before it lists the records alone: it is read once per process. */
+export const BUILT_IN_TIMEOUT_MS = 5_000
+
 /** The built-in sources as the api tier lists them; throws {@link CaptureFetchError} when it cannot answer. */
 export async function builtInSources(): Promise<BuiltInSource[]> {
-  const answer = await callPublicSources('/v1/public-sources/built-in', {})
+  const answer = await callPublicSources('/v1/public-sources/built-in', {}, BUILT_IN_TIMEOUT_MS)
   if (answer.status === 200 && isRecord(answer.body) && Array.isArray(answer.body.sources)) {
     return answer.body.sources.filter((source): source is BuiltInSource => isRecord(source) && checkOf(source.fixtures) !== null)
   }
