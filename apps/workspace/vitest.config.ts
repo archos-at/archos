@@ -32,7 +32,7 @@ const PROCESS_PER_FILE: Record<string, string> = {
   'ui/features/documents/hooks/use-file-upload.spec.ts': 'the abort is told apart by its DOMException, another realm here',
 }
 
-const gone = Object.keys(PROCESS_PER_FILE).filter((spec) => !existsSync(path.resolve(__dirname, spec)))
+const gone = Object.keys(PROCESS_PER_FILE).filter((spec) => !existsSync(`${__dirname}/${spec}`))
 if (gone.length > 0) throw new Error(`PROCESS_PER_FILE in vitest.config.ts names specs that no longer exist: ${gone.join(', ')}`)
 
 export default defineConfig({
