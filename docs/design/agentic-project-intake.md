@@ -214,7 +214,11 @@ a pure function. The agent's `intake_needs` returns its result.
 `lib/project-intake/location-register.ts`, `locationRegisterFor(...)`, pure,
 carried on the view as `locationRegister` for step 4, Rückfragen. The ticket's
 „Der Standort bestimmt den Informationsbedarf" and its table „Standortinformationen
-aus den Unterlagen", as data (`LOCATION_REGISTER`): per determinant (Grundstück,
+aus den Unterlagen", as data: since ADR-0169 the `fact_sources` record of the
+country the site selects (`lib/project-intake/setup-scope.ts`; Austria's ships as
+`lib/base-knowledge/rulesets/seeds/at-setup-fact-sources.json`). A project nothing
+places is asked for its site and requested no document; a country without a
+record gets no request. Per determinant (Grundstück,
 Widmung und Bebauungsbestimmungen, Denkmal- und Ortsbildschutz, Naturgefahren
 und Altlasten, Lärm) the wizard keys it settles, when it applies (Vorhaben,
 Nutzungen, a Bestand; an unknown input counts as applying), the document to
@@ -232,7 +236,13 @@ and Standortdienste, as below.
 
 ## The Gebäudeklasse derivation
 
-`lib/project-intake/derivations.ts`. Nine inputs per Bauwerk: `building_type`
+`lib/project-intake/derivations.ts`, which since ADR-0169 runs the
+classification ruleset the project's site selects on the one evaluator
+(ADR-0166): Austria's is `lib/base-knowledge/rulesets/seeds/at-oib-2023-building-class.json`,
+read through Austria's `fact_definitions` record, and a country with no
+classification record derives no class. The band-enumerating code described
+below is kept as `derivations.oracle.ts`, the oracle the parity spec holds the
+ruleset to. Nine inputs per Bauwerk: `building_type`
 (only a Gebäude has a class), `building_position`, `access_three_sides` (asked
 by the wizard's question `C9_zugang`, added for this), `storeys_above_ground`,
 `escape_level_m`, `gfa_above_ground`, `use_units`, `units_over_400`

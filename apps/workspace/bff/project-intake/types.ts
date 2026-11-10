@@ -377,7 +377,7 @@ export const intakeViewSchema = z.object({
   canDecide: z.boolean(),
   /** The reader may finish the review: `project:manage` for a closing intent, else profile write. */
   canComplete: z.boolean(),
-  // --- Step 5, Steckbrief (ticket 26) -------------------------------------
+  // --- Step 5, Steckbrief (ticket 31) -------------------------------------
   /**
    * The rule set's Ampel: which OIB-Richtlinien apply, required / likely /
    * check, as `getApplicableStandards` (`lib/oib/applicable-standards.ts`)
