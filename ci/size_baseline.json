@@ -27,7 +27,7 @@
     "apps/workspace/bff/audit/schemas.mjs": 950,
     "apps/workspace/bff/authz/catalog.ts": 651,
     "apps/workspace/bff/bim/extract.ts": 697,
-    "apps/workspace/bff/bim/query.ts": 1277,
+    "apps/workspace/bff/bim/query.ts": 1201,
     "apps/workspace/bff/bim/repository.ts": 1229,
     "apps/workspace/bff/bim/rules.ts": 1449,
     "apps/workspace/bff/budgets/repository.ts": 660,

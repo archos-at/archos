@@ -102,13 +102,10 @@ export function deriveAll(
   )
 }
 
-/** The profile keys that place a project: a change moves which classification applies, if any. */
-const SITE_KEYS: readonly string[] = ['country', 'federal_state']
-
 /**
  * The buildings whose class may have moved when these keys changed: a
- * project-wide input moves every one. A change to where the project is moves
- * every one too, since the site selects the classification itself.
+ * project-wide input moves every one. A change of site that selects another
+ * classification is the caller's to see (`record.ts`), not a key's.
  */
 export function buildingsTouchedBy(
   keys: Iterable<string>,
@@ -118,7 +115,6 @@ export function buildingsTouchedBy(
   const touched = new Set<string>()
   for (const key of keys) {
     const [base, scope] = key.split('@')
-    if (SITE_KEYS.includes(base)) return [...allBuildings]
     if (!inputs.includes(base)) continue
     if (!scope) return [...allBuildings]
     if (allBuildings.includes(scope)) touched.add(scope)

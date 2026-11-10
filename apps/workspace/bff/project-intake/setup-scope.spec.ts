@@ -8,7 +8,8 @@
 import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { deriveAll, withDerivedClass } from './derivation-view'
-import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf } from './setup-scope'
+import { planRecord } from './record'
+import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf, siteOfProfile } from './setup-scope'
 import { GERMAN_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
 
 const scope = (facts: Parameters<typeof placedProfile>[0], records = THREE_COUNTRIES) =>
@@ -93,5 +94,55 @@ describe('only its own country’s options', () => {
     const twice = [...THREE_COUNTRIES, { ...classification, id: 'test:de-classification-2' }]
     expect(buildingClassificationOf(scope({ country: 'de' }, twice))).toBeNull()
     expect(buildingClassificationOf(scope({ country: 'de' }))).not.toBeNull()
+  })
+})
+
+describe('siteOfProfile, for the BIM rules', () => {
+  it('places, leaves unplaced, and reads a contradiction as unknown rather than as abroad', () => {
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }))).toEqual({ chain: ['AT-9', 'AT'] })
+    expect(siteOfProfile(placedProfile({ country: 'other' }))).toEqual({ chain: [] })
+    expect(siteOfProfile(placedProfile({}))).toBeNull()
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }))).toBeNull()
+  })
+})
+
+describe('a site written by a reading', () => {
+  const evidence = { kind: 'document' as const, fileName: 'Einreichplan.pdf', page: 1, quote: 'Bundesland: Wien' }
+  const record = (profile: ReturnType<typeof placedProfile>, key: string, value: string) =>
+    planRecord(profile, projectIntakeDefinitionV1, [{ key, screened: { key, value, evidence, reason: 'gelesen' }, refusal: null }], {
+      now: '2026-11-10T00:00:00Z',
+      readingId: 'job-1',
+      needs: { mode: 'active', dismissed: [] },
+    })
+
+  it('leaves a building’s class alone when the Land moves within Austria', () => {
+    const profile = placedProfile({ country: 'at', 'building_type@bldg1': 'building', 'storeys_above_ground@bldg1': 3 })
+    // A class a document stated, which the inputs on file would derive otherwise: a Land is no reason to touch it.
+    profile.assumptions['building_class@bldg1'] = {
+      value: 4,
+      status: 'unconfirmed',
+      reason: 'gelesen',
+      source: 'agent_suggested',
+      updatedAt: '2026-11-10T00:00:00Z',
+    }
+    const plan = record(profile, 'federal_state', 'vienna')
+    expect(plan.profile.assumptions['building_class@bldg1']?.value).toBe(4)
+    expect(plan.changedKeys).not.toContain('building_class@bldg1')
+  })
+
+  it('derives the classes once a site places the project in a country that classifies', () => {
+    const building = {
+      'building_type@bldg1': 'building',
+      'building_position@bldg1': 'freestanding',
+      'access_three_sides@bldg1': true,
+      'storeys_above_ground@bldg1': 2,
+      'escape_level_m@bldg1': 3.2,
+      'gfa_above_ground@bldg1': 180,
+      'use_units@bldg1': 1,
+      'uses@bldg1': ['residential'],
+    }
+    const plan = record(placedProfile(building), 'country', 'at')
+    expect(plan.profile.assumptions['building_class@bldg1']?.value).toBe(1)
+    expect(plan.changedKeys).toContain('building_class@bldg1')
   })
 })

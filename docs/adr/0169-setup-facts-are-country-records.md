@@ -59,7 +59,10 @@ reaches a profile only when both its table and its derivation definition exist
 for the chain. The BIM catalogue names the territory each rule binds in: an
 OIB rule outside Austria is not applicable with the reason, and for a project
 nothing places every element is undecidable with the site on the shopping
-list (never „nicht einschlägig", which would drop it from open work).
+list (never „nicht einschlägig", which would drop it from open work). A
+compliance diff judges both revisions at the site of the model whose project
+asks, so a site difference never reads as a model change. A change of site
+re-derives the classes only when it selects another classification.
 
 `classification-evaluate` (`POST /api/projects/[id]/classification-evaluations`)
 runs the classification on the planned values and, for a Bestand, on today's,

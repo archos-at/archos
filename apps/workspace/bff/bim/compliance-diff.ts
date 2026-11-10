@@ -146,4 +146,3 @@ export function renderBimComplianceDiff(changes: readonly BimComplianceChange[])
     )
     .join('\n')
 }
-

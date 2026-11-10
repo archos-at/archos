@@ -187,6 +187,7 @@ export interface RecordPlan {
 
 /** The profile with the class of every building whose inputs changed derived again; the class keys that moved join `changed`. */
 function withClassesDerived(
+  before: ProjectProfile,
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
@@ -197,8 +198,11 @@ function withClassesDerived(
   // Read before the loop: a class written below moves no input, and the site is the batch's.
   const classification = classificationFor(current, { records })
   const all = buildingIdsOf(current, definition)
-  // Without a classification no class may stand: every building is visited, and a derived one goes.
-  const touched = classification ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
+  // Without a classification no class may stand, and a site that selects another one moves every class:
+  // every building is visited. A site change within one classification (another Land) moves none.
+  const moved = classificationFor(before, { records })?.rulesetId !== classification?.rulesetId
+  const touched =
+    classification && !moved ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
   for (const buildingId of touched) {
     const derived = withDerivedClass(current, definition, buildingId, now, { records })
     current = derived.profile
@@ -234,7 +238,7 @@ export function planRecord(
     results.push(applied.result)
     if (applied.result.outcome !== 'refused') changed.add(entry.key)
   }
-  current = withClassesDerived(current, definition, changed, context.now, context.records)
+  current = withClassesDerived(profile, current, definition, changed, context.now, context.records)
   const opened = openedNeeds(
     computeNeeds(profile, definition, context.needs),
     computeNeeds(current, definition, context.needs)
@@ -287,6 +291,6 @@ export function planWithdraw(
     results.push({ key, outcome: 'withdrawn' })
     changed.add(key)
   }
-  current = withClassesDerived(current, definition, changed, context.now, context.records)
+  current = withClassesDerived(profile, current, definition, changed, context.now, context.records)
   return { results, profile: current, changedKeys: [...changed] }
 }

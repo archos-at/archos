@@ -137,6 +137,8 @@ export const classificationInputs = (classification: BuildingClassification | nu
  */
 export function siteOfProfile(profile: Pick<ProjectProfile, 'facts' | 'assumptions'>): { chain: readonly string[] } | null {
   const { chain } = setupScopeOf(profile)
-  if (chain.length === 0 && siteCountry(profile) === null) return null
+  const country = siteCountry(profile)
+  // No chain beside a country it names (`country=at` with „außerhalb Österreichs"): a contradiction, so unknown.
+  if (chain.length === 0 && (country === null || /^[a-z]{2}$/.test(country))) return null
   return { chain }
 }
