@@ -44,9 +44,10 @@ def scoped_collections_for_site(
 
     The knowledge context decides (ADR-0173, ADR-0175): the corpus is searched when the read may see any
     country, and ``corpus_country_condition`` keeps only those countries' chunks. A turn or run that may see
-    none (unplaced, not entitled, unavailable, or a run that brought no context) does not search it. A read
-    nothing scopes by country (a script; a door call whose signed scope names no countries) keeps it, and the
-    vector store filters nothing there either (``knowledge_context.corpus_countries``). Possibly empty.
+    none (unplaced, not entitled, unavailable, a run that brought no context, or a signed scope whose base
+    entry lists no countries, ``countries: []``) does not search it. A read nothing scopes by country (a
+    script, or a request the BFF signs without a ``countries`` field: one with no organization) keeps it, and
+    the vector store filters nothing there either (``knowledge_context.corpus_countries``). Possibly empty.
     """
     entries = resolve_scoped_collections(config, session_id, base_collection)
     from agent.common.knowledge_context import base_corpus_readable

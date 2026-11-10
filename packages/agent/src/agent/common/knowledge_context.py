@@ -22,17 +22,41 @@ import contextvars
 from dataclasses import dataclass
 from dataclasses import field
 
-#: The gate states, weakest first (``GATE_STATES`` in the TypeScript wire).
-GATE_STATES: tuple[str, ...] = (
-    "organization_unplaced",
-    "site_unknown",
-    "not_entitled",
-    "knowledge_unavailable",
-    "none",
-    "open",
-    "core",
-    "full",
-)
+
+@dataclass(frozen=True)
+class GatePolicy:
+    """What a gate state lets a turn do with the law of its site."""
+
+    #: The primary law may be read (the legal-database lookup runs): reading is no verdict.
+    reads_law: bool
+    #: A rule may be presented as this project's requirement and the chain text shown.
+    may_bind: bool
+    #: Reviewed coverage: the records settle which edition binds, and nothing caps the answer for it.
+    settled: bool
+
+
+#: Every gate state, weakest first (``GATE_STATES`` in the TypeScript wire), and what it allows: the one
+#: table every reader asks through :func:`gate_policy`. A state not listed fails closed.
+GATES: dict[str, GatePolicy] = {
+    "organization_unplaced": GatePolicy(reads_law=False, may_bind=False, settled=False),
+    "site_unknown": GatePolicy(reads_law=True, may_bind=False, settled=False),
+    "not_entitled": GatePolicy(reads_law=False, may_bind=False, settled=False),
+    "knowledge_unavailable": GatePolicy(reads_law=False, may_bind=False, settled=False),
+    "none": GatePolicy(reads_law=True, may_bind=False, settled=False),
+    "open": GatePolicy(reads_law=True, may_bind=True, settled=False),
+    "core": GatePolicy(reads_law=True, may_bind=True, settled=True),
+    "full": GatePolicy(reads_law=True, may_bind=True, settled=True),
+}
+GATE_STATES: tuple[str, ...] = tuple(GATES)
+
+#: What an unknown state allows: nothing.
+FAIL_CLOSED = GatePolicy(reads_law=False, may_bind=False, settled=False)
+
+
+def gate_policy(state: str) -> GatePolicy:
+    """What ``state`` allows; an unknown state allows nothing. Pure."""
+    return GATES.get(state, FAIL_CLOSED)
+
 
 #: Most leaves, packs and uses kept; the BFF's own bounds.
 MAX_LEAVES = 8
@@ -107,8 +131,8 @@ class KnowledgeContext:
 
     @property
     def withholds_law(self) -> bool:
-        """Whether law lookup and classification are withheld: no territorial pack answers this turn."""
-        return self.gate in ("organization_unplaced", "site_unknown", "not_entitled", "knowledge_unavailable", "none")
+        """Whether a binding claim and classification are withheld: no territorial pack answers this turn."""
+        return not gate_policy(self.gate).may_bind
 
 
 UNAVAILABLE = KnowledgeContext(gate="knowledge_unavailable")
@@ -266,7 +290,11 @@ UNRELEASED_COUNTRY = "ZZ"
 
 
 def corpus_countries() -> frozenset[str] | None:
-    """The countries whose base-corpus chunks this read may see; None when nothing says (no request at all).
+    """The countries whose base-corpus chunks this read may see; None when nothing says.
+
+    Nothing says when there is no request at all (a script) or the signed base entry carries no ``countries``
+    field, which the BFF omits only for a request with no organization. An empty list is no country (fail
+    closed), not "unscoped".
 
     The turn's own gate when its context is bound (the site's countries, ADR-0173); otherwise the
     office's entitled countries the BFF signed onto the base corpus's entry of the collection scope,
@@ -298,21 +326,18 @@ def base_corpus_readable() -> bool | None:
     return None if countries is None else bool(countries)
 
 
-#: The gates under which no country's primary law is read at all: the office has no country, the site's
-#: country is not the office's, or the base could not be read. Everything else reads the primary source.
-LAW_READ_WITHHELD: frozenset[str] = frozenset({"organization_unplaced", "not_entitled", "knowledge_unavailable"})
-
-
 def law_tools_allowed(country: str) -> bool:
     """Whether the turn may run ``country``'s law lookup; False without a bound context (fail closed).
 
     Reading the primary source is not a verdict: coverage ``none`` or ``open`` and an unknown site withhold
     verdicts and binding claims (:attr:`KnowledgeContext.withholds_law`), never reading the law itself. So the
     lookup runs wherever the office may read ``country`` (an office-level question in its home country, a
-    project placed there), and is withheld only by :data:`LAW_READ_WITHHELD` or a country the turn may not read.
+    project placed there), and is withheld only by a gate that reads no law (``GatePolicy.reads_law``: the
+    office has no country, the site's country is not the office's, the base could not be read) or a country
+    the turn may not read.
     """
     context = turn_knowledge_context()
-    return context.gate not in LAW_READ_WITHHELD and country.upper() in context.retrieval_countries
+    return gate_policy(context.gate).reads_law and country.upper() in context.retrieval_countries
 
 
 def corpus_country_allowed(country: str) -> bool:
@@ -332,9 +357,8 @@ _GATE_NOTES: dict[str, str] = {
         "Nothing places this project's site, so no country's building law is known to apply. Present no value as "
         "this project's requirement, derive no building class, name no edition as binding, and do not assume a "
         "country: a place the project memory, a note or a document mentions is not a confirmed site and settles "
-        "nothing. You may read and quote the primary law of {covered} as information. When the answer turns on "
-        "the jurisdiction, say that the site is missing and ask for the country and Land. A place the question "
-        "names outside {covered} is not covered by this office's base: say so plainly."
+        "nothing. {covered} When the answer turns on the jurisdiction, say that the site is missing and ask "
+        "for the country and Land."
     ),
     "not_entitled": (
         "## Building law: {country}, not included\n\n"
@@ -368,10 +392,25 @@ WEB_IS_INFORMATION = (
 )
 
 
+def covered_sentences(countries: frozenset[str]) -> str:
+    """What the base covers, for a site nobody placed (dev acceptance A4): the countries whose primary law may
+    be read, and that a place outside them is not covered; or, with none, that no country's law is read. Pure."""
+    if not countries:
+        return (
+            "This office's base covers no country, so no country's primary law is read here: a place the "
+            "question names is not covered, so say so plainly."
+        )
+    covered = ", ".join(sorted(countries))
+    return (
+        f"You may read and quote the primary law of {covered} as information. A place the question names "
+        f"outside {covered} is not covered by this office's base: say so plainly."
+    )
+
+
 def gate_note(context: KnowledgeContext) -> str | None:
     """What the turn context says about the gate (ADR-0173 §4.6); None for core or full with nothing moved. Pure."""
     note = _GATE_NOTES.get(context.gate)
-    covered = ", ".join(sorted(context.retrieval_countries)) or "no country"
+    covered = covered_sentences(context.retrieval_countries)
     lines = [note.format(country=context.site_country or "the site's country", covered=covered)] if note else []
     if note:
         lines.append(WEB_IS_INFORMATION)

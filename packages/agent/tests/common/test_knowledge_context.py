@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 from agent.common.knowledge_context import UNAVAILABLE
@@ -17,6 +20,8 @@ from agent.common.law_gate import jurisdiction_note
 from agent.common.law_gate import law_sources_withheld
 from agent.common.law_gate import research_doctrine
 from agent.turn.context_client import _parse_blocks
+
+REPO = Path(__file__).resolve().parents[4]
 
 WIRE = {
     "gate": {
@@ -178,6 +183,18 @@ def test_the_unknown_site_note_names_what_the_base_covers_and_keeps_the_web_to_i
     # Baseline Q3: an unconfirmed München from project memory applied Bavarian law.
     assert "project memory" in note and "not a confirmed site" in note
     assert "unverified information" in note and "never from a web copy" in note
+    # Each sentence of A4 on its own: a reworded or dropped one fails here.
+    assert "You may read and quote the primary law of AT, EU as information." in note
+    assert "A place the question names outside AT, EU is not covered by this office's base: say so plainly." in note
+    assert "ask for the country and Land" in note
+
+
+def test_a_site_nobody_placed_with_no_covered_country_says_no_country_s_law_is_read():
+    """Review of #1582: an empty scope rendered "the primary law of no country … outside no country"."""
+    set_turn_knowledge_context(KnowledgeContext(gate="site_unknown"))
+    note = jurisdiction_note() or ""
+    assert "This office's base covers no country, so no country's primary law is read here" in note
+    assert "of no country as information" not in note and "outside no country" not in note
 
 
 @pytest.mark.parametrize(
@@ -266,3 +283,27 @@ def test_an_answer_on_law_the_records_do_not_settle_is_unsettled(gate, passage, 
 
     set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
     assert law_unsettled([SourceEntry(**passage)]) is unsettled
+
+
+def test_every_gate_state_the_bff_sends_has_a_policy():
+    """Review of #1582: one table, so a state added on the wire and not here fails here, not open."""
+    from agent.common.knowledge_context import GATES
+
+    source = (REPO / "apps/workspace/bff/base-knowledge/wire/vocab.ts").read_text(encoding="utf-8")
+
+    def listed(name: str) -> list[str]:
+        match = re.search(rf"export const {name} = \[([^\]]*)\]", source)
+        assert match is not None, name
+        items = re.findall(r"'([a-z_]+)'|\.\.\.([A-Z_]+)", match.group(1))
+        return [value for word, spread in items for value in ([word] if word else listed(spread))]
+
+    assert tuple(listed("GATE_STATES")) == tuple(GATES)
+
+
+def test_an_unknown_gate_state_fails_closed():
+    from agent.common.knowledge_context import gate_policy
+
+    assert gate_policy("partial") == gate_policy("knowledge_unavailable")
+    assert KnowledgeContext(gate="partial").withholds_law
+    set_turn_knowledge_context(KnowledgeContext(gate="partial", retrieval_countries=frozenset({"AT"})))
+    assert law_sources_withheld() == frozenset({"ris"})

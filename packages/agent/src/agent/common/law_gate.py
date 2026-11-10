@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from agent.common.knowledge_context import gate_note
+from agent.common.knowledge_context import gate_policy
 from agent.common.knowledge_context import law_tools_allowed
 from agent.common.knowledge_context import turn_knowledge_context
 
@@ -27,9 +28,6 @@ if TYPE_CHECKING:
 #: A fact about the source, like its URL: RIS is Austria's legal information system. A turn may call an
 #: adapter only where its knowledge context allows that country's law (:func:`law_sources_withheld`).
 LAW_SOURCE_COUNTRIES: dict[str, str] = {"ris": "AT"}
-
-#: The gates under which the records settle which edition binds: reviewed coverage.
-SETTLED_GATES: frozenset[str] = frozenset({"core", "full"})
 
 #: The tag that marks the turn's building law, in the turn context and in a research prompt.
 BUILDING_LAW_TAG = "<building_law>"
@@ -74,7 +72,7 @@ def law_unsettled(cited: Iterable[SourceEntry]) -> bool:
     is building law (``source_kinds``). The answer check's level is then capped (``markers``, staging QC F6):
     structurally, so the grader is handed no new vocabulary.
     """
-    if turn_knowledge_context().gate in SETTLED_GATES:
+    if gate_policy(turn_knowledge_context().gate).settled:
         return False
     from agent.citations.source_identity import source_lane
     from agent.common.source_kinds import kind_for_lane

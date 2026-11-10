@@ -442,24 +442,24 @@ def extract_federal_state(text: str | None) -> str | None:
     return None
 
 
-def resolve_federal_state(text: str | None) -> str | None:
-    """The Bundesland to focus/rank the catalog on, structured-first.
+#: The Länder as the knowledge records name their territories (ISO 3166-2:AT, AT-1 to AT-9).
+_STATES_IN_CODE_ORDER = ("Burgenland", "Kärnten", "Niederösterreich", "Oberösterreich", "Salzburg", "Steiermark")
+STATE_OF_TERRITORY: dict[str, str] = {
+    f"AT-{n}": state for n, state in enumerate((*_STATES_IN_CODE_ORDER, "Tirol", "Vorarlberg", "Wien"), 1)
+}
 
-    Precedence (jurisdiction is a cross-cutting request fact and must travel
-    STRUCTURED, not be re-parsed from prompt text):
 
-    1. ``RequestContext.from_context().federal_state`` — the validated token
-       carried on the signed ``X-Grid-Request-Context`` envelope. ``None``
-       (``outside_austria``) is FINAL — no fall-through to probing.
-    2. ``extract_federal_state(text)`` — the structured prompt-text line, then
-       free-text state-name probing (no live request context).
+def resolve_federal_state() -> str | None:
+    """The Bundesland to focus the catalog on: the Land of the turn's site, from its knowledge context alone.
+
+    The site's first leaf (``chains``), as the BFF resolved it (ADR-0175). No placed site, or a site outside
+    Austria, is None, and None is final: every Land's lane renders. Nothing here reads the project's text,
+    so "Bauherr in der Wiener Straße, Grundstück in Linz" never narrows the catalog to Wien.
     """
-    from agent.project_context import RequestContext
+    from agent.common.knowledge_context import turn_knowledge_context
 
-    structured_token = RequestContext.from_context().federal_state
-    if structured_token is not None:
-        return FEDERAL_STATE_TOKENS.get(structured_token)
-    return extract_federal_state(text)
+    leaf = next(iter(turn_knowledge_context().chains), None)
+    return STATE_OF_TERRITORY.get(leaf) if leaf else None
 
 
 def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[NormEntry]:
@@ -545,7 +545,7 @@ def render_prompt_block(registry: NormRegistry, federal_state: str | None = None
     return "\n".join(lines).rstrip()
 
 
-def render_block_for_prompt(project_context: str | None, norms_dir: str | None = None) -> str | None:
+def render_block_for_prompt(norms_dir: str | None = None) -> str | None:
     """The RIS catalogue as research prompts read it: addresses the RIS tools resolve, or None.
 
     Only where the run's knowledge context lets the RIS tools run (``law_gate.law_sources_withheld``,
@@ -559,7 +559,7 @@ def render_block_for_prompt(project_context: str | None, norms_dir: str | None =
     registry = load_registry(norms_dir)
     if registry is None or not registry.entries:
         return None
-    return render_prompt_block(registry, federal_state=resolve_federal_state(project_context))
+    return render_prompt_block(registry, federal_state=resolve_federal_state())
 
 
 # ---------------------------------------------------------------------------

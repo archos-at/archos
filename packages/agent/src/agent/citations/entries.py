@@ -207,7 +207,8 @@ def normalize_url(url: str) -> str:
 #: a quoted span no passage held, and where a citation did not resolve. Nothing writes them any more (no
 #: verification marker reaches an answer); they stay named because stored answers carry them and the
 #: BFF translates them for an agent reading one (``bff/agent-asks/answer-text.ts``).
-#: ``tests/common/test_no_verification_marker.py`` holds that no answer gains one.
+#: ``test_no_verification_marker_reaches_the_answer`` (the answer-check pipeline's tests) holds that no
+#: answer gains one.
 UNVERIFIED_QUOTE_MARKER = "[nicht wörtlich in der Quelle belegt]"
 DROPPED_CITATION_MARKER = "[Beleg nicht verifiziert]"
 

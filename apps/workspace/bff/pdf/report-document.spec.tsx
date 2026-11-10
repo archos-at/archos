@@ -54,6 +54,22 @@ const parse = (body: unknown) => {
   return result.data
 }
 
+/** The English cap sentence, written out: a cap mapped to another key would print another sentence. */
+const LAW_UNSETTLED_EN = 'which edition of the building law binds at this site is not yet settled by reviewed records'
+
+describe('the confidence cap', () => {
+  it('takes a law_unsettled cap and prints its sentence', () => {
+    const { sections } = documentSections(
+      parse({ markdown: 'Text', title: 'Titel', confidence: { level: 'medium', cappedReason: 'law_unsettled' } })
+    )
+    expect(allText(sections.body)).toContain(LAW_UNSETTLED_EN)
+  })
+
+  it('refuses a cap no export explains', () => {
+    expect(() => parse({ markdown: 'Text', confidence: { level: 'medium', cappedReason: 'measurement_only' } })).toThrow()
+  })
+})
+
 describe('the markdown-only contract', () => {
   const REPORT = [
     '# Fluchtwege in Gebäudeklasse 4',

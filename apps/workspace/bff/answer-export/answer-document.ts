@@ -27,11 +27,16 @@ import { referencesFromStored, splitProse, type ReferenceEntry } from './citatio
 import { markdownToBlocks } from './markdown'
 
 /** The answer's confidence self-assessment (ADR-0037), as stored on the message. */
+/** The caps an exported answer explains, each with its dictionary key: the one list the reader, the PDF and the type share. */
+const CAPPED_REASON_COPY = { ungrounded: 'ungrounded', quote_unverified: 'quoteUnverified', law_unsettled: 'lawUnsettled' } as const
+export const EXPORTED_CAPPED_REASONS = Object.keys(CAPPED_REASON_COPY) as [ExportedCappedReason, ...ExportedCappedReason[]]
+export type ExportedCappedReason = keyof typeof CAPPED_REASON_COPY
+
 export interface AnswerConfidence {
   level: 'low' | 'medium' | 'high'
   /** The model's own one-clause justification, quoted verbatim. */
   reason?: string
-  cappedReason?: 'ungrounded' | 'quote_unverified' | 'law_unsettled'
+  cappedReason?: ExportedCappedReason
 }
 
 export interface AnswerDocumentInput {
@@ -139,9 +144,7 @@ const confidenceBlocks = (confidence: AnswerConfidence, t: Translator): DocBlock
   const level = t(`confidenceLevels.${confidence.level}`)
   const blocks: DocBlock[] = [labelled(t('confidence'), level)]
   if (confidence.cappedReason) {
-    const key = { ungrounded: 'ungrounded', quote_unverified: 'quoteUnverified', law_unsettled: 'lawUnsettled' }[
-      confidence.cappedReason
-    ]
+    const key = CAPPED_REASON_COPY[confidence.cappedReason]
     blocks.push({
       kind: 'paragraph',
       runs: [{ text: t(`confidenceCapped.${key}`) }],

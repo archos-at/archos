@@ -167,12 +167,8 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            "none",
-            "ungrounded",
-            "quote_unverified",
-            "normative_claim_uncited",
-            "measurement_only",
-            "citation_fallback",
+            *("none", "ungrounded", "quote_unverified", "law_unsettled"),
+            *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
     ScoreDefinition(

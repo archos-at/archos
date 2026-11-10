@@ -310,7 +310,7 @@ class TestRenderPromptBlock:
         assert "Macht die OIB-Richtlinien in Wien verbindlich." not in block
 
     def test_render_block_for_prompt_none_when_missing(self, tmp_path):
-        assert nr.render_block_for_prompt(None, norms_dir=str(tmp_path / "nope")) is None
+        assert nr.render_block_for_prompt(norms_dir=str(tmp_path / "nope")) is None
 
 
 # ---------------------------------------------------------------------------

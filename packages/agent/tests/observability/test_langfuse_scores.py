@@ -1,6 +1,7 @@
 """Runtime checks as Langfuse scores (ADR-0089)."""
 
 import re
+import typing
 from pathlib import Path
 
 import pytest
@@ -171,6 +172,22 @@ class TestOneListOfNames:
         assert len(names) == len(set(names))
         for definition in SCORE_DEFINITIONS:
             assert (definition.data_type == "CATEGORICAL") == bool(definition.categories), definition.name
+
+    @pytest.mark.parametrize(
+        ("score", "field"),
+        [("answer-confidence", "answer_confidence"), ("confidence-capped", "answer_confidence_capped_reason")],
+    )
+    def test_every_category_a_turn_can_emit_is_declared(self, score, field):
+        """Review of #1582: ``law_unsettled`` was emitted and declared nowhere. Every value the turn's wire type
+        allows reaches ``turn_outcome_scores``, so each must be a declared category (and ``none`` for a cap)."""
+        allowed = {arg for arg in typing.get_args(TurnResult.model_fields[field].annotation) if arg is not type(None)}
+        values = {value for arg in allowed for value in (typing.get_args(arg) or (arg,))}
+        categories = next(d for d in SCORE_DEFINITIONS if d.name == score).categories
+        emitted = set()
+        for value in values:
+            result = TurnResult(message_id="m", text="t", **({"answer_confidence": "medium"} | {field: value}))
+            emitted |= {s.value for s in turn_outcome_scores(result) if s.name == score}
+        assert emitted == values and emitted <= set(categories)
 
     def test_every_score_the_bff_writes_is_defined(self):
         source = "\n".join(path.read_text() for path in (REPO / "apps/workspace/bff/langfuse").glob("*.ts"))

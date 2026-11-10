@@ -36,6 +36,7 @@ import { z } from 'zod'
 import {
   aiNoticeText,
   buildAnswerSections,
+  EXPORTED_CAPPED_REASONS,
   referenceParagraph,
   type AnswerSections,
 } from '@/lib/answer-export/answer-document'
@@ -74,7 +75,7 @@ export const pdfRequestSchema = z
       .object({
         level: z.enum(['low', 'medium', 'high']),
         reason: z.string().nullish(),
-        cappedReason: z.enum(['ungrounded', 'quote_unverified', 'law_unsettled']).nullish(),
+        cappedReason: z.enum(EXPORTED_CAPPED_REASONS).nullish(),
       })
       .nullish(),
     /** The language the reader read the answer in; defaults to the app default. */

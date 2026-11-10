@@ -577,10 +577,10 @@ const EXPORT_GLOSSARY: Record<string, string> = {
   'reason.digest_line_not_citable':
     "Removal: the line cited the conversation's read index (a digest line), not a retrieved passage.",
   'reason.duplicate': 'Removal: the citation repeated one already present in the same answer.',
-  'confidence.ungrounded':
-    'Confidence capped to low: no verified citation, and nothing was measured.',
-  'confidence.quote_unverified':
-    'Confidence capped to low: a quoted span matched no retrieved passage.',
+  'confidence.ungrounded': 'Capped to low: no verified citation, and nothing was measured.',
+  'confidence.quote_unverified': 'Capped to low: a quoted span matched no retrieved passage.',
+  'confidence.law_unsettled':
+    "Confidence capped to medium: the answer cites building law the turn's knowledge records do not settle (no curated coverage at the site).",
   'confidence.normative_claim_uncited':
     'Confidence capped: the answer was grounded in a measurement but also made a legal claim without a verified citation.',
   'confidence.measurement_only':

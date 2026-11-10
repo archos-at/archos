@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CAPPED_REASONS } from '@/lib/conversations/message-provenance'
 
 vi.mock('./repository', () => ({
   EXPORT_ROW_CAP: 3,
@@ -133,17 +134,11 @@ describe('getCitationExport', () => {
   })
 
   it('explains every confidence reason the emitter can write', async () => {
-    // The five `CappedReason` values in agents/piloti/markers.py. The glossary
-    // used to say there were two, so an agent reading `measurement_only` had
-    // nothing to interpret it with.
+    // Every `CappedReason` the wire carries (`CAPPED_REASONS`, the list the
+    // mapper and the chip read). The glossary once named two of five, and later
+    // missed `law_unsettled`, so an agent reading one had nothing to interpret it with.
     const { glossary } = await getCitationExport(LAST_7)
-    for (const reason of [
-      'ungrounded',
-      'quote_unverified',
-      'normative_claim_uncited',
-      'measurement_only',
-      'citation_fallback',
-    ]) {
+    for (const reason of CAPPED_REASONS) {
       expect(glossary[`confidence.${reason}`]).toBeTruthy()
     }
   })

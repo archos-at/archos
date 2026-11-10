@@ -149,3 +149,40 @@ def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypat
     rendered = context.render_prompt("researcher")
 
     assert rendered == "no-catalog"
+
+
+_PROBE = "Bauherr sitzt in der Wiener Straße, Grundstück in Linz"
+
+
+@pytest.fixture
+def two_lands(_registry_env):
+    """The registry with Linz's Land beside Vienna's."""
+    registry = {**_REGISTRY, "entries": [*_REGISTRY["entries"], {**_REGISTRY["entries"][0], "id": "bo-ooe"}]}
+    registry["entries"][1].update(short="OÖ BauO", title="Oö. Bauordnung 1994", federal_state="Oberösterreich")
+    (_registry_env / "at" / "registry.yml").write_text(yaml.safe_dump(registry, allow_unicode=True), encoding="utf-8")
+    reset_registry_cache()
+
+
+def _catalog_with(gate: str, chains: dict) -> str:
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(
+        KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"}), chains=chains)
+    )
+    try:
+        return _graph_context({"researcher": "{{ ris_catalog }}"}, project_context=_PROBE).render_prompt("researcher")
+    finally:
+        set_turn_knowledge_context(None)
+
+
+def test_with_no_site_every_land_renders_and_the_project_text_decides_nothing(two_lands):
+    """Review of #1582: under ``site_unknown`` the text "Wiener Straße … Linz" narrowed the catalogue to Wien
+    and dropped Oberösterreich. With no site in the context, every Land's lane renders (ADR-0175)."""
+    rendered = _catalog_with("site_unknown", {})
+    assert "BO Wien" in rendered and "OÖ BauO" in rendered
+
+
+def test_the_site_s_land_comes_from_the_context_s_leaf(two_lands):
+    rendered = _catalog_with("core", {"AT-4": ("AT-4", "AT", "EU")})
+    assert "OÖ BauO" in rendered and "BO Wien" not in rendered
