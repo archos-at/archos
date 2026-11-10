@@ -158,7 +158,7 @@
   "packages/knowledge-layer/src/browse/tool.py": 1,
   "packages/knowledge-layer/src/browse/tree.py": 3,
   "packages/knowledge-layer/src/estate/backend.py": 1,
-  "packages/knowledge-layer/src/estate/grep.py": 5,
+  "packages/knowledge-layer/src/estate/grep.py": 3,
   "packages/knowledge-layer/src/estate/listing.py": 1,
   "packages/knowledge-layer/src/ingest/adapter.py": 89,
   "packages/knowledge-layer/src/ingest/captioned_tables.py": 1,

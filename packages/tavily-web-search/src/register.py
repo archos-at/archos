@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import os
 from typing import Any
@@ -83,6 +84,20 @@ class TavilyWebSearchToolConfig(FunctionBaseConfig, name="tavily_web_search"):
     )
 
 
+def _refusing_licensed_text(search):
+    """``search``, refusing a query that repeats licensed text the turn read before the provider sees it.
+
+    The office's licensed text goes to no search provider (``agent.common.licensed_text``). Outside a turn that
+    read licensed text, nothing is refused and the search is unchanged.
+    """
+
+    @functools.wraps(search)
+    async def searched(question: str) -> str:
+        return refused_outbound_query(question) or await search(question)
+
+    return searched
+
+
 @register_function(config_type=TavilyWebSearchToolConfig)
 async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Builder):
     from langchain_tavily import TavilySearch
@@ -156,12 +171,14 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return TavilySearch(**(tavily_kwargs | {"max_results": max_results}))
 
     async def _tavily_web_search(question: str) -> str:
-        """Web search (Tavily) for ``question``, cut to 400 characters: the documents found and their URLs.
+        """Retrieves relevant contexts from web search (using Tavily) for the given question.
 
-        A query that repeats licensed text the turn read is refused: it would hand it to the provider (ADR-0159).
+        Args:
+            question (str): The question to be answered. Will be truncated to 400 characters if longer.
+
+        Returns:
+            str: The web search results containing relevant documents and their URLs.
         """
-        if refusal := refused_outbound_query(question):
-            return refusal
         outcome = ActionOutcome()
         row = ActionRow("web", query=question)
         try:
@@ -259,6 +276,6 @@ async def tavily_web_search(tool_config: TavilyWebSearchToolConfig, builder: Bui
         return "Error: Web search failed - no attempts were made"
 
     yield FunctionInfo.from_fn(
-        _tavily_web_search,
+        _refusing_licensed_text(_tavily_web_search),
         description=_tavily_web_search.__doc__,
     )

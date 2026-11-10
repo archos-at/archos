@@ -552,6 +552,7 @@ def test_the_licence_line_asks_for_the_office_label_and_the_quote_in_its_own_lan
 
 
 def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_scored(monkeypatch):
+    from agent.common import turn_status
     from agent.observability import langfuse_catalog
     from agent.observability import langfuse_scores
     from agent.observability.langfuse_trace_attributes import begin_trace_contributions
@@ -559,7 +560,9 @@ def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_sco
     from agent.observability.langfuse_trace_attributes import snapshot_contributions
 
     emitted = []
+    steps = []
     monkeypatch.setattr(langfuse_scores, "emit_scores", lambda scores, **kwargs: emitted.extend(scores))
+    monkeypatch.setattr(turn_status, "emit_technical", lambda slot, **detail: steps.append(slot))
     contributions = begin_trace_contributions()
     token = begin_grounding_capture(licensed_text=True)
     try:
@@ -570,6 +573,7 @@ def test_a_turn_that_read_licensed_text_is_tagged_for_the_judges_to_skip_and_sco
         end_trace_contributions(contributions)
 
     assert licensed_text.LICENSED_TRACE_TAG in tags
+    assert steps == ["licensed-text"], "one step per turn: the mark the lessons distiller reads (E44)"
     (rule,) = langfuse_catalog.RULES
     assert {"type": "arrayOptions", "column": "tags", "operator": "none of", "value": ["licensed-text"]} in rule.filter
     assert [(score.name, score.value) for score in emitted] == [("licensed-quote-capped", 0.0)]
@@ -630,3 +634,16 @@ async def test_inside_a_licensed_scope_the_chat_contract_pins_an_unpinned_model(
     with licensed_ingest(TERMS):
         await _model(wire, streaming=False, zero_retention=False).ainvoke([HumanMessage(content="Zusammenfassung")])
     assert json.loads(wire.bodies[0])["provider"]["zdr"] is True
+
+
+def test_a_reply_cannot_rebuild_the_norm_from_quotes_each_under_the_cap():
+    """Five quotes of 100 characters, each under the 120 cap: together they stop at three caps."""
+    cap = QuoteCap([(LICENSED, CAP)])
+    pieces = [LICENSED[start : start + 100] for start in (0, 300, 600, 900, 1200)]
+    reply = cap.cap_text(" Und weiter: ".join(f"„{piece}“" for piece in pieces))
+    kept = sum(longest_licensed_run(part) for part in reply.split(" Und weiter: "))
+    # A quote after the budget is spent still shows the characters before its first full shingle: under 24 each.
+    late_quotes = 2
+    assert kept <= licensed_text.ANSWER_QUOTE_FACTOR * CAP + late_quotes * (licensed_text.SHINGLE_CHARS - 1)
+    assert kept < 5 * 100
+    assert longest_licensed_run(reply.split(" Und weiter: ")[0]) == 100, "the first quotes pass whole"

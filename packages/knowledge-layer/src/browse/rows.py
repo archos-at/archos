@@ -89,6 +89,7 @@ class FileRow:
     #: office layer records them at upload; ``None`` for a document nobody marked.
     licence_class: str | None = None
     quote_max_chars: int | None = None
+    ai_processing_attested: bool = False
     #: What changed against the Fassung it replaced, and the file name that was compared against.
     change_summary: str | None = None
     change_basis: str | None = None

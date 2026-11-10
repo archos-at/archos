@@ -173,11 +173,48 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
-def file_licence(row: Any) -> Any:
-    """The licence a document row states (``FileRow.licence_class``), as grounding terms; ``None`` when unmarked."""
+def document_licence(collection: str, file_name: str) -> Any:
+    """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
+
+    Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
+    read answers a licensed, unattested copy, so its text is listed and never sent unguarded. A process with no
+    store configured at all (``QDRANT_URL`` unset: a test, a CLI) holds no mark, so nothing there is licensed.
+    """
+    import os
+
+    from knowledge_layer.vector_store import get_store
+
+    if not (os.environ.get("QDRANT_URL") or "").strip():
+        return None
+
+    from agent.common.licensed_text import AI_PROCESSING_KEY
+    from agent.common.licensed_text import EDITION_KEY
+    from agent.common.licensed_text import LICENCE_CLASS_KEY
+    from agent.common.licensed_text import LICENSED
+    from agent.common.licensed_text import QUOTE_MAX_CHARS_KEY
+    from agent.common.licensed_text import LicenceTerms
     from agent.common.licensed_text import licence_from_metadata
 
-    return licence_from_metadata({"licence_class": row.licence_class, "quote_max_chars": row.quote_max_chars})
+    fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
+    try:
+        records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
+    except Exception:  # noqa: BLE001 - fails closed, see the docstring
+        return LicenceTerms(licence_class=LICENSED)
+    return licence_from_metadata(records[0].payload or {}) if records else None
+
+
+def file_licence(row: Any) -> Any:
+    """The licence of a document row: what the row states (``FileRow.licence_class``), else what its points carry."""
+    from agent.common.licensed_text import licence_from_metadata
+
+    stated = licence_from_metadata(
+        {
+            "licence_class": row.licence_class,
+            "quote_max_chars": row.quote_max_chars,
+            "ai_processing_attested": row.ai_processing_attested,
+        }
+    )
+    return stated or document_licence(row.collection, row.file_name)
 
 
 def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: bool = True) -> Any:

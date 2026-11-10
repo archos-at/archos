@@ -95,6 +95,10 @@ SHINGLE_CHARS = 24
 #: bounded); past it the oldest goes first. It never cuts a passage: the model reads each one whole.
 MAX_PASSAGES_PER_TURN = 2048
 
+#: How many quote caps one reply may carry in all, every quote and channel together (the door holds the same
+#: three per person and day).
+ANSWER_QUOTE_FACTOR = 3
+
 #: Written where a capped quote was cut. Plain text, safe inside a JSON string; no leading space, which would
 #: extend the quote it closes by one character.
 CAP_MARKER = "[…]"
@@ -264,10 +268,22 @@ def licensed_body(body: str, terms: LicenceTerms | None) -> str:
     capture = _capture.get()
     if capture is None or not capture.text_allowed:
         return WITHHELD_NOTE
+    if not capture.read_any:
+        _mark_turn()
+    return f"⟦licensed:{capture.file(body, terms.quote_max_chars)}⟧"
+
+
+def _mark_turn() -> None:
+    """Mark the turn that read licensed text, once: a trace tag (the judges skip it) and a technical step.
+
+    The step rests with the answer (``messages.metadata``, slot :data:`LICENSED_TRACE_TAG`): the lessons distiller
+    reads it to take no vote on such an answer (design E44). Ids and nothing else: no text, no file name.
+    """
+    from agent.common.turn_status import emit_technical
     from agent.observability.langfuse_trace_attributes import add_trace_tag
 
     add_trace_tag(LICENSED_TRACE_TAG)
-    return f"⟦licensed:{capture.file(body, terms.quote_max_chars)}⟧"
+    emit_technical(LICENSED_TRACE_TAG)
 
 
 def licence_line(terms: LicenceTerms | None) -> str | None:
@@ -385,12 +401,18 @@ class QuoteCap:
         #: The turn whose count of capped quotes this cap adds to (``licensed-quote-capped``).
         self._capture = capture
         self._grams: dict[str, int] = {}
+        caps: list[int] = []
         for text, cap in passages:
+            caps.append(cap)
             norm = _normalised_text(text)
             for start in range(max(0, len(norm) - SHINGLE_CHARS + 1)):
                 gram = norm[start : start + SHINGLE_CHARS]
                 held = self._grams.get(gram)
                 self._grams[gram] = cap if held is None else min(held, cap)
+        #: How much licensed text one reply may carry in all, over every quote and channel: a norm is not
+        #: rebuilt from quotes each under the cap (:data:`ANSWER_QUOTE_FACTOR` times the smallest cap).
+        self.budget = ANSWER_QUOTE_FACTOR * min(caps) if caps else 0
+        self.quoted = 0
         #: How many runs any stream of this cap has cut; the call's count of capped quotes.
         self.capped_runs = 0
         #: The ``licensed_reply.ChunkCap`` a streamed reply's chunks share, set by the first chunk.
@@ -477,16 +499,24 @@ class _Run:
         """Move the window by one character; True when that character lies past its run's cap."""
         norm = _normalised(logical)
         if norm == " " and self._last == " ":
-            return self._length > 0 and self._cap is not None and self._length > self._cap
+            return self._length > 0 and self._cap is not None and self._past()
         self._last = norm
         self._window = (self._window + norm)[-SHINGLE_CHARS:]
         cap = self._owner.gram_cap(self._window) if len(self._window) == SHINGLE_CHARS else None
         if cap is None:
             self._length, self._cap, self._marked = 0, None, False
             return False
+        starting = not self._length
         self._length = self._length + 1 if self._length else SHINGLE_CHARS
         self._cap = cap if self._cap is None else min(self._cap, cap)
-        return self._length > self._cap
+        if self._past():
+            return True
+        self._owner.quoted += SHINGLE_CHARS if starting else 1
+        return False
+
+    def _past(self) -> bool:
+        """Past this run's cap, or past what the whole reply may quote."""
+        return self._length > self._cap or self._owner.quoted >= self._owner.budget
 
 
 # ---------------------------------------------------------------------------

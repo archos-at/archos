@@ -75,27 +75,10 @@ def citation_key(facts: PlaceFacts) -> str:
 
 
 def document_licence(collection: str, file_name: str) -> Any:
-    """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
+    """The licence a document's points carry (``knowledge_layer.estate.document_licence``); fails closed."""
+    from knowledge_layer.estate import document_licence as read
 
-    Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
-    read answers a licensed, unattested copy, so a look at it is refused rather than sent unguarded.
-    """
-    from knowledge_layer.vector_store import get_store
-
-    from agent.common.licensed_text import AI_PROCESSING_KEY
-    from agent.common.licensed_text import EDITION_KEY
-    from agent.common.licensed_text import LICENCE_CLASS_KEY
-    from agent.common.licensed_text import LICENSED
-    from agent.common.licensed_text import QUOTE_MAX_CHARS_KEY
-    from agent.common.licensed_text import LicenceTerms
-    from agent.common.licensed_text import licence_from_metadata
-
-    fields = [LICENCE_CLASS_KEY, QUOTE_MAX_CHARS_KEY, AI_PROCESSING_KEY, EDITION_KEY]
-    try:
-        records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
-    except Exception:  # noqa: BLE001 - fails closed, see the docstring
-        return LicenceTerms(licence_class=LICENSED)
-    return licence_from_metadata(records[0].payload or {}) if records else None
+    return read(collection, file_name)
 
 
 def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: Any = None) -> str:

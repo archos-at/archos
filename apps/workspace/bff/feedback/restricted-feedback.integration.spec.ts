@@ -463,22 +463,22 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
   })
 
   /**
-   * Design E44: a down-voted answer that drew on the office's own text (an office
-   * document, the office's licensed copy of a norm) becomes no platform lesson, whose
-   * text reaches every other office. Told apart by the sources the turn stored.
+   * Design E44: a down-voted answer that read the office's licensed text becomes no platform lesson, whose
+   * text reaches every other office. Told apart by the seam's own mark on the turn (slot `licensed-text`),
+   * on whatever shelf the copy sits.
    */
-  it('leaves a vote on an answer that drew on office text out of the lessons input, and keeps one that did not', async () => {
-    const officeChat = randomUUID()
+  it('leaves a vote on an answer that read licensed text out of the lessons input, and keeps one that did not', async () => {
+    const licensedChat = randomUUID()
     const lawChat = randomUUID()
-    const officeAnswer = await seedVotedChat(officeChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
+    const licensedAnswer = await seedVotedChat(licensedChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
     const lawAnswer = await seedVotedChat(lawChat, 'Was sagt die OIB-RL 4?', 'Laut OIB-RL 4 100 cm.', false)
-    const stored = (shelf: string, kind: string) =>
-      JSON.stringify({ provenance: { steps: [{ lanes: [{ key: kind, kind, sources: [{ name: 'n.pdf', shelf }] }] }] } })
+    const stored = (slot: string) =>
+      JSON.stringify({ thinkingSteps: [{ id: `status:${slot}`, kind: 'status', slot, isComplete: true }] })
     await inOrg((executor) =>
-      executor.execute(sql`update messages set metadata = ${stored('office_shelf', 'office')}::jsonb where id = ${officeAnswer}`)
+      executor.execute(sql`update messages set metadata = ${stored('licensed-text')}::jsonb where id = ${licensedAnswer}`)
     )
     await inOrg((executor) =>
-      executor.execute(sql`update messages set metadata = ${stored('base', 'building_law')}::jsonb where id = ${lawAnswer}`)
+      executor.execute(sql`update messages set metadata = ${stored('synthesis')}::jsonb where id = ${lawAnswer}`)
     )
 
     const { reports } = await readers()
