@@ -8,6 +8,8 @@
 import { describe, expect, it } from 'vitest'
 import { proposedRecordSchema } from '../platform/wire'
 import { graphFromProposals } from './from-proposals'
+import type { BuildingInputs } from '../rulesets/applicability'
+import { appliesWhenTableSchema } from '../wire/applies-when'
 import { resolveChain } from './resolve'
 import { MAX_NAME_CHARS, nameOf, renderChainText } from './text'
 
@@ -104,5 +106,28 @@ describe('the chain text', () => {
     const rendered = renderChainText(planted, resolveChain(planted, 'AT-9', '2026-11-10'), 'AT-9')
     expect(rendered).not.toMatch(/<\/?[a-z_]+>|[{}`]/)
     expect(rendered.split('\n').every((line) => !line.startsWith('Ignore'))).toBe(true)
+  })
+
+  it('says when whether an edition applies waits for a building fact, and leaves out one no building needs (ADR-0177)', () => {
+    const appliesWhen = appliesWhenTableSchema.parse({
+      inputs: [{ key: 'escape_level_m', type: 'number' }],
+      output: { type: 'boolean' },
+      rows: [
+        { id: 'over-22', when: { '>': [{ var: 'escape_level_m' }, 22] }, then: true },
+        { id: 'up-to-22', when: { '<=': [{ var: 'escape_level_m' }, 22] }, then: false },
+      ],
+      otherwise: { then: false },
+    })
+    const scoped = graphFromProposals(
+      records.map((record) => (record.type === 'edition' && record.key === 'oib-rl-2-2023' ? { ...record, appliesWhen } : record)),
+    )
+    const at = (inputs: BuildingInputs['inputs']) =>
+      renderChainText(scoped, resolveChain(scoped, 'AT-9', '2026-11-10', { buildings: [{ buildingId: 'bldg1', inputs }] }), 'AT-9')
+    expect(at({})).toContain(
+      "(§ 1 WBTV 2023); applies only if the building's escape_level_m put it in scope, not yet known: ask for it, and do not say it binds or does not bind before then",
+    )
+    expect(at({ escape_level_m: 30 })).toContain("(§ 1 WBTV 2023); applies to this project by its building's escape_level_m")
+    expect(at({ escape_level_m: 9 })).not.toContain('Ausgabe Mai 2023')
+    expect(text('AT-9')).toContain('(§ 1 WBTV 2023)\n')
   })
 })

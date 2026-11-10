@@ -29,6 +29,7 @@
  * or a law whose editions are all out of force at the date, yields no use.
  */
 
+import { applicabilityOf, type BuildingScope } from '../rulesets/applicability'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import type {
   Displacement,
@@ -243,7 +244,7 @@ function editionUse(
   displaced: readonly Displacement[] = [],
   relatedEditionId: string | null = null,
 ): EditionUse {
-  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId }
+  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId, applicability: null }
 }
 
 /** Whether a work that nothing makes binding concerns this site. */
@@ -319,8 +320,26 @@ function unroutedUses(
 
 const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
-/** Resolve a site on a date: the chain, and what each edition is to it. */
-export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string): ResolvedChain {
+/**
+ * Each use with whether its edition applies to the project's buildings, by the
+ * edition's own scope (`appliesWhen`, ADR-0177). A use whose edition no
+ * building needs is dropped; one whose edition states no scope is kept as it is.
+ */
+function narrowed(graph: KnowledgeGraph, uses: readonly EditionUse[], scope: BuildingScope): EditionUse[] {
+  return uses.flatMap((use) => {
+    const table = use.editionId ? graph.editions.get(use.editionId)?.appliesWhen : null
+    if (!table) return [use]
+    const applicability = applicabilityOf(table, scope)
+    return applicability.verdict === 'not_applicable' ? [] : [{ ...use, applicability }]
+  })
+}
+
+/**
+ * The uses at a site on a date. With the project's buildings, an edition whose
+ * scope excludes every building is not named, and each other scoped use says
+ * whether it applies (ADR-0177); without them, nothing is narrowed.
+ */
+export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string, building: BuildingScope | null = null): ResolvedChain {
   const chain = chainAt(leafId, date, graph)
   const relations = effectiveRelations(graph, date)
   const superseded = supersededWorks(graph, relations)
@@ -339,12 +358,13 @@ export function resolveChain(graph: KnowledgeGraph, leafId: string, date: string
     uses.push(...unroutedUses(graph, work, { chain, date, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
-  uses.sort(
+  const named = building ? narrowed(graph, uses, building) : uses
+  named.sort(
     (a, b) =>
       roleRank(a.role) - roleRank(b.role) ||
       a.route.length - b.route.length ||
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: uses.slice(0, MAX_USES), truncated: uses.length > MAX_USES }
+  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES }
 }

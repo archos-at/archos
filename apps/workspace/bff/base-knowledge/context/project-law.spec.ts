@@ -31,6 +31,21 @@ import { graphFromProposals } from '../chain/from-proposals'
 import { gateNamesLaw, lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
 
+/** A synthetic scope shaped like a guideline for production buildings (ADR-0177); the real one is a record citing its clause. */
+const PRODUCTION_ONLY = {
+  inputs: [{ key: 'uses', type: 'codes' }],
+  output: { type: 'boolean' },
+  rows: [
+    { id: 'production', when: { in: ['production', { var: 'uses' }] }, then: true, provision: { citation: 'scope clause (synthetic)' } },
+    { id: 'other-uses', when: { '!': { in: ['production', { var: 'uses' }] } }, then: false },
+  ],
+  otherwise: { undetermined: true },
+}
+
+const placedWith = (uses: string[]) => ({
+  profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' }, 'uses@bldg1': { value: uses } }, assumptions: {}, goals: {}, unknowns: [] },
+})
+
 /** Wien with its Bauordnung, OIB-RL 2 guiding there, and the HOAI connecting by the office's seat. */
 const graphAt = (coverageLevel: 'open' | 'core') => {
   const graph = graphFromProposals(
@@ -41,6 +56,17 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
       { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'LGBl. 2024/1', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
       { type: 'work', key: 'oib-rl-2', kind: 'model_code', title: 'Brandschutz', designation: 'OIB-RL 2', territoryIds: ['AT'] },
       { type: 'edition', key: 'oib-rl-2-2023', workKey: 'oib-rl-2', label: '2023', issuedOn: '2023-05-25' },
+      { type: 'work', key: 'oib-rl-2-1', kind: 'model_code', title: 'Brandschutz bei Betriebsbauten', designation: 'OIB-RL 2.1', territoryIds: ['AT'] },
+      { type: 'edition', key: 'oib-rl-2-1-2023', workKey: 'oib-rl-2-1', label: '2023', issuedOn: '2023-05-25', appliesWhen: PRODUCTION_ONLY },
+      {
+        type: 'manifestation',
+        key: 'oib-rl-2-1-2023-text',
+        editionKey: 'oib-rl-2-1-2023',
+        form: 'text',
+        language: 'de',
+        licenceClass: 'public_open',
+        citations: [{ url: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/', note: 'published by the OIB' }],
+      },
     ].map((record) => proposedRecordSchema.parse(record)),
   )
   // Checked today: an uncurated edition nobody checked is stale and reads as information (E28).
@@ -55,14 +81,14 @@ describe('projectLawFor', () => {
     vi.clearAllMocks()
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
   })
 
   it('names in core coverage the law the turn reads, binding, with designation and edition', async () => {
     loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
     const law = await projectLawFor('org_at', 'project_wien')
     expect(law.gate).toBe('core')
-    expect(law.uses).toContainEqual({ workId: 'work:bo-wien', editionId: 'edition:bo-wien-2024', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. 2024/1' })
+    expect(law.uses).toContainEqual({ workId: 'work:bo-wien', editionId: 'edition:bo-wien-2024', role: 'binding', qualifier: null, designation: 'BO für Wien', editionLabel: 'LGBl. 2024/1', applicability: null, sourceUrl: null })
   })
 
   it('names binding law uncurated and guidance as information where nobody curated the records (open coverage), as the turn reads them', async () => {
@@ -79,16 +105,47 @@ describe('projectLawFor', () => {
     )
   })
 
+  it('names an edition for a production hall by its own scope, saying why, and not for flats, on the page as in the turn (ADR-0177)', async () => {
+    loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
+    findProjectProfileInOrg.mockResolvedValue(placedWith(['production']))
+    const hall = await projectLawFor('org_at', 'project_halle')
+    expect(hall.uses.find((use) => use.workId === 'work:oib-rl-2-1')).toMatchObject({
+      designation: 'OIB-RL 2.1',
+      applicability: { verdict: 'applies', basis: ['uses'], open: [], provision: 'scope clause (synthetic)' },
+      sourceUrl: 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/',
+    })
+    // The fact is named in the country's own terms, from its fact definitions.
+    expect(hall.factLabels).toEqual({ uses: 'Nutzungen' })
+    const turn = await knowledgeContextForTurn('org_at', 'project_halle')
+    expect(turn.uses.map((use) => use.workId)).toContain('work:oib-rl-2-1')
+    expect(turn.text).toContain("applies to this project by its building's uses")
+    findProjectProfileInOrg.mockResolvedValue(placedWith(['residential']))
+    const flats = await projectLawFor('org_at', 'project_wohnbau')
+    expect(flats.uses.map((use) => use.workId)).not.toContain('work:oib-rl-2-1')
+    expect(flats.uses.map((use) => use.workId)).toContain('work:oib-rl-2')
+    const flatsTurn = await knowledgeContextForTurn('org_at', 'project_wohnbau')
+    expect(flatsTurn.uses.map((use) => use.workId)).not.toContain('work:oib-rl-2-1')
+    expect(flatsTurn.text).not.toContain('OIB-RL 2.1')
+  })
+
+  it('asks for the deciding fact while it is open, and never says the edition binds or does not', async () => {
+    loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
+    findProjectProfileInOrg.mockResolvedValue(placedWith([]))
+    const turn = await knowledgeContextForTurn('org_at', 'project_offen')
+    expect(turn.uses.find((use) => use.workId === 'work:oib-rl-2-1')?.applicability).toMatchObject({ verdict: 'check', open: ['uses'] })
+    expect(turn.text).toContain("applies only if the building's uses put it in scope, not yet known")
+  })
+
   it('names nothing where the office is not entitled to the site’s country, and reads no graph', async () => {
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [] })
-    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'not_entitled', uses: [] })
+    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'not_entitled', uses: [], factLabels: {} })
     expect(loadGraph).not.toHaveBeenCalled()
   })
 
   it('says the law could not be read when a read fails, never that none applies', async () => {
     readOrganizationCountries.mockRejectedValue(new Error('database gone'))
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [] })
+    expect(await projectLawFor('org_at', 'project_wien')).toEqual({ gate: 'knowledge_unavailable', uses: [], factLabels: {} })
     // A page polls: its failure has its own marker, never the turn alert's line (ADR-0173).
     const lines = logged.mock.calls.map(([line]) => String(line))
     expect(lines.some((line) => line.startsWith('[knowledge_context_page_read=false]'))).toBe(true)
@@ -101,7 +158,7 @@ describe('the one payload a turn reads (ADR-0175)', () => {
     vi.clearAllMocks()
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
   })
 
   it('names each use and carries its work’s identifiers at its source, by scheme', async () => {
@@ -126,7 +183,7 @@ describe('the one payload a turn reads (ADR-0175)', () => {
     expect(open.uses.find((use) => use.workId === 'work:oib-rl-2')?.role).toBe('information')
     // The chain alone calls OIB-RL 2 guidance; the turn reads it as information, and so does its text.
     expect(open.text).not.toContain('guidance only')
-    expect(open.text).toContain('1 other edition is not in force here and is information only.')
+    expect(open.text).toContain('2 other editions are not in force here and are information only.')
   })
 
   it('carries no text where the gate names no law', async () => {
@@ -139,9 +196,9 @@ describe('lawOf', () => {
   it.each(['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', 'none'] as const)(
     'names nothing where the gate is %s, whatever the context holds',
     (state) => {
-      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [] }
+      const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
-      expect(lawOf(context)).toEqual({ gate: state, uses: [] })
+      expect(lawOf(context)).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
 

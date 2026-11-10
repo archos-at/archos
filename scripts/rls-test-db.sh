@@ -3774,3 +3774,14 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
+# 0216: an edition's scope (ADR-0177) is a JSON object or absent; the down
+# drops the column, and 0216 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0216 edition scope and its down migration on aw_0216"
+migrate_until aw_0216 0216_edition_applies_when
+check_in aw_0216 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_edition_revisions_applies_when_object'" "CHECK (((applies_when IS NULL) OR (jsonb_typeof(applies_when) = 'object'::text)))" "0216: a scope is a JSON object or absent"
+apply_in aw_0216 0216_edition_applies_when.down.sql
+check_in aw_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "0" "0216 down drops the column"
+apply_in aw_0216 0216_edition_applies_when.sql
+check_in aw_0216 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0216 applies again after its down"
+echo "==> 0216 edition scope and its down migration verified"

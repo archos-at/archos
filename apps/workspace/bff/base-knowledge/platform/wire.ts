@@ -32,6 +32,7 @@ import {
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import { sourceRecordFields } from '@/lib/base-knowledge/wire/source'
+import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
@@ -136,6 +137,12 @@ const editionRecord = z.object({
     .nullable()
     .default(null)
     .describe('Its transitional rule: a decision table over the procedure and boundary_from giving old_law, new_law or choice.'),
+  appliesWhen: appliesWhenTableSchema
+    .nullable()
+    .default(null)
+    .describe(
+      'Its scope: a decision table over the building facts (fact_definitions keys) with a boolean output, each row citing the scope clause it encodes. Null: every building.',
+    ),
   ...common,
 })
 

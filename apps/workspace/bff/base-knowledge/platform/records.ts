@@ -76,6 +76,7 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         inForceFrom: record.inForceFrom,
         inForceTo: record.inForceTo,
         transition: record.transition,
+        appliesWhen: record.appliesWhen,
       }
     case 'manifestation':
       return {

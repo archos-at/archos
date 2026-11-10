@@ -11,7 +11,7 @@
  *   on the same day: two in one batch, or a new one beside one already on the
  *   platform (the as-of resolver refuses that as ambiguous, so it is refused
  *   here first).
- * - KC-5: a ruleset's and a transition's own examples hold on the evaluator.
+ * - KC-5: a ruleset's, a transition's and an edition scope's own examples hold on the evaluator.
  * - KC-7: a source record parses as its access type and engine read it, and
  *   every recorded fixture passes with no live call (ADR-0174). The api tier
  *   runs it, so its problems are handed in (`sourceChecks`); an api tier that
@@ -35,6 +35,7 @@
 
 import type { KnowledgeRecordType } from '@/lib/base-knowledge/wire/vocab'
 import { failingExamples } from '../rulesets/decision-table'
+import type { DecisionTable } from '../wire/ruleset'
 import { normalizeForQuote, quoteFound, quoteLongEnough } from './quote'
 import { proposalKey, recordIdOf, referencesOf } from './records'
 import type { ProposedRecord } from './wire'
@@ -160,17 +161,21 @@ function overlapProblems(records: readonly ProposedRecord[], existing: readonly 
 }
 
 function exampleProblems(record: ProposedRecord): Problem[] {
-  const table =
-    record.type === 'ruleset' && record.values.body.kind === 'table'
-      ? record.values.body.payload
+  const tables: [DecisionTable | null, string][] =
+    record.type === 'ruleset'
+      ? [[record.values.body.kind === 'table' ? record.values.body.payload : null, '/values/body/payload']]
       : record.type === 'edition'
-        ? record.transition
-        : null
-  if (!table) return []
-  const failing = failingExamples(table)
-  if (failing.length === 0) return []
-  const pointer = record.type === 'ruleset' ? '/values/body/payload' : '/transition'
-  return [problem('KC-5', record, pointer, `examples ${failing.map((failure) => failure.index).join(', ')} do not hold on the evaluator.`)]
+        ? [
+            [record.transition, '/transition'],
+            [record.appliesWhen, '/appliesWhen'],
+          ]
+        : []
+  return tables.flatMap(([table, pointer]) => {
+    const failing = table ? failingExamples(table) : []
+    return failing.length === 0
+      ? []
+      : [problem('KC-5', record, pointer, `examples ${failing.map((failure) => failure.index).join(', ')} do not hold on the evaluator.`)]
+  })
 }
 
 /** The territories a record names, which must exist. */

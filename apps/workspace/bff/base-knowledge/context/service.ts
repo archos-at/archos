@@ -29,6 +29,8 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
+import { projectBuildings } from '../chain/building'
+import type { BuildingScope } from '../rulesets/applicability'
 import { loadGraph } from '../chain/load'
 import { readOrganizationCountries } from '../platform/entitlements'
 import { procedureFromProfile, profileHasProcedure } from '../time/profile-procedure'
@@ -68,6 +70,8 @@ export interface ContextDigestInputs {
   procedures: readonly ProcedureContext[]
   /** When the office's own records and the platform's checks last changed (`recordsStamp`); neither moves a pack sequence. */
   recordsStamp?: string
+  /** The project's buildings, read by each edition's scope (ADR-0177): in the digest, so a changed answer re-resolves. */
+  buildings?: BuildingScope
 }
 
 /** A stable hash of the inputs: same inputs, same digest, in any key order. */
@@ -80,6 +84,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
     packSeqs: Object.fromEntries(Object.entries(inputs.packSeqs).sort(([a], [b]) => a.localeCompare(b))),
     procedures: inputs.procedures,
     recordsStamp: inputs.recordsStamp ?? null,
+    buildings: inputs.buildings?.buildings ?? [],
   })
   return createHash('sha256').update(canonical).digest('hex').slice(0, 32)
 }
@@ -154,6 +159,7 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     now: new Date(),
     procedures: inputs.procedures,
     packSeqs: inputs.packSeqs,
+    building: inputs.buildings ?? null,
   })
 }
 
@@ -196,15 +202,17 @@ export async function readContextInputs(organizationId: string, projectId: strin
   const entitled = countries.entitled.map((entry) => entry.countryId)
   const sites = siteLeaves(profile?.profile)
   const facts = profile?.profile?.facts ?? {}
+  const date = calendarDayIn(zone)
   return {
     homeCountry: countries.homeCountry,
     entitled,
     sites,
-    date: calendarDayIn(zone),
+    date,
     // `EU` follows any entitled member (ADR-0168), so its sequence is read too.
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites),
     recordsStamp: stamp,
+    buildings: projectBuildings(profile?.profile, date),
   }
 }
 

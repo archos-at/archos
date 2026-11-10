@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod'
+import { useApplicabilitySchema } from '../wire/project-law'
 import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES, SITE_UNKNOWN_REASONS, SOURCE_REF_SCHEMES } from '../wire/vocab'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
@@ -78,6 +79,15 @@ export const contextUseSchema = z
     editionLabel: z.string().nullable(),
     /** The work's identifiers at its source, sorted by scheme and value; [] when the record states none. */
     sourceRefs: z.array(sourceRefSchema).max(8),
+    /** Where a person opens the edition's text: the page its manifestation cites first; null when none does. */
+    sourceUrl: z.string().max(2000).nullable(),
+    /**
+     * Whether the edition applies to the project's buildings, by its scope
+     * (ADR-0177): `applies` with the facts that decided it, or `check` with the
+     * facts it waits for. Null where the edition states no scope. An edition no
+     * building needs is not a use at all.
+     */
+    applicability: useApplicabilitySchema.nullable(),
   })
   .strict()
 

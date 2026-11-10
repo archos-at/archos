@@ -190,6 +190,27 @@ describe('validateProposal', () => {
     ).toEqual(['KC-1', 'KC-5'])
   })
 
+  it('KC-5: runs an edition scope’s own examples, and accepts it when they hold (ADR-0177)', () => {
+    const scoped = (expected: boolean) => ({
+      type: 'edition',
+      key: 'oib-rl-2-1-2023',
+      workKey: 'oib-rl-2-1',
+      label: '2023',
+      appliesWhen: {
+        inputs: [{ key: 'uses', type: 'codes' }],
+        output: { type: 'boolean' },
+        rows: [{ id: 'production', when: { in: ['production', { var: 'uses' }] }, then: true }],
+        otherwise: { then: false },
+        examples: [{ facts: { uses: ['production'] }, expect: { then: expected } }],
+      },
+    })
+    const known = new Map<string, KnownRecord>([...KNOWN, ['work:oib-rl-2-1', { type: 'work', countryId: 'AT' }]])
+    const codes = (expected: boolean) => kit(parse([scoped(expected)]), 'AT', known).map((problem) => problem.code)
+    expect(codes(true)).not.toContain('KC-5')
+    expect(codes(false)).toContain('KC-5')
+    expect(kit(parse([scoped(false)]), 'AT', known).find((problem) => problem.code === 'KC-5')?.pointer).toBe('/appliesWhen')
+  })
+
   it('KC-3: refuses two editions of one work in force on the same day, and accepts them back to back', () => {
     const edition = (key: string, inForceFrom: string, inForceTo: string | null) => ({
       type: 'edition',

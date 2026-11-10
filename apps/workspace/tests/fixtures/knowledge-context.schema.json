@@ -349,6 +349,64 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "sourceUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "applicability": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "verdict": {
+                        "type": "string",
+                        "enum": [
+                          "applies",
+                          "check",
+                          "not_applicable"
+                        ]
+                      },
+                      "basis": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "open": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "provision": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict",
+                      "basis",
+                      "open",
+                      "provision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -365,7 +423,9 @@
               "corpusFiles",
               "designation",
               "editionLabel",
-              "sourceRefs"
+              "sourceRefs",
+              "sourceUrl",
+              "applicability"
             ],
             "additionalProperties": false
           }
