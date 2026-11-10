@@ -197,7 +197,7 @@ export function CountryKnowledge(): JSX.Element {
 
       <Dialog open={openId !== null} onOpenChange={(open) => (open ? null : setOpenId(null))}>
         <DialogContent
-          className="max-h-[85vh] overflow-y-auto sm:max-w-3xl"
+          className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"
           fullScreenOnMobile
           closeLabel={t('countryKnowledge.close')}
         >
