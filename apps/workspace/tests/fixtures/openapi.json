@@ -30389,6 +30389,20 @@
                                 }
                               ]
                             },
+                            "identifiers": {
+                              "default": {},
+                              "description": "The source’s own identifiers of this text, by the source’s key, e.g. {\"eli\": \"https://www.ris.bka.gv.at/eli/…\"}: how a passage the agent reads live at the source finds this edition and its role.",
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z_]{2,30}$"
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,

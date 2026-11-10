@@ -50,7 +50,7 @@ describe('buildingLawTurn', () => {
       editionKey: 'bo-wien-2024',
       form: 'link',
       licenceClass: 'public_open',
-      identifiers: { ris_gesetzesnummer: '20000006', eli: 'https://www.ris.bka.gv.at/eli/lgbl/W/1930/11' },
+      identifiers: { 'ris_gesetzesnummer': '20000006', eli: 'https://www.ris.bka.gv.at/eli/lgbl/W/1930/11' },
     }
     const turn = buildingLawTurn(graphOf([...territories, ...law, link]), 'AT-9', DATE, 'Wien')
     expect(turn?.uses.find((use) => use.workId === 'work:bo-wien')?.sourceRefs).toEqual([

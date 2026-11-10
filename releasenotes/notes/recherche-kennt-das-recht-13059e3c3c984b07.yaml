@@ -1,0 +1,12 @@
+---
+# area: building-law
+improvements:
+  - >
+    A research run now works from the same law as the chat: the editions that
+    apply at the project's site, in their role there, or a clear note when that
+    law cannot be named.
+operators:
+  - >
+    Migration 0214 adds source identifiers to a manifestation record (for
+    example its ELI), so a passage read live at its source finds its edition.
+    Propose them with the records; nothing else is needed.
