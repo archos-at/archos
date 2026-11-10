@@ -2735,7 +2735,7 @@ class TestKnowledgeInventoryIsNotCitable:
         """
         source = self._prompt("piloti/prompts/piloti.j2")
 
-        block = source.split("<building_law>")[1].split("</building_law>")[0]
+        block = source.split("<legal_method>")[1].split("</legal_method>")[0]
         rule = block.split("When two sources disagree")[1].split("\n")[0]
         # Show the difference rather than silently choosing.
         assert "show both with their citations" in rule

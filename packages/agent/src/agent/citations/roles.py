@@ -4,9 +4,11 @@ The BFF resolves the project's site against the knowledge records and sends
 the turn the chain text and every edition's role (``buildingLaw`` in the turn
 context, ``apps/workspace/bff/base-knowledge/chain/wire.ts``). This module
 holds them for the turn and answers, for a retrieved passage, which edition
-it is a text of and what that edition is here. It replaces the guesses of
-:mod:`agent.citations.binding` (a host regex, a filename prefix, a doc class)
-where the records speak; where they do not, nothing changes.
+it is a text of and what that edition is here. It is the only source of
+a source's binding status (ADR-0175): where the records name no role for a
+passage, its status is ``unknown`` and the chip shows none. The guesses that
+came before it (a host regex, a filename prefix, a doc class, a registry
+rank) are gone with ``citations/binding.py``.
 
 A role is computed from a route, never stored (design §3.5). The coarse
 status the citation chip shows stays the one the UI knows:
@@ -31,7 +33,6 @@ import contextvars
 from dataclasses import dataclass
 from typing import Any
 
-from agent.citations.binding import BindingClassification
 from agent.citations.citation_keys import entry_shelf
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.entries import SourceEntry
@@ -50,6 +51,28 @@ MAX_USES = 40
 
 #: Longest chain text kept; the BFF's text is far shorter, this only bounds a broken one.
 MAX_TEXT_CHARS = 12_000
+
+
+@dataclass(frozen=True)
+class BindingClassification:
+    """A source's coarse binding status, as the citation chip shows it.
+
+    ``binding`` / ``declared_binding`` / ``interpretive`` / ``unknown``. The default
+    is ``unknown``: a passage no edition role reaches gets no badge, because a
+    fabricated binding badge would be a false legal claim.
+    """
+
+    binding_status: str = "unknown"
+
+
+#: The German binding statuses an older pod wrote into the shared session cache
+#: (and onto the wire) before the English names. Read-only: nothing writes these.
+LEGACY_BINDING_STATUS: dict[str, str] = {
+    "bindend": "binding",
+    "verbindlich_erklaert": "declared_binding",
+    "auslegend": "interpretive",
+    "unbekannt": "unknown",
+}
 
 
 @dataclass(frozen=True)
@@ -154,13 +177,11 @@ def binding_status_for(use: EditionUse) -> str:
     return "unknown"
 
 
-def with_role(classification: BindingClassification, use: EditionUse | None, *, place: bool) -> BindingClassification:
-    """The classification a source carries: a place never binds; a role replaces the guess; else the guess. Pure."""
-    if place:
-        return BindingClassification(rank=None, binding_status="unknown")
-    if use is None:
-        return classification
-    return BindingClassification(rank=classification.rank, binding_status=binding_status_for(use))
+def classification_for(use: EditionUse | None, *, place: bool) -> BindingClassification:
+    """The classification a source carries: its edition's role here, else ``unknown``; a place never binds. Pure."""
+    if place or use is None:
+        return BindingClassification()
+    return BindingClassification(binding_status=binding_status_for(use))
 
 
 def role_fields(use: EditionUse | None) -> dict[str, Any]:

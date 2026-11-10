@@ -6,8 +6,8 @@ legal norm, three jobs:
 
 1. Pointer index: topic -> exact RIS location (application, document number, URLs),
    so the agent fetches the right law instead of blind-searching.
-2. Prose facts the knowledge base cannot answer: ``binding_note`` (e.g. how the WBTV
-   makes the OIB-Richtlinien binding in Vienna) rendered into researcher prompts.
+2. ``binding_note``, kept for the platform admin UI; no prompt or citation reads it since
+   ADR-0175: which edition binds where is the records' chain text (``citations/roles.py``).
 3. Open verification questions: ``review_note`` — surfaced as a TODO queue in the
    platform admin UI, never rendered into prompts as fact.
 
@@ -132,46 +132,6 @@ _STRUCTURED_FEDERAL_STATE_RE = re.compile(r"\b(?:federal_state|bundesland)=([a-z
 # Terms shorter than this never match (guards against noise words).
 _MIN_TOPIC_LENGTH = 4
 
-# The Normenhierarchie doctrine, injected into researcher/planner/writer prompts as
-# {{ norm_doctrine }} — ONE copy, rendered by the prompt factories. Reasoning rules
-# belong in the prompt; data (pointers, notes) belongs in the registry entries.
-NORM_DOCTRINE = """## Norm hierarchy & document roles
-
-**Order of authority ≠ order of retrieval.** Which source ANSWERS a question (federal law >
-state law/ordinance > OIB guideline > guide/explanatory note) is not the same order in which sources are
-RETRIEVED (knowledge base — project documents AND base knowledge — → RIS → web). The knowledge base comes
-first, even when the question sounds like one about a guideline: its binding text is there, citable with
-page. RIS comes when the knowledge base does not carry the level (law, ordinance, case law).
-
-**Respect document roles:**
-- Requirements („muss", „darf nicht", minimum values) come exclusively from NORMATIVE documents (law,
-  ordinance, OIB guideline, norm declared binding).
-- Guides (Leitfäden) describe the APPLICATION of a guideline — they establish no new requirements.
-- Explanatory notes (Erläuterungen) provide RATIONALES and aids to interpretation — likewise no new requirements.
-- Authority information (e.g. MA 37) shows authority practice — never cite it as a new norm.
-- Legal commentaries are not available. When asked for them, say so openly — do not simulate knowledge of
-  commentaries.
-
-**Discipline on deviations:** An OIB guideline applies only in the edition the Bundesland has declared binding, and only
-without deviations in state law. Check that as far as the sources allow — otherwise flag it expressly as
-open. Cite the edition declared binding, never automatically the newest.
-
-**Parcel questions: settle them at the plot first.** Zoning (Widmung), building class (Bauklasse), building
-height, building lines (Fluchtlinien) and the like are answered by the plot's zoning plan and development
-plan (Flächenwidmungs- und Bebauungsplan) — not by OIB or the building code in general. If the plan is not in
-the knowledge base, say so openly and point to the Land's or Gemeinde's plan portal (in Wien:
-wien.gv.at/flaechenwidmung/public) instead of answering generically.
-**Terms follow the level of the question.** The same term can be defined differently in OIB, state law and federal
-law (example: „Gebäudehöhe"). Always name the definition level used.
-
-**ÖNORM honesty:** ÖNORMs are reference norms without full text in the available sources. Name them only as a
-reference (as far as known from other documents) and disclose that the full text is not available — never
-reproduce ÖNORM content from memory.
-
-**Existing buildings/transitional law:** If the project is not a new build (refurbishment, extension,
-alteration), point out that grandfathering (Bestandsschutz) and transitional provisions may apply and that
-this must be checked under building law."""
-
 
 class VerifySeed(BaseModel):
     """Live-verification seed for scripts/build_ris_catalog.py (and the admin verify API)."""
@@ -241,8 +201,8 @@ class NormsFile(BaseModel):
 
     version: int = 1
     corpus_collection: str = "oib_knowledge"
-    # Optional CountryProfile data overrides (empty = code defaults win; see
-    # agent.common.country_profile). Admin-editable through the norms store.
+    # Profile fields a stored registry still carries (the norms store writes them). Nothing reads
+    # them since ADR-0175: a country's doctrine and coverage are its pack's records.
     language: str = ""
     states: dict[str, str | None] = Field(default_factory=dict)
 
@@ -503,65 +463,6 @@ def resolve_federal_state(text: str | None) -> str | None:
     return extract_federal_state(text)
 
 
-def resolve_country(text: str | None) -> str | None:
-    """The project's country: ``agent.common.country_profile.resolve_site``'s, or None when nothing places it.
-
-    None is ``site_unknown``: no country's law applies, and no caller may read it
-    as Austria. ``country=other`` and ``federal_state=outside_austria`` give
-    ``other``. Consumers: CountryProfile selection (doctrine, corpus note,
-    parcel tags, retrieval base collection).
-    """
-    from agent.common.country_profile import resolve_site
-
-    return resolve_site(text).country
-
-
-def load_norms_file(country: str = "at") -> NormsFile | None:
-    """The raw NormsFile for a country (store-first for the default country).
-
-    Used by CountryProfile to apply admin-edited data overrides. The admin
-    store currently keys the default country; other countries read their YAML
-    seed directly (the store grows a country column with country #2).
-    """
-    if country == "at" and _db_loader is not None:
-        try:
-            stored = _db_loader()
-        except Exception:  # noqa: BLE001
-            stored = None
-        if stored is not None and stored.entries:
-            return stored
-    path = _norms_dir(None) / country / "registry.yml"
-    try:
-        mtime = path.stat().st_mtime_ns
-    except OSError:
-        return None
-    return _load_yaml_cached(str(path), mtime)
-
-
-def doctrine_for(project_context: str | None) -> str:
-    """The Normenhierarchie doctrine for the project's site.
-
-    Austria's (the profile's) for a project in Austria, or a run with no project.
-    A project placed in a country no profile covers, or one nothing places, gets
-    its jurisdiction note (``site_note``) in its place, never the Austrian
-    doctrine (ADR-0158: a project without a known site gets no country law).
-    """
-    try:
-        from agent.common.country_profile import doctrine_note
-        from agent.common.country_profile import get_country_profile
-        from agent.common.country_profile import resolve_site
-
-        note = doctrine_note(project_context)
-        if note is not None:
-            return note
-        profile = get_country_profile(resolve_site(project_context).country or "at")
-        if profile is not None:
-            return profile.doctrine
-    except Exception:  # noqa: BLE001 — prompt building must never break on profile lookup
-        logger.warning("norm_registry: doctrine profile lookup failed", exc_info=True)
-    return NORM_DOCTRINE
-
-
 def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[NormEntry]:
     """Restrict matches to the known Bundesland and put that state's law first.
 
@@ -576,7 +477,7 @@ def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[N
 
 
 # ---------------------------------------------------------------------------
-# Prompt rendering: doctrine lives in NORM_DOCTRINE; this block is the data —
+# Prompt rendering: the method lives in ``law_gate.LEGAL_METHOD``; this block is the data —
 # federal lane, the project's own state lane (other states are dropped), prose
 # binding notes, and a static pointer at the OIB corpus in the knowledge base.
 # ---------------------------------------------------------------------------
@@ -586,14 +487,6 @@ _BLOCK_HEADER = (
     "The RIS tools know this catalogue and resolve a reference themselves; an entry here\n"
     "is an address that can be named in the call, not a source location."
 )
-
-OIB_CORPUS_NOTE = (
-    "OIB corpus (already in the knowledge base, no RIS query needed): OIB guidelines 1–6\n"
-    "with guides, explanatory notes, definitions and cited norms, edition May 2023.\n"
-    'Cite as "OIB-RL <N>, Pkt <x>, Ausgabe Mai 2023". Requirements only from the guideline\n'
-    "itself — guide/explanatory note are aids to interpretation."
-)
-
 
 _LAW_RANKS = ("federal_law", "state_law", "ordinance")
 
@@ -617,13 +510,13 @@ def _render_entry_line(entry: NormEntry) -> str:
     return line
 
 
-def render_prompt_block(
-    registry: NormRegistry, federal_state: str | None = None, corpus_note: str | None = None
-) -> str:
+def render_prompt_block(registry: NormRegistry, federal_state: str | None = None) -> str:
     """Compact catalog block: federal lane, then the focused state lane.
 
     Other states' law is dropped entirely (same rule as ``focus_entries``) —
-    with no known Bundesland, all state lanes render, grouped by state.
+    with no known Bundesland, all state lanes render, grouped by state. Addresses only: no
+    entry's ``binding_note`` and no corpus edition, because which edition binds is the chain
+    text's to say (ADR-0175).
     """
     lines = [_BLOCK_HEADER, ""]
     focused = focus_entries(registry.entries, federal_state)
@@ -650,51 +543,24 @@ def render_prompt_block(
         lines.append("")
         lines.append("External standards (referenced standards — full text usually unavailable, say so plainly):")
         lines.extend(_render_entry_line(entry) for entry in sorted(extern, key=lambda e: e.short.lower()))
-    notes = [entry for entry in focused if entry.binding_note]
-    if notes:
-        lines.append("")
-        lines.append("Legal notes (curated):")
-        for entry in notes:
-            lines.append(f"- {entry.short}: {entry.binding_note}")
-    lines.append("")
-    lines.append(corpus_note or OIB_CORPUS_NOTE)
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def render_block_for_prompt(project_context: str | None, norms_dir: str | None = None) -> str | None:
-    """Prompt-ready catalog block, Bundesland-aware when detectable; None when unavailable.
+    """The RIS catalogue as research prompts read it: addresses the RIS tools resolve, or None.
 
-    None for a project placed outside Austria or not placed at all: the catalogue
-    is Austrian law, and the doctrine (``doctrine_for``) tells that project what
-    is not covered, or asks for its site.
+    Only where the run's knowledge context lets the RIS tools run (``law_gate.law_sources_withheld``,
+    ADR-0175): the catalogue is a tool aid, and a gate that withholds Austrian law withholds it too. It
+    says nothing about which edition binds; the chain text does (``law_gate.research_doctrine``).
     """
-    from agent.common.country_profile import austrian_corpus_applies
-    from agent.common.country_profile import get_country_profile
-    from agent.common.country_profile import resolve_site
+    from agent.common.law_gate import law_sources_withheld
 
-    site = resolve_site(project_context)
-    if not austrian_corpus_applies(project_context):
+    if "ris" in law_sources_withheld():
         return None
     registry = load_registry(norms_dir)
     if registry is None or not registry.entries:
         return None
-    corpus_note = None
-    try:
-        profile = get_country_profile(site.country or "at")
-        corpus_note = profile.corpus_note if profile else None
-    except Exception:  # noqa: BLE001
-        logger.warning("norm_registry: corpus-note profile lookup failed", exc_info=True)
-    block = render_prompt_block(registry, federal_state=resolve_federal_state(project_context), corpus_note=corpus_note)
-    try:
-        from agent.common.applicability import render_project_block
-
-        section = render_project_block(project_context or "")
-    except Exception:  # noqa: BLE001 — applicability must never break prompt building
-        logger.warning("norm_registry: applicability block failed — omitted", exc_info=True)
-        section = None
-    if section:
-        return block.rstrip() + "\n\n" + section
-    return block
+    return render_prompt_block(registry, federal_state=resolve_federal_state(project_context))
 
 
 # ---------------------------------------------------------------------------
@@ -707,19 +573,7 @@ def render_block_for_prompt(project_context: str | None, norms_dir: str | None =
 _PARCEL_TAGS = ("Bebauungsplan", "Flächenwidmungsplan")
 
 
-def _parcel_tags_for(country: str | None) -> tuple[str, ...]:
-    try:
-        from agent.common.country_profile import get_country_profile
-
-        profile = get_country_profile(country)
-        if profile is not None:
-            return tuple(profile.parcel_tags)
-    except Exception:  # noqa: BLE001
-        logger.warning("norm_registry: parcel-tag profile lookup failed", exc_info=True)
-    return _PARCEL_TAGS
-
-
-def parcel_note(available_documents: list[dict] | None, country: str | None = None) -> str | None:
+def parcel_note(available_documents: list[dict] | None) -> str | None:
     """Prompt note naming the project's parcel documents as the governing source.
 
     ``available_documents`` are the per-turn document dicts (file_name/summary/
@@ -728,13 +582,13 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
     applies unchanged.
 
     The note is the FILE LIST and nothing else. What to do with a parcel
-    question is standing doctrine and lives in the system prompt
-    (``prompts/chat_static.md``, ``<building_law>``), so the per-turn
+    question is standing method and lives in the system prompt
+    (``prompts/chat_static.md``, ``<legal_method>``), so the per-turn
     block carries only what varies: which documents this project has.
     """
     if not available_documents:
         return None
-    parcel_tags = _parcel_tags_for(country)
+    parcel_tags = _PARCEL_TAGS
     by_tag: dict[str, list[str]] = {}
     for doc in available_documents:
         tags = doc.get("tags") or []
@@ -746,8 +600,7 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
                 by_tag.setdefault(tag, []).append(name)
     if not by_tag:
         return None
-    klass = "building class, " if country == "at" else ""  # the Bauklasse is an Austrian zoning class
-    lines = [f"## Parcel sources of this project (authoritative for zoning, {klass}building height, building lines)"]
+    lines = ["## Parcel sources of this project (authoritative for zoning, building height, building lines)"]
     for tag in parcel_tags:
         if tag in by_tag:
             files = ", ".join(sorted(by_tag[tag]))
@@ -1197,7 +1050,7 @@ def lane_for_knowledge_hit(
     collection prefix, no OIB filename). Those land in Projektwissen.
 
     This exists so the two consumers of the rule cannot drift: the citation
-    chips (``citations.binding.source_lane``) and the Herleitung fan-out
+    chips (``citations.source_identity.source_lane``) and the Herleitung fan-out
     (``knowledge_layer.search.trace_lanes.trace_lanes_for_hits``) used to apply it
     separately, and only the former actually did — so the same document showed
     as "Projektwissen" on a chip and "Web" in the fan-out of the same answer.

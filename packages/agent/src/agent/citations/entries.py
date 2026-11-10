@@ -73,18 +73,12 @@ class SourceEntry:
     # is but how nearly it matched; the best score of a page's chunks survives
     # dedup. None for URL/web sources.
     score: float | None = None
-    # BINDING CLASSIFICATION carried to the client (see
-    # ``binding_classification_for_entry``). Both default to the honest-unknown
-    # value on purpose: a source that matched no catalogued norm must NEVER claim
-    # to bind — a fabricated "binding" badge would be a false legal claim, so the
-    # safe default is "we don't know". ``rank`` is the :data:`NormRank` of the
-    # registry entry the source resolved to, or None when it matched none (an OIB
-    # corpus document, or any unrecognised file — those carry no RIS rank).
-    # ``binding_status`` is the coarse bindingness the UI badges: ``binding`` /
-    # ``declared_binding`` / ``interpretive`` / ``unknown``. These are optional
-    # carriers; the wire recomputes the classification fresh (it needs the
-    # registry + Bundesland the raw entry lacks) and they round-trip through the
-    # session-registry cache like the other fields.
+    # BINDING CLASSIFICATION, as an older pod cached it in the session registry. The
+    # wire never reads these: it recomputes the status from the turn's edition roles
+    # (``citations/roles.py``, ADR-0175), ``unknown`` where none reaches the passage,
+    # because a fabricated "binding" badge would be a false legal claim. ``rank`` was
+    # the norm registry's rank and nothing sets it any more. Kept so a cached entry
+    # still round-trips through the session-registry cache.
     rank: str | None = None
     binding_status: str = "unknown"
     # WHERE ON THE PAGE the passage sits, as boxes the viewer draws (issue #433).

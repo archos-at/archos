@@ -1,0 +1,14 @@
+---
+# area: building-law
+fixes:
+  - >
+    An answer now names a rule binding only where the reviewed building-law
+    records say it binds at the project's site, in the edition they name. When
+    the site's law cannot be read, the answer says so instead of assuming
+    Austrian law.
+operators:
+  - >
+    Research runs now need the knowledge context in their submit payload; a run
+    submitted without it answers with no building law. Publish the static chat
+    prompt again after this release: a version that still holds the Austrian
+    building-law block is no longer served.

@@ -14,10 +14,10 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from typing import Any
 
-from agent.citations.binding import LEGACY_BINDING_STATUS
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import normalize_url
 from agent.citations.registry import SourceRegistry
+from agent.citations.roles import LEGACY_BINDING_STATUS
 from agent.common.grounding_block import SourceRegion
 
 logger = logging.getLogger(__name__)

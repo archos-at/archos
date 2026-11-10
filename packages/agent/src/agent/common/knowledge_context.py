@@ -1,12 +1,10 @@
 """The turn's knowledge context (ADR-0173): which country, coverage and editions apply, as the BFF resolved them.
 
-The BFF sends it as ``knowledgeContext`` in the turn context
-(``apps/workspace/bff/base-knowledge/context/wire.ts``), behind
-``knowledge-context``. Absent means the flag is off, and the turn runs as it
-did: nothing here is bound and every reader keeps its old answer. Present but
-not the shape the BFF sends reads as ``knowledge_unavailable``, never as
-"everything applies": a context we cannot read withholds retrieval, law lookup
-and classification (fail closed).
+The BFF sends it as ``knowledgeContext`` on every turn (``apps/workspace/bff/base-knowledge/context/wire.ts``,
+ADR-0175) and in every research run's payload. It is the only source of which law applies: nothing here
+guesses a country from the project's text. Absent, or not the shape the BFF sends, reads as
+``knowledge_unavailable``, never as "everything applies": a context we cannot read withholds law lookup,
+verdicts and every edition's binding role (fail closed), and the turn says so (:func:`gate_note`).
 
 Bound per turn in a ``ContextVar`` (the per-turn state rule of this package),
 so the retrieval scope, the RIS tools and the round-0 prefetch ask
@@ -150,7 +148,13 @@ def set_turn_knowledge_context(value: KnowledgeContext | None) -> None:
 
 
 def get_turn_knowledge_context() -> KnowledgeContext | None:
+    """The bound context, or None outside a turn or run (a script, a door call): see :func:`corpus_countries`."""
     return _turn_knowledge_context.get()
+
+
+def turn_knowledge_context() -> KnowledgeContext:
+    """The turn's context; ``knowledge_unavailable`` when none is bound, so a reader fails closed."""
+    return _turn_knowledge_context.get() or UNAVAILABLE
 
 
 #: The country no office is entitled to (ISO 3166-1 user-assigned): a base-corpus chunk whose text no
@@ -159,11 +163,11 @@ UNRELEASED_COUNTRY = "ZZ"
 
 
 def corpus_countries() -> frozenset[str] | None:
-    """The countries whose base-corpus chunks this read may see; None when nothing says (``knowledge-context`` off).
+    """The countries whose base-corpus chunks this read may see; None when nothing says (no request at all).
 
     The turn's own gate when its context is bound (the site's countries, ADR-0173); otherwise the
     office's entitled countries the BFF signed onto the base corpus's entry of the collection scope,
-    which every run, job and door call carries too. ``vector_store.scope.scope_filter`` asks this on
+    which every door call carries too. ``vector_store.scope.scope_filter`` asks this on
     every read, so no path to the base corpus goes around it.
     """
     context = _turn_knowledge_context.get()
@@ -182,29 +186,28 @@ def corpus_countries() -> frozenset[str] | None:
 
 
 def base_corpus_readable() -> bool | None:
-    """Whether the turn may search the base corpus at all; None without a context (the site decides, ADR-0158)."""
-    context = _turn_knowledge_context.get()
-    return None if context is None else bool(context.retrieval_countries)
+    """Whether this read may search the base corpus at all: some country is readable (:func:`corpus_countries`).
+
+    None only without any request (a script): nothing is known to filter by, and the vector store's own
+    filter (``corpus_country_condition``) says the same.
+    """
+    countries = corpus_countries()
+    return None if countries is None else bool(countries)
 
 
-def law_tools_allowed(country: str) -> bool | None:
-    """Whether the turn may run ``country``'s law lookup; None when no context is bound (flag off).
+def law_tools_allowed(country: str) -> bool:
+    """Whether the turn may run ``country``'s law lookup; False without a bound context (fail closed).
 
     Stricter than the corpus: a gate that withholds law (:attr:`KnowledgeContext.withholds_law`) withholds
     the legal-database tools even where the turn may still read the office's entitled corpus (``site_unknown``).
     """
-    context = _turn_knowledge_context.get()
-    if context is None:
-        return None
+    context = turn_knowledge_context()
     return not context.withholds_law and country.upper() in context.retrieval_countries
 
 
-def corpus_country_allowed(country: str) -> bool | None:
-    """Whether the turn may read ``country``'s shared corpus and law tools; None when no context is bound (flag off)."""
-    context = _turn_knowledge_context.get()
-    if context is None:
-        return None
-    return country.upper() in context.retrieval_countries
+def corpus_country_allowed(country: str) -> bool:
+    """Whether the turn may read ``country``'s shared corpus; False without a bound context (fail closed)."""
+    return country.upper() in turn_knowledge_context().retrieval_countries
 
 
 _GATE_NOTES: dict[str, str] = {

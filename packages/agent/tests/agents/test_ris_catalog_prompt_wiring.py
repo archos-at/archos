@@ -114,7 +114,17 @@ def _graph_context(prompts: dict[str, str], project_context: str | None = None) 
     )
 
 
-def test_deep_render_prompt_passes_registry_block():
+@pytest.fixture
+def austria_core():
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
+    yield
+    set_turn_knowledge_context(None)
+
+
+def test_deep_render_prompt_passes_registry_block(austria_core):
     context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK\n{{ ris_catalog }}{% endif %}"})
 
     rendered = context.render_prompt("researcher")
@@ -124,7 +134,14 @@ def test_deep_render_prompt_passes_registry_block():
     assert "NOR12345678" in rendered
 
 
-def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypatch, tmp_path):
+def test_without_a_context_that_allows_ris_the_catalogue_is_withheld():
+    """ADR-0175: no knowledge context bound, no RIS tool, and no RIS addresses either."""
+    context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK{% else %}no-catalog{% endif %}"})
+
+    assert context.render_prompt("researcher") == "no-catalog"
+
+
+def test_deep_render_prompt_registry_block_empty_when_registry_missing(monkeypatch, tmp_path, austria_core):
     monkeypatch.setenv(ENV_NORMS_DIR, str(tmp_path / "empty-norms"))
     reset_registry_cache()
     context = _graph_context({"researcher": "{% if ris_catalog %}RIS-BLOCK{% else %}no-catalog{% endif %}"})

@@ -70,8 +70,8 @@ def test_the_roles_are_the_workspace_vocabulary():
 
 def test_defect_7_an_oib_2023_passage_is_guidance_in_steiermark():
     without = source_entry_to_wire(OIB_2023)
-    # Positive control: the guess calls it binding everywhere.
-    assert without["binding_status"] == "declared_binding"
+    # Without the records nothing says it binds (ADR-0175): no guess from the file name.
+    assert without["binding_status"] == "unknown"
     assert "role" not in without
 
     set_turn_building_law(parse_building_law(STYRIA))
@@ -81,10 +81,11 @@ def test_defect_7_an_oib_2023_passage_is_guidance_in_steiermark():
     assert wire["edition_id"] == "edition:oib-rl-2-2023"
 
 
-def test_without_the_records_the_wire_is_byte_for_byte_what_it_was():
-    before = source_entry_to_wire(OIB_2023)
+def test_without_the_records_a_passage_carries_no_binding_claim():
     set_turn_building_law(None)
-    assert source_entry_to_wire(OIB_2023) == before
+    wire = source_entry_to_wire(OIB_2023)
+    assert wire["binding_status"] == "unknown"
+    assert "role" not in wire and "binding_note" not in wire and "rank" not in wire
 
 
 def test_an_office_copy_with_the_same_file_name_is_not_the_platform_edition():

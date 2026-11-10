@@ -1,8 +1,9 @@
-"""The Austrian corpus is searched for an Austrian site, or a turn without a project (ADR-0158).
+"""The base corpus is searched only where the knowledge context lets the read see a country (ADR-0173, ADR-0175).
 
 Review of #1545, fix 1: a Bavarian project's "Brandschutz?" retrieved OIB-RL 2 as
-building law. The BFF leaves the base corpus out of such a project's scope; this
-holds the same rule for a scope the BFF did not state.
+building law. The project's own text no longer decides it: a profile naming
+Austria with a gate that reads no country searches no base corpus, and one
+naming Germany with a gate that reads Austria does.
 """
 
 from __future__ import annotations
@@ -13,8 +14,18 @@ import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.search import scoped_collections_for_site
 
+from agent.common.knowledge_context import KnowledgeContext
+from agent.common.knowledge_context import set_turn_knowledge_context
+
 GERMAN = "PROJECT_CONTEXT v1\n\nconfirmed:\n- country=de\n"
 AUSTRIAN = "PROJECT_CONTEXT v1\n\nconfirmed:\n- country=at\n- federal_state=tyrol\n"
+
+
+@pytest.fixture(autouse=True)
+def _unbound():
+    set_turn_knowledge_context(None)
+    yield
+    set_turn_knowledge_context(None)
 
 
 def _scope(context: str | None) -> list[str]:
@@ -31,10 +42,13 @@ def _scope(context: str | None) -> list[str]:
         return [entry.collection for entry in scoped_collections_for_site(config, "s_1")]
 
 
-@pytest.mark.parametrize("context", [None, AUSTRIAN])
-def test_the_base_corpus_serves_an_austrian_site_or_no_project(context: str | None) -> None:
-    assert _scope(context)[0] == "oib_knowledge"
+@pytest.mark.parametrize("profile", [None, AUSTRIAN, GERMAN])
+def test_a_gate_that_reads_austria_searches_the_base_corpus_whatever_the_profile_says(profile: str | None) -> None:
+    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"})))
+    assert _scope(profile)[0] == "oib_knowledge"
 
 
-def test_a_project_abroad_searches_its_own_collections_only() -> None:
-    assert _scope(GERMAN) == ["s_1", "proj_1"]
+@pytest.mark.parametrize("gate", ["not_entitled", "knowledge_unavailable", "organization_unplaced"])
+def test_a_gate_that_reads_no_country_searches_its_own_collections_only(gate: str) -> None:
+    set_turn_knowledge_context(KnowledgeContext(gate=gate))
+    assert _scope(AUSTRIAN) == ["s_1", "proj_1"]

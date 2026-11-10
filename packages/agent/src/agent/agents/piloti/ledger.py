@@ -15,11 +15,11 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from agent.citations.binding import document_key
-from agent.citations.binding import source_label
-from agent.citations.binding import source_origin_token
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import lost_citations
+from agent.citations.source_identity import document_key
+from agent.citations.source_identity import source_label
+from agent.citations.source_identity import source_origin_token
 from agent.citations.wire import read_source_to_wire
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events

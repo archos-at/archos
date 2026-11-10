@@ -131,6 +131,11 @@ class JobRequest:
     # The requester's signed ``{header, signature}`` (ADR-0108), echoed to the
     # tools that act as a person; renewed when stale, dropped on any refusal.
     request_envelope: dict | None = None
+    # The knowledge context and building law the BFF resolved for the run's project, the turn
+    # context's ``knowledgeContext`` and ``buildingLaw`` (ADR-0173, ADR-0175). Absent or malformed
+    # reads as ``knowledge_unavailable``: the run names no edition binding and withholds law lookup.
+    knowledge_context: dict | None = None
+    building_law: dict | None = None
 
     @property
     def identity(self) -> dict:
@@ -195,6 +200,8 @@ async def run_agent_job(
     run_id: str | None = None,
     documents: dict | None = None,
     request_envelope: dict | None = None,
+    knowledge_context: dict | None = None,
+    building_law: dict | None = None,
 ):
     """Run any registered agent as a research job, cancellable, traced under its caller's span.
 

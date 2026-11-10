@@ -16,7 +16,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 
-from agent.citations.binding import source_origin_token
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.citation_keys import path_in_citation
 from agent.citations.entries import DUPLICATE_REASON_PREFIX
@@ -43,6 +42,7 @@ from agent.citations.report_layout import label_inline_citations_not_in
 from agent.citations.report_layout import label_locus_mismatches
 from agent.citations.report_layout import normalize_citation_syntax
 from agent.citations.report_layout import normalize_source_section_layout
+from agent.citations.source_identity import source_origin_token
 
 logger = logging.getLogger(__name__)
 

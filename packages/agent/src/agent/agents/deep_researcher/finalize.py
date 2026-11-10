@@ -21,13 +21,13 @@ from typing import Any
 from agent.agents.piloti.markers import ConfidenceLevel
 from agent.agents.piloti.markers import answer_confidence_capped_reason
 from agent.agents.piloti.markers import surface_answer_confidence
-from agent.citations.binding import source_label
-from agent.citations.binding import source_origin_token
 from agent.citations.entries import lost_citations
 from agent.citations.quote_verification import annotate_unverified_quotes
 from agent.citations.quote_verification import verify_quoted_spans
 from agent.citations.references import expand_grouped_citations
 from agent.citations.sanitize import sanitize_report
+from agent.citations.source_identity import source_label
+from agent.citations.source_identity import source_origin_token
 from agent.citations.verification import verify_citations
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events

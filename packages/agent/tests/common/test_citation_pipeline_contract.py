@@ -36,12 +36,15 @@ from ris_adapter.lookup.passages import SCORE_RANKED_TOP
 from ris_adapter.lookup.passages import Passage
 from ris_adapter.lookup.render import format_passages
 
-from agent.citations.binding import document_key
-from agent.citations.binding import source_lane
 from agent.citations.entries import SourceEntry
 from agent.citations.extraction import extract_sources_from_tool_result
 from agent.citations.registry import SourceRegistry
+from agent.citations.roles import BuildingLaw
+from agent.citations.roles import EditionUse
+from agent.citations.roles import set_turn_building_law
 from agent.citations.sanitize import sanitize_report
+from agent.citations.source_identity import document_key
+from agent.citations.source_identity import source_lane
 from agent.citations.verification import verify_citations
 from agent.citations.wire import source_entry_to_wire
 from agent.common.grounding_block import begin_grounding_capture
@@ -311,6 +314,7 @@ GOLDEN_HITS = [
         page=12,
         collection="oib_knowledge",
         doc_class="oib_guideline",
+        shelf="base",
         body="Brandabschnitte sind so auszubilden, dass eine Brandausbreitung begrenzt wird.",
     ),
     Hit(
@@ -344,6 +348,22 @@ GOLDEN_ANSWER = (
 )
 
 
+GOLDEN_BUILDING_LAW = BuildingLaw(
+    text="Building law at this site, Wien (AT-9, AT, EU).",
+    chain=("AT-9", "AT", "EU"),
+    date="2026-11-10",
+    uses=(
+        EditionUse(
+            work_id="work:oib-rl-2",
+            edition_id="edition:oib-rl-2:2023-05",
+            role="binding",
+            via="relation",
+            corpus_files=("oib-rl_2_ausgabe_mai_2023.pdf",),
+        ),
+    ),
+)
+
+
 def run_golden_path():
     """Walk the whole chain exactly as Piloti's node does.
 
@@ -366,11 +386,17 @@ def run_golden_path():
     verification = verify_citations(GOLDEN_ANSWER, registry, reference_sources=registry.all_sources())
     sanitization = sanitize_report(verification.verified_report)
 
-    wire = []
-    for citation in verification.valid_citations:
-        entry = registry.entry_for_citation_key(citation["citation_key"])
-        number = sanitization.renumber_map.get(citation["number"], citation["number"])
-        wire.append(source_entry_to_wire(entry, number=number))
+    # The turn's edition roles (ADR-0168): the only source of a binding status (ADR-0175). The
+    # OIB-RL 2:2023 the answer cites is declared binding at the site by the Land's ordinance.
+    set_turn_building_law(GOLDEN_BUILDING_LAW)
+    try:
+        wire = []
+        for citation in verification.valid_citations:
+            entry = registry.entry_for_citation_key(citation["citation_key"])
+            number = sanitization.renumber_map.get(citation["number"], citation["number"])
+            wire.append(source_entry_to_wire(entry, number=number))
+    finally:
+        set_turn_building_law(None)
     return tool_output, verification, sanitization, wire
 
 

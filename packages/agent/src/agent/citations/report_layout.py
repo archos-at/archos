@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import re
 
-from agent.citations.binding import source_origin_token
 from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import LOCUS_MISMATCH_REASON
 from agent.citations.entries import SourceEntry
@@ -21,6 +20,7 @@ from agent.citations.references import REFERENCE_HEADING_LINE_RE
 from agent.citations.references import SOURCE_LOCATION_CITATION_RE
 from agent.citations.references import URL_IN_LINE_RE
 from agent.citations.registry import SourceRegistry
+from agent.citations.source_identity import source_origin_token
 
 logger = logging.getLogger(__name__)
 

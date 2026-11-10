@@ -26,11 +26,10 @@ from langgraph.types import Checkpointer
 from agent.common import LLMProvider
 from agent.common import LLMRole
 from agent.common import render_prompt_template
-from agent.common.country_profile import JURISDICTION_GROUNDING
-from agent.common.norm_registry import doctrine_for
+from agent.common.law_gate import JURISDICTION_GROUNDING
+from agent.common.law_gate import research_doctrine
 from agent.common.norm_registry import parcel_note
 from agent.common.norm_registry import render_block_for_prompt
-from agent.common.norm_registry import resolve_country
 from agent.skills import OFFICE_SOURCE
 from agent.skills import SKILLS_ROOT
 from agent.skills import SkillRuntime
@@ -166,9 +165,9 @@ class DeepResearchGraphContext:
             project_context=self.project_context,
             platform_lessons=self.state.platform_lessons,
             ris_catalog=self.ris_catalog,
-            norm_doctrine=doctrine_for(self.project_context),
+            norm_doctrine=research_doctrine(),
             jurisdiction_grounding=JURISDICTION_GROUNDING,
-            parcel_note=parcel_note(self.available_documents, resolve_country(self.project_context)),
+            parcel_note=parcel_note(self.available_documents),
             basis=self.basis,
             excluded=self.excluded,
             **values,

@@ -189,6 +189,18 @@ class SkillSubmitPayload(BaseModel):
             "excluded: [...]}. Sanitised in the worker; absent when none were named."
         ),
     )
+    knowledge_context: dict | None = Field(
+        None,
+        description=(
+            "The knowledge context the BFF resolved for the run's project, the turn context's "
+            "`knowledgeContext` (ADR-0173, ADR-0175). Absent or malformed, the run reads it as "
+            "`knowledge_unavailable`: no edition named binding, no legal-database lookup."
+        ),
+    )
+    building_law: dict | None = Field(
+        None,
+        description="The chain text and edition roles at the site, the turn context's `buildingLaw` (ADR-0168).",
+    )
     priority: Literal["interactive", "bulk"] = Field(
         "interactive",
         description=(
@@ -343,6 +355,8 @@ async def _submit_skill_run(
             run_id=body.run_id,
             clarifier_result=body.clarifier_result,
             documents=body.documents,
+            knowledge_context=body.knowledge_context,
+            building_law=body.building_law,
             priority=body.priority,
             request_envelope=request_envelope,
         )

@@ -35,7 +35,6 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool
 from pydantic import ValidationError
 
-from agent.citations.binding import agent_authored_document_names
 from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import EmptySourceRegistryError
 from agent.citations.entries import SourceEntry
@@ -48,6 +47,7 @@ from agent.citations.references import expand_grouped_citations
 from agent.citations.registry import SourceRegistry
 from agent.citations.sanitize import sanitize_report
 from agent.citations.session import get_turn_captures
+from agent.citations.source_identity import agent_authored_document_names
 from agent.citations.trailer_values import drop_ungrounded_trailer_values
 from agent.citations.verification import verify_citations
 from agent.common import citation_events

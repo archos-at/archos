@@ -19,6 +19,7 @@ from typing import Any
 
 from agent.auth import get_current_principal
 from agent.citations.roles import BuildingLaw
+from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
 from agent.common.platform_lessons import resolve_platform_lessons
@@ -80,10 +81,10 @@ class TurnContext:
     #: answer's renderer to word. Empty with the flag off or from an older BFF.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
     #: The building law of the project's site from the platform's records
-    #: (ADR-0168): the chain text and every edition's role. None with the flag off.
+    #: (ADR-0168): the chain text and every edition's role. None when the records resolved no site.
     building_law: BuildingLaw | None = None
-    #: The turn's knowledge context (ADR-0173); None with the ``knowledge-context`` flag off.
-    knowledge_context: KnowledgeContext | None = None
+    #: The turn's knowledge context (ADR-0173); ``knowledge_unavailable`` unless the BFF sent one (ADR-0175).
+    knowledge_context: KnowledgeContext = UNAVAILABLE
     #: Whether this turn may hand work over (`create_task`). Its own flag, see
     #: :class:`agent.stages.flags.TurnFlags`.
     tasks_allowed: bool = True

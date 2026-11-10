@@ -38,6 +38,7 @@ from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
 from agent.common.knowledge_context import set_turn_knowledge_context
 from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
+from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -463,8 +464,7 @@ async def _prepare_turn(
     # Which country, coverage and editions apply, and what the turn may retrieve
     # (ADR-0173); None included, so a turn never reads the last turn's gate.
     set_turn_knowledge_context(context.knowledge_context)
-    if context.knowledge_context is not None:
-        record_trace_metadata(**knowledge_trace_metadata(context.knowledge_context))
+    record_trace_metadata(**knowledge_trace_metadata(turn_knowledge_context()))
     if context.building_law is not None:
         record_trace_metadata(
             building_law_chain=",".join(context.building_law.chain),

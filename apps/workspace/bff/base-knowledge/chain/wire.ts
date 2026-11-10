@@ -1,7 +1,7 @@
 /**
  * What a turn carries of the building law (ADR-0168): the chain text the agent
  * reads, and per edition its role, as tokens the answer's renderer and
- * `citations/binding.py` key on. Pure and zod, shared by the turn-context
+ * `citations/roles.py` key on. Pure and zod, shared by the turn-context
  * route and its spec; the Python tier parses the same shape
  * (`turn/context_client.py`).
  */

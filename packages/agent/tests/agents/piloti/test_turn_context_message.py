@@ -318,88 +318,85 @@ class TestThroughTheAgent:
 
 
 # =============================================================================
-# Where the project is decides what Austrian law the turn context presents
-# (design docs/design/international/design.md A1, defects 1, 2, 4, 6, 7)
+# The knowledge context alone decides what building law the turn context presents
+# (ADR-0173, ADR-0175; design A1, defects 1, 2, 4, 6, 7)
 # =============================================================================
-# A German, Swiss or other project got the OIB verdicts and nothing that said
-# its own law was not covered; a project whose site nothing states was treated
-# as Austrian. Now the context carries a jurisdiction note for those, and the
-# OIB block only for a project placed in Austria; an Austrian project's block
-# gains the binding OIB edition of its Land and nothing else.
+# The project's own text no longer places it: a Vienna profile with no context
+# reads no Austrian law, and a German one with a core Austrian context would
+# read Austria's. Each case binds a context and the chain text the BFF sends.
 
-JURISDICTION_FACTS = "- main_use=residential\n- building_class=4\n- parking_relevant=true\n- allotment_garden_area=true"
+VIENNA_TEXT = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n- building_class=4\n"
+CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."
 
 
-def _jurisdiction_context(placing: str) -> str:
+@pytest.fixture
+def bound():
+    """Bind a knowledge context and a chain for one test; both reset after it."""
+    from agent.citations.roles import BuildingLaw
+    from agent.citations.roles import set_turn_building_law
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    def bind(gate: str | None, *, chain: str | None = CHAIN, country: str | None = "AT") -> None:
+        context = (
+            None
+            if gate is None
+            else KnowledgeContext(
+                gate=gate, site_country=country, retrieval_countries=frozenset({country} if country else ())
+            )
+        )
+        set_turn_knowledge_context(context)
+        law = BuildingLaw(text=chain, chain=("AT-9", "AT", "EU"), date="2026-11-10", uses=()) if chain else None
+        set_turn_building_law(law)
+
+    yield bind
+    set_turn_knowledge_context(None)
+    set_turn_building_law(None)
+
+
+def _context(project_context: str = VIENNA_TEXT) -> str:
     state = ResearchAgentState(
         messages=[HumanMessage(content="Welche Anforderungen gelten für das Stiegenhaus?")],
-        project_context=f"PROJECT_CONTEXT v1\n\nconfirmed:\n{placing}{JURISDICTION_FACTS}\n",
+        project_context=project_context,
     )
     return render_turn_prompt(system_prompt_template(), state, [{"name": "knowledge_search"}]).context
 
 
+def test_a_core_context_carries_the_records_chain_and_no_note(bound):
+    bound("core")
+    context = _context()
+    assert f"<building_law>\n{CHAIN}\n</building_law>" in context
+    assert "## Building law:" not in context
+
+
+def test_without_a_context_a_vienna_profile_reads_no_law_and_the_unavailable_note(bound):
+    """ADR-0175: the project's text never places it; no context fails closed, chain or not."""
+    bound(None)
+    context = _context()
+    assert "<building_law>" not in context
+    assert "Building law: not available this turn" in context
+    assert "OIB 1 —" not in context
+
+
 @pytest.mark.parametrize(
-    "placing", ["- country=de\n", "- country=ch\n", "- country=other\n", "- federal_state=outside_austria\n"]
+    "gate", ["organization_unplaced", "site_unknown", "not_entitled", "knowledge_unavailable", "none"]
 )
-def test_a_project_abroad_gets_no_austrian_law_and_is_told_so(placing):
-    context = _jurisdiction_context(placing)
-    assert "not covered" in context
-    assert "OIB 1 —" not in context
-    assert "Wiener" not in context
-    assert "OIB edition" not in context
+def test_a_gate_that_withholds_law_shows_its_note_and_no_chain(bound, gate):
+    bound(gate, country="DE" if gate in ("not_entitled", "none") else None)
+    context = _context()
+    assert "<building_law>" not in context
+    assert "## Building law:" in context
 
 
-def test_an_unplaced_project_gets_no_verdicts_and_is_asked_for_its_site():
-    context = _jurisdiction_context("")
-    assert "site not stated" in context
-    assert "OIB 1 —" not in context
+def test_open_coverage_carries_the_chain_and_says_it_is_open(bound):
+    bound("open")
+    context = _context()
+    assert f"<building_law>\n{CHAIN}" in context
+    assert "open coverage" in context
 
 
-def test_an_austrian_project_keeps_its_block_and_reads_no_note():
-    context = _jurisdiction_context("- federal_state=tyrol\n")
-    assert "OIB 1 — required —" in context
-    assert "Jurisdiction:" not in context
-    # Tirol is not Wien: no Viennese law.
-    assert "Wiener" not in context
-
-
-def test_vienna_still_names_its_own_laws():
-    context = _jurisdiction_context("- federal_state=vienna\n")
-    assert "Wiener Kleingartengesetz" in context
-    assert "Wiener Garagengesetz" in context
-
-
-class TestBuildingLaw:
-    """ADR-0168: the records' chain reaches the turn context only once the static prompt drops the block."""
-
-    CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."
-    VIENNA = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n"
-
-    @pytest.fixture(autouse=True)
-    def _turn_building_law(self):
-        from agent.citations.roles import BuildingLaw
-        from agent.citations.roles import set_turn_building_law
-
-        set_turn_building_law(BuildingLaw(text=self.CHAIN, chain=("AT-9", "AT", "EU"), date="2026-11-10", uses=()))
-        yield
-        set_turn_building_law(None)
-
-    def _state(self) -> ResearchAgentState:
-        return ResearchAgentState(
-            messages=[HumanMessage(content="Welche Brandschutzklasse brauche ich?")], project_context=self.VIENNA
-        )
-
-    def test_the_turn_context_is_byte_identical_while_the_static_prompt_holds_the_block(self):
-        from agent.citations.roles import set_turn_building_law
-
-        template = system_prompt_template()
-        static = (prompt_module.PROMPTS_DIR / prompt_module.STATIC_PROMPT_FILE).read_text(encoding="utf-8")
-        with_chain = prompt_module.render_turn_context(template, self._state(), [], static_text=static)
-        set_turn_building_law(None)
-        assert prompt_module.render_turn_context(template, self._state(), []) == with_chain
-        assert "<building_law>" not in with_chain
-
-    def test_after_the_neutral_push_the_turn_context_carries_the_records_chain(self):
-        neutral = "<role>a static prompt without the block</role>"
-        rendered = prompt_module.render_turn_context(system_prompt_template(), self._state(), [], static_text=neutral)
-        assert f"<building_law>\n{self.CHAIN}" in rendered
+def test_no_hand_written_verdicts_reach_the_turn_any_more(bound):
+    """``common/applicability.py`` is gone: which law applies is the records' to say."""
+    bound("core")
+    assert "OIB 1 —" not in _context()
+    assert "Likely relevant for this project" not in _context()

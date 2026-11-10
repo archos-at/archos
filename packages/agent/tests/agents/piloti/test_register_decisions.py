@@ -255,7 +255,14 @@ class TestTheTurn:
 
     async def test_a_two_word_family_question_is_warmed_for_its_undecided_prefetch(self):
         """„OIB 2" skips the decision, and the undecided path still searches it:
-        the search must find its embedding warm, not pay for it after."""
+        the search must find its embedding warm, not pay for it after. Austria's corpus is read only
+        because the turn's knowledge context allows it (ADR-0175)."""
+        from agent.common.knowledge_context import KnowledgeContext
+        from agent.common.knowledge_context import set_turn_knowledge_context
+
+        set_turn_knowledge_context(
+            KnowledgeContext(gate="core", site_country="AT", retrieval_countries=frozenset({"AT"}))
+        )
         with patch("agent.knowledge.factory.warm_search_query", new_callable=AsyncMock) as warm:
             turn, _state, decide = await _run_turn(
                 ResearchAgentConfig(llm="research_llm", tools=["knowledge_search"], skills_enabled=False),
@@ -263,6 +270,7 @@ class TestTheTurn:
                 [HumanMessage(content="OIB 2")],
             )
         decide.assert_not_awaited()
+        set_turn_knowledge_context(None)
         assert turn.prefetch == ({"name": "knowledge_search", "args": {"query": "OIB 2"}},)
         warm.assert_awaited_once_with("OIB 2")
 
