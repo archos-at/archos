@@ -131,15 +131,15 @@ The paths that went with them:
 - Bad: offices that had none of the switches see the Steckbrief card change
   from OIB verdicts to the law the records name, and the base knowledge card
   in their settings.
-- Bad, until its own change lands: the OIB list narrowed by the building
+- Bad, until ADR-0176 lands: the OIB list narrowed by the building
   (OIB-RL 2.1 for a Betriebsbau, 2.2 for a garage, 2.3 for a high-rise by its
   escape level), the reason on each chip, its source link and the door's
-  `decidingFact` went with `bff/oib`. They return as data, not code: the
-  applicability conditions as rules over the building facts run by the one
-  evaluator (ADR-0166, `classification-evaluate`), so the chain narrows by the
-  building as well as by the site, each chip with its reason and the source
-  link of its edition's manifestation. That change follows this one; Wave 5
-  is done only once it has landed.
+  `decidingFact` went with `bff/oib`. They return as data, not code
+  (ADR-0176): `applicability` rulesets over the building facts, run by the one
+  evaluator (ADR-0166), so the chain narrows by the building as well as by the
+  site; each chip says why with the provision and opens the text its
+  manifestation cites, and `decidingFact` is `applicability.open` on each use
+  of `project-base-get`'s `law`. Wave 5 is done once ADR-0176 has landed.
 
 ### Confirmation
 

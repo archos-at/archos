@@ -1,0 +1,13 @@
+---
+# area: building-law
+improvements:
+  - >
+    The OIB guidelines for Betriebsbauten, garages and high-rises are named
+    again only for the buildings they are written for, in the setup and in the
+    chat alike. Where a deciding fact is still missing the guideline reads „zu
+    prüfen“ and names it; where it applies it says why and opens its text.
+operators:
+  - >
+    Migration 0214 adds rules that say which buildings a code or guideline is
+    for. Propose Austria's three as one change request for AT once the Austria
+    pack is published; until they are published, nothing is narrowed.

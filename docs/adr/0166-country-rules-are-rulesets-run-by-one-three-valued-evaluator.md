@@ -56,7 +56,7 @@ Chosen option 3.
   table (`payload_schema` `decision_table.v1`, `payload`) or
   `inherits = 'parent'`, never both (CHECK). Purposes are
   `classification`, `derivation`, `reference_date` and `competence`, which are
-  decision tables, plus `fact_definitions`, `fact_sources`, `advice_policy` and
+  decision tables (ADR-0176 adds `applicability`, a fifth), plus `fact_definitions`, `fact_sources`, `advice_policy` and
   `terminology`, which get their payload schema in the slice that first reads
   them. The wire is `bff/base-knowledge/wire/ruleset.ts` (zod).
 - **Table.** `decision_table.v1`: typed `inputs` (`number`, `boolean`, `code`,
