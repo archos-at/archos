@@ -87,8 +87,11 @@ export async function appendRevision(
     await tx.insert(knowledgeEditionRevisions).values({ ...base, ...(body as EditionBody) })
   } else if (input.type === 'manifestation') {
     await tx.insert(knowledgeManifestationRevisions).values({ ...base, ...(body as CopyBody) })
-  } else {
+  } else if (input.type === 'ruleset') {
     await tx.insert(knowledgeRulesetRevisions).values({ ...base, ...(body as RulesetBody) })
+  } else {
+    const unhandled: never = input.type
+    throw new Error(`no body table for knowledge record type ${String(unhandled)}`)
   }
   return revisionId
 }

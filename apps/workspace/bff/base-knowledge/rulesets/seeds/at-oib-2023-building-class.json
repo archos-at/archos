@@ -24,7 +24,7 @@
         "type": "code",
         "codes": [
           "no_building",
-          "hochhaus",
+          "high_rise",
           "at-oib-2023:GK1",
           "at-oib-2023:GK2",
           "at-oib-2023:GK3",
@@ -41,7 +41,7 @@
         {
           "id": "high-rise",
           "when": { ">": [{ "var": "escape_level_m" }, 22] },
-          "then": "hochhaus",
+          "then": "high_rise",
           "provision": {
             "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen, GK 5 und Hochhaus",
             "wording": "paraphrase"
@@ -151,7 +151,7 @@
         },
         {
           "facts": { "building_type": "building", "escape_level_m": 25 },
-          "expect": { "then": "hochhaus" }
+          "expect": { "then": "high_rise" }
         },
         {
           "facts": {

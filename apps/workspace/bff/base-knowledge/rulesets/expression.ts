@@ -62,6 +62,9 @@ export const OPERATORS = {
 } as const satisfies Record<string, readonly [number, number]>
 export type Operator = keyof typeof OPERATORS
 
+/** The deepest nesting a condition may have: deeper is refused, never a stack overflow. */
+export const MAX_DEPTH = 32
+
 /** `""` names the current element inside `all`, `some` and `none`. */
 const ELEMENT = ''
 
@@ -136,8 +139,10 @@ export function checkExpression(
 function typeOf(
   expression: unknown,
   declared: ReadonlyMap<string, FactType>,
-  element: StaticType | null
+  element: StaticType | null,
+  depth = 0
 ): Checked {
+  if (depth > MAX_DEPTH) return problem(`a condition nests at most ${MAX_DEPTH} levels`)
   if (typeof expression === 'boolean') return { type: 'boolean', problems: [] }
   if (typeof expression === 'string') return { type: 'string', problems: [] }
   if (typeof expression === 'number')
@@ -163,11 +168,11 @@ function typeOf(
     return problem(`${op} takes ${min} to ${max} arguments, found ${args.length}`)
   if (op === 'var') return typeOfVar(args[0], declared, element)
   if (op === 'all' || op === 'some' || op === 'none') {
-    const list = typeOf(args[0], declared, element)
-    const predicate = typeOf(args[1], declared, 'scalar')
+    const list = typeOf(args[0], declared, element, depth + 1)
+    const predicate = typeOf(args[1], declared, 'scalar', depth + 1)
     return expecting(op, [list, predicate], ['list', 'boolean'], 'boolean')
   }
-  const operands = args.map((arg) => typeOf(arg, declared, element))
+  const operands = args.map((arg) => typeOf(arg, declared, element, depth + 1))
   return typeOfOperation(op, operands)
 }
 
@@ -254,6 +259,7 @@ export function readFact(key: string, type: FactType, raw: unknown): Kleene {
 interface Scope {
   facts: ReadonlyMap<string, Kleene>
   element?: Value
+  depth: number
 }
 
 /** The facts of a table's inputs, each read against its declared type. */
@@ -278,10 +284,12 @@ export function evaluateExpression(
   expression: unknown,
   facts: ReadonlyMap<string, Kleene>
 ): Kleene {
-  return evaluate(expression, { facts })
+  return evaluate(expression, { facts, depth: 0 })
 }
 
 function evaluate(expression: unknown, scope: Scope): Kleene {
+  if (scope.depth > MAX_DEPTH)
+    throw new RulesetEvaluationError(`a condition nests at most ${MAX_DEPTH} levels`)
   if (isScalar(expression)) return known(expression)
   if (Array.isArray(expression)) {
     if (!expression.every(isScalar))
@@ -297,7 +305,7 @@ function evaluate(expression: unknown, scope: Scope): Kleene {
     throw new RulesetEvaluationError(`${op} takes ${min} to ${max} arguments`)
   if (op === 'var') return lookup(args[0], scope)
   if (op === 'all' || op === 'some' || op === 'none') return quantify(op, args, scope)
-  const values = args.map((arg) => evaluate(arg, scope))
+  const values = args.map((arg) => evaluate(arg, deeper(scope)))
   if (op === 'and' || op === 'or') return connective(op, values)
   const pending = values.filter((value) => !value.known)
   if (pending.length > 0)
@@ -309,6 +317,8 @@ function evaluate(expression: unknown, scope: Scope): Kleene {
     )
   )
 }
+
+const deeper = (scope: Scope): Scope => ({ ...scope, depth: scope.depth + 1 })
 
 function lookup(name: unknown, scope: Scope): Kleene {
   if (name === ELEMENT) {
@@ -342,13 +352,13 @@ function connective(op: 'and' | 'or', values: readonly Kleene[]): Kleene {
 
 /** `all`, `some` and `none` over a list: `and`, `or` and `not or` of the predicate per element. */
 function quantify(op: 'all' | 'some' | 'none', args: readonly unknown[], scope: Scope): Kleene {
-  const list = evaluate(args[0], scope)
+  const list = evaluate(args[0], deeper(scope))
   if (!list.known) return list
   if (!Array.isArray(list.value)) throw new RulesetEvaluationError(`${op} takes a list`)
   const items = list.value as readonly Scalar[]
   // JsonLogic's own reading of the empty list: `all` of nothing is false.
   if (items.length === 0) return known(op === 'none')
-  const each = items.map((element) => evaluate(args[1], { ...scope, element }))
+  const each = items.map((element) => evaluate(args[1], { ...deeper(scope), element }))
   const any = connective(op === 'all' ? 'and' : 'or', each)
   if (op !== 'none' || !any.known) return any
   return known(!any.value)

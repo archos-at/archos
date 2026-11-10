@@ -124,6 +124,8 @@ export function rulesetFromRow(row: RulesetRow): StoredRuleset | null {
 
 export interface RulesetRead {
   rulesets: StoredRuleset[]
+  /** More than {@link MAX_RULESETS} matched: the read is incomplete, and a decision from it is not to be trusted. */
+  truncated: boolean
   /** Records in force whose body the evaluator cannot read: a data error to report, not a rule to skip silently. */
   unreadable: string[]
 }
@@ -137,7 +139,7 @@ export async function readRulesetsInForce(
   organizationId: string,
   query: { purpose: RulesetPurpose; territoryIds: readonly string[] }
 ): Promise<RulesetRead> {
-  if (query.territoryIds.length === 0) return { rulesets: [], unreadable: [] }
+  if (query.territoryIds.length === 0) return { rulesets: [], unreadable: [], truncated: false }
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .select({ body: knowledgeRulesetRevisions })
@@ -154,14 +156,15 @@ export async function readRulesetsInForce(
           sql`${knowledgeRulesetRevisions.territoryIds} && ${sql.param([...query.territoryIds])}::text[]`
         )
       )
-      .limit(MAX_RULESETS)
+      .orderBy(knowledgeRecords.id)
+      .limit(MAX_RULESETS + 1)
   )
   const rulesets: StoredRuleset[] = []
   const unreadable: string[] = []
-  for (const { body } of rows) {
+  for (const { body } of rows.slice(0, MAX_RULESETS)) {
     const ruleset = rulesetFromRow(body)
     if (ruleset) rulesets.push(ruleset)
     else unreadable.push(body.recordId)
   }
-  return { rulesets, unreadable }
+  return { rulesets, unreadable, truncated: rows.length > MAX_RULESETS }
 }

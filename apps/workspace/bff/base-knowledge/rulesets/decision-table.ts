@@ -9,6 +9,7 @@
  * applies (ticket 30, "ask only what can change the classification").
  */
 
+import { isDeepStrictEqual } from 'node:util'
 import type { DecisionTable, Provision } from '@/lib/base-knowledge/wire/ruleset'
 import { evaluateExpression, scopeOf, type Facts } from './expression'
 
@@ -86,8 +87,7 @@ export function failingExamples(table: DecisionTable): ExampleFailure[] {
     const actual = evaluateDecisionTable(table, example.facts)
     const passes =
       'then' in example.expect
-        ? actual.status === 'decided' &&
-          JSON.stringify(actual.then) === JSON.stringify(example.expect.then)
+        ? actual.status === 'decided' && isDeepStrictEqual(actual.then, example.expect.then)
         : actual.status === 'undetermined' &&
           actual.reason === 'unknown_inputs' &&
           JSON.stringify(actual.unknownInputs) === JSON.stringify(example.expect.undeterminedBy)

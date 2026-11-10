@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod'
-import { checkExpression } from '@/lib/base-knowledge/rulesets/expression'
+import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
 import {
   DECISION_TABLE_PURPOSES,
   FACT_TYPES,
@@ -97,6 +97,30 @@ const exampleSchema = z
   })
   .strict()
 
+/**
+ * An example's facts must be declared inputs of their declared types: an
+ * undeclared key would test nothing, and a mistyped one would fail as an
+ * evaluation error rather than as the author's mistake.
+ */
+function exampleIssues(
+  examples: readonly z.infer<typeof exampleSchema>[],
+  declared: ReadonlyMap<string, (typeof FACT_TYPES)[number]>
+): { path: (string | number)[]; message: string }[] {
+  return examples.flatMap((example, index) =>
+    Object.entries(example.facts).flatMap(([key, value]) => {
+      const path = ['examples', index, 'facts', key]
+      const type = declared.get(key)
+      if (!type) return [{ path, message: `${key} is not a declared input` }]
+      try {
+        readFact(key, type, value)
+        return []
+      } catch (error) {
+        return [{ path, message: (error as Error).message }]
+      }
+    })
+  )
+}
+
 /** Whether `value` is a value the output declares. */
 export function isOutputValue(output: DecisionOutput, value: unknown): boolean {
   switch (output.type) {
@@ -159,6 +183,8 @@ export const decisionTableSchema = z
         message: `not a ${table.output.type} the output declares`,
       })
     }
+    for (const issue of exampleIssues(table.examples, declared))
+      context.addIssue({ code: 'custom', ...issue })
   })
 export type DecisionTable = z.infer<typeof decisionTableSchema>
 export type DecisionTableInput = z.input<typeof decisionTableSchema>

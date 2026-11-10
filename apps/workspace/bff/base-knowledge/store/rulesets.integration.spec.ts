@@ -25,6 +25,7 @@ vi.mock('server-only', () => ({}))
 const url = process.env.TEST_DATABASE_URL
 const ORG = `org_rs_${Date.now()}`
 const OTHER_ORG = `${ORG}_other`
+const E32_ORG = `${ORG}_e32`
 const CONTEXT = { createdBy: 'user_rs', provenance: { proposedBy: 'person' as const } }
 
 /** Synthetic: the Bezirksamt of a synthetic Berlin city district (design E32). */
@@ -107,7 +108,7 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   afterAll(async () => {
-    for (const organizationId of [ORG, OTHER_ORG]) {
+    for (const organizationId of [ORG, OTHER_ORG, E32_ORG]) {
       await as(organizationId, () =>
         db.execute(
           sql`DELETE FROM knowledge_records WHERE organization_id = ${organizationId} AND type = 'ruleset'`
@@ -125,9 +126,12 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
   })
 
   it('decides E32 from the stored ruleset: Berlin-Mitte gives Bezirksamt Mitte', async () => {
-    const { rulesets } = await competence(ORG)
+    // Its own office: no other test's Berlin ruleset can make this one ambiguous.
+    await store.insertOfficeRuleset(E32_ORG, BERLIN, { ...CONTEXT, inForce: true })
+    const read = await competence(E32_ORG)
+    expect(read).toMatchObject({ unreadable: [], truncated: false })
     const result = select.decide(
-      rulesets,
+      read.rulesets,
       { purpose: 'competence', chain: ['DE:test:berlin-mitte', 'DE-BE', 'DE'], on: '2026-11-10' },
       { city_district: 'DE:test:berlin-mitte' }
     )
@@ -135,6 +139,37 @@ describe.skipIf(!url)('rulesets against Postgres', () => {
       status: 'decided',
       then: { bodies: [{ authorityId: 'authority:test:bezirksamt-mitte', role: 'decides' }] },
     })
+  })
+
+  it('an office reads a platform ruleset once it is in force, never before', async () => {
+    const recordId = `ruleset_${randomUUID()}`
+    const revisionId = randomUUID()
+    const territory = `DE:test:platform-${Date.now()}`
+    const payload = JSON.stringify(BERLIN.body.kind === 'table' ? BERLIN.body.payload : {})
+    await withPlatformAccess('rulesets spec platform row', () =>
+      db.transaction(async (tx) => {
+        await tx.execute(
+          sql`INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES (${recordId}, NULL, 'ruleset', 'platform')`
+        )
+        await tx.execute(
+          sql`INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by) VALUES (${revisionId}, ${recordId}, 'ruleset', NULL, 'platform')`
+        )
+        await tx.execute(sql`INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
+          VALUES (${revisionId}, ${recordId}, NULL, 'competence', ARRAY[${territory}], '2020-01-01', 'decision_table.v1', ${payload}::jsonb)`)
+      })
+    )
+    const read = () =>
+      store.readRulesetsInForce(ORG, { purpose: 'competence', territoryIds: [territory] })
+    expect((await read()).rulesets).toEqual([])
+    await withPlatformAccess('rulesets spec platform head', () =>
+      db.execute(
+        sql`UPDATE knowledge_records SET head_revision_id = ${revisionId} WHERE id = ${recordId}`
+      )
+    )
+    expect((await read()).rulesets.map((ruleset) => ruleset.id)).toEqual([recordId])
+    await withPlatformAccess('rulesets spec platform cleanup', () =>
+      db.execute(sql`DELETE FROM knowledge_records WHERE id = ${recordId}`)
+    )
   })
 
   it('a proposal without a head does not count', async () => {

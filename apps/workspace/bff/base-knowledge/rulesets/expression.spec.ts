@@ -18,7 +18,13 @@ import {
   knownFacts,
   partialFacts,
 } from '@/test-utils/ruleset-arbitraries'
-import { RulesetEvaluationError, checkExpression, evaluateExpression, scopeOf } from './expression'
+import {
+  MAX_DEPTH,
+  RulesetEvaluationError,
+  checkExpression,
+  evaluateExpression,
+  scopeOf,
+} from './expression'
 
 const run = (expression: unknown, facts: Record<string, unknown>) =>
   evaluateExpression(expression, scopeOf(INPUTS, facts))
@@ -154,6 +160,22 @@ describe('closed and typed: what it refuses rather than reads as false', () => {
       known: false,
       waitsFor: new Set(['constructor']),
     })
+  })
+
+  it('refuses a condition nested past the limit, however deep, without overflowing the stack', () => {
+    const nested = (depth: number): unknown => {
+      let expression: unknown = { var: 'b1' }
+      for (let level = 0; level < depth; level += 1) expression = { '!': [expression] }
+      return expression
+    }
+    expect(checkExpression(nested(MAX_DEPTH - 1), DECLARED)).toEqual([])
+    expect(checkExpression(nested(MAX_DEPTH + 1), DECLARED)).toEqual([
+      `a condition nests at most ${MAX_DEPTH} levels`,
+    ])
+    expect(checkExpression(nested(20_000), DECLARED)).toEqual([
+      `a condition nests at most ${MAX_DEPTH} levels`,
+    ])
+    expect(() => run(nested(20_000), { b1: true })).toThrow(RulesetEvaluationError)
   })
 
   it('throws on a fact of another type than its input declares', () => {

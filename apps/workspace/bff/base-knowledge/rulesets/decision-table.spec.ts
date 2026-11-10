@@ -182,6 +182,33 @@ describe('a small table by hand', () => {
     expect(failingExamples(wrong)).toHaveLength(1)
   })
 
+  it('compares an example by value, whatever the order of its keys', () => {
+    const bodies = decisionTableSchema.parse({
+      inputs: [{ key: 'storeys', type: 'number' }],
+      output: { type: 'bodies' },
+      rows: [{ id: 'a', when: true, then: { bodies: [{ authorityId: 'x', role: 'decides' }] } }],
+      otherwise: { undetermined: true },
+      examples: [
+        { facts: {}, expect: { then: { bodies: [{ role: 'decides', authorityId: 'x' }] } } },
+      ],
+    } satisfies DecisionTableInput)
+    expect(failingExamples(bodies)).toEqual([])
+  })
+
+  it('refuses an example whose facts are undeclared or of the wrong type', () => {
+    const bad = decisionTableSchema.safeParse({
+      inputs: [{ key: 'storeys', type: 'number' }],
+      output: { type: 'code', codes: ['low'] },
+      rows: [],
+      otherwise: { then: 'low' },
+      examples: [{ facts: { height: 3, storeys: 'two' }, expect: { then: 'low' } }],
+    })
+    expect(bad.error?.issues.map((issue) => [issue.path.join('.'), issue.message])).toEqual([
+      ['examples.0.facts.height', 'height is not a declared input'],
+      ['examples.0.facts.storeys', 'fact storeys is not a number: "two"'],
+    ])
+  })
+
   it('refuses a table whose row answers what the output does not declare, or reads an undeclared fact', () => {
     const bad = decisionTableSchema.safeParse({
       inputs: [{ key: 'storeys', type: 'number' }],

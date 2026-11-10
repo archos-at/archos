@@ -84,7 +84,7 @@ export function buildingClassFromRuleset(
   }
   return {
     value: CLASS_OF_CODE[String(result.then)] ?? null,
-    hochhaus: result.then === 'hochhaus',
+    hochhaus: result.then === 'high_rise',
     applicable: result.then !== 'no_building',
     missing: [],
   }
