@@ -661,3 +661,43 @@ class TestCallsOutsideLangChain:
                     assert pool.submit(call).result() is False
                     assert [f.result() for f in [submit_in_context(pool, call) for _ in range(3)]] == [True] * 3
         assert len(post.call_args.args[0]["events"]) == 3
+
+
+class TestCacheWritesReachTheLedger:
+    """The write half of the cache: what a breakpoint costs, beside what it saves.
+
+    OpenRouter reports it as ``prompt_tokens_details.cache_write_tokens``;
+    langchain's normalized shape calls it ``input_token_details.cache_creation``.
+    """
+
+    def test_chat_completions_usage(self):
+        usage = {**OPENROUTER_USAGE, "prompt_tokens_details": {"cached_tokens": 512, "cache_write_tokens": 384}}
+        event = extract_usage_event(_openrouter_result(usage))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (512, 384)
+        assert event.to_payload()["cacheWriteTokens"] == 384
+
+    def test_the_normalized_langchain_shape(self):
+        metadata = {**RESPONSES_USAGE_METADATA, "input_token_details": {"cache_read": 35072, "cache_creation": 6000}}
+        event = extract_usage_event(_responses_result(metadata))
+        assert event is not None
+        assert (event.cached_tokens, event.cache_write_tokens) == (35072, 6000)
+
+    def test_a_raw_openai_response(self):
+        from types import SimpleNamespace
+
+        from agent.common.cost_tracking import _usage_event_from_openai
+
+        usage = {
+            "prompt_tokens": 2000,
+            "completion_tokens": 10,
+            "total_tokens": 2010,
+            "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 1800},
+        }
+        response = SimpleNamespace(usage=usage, id="gen-1", model="openai/gpt-6.1-terra")
+        event = _usage_event_from_openai(response, role="claim_judge", requested_model="openai/gpt-6.1-terra")
+        assert event is not None and event.cache_write_tokens == 1800
+
+    def test_absent_is_zero(self):
+        event = extract_usage_event(_openrouter_result())
+        assert event is not None and event.to_payload()["cacheWriteTokens"] == 0
