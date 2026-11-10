@@ -251,17 +251,16 @@ describe('incrementCounter', () => {
     resetCacheCounters()
     setCacheStore(new ThrowingStore())
     expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
-    setCacheStore({ ...new ThrowingStore(), increment: async () => Promise.reject(new Error('ECONNREFUSED')) } as CacheStore)
+    setCacheStore(Object.assign(new ThrowingStore(), { increment: async () => Promise.reject(new Error('ECONNREFUSED')) }))
     expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
     expect(readCacheCounters().errors).toBe(1)
   })
 
   it('returns the running total the store keeps', async () => {
     const totals = new Map<string, number>()
-    const counting = {
-      ...new ThrowingStore(),
+    const counting: CacheStore = Object.assign(new ThrowingStore(), {
       increment: async (key: string, by: number) => totals.set(key, (totals.get(key) ?? 0) + by).get(key) as number,
-    } as CacheStore
+    })
     setCacheStore(counting)
     expect(await incrementCounter('door-quote:k', 0, 1000)).toBe(0)
     expect(await incrementCounter('door-quote:k', 120, 1000)).toBe(120)
