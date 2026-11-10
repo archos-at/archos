@@ -34,8 +34,8 @@ Each brief below lists "Outcome", "Why", "Fixed" and "Design suggests". Only the
 | 1 | S1 Office layer · S2 Licensed seam · S3 Correctness · S4 Door split · S5 Data-flow register · S6 Connector types | design branch pushed | 3 – 5 h |
 | 2 | S7 Platform records, review, entitlements · S13 Rulesets and the evaluator · S14 Residency | S7 and S13 when S1 is merged; S14 when S2 and S5 are merged. **S14a AI Act marking starts now**, alone: it needs nothing else, and it is due 2026-12-02 | 4 – 6 h |
 | 3 | S8 Austria as pack 1 · S9 Setup facts · S10 Agent-grade door · S11 Time and editions · S12 Address resolution | S7 merged; S9 and S11 also need S13 | 4 – 6 h |
-| 4 | S15 Turn context and gate · S16 Germany readiness | S15 when S8, S9, S11 and S12 are merged; S16 when S6, S7, S10 and S13 are | 3 – 5 h |
-| then | Germany at L0: an operator's Claude session onboards it **through the door**, no code | S10, S15 and S16 merged, counsel sign-off | review time |
+| 4 | S15 Turn context and gate · S16 Onboarding tooling | S15 when S8, S9, S11 and S12 are merged; S16 when S6, S7, S10 and S13 are | 3 – 5 h |
+| end | The build ends with the tooling to onboard any country. Onboarding a country, Germany first, is run elsewhere (decided 2026-11-10) | S10, S15 and S16 merged | — |
 
 About 2 – 3 days of wall clock for the code if PRs are merged as they turn green. Your review and merge sit on the critical path, not the writing. The dated edge cases and the week table in `design.md` were written before this split; the waves replace them, and no date there is a commitment.
 
@@ -43,10 +43,10 @@ About 2 – 3 days of wall clock for the code if PRs are merged as they turn gre
 Wave 1                 Wave 2                     Wave 3                   Wave 4
 S1 office layer ──┬──> S7 platform records ──┬──> S8 Austria pack ──┐
 S2 licensed seam  │                          ├──> S10 agent door ───┼────────────────────────┐
-S3 correctness    ├──> S13 rulesets ─────────┼──> S9 setup facts    │                        ├──> Germany L0
+S3 correctness    ├──> S13 rulesets ─────────┼──> S9 setup facts    │                        ├──> ready to onboard
 S4 door split     │                          ├──> S11 time+editions ┴──> S15 turn context ───┤
 S5 register ──────┴──> S14 residency         └──> S12 addresses                              │
-S6 connectors ──────────────────────────────────────────────────────> S16 Germany readiness ─┘
+S6 connectors ──────────────────────────────────────────────────────> S16 onboarding tooling ─┘
 S14a AI Act marking (now, alone)
 ```
 
@@ -60,7 +60,7 @@ On 2026-11-10 an independent reviewer mapped every buildable item of `design.md`
 - The geocoder: S3 switches komoot off by default; S5 registers it.
 - The live defects of design 2.2: S3 fixes 1 – 4 and 8 (and switches off 9); S9 fixes 5 (`withDerivedClass` and `bim/rules.ts` deriving OIB classes for any project); S8 fixes 6 (the static `<building_law>` block) and 7 (OIB-RL 2023 counted as binding in every Land), through chain text and adoption relations.
 - `common/openrouter.py`: S2 owns the seam expansion in Wave 1; S14 adds per-role routing and `processing_location` on top after S2 is merged.
-- ADR authorship where a design ADR spans sessions: S6 writes the connector ADR and S16 amends it for the portal classification; S13 writes the axes-and-competence ADR, which S7 and S15 cite.
+- ADR authorship where a design ADR spans sessions: S6 writes the connector ADR, and S16 amends it for monitors and source operations; S13 writes the axes-and-competence ADR, which S7 and S15 cite.
 - `personDecides`: S7 builds the primitive for approve, publish, rollback and entitlement; S10 reuses it on the door.
 - Idempotency keys and RFC 9457 problems: S1 builds the shared helper for office operations; S10 extends it to every door operation.
 - Licensed ingest: S1 marks it metadata-only in the pipeline; S2 owns `vision_calls.py`.
@@ -139,7 +139,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S13 Rulesets and the one evaluator
 - **Design suggests:** v7 3.7. A ruleset record type; `decision_table.v1` as Zod; one JsonLogic evaluator with a library oracle and property tests; competence rulesets with the open-node rule.
-- **Why:** setup facts (S9), reference dates (S11), competence and the German advice policy (S16) are all rulesets. Without one evaluator each becomes code per country again.
+- **Why:** setup facts (S9), reference dates (S11), competence and a country's advice policy are all rulesets. Without one evaluator each becomes code per country again.
 - **Fixed, ownership:** the evaluator package, the ruleset tables (a migration, next free number), its ADR.
 - **Outcome, measured by:** OIB classification expressed as a ruleset reproduces today's results on the fixtures; competence proven on synthetic territories and authorities (E32: Berlin-Mitte, Hamburg-Altona → Bezirksamt), since the real territories and authorities arrive with S7 in parallel. S8 loads Austria's real competence rulesets.
 
@@ -190,9 +190,10 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 - **Also (coverage):** `project-base-confirm` is the Steckbrief confirmation, built here; `evals/base-knowledge/edge_cases.yaml` with the E-fixtures; trace metadata `jurisdiction_chains`, `gate`, `coverage`, `pack_seqs`, `stichtage`.
 - **Outcome, measured by:** E01, E02, E04, E28, E40 on fixtures; the `knowledge` phase within its p95 budget; a test that plants two organizations with equal digests and gets two cache keys.
 
-### S16 Germany readiness
-- **Design suggests:** the advice-policy and terminology rulesets with hedge templates and the `advice_policy_held` score (counsel signs the policy); competence for German Länder on S13; the 16-portal classification with the terms check; the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points; a German address register for E31.
-- **Outcome, measured by:** a dry run of the Germany L0 operation on preview reaches a green validation with the advice policy held on every golden case.
+### S16 Onboarding tooling
+- **Scope (2026-11-10):** country onboarding itself, Germany first, is run elsewhere. S16 builds only the country-neutral tooling it needs.
+- **Design suggests:** the advice-policy and terminology ruleset *types* with hedge templates and the `advice_policy_held` score (the content of a country's policy is that country's onboarding); the `ogc` access type; `source-test`, `source-status` and `source-credential-set` on the door; monitors (`changes_since` opening change requests, the terms hash, `freshness_lag_days`); the test-host and database-host allowlist; the privacy reviewer for site points.
+- **Outcome, measured by:** a scripted onboarding on preview with a synthetic country (a fixture territory, one configured source, one advice policy) reaches a green validation, with a monitor opening a change request when the source changes.
 
 ## Not in this build
 Each returns when its trigger arrives, as its own session.
@@ -202,6 +203,7 @@ Each returns when its trigger arrives, as its own session.
 - `SourceKind` `base_knowledge`, labels read from records and `at-only-terms.spec.ts`; the rest of ticket 31 (authority chain, classification shift, agentic intake; the Steckbrief confirmation itself is S15's). Trigger: the agentic project-setup track.
 - The alias map (E29). Trigger: a source changes its format.
 - Switzerland's LexFind connector; DPIA and TIA templates (documents, not code).
+- **Onboarding a country, Germany first** (decided 2026-11-10: run elsewhere, not in this build): the German advice policy and counsel's sign-off, the 16-portal classification and terms check, German Länder competence rulesets, a German address register (E31), and the L0 operation itself.
 - An office-set "not for agents" flag on folders or documents (design 6.5 names an "exclusion list" but never defines it; nothing in the code is one). Open product decision for the user: granularity, who sets it, and whether the product's own agent counts. Today restricted folders are the mechanism.
 
 ## Merging a wave
