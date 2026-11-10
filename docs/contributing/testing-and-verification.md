@@ -883,17 +883,17 @@ for the eval; some cells are unreadable on purpose (`1?5 cm`, `■■ m`), and a
 question about one expects the answer to name the page or the table and state no
 value. Each question runs as one turn through the real chat-request contract on
 OpenRouter, with the bundled static prompt and the grounding block as the tool
-result, in three arms: `public` (unmarked, the ceiling), `seam` (licensed, flag
-on) and `off` (licensed, flag off: listed, no text; the floor). The report counts
+result, in four arms: `public` (unmarked, the ceiling), `seam` (licensed, flag
+on), `off` (licensed, flag off: listed, no text; the floor) and `unattested` (a
+licensed copy whose office has not confirmed AI processing: listed, no text). The report counts
 values stated, unreadable values pointed to, guesses, the longest licensed stretch
 in an answer against the cap, and the longest a LangChain callback or the
-checkpointed messages held; it exits 1 when a `seam` or `off` run leaked past the
-cap. `--calls N` sends each turn N times, as an agent loop re-sends it, and reports
+checkpointed messages held. It exits 1 when any run but a `public` one leaked past the
+cap, and 3 when a run errored (a model call that failed, a 402 among them), so a broken
+run never reads as a clean one. `--calls N` sends each turn N times, as an agent loop re-sends it, and reports
 the share of prompt tokens read from the provider's cache, the cost and the later
 calls' seconds; `--no-cache-marker` drops the `cache_control` breakpoint for the
-comparison (it matters for a model that caches only when asked, Claude). An
-`unattested` arm holds a licensed copy whose office has not confirmed AI
-processing: listed, no text. Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
+comparison (it matters for a model that caches only when asked, Claude). Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
 
 ## The socket-level streaming harness
 

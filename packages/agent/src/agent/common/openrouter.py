@@ -121,8 +121,10 @@ def targets_openrouter(url: object) -> bool:
     if not url:
         return False
     text = str(url)
-    host = urlsplit(text).hostname if "://" in text else None
-    return OPENROUTER_HOST in (host or text)
+    host = (urlsplit(text).hostname if "://" in text else text.split("/", 1)[0]) or ""
+    # The host itself or a subdomain of it (eu.openrouter.ai), never a host that merely contains the name:
+    # a BYOK base URL such as openrouter.ai.example.net is not OpenRouter, and licensed text never goes there.
+    return host == OPENROUTER_HOST or host.endswith(f".{OPENROUTER_HOST}")
 
 
 #: Reading a page is transcription, not deliberation: a reasoning model left at its default spent

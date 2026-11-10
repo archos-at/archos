@@ -343,8 +343,8 @@ def report(runs: list[Run], meta: dict[str, Any]) -> str:
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         *(row for arm in ARMS if (row := _arm_row(arm, runs))),
         "",
-        "A leak is a `seam` or `off` run in which a callback or the checkpointed messages held a licensed stretch "
-        "longer than the quote cap. `public` is the ceiling: the text is in the transcript there by design.",
+        "A leak is a run of any arm but `public` in which a callback or the checkpointed messages held a licensed "
+        "stretch longer than the quote cap. `public` is the ceiling: the text is in the transcript there by design.",
         "",
         "| Question | Arm | Value | Pointed | Guessed | Answer stretch / cap | Callback | Checkpoint | s |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -433,7 +433,9 @@ def main() -> int:
     text = report(runs, meta)
     (args.out / "report.md").write_text(text)
     print(text)
-    return 1 if any(run.arm != "public" and max(run.callback_run, run.checkpoint_run) > run.cap for run in runs) else 0
+    leaked = any(run.arm != "public" and max(run.callback_run, run.checkpoint_run) > run.cap for run in runs)
+    # A run whose model call failed (a 402 among them) leaks nothing because it read nothing: never a clean pass.
+    return 1 if leaked else 3 if any(run.error for run in runs) else 0
 
 
 if __name__ == "__main__":

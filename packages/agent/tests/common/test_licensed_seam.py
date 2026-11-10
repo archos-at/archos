@@ -673,6 +673,20 @@ def test_a_quote_from_later_in_a_licensed_passage_verifies_against_the_turns_who
     assert not any(later in text for text, _ in _verification_chunks(registry)), "the next turn holds none of it"
 
 
+def test_two_chunks_of_one_page_both_verify_their_quotes():
+    """A page's chunks share one citation key: the second is joined to the first, never written over it."""
+    from agent.citations.registry import SourceRegistry
+
+    registry = SourceRegistry()
+    first, second = LICENSED[:700], LICENSED[700:1400]
+    registry.keep_licensed_text("oenorm_b_1600.pdf, p.12", first)
+    registry.keep_licensed_text("oenorm_b_1600.pdf, p.12", second)
+    registry.keep_licensed_text("oenorm_b_1600.pdf, p.12", second)
+
+    held = registry.licensed_text["oenorm_b_1600.pdf, p.12"]
+    assert first in held and second in held and held.count(second) == 1
+
+
 def test_the_licensed_tag_reaches_the_turns_root_observation_from_inside_a_tool():
     """The judges' filter reads the trace's tags, and the root span is stamped from the turn's own context.
 

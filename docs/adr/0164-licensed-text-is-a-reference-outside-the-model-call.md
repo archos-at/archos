@@ -57,7 +57,7 @@ while the model still reads what the office licensed for this use.
   else, a missing field included, is not attested. A licensed passage without it renders as listed
   only (document, page, clause, no text, `UNATTESTED_NOTE`) whatever the flag says, nothing of it is
   quotable (`licensed_text.quotable` gives the citation registry nothing), and the ingest of such a
-  document refuses every OpenRouter request in its scope (`licensed_document_scope`, alias
+  document refuses every model request in its scope (`licensed_document_scope`, alias
   `licensed_ingest`; `refuse_unattested_model_read` in `openrouter._pinned_request`), so it is never
   transcribed, embedded or summarised. `look` refuses such a page, and so does the agent host's
   revision comparison (`routes/revision_compare.py`, 403).

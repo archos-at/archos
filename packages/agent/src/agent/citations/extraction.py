@@ -196,7 +196,7 @@ def _keep_licensed_text(hit: GroundingHit) -> None:
 
     registry = get_session_registry()
     if registry is not None and hit.licence is not None and hit.licence.licensed and hit.licence.ai_processing:
-        registry.licensed_text[hit.citation_key.strip()] = hit.body.strip()
+        registry.keep_licensed_text(hit.citation_key.strip(), hit.body.strip())
 
 
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:

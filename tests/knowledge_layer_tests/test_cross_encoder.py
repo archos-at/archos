@@ -422,10 +422,18 @@ def _byok(monkeypatch) -> None:
 async def test_licensed_text_never_goes_to_an_org_s_own_reranker(monkeypatch, tracker) -> None:
     """ADR-0164: licensed text reaches zero-retention endpoints through OpenRouter only. A BYOK reranker is
     outside those terms, so a search holding licensed text keeps its retrieval order and sends nothing."""
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
     seen = _serve(monkeypatch, _ranked)
     _byok(monkeypatch)
 
-    ranked = await _reranker().rerank("Brüstung", [_chunk("a"), _licensed("b", "Mindesthöhe 111 cm", attested=True)])
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        chunks = [_chunk("a"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+        ranked = await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
 
     assert ranked is None and seen == []
     await _reranker().rerank("Brüstung", [_chunk("a")])
@@ -442,3 +450,29 @@ async def test_an_unattested_licensed_chunk_is_sent_to_no_reranker_at_all(monkey
 
     sent = seen[0].content.decode()
     assert "Mindesthöhe 111 cm" not in sent and "Geländer" in sent
+
+
+async def test_an_attested_licensed_chunk_is_sent_empty_on_a_turn_that_may_read_no_licensed_text(
+    monkeypatch, tracker
+) -> None:
+    """The flag off (or no turn) means listed only: no reranker reads the passage, attested or not."""
+    from agent.common.licensed_text import begin_licensed_capture
+    from agent.common.licensed_text import end_licensed_capture
+
+    seen = _serve(monkeypatch, _ranked)
+    monkeypatch.setattr(ce, "_organization_id_in_scope", lambda: None)
+    chunks = [_chunk("a", "Geländer"), _licensed("b", "Mindesthöhe 111 cm", attested=True)]
+
+    token = begin_licensed_capture(text_allowed=False)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+    token = begin_licensed_capture(text_allowed=True)
+    try:
+        await _reranker().rerank("Brüstung", chunks)
+    finally:
+        end_licensed_capture(token)
+
+    assert "Mindesthöhe 111 cm" not in seen[0].content.decode()
+    assert "Mindesthöhe 111 cm" in seen[1].content.decode(), "positive control: the flag on, OpenRouter reads it"

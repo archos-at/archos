@@ -66,6 +66,11 @@ class SourceRegistry:
         #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
         self.licensed_text: dict[str, str] = {}
 
+    def keep_licensed_text(self, key: str, body: str) -> None:
+        """File a licensed passage under its citation key; a page's chunks share one key, so they are joined."""
+        held = self.licensed_text.get(key)
+        self.licensed_text[key] = body if not held else held if body in held else f"{held}\n\n{body}"
+
     def for_turn(self) -> SourceRegistry:
         """This registry, for a new turn: licensed text is not carried between turns, not even for verification."""
         self.licensed_text.clear()

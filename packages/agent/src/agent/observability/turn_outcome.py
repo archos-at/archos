@@ -68,10 +68,11 @@ _TAGS = "__turn_tags__"
 
 
 def current_turn_outcome() -> dict[str, Any] | None:
-    """The attributes recorded for this turn, or None when no turn bound a box or none finished.
+    """The attributes recorded for this turn, or None when no turn bound a box or nothing is in it yet.
 
     The facts the workflow recorded (:func:`record_turn_facts`) ride as trace
-    metadata beside the terminal's.
+    metadata beside the terminal's, and its tags (:func:`record_turn_tag`) beside the
+    terminal's tags: a box holding only tags answers them before the turn finished.
     """
     box = _TURN_OUTCOME.get()
     if not box:
