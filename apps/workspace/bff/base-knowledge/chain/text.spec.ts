@@ -80,6 +80,17 @@ describe('the chain text', () => {
     )
   })
 
+  it('names a law whose edition is not determined, and why, instead of leaving it out silently', () => {
+    const overlapping = graphFromProposals(
+      [...records, { type: 'edition', key: 'bo-wien-2024b', workKey: 'bo-wien', label: 'Fassung 2024b', inForceFrom: '2024-06-01' }].map((record) =>
+        proposedRecordSchema.parse(record),
+      ),
+    )
+    const text = renderChainText(overlapping, resolveChain(overlapping, 'AT-9', '2026-11-10'), 'Wien')
+    expect(text).toContain('Not determined here')
+    expect(text).toContain('- Bauordnung für Wien: more than one edition is recorded as in force on this date')
+  })
+
   it('defect 7: in Steiermark it names 2019 as binding and 2023 as guidance only', () => {
     const styria = text('AT-6')
     expect(styria).toContain('OIB-Richtlinie 2 „Brandschutz“, edition Ausgabe April 2019: declared binding by Steiermärkische Bautechnikverordnung')

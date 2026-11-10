@@ -1520,6 +1520,13 @@
       "when": 1793200000000,
       "tag": "0216_source_vocabularies_from_python",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1793300000000,
+      "tag": "0217_edition_end_exclusive",
+      "breakpoints": true
     }
   ]
 }

@@ -1,14 +1,18 @@
-"""Where a source's requests go: through the sandboxed fetcher, or through the guard in process.
+"""Where a source's requests go: through the sandboxed fetcher, and nowhere else.
 
-A caller (the RIS adapter, a monitor, ``source-test``) builds requests as it
-always did and hands its httpx client the transport :func:`source_transport`
-returns. With ``PUBLIC_SOURCE_FETCHER_URL`` set, that transport sends each
-request to the ``public-source-fetcher`` Deployment, which makes it from a pod
-that can reach public hosts and nothing in the cluster. Without it (local
-development, a test), the same guard runs in this process.
+A caller (the RIS adapter, a capture, a monitor, ``source-test``) builds
+requests as it always did and hands its httpx client the transport
+:func:`source_transport` returns. That transport sends each request to the
+``public-source-fetcher`` (``PUBLIC_SOURCE_FETCHER_URL``: a Deployment in every
+stack, a service in Compose), which makes it from a pod that can reach public
+hosts and nothing in the cluster. There is no in-process path: without a
+fetcher, a source is refused (ADR-0162 amendment). The guard
+(:mod:`public_sources.egress`) runs in the fetcher itself; a test hands in a
+transport instead of the network.
 
-Both refuse a URL off the source's hosts before anything is sent, and both
-forward only the headers :data:`public_sources.egress.FORWARDED_HEADERS` names.
+The transport refuses a URL off the source's hosts before anything is sent,
+and forwards only the headers :data:`public_sources.egress.FORWARDED_HEADERS`
+names.
 """
 
 from __future__ import annotations
@@ -18,7 +22,6 @@ import os
 import httpx
 from public_sources.egress import FORWARDED_HEADERS
 from public_sources.egress import EgressRefused
-from public_sources.egress import GuardedTransport
 from public_sources.egress import attach_credential
 from public_sources.egress import strip_headers
 from public_sources.source import Source
@@ -98,7 +101,7 @@ def source_transport(
     inner: httpx.AsyncBaseTransport | None = None,
     credential: str | None = None,
 ) -> httpx.AsyncBaseTransport:
-    """The transport for a source's requests: the fetcher when one is configured, else the guard here.
+    """The transport for a source's requests: always the fetcher; with no fetcher configured, a refusal.
 
     ``source`` is a repository record's id, or a configured source (ADR-0174)
     parsed with :func:`public_sources.source.parse_inline_source`, whose hosts
@@ -117,4 +120,8 @@ def source_transport(
         hosts = None if isinstance(source, str) else tuple(record.hosts)
         fetcher = FetcherTransport(record.id, fetcher_url, inner=inner, hosts=hosts, credential=header)
         return _SourceCheck(record, fetcher, credential=header)
-    return _SourceCheck(record, inner or GuardedTransport(), credential=header)
+    if inner is None:
+        raise EgressRefused(
+            f"no public-source fetcher is configured ({ENV_FETCHER_URL}): source {record.id!r} is read only through it"
+        )
+    return _SourceCheck(record, inner, credential=header)

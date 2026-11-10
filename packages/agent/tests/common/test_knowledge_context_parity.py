@@ -49,6 +49,9 @@ UNREAD_ENUMS: dict[str, str] = {
     "/properties/procedures/items/properties/referenceDates/additionalProperties/properties/basis": (
         "a reference day is read as its date or its basis, as a token for trace metadata"
     ),
+    "/properties/undetermined/items/properties/reason": (
+        "kept as a token in the trace metadata; the chain text words each reason"
+    ),
     "/properties/uses/items/properties/qualifier/anyOf/0": (
         "this tier reads office_maintained only; #1582's typed EditionUse reads uncurated too"
     ),
@@ -68,6 +71,7 @@ READ_KEYS: dict[str, str] = {
     "procedures": "reference_dates",
     "date": "date",
     "updatedSinceLastAnswer": "updated_since_last_answer",
+    "undetermined": "undetermined",
 }
 
 #: The context's properties the agent ignores, and why.

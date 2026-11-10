@@ -21519,7 +21519,7 @@
       "get": {
         "operationId": "base-knowledge-edition-as-of",
         "summary": "Which edition of a law or norm applied on a date or to a permit procedure",
-        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today.",
+        "description": "Answers \"what applied when this was submitted\" with the edition named. Ask by `asOf`, by `projectId` and `procedureId` (profile facts filed_on@p1, decided_on@p1, …), or by giving the procedure. The node’s reference-date rule and the editions’ transitions decide. `undetermined` says what is missing; an unknown date is never taken as today. An edition’s `inForceTo` is the first day it no longer holds (exclusive), not its last day.",
         "tags": [
           "knowledge"
         ],
@@ -30025,7 +30025,7 @@
                             },
                             "inForceTo": {
                               "default": null,
-                              "description": "The last day in force, inclusive; null while in force.",
+                              "description": "The first day no longer in force, the next edition’s inForceFrom (intervals are half-open); a source that prints the last day in force, as RIS does, is entered one day later. Null while in force.",
                               "anyOf": [
                                 {
                                   "type": "string",

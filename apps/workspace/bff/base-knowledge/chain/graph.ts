@@ -41,6 +41,8 @@ export interface GraphWork {
   connectsBy?: readonly ConnectingFactor[]
   /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
   sourceRefs?: readonly SourceRef[]
+  /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
+  historyAvailableFrom?: string | null
 }
 
 export interface GraphEdition {
@@ -121,11 +123,19 @@ export interface EditionUse {
   relatedEditionId: string | null
 }
 
+/** A law on the chain whose edition at the date the records cannot name: it binds no edition, and says why. */
+export interface UndeterminedLaw {
+  workId: string
+  reason: 'history_not_held' | 'edition_dates_unknown' | 'ambiguous_editions'
+}
+
 export interface ResolvedChain {
   date: string
   /** The site's leaf first, then every territory it lies in at the date. */
   chain: readonly string[]
   uses: readonly EditionUse[]
+  /** Law on the chain left out because its edition at the date is unknown, never guessed (`time/editions.ts`). */
+  undetermined: readonly UndeterminedLaw[]
   /** More uses than one resolution returns: what was left out reads as nothing, so a caller fails closed. */
   truncated: boolean
 }

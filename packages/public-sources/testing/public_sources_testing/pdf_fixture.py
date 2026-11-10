@@ -73,6 +73,7 @@ def real_text() -> str:
 
 
 if __name__ == "__main__":
-    from public_sources.pdf import read_pdf
+    # Rewrites the committed text from the PDF, here: no backend role, so the reader runs in this process.
+    from public_sources.pdf import parse_pdf
 
-    REAL_TEXT.write_text((read_pdf(REAL_PDF.read_bytes()).text or "") + "\n", encoding="utf-8")
+    REAL_TEXT.write_text((parse_pdf(REAL_PDF.read_bytes()).text or "") + "\n", encoding="utf-8")

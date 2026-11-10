@@ -53,6 +53,7 @@ const caseSchema = z
         /** Words the chain text must carry, and must not: the text says what the uses say. */
         textContains: z.array(z.string()).optional(),
         textLacks: z.array(z.string()).optional(),
+        undetermined: z.array(z.object({ workId: z.string(), reason: z.string() })).optional(),
       })
       .strict(),
   })
@@ -106,6 +107,7 @@ describe('the edge cases of country base knowledge', () => {
       expect(use).toMatchObject(expected)
     }
     for (const workId of want.absentWorks ?? []) expect(context.uses.map((use) => use.workId)).not.toContain(workId)
+    if (want.undetermined) expect(context.undetermined).toEqual(want.undetermined)
     for (const words of want.textContains ?? []) expect(context.text, edgeCase.id).toContain(words)
     for (const words of want.textLacks ?? []) expect(context.text ?? '', edgeCase.id).not.toContain(words)
   })
