@@ -295,7 +295,8 @@ export function ChangeRequestReview({
   const canReview = canManage && secondReviewDue && !authored && reviewRole !== null
   // The UI approves as domain expert; once that role is approved, alone or not, another override can only answer 409.
   const approvedAsExpert = view.approvals.some((approval) => approval.role === 'domain_expert')
-  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert
+  // A pasted page nobody else checked refuses an approval alone too (migration 0216): another person checks it first.
+  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert && !view.sourcesUnchecked
   const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[], sourceChecked = false) =>
     void post(
       'review',

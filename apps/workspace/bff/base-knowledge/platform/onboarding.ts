@@ -8,7 +8,7 @@
  *   by an operator, which KC-6 checks every quote against;
  * - the JSON Schema of every record type, from the same zod the routes parse.
  *
- * Reads take `platform:settings:view` and writes `platform:settings:manage`
+ * Reads take `platform:settings:view` and writes `platform:knowledge:write`
  * (`requirePlatform`).
  */
 

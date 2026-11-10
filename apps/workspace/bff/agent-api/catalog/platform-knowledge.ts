@@ -2,8 +2,9 @@
  * The platform's base knowledge on the platform door (ADR-0165, design §4.5):
  * how an operator's agent brings a country's knowledge in as a reviewed data
  * release. Every route is a `platformApiRoute`, so only a platform operator's
- * call passes; reads need `platform:settings:view`, writes
- * `platform:settings:manage`, entitlements `platform:organizations:manage`.
+ * call passes; reads need `platform:settings:view`, drafting
+ * `platform:knowledge:write`, review and release `platform:knowledge:review`,
+ * entitlements `platform:organizations:manage`.
  *
  * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
  * schema-get; change-request-create; citation-capture for each page; then

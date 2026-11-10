@@ -9,12 +9,30 @@
 --   when every role it needs has approved it, no claim's newest verdict is
 --   edited or rejected, and every revision it releases carries a verdict (from
 --   somebody other than its author, by 0208), unless the domain expert approved
---   alone. Which fields are claims is the application's (`claimsOf`), so "every
---   claim accepted" stays in the service; this is what the database can see.
+--   alone. Which fields are claims is the application's (`claimsOf`: a body's
+--   columns less its keys and the ones left unstated), so "every claim accepted"
+--   is the service's check; the database holds the floor under it, and does not
+--   copy those rules into SQL where they would drift. A new request starts as a
+--   draft.
+-- - A request already approved without a domain expert (possible before this
+--   migration) could be neither published nor rejected under these rules; the
+--   migration refuses to run while one exists and names the way out.
 -- - An approval alone no longer defers the source check (ADR-0170): a page an
 --   operator pasted is checked against its source by somebody else first.
 -- - The `second_reviewer` role is gone: nothing required it, and the second
 --   review of an approval alone is given in the role approved alone.
+DO $$
+DECLARE stuck text;
+BEGIN
+  SELECT string_agg(r.id::text, ', ') INTO stuck FROM knowledge_change_requests r
+  WHERE r.status = 'approved'
+    AND NOT EXISTS (SELECT 1 FROM knowledge_approvals a WHERE a.change_request_id = r.id AND a.role = 'domain_expert');
+  IF stuck IS NOT NULL THEN
+    RAISE EXCEPTION 'change request(s) % are approved without a domain expert; reject them first (UPDATE knowledge_change_requests SET status = ''rejected'', decided_at = now() WHERE id IN (...)), then run this migration and propose them again', stuck;
+  END IF;
+END
+$$;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION knowledge_required_approval_roles(request uuid) RETURNS text[]
   LANGUAGE sql STABLE AS $$
   SELECT array_remove(ARRAY[
@@ -48,6 +66,12 @@ $$;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION knowledge_change_request_status_moves() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status IS DISTINCT FROM 'draft' THEN
+      RAISE EXCEPTION 'a change request starts as a draft, not %', NEW.status USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF NEW.status IS NOT DISTINCT FROM OLD.status THEN
     RETURN NEW;
   END IF;
@@ -73,7 +97,7 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
-CREATE TRIGGER knowledge_change_requests_status_moves BEFORE UPDATE OF "status" ON "knowledge_change_requests"
+CREATE TRIGGER knowledge_change_requests_status_moves BEFORE INSERT OR UPDATE OF "status" ON "knowledge_change_requests"
   FOR EACH ROW EXECUTE FUNCTION knowledge_change_request_status_moves();
 --> statement-breakpoint
 -- What nobody fetched, a person checked: for every approval, alone or not (0209 as it was).

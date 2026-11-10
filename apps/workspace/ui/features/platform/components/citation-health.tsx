@@ -527,7 +527,7 @@ function MissingSourcesCard({
   locale: string
 }): JSX.Element {
   const t = useTranslations(platformCopy)
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
   const { count } = useNumberFormats(locale)
 
   return (

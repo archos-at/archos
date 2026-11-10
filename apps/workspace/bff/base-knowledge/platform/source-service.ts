@@ -13,7 +13,7 @@
  * - **source-credential-set** stores a key write-only, on the person's yes.
  *
  * Reads take `platform:settings:view`, the live probe and the key
- * `platform:settings:manage` (`requirePlatform`).
+ * `platform:knowledge:write` (`requirePlatform`).
  */
 
 import 'server-only'

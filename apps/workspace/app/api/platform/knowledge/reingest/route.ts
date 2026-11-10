@@ -21,5 +21,5 @@ export const POST = platformApiRoute(
     const result = await reingestKnowledgeBaseDocuments(fileNames)
     return NextResponse.json(result)
   },
-  { permission: PLATFORM_PERMISSIONS.settingsManage }
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite }
 )

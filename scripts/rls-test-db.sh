@@ -3774,3 +3774,31 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
+# 0216: four eyes in the database (architecture review of platform governance).
+# It refuses to run while a request is approved without a domain expert, and
+# names the way out; once that request is rejected it applies, and from then on
+# a request starts as a draft and moves only along its lifecycle. The down
+# drops the status trigger, and 0216 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0216 four eyes in the database and its down migration on fe_0216"
+migrate_before fe_0216 0216_knowledge_four_eyes_in_the_database
+STUCK=c0000000-0000-4000-8000-000000000216
+sql_in fe_0216 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$STUCK', 'approved alone in the old way', 'AT', 'user_author');
+UPDATE knowledge_change_requests SET status = 'approved' WHERE id = '$STUCK';
+SQL
+refused_in fe_0216 "$(cat migrations/0216_knowledge_four_eyes_in_the_database.sql)" "approved without a domain expert; reject them first" "0216 runs over a request approved without a domain expert"
+sql_in fe_0216 <<<"UPDATE knowledge_change_requests SET status = 'rejected', decided_at = now() WHERE id = '$STUCK';"
+apply_in fe_0216 0216_knowledge_four_eyes_in_the_database.sql
+refused_in fe_0216 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, status) VALUES (gen_random_uuid(), 'born published', 'AT', 'user_author', 'published')" "starts as a draft" "a request inserted as published"
+DRAFT=c1000000-0000-4000-8000-000000000216
+sql_in fe_0216 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$DRAFT', 'a draft', 'AT', 'user_author');"
+refused_in fe_0216 "UPDATE knowledge_change_requests SET status = 'published' WHERE id = '$DRAFT'" "does not move from draft to published" "a draft published without approval"
+refused_in fe_0216 "UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$STUCK'" "does not move from rejected to submitted" "a rejected request resubmitted"
+check_in fe_0216 "SELECT array_to_string(knowledge_required_approval_roles('$DRAFT'), ',')" "domain_expert" "0216: every request needs a domain expert"
+apply_in fe_0216 0216_knowledge_four_eyes_in_the_database.down.sql
+check_in fe_0216 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_status_moves'" "0" "0216 down drops the status trigger"
+check_in fe_0216 "SELECT coalesce(array_to_string(knowledge_required_approval_roles('$DRAFT'), ','), '')" "" "0216 down: a request without an advice policy or a site-keyed source needs no named role again"
+apply_in fe_0216 0216_knowledge_four_eyes_in_the_database.sql
+check_in fe_0216 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_status_moves'" "1" "0216 applies again after its down"
+echo "==> 0216 four eyes in the database and its down migration verified"

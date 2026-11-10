@@ -329,7 +329,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases, captures, secondReviewRolesOf] = await Promise.all([
+    const [revisions, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
       reviewedRevisions(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
@@ -340,6 +340,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
         .limit(2000),
       captureViews(tx, id),
       secondReviewRoles(tx, id),
+      tx.execute<{ unchecked: boolean }>(sql`SELECT knowledge_sources_unchecked(${id}::uuid) AS unchecked`),
     ])
     return {
       ...summaryOf(request),
@@ -347,6 +348,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
       captures,
+      sourcesUnchecked: unchecked[0]?.unchecked === true,
       secondReviewRoles: secondReviewRolesOf,
       approvals: approvals.map((approval) => ({
         approver: approval.approver,

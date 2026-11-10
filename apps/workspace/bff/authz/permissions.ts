@@ -75,14 +75,15 @@ export const PLATFORM_PERMISSIONS = {
    * there.
    */
   observabilityView: 'platform:observability:view',
-  /**
-   * Approve a platform knowledge change request in a role (ADR-0165): the role
-   * an approval records is one the approver holds, never what a client sent.
-   */
   /** Draft platform knowledge: open a change request, capture, propose, submit (ADR-0165). Not models or prices. */
   knowledgeWrite: 'platform:knowledge:write',
   /** Review, decide, publish and roll back a platform knowledge change request. The role an approval is in is checked on top. */
   knowledgeReview: 'platform:knowledge:review',
+  /**
+   * Approve a platform knowledge change request in a role (ADR-0165): the role
+   * an approval records is one the approver holds, never what a client sent.
+   * Every request needs a domain expert (migration 0216).
+   */
   knowledgeApproveAsDomainExpert: 'platform:knowledge:approve_as_domain_expert',
   knowledgeApproveAsCounsel: 'platform:knowledge:approve_as_counsel',
   /** A source that receives a site point needs a privacy review before it is published (ADR-0174). */

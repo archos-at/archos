@@ -44,11 +44,11 @@ const EXPECTED: Record<string, string> = {
   'feedback/[reportId]/route.ts PATCH': 'settingsManage',
   'feedback/route.ts GET': 'settingsView',
   'feedback/claim/route.ts POST': 'settingsManage',
-  'knowledge/documents/[fileName]/display-title/route.ts PATCH': 'settingsManage',
-  'knowledge/documents/[fileName]/doc-class/route.ts PATCH': 'settingsManage',
-  'knowledge/documents/[fileName]/route.ts DELETE': 'settingsManage',
-  'knowledge/documents/route.ts POST': 'settingsManage',
-  // The platform's base knowledge (ADR-0165): read on view, every change on manage.
+  'knowledge/documents/[fileName]/display-title/route.ts PATCH': 'knowledgeWrite',
+  'knowledge/documents/[fileName]/doc-class/route.ts PATCH': 'knowledgeWrite',
+  'knowledge/documents/[fileName]/route.ts DELETE': 'knowledgeWrite',
+  'knowledge/documents/route.ts POST': 'knowledgeWrite',
+  // The platform's base knowledge (ADR-0165): read on settings:view; drafting on knowledge:write, review and release on knowledge:review.
   'knowledge/route.ts GET': 'settingsView',
   'knowledge/change-requests/route.ts GET': 'settingsView',
   'knowledge/change-requests/route.ts POST': 'knowledgeWrite',
@@ -71,8 +71,8 @@ const EXPECTED: Record<string, string> = {
   // Which countries an office is entitled to, and its seat: an organization's platform settings.
   'organizations/[organizationId]/countries/route.ts POST': 'organizationsManage',
   'organizations/[organizationId]/home-country/route.ts PUT': 'organizationsManage',
-  'knowledge/reingest/route.ts POST': 'settingsManage',
-  'knowledge/sync/route.ts POST': 'settingsManage',
+  'knowledge/reingest/route.ts POST': 'knowledgeWrite',
+  'knowledge/sync/route.ts POST': 'knowledgeWrite',
   // The lesson register (platform failure learning). Reads take view; the
   // sweep and every curation mutation take manage.
   'lessons/[lessonId]/route.ts GET': 'settingsView',

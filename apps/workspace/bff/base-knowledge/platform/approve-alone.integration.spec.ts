@@ -22,6 +22,7 @@
 import { sql } from 'drizzle-orm'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
+import { approvedRequest, publishedRequest } from './testing/lifecycle'
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_alone_${Date.now().toString(36)}` }))
 const audit = vi.hoisted(() => ({ record: vi.fn(async (..._args: unknown[]) => undefined) }))
@@ -53,6 +54,12 @@ const MANAGE = ['platform:settings:view', 'platform:knowledge:write', 'platform:
 const person = (userId: string, permissions: string[]) =>
   ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions }) as unknown as UserSession
 
+/** A database refusal, by its reason: drizzle puts the server's message in `cause`. */
+const refusedWith = (reason: RegExp) => (error: unknown) => {
+  const failure = error as { message?: string; cause?: { message?: string } }
+  return reason.test(`${failure?.message ?? ''} ${failure?.cause?.message ?? ''}`)
+}
+
 describe('the approve-alone suite is not silently skipped in CI', () => {
   it('has a database to run against', () => {
     if (!process.env.RLS_SUITE_REQUIRED) return
@@ -64,6 +71,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   let service: typeof import('./service')
   let store: typeof import('./store')
   let onboarding: typeof import('./onboarding')
+  let release: typeof import('./release')
   let wire: typeof import('./wire')
   let runAsActingSession: typeof import('@/lib/agent-api/acting-session').runAsActingSession
   let PersonDecisionRequiredError: typeof import('@/lib/agent-api/person-decision').PersonDecisionRequiredError
@@ -135,6 +143,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     service = await import('./service')
     store = await import('./store')
     onboarding = await import('./onboarding')
+    release = await import('./release')
     wire = await import('./wire')
     runAsActingSession = (await import('@/lib/agent-api/acting-session')).runAsActingSession
     PersonDecisionRequiredError = (await import('@/lib/agent-api/person-decision')).PersonDecisionRequiredError
@@ -170,7 +179,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       store.platformTransaction((tx) =>
         store.insertApproval(tx, { changeRequestId: id, approver: AUTHOR, role: 'domain_expert', decisionSource: 'app', overrideReason: 'just me' }),
       ),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/knowledge_approvals_override_reasoned/))
   })
 
   it('refuses an override from somebody who wrote nothing in the request: there is nothing to override', async () => {
@@ -237,7 +246,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     // A closed second review stays closed: the trigger refuses to reopen it.
     await expect(
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'due', second_review_by = NULL, second_review_at = NULL WHERE id = ${id}::uuid`)),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/moves only from due/))
   })
 
   it('keeps the author from giving the second review themselves', async () => {
@@ -248,7 +257,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       withPlatformAccess('alone spec', () =>
         db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'confirmed', second_review_by = ${AUTHOR}, second_review_at = now() WHERE id = ${id}::uuid`),
       ),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/second reviewer may not have written/))
   })
 
   it('voids the review a request owed once it is rejected before approval: off the queue and the list, no badge left due', async () => {
@@ -270,7 +279,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       withPlatformAccess('alone spec', () =>
         db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'due', second_review_by = NULL, second_review_at = NULL WHERE id = ${id}::uuid`),
       ),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/moves only from due/))
   })
 
   it('lets a request disputed before its stable publish be rejected, which withdraws its preview', async () => {
@@ -304,7 +313,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
         db.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
           VALUES (${revision!.recordId}, 'stable', 'publish', ${revision!.revisionId}::uuid, ${id}::uuid, ${AUTHOR}, 'app')`),
       ),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/second review disputed it is not published/))
   })
 
   it('owes a second review in every role approved alone, each from somebody holding that role', async () => {
@@ -321,7 +330,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       withPlatformAccess('alone spec', () =>
         db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'confirmed', second_review_by = ${expert.userId}, second_review_at = now() WHERE id = ${id}::uuid`),
       ),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/every role approved alone is/))
     await expect(service.decidePlatformChangeRequest(counsel, id, { decision: 'approve', role: 'counsel' })).resolves.toMatchObject({
       secondReview: 'confirmed',
       secondReviewDue: [],
@@ -376,14 +385,14 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     // Nor does any path around the service: the status trigger refuses the move.
     await expect(
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${id}::uuid`)),
-    ).rejects.toThrow()
+    ).rejects.toSatisfy(refusedWith(/every role it needs has approved it/))
   })
 
   it('moves a request’s status only along its lifecycle, and to approved only with no claim open', async () => {
     const id = await submitted('status-guard')
     const move = (status: string) =>
       withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = ${status} WHERE id = ${id}::uuid`))
-    await expect(move('published')).rejects.toThrow()
+    await expect(move('published')).rejects.toSatisfy(refusedWith(/does not move from submitted to published/))
     // A domain expert's approval with a rejected claim and nobody else's verdicts: still not approvable.
     const view = await service.getPlatformChangeRequest(expert, id)
     const [revision] = view.revisions
@@ -391,7 +400,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     await store.platformTransaction((tx) =>
       store.insertApproval(tx, { changeRequestId: id, approver: expert.userId, role: 'domain_expert', decisionSource: 'app' }),
     )
-    await expect(move('approved')).rejects.toThrow()
+    await expect(move('approved')).rejects.toSatisfy(refusedWith(/edited, rejected or unreviewed/))
   })
 
   it('refuses an approval alone while a page the operator pasted is not checked against its source', async () => {
@@ -413,7 +422,63 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       await store.insertProposedRecords(tx, request!, [record], { createdBy: AUTHOR, proposedBy: 'person' })
       await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
     })
+    // The view says so, so the UI offers no approval alone that could only be refused.
+    expect((await service.getPlatformChangeRequest(owner, id)).sourcesUnchecked).toBe(true)
     await expect(service.decidePlatformChangeRequest(owner, id, alone)).rejects.toThrow(/cite a fetched capture/)
     expect(await approvalRows(id)).toHaveLength(0)
+  })
+
+  describe('the lifecycle the database holds (migration 0216)', () => {
+    const STATUSES = ['draft', 'submitted', 'approved', 'published', 'rejected', 'rolled_back'] as const
+    type Status = (typeof STATUSES)[number]
+    const LEGAL = new Set(['draft>submitted', 'draft>rejected', 'submitted>approved', 'submitted>rejected', 'approved>published', 'approved>rejected', 'published>rolled_back'])
+    const work = (name: string) => [wire.proposedRecordSchema.parse({ type: 'work', key: `${name}-${RUN}`, kind: 'guideline', title: `Leitfaden ${name}` })]
+    const actors = { author: AUTHOR, expert: expert.userId }
+    const setStatus = (id: string, status: string) =>
+      withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = ${status} WHERE id = ${id}::uuid`))
+
+    /** A request in `status`, reached the lawful way. */
+    async function requestIn(status: Status): Promise<string> {
+      const name = `edge-${status}-${Math.random().toString(36).slice(2, 8)}`
+      if (status === 'draft') return store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })
+      if (status === 'submitted') return submitted(name)
+      if (status === 'rejected') {
+        const id = await store.insertChangeRequest({ title: name, countryId: 'AT', createdBy: AUTHOR })
+        await store.platformTransaction((tx) => store.setChangeRequestStatus(tx, id, 'rejected', 'decidedAt'))
+        return id
+      }
+      if (status === 'approved') return approvedRequest({ title: name, countryId: 'AT', records: work(name) }, actors)
+      const id = await publishedRequest({ title: name, countryId: 'AT', records: work(name) }, actors)
+      if (status === 'rolled_back') await release.rollbackChangeRequest(id, 'spec: an edge', { by: expert.userId, decisionSource: 'app' })
+      return id
+    }
+
+    it.each(STATUSES)('refuses every illegal move out of %s', async (from) => {
+      const id = await requestIn(from)
+      for (const to of STATUSES.filter((to) => to !== from && !LEGAL.has(`${from}>${to}`))) {
+        await expect(setStatus(id, to), `${from} > ${to}`).rejects.toSatisfy(refusedWith(new RegExp(`does not move from ${from} to ${to}`)))
+      }
+    })
+
+    it('refuses an approved request’s reject until its second review disputed it', async () => {
+      const id = await requestIn('approved')
+      await expect(setStatus(id, 'rejected')).rejects.toSatisfy(refusedWith(/only once its second review disputed it/))
+    })
+
+    it('refuses an approval while a revision nobody reviewed would be released, unless the domain expert approved alone', async () => {
+      const id = await submitted('unreviewed')
+      await store.platformTransaction((tx) =>
+        store.insertApproval(tx, { changeRequestId: id, approver: expert.userId, role: 'domain_expert', decisionSource: 'app' }),
+      )
+      await expect(setStatus(id, 'approved')).rejects.toSatisfy(refusedWith(/edited, rejected or unreviewed/))
+    })
+
+    it('starts every request as a draft', async () => {
+      await expect(
+        withPlatformAccess('alone spec', () =>
+          db.execute(sql`INSERT INTO knowledge_change_requests (id, title, country_id, created_by, status) VALUES (gen_random_uuid(), 'born published', 'AT', ${AUTHOR}, 'published')`),
+        ),
+      ).rejects.toSatisfy(refusedWith(/starts as a draft/))
+    })
   })
 })

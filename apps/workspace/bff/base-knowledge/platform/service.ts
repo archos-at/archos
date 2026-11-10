@@ -8,7 +8,8 @@
  *   publish to stable (the person's yes) → rollback if needed (the person's yes).
  *
  * Reads take `platform:settings:view` (whose description already covers the base
- * knowledge corpus); writes `platform:settings:manage`; entitlements and a home
+ * knowledge corpus); drafting `platform:knowledge:write`, review, decision,
+ * publish and rollback `platform:knowledge:review` (migration 0216); entitlements and a home
  * country `platform:organizations:manage`. Approve,
  * publish, rollback and entitlement need the person's own yes at the server
  * (`requirePersonDecision`), whichever path the call took; each is audited.

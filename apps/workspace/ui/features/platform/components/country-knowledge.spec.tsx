@@ -260,6 +260,16 @@ describe('CountryKnowledge', () => {
     expect(screen.queryByRole('button', { name: 'Publish to preview' })).not.toBeInTheDocument()
   })
 
+  test('offers no approval alone while a pasted page is unchecked: another person checks it first (migration 0216)', async () => {
+    viewer.id = 'u'
+    serve(200, { ...REQUEST, sourcesUnchecked: true } as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    await screen.findByTestId('change-request-next')
+    expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()
+  })
+
   test('offers no approval alone once the request is approved as domain expert', async () => {
     viewer.id = 'u'
     serve(200, { ...REQUEST, approvals: [{ approver: 'u', role: 'domain_expert', decisionSource: 'app', decidedAt: '2026-11-10T00:00:00Z', overrideReason: 'x'.repeat(25) }] } as typeof REQUEST)
