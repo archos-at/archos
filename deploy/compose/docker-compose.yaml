@@ -162,6 +162,10 @@ services:
       # (fail-open in both tiers) and must never block the stack.
       dragonfly:
         condition: service_started
+      # service_started: a backend role without its fetcher still serves everything
+      # but public sources, and says so in /health (public_source_fetcher).
+      public-source-fetcher:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
@@ -205,6 +209,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -250,6 +256,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     # No HTTP server. worker.py touches this marker each claim-loop tick; fail
     # when it is missing or stale (loop hung). The long start_period covers the

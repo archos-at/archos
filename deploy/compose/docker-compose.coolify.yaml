@@ -204,6 +204,8 @@ services:
       # (fail-open in both tiers) and must never block the stack.
       dragonfly:
         condition: service_started
+      public-source-fetcher:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
@@ -309,6 +311,8 @@ services:
         condition: service_healthy
       dragonfly:
         condition: service_started
+      public-source-fetcher:
+        condition: service_started
     # The web healthcheck inherited from chat would never pass (no HTTP
     # server here). Mirror the K8s liveness marker instead: worker.py touches
     # /tmp/research-worker.alive each claim-loop tick; fail if it is missing or
@@ -351,6 +355,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     restart: unless-stopped
 

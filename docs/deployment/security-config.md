@@ -140,6 +140,24 @@ Two layers hold it:
   service-account token, so a hostile PDF that took the reader reaches nothing.
   Compose has no NetworkPolicy; there the guard is the only layer.
 
+### When the fetcher is not there
+
+Public sources are the only thing that depends on the fetcher, so a missing
+fetcher costs exactly that and nothing else. Chat, documents and the office's
+own knowledge keep working, and no pod leaves rotation. On purpose, the
+backend's `/health` probes no dependency (`agent_host/health.py`).
+
+| What is wrong | What a person sees | Where it shows |
+|---|---|---|
+| A backend role started without `PUBLIC_SOURCE_FETCHER_URL` | Every law lookup answers "OGD-RIS is not reachable from here: no public-source fetcher is configured"; a capture or a `pdf_document` source refuses with `PDF_READER_FAILED` | `/health` of that role (and the BFF's `/api/health`, which passes it through) answers `"public_source_fetcher": "missing"` |
+| The fetcher has no ready replica (crash loop, image pull, OOM) | The same lookups fail with "not reachable" after the connect error; a PDF capture with `PDF_READER_FAILED` | The `DeploymentUnavailable` alert after 15 minutes (`deploy/pulumi/src/platform/workload-alerts.ts`); `kubectl get deploy public-source-fetcher` |
+| A PDF reader hit its 1 GiB ceiling, or the pod its 2560Mi limit | That one capture refuses with `PDF_READER_FAILED` (the reader's exit signal in the message); other reads go on | The fetcher's log line for `/v1/extract` (size and outcome, never content); an OOMKilled restart in the pod's status |
+| A parse past 45 s, or the fetcher not answering within 50 s | `PDF_PARSE_TIMEOUT` | The same log line |
+
+To check a stack by hand: `curl -s <backend>/health` for the configuration;
+`kubectl -n <ns> exec deploy/api -- python -c "import httpx; print(httpx.get('http://public-source-fetcher:8095/healthz').text)"`
+for the path from a caller through the NetworkPolicy.
+
 ## API Keys
 
 ### Required Keys
