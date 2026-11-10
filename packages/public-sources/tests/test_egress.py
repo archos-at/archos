@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import socket
+
 import httpcore
 import httpx
 import pytest
@@ -12,7 +14,7 @@ from public_sources.egress import guarded_client
 from public_sources.egress import is_public_address
 from public_sources.source import parse_source
 from public_sources_testing import html_source
-from public_sources_testing.network import PlainHttpsForMock
+from public_sources_testing.network import scripted_network
 
 
 @pytest.mark.parametrize(
@@ -160,28 +162,24 @@ async def test_a_redirect_to_an_allowed_host_that_resolves_internally_is_refused
     # whose DNS now answers with the metadata address. The dial is what refuses.
     source = parse_source(html_source(hosts=["law.example.org", "files.example.org"]))
     answers = {"law.example.org": ["93.184.216.34"], "files.example.org": ["169.254.169.254"]}
+    redirect = b"HTTP/1.1 302 Found\r\nLocation: https://files.example.org/bo.html\r\nContent-Length: 0\r\n\r\n"
     dialled: list[str] = []
 
-    async def resolve(host, port):
-        return answers[host]
-
-    class _Answering(httpcore.AsyncNetworkBackend):
-        async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
-            dialled.append(host)
-            return httpcore.AsyncMockStream(
-                [b"HTTP/1.1 302 Found\r\nLocation: https://files.example.org/bo.html\r\nContent-Length: 0\r\n\r\n"]
-            )
-
-        async def sleep(self, seconds):
-            return None
-
-    transport = GuardedTransport(PublicOnlyBackend(inner=_Answering(), resolver=resolve))
-    # Plain-text mock streams: no TLS handshake to fake, so the client speaks http to the mock.
-    transport._pool._ssl_context = None
-    async with guarded_client(source, transport=PlainHttpsForMock(transport)) as client:
+    async with guarded_client(source, transport=scripted_network(answers, redirect, dialled)) as client:
         with pytest.raises(EgressRefused, match="169.254.169.254"):
             await client.get("https://law.example.org/bo.html")
     assert dialled == ["93.184.216.34"]
+
+
+async def test_a_lookup_that_fails_is_a_connect_error_not_a_refusal():
+    """A DNS failure is a transport failure every caller already retries, never an OSError past httpcore."""
+
+    async def failing(host, port):
+        raise socket.gaierror(socket.EAI_AGAIN, "Temporary failure in name resolution")
+
+    backend = PublicOnlyBackend(inner=_Recorder(), resolver=failing)
+    with pytest.raises(httpcore.ConnectError, match="could not be resolved"):
+        await backend.connect_tcp("law.example.org", 443)
 
 
 async def test_the_resolved_address_is_the_one_dialled_not_a_second_lookup():
