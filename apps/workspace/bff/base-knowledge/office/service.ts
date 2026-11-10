@@ -44,6 +44,8 @@ import {
   type BaseKnowledgeList,
   type ConfirmEntryBody,
   type EntryValues,
+  type LicenceEntryBody,
+  type UpdateEntryBody,
   type ListEntriesQuery,
   type ProposeEntryBody,
   type RecordCheckBody,
@@ -151,7 +153,8 @@ function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
   return values.kind === 'authority_directive' ? values : { ...values, addressees: [] }
 }
 
-function valuesOf(body: ProposeEntryBody | ConfirmEntryBody): Partial<EntryValues> {
+/** The entry values a body states; a body's other fields (its statements, its document) are not values. */
+function valuesOf(body: Partial<EntryValues>): Partial<EntryValues> {
   const { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass } = body
   return { kind, title, designation, editionLabel, issuedOn, territoryIds, issuer, addressees, licenceClass }
 }
@@ -237,11 +240,28 @@ export async function confirmBaseKnowledge(
   return (await findEntry(session, entryId)).entry
 }
 
-/** Change a confirmed entry's values: one new revision per record, the heads moved. */
+/** Change a confirmed entry's descriptive values: one new revision per record, the heads moved. */
 export async function updateBaseKnowledge(
   session: AuthorizedSession,
   entryId: string,
-  body: ConfirmEntryBody
+  body: UpdateEntryBody
+): Promise<BaseKnowledgeEntry> {
+  requireManage(session)
+  const found = await findEntry(session, entryId)
+  if (!found.stored.confirmed) throw new ConflictError('This entry is still a proposal; confirm it instead.')
+  await writeValues(session, found, merged(found.stored.values, valuesOf(body)), {}, false)
+  return (await findEntry(session, entryId)).entry
+}
+
+/**
+ * Change a confirmed copy's licence: its class, or the office's statements on
+ * it. Whether the text reaches a model turns on these, so this is the person's
+ * call alone (`personDecides`, offered to no agent of the office's own).
+ */
+export async function setBaseKnowledgeLicence(
+  session: AuthorizedSession,
+  entryId: string,
+  body: LicenceEntryBody
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)

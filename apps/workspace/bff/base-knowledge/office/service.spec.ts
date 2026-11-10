@@ -54,7 +54,12 @@ import {
   listBaseKnowledge,
   proposeBaseKnowledge,
   removeBaseKnowledge,
+  setBaseKnowledgeLicence,
+  updateBaseKnowledge,
 } from './service'
+import { updateEntryBodySchema } from '../wire'
+import { baseKnowledgeOperations } from '@/lib/agent-api/catalog/base-knowledge'
+import { BASE_KNOWLEDGE_EXPOSURE } from '@/lib/agent-api/exposure-base-knowledge'
 
 const MANAGER: AuthorizedSession = {
   userId: 'user-1',
@@ -198,6 +203,43 @@ describe('confirming', () => {
   it('refuses to confirm twice', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
     await expect(confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true })).rejects.toBeInstanceOf(ConflictError)
+  })
+})
+
+describe('the licence, the person’s call alone', () => {
+  it('takes no licence and no statement through an edit', () => {
+    expect(updateEntryBodySchema.safeParse({ aiProcessingAttested: true }).success).toBe(false)
+    expect(updateEntryBodySchema.safeParse({ licenceClass: 'public_open' }).success).toBe(false)
+    expect(updateEntryBodySchema.safeParse({ editionLabel: '2017-05-01' }).success).toBe(true)
+  })
+
+  it('leaves the text where it is when an edit changes a descriptive value', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await updateBaseKnowledge(MANAGER, 'work_1', { editionLabel: '2017-05-01' })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ editionLabel: '2017-05-01', licenceClass: 'licensed' }),
+      expect.objectContaining({ terms: {} }),
+    )
+    expect(releaseText).not.toHaveBeenCalled()
+  })
+
+  it('releases the text only through the licence, and says who stated it', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await setBaseKnowledgeLicence(MANAGER, 'work_1', { aiProcessingAttested: true })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ terms: expect.objectContaining({ aiProcessingAttestedBy: 'user-1' }) }),
+    )
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+  })
+
+  it('is a decision only the person makes through the door', () => {
+    for (const name of ['base-knowledge-licence-set', 'base-knowledge-confirm'] as const) {
+      expect(baseKnowledgeOperations.find((op) => op.name === name)).toMatchObject({ personDecides: true })
+      expect(BASE_KNOWLEDGE_EXPOSURE[name]).toMatchObject({ external: true, agent: false })
+    }
   })
 })
 

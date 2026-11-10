@@ -22,7 +22,7 @@ import {
   proposeBaseKnowledge,
   recordBaseKnowledgeCheck,
   removeBaseKnowledge,
-  updateBaseKnowledge,
+  setBaseKnowledgeLicence,
   type BaseKnowledgeEntry,
   type BaseKnowledgeList,
   type ShelfCandidate,
@@ -352,7 +352,7 @@ export const BaseKnowledgeCard: FC = () => {
                 canManage={list.canManage}
                 busy={busy}
                 onCheck={(e) => void act(() => recordBaseKnowledgeCheck(e.id, { result: 'current' }))}
-                onAllowAi={(e) => void act(() => updateBaseKnowledge(e.id, { aiProcessingAttested: true }))}
+                onAllowAi={(e) => void act(() => setBaseKnowledgeLicence(e.id, { aiProcessingAttested: true }))}
                 onRemove={(e) => window.confirm(t('baseKnowledge.removeConfirm')) && void act(() => removeBaseKnowledge(e.id))}
               />
             ),

@@ -12,6 +12,7 @@
 
 import {
   confirmEntryBodySchema,
+  licenceEntryBodySchema,
   entryParamsSchema,
   listEntriesQuerySchema,
   proposeEntryBodySchema,
@@ -78,13 +79,28 @@ export const baseKnowledgeOperations = [
     domain: 'knowledge',
     summary: 'Change a confirmed base-knowledge entry',
     description:
-      'Changes a confirmed entry’s values; the earlier values stay in its history. 409 for a proposal. ' +
-      'Needs org:office_shelf:manage.',
+      'Changes a confirmed entry’s descriptive values; the earlier values stay in its history. The licence is not ' +
+      'among them: only the person changes it. 409 for a proposal. Needs org:office_shelf:manage.',
     method: 'PATCH',
     path: '/api/base-knowledge/[entryId]',
     params: entryParamsSchema,
     body: updateEntryBodySchema,
     load: () => import('@/app/api/base-knowledge/[entryId]/route'),
+  },
+  {
+    name: 'base-knowledge-licence-set',
+    domain: 'knowledge',
+    summary: 'Change a confirmed copy’s licence',
+    description:
+      'Sets the licence class and the office’s statements: `licenceAttested` (needed to make a copy licensed) and ' +
+      '`aiProcessingAttested` (a licensed copy’s text reaches a model only with it; false withdraws it). 409 for a ' +
+      'proposal. Needs org:office_shelf:manage.',
+    method: 'PUT',
+    path: '/api/base-knowledge/[entryId]/licence',
+    params: entryParamsSchema,
+    body: licenceEntryBodySchema,
+    personDecides: true,
+    load: () => import('@/app/api/base-knowledge/[entryId]/licence/route'),
   },
   {
     name: 'base-knowledge-check-record',

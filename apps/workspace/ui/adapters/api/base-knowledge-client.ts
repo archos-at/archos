@@ -2,11 +2,17 @@
  * Base knowledge API client (ADR-0158): the office's standards, commentaries
  * and directives (`/api/base-knowledge`), and the office shelf documents one
  * can be recorded from. Same-origin BFF routes; the shapes are the service's
- * own wire types (`lib/base-knowledge/wire.ts`). A non-OK answer throws
+ * own wire types (`lib/base-knowledge/wire`). A non-OK answer throws
  * {@link ApiRequestError} with the HTTP status.
  */
 
-import type { BaseKnowledgeEntry, BaseKnowledgeList, ConfirmEntryBody, RecordCheckBody } from '@/lib/base-knowledge/wire'
+import type {
+  BaseKnowledgeEntry,
+  BaseKnowledgeList,
+  ConfirmEntryBody,
+  LicenceEntryBody,
+  RecordCheckBody,
+} from '@/lib/base-knowledge/wire'
 import { ApiRequestError } from './api-error'
 
 export type { BaseKnowledgeEntry, BaseKnowledgeList }
@@ -38,14 +44,14 @@ export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBo
     'confirm base knowledge',
   )
 
-export const updateBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
+export const setBaseKnowledgeLicence = async (entryId: string, body: LicenceEntryBody): Promise<BaseKnowledgeEntry> =>
   json(
-    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, {
-      method: 'PATCH',
+    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/licence`, {
+      method: 'PUT',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-    'update base knowledge',
+    'set base knowledge licence',
   )
 
 export const recordBaseKnowledgeCheck = async (entryId: string, body: RecordCheckBody): Promise<BaseKnowledgeEntry> =>

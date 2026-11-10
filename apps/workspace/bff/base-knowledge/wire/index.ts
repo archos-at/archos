@@ -81,7 +81,20 @@ export const confirmEntryBodySchema = entryValuesSchema
   .strict()
 export type ConfirmEntryBody = z.infer<typeof confirmEntryBodySchema>
 
-export const updateEntryBodySchema = confirmEntryBodySchema
+/**
+ * A change to a confirmed entry's descriptive values. The licence class and the
+ * office's statements are not among them: they decide whether the text reaches
+ * a model, so they change only through `licenceEntryBodySchema`, the person's
+ * own call (ADR-0158).
+ */
+export const updateEntryBodySchema = entryValuesSchema.omit({ licenceClass: true }).partial().strict()
+export type UpdateEntryBody = z.infer<typeof updateEntryBodySchema>
+
+/** A change to a confirmed copy's licence: its class, and the office's statements on it. */
+export const licenceEntryBodySchema = confirmEntryBodySchema
+  .pick({ licenceClass: true, licenceAttested: true, aiProcessingAttested: true })
+  .strict()
+export type LicenceEntryBody = z.infer<typeof licenceEntryBodySchema>
 
 export const recordCheckBodySchema = z
   .object({

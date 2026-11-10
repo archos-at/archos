@@ -102,8 +102,11 @@ platform layer, as additions).
   overdue after 365 days (180 for a directive). The agent finds the text in the
   office shelf, as before.
 - **Operations.** `base-knowledge-list`, `-get`, `-propose`, `-confirm`
-  (`personDecides`; the agent proposes, the person confirms), `-update`,
-  `-check-record`, `-remove`. Upload and search are the office shelf's.
+  (`personDecides`; the agent proposes, the person confirms), `-update`
+  (descriptive values only), `-licence-set` (the licence class and both
+  statements; `personDecides` and offered to no agent of the office, since it
+  decides whether licensed text reaches a model), `-check-record`, `-remove`.
+  Upload and search are the office shelf's.
 - **Problems and repeats.** Every base-knowledge route answers a refusal as an
   RFC 9457 problem (`application/problem+json`: `type`, `title`, `status`,
   `detail`, plus `code` and `error` as the rest of the app answers), and the
