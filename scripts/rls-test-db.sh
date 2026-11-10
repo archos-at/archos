@@ -240,6 +240,8 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/site-resolution/site-resolution.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts
+    bff/base-knowledge/platform/platform.integration.spec.ts \
+    bff/base-knowledge/time/time.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -3513,31 +3515,44 @@ check_in pbk_0205 "SELECT count(*) FROM information_schema.tables WHERE table_na
 echo "==> 0205 platform base knowledge and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0206: the official address registers in the cell (ADR-0172).
+# Migration 0207: the official address registers in the cell (ADR-0172).
 #
-# On a database of its own, migrated through 0206: an active release needs its
+# On a database of its own, migrated through 0207: an active release needs its
 # rows counted and a time, a register has one active release at a time, an
 # entry needs both keys, a release's entries go with it, and the down drops
-# both tables so 0206 applies again.
+# both tables so 0207 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0206 address register and its down migration on addr_0206"
-migrate_until addr_0206 0206_address_register
-REL="a0000000-0000-4000-8000-000000000206"
-sql_in addr_0206 <<SQL
+echo "==> verifying the 0207 address register and its down migration on addr_0207"
+migrate_until addr_0207 0207_address_register
+REL="a0000000-0000-4000-8000-000000000207"
+sql_in addr_0207 <<SQL
 INSERT INTO address_register_releases (id, register, country_id, reference_date, attribution) VALUES ('$REL', 'at-bev', 'AT', '2025-10-01', 'BEV');
 INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key, place_keys)
   VALUES ('$REL', '5734380', '60101', 'Graz', '8010', 'Herrengasse', '16', 'herrengasse', '16', '{graz}');
 SQL
-refused_in addr_0206 "UPDATE address_register_releases SET status = 'active' WHERE id = '$REL'" "address_register_releases_active_has_rows" "a release active with no rows counted"
-sql_in addr_0206 <<<"UPDATE address_register_releases SET status = 'active', entry_count = 1, activated_at = now() WHERE id = '$REL';"
-refused_in addr_0206 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution, status, entry_count, activated_at) VALUES ('at-bev', 'AT', '2026-04-01', 'BEV', 'active', 1, now())" "address_register_releases_one_active" "a second active release of one register"
-refused_in addr_0206 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution) VALUES ('BEV', 'AT', '2026-04-01', 'BEV')" "address_register_releases_register_shape" "a register id of the wrong shape"
-refused_in addr_0206 "INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key) VALUES ('$REL', 'x', '60101', 'Graz', '8010', 'Herrengasse', '16', '', '16')" "address_register_entries_keys_present" "an entry without a street key"
-sql_in addr_0206 <<<"DELETE FROM address_register_releases WHERE id = '$REL';"
-check_in addr_0206 "SELECT count(*) FROM address_register_entries" "0" "0206: a release's entries go with it"
-check_in addr_0206 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('address_register_entries', 'address_register_releases')" "address_register_entries:true,address_register_releases:true" "0206: both tables are under row-level security"
-apply_in addr_0206 0206_address_register.down.sql
-check_in addr_0206 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "0" "0206 down drops both tables"
-apply_in addr_0206 0206_address_register.sql
-check_in addr_0206 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0206 applies again after its down"
-echo "==> 0206 address register and its down migration verified"
+refused_in addr_0207 "UPDATE address_register_releases SET status = 'active' WHERE id = '$REL'" "address_register_releases_active_has_rows" "a release active with no rows counted"
+sql_in addr_0207 <<<"UPDATE address_register_releases SET status = 'active', entry_count = 1, activated_at = now() WHERE id = '$REL';"
+refused_in addr_0207 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution, status, entry_count, activated_at) VALUES ('at-bev', 'AT', '2026-04-01', 'BEV', 'active', 1, now())" "address_register_releases_one_active" "a second active release of one register"
+refused_in addr_0207 "INSERT INTO address_register_releases (register, country_id, reference_date, attribution) VALUES ('BEV', 'AT', '2026-04-01', 'BEV')" "address_register_releases_register_shape" "a register id of the wrong shape"
+refused_in addr_0207 "INSERT INTO address_register_entries (release_id, address_id, municipality_code, municipality_name, postcode, street_name, house_number, street_key, house_key) VALUES ('$REL', 'x', '60101', 'Graz', '8010', 'Herrengasse', '16', '', '16')" "address_register_entries_keys_present" "an entry without a street key"
+sql_in addr_0207 <<<"DELETE FROM address_register_releases WHERE id = '$REL';"
+check_in addr_0207 "SELECT count(*) FROM address_register_entries" "0" "0207: a release's entries go with it"
+check_in addr_0207 "SELECT string_agg(relname || ':' || relrowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relname IN ('address_register_entries', 'address_register_releases')" "address_register_entries:true,address_register_releases:true" "0207: both tables are under row-level security"
+apply_in addr_0207 0207_address_register.down.sql
+check_in addr_0207 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "0" "0207 down drops both tables"
+apply_in addr_0207 0207_address_register.sql
+check_in addr_0207 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'address_register_%'" "2" "0207 applies again after its down"
+echo "==> 0207 address register and its down migration verified"
+# 0206: an edition's transition is a table (an object) or absent, and a work
+# says from when its history is held; the down drops both and 0206 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0206 editions in time and its down migration on te_0206"
+migrate_until te_0206 0206_editions_in_time
+sql_in te_0206 <<<"INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('work_t0206', 'org_0206', 'work', 'user_author');"
+refused_in te_0206 "INSERT INTO knowledge_edition_revisions (revision_id, record_id, organization_id, work_id, label, transition) VALUES (gen_random_uuid(), 'edition_t0206', 'org_0206', 'work_t0206', 'x', '[]')" "knowledge_edition_revisions_transition_object" "a transition that is not a table"
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_work_revisions' AND column_name = 'history_available_from'" "1" "0206 adds the history start"
+apply_in te_0206 0206_editions_in_time.down.sql
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE column_name IN ('transition', 'history_available_from') AND table_name LIKE 'knowledge_%'" "0" "0206 down drops both columns"
+apply_in te_0206 0206_editions_in_time.sql
+check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'transition'" "1" "0206 applies again after its down"
+echo "==> 0206 editions in time and its down migration verified"
