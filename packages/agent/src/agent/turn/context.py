@@ -346,7 +346,7 @@ async def _load_turn_context(
         lines = blocks.base_knowledge.splitlines()
         record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
         overdue = overdue_count(blocks.base_knowledge_labels)
-        emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="piloti")
+        emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
         # An earlier turn drew on another project (ADR-0094): this one starts
         # with every door a whole project reads shut (`settle_restriction`).
