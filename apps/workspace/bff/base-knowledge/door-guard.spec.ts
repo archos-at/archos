@@ -12,15 +12,36 @@ const reader = vi.hoisted(() => ({ agent: true }))
 vi.mock('@/lib/agent-api/acting-session', () => ({ actingReaderIsAgent: () => reader.agent }))
 const licence = vi.hoisted(() => ({ value: null as unknown }))
 vi.mock('./text-guard', () => ({ licenceOfDocument: vi.fn(async () => licence.value) }))
-const store = vi.hoisted(() => new Map<string, unknown>())
+const store = vi.hoisted(() => ({ counters: new Map<string, number>(), down: false }))
 vi.mock('@/lib/cache', () => ({
-  getCached: async (key: string, _ttl: number, loader: () => Promise<unknown>) =>
-    store.has(key) ? store.get(key) : loader(),
-  setCached: async (key: string, value: unknown) => void store.set(key, value),
+  incrementCounter: async (key: string, by: number) => {
+    if (store.down) return null
+    const total = (store.counters.get(key) ?? 0) + by
+    store.counters.set(key, total)
+    return total
+  },
+}))
+const access = vi.hoisted(() => ({ denied: false }))
+vi.mock('@/lib/documents/access', () => ({
+  getAccessibleDocument: vi.fn(async () => {
+    if (access.denied) throw new NotFoundError()
+    return {}
+  }),
 }))
 
+import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { DOOR_QUOTE_FACTOR, doorTextOf, refuseLicensedFileForAgent } from './door-guard'
+import type { SearchResponse } from '@/lib/search/search-wire'
+import type { SimilarPassagesResponse } from '@/lib/similar-passages/types'
+import {
+  DOOR_QUOTE_FACTOR,
+  LICENSED_SNIPPET_NOTE,
+  doorTextOf,
+  refuseLicensedFileForAgent,
+  searchForAgent,
+  similarForAgent,
+} from './door-guard'
+import { licenceOfDocument } from './text-guard'
 
 const session = { organizationId: 'org_a', userId: 'user_a' } as AuthorizedSession
 const NORM = 'Tabelle 3 – Mindesthöhe 100 cm bis 12 m Absturzhöhe. '.repeat(40)
@@ -30,7 +51,9 @@ const attested = { licenceClass: 'licensed', licensed: true, confirmed: true, ai
 beforeEach(() => {
   reader.agent = true
   licence.value = attested
-  store.clear()
+  store.counters.clear()
+  store.down = false
+  access.denied = false
 })
 
 describe('an agent at the door', () => {
@@ -72,6 +95,69 @@ describe('an agent at the door', () => {
     await expect(refuseLicensedFileForAgent(session, 'doc6')).resolves.toBeUndefined()
     licence.value = { ...attested, licenceClass: 'public_open', licensed: false }
     expect((await doorTextOf(session, 'doc6', read)).text).toBe(NORM)
+  })
+})
+
+describe('the budget', () => {
+  it('is one per edition, so a second upload of the same copy does not reset it', async () => {
+    licence.value = { ...attested, editionId: 'ed_1' }
+    await doorTextOf(session, 'upload_a', read)
+    await expect(doorTextOf(session, 'upload_b', read)).rejects.toMatchObject({ code: 'LICENSED_QUOTE_CAP_REACHED' })
+  })
+
+  it('is spent atomically: two reads in flight together get no more than the budget between them', async () => {
+    const both = await Promise.all([doorTextOf(session, 'doc8', read), doorTextOf(session, 'doc8', read)].map((call) =>
+      call.then((preview) => preview.text.length, () => 0)
+    ))
+    expect(both[0] + both[1]).toBe(DOOR_QUOTE_FACTOR * 100)
+  })
+
+  it('still cuts each call to the whole budget when the shared cache is down', async () => {
+    store.down = true
+    for (let i = 0; i < 2; i++) expect((await doorTextOf(session, 'doc9', read)).text).toHaveLength(DOOR_QUOTE_FACTOR * 100)
+  })
+})
+
+describe('a document the person cannot open', () => {
+  it('is not found, before any licence is read: a refusal would say the copy exists', async () => {
+    access.denied = true
+    vi.mocked(licenceOfDocument).mockClear()
+    await expect(refuseLicensedFileForAgent(session, 'doc10')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(doorTextOf(session, 'doc10', read)).rejects.toBeInstanceOf(NotFoundError)
+    expect(licenceOfDocument).not.toHaveBeenCalled()
+  })
+})
+
+describe('search snippets', () => {
+  const searched = (id: string): SearchResponse =>
+    ({
+      sections: {
+        document: { hits: [{ kind: 'document', id, passage: { text: NORM.slice(0, 200), page: 4 } }], total: 1 },
+      },
+    }) as unknown as SearchResponse
+  const similar = (documentId: string): SimilarPassagesResponse =>
+    ({
+      groups: [{ kind: 'office_shelf', project: null, documents: [{ documentId, passages: [{ page: 4, snippet: NORM.slice(0, 200), score: 0.9 }] }] }],
+    }) as unknown as SimilarPassagesResponse
+
+  it('of a licensed copy reach an agent as the note, its hit and page kept', async () => {
+    const hit = (await searchForAgent(session, searched('doc11'))).sections.document?.hits[0]
+    expect(hit?.passage).toEqual({ text: LICENSED_SNIPPET_NOTE, page: 4 })
+    const passage = (await similarForAgent(session, similar('doc11'))).groups[0].documents[0].passages[0]
+    expect(passage).toMatchObject({ snippet: LICENSED_SNIPPET_NOTE, page: 4 })
+  })
+
+  it('are withheld when the licence cannot be read (fail closed)', async () => {
+    vi.mocked(licenceOfDocument).mockRejectedValueOnce(new Error('db down'))
+    expect((await searchForAgent(session, searched('doc12'))).sections.document?.hits[0].passage?.text).toBe(LICENSED_SNIPPET_NOTE)
+  })
+
+  it('of any other document, and for the person, are as found', async () => {
+    licence.value = null
+    expect((await searchForAgent(session, searched('doc13'))).sections.document?.hits[0].passage?.text).toBe(NORM.slice(0, 200))
+    licence.value = attested
+    reader.agent = false
+    expect((await similarForAgent(session, similar('doc13'))).groups[0].documents[0].passages[0].snippet).toBe(NORM.slice(0, 200))
   })
 })
 

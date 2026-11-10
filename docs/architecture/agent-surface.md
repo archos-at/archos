@@ -974,12 +974,19 @@ answer JSON holding such a URL, so they are plain reads, and never run for Pilot
 conversation (`LINK_BEARING_OPERATIONS`, never in `AUDIENCE_READS`).
 
 **An office's licensed copy** (a base-knowledge copy marked `licensed`, ADR-0159) is held apart for an
-agent, never for the person (`bff/base-knowledge/door-guard.ts`, keyed on `actingReaderIsAgent`): its
-file, download, preview and thumbnail are refused (`LICENSED_COPY_NOT_SENT`), and `document-text-get`
-gives no text of a copy whose office has not attested AI processing (`LICENSED_TEXT_WITHHELD`) and at
-most three times its `quoteMaxChars` per person, document and day of an attested one
-(`LICENSED_QUOTE_CAP_REACHED` past that; design E19). The door has no session id, so the person and the
+agent, never for the person (`bff/base-knowledge/door-guard.ts`, keyed on `actingReaderIsAgent`). A
+copy the person cannot open is a 404 first, so no refusal says it exists. Its file, download, preview,
+thumbnail, version content and version diff are refused (`LICENSED_COPY_NOT_SENT`). `document-text-get`
+gives no text of a copy whose office has not attested AI processing (`LICENSED_TEXT_WITHHELD`), and of an
+attested one at most three times its `quoteMaxChars` per person, edition and calendar day (UTC)
+(`LICENSED_QUOTE_CAP_REACHED` past that; design E19). The counter is added to atomically in the shared
+cache (`incrementCounter`: INCRBY, with an expiry set once), so two calls in flight cannot both spend the
+rest, and it is keyed by the edition, so a second upload of the copy does not reset it. `workspace-search`
+and `passage-similar-search` keep a licensed copy's hit and page and replace its snippet with a note, so
+repeated queries cannot collect the norm a snippet at a time. A licence that cannot be read is refused
+(`LICENSED_COPY_UNKNOWN`) or, for a snippet, withheld. The door has no session id, so the person and the
 day are its session. The person's own text pane and viewer read the copy whole.
+`bff/base-knowledge/door-routes.spec.ts` holds every one of these routes through `callOperation(..., 'agent')`.
 
 A JSON or text answer is streamed with a cap too, `MAX_TEXT_BYTES` (5 MiB): past it nothing more
 is read and the agent is told to narrow the call. The backend operations' answers are read by the

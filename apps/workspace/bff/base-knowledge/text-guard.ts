@@ -43,8 +43,13 @@ export async function copyMarkForIngest(
 export async function licenceOfDocument(
   organizationId: string,
   documentId: string
-): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean }) | null> {
+): Promise<(LicenceMark & { licensed: boolean; confirmed: boolean; editionId: string }) | null> {
   const copy = await copyForDocument(organizationId, documentId)
   if (!copy) return null
-  return { ...licenceMarkOf(copy.licenceClass, copy.terms), licensed: copy.licenceClass === 'licensed', confirmed: copy.confirmed }
+  return {
+    ...licenceMarkOf(copy.licenceClass, copy.terms),
+    licensed: copy.licenceClass === 'licensed',
+    confirmed: copy.confirmed,
+    editionId: copy.editionId,
+  }
 }

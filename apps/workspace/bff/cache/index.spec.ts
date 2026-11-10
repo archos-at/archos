@@ -23,6 +23,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getCached,
+  incrementCounter,
   invalidateCached,
   invalidateCachedPrefix,
   readCacheCounters,
@@ -242,5 +243,28 @@ describe('counters', () => {
     resetCacheCounters()
 
     expect(readCacheCounters()).toEqual({ hits: 0, misses: 0, errors: 0 })
+  })
+})
+
+describe('incrementCounter', () => {
+  it('answers null, never throws, for a store that has no counters or cannot be reached', async () => {
+    resetCacheCounters()
+    setCacheStore(new ThrowingStore())
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    setCacheStore({ ...new ThrowingStore(), increment: async () => Promise.reject(new Error('ECONNREFUSED')) } as CacheStore)
+    expect(await incrementCounter('door-quote:k', 5, 1000)).toBeNull()
+    expect(readCacheCounters().errors).toBe(1)
+  })
+
+  it('returns the running total the store keeps', async () => {
+    const totals = new Map<string, number>()
+    const counting = {
+      ...new ThrowingStore(),
+      increment: async (key: string, by: number) => totals.set(key, (totals.get(key) ?? 0) + by).get(key) as number,
+    } as CacheStore
+    setCacheStore(counting)
+    expect(await incrementCounter('door-quote:k', 0, 1000)).toBe(0)
+    expect(await incrementCounter('door-quote:k', 120, 1000)).toBe(120)
+    expect(await incrementCounter('door-quote:k', 60, 1000)).toBe(180)
   })
 })
