@@ -51,7 +51,10 @@ describe('InboundMailDetail', () => {
     const file = vi.spyOn(client, 'file')
     const { onChanged } = renderDetail('member-verified', client)
     const button = screen.getByTestId('decision-file')
-    expect(button).toHaveTextContent('File 1 file and the mail text')
+    // The press is the verb; the sentence beside it says what one press files, and is the press's description.
+    expect(button).toHaveTextContent('File')
+    expect(screen.getByTestId('decision-summary')).toHaveTextContent('File 1 file and the mail text')
+    expect(button).toHaveAccessibleDescription('File 1 file and the mail text')
     await userEvent.click(button)
     await waitFor(() => expect(file).toHaveBeenCalledTimes(1))
     const body = file.mock.calls[0][1]
@@ -98,7 +101,7 @@ describe('InboundMailDetail', () => {
 
   it('names the thread and its revision when only the text goes', () => {
     renderDetail('thread-append')
-    expect(screen.getByTestId('decision-file')).toHaveTextContent('File in mail thread “Stellplatznachweis” (becomes revision 4)')
+    expect(screen.getByTestId('decision-summary')).toHaveTextContent('File in mail thread “Stellplatznachweis” (becomes revision 4)')
   })
 
   it('offers nothing of an impersonation checked, asks for the unverified domain before filing, and sends the yes', async () => {

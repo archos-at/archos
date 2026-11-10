@@ -633,12 +633,9 @@ export function FolderCard({
   return (
     <TileShell
       interactive
-      // A folder is a compact tile at every width: a white sheet one line tall
-      // (glyph, name, what it holds) lying on the page as the documents' sheets do,
-      // inside the tile's 6px hover inset, so its edge stands on the thumbnails'
-      // edge. Paper on a desk: every object on the page is a sheet; a folder reads
-      // apart from a document by its shape (a strip, not a page). On a phone the
-      // grid spans it into a row (`FOLDER_ROWS_ON_PHONE`).
+      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px hover inset, its edge
+      // on the thumbnails' edge: apart from a document by its shape, a strip, not a page. On a phone the grid spans it
+      // into a row (`FOLDER_ROWS_ON_PHONE`).
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
       className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
@@ -650,7 +647,7 @@ export function FolderCard({
       {...drop.dropProps}
     >
       <div
-        className="absolute right-3 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+        className="absolute right-8 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -672,7 +669,8 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-10">
+        {/* 56px, radius 10, elevation 1, a chevron at its end (the ⋯ comes in left of it): a sheet that opens, not a press. */}
+        <FileTileBody className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-3">
           {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
@@ -683,7 +681,7 @@ export function FolderCard({
             ) : (
               <div className="flex min-w-0 items-center gap-1.5">
                 {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-                <p className="min-w-0 truncate text-[13px] font-medium leading-tight text-foreground">
+                <p className="min-w-0 truncate text-name text-foreground">
                   <FileName text={folder.name} />
                 </p>
                 {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
@@ -707,6 +705,7 @@ export function FolderCard({
               </p>
             )}
           </div>
+          {!editing && <ChevronRight className="text-muted-foreground ml-7 size-4 shrink-0" aria-hidden data-slot="folder-opens" />}
         </FileTileBody>
       </FolderCardFrame>
     </TileShell>

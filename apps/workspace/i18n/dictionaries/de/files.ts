@@ -621,16 +621,17 @@ export const files: typeof en.files = {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
-    deletedBy: 'Gelöscht von {name} am {date}',
-    deletedOn: 'Gelöscht am {date}',
+    deletedBy: 'gelöscht von {name} am {date}',
+    deletedOn: 'gelöscht am {date}',
     // What a folder holds, each figure only when it is not zero („0 Ordner“ was a clause that said nothing).
     contentsDocuments: '{count, plural, one {# Dokument} other {# Dokumente}}',
     contentsFolders: '{count, plural, one {# Ordner} other {# Ordner}}',
-    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; what stays, not the press's words again;
+    // One meta line („14 Dokumente · gelöscht von … am … · bleibt bis …“), so every clause is lower case and the row
+    // capitalises the line's first letter; what stays, not the press's words again;
     // the date bound to its word.
     purgeOn: 'bleibt bis {date}',
     purging: 'wird gerade endgültig gelöscht',
-    failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
+    failed: 'endgültige Löschung angehalten, ein Admin kümmert sich darum',
     restore: 'Wiederherstellen',
     // Where the press would be, so the row says why it is not there.
     restoreBlocked: {
@@ -1584,9 +1585,7 @@ export const files: typeof en.files = {
     open: 'Offene Punkte',
     title: 'Offene Punkte',
     filters: {
-      assignee: 'Zuständig',
-      due: 'Frist',
-      all: 'Alle',
+      label: 'Filter',
       // Dasselbe Prädikat wie „Für Sie“ in der Prüfansicht und in Dateien (`isForReader`), also dieselben Worte.
       me: 'Für Sie',
       overdue: 'Überfällig',

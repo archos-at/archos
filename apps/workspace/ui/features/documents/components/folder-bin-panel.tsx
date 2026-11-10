@@ -31,7 +31,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/ui/spinner'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
-import { useLocale, useTranslations } from '@/i18n'
+import { useLocale, useTranslations, type Translator } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { FOLDER_NAME_TAKEN_REASON } from '@/lib/projects/folder-bin-codes'
@@ -144,111 +144,93 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
       ) : (
         // Rows on the page, no box, a hairline between two; they bleed by their inset so the glyphs stand on the edge.
         <ul className="-mx-4 flex flex-col">
-          {listing.entries.map((entry) => (
-            // On a phone the actions take their own line under the entry,
-            // rather than squeezing its name and dates to nothing.
-            <Item key={entry.folderId} as="li" className={`group/row flex-wrap rounded-surface hover:bg-desk sm:flex-nowrap [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
-              {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
-              <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
-                {entry.document ? (
-                  <span className="text-muted-foreground text-[11px] font-medium uppercase" aria-hidden>
-                    {fileExtensionLabel(entry.name) || '—'}
-                  </span>
-                ) : (
-                  <Folder className="text-muted-foreground size-4" aria-hidden />
-                )}
-              </ItemMedia>
-              <ItemContent className="basis-[calc(100%-2.75rem)] sm:basis-auto">
-                <ItemTitle title={entry.path} className="text-[13px]">{entry.name}</ItemTitle>
-                {/* What a folder holds first: the figure that says whether it is the one to bring back. A document's
-                    glyph says what it is, so it has no such line. */}
-                {!entry.document && (
-                  <ItemDescription className="whitespace-normal sm:truncate">
-                    {[
-                      entry.documents > 0 && t('bin.contentsDocuments', { count: entry.documents }),
-                      entry.folders > 0 && t('bin.contentsFolders', { count: entry.folders }),
-                    ]
-                      .filter(Boolean)
-                      .join(CLAUSE_JOIN) || t('bin.contentsDocuments', { count: 0 })}
-                  </ItemDescription>
-                )}
-                {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
-                <ItemDescription className="whitespace-normal text-pretty sm:truncate">
-                  <span>
-                    {entry.deletedBy.name
-                      ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
-                      : t('bin.deletedOn', { date: date(entry.deletedAt) })}
-                    {/* On a phone when it goes is a line of its own, with no dot to strand at a wrap. */}
-                    <span className="max-sm:hidden">{CLAUSE_JOIN}</span>
-                    <span className="max-sm:block max-sm:first-letter:uppercase">
-                      {/* Before its clause, in the clause's line on a desk and a phone alike („◌ wird gerade …“). */}
-                      {entry.status === 'purging' && <Spinner size="xs" className="mr-1 inline-block align-[-2px]" />}
-                      {entry.status === 'purging'
-                        ? t('bin.purging')
-                        : entry.status === 'failed'
-                          ? t('bin.failed')
-                          : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+          {listing.entries.map((entry) => {
+            const meta = binMetaLine(entry, t, date)
+            return (
+              // A row is a name and one meta line, 56px (paper on a desk: never three lines at desk width). The one
+              // visible action stands on the column's right edge, a raised press; on a phone it is a 44px glyph on the
+              // name's line.
+              <Item key={entry.folderId} as="li" className={`group/row items-center gap-3 rounded-surface py-2.5 hover:bg-desk [--row-end:16px] [--row-text:60px] ${ROW_HAIRLINE}`} /* the line from the name (16px inset, 32px column, 12px gap) */ data-testid={`bin-entry-${entry.folderId}`}>
+                {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
+                <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
+                  {entry.document ? (
+                    <span className="text-muted-foreground text-[11px] font-medium uppercase" aria-hidden>
+                      {fileExtensionLabel(entry.name) || '—'}
                     </span>
-                  </span>
-                </ItemDescription>
-              </ItemContent>
-              {/* Restore at the start of the row, „Endgültig löschen" at the far
-                  end of it: the destructive action has the width of the row
-                  between it and the one a thumb reaches for. It used to sit 23px
-                  from Wiederherstellen. `ml-auto` keeps it at the end when it is
-                  the only action, so the row does not change shape. */}
-              {/* On a phone the actions line up under the name they belong to, not under the glyph. */}
-              <ItemActions className="w-full items-center justify-between gap-3 pl-11 sm:w-auto sm:justify-end sm:pl-0" /* one row on a phone: the reason or the press left, the delete right */>
-                {/* Where the press would be, the reason it is not: a hole in the press column was a question. */}
-                {!entry.canRestore && entry.restoreBlocked && (
-                  <span className="text-muted-foreground min-w-0 flex-1 text-xs sm:max-w-56 sm:flex-none sm:text-right" data-testid={`bin-blocked-${entry.folderId}`}>
-                    {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
-                  </span>
-                )}
-                {entry.canRestore && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busyId === entry.folderId}
-                    onClick={() => void restore(entry)}
-                    data-testid={`bin-restore-${entry.folderId}`}
-                  >
-                    <RotateCcw className="size-3.5" aria-hidden />
-                    {t('bin.restore')}
-                  </Button>
-                )}
-                {/* One visible action per row; the one that destroys sits behind the ⋯, shown on hover, focus and selection. */}
-                {listing.canPurge && entry.status !== 'purging' && (
-                  <ActionMenu
-                    mode="dropdown"
-                    align="end"
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`text-muted-foreground size-8 ${ROW_REVEAL}`}
-                        aria-label={t('bin.purge')}
-                        data-testid={`bin-actions-${entry.folderId}`}
-                      >
-                        <MoreHorizontal className="size-4" aria-hidden />
-                      </Button>
-                    }
-                    entries={[
-                      {
-                        type: 'item',
-                        id: 'purge',
-                        label: t('bin.purge'),
-                        icon: Trash2,
-                        variant: 'destructive',
-                        testId: `bin-purge-${entry.folderId}`,
-                        onSelect: () => setPurging(entry),
-                      },
-                    ]}
-                  />
-                )}
-              </ItemActions>
-            </Item>
-          ))}
+                  ) : (
+                    <Folder className="text-muted-foreground size-4" aria-hidden />
+                  )}
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle title={entry.path} className="text-name">{entry.name}</ItemTitle>
+                  {/* What it holds, who deleted it and when it goes, on one line: three lines of meta per row was a form. */}
+                  <ItemDescription className="text-meta whitespace-normal first-letter:uppercase sm:truncate" title={meta.text}>
+                    {meta.lead}
+                    {CLAUSE_JOIN}
+                    {/* Before its clause („◌ wird gerade …“). */}
+                    {entry.status === 'purging' && <Spinner size="xs" className="mr-1 inline-block align-[-2px]" />}
+                    {meta.fate}
+                  </ItemDescription>
+                  {/* On a phone the reason a row cannot come back is its second meta line; on a desk it takes the press's slot. */}
+                  {!entry.canRestore && entry.restoreBlocked && (
+                    <ItemDescription className="text-meta whitespace-normal sm:hidden">{t(`bin.restoreBlocked.${entry.restoreBlocked}`)}</ItemDescription>
+                  )}
+                </ItemContent>
+                <ItemActions className="gap-1">
+                  {/* One visible action per row; the one that destroys sits behind the ⋯ (hover, focus, a coarse pointer),
+                      left of the press so the press keeps the column's edge. */}
+                  {listing.canPurge && entry.status !== 'purging' && (
+                    <ActionMenu
+                      mode="dropdown"
+                      align="end"
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`text-muted-foreground size-8 pointer-coarse:size-11 ${ROW_REVEAL}`}
+                          aria-label={t('bin.purge')}
+                          data-testid={`bin-actions-${entry.folderId}`}
+                        >
+                          <MoreHorizontal className="size-4" aria-hidden />
+                        </Button>
+                      }
+                      entries={[
+                        {
+                          type: 'item',
+                          id: 'purge',
+                          label: t('bin.purge'),
+                          icon: Trash2,
+                          variant: 'destructive',
+                          testId: `bin-purge-${entry.folderId}`,
+                          onSelect: () => setPurging(entry),
+                        },
+                      ]}
+                    />
+                  )}
+                  {/* Where the press would be, the reason it is not, in one muted line: a hole in the press column was a question. */}
+                  {!entry.canRestore && entry.restoreBlocked && (
+                    <span className="text-muted-foreground text-meta max-sm:hidden whitespace-nowrap" data-testid={`bin-blocked-${entry.folderId}`}>
+                      {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
+                    </span>
+                  )}
+                  {entry.canRestore && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="max-sm:size-11 max-sm:px-0"
+                      aria-label={t('bin.restore')}
+                      disabled={busyId === entry.folderId}
+                      onClick={() => void restore(entry)}
+                      data-testid={`bin-restore-${entry.folderId}`}
+                    >
+                      <RotateCcw className="size-3.5" aria-hidden />
+                      <span className="max-sm:sr-only">{t('bin.restore')}</span>
+                    </Button>
+                  )}
+                </ItemActions>
+              </Item>
+            )
+          })}
         </ul>
       )}
       {listing.nextCursor && (
@@ -269,6 +251,33 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
       />
     </div>
   )
+}
+
+/**
+ * A row's one meta line: what a folder holds (a document's format column already says what it is), who deleted it and
+ * when, and when it goes or what is happening to it. Lower case after the first clause; the row capitalises its first
+ * letter.
+ */
+function binMetaLine(
+  entry: FolderBinEntry,
+  t: Translator,
+  date: (iso: string) => string,
+): { text: string; lead: string; fate: string } {
+  const contents = entry.document
+    ? null
+    : [
+        entry.documents > 0 && t('bin.contentsDocuments', { count: entry.documents }),
+        entry.folders > 0 && t('bin.contentsFolders', { count: entry.folders }),
+      ]
+        .filter(Boolean)
+        .join(CLAUSE_JOIN) || t('bin.contentsDocuments', { count: 0 })
+  const deleted = entry.deletedBy.name
+    ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
+    : t('bin.deletedOn', { date: date(entry.deletedAt) })
+  const fate =
+    entry.status === 'purging' ? t('bin.purging') : entry.status === 'failed' ? t('bin.failed') : t('bin.purgeOn', { date: date(entry.purgeAfter) })
+  const lead = [contents, deleted].filter(Boolean).join(CLAUSE_JOIN)
+  return { text: `${lead}${CLAUSE_JOIN}${fate}`, lead, fate }
 }
 
 /** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */

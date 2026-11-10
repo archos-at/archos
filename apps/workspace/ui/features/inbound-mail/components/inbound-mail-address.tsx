@@ -148,8 +148,7 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
       type="button"
       variant="secondary"
       size="sm"
-      // A sheet on the quiet panel it sits in (the panel is the secondary tone itself).
-      className="bg-background hover:bg-accent"
+      // The kit's press, as every secondary: a grey override (from the tonal days) made it the one grey press on the sheet.
       onClick={() => {
         saveContact(value, projectName, t('address.contactName', { project: projectName }), t('address.contactNote'))
         capturePosthog('inbound_mail_address_contact_saved', { surface })

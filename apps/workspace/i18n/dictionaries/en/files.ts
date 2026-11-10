@@ -636,13 +636,13 @@ export const files = {
     title: 'Bin',
     empty: 'The bin is empty.',
     emptyHint: 'Deleted folders appear here and can be restored.',
-    deletedBy: 'Deleted by {name} on {date}',
-    deletedOn: 'Deleted on {date}',
+    deletedBy: 'deleted by {name} on {date}',
+    deletedOn: 'deleted on {date}',
     contentsDocuments: '{count, plural, one {# document} other {# documents}}',
     contentsFolders: '{count, plural, one {# folder} other {# folders}}',
     purgeOn: 'kept until {date}',
     purging: 'being permanently deleted',
-    failed: 'The permanent deletion has stopped. An admin is looking into it.',
+    failed: 'permanent deletion stopped, an admin is looking into it',
     restore: 'Restore',
     restoreBlocked: {
       folder_read_only: 'Cannot be restored: you may only read this folder.',
@@ -1616,9 +1616,7 @@ export const files = {
     open: 'Open points',
     title: 'Open points',
     filters: {
-      assignee: 'Assignee',
-      due: 'Due',
-      all: 'All',
+      label: 'Filters',
       // The same predicate as „For you“ in the review and in Files (`isForReader`), so the same words.
       me: 'For you',
       overdue: 'Overdue',

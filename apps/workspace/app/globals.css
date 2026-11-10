@@ -746,6 +746,7 @@ body {
     /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
        read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
     font-size: 12px;
+    line-height: 16px; /* the label step of the type scale, 12/16/500 (paper on a desk) */
     font-weight: 500;
   }
 

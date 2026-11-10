@@ -39,16 +39,16 @@ const PAGE_SVG =
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="520" height="700" viewBox="0 0 520 700">
        <rect width="520" height="700" fill="#ffffff"/>
-       <rect x="40" y="48" width="240" height="16" rx="3" fill="#1f2937"/>
-       <rect x="40" y="76" width="150" height="10" rx="3" fill="#9ca3af"/>
-       <rect x="40" y="128" width="440" height="8" rx="3" fill="#d1d5db"/>
-       <rect x="40" y="150" width="440" height="8" rx="3" fill="#d1d5db"/>
-       <rect x="40" y="172" width="360" height="8" rx="3" fill="#d1d5db"/>
-       <rect x="40" y="230" width="440" height="220" rx="6" fill="none" stroke="#c7cdd6" stroke-width="2" stroke-dasharray="6 6"/>
-       <path d="M120 400 L200 300 L280 360 L360 280 L440 380" fill="none" stroke="#6b7280" stroke-width="3"/>
-       <rect x="40" y="500" width="440" height="8" rx="3" fill="#d1d5db"/>
-       <rect x="40" y="522" width="400" height="8" rx="3" fill="#d1d5db"/>
-       <rect x="40" y="544" width="420" height="8" rx="3" fill="#d1d5db"/>
+       <rect x="40" y="48" width="240" height="16" rx="3" fill="#1c1b19"/>
+       <rect x="40" y="76" width="150" height="10" rx="3" fill="#a8a5a1"/>
+       <rect x="40" y="128" width="440" height="8" rx="3" fill="#dedbd7"/>
+       <rect x="40" y="150" width="440" height="8" rx="3" fill="#dedbd7"/>
+       <rect x="40" y="172" width="360" height="8" rx="3" fill="#dedbd7"/>
+       <rect x="40" y="230" width="440" height="220" rx="6" fill="none" stroke="#cfcbc6" stroke-width="2" stroke-dasharray="6 6"/>
+       <path d="M120 400 L200 300 L280 360 L360 280 L440 380" fill="none" stroke="#57534e" stroke-width="3"/>
+       <rect x="40" y="500" width="440" height="8" rx="3" fill="#dedbd7"/>
+       <rect x="40" y="522" width="400" height="8" rx="3" fill="#dedbd7"/>
+       <rect x="40" y="544" width="420" height="8" rx="3" fill="#dedbd7"/>
      </svg>`
   )
 

@@ -126,8 +126,9 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
               underneath it, which is the answer to "which file is this actually"
               for anyone who renamed it. */}
             <div className="min-w-0 flex-1">
+              {/* The dialog's title at the section step (16/24/600): at 14/500 it was smaller than the summary in its own rail. */}
               <h3
-                className="text-foreground truncate text-sm font-medium leading-tight"
+                className="text-foreground truncate text-section"
                 title={actions.isRenamed ? `${actions.name}\n${file.filename}` : actions.name}
               >
                 {actions.name}
@@ -156,7 +157,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 badge keeps `shrink-0` on purpose: „Wird verarbeitet" clipped to
                 „Wird ver…" is a state nobody can read, and it is the chip that
                 explains why the Ask button in the rail is grey. */}
-              <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
+              <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                 {/* What the file is, before any chip: „PDF · 24 Seiten · 4,8 MB",
                   the line the chat peek's header already carries. Format and
                   size used to be two rows of the rail's Properties list, read

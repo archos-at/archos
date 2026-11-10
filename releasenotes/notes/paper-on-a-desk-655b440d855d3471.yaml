@@ -4,7 +4,7 @@ improvements:
   - >
     Files, project mail, open points and the bin now read as sheets lying on a
     desk: documents are white with a soft edge, buttons are raised, headings are
-    bolder and unread mail stands out. Each list row shows one action, and the
+    bolder and mail that needs you stands out. Each list row shows one action, and the
     rest appear on hover.
   - >
     Each place in Files is now titled by its own name, with the project above it
@@ -21,3 +21,18 @@ improvements:
     Folders, the preview's side panel and the email reader use the same white
     sheets, and list rows are separated by one even line. Dark mode keeps the
     email list visible against the page.
+  - >
+    The page is a shade darker so white documents and folders stand clearly
+    apart from it. Buttons, the selected tab and folders now each look
+    different: a folder shows an arrow to open it.
+  - >
+    Open points mark a point in colour only when it is yours or overdue, and
+    the two filters are one row of chips. The bin lists each item on two lines
+    with one Restore button.
+  - >
+    In project mail the filing button is one short word, with a line beside it
+    saying what it files, and it sits at the foot of the email. While emails are
+    selected for a batch, only the batch's button is black.
+  - >
+    On a phone the places in Files fit on one line, and the email address and
+    the export sit behind one menu next to the project name.

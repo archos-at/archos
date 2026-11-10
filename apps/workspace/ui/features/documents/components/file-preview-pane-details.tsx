@@ -132,10 +132,10 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     <Item className="gap-2.5 px-3 py-2 hover:bg-transparent">
                       <AssignmentFaces assignees={file.assignees} faceOnly />
                       <ItemContent>
-                        <ItemTitle className="text-xs/5">
+                        <ItemTitle className="text-name">
                           {responsibleNames || t('assignment.unassigned')}
                         </ItemTitle>
-                        <ItemDescription className="text-[11px]/4">{t('assignment.responsible')}</ItemDescription>
+                        <ItemDescription className="text-meta">{t('assignment.responsible')}</ItemDescription>
                       </ItemContent>
                       <ItemActions className="-mr-2" /* the press's 8px given back: „Ändern“ ends 12px from the card's edge, as the facts do */>
                         <AssignPopover

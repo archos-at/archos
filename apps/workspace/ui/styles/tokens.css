@@ -568,6 +568,7 @@
   --shadow: var(--elevation-sm);
   --shadow-sheet: var(--elevation-sm);
   --shadow-2xs: var(--shadow-hairline);
+  --shadow-press: var(--elevation-press);
   --shadow-xs: var(--elevation-xs);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
@@ -673,13 +674,15 @@
    ============================================================================= */
 :root {
   --sheet: #ffffff; /* a document, card, menu, floating bar */
-  --paper: #fafaf9; /* the working page */
-  --desk: #f2f1f0; /* rail, list columns, the canvas behind a document, hover */
-  --selected: #e9e7e4; /* a selected row or tile */
-  --pressed: #dedbd7; /* a control while the button is down */
+  --paper: #f6f5f3; /* the working page: 1.09:1 under a sheet, so a white tile reads off it by its plane and its edge */
+  --desk: #edece9; /* rail, list columns, the canvas behind a document, hover */
+  --selected: #e4e2df; /* a picked row or tile */
+  --pressed: #d9d6d2; /* a control while the button is down */
   --hairline: rgb(15 14 13 / 0.08); /* between list rows */
   --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
 
+  --background: var(--paper); /* the brand's #fafaf9 was 1.04:1 under a white sheet: tiles were carried by a faint edge alone */
+  --background-color-surface-base: var(--paper); /* the body's own plane, so the header band and the page are one paper */
   --card: var(--sheet);
   --popover: var(--sheet);
   --secondary: var(--desk);
@@ -687,10 +690,11 @@
   --background-color-surface-overlay: var(--sheet);
   --overlay: rgb(15 14 13 / 0.4); /* the scrim under a dialog */
 
-  --elevation-1: 0 0 0 1px rgb(15 14 13 / 0.08), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04);
+  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04); /* a sheet always carries the 12% edge */
   --elevation-2: 0 0 0 1px rgb(15 14 13 / 0.08), 0 4px 12px rgb(15 14 13 / 0.1), 0 12px 32px rgb(15 14 13 / 0.08);
   --elevation-3: 0 0 0 1px rgb(15 14 13 / 0.1), 0 24px 64px rgb(15 14 13 / 0.22);
-  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a raised press */
+  --elevation-press: 0 0 0 1px var(--edge); /* a press at rest: its edge, no drop shadow */
+  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a press under the pointer, a track's thumb */
   --elevation-sm: var(--elevation-1); /* a sheet */
   --elevation-md: var(--elevation-2); /* menu, popover, floating bar */
   --elevation-lg: var(--elevation-3); /* dialog */
@@ -701,24 +705,26 @@
    with its edge; selected and pressed keep lightening. A darker desk (#0a0908) was 1.03:1 against the paper: the
    E-Mail-Eingang's list column vanished and every hover read as a hole. `brand-literals.spec.ts` holds the ladder. */
 .dark {
-  --sheet: #262422;
+  --sheet: #2c2a27; /* the lightest plane a list holds: the open mail's row above the picked ones (1.16:1 on the desk) */
   --paper: #0f0e0d;
   --desk: #1f1e1c;
-  --selected: #2f2d2a;
+  --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
   --pressed: #3a3734;
   --hairline: rgb(245 244 242 / 0.1);
   --edge: rgb(245 244 242 / 0.16);
 
   --card: var(--sheet);
-  --popover: #2a2826; /* a menu sits above a sheet: the lightest plane */
+  --popover: #32302d; /* a menu sits above a sheet: the lightest plane */
   --secondary: var(--desk);
   --accent: var(--selected);
   --background-color-surface-overlay: var(--sheet);
   --overlay: rgb(0 0 0 / 0.6);
 
-  --elevation-1: 0 0 0 1px rgb(245 244 242 / 0.1), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
-  --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.12), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
+  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
+  /* A shadow is invisible on charcoal: a floating bar lifts by its edge at 14% and a lit top edge. */
+  --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.14), inset 0 1px 0 rgb(245 244 242 / 0.06), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
   --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);
+  --elevation-press: 0 0 0 1px var(--edge);
   --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-sm: var(--elevation-1);
   --elevation-md: var(--elevation-2);

@@ -85,11 +85,13 @@ describe('the folder tile on a phone', () => {
 describe('the Papierkorb', () => {
   const bin = read('folder-bin-panel.tsx')
 
-  it('puts the permanent action at the far end of the row, away from restore', () => {
-    expect(bin).toMatch(/justify-between/)
-    // Behind the ⋯ since Paper on a desk (one visible action per row; the confirm says what cannot be undone),
-    // still at the far end, and always shown on a touch screen.
+  it('keeps the permanent action two deliberate steps from restore: a menu, then a confirm', () => {
+    // Round 3 of Paper on a desk: restore is the raised press on the column's right edge, and the ⋯ beside it opens a
+    // menu whose one row („Endgültig löschen“) asks again in a dialog. Distance on the row was the guard while the
+    // delete was a press of its own; behind a menu and a confirm, a slipped thumb opens a menu and nothing is lost.
     expect(bin).toContain('bin-actions-')
     expect(bin).toContain('ROW_REVEAL')
+    expect(bin).toMatch(/variant: 'destructive'/)
+    expect(bin).toMatch(/<ConfirmDialog[\s\S]*?onConfirm=\{purge\}/)
   })
 })

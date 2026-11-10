@@ -27,6 +27,8 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
    * tabs' business and the crumb becomes the one visible line (16/24/600), the h1 kept for the accessibility tree.
    */
   crumb?: React.ReactNode
+  /** The action stays on the title's line at every width: a compact one (a single ⋯) that a phone need not stack. */
+  actionInline?: boolean
 }
 
 /**
@@ -81,11 +83,12 @@ export function PageHeader({
   subtitle,
   action,
   crumb,
+  actionInline = false,
   className,
   ...props
 }: PageHeaderProps): JSX.Element {
   return (
-    <header className={cn('min-w-0', TITLE_ROW_CLASS, className)} {...props}>
+    <header className={cn('min-w-0', TITLE_ROW_CLASS, actionInline && 'flex-row items-center justify-between', className)} {...props}>
       <div className={TITLE_COLUMN_CLASS}>
         {/* On a phone the title is one compact line and the description is
             gone: the tab bar and the page already say where this is, and the
@@ -101,7 +104,8 @@ export function PageHeader({
           <p className="mt-1 text-pretty text-sm text-muted-foreground phone:hidden">{subtitle}</p>
         )}
       </div>
-      {action ? <div className="min-w-0">{action}</div> : null}
+      {/* Inline, a 44px ⋯ hangs into the title's line height (-8px each side), so it costs the header no height. */}
+      {action ? <div className={cn('min-w-0', actionInline && '-my-2 shrink-0')}>{action}</div> : null}
     </header>
   )
 }

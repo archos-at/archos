@@ -453,9 +453,9 @@ export function InboundMailWorkspace({
     // Dateien's container, as every tab of the section: centred with the others from a 1440px section, so the title
     // and the tabs stand still when the tab changes (a full-width split moved them 80px).
     <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
-      <ProjectSectionActions>
+      <ProjectSectionActions onTitleLine>
         {/* An opened mail on a phone shows the mail; nothing is portalled, or the header kept an empty row's margin. */}
-        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
+        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact={phone} />}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
@@ -546,6 +546,7 @@ export function InboundMailWorkspace({
               actionsRef={detailActions}
               now={now}
               decidedByOther={decidedByOther}
+              yieldPrimary={selectedIds.length > 0}
             />
           ) : list.kind === 'loading' || firstMail.pending ? null /* nothing to pick yet, or the first mail on its way */ : (
             // Bare, in the pane's middle, one muted line under a muted glyph (a narrow window's case now, the desk opens the

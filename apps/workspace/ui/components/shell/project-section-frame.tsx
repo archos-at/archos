@@ -13,6 +13,7 @@
 import type { JSX } from 'react'
 import {
   createContext,
+  useCallback,
   useContext,
   useLayoutEffect,
   useState,
@@ -91,7 +92,7 @@ function subpageOf(pathname: string): Subpage | null {
 // No line under it (the design system: none under the header): white space and the content's own start separate it.
 export const SECTION_HEADER_CLASS = 'shrink-0 bg-background px-4 py-4 phone:py-2 md:px-8'
 
-const ActionsContext = createContext<(node: ReactNode) => void>(() => {})
+const ActionsContext = createContext<(node: ReactNode, onTitleLine?: boolean) => void>(() => {})
 
 /**
  * The end of the tabs row, for the tools of the level a tab shows (Dateien's
@@ -125,12 +126,19 @@ function projectSectionSegment(pathname: string): string {
  * Portal the page's primary actions into {@link ProjectSectionFrame}'s header.
  * Renders nothing at the call site.
  */
-export function ProjectSectionActions({ children }: { children: ReactNode }): null {
+export function ProjectSectionActions({
+  children,
+  onTitleLine = false,
+}: {
+  children: ReactNode
+  /** On a phone too, the tools stand at the end of the title's line: for a page whose phone form is one ⋯. */
+  onTitleLine?: boolean
+}): null {
   const setActions = useContext(ActionsContext)
   useLayoutEffect(() => {
-    setActions(children)
+    setActions(children, onTitleLine)
     return () => setActions(null)
-  }, [children, setActions])
+  }, [children, onTitleLine, setActions])
   return null
 }
 
@@ -161,7 +169,8 @@ export function ProjectSectionTabActions({ children }: { children: ReactNode }):
  * `/dev` preview, which would otherwise lose the page's header actions.
  */
 export function SectionActionsInline({ children }: { children: ReactNode }): JSX.Element {
-  const [actions, setActions] = useState<ReactNode>(null)
+  const [actions, setActionsNode] = useState<ReactNode>(null)
+  const setActions = useCallback((node: ReactNode) => setActionsNode(node), [])
   return (
     <ActionsContext.Provider value={setActions}>
       {actions && <div data-testid="section-actions-inline">{actions}</div>}
@@ -202,6 +211,7 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
       orientation="tabs"
       pathname={pathname}
       track
+      compactOnPhone
       data-testid="files-tabs"
     />
   )
@@ -225,7 +235,8 @@ export function ProjectSectionFrame({
   const currentPathname = usePathname()
   const pathname = pathnameOverride ?? currentPathname ?? ''
   const t = useTranslations(navCopy)
-  const [actions, setActions] = useState<ReactNode>(null)
+  const [{ node: actions, onTitleLine: actionsOnTitle }, setActionsState] = useState<{ node: ReactNode; onTitleLine: boolean }>({ node: null, onTitleLine: false })
+  const setActions = useCallback((node: ReactNode, onTitleLine = false) => setActionsState({ node, onTitleLine }), [])
   const [tabActions, setTabActions] = useState<ReactNode>(null)
   const phone = useMediaQuery(PHONE_QUERY)
 
@@ -271,7 +282,10 @@ export function ProjectSectionFrame({
               ) : undefined
             }
             subtitle={sectionSubtitle}
-            action={files && phone ? undefined : actions}
+            // On a phone a page whose tools fold into one ⋯ (`onTitleLine`) puts it at the end of the title's line: a row of
+            // its own under the tabs cost 60px before the first mail or point. Alle Dateien's search keeps its row.
+            action={files && phone && !actionsOnTitle ? undefined : actions}
+            actionInline={files && phone && actionsOnTitle}
           />
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
@@ -287,7 +301,7 @@ export function ProjectSectionFrame({
               {tabActions && <div className="flex shrink-0 items-center gap-3 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
             </div>
           )}
-          {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}
+          {segment === 'files' && phone && actions && !actionsOnTitle && <div className="mt-4 min-w-0">{actions}</div>}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>
       </div>

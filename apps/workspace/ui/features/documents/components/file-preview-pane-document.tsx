@@ -191,11 +191,11 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       setPreviewFailed(true)
                     }}
                     className={cn(
-                      'bg-sheet shadow-sm h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
+                      'bg-sheet h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
                       // The reader's well is the screen: the image fits it whole,
                       // on a phone on its side too (852px wide is past `@2xl`).
                       !reader && '@2xl:max-h-none',
-                      peeking ? 'shadow-md' : 'shadow-lg'
+                      'shadow-md' /* the page lies on the stage at elevation 2: elevation 3 is a dialog's, and drew a wide halo no token named */
                     )}
                   />
                 )

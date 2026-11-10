@@ -25,6 +25,9 @@ const toggleVariants = cva(
           'border border-border bg-transparent text-muted-foreground shadow-xs hover:bg-accent hover:text-foreground data-[state=on]:border-border data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-xs',
         inverted:
           'text-muted-foreground hover:bg-accent hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-2xs',
+        // A filter chip: a press that stays picked. At rest the press (white, its edge, no shadow); picked, the selected
+        // grey with its tick (the caller's `Check`, shown `in-data-[state=on]`). Never a thumb: a thumb lives on a track.
+        chip: 'bg-sheet text-foreground font-medium shadow-press hover:shadow-xs data-[state=on]:bg-selected data-[state=on]:shadow-none data-[state=on]:hover:shadow-none',
       },
       // Aligned to `Button`'s size scale, one name = one height, so a toggle
       // and a button placed side by side in a toolbar line up. The scale used

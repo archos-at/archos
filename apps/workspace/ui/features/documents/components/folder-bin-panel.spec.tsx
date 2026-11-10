@@ -41,7 +41,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
   test('lists who deleted what, when, what it holds and when it goes for good', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([entry()])} />)
     expect(screen.getByText('Verträge')).toBeDefined()
-    expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
+    expect(screen.getByText(/deleted by Gerda Fischer on/)).toBeDefined()
     expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
     expect(screen.getByText(/kept until/)).toBeDefined()
   })

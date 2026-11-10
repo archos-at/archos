@@ -156,6 +156,7 @@ export const inboundMail = {
   },
 
   header: {
+    addressMenu: 'Project address',
     addressMore: 'About the address',
     addressCopy: 'Copy address',
     addressCopied: 'Address copied',
@@ -337,6 +338,7 @@ export const inboundMail = {
     fileAnywayClose: 'Close filing',
   },
   bar: {
+    file: 'File',
     dismiss: 'Dismiss',
     dismissBusy: 'Dismissing …',
     fileBoth: '{count, plural, one {File # file and the mail text} other {File # files and the mail text}}',

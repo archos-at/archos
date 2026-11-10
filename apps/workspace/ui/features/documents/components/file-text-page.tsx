@@ -49,7 +49,7 @@ export function FileTextPage({
         // The same page the PDF iframe and the image get: a sheet on the well's
         // ground, on the elevation step the surrounding pane already uses.
         'bg-sheet shadow-sm h-fit w-full max-w-[720px] overflow-hidden rounded-surface',
-        peeking ? 'shadow-sm' : 'shadow-lg',
+        peeking ? 'shadow-sm' : 'shadow-md' /* elevation 2 on the stage, as the image's page: elevation 3 is a dialog's */,
         className
       )}
     >

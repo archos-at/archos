@@ -165,6 +165,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   header: {
+    addressMenu: 'Projektadresse',
     addressMore: 'Mehr zur Adresse',
     addressCopy: 'Adresse kopieren',
     addressCopied: 'Adresse kopiert',
@@ -347,6 +348,7 @@ export const inboundMail: typeof en.inboundMail = {
     fileAnywayClose: 'Ablage schließen',
   },
   bar: {
+    file: 'Ablegen',
     dismiss: 'Verwerfen',
     dismissBusy: 'Wird verworfen …',
     fileBoth: '{count, plural, one {# Datei und den E-Mail-Text ablegen} other {# Dateien und den E-Mail-Text ablegen}}',

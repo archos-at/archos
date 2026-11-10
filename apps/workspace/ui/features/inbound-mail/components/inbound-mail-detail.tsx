@@ -108,6 +108,8 @@ export interface InboundMailDetailProps {
   pollMs?: number
   /** Start with „decided by someone else“ said (a preview of that state). */
   decidedByOther?: boolean
+  /** Mails are picked and the list's batch bar holds the pane's primary: the reader's primary steps back to the raised press. */
+  yieldPrimary?: boolean
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
@@ -125,6 +127,7 @@ export function InboundMailDetail({
   now,
   pollMs = 1500,
   decidedByOther: decidedByOtherInitially = false,
+  yieldPrimary = false,
 }: InboundMailDetailProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
@@ -362,7 +365,8 @@ export function InboundMailDetail({
       {/* The section head's 32px, one right edge with it and the bar; on a phone the way back sits 4px under the title. */}
       {/* The subject on the list's filter line. On a desk the decision bar follows the content (sticky only once it
           overflows), not 180px below it at the pane's foot; on a phone it stays at the foot, under the thumb. */}
-      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:flex-none sm:px-8 sm:pb-6 sm:pt-3">
+      {/* It grows at every width: the decision bar stands at the sheet's foot, not mid-sheet under a short mail. */}
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3">
         {back}
         {view.projectClosed && !closedNoticeHidden && (
           <Alert data-testid="detail-closed">
@@ -571,6 +575,7 @@ export function InboundMailDetail({
           onDismiss={() => void dismiss()}
           filing={filing}
           dismissing={dismissing}
+          yieldPrimary={yieldPrimary}
         />
       )}
       {previewEntry && (

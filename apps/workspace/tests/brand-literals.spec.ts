@@ -103,11 +103,15 @@ describe('white', () => {
     expect(lines.filter((line) => !line.includes('--paper-ink-foreground'))).toEqual([])
   })
 
-  it('the browser-chrome colours are the brand surfaces', () => {
-    const vars = readFileSync(join(ROOT, 'shared/brand/tokens.vars.css'), 'utf8')
-    const light = /:root \{[^}]*--ds-surface: (#[0-9a-f]{6});/.exec(vars)?.[1]
-    const dark = /\.dark[^{]*\{[^}]*--ds-surface: (#[0-9a-f]{6});/.exec(vars)?.[1]
+  it('the browser-chrome colours are the app\u2019s paper, which is its background', () => {
+    // Paper on a desk: the app's paper (#f6f5f3) sits one step under the brand's surface (#fafaf9), which was 1.04:1
+    // under a white sheet. The browser's chrome is the page's own colour.
+    const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+    const layer = tokens.slice(tokens.indexOf('Paper on a desk (2026-11-10)'))
+    const light = /:root \{[^}]*--paper: (#[0-9a-f]{6});/.exec(layer)?.[1]
+    const dark = /\.dark \{[^}]*--paper: (#[0-9a-f]{6});/.exec(layer)?.[1]
     expect(THEME_COLOR).toEqual({ light, dark })
+    expect(/:root \{[^}]*--background: var\(--paper\);/.test(layer)).toBe(true)
   })
 })
 
@@ -210,7 +214,7 @@ describe('five neutrals, three elevations', () => {
   const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
   const light = tokens.slice(tokens.indexOf('Paper on a desk (2026-11-10)'))
   it('the five neutrals are the spec\u2019s', () => {
-    for (const [name, hex] of [['sheet', '#ffffff'], ['paper', '#fafaf9'], ['desk', '#f2f1f0'], ['selected', '#e9e7e4'], ['pressed', '#dedbd7']]) {
+    for (const [name, hex] of [['sheet', '#ffffff'], ['paper', '#f6f5f3'], ['desk', '#edece9'], ['selected', '#e4e2df'], ['pressed', '#d9d6d2']]) {
       expect(light, name).toContain(`--${name}: ${hex};`)
     }
   })
@@ -223,7 +227,7 @@ describe('five neutrals, three elevations', () => {
     const value = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(root)?.[1]
     const steps = ['elevation-1', 'elevation-2', 'elevation-3'].map(value)
     expect(new Set(steps).size).toBe(3)
-    for (const step of steps) expect(step).toMatch(/^0 0 0 1px rgb\(15 14 13/)
+    for (const step of steps) expect(step).toMatch(/^0 0 0 1px (rgb\(15 14 13|var\(--edge\))/)
     expect(value('elevation-xs')).not.toBe(value('elevation-sm'))
     expect(value('elevation-sm')).toBe('var(--elevation-1)')
     expect(value('elevation-md')).toBe('var(--elevation-2)')
@@ -254,6 +258,18 @@ describe('five neutrals, three elevations', () => {
         expect(ratio(hex(a), hex(b)), `${selector} ${a} → ${b}`).toBeGreaterThanOrEqual(1.07)
       }
       if (selector === '.dark') expect(luminance(hex('desk'))).toBeGreaterThan(luminance(hex('paper')))
+      // The open row is the lightest thing in the list column: in dark, nearness is lightness, so the open mail's sheet
+      // sits above a picked row's fill (round 2 drew the picked rows lighter than the open one).
+      if (selector === '.dark') expect(luminance(hex('sheet'))).toBeGreaterThan(luminance(hex('selected')))
+      // A white sheet reads off the paper by its plane as well as its edge (round 2: 1.04:1, the tiles carried by the edge alone).
+      expect(ratio(hex('paper'), hex('sheet')), `${selector} paper → sheet`).toBeGreaterThanOrEqual(1.07)
+    }
+  })
+  it('a sheet carries the 12% edge in both themes (elevation 1 opens with it)', () => {
+    for (const selector of [':root', '.dark']) {
+      const at = light.indexOf(`${selector} {`)
+      const block = light.slice(at, light.indexOf('}', at))
+      expect(block, selector).toMatch(/--elevation-1: 0 0 0 1px var\(--edge\),/)
     }
   })
   it('a sheet is white on every surface that draws a document or a floating bar', () => {
@@ -274,7 +290,7 @@ describe('the secondary press', () => {
   // button.
   it('the kit draws secondary as the raised white press', () => {
     const kit = withoutComments(files.find((f) => f.name === 'ui/components/ui/button.tsx')?.text ?? '')
-    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-xs hover:bg-desk active:bg-pressed'/)
+    expect(kit).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press'/)
     expect(kit).not.toMatch(/in-data-\[surface=sunken\]/)
   })
   it('Dateien and the E-Mail-Eingang set no outline button', () => {
@@ -427,7 +443,6 @@ function pressKey(tag: string, children: string): string {
  * press). Anything else that does something (creates, files, selects, filters, opens a menu of actions) is tonal.
  */
 const WORD_GHOSTS_ALLOWED: Record<string, string> = {
-  'ui/features/documents/components/folder-bin-panel.tsx#bin-restore-': 'a list row\u2019s one visible action (Paper on a desk, principle 6): a ghost word, the rest behind the ⋯',
   'ui/features/documents/components/files-header-controls.tsx#files-open-points': 'navigation: a place, when no tabs show it',
   'ui/features/documents/components/files-header-controls.tsx#files-inbound-mail': 'navigation: a place, when no tabs show it',
   'ui/features/inbound-mail/components/inbound-mail-workspace.tsx#inbound-mail-back': 'navigation: the way back to the list',
@@ -587,5 +602,133 @@ describe('said once per view', () => {
     const chrome = withoutComments(files.find((f) => f.name === 'ui/features/documents/components/file-preview-pane-chrome.tsx')?.text ?? '')
     expect(chrome).not.toMatch(/<FileExtChip\b/)
     expect(chrome).not.toMatch(/\btagLabel\(/)
+  })
+})
+
+/** A file's source with its comments taken out, by its path under `apps/workspace`. */
+const source = (name: string): string => withoutComments(files.find((f) => f.name === name)?.text ?? '')
+
+describe('press, thumb and sheet', () => {
+  // Paper on a desk, round 3: „white with an edge means you can touch it; its shape says what happens“. Round 2 drew a
+  // folder, „Ordner anlegen“, the open tab and the view toggle's thumb as one white rounded box with a glyph and a
+  // label. Now each has its own shape: the press is its edge and no shadow at rest (32px, radius 6), the thumb keeps
+  // the 1px shadow and lives only on a track, the sheet is radius 10 at elevation 1 and says it opens (a chevron).
+  const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
+  it('the press rests on its edge alone and lifts under the pointer', () => {
+    expect(tokens).toMatch(/--elevation-press: 0 0 0 1px var\(--edge\);/)
+    expect(tokens).toMatch(/--shadow-press: var\(--elevation-press\);/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press'/)
+  })
+  it('the thumb is white with the 1px shadow, and only ever on a track', () => {
+    const group = source('ui/components/ui/toggle-group.tsx')
+    expect(group).toMatch(/default: 'bg-sheet shadow-xs'/)
+    // The pill is mounted for the active item of a segmented group only, whose root draws the track.
+    expect(group).toMatch(/const isActive =\s*context\.segmented &&/)
+    expect(source('ui/components/shell/section-nav.tsx')).toMatch(/onTrack \? 'bg-sheet shadow-xs' : 'bg-selected'/)
+  })
+  it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
+    expect(source('ui/features/documents/components/folder-card-frame.tsx')).toMatch(/FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'/)
+    const tile = source('ui/features/documents/components/folder-navigation.tsx')
+    expect(tile).toMatch(/<FileTileBody className="flex min-h-14 /)
+    expect(tile).toMatch(/<ChevronRight[^>]*data-slot="folder-opens"/)
+  })
+  it('Dateien draws neither look itself: no shadow-xs or shadow-press outside the kit, no fill over a press', () => {
+    // A surface that wants a press takes `<Button variant="secondary">` and leaves its fill alone (the address's
+    // „Als Kontakt sichern“ kept a grey override from the tonal days and was the one grey press on its sheet).
+    const surface = files
+      .filter((f) => AFFORDANCE_SURFACE.some((path) => f.name.startsWith(path)) || f.name.startsWith('ui/features/inbound-mail/'))
+      .filter((f) => !f.name.startsWith('ui/components/')) // the kit draws them: the press, the thumb (`section-nav`)
+    const looks = surface.filter((f) => /(?<![\w:-])shadow-(xs|press)(?![\w-])/.test(withoutComments(f.text))).map((f) => f.name)
+    expect(looks).toEqual([])
+    const filled = surface
+      .filter((f) =>
+        openingTags(withoutComments(f.text), ['Button', 'BusyButton']).some(
+          ({ tag }) => /variant="secondary"/.test(tag) && /className="[^"]*(?<![\w:-])bg-(?!sheet\b)[a-z]/.test(tag)
+        )
+      )
+      .map((f) => f.name)
+    expect(filled).toEqual([])
+  })
+})
+
+describe('colour is a verdict', () => {
+  // Paper on a desk, principle 7, round 3: on Offene Punkte six of seven markers wore an ochre ring (the author's
+  // identity hue), so ochre meant „is a point“. Now the ring is ink, and ochre only where the point needs the reader.
+  it('Offene Punkte rings its points by verdict: ink, ochre only for the reader’s or an overdue one', () => {
+    expect(source('ui/features/documents/components/open-points/open-points-panel.tsx')).toMatch(/<MarkRowContent[^>]*marker="verdict"/)
+    const row = source('ui/features/documents/components/review/mark-row.tsx')
+    expect(row).toMatch(/const VERDICT_RING = \{ ink: 'var\(--paper-ink\)', needsYou: 'var\(--text-color-feedback-warning\)' \} as const/)
+    expect(row).toMatch(/const needsReader = isLive\(annotation\) && \(overdue \|\| isForReader\(annotation, viewerId\)\)/)
+  })
+  it('a mention of the reader in a mark wins by weight on the desk, not by ochre', () => {
+    expect(source('ui/features/documents/components/review/mark-body.tsx')).toMatch(/meTone="ink"/)
+    expect(source('ui/features/collaboration/components/MentionText.tsx')).toMatch(/meTone === 'ink'\s*\?\s*'bg-desk text-foreground font-semibold'/)
+  })
+  it('a face in Dateien is no hue: the preview’s and the list’s assignees are neutral', () => {
+    expect(source('ui/features/documents/components/assignment-faces.tsx')).toMatch(/<AvatarStack[^>]*tone="neutral"/)
+  })
+  it('the brief says what needs the reader with a glyph, never a bare dot', () => {
+    const brief = source('ui/features/documents/components/folder-brief.tsx')
+    expect(brief).toMatch(/<AttentionGlyph tone=\{tone\}\s*\/>/)
+    // A dot keys a bar only in its legend (`ReadStateLegend`), as a chart's legend does.
+    expect(brief.match(/<ToneSwatch\b/g)?.length ?? 0).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('one primary per area', () => {
+  // An area is a pane (the list column, the reader, the preview's rail, a dialog). A floating batch bar replaces its
+  // pane's primary while it is shown, and while mails are picked the reader's primary steps back to the raised press,
+  // so the screen never shows two ink buttons (round 2: the batch bar's and the reader's).
+  it('the reader’s primary yields while a batch is picked', () => {
+    const bar = source('ui/features/inbound-mail/components/decision-bar.tsx')
+    expect(bar).toMatch(/variant=\{impersonation \|\| yieldPrimary \? 'secondary' : 'default'\}/)
+    expect(bar).toMatch(/variant=\{impersonation && !yieldPrimary \? 'default' : 'secondary'\}/)
+    expect(source('ui/features/inbound-mail/components/inbound-mail-workspace.tsx')).toMatch(/yieldPrimary=\{selectedIds\.length > 0\}/)
+  })
+  it('the reader’s primary is the verb, and the sentence beside it says what one press files', () => {
+    const bar = source('ui/features/inbound-mail/components/decision-bar.tsx')
+    expect(bar).toMatch(/\{onlyDismiss \? t\('bar\.dismiss'\) : t\('bar\.file'\)\}/)
+    expect(bar).toMatch(/aria-describedby=\{onlyDismiss \? undefined : summaryId\}/)
+  })
+})
+
+describe('rows, weights and the phone', () => {
+  it('a list row is a name and one meta line: the Papierkorb says the rest once, in a second line only on a phone', () => {
+    const bin = source('ui/features/documents/components/folder-bin-panel.tsx')
+    const descriptions = [...bin.matchAll(/<ItemDescription className="([^"]*)"/g)].map(([, classes]) => classes)
+    expect(descriptions.filter((classes) => !/\bsm:hidden\b/.test(classes))).toHaveLength(1)
+    // Its one visible action is the raised press on the column's edge (no ghost word), a 44px glyph on a phone.
+    expect(bin).toMatch(/variant="secondary"\s+size="sm"\s+className="max-sm:size-11 max-sm:px-0"/)
+    // 56px: 10px around a 20px name and a 16px meta line, in the bin, the mail list and Offene Punkte alike.
+    expect(bin).toMatch(/group\/row items-center gap-3 rounded-surface py-2\.5 /)
+    expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(/'group\/row items-start rounded-control px-3 py-2\.5 /)
+    expect(source('ui/features/documents/components/review/mark-row.tsx')).toMatch(/'flex w-full gap-3 rounded-control px-2\.5 py-2\.5 /)
+  })
+  it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
+    expect(source('ui/features/inbound-mail/components/inbound-mail-row.tsx')).toMatch(
+      /needsReader \? 'text-foreground font-semibold' : waiting \? 'text-foreground font-medium' : 'text-foreground font-normal'/
+    )
+  })
+  it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
+    expect(source('ui/components/shell/project-section-frame.tsx')).toMatch(/track\s+compactOnPhone/)
+    for (const name of ['ui/features/inbound-mail/components/inbound-mail-workspace.tsx', 'ui/features/documents/components/open-points/open-points-panel.tsx']) {
+      expect(source(name), name).toMatch(/<ProjectSectionActions onTitleLine>/)
+    }
+  })
+  it('the brief’s sheet stands on the column’s edge, its content 16px in, on a phone too', () => {
+    const brief = source('ui/features/documents/components/folder-brief.tsx')
+    const card = openingTags(brief, ['Card'])[0]?.tag ?? ''
+    expect(card).not.toMatch(/-mx-|rounded-none/)
+  })
+  it('the preview’s title is the section step and its page lies at elevation 2 on the desk', () => {
+    expect(source('ui/features/documents/components/file-preview-pane-chrome.tsx')).toMatch(/className="text-foreground truncate text-section"/)
+    for (const name of ['ui/features/documents/components/file-preview-pane-document.tsx', 'ui/features/documents/components/file-text-page.tsx']) {
+      expect(source(name), name).not.toMatch(/'shadow-lg'/)
+    }
+    expect(source('ui/features/documents/components/file-preview-pane-body.tsx')).toMatch(/!peeking && !reader && 'bg-desk'/)
+  })
+  it('the label step is 12/16/500 (`SectionLabel`, the card eyebrow)', () => {
+    const globals = readFileSync(join(ROOT, 'app/globals.css'), 'utf8')
+    expect(withoutComments(globals)).toMatch(/\.card-eyebrow \{\s*font-size: 12px;\s*line-height: 16px;\s*font-weight: 500;/)
   })
 })
