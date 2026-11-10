@@ -688,6 +688,14 @@
           }
         },
         {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+            "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
+          }
+        },
+        {
           "section": "deprecations",
           "area": "building-law",
           "text": {
