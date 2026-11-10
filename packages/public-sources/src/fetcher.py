@@ -139,6 +139,15 @@ class _Readers:
         self.pool = ThreadPoolExecutor(max_workers=MAX_PDF_READERS, thread_name_prefix="pdf-reader")
 
 
+def _busy() -> Response:
+    """Every reader is taken: answered now, since a queued parse would outlive the caller's wait and hold a slot."""
+    from public_sources.pdf import MAX_PDF_READERS
+
+    logger.info("extract refused: %s readers busy", MAX_PDF_READERS)
+    message = f"all {MAX_PDF_READERS} PDF readers are busy; try again in a minute"
+    return JSONResponse({"code": "pdf_parse_timeout", "message": message}, status_code=503)
+
+
 async def _extract(request: Request, readers: _Readers) -> Response:
     """``POST /v1/extract``: a PDF's text, parsed here, where a hostile file reaches nothing.
 
@@ -153,16 +162,11 @@ async def _extract(request: Request, readers: _Readers) -> Response:
     long. Logs carry the size and the outcome, never the text.
     """
     from public_sources.pdf import MAX_PDF_PAGES
-    from public_sources.pdf import MAX_PDF_READERS
     from public_sources.pdf import PdfError
     from public_sources.pdf import parse_pdf
 
     if readers.slots.locked():
-        # Answered now: a queued parse would outlive the caller's wait and hold its slot for nobody.
-        logger.info("extract refused: %s readers busy", MAX_PDF_READERS)
-        message = f"all {MAX_PDF_READERS} PDF readers are busy; try again in a minute"
-        return JSONResponse({"code": "pdf_parse_timeout", "message": message}, status_code=503)
-
+        return _busy()
     chunks: list[bytes] = []
     size = 0
     async for chunk in request.stream():
@@ -176,6 +180,9 @@ async def _extract(request: Request, readers: _Readers) -> Response:
         max_pages = min(max(int(request.query_params.get("max_pages", MAX_PDF_PAGES)), 1), MAX_PDF_PAGES)
     except ValueError:
         max_pages = MAX_PDF_PAGES
+    # Again, after the upload: another one may have taken the last slot meanwhile. No await until it is ours.
+    if readers.slots.locked():
+        return _busy()
     try:
         async with readers.slots:
             parse = partial(parse_pdf, b"".join(chunks), max_pages=max_pages)

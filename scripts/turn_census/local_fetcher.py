@@ -16,8 +16,9 @@ import os
 import socket
 import subprocess
 import time
-import urllib.request
 from pathlib import Path
+
+import httpx
 
 ENV_FETCHER_URL = "PUBLIC_SOURCE_FETCHER_URL"
 #: How long the fetcher may take to answer its health check.
@@ -38,10 +39,11 @@ def _wait_until_up(url: str, process: subprocess.Popen) -> None:
         if process.poll() is not None:
             raise RuntimeError(f"the local public-source fetcher exited with status {process.returncode}")
         try:
-            with urllib.request.urlopen(f"{url}/healthz", timeout=1):  # noqa: S310 - our own local listener
+            if httpx.get(f"{url}/healthz", timeout=1, trust_env=False).status_code == 200:
                 return
-        except OSError:
-            time.sleep(0.2)
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.2)
     process.terminate()
     raise RuntimeError(f"the local public-source fetcher did not answer within {START_TIMEOUT_SECONDS:g} seconds")
 

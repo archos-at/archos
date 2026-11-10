@@ -157,3 +157,40 @@ def test_a_body_past_the_ceiling_is_a_413(monkeypatch):
     monkeypatch.setattr(fetcher_module, "MAX_BODY_BYTES", 10)
     answer = TestClient(make_app(), base_url=FETCHER).post("/v1/extract", content=b"%PDF-" + b"x" * 20)
     assert answer.status_code == 413 and answer.json()["code"] == "body_too_large"
+
+
+async def test_uploads_that_overlap_never_queue_for_a_reader(monkeypatch):
+    """Five uploads pass the first check together; once their bodies are in, two parse and three are refused at once."""
+    import asyncio
+    import threading
+
+    from public_sources.pdf import MAX_PDF_READERS
+    from public_sources.pdf import PdfText
+
+    release = threading.Event()
+
+    def held_parse(content, **_):
+        release.wait(10)
+        return PdfText(pages=("text",), page_count=1)
+
+    monkeypatch.setattr(pdf_module, "parse_pdf", held_parse)
+    uploaded = asyncio.Event()
+
+    async def body():
+        yield b"%PDF-"
+        await uploaded.wait()
+        yield b"rest"
+
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app()), base_url=FETCHER) as client:
+            posts = [asyncio.create_task(client.post("/v1/extract", content=body())) for _ in range(5)]
+            await asyncio.sleep(0.2)  # every upload has started, none has a reader yet
+            uploaded.set()
+            done, pending = await asyncio.wait(posts, timeout=3)
+            refused = [task.result() for task in done]
+            assert len(refused) == 5 - MAX_PDF_READERS and len(pending) == MAX_PDF_READERS
+            assert all(answer.status_code == 503 for answer in refused)
+            release.set()
+            assert [answer.status_code for answer in await asyncio.gather(*pending)] == [200] * MAX_PDF_READERS
+    finally:
+        release.set()

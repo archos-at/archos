@@ -8,11 +8,10 @@ refused: ``scripts/turn_census/local_fetcher.py`` starts one for them.
 
 from __future__ import annotations
 
-import json
 import sys
-import urllib.request
 from pathlib import Path
 
+import httpx
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -31,8 +30,7 @@ def test_a_run_without_a_fetcher_gets_one_that_answers(fresh):
     env = local_fetcher.fetcher_env(sys.executable, REPO_ROOT)
 
     url = env[local_fetcher.ENV_FETCHER_URL]
-    with urllib.request.urlopen(f"{url}/healthz", timeout=5) as answer:  # noqa: S310 - the local fetcher
-        assert json.load(answer) == {"ok": True}
+    assert httpx.get(f"{url}/healthz", timeout=5, trust_env=False).json() == {"ok": True}
     # Started once: the next run shares it.
     assert local_fetcher.fetcher_env(sys.executable, REPO_ROOT) == env
 
