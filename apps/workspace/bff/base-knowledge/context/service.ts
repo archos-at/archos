@@ -111,7 +111,7 @@ function proceduresOf(facts: Readonly<Record<string, { value?: unknown } | undef
       filedOn: procedure.filedOn,
       decidedOn: procedure.decidedOn,
       // No reviewed reference-date rule is read here yet: "nicht bestimmt" (design §5.4), never a guess.
-      stichtage: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
+      referenceDates: Object.fromEntries(leaves.map((leaf) => [leaf.territoryId, { date: null, basis: 'undetermined' as const }])),
     }
   })
 }

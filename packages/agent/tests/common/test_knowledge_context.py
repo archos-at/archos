@@ -40,7 +40,7 @@ WIRE = {
             "procedureType": None,
             "filedOn": None,
             "decidedOn": None,
-            "stichtage": {"DE-NW": {"date": None, "basis": "undetermined"}},
+            "referenceDates": {"DE-NW": {"date": None, "basis": "undetermined"}},
         }
     ],
     "uses": [{"workId": "work:bauo-nrw", "role": "binding", "qualifier": "uncurated"}],
@@ -100,13 +100,13 @@ def test_reads_a_context_not_of_its_shape_as_unavailable(raw):
     assert context.withholds_law
 
 
-def test_trace_metadata_names_chains_gate_coverage_packs_and_stichtage():
+def test_trace_metadata_names_chains_gate_coverage_packs_and_reference_dates():
     assert trace_metadata(parse_knowledge_context(WIRE)) == {
         "gate": "open",
         "coverage": "open",
         "jurisdiction_chains": "DE-NW:DE-NW>DE>EU",
         "pack_seqs": "DE:12,EU:3",
-        "stichtage": "p1@DE-NW=undetermined",
+        "reference_dates": "p1@DE-NW=undetermined",
         "base_updated_since_last_answer": "DE",
     }
 

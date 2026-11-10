@@ -51,7 +51,7 @@ class KnowledgeContext:
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
     #: Per procedure, per node: the reference day's basis (``undetermined`` until a reviewed rule names it).
-    stichtage: dict[str, dict[str, str]] = field(default_factory=dict)
+    reference_dates: dict[str, dict[str, str]] = field(default_factory=dict)
     uses: tuple[dict[str, object], ...] = ()
     date: str | None = None
     #: The packs released since this conversation's last answer (E42): the answer says the base was updated.
@@ -70,12 +70,12 @@ def _strings(value: object) -> tuple[str, ...]:
     return tuple(item for item in value if isinstance(item, str)) if isinstance(value, list) else ()
 
 
-def _stichtage(procedures: object) -> dict[str, dict[str, str]]:
+def _reference_dates(procedures: object) -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
     for procedure in procedures if isinstance(procedures, list) else []:
         if not isinstance(procedure, dict) or not isinstance(procedure.get("id"), str):
             continue
-        days = procedure.get("stichtage")
+        days = procedure.get("referenceDates")
         if not isinstance(days, dict):
             continue
         result[procedure["id"]] = {
@@ -116,7 +116,7 @@ def parse_knowledge_context(raw: object) -> KnowledgeContext:
         chains=chains,
         packs=packs,
         retrieval_countries=frozenset(countries),
-        stichtage=_stichtage(raw.get("procedures")),
+        reference_dates=_reference_dates(raw.get("procedures")),
         uses=uses,
         date=raw.get("date") if isinstance(raw.get("date"), str) else None,
         updated_since_last_answer=_strings(raw.get("updatedSinceLastAnswer"))[:MAX_PACKS],
@@ -130,9 +130,9 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "coverage": context.coverage or "none",
         "jurisdiction_chains": ";".join(f"{leaf}:{'>'.join(chain)}" for leaf, chain in sorted(context.chains.items())),
         "pack_seqs": ",".join(f"{pack}:{seq}" for pack, seq in sorted(context.packs.items())),
-        "stichtage": ";".join(
+        "reference_dates": ";".join(
             f"{procedure}@{node}={day}"
-            for procedure, days in sorted(context.stichtage.items())
+            for procedure, days in sorted(context.reference_dates.items())
             for node, day in sorted(days.items())
         ),
         "base_updated_since_last_answer": ",".join(context.updated_since_last_answer),

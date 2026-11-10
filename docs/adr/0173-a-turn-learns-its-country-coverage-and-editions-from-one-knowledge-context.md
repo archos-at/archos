@@ -126,7 +126,7 @@ Chosen option 3.
   reviewed" and "overdue for a check" from data, and a country moves from
   `open` to `core` by a reviewed publish, not a deploy.
 - Good: the agent reads one context instead of re-deriving the site in Python.
-- Bad: Stichtage are `undetermined` in the context until the reference-date
+- Bad: reference dates (Stichtage) are `undetermined` in the context until the reference-date
   rules are read here; the as-of route (ADR-0171) answers them meanwhile.
 - Bad: one leaf per site for now; multi-leaf sites (`undetermined: multi_leaf`) come with point sites.
 
