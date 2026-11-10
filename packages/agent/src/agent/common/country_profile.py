@@ -346,9 +346,9 @@ legal-database tools of this workspace cover Austrian law only. For this project
 SITE_UNKNOWN_NOTE = """## Jurisdiction: site not stated
 
 This project's profile does not say where the site is (no country, no Land). No country's building
-law is known to apply, so no requirement is presented as binding for this project. Austrian law and
-the OIB-Richtlinien may answer a question about Austrian law, labelled as such. When the answer turns
-on the jurisdiction, say that the site is missing and ask for the country and Land."""
+law is known to apply, so no requirement is presented as binding for this project, and the Austrian
+legal corpus and legal-database tools are not used for it until the site is stated. When the answer
+turns on the jurisdiction, say that the site is missing and ask for the country and Land."""
 
 
 def site_note(project_context: str | None) -> str | None:
@@ -364,3 +364,28 @@ def site_note(project_context: str | None) -> str | None:
     if site.country is None:
         return SITE_UNKNOWN_NOTE
     return UNCOVERED_SITE_NOTE.format(country=country_name(site.country), code=site.country)
+
+
+def austrian_corpus_applies(project_context: str | None) -> bool:
+    """Whether the Austrian corpus and legal-database tools serve this turn: no project, or one placed in Austria.
+
+    The retrieval scope (`collection-scope-request.ts`), the round-0 prefetch and
+    the RIS tools ask this one question (ADR-0158): a project abroad or one
+    nothing places does not search Austrian law. A turn without a project does.
+    """
+    if not project_context or not project_context.strip():
+        return True
+    return resolve_site(project_context).country == "at"
+
+
+#: The data sources that hold Austrian law only (`configs/*.yml` `data_sources` ids): the RIS tools.
+AUSTRIAN_SOURCE_IDS = frozenset({"ris"})
+
+
+def austrian_only_sources(project_context: str | None) -> frozenset[str]:
+    """The sources this turn may not consult for the site: the Austrian ones, unless the corpus applies.
+
+    Joined to the switched-off sources, so a call is refused at the tools node with the same
+    notice (the chat agent) or the tool is not offered (deep research), and the jurisdiction note says why.
+    """
+    return frozenset() if austrian_corpus_applies(project_context) else AUSTRIAN_SOURCE_IDS

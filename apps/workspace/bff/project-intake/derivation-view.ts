@@ -19,7 +19,7 @@ import { answersFromProfile } from '@/lib/project-profile/intake-profile'
 import type { ProjectIntakeDefinition } from '@/lib/project-profile/intake-types'
 import type { DerivationEvidence, DerivationInput, ProfileAlternative } from '@/lib/project-profile/evidence-schema'
 import type { ProjectProfile } from '@/lib/project-profile/types'
-import { placedOutsideAustria } from '@/lib/project-profile/site'
+import { siteCountry } from '@/lib/project-profile/site'
 import { deriveBuildingClass, BUILDING_CLASS_DERIVATION } from './derivations'
 import { buildingClassInputsFor } from './needs'
 import { sameProfileValue, suggestedAssumption, withAlternative } from './profile-edits'
@@ -65,11 +65,12 @@ export function deriveForBuilding(
 }
 
 /**
- * Every building's class. None for a project placed outside Austria: the
- * derivation is the OIB's Gebäudeklasse, which binds there nowhere.
+ * Every building's class. None unless the project is placed in Austria: the
+ * derivation is the OIB's Gebäudeklasse, which binds nowhere else, and an
+ * unplaced project is asked for its site first (ADR-0158).
  */
 export function deriveAll(profile: ProjectProfile, definition: ProjectIntakeDefinition): DerivationView[] {
-  if (placedOutsideAustria(profile)) return []
+  if (siteCountry(profile) !== 'at') return []
   return buildingIdsOf(profile, definition).map((buildingId) => deriveForBuilding(profile, definition, buildingId))
 }
 
@@ -114,8 +115,8 @@ export function withDerivedClass(
   now: string
 ): { profile: ProjectProfile; changed: boolean } {
   const key = buildingClassKey(buildingId)
-  // The OIB's class binds nowhere outside Austria: an earlier derived suggestion goes, none is written.
-  if (placedOutsideAustria(profile)) return withoutDerivedSuggestion(profile, key)
+  // The OIB's class binds in Austria only, and an unplaced project is in no country yet: none is written.
+  if (siteCountry(profile) !== 'at') return withoutDerivedSuggestion(profile, key)
   const view = deriveForBuilding(profile, definition, buildingId)
   if (view.value === null) return withoutDerivedSuggestion(profile, key)
   const evidence = derivationEvidence(view)

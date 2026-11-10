@@ -43,7 +43,7 @@ STATES = {
 
 def place_key(name: str) -> str:
     """The form a place name is compared in; `postal-place.ts` normalises a typed one the same way."""
-    head = name.split(",")[0].lower()
+    head = name.split(",", maxsplit=1)[0].lower()
     head = re.sub(r"\bpostfach\b", "", head)
     head = re.sub(r"\bst\.\s*", "sankt ", head)
     head = re.sub(r"[^a-zäöüß ]+", " ", head)

@@ -246,11 +246,10 @@ export interface CreateProjectInput {
   description?: string
   /** The address search's hit. Seeds the profile (address, country, Bundesland). */
   location?: GeocodeResult
-  /** The address as the person typed it, when no search hit was chosen. Seeds `site_address` only. */
+  /** The address as typed, when no search hit was chosen: `site_address`, and the Land its PLZ suggests. */
   address?: string
-  /** A Bundesland token chosen by hand (the dialog's picker, API callers). */
+  /** The Bundesland and the country (`at`, `de`, `ch`, `other`) chosen by hand; a country but Austria outranks the Land. */
   federalState?: string
-  /** The site's country chosen by hand (`at`, `de`, `ch`, `other`). Outranks an Austrian Bundesland. */
   country?: string
 }
 
@@ -270,10 +269,8 @@ export interface CreateProjectInput {
  * is no repair path in the product, so the project was simply lost while still
  * counting against the tenant.
  *
- * Postgres is the side that can be undone cleanly, so it is: on any failure the
- * row is removed and the caller sees the error. A leaked WorkOS resource with no
- * row pointing at it is inert (nothing resolves it, and project ids are UUIDs so
- * it can never be re-hit), which makes it the right thing to leak of the two.
+ * Postgres is the side undone cleanly: on any failure the row is removed and the
+ * caller sees the error. A leaked WorkOS resource with no row is inert.
  *
  * ## Creating a closed project
  *
@@ -288,12 +285,11 @@ export interface CreateProjectInput {
  *
  * ## Piloti sets it up
  *
- * With `setup: 'piloti'` the project gets its intake row, status
- * `waiting`, and the profile facts the chosen address decides, in one write
- * after the FGA steps and inside the same compensating delete (the intake row
- * cascades with the project). A closing given with it is NOT carried out: the
- * project stays active while its documents are read and is closed when the
- * person finishes the review, so the intake keeps the closing as an intent.
+ * With `setup: 'piloti'` the project gets its intake row (`waiting`) and the
+ * profile entries the place decides, in one write after the FGA steps, inside
+ * the compensating delete. A closing given with it is NOT carried out: the
+ * project stays active while its documents are read and closes when the
+ * review is finished, so the intake keeps the closing as an intent.
  * Without it this is the function it always was.
  */
 export async function createProject(

@@ -541,22 +541,20 @@ def load_norms_file(country: str = "at") -> NormsFile | None:
 def doctrine_for(project_context: str | None) -> str:
     """The Normenhierarchie doctrine for the project's site.
 
-    Austria's (the profile's) when the project is in Austria or not placed: the
-    doctrine is how to read Austrian sources, and ``JURISDICTION_GROUNDING``
-    says a project nothing places is bound by none of them. A project placed in
-    a country no profile covers gets ``UNCOVERED_SITE_NOTE`` in its place, never
-    the Austrian doctrine.
+    Austria's (the profile's) for a project in Austria, or a run with no project.
+    A project placed in a country no profile covers, or one nothing places, gets
+    its jurisdiction note (``site_note``) in its place, never the Austrian
+    doctrine (ADR-0158: a project without a known site gets no country law).
     """
     try:
-        from agent.common.country_profile import UNCOVERED_SITE_NOTE
-        from agent.common.country_profile import country_name
         from agent.common.country_profile import get_country_profile
         from agent.common.country_profile import resolve_site
+        from agent.common.country_profile import site_note
 
-        site = resolve_site(project_context)
-        if site.country is not None and not site.covered:
-            return UNCOVERED_SITE_NOTE.format(country=country_name(site.country), code=site.country)
-        profile = get_country_profile(site.country or "at")
+        note = site_note(project_context)
+        if note is not None:
+            return note
+        profile = get_country_profile(resolve_site(project_context).country or "at")
         if profile is not None:
             return profile.doctrine
     except Exception:  # noqa: BLE001 — prompt building must never break on profile lookup
@@ -666,14 +664,16 @@ def render_prompt_block(
 def render_block_for_prompt(project_context: str | None, norms_dir: str | None = None) -> str | None:
     """Prompt-ready catalog block, Bundesland-aware when detectable; None when unavailable.
 
-    None for a project placed outside Austria: the catalogue is Austrian law, and
-    the doctrine (``doctrine_for``) tells that project what is not covered.
+    None for a project placed outside Austria or not placed at all: the catalogue
+    is Austrian law, and the doctrine (``doctrine_for``) tells that project what
+    is not covered, or asks for its site.
     """
+    from agent.common.country_profile import austrian_corpus_applies
     from agent.common.country_profile import get_country_profile
     from agent.common.country_profile import resolve_site
 
     site = resolve_site(project_context)
-    if site.country is not None and not site.covered:
+    if not austrian_corpus_applies(project_context):
         return None
     registry = load_registry(norms_dir)
     if registry is None or not registry.entries:

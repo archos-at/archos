@@ -652,10 +652,13 @@ the folder.
 
 Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`src/lib/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`).
+`REQUIRE_AUTH=false`). `oib_knowledge` is in it only for a turn without a
+project or a project placed in Austria (`loadProjectSiteCountry`, ADR-0158); the
+knowledge layer's `scoped_collections_for_site` holds the same rule for a scope
+nobody stated, and RIS is a switched-off source for such a project.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,
@@ -1488,7 +1491,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    catalogue or derived class; an unplaced project gets `SITE_UNKNOWN_NOTE` and
    no verdicts; an Austrian project's prompt is unchanged except the OIB
    edition line below. The TypeScript twin is `bff/project-profile/site.ts`
-   (`siteCountry`, `placedOutsideAustria`), read by the OIB list and the
+   (`siteCountry`), read by the OIB list and the
    building-class derivation. Deep research's **Jurisdiction & Country
    Handling** block (`country_profile.JURISDICTION_GROUNDING`) states the same.
 - **OIB edition per Land** — not modelled yet: the corpus holds the 2023

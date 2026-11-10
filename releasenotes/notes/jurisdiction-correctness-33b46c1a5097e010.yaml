@@ -3,9 +3,10 @@
 fixes:
   - >
     For a project outside Austria, or one whose site is not yet stated, the
-    assistant no longer presents Austrian law, OIB guidelines or building
-    classes as applying, and says plainly what it does not cover yet. Within
-    Austria it no longer cites Vienna's laws for projects in other Länder.
+    assistant no longer searches or presents Austrian law, OIB guidelines, the
+    legal information system (RIS) or building classes as applying, and says
+    what it does not cover or asks where the project is. Within Austria it no
+    longer cites Vienna's laws for projects in other Länder.
   - >
     An address typed when creating a project, rather than chosen from the
     search, now waits for your confirmation instead of counting as confirmed.

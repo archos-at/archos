@@ -37,6 +37,8 @@ from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.client_tools import KNOWN_CLIENT_TOOLS
 from agent.common.client_tools import client_tool_declared
+from agent.common.country_profile import austrian_corpus_applies
+from agent.common.country_profile import austrian_only_sources
 from agent.common.country_profile import record_site
 from agent.common.data_source_registry import get_all_sources
 from agent.common.decisions import SKIPPED_TOO_SHORT
@@ -550,7 +552,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # toggle combination. No `data_sources is not None` guard, for the same
     # reason as before: an org's toggle applies to a request that asked for
     # "all tools".
-    disabled_sources = unavailable_source_ids(state.data_sources)
+    disabled_sources = unavailable_source_ids(state.data_sources) | austrian_only_sources(state.project_context)
     _warn_if_nothing_is_reachable(disabled_sources)
     is_valid, unavailable_tools = _tool_availability(deployment, deployment.tools)
     if not is_valid:
@@ -571,8 +573,7 @@ async def _run_turn(deployment: _Deployment, state: ResearchAgentState) -> Resea
     # The provider reads (four cache-first BFF lookups) run beside them too:
     # nothing here depends on another, so the turn pays the slowest of the
     # three, not their sum.
-    # The question's embedding is warmed beside them (see _warm_question), so the round-0 search
-    # it prefetches does not pay that round trip after. The facts only feed the decision.
+    # The question's embedding is warmed beside them (_warm_question); the facts only feed the decision.
     record_site(state.project_context)
     facts = _turn_facts(state, runtime) if config.turn_decisions else None
     _warm_question(facts)
@@ -624,6 +625,7 @@ def _turn_prefetch(
             focus_shelf=state.focus_shelf,
             previous_message=facts.previous_message,
             reference_projects=facts.reference_projects,
+            austrian_law=austrian_corpus_applies(state.project_context),
         )
     )
     record_reference_decision(decisions, facts.reference_projects, calls)

@@ -55,8 +55,22 @@ cannot present a law the project's facts do not support.
   intake does not offer places nothing. Nothing places a project by default:
   no fact is `site_unknown`. No OIB verdict, Austrian doctrine as binding,
   catalogue or derived class reaches a project abroad, and an unplaced project
-  gets no verdicts and is asked for its site. Austrian sources stay readable as
-  information, labelled.
+  gets no verdicts and is asked for its site.
+- **Retrieval.** The Austrian corpus and the RIS tools serve a project placed in
+  Austria, or a turn without a project, and nothing else
+  (`country_profile.austrian_corpus_applies`): the BFF leaves the base corpus out
+  of such a project's collection scope (`collection-scope-request.ts`,
+  `jobs/run-context.ts`), the knowledge layer drops it from a scope the BFF did
+  not state (`scoped_collections_for_site`), round 0 prefetches no OIB family,
+  and RIS joins the turn's switched-off sources (the chat agent refuses the call, deep
+  research is not offered the tool). A question about Austrian law in general is
+  asked outside the project.
+- **Land from the postal code.** With address search off (ADR-0159), the
+  Postleitzahl and place of a typed Austrian address suggest the Land
+  (`bff/project-profile/postal-place.ts`, a GeoNames table shipped with the code),
+  stored as an unconfirmed assumption with its derivation; the create form asks
+  for the country and, in Austria, the Land. Otherwise every new Austrian
+  project would start unplaced and lose its OIB verdicts.
 - **Typed address.** An address that no register confirmed is stored as an
   unconfirmed assumption, never as a confirmed fact; `country=at` is written
   only for an Austrian site.
@@ -73,9 +87,10 @@ cannot present a law the project's facts do not support.
   law binds it, and says what is not covered instead.
 - Good, because the axes later work needs (entitlements, residency, locale) have
   their first column and a rule that keeps them apart.
-- Bad, because a project with no site loses the generic OIB list on the overview
-  until someone states its Land; existing Austrian projects without a Land read
-  less than before.
+- Bad, because a project with no site loses the generic OIB list, the Austrian
+  corpus and RIS until someone states its Land; existing Austrian projects
+  without a Land read less than before. A new one with a typed Austrian address
+  gets its Land suggested from the postal code, so this is rare for new work.
 - Bad, because every organization that existed before migration 0200 is set to
   AT; a non-Austrian one must be corrected by hand.
 
@@ -84,6 +99,10 @@ cannot present a law the project's facts do not support.
 - `packages/agent/tests/common/test_country_profile.py` (`TestResolveSite`, the
   notes, the doctrine abroad) and `apps/workspace/bff/project-profile/site.spec.ts`
   hold the two twins to the same cases.
+- `test_scope_for_site.py`, `TestAustrianCorpus` and the scope spec
+  (`collection-scope-request.shelf.spec.ts`) fail when the base corpus or RIS
+  reaches a project abroad or unplaced; `postal-place.spec.ts` and
+  `intake-seed.spec.ts` hold the postal-code suggestion, Swiss codes included.
 - `test_applicability.py` and the jurisdiction section of
   `test_turn_context_message.py` fail when OIB verdicts reach a project abroad
   or unplaced; `applicable-standards.test.ts` does the same for the overview.

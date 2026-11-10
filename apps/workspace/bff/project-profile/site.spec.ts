@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placedOutsideAustria, siteCountry } from './site'
+import { siteCountry } from './site'
 import type { ProjectProfile } from './types'
 
 const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '' })
@@ -37,11 +37,5 @@ describe('siteCountry', () => {
     [profile({ country: 'germany' }), null],
   ])('places %j in %s', (input, expected) => {
     expect(siteCountry(input)).toBe(expected)
-  })
-
-  it('is outside Austria only for a placed project, never for an unplaced one', () => {
-    expect(placedOutsideAustria(profile({ country: 'ch' }))).toBe(true)
-    expect(placedOutsideAustria(profile({ country: 'at' }))).toBe(false)
-    expect(placedOutsideAustria(profile({}))).toBe(false)
   })
 })

@@ -133,8 +133,12 @@ class TestUnknownCountry:
 
 
 class TestDoctrineFor:
-    def test_unknown_country_falls_back_to_norm_doctrine(self):
-        assert nr.doctrine_for("country=zz Bauvorhaben") == nr.NORM_DOCTRINE
+    def test_a_project_nothing_places_gets_the_site_question_not_the_austrian_doctrine(self):
+        # Review of #1545, fix 5: without a site no country's law is presented, Austria's included.
+        assert nr.doctrine_for("country=zz Bauvorhaben") == cp.SITE_UNKNOWN_NOTE
+
+    def test_a_project_nothing_places_gets_no_austrian_catalogue(self):
+        assert nr.render_block_for_prompt(_profile("- main_use=residential")) is None
 
     def test_default_country_uses_profile_doctrine(self):
         nr.set_db_loader(lambda: _norms_file(doctrine="PROFILE DOCTRINE"))
@@ -259,6 +263,32 @@ class TestDoctrineAbroad:
 
     def test_the_doctrine_names_no_viennese_portal_for_every_land(self):
         assert "(in Wien:\nwien.gv.at/flaechenwidmung/public)" in nr.NORM_DOCTRINE
+
+
+class TestAustrianCorpus:
+    """Review of #1545, fix 1: the Austrian corpus and RIS serve an Austrian site, or a turn without a project."""
+
+    @pytest.mark.parametrize(
+        ("context", "applies"),
+        [
+            (None, True),
+            ("", True),
+            (_profile("- country=at\n- federal_state=tyrol"), True),
+            (_profile(assumptions="- federal_state=styria"), True),
+            (_profile("- country=de"), False),
+            (_profile("- federal_state=outside_austria"), False),
+            (_profile("- main_use=residential"), False),
+        ],
+    )
+    def test_it_applies_to_an_austrian_site_or_no_project(self, context, applies):
+        assert cp.austrian_corpus_applies(context) is applies
+        assert cp.austrian_only_sources(context) == (frozenset() if applies else frozenset({"ris"}))
+
+    def test_the_sources_it_withholds_are_configured_ids(self):
+        from pathlib import Path
+
+        config = (Path(__file__).resolve().parents[4] / "configs/config_oib_openrouter.yml").read_text()
+        assert all(f"- id: {source}\n" in config for source in cp.AUSTRIAN_SOURCE_IDS)
 
 
 class TestRecordSite:

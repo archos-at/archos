@@ -36,9 +36,3 @@ export function siteCountry(profile: Pick<ProjectProfile, 'facts' | 'assumptions
   if (confirmed) return confirmed
   return countryOf(stringValue(profile.assumptions.country), stringValue(profile.assumptions.federal_state))
 }
-
-/** Whether the profile places the project outside Austria. A project nothing places is not outside: it is unknown. */
-export function placedOutsideAustria(profile: Pick<ProjectProfile, 'facts' | 'assumptions'>): boolean {
-  const country = siteCountry(profile)
-  return country !== null && country !== 'at'
-}
