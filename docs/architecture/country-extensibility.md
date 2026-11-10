@@ -102,6 +102,22 @@ the 2019 adoptions each 2023 one replaced, so an earlier date resolves too. This
 table is the summary; the LGBl. numbers come from RIS and secondary
 consolidations: re-check each on RIS before quoting it.
 
+- Where RIS disagrees with the pack, the edition set
+  (`tests/fixtures/editions/at_edition_questions.yaml`) marks the rows
+  `disputed_source` and expects RIS. Read from the authentic gazette on
+  2026-11-10 (`https://ogd.ris.bka.gv.at/Dokumente/LgblAuth/<ID>/<ID>.xml`):
+  - Niederösterreich: LGBl. 41/2025 was published 2025-03-19 and is in force
+    „am Tag der Kundmachung folgenden Tag", so 2025-03-20 (`LGBLA_NI_20250319_41`).
+  - Salzburg: LGBl. 83/2026 § 9 Abs 1 puts it in force on 2026-09-01; its § 1
+    table binds OIB-RL 1–5 Mai 2023 and **OIB-RL 6 März 2015** „gemäß Teil E der
+    Anlage 1" (`LGBLA_SA_20260806_83`).
+  - Burgenland: LGBl. 75/2026, published 2026-11-04, binds OIB-RL 6 „in der
+    Fassung 2025" from the next day, 2026-11-05; RL 1–5 stay at 2019
+    (`LGBLA_BU_20261104_75`). The pack has no such relation yet.
+  - Wien: LGBl. 26/2026 replaces Anlage 13 of the WBTV 2023, which is OIB-RL 6
+    Ausgabe September 2025, but it enters into force „mit dem Inkrafttreten des
+    W-EGUG 2026", so the text itself does not confirm the pack's 2026-07-15
+    (`LGBLA_WI_20260715_26`). Pending procedures keep the earlier law.
 - Niederösterreich's day is 2025-03-18 (the OIB's table).
 - Salzburg: the OIB lists 2026-08-06, RIS 2026-09-01; the pack takes the OIB's
   day. Salzburg adopted no RL 6 in 2019 or 2023, and the OIB's 2015 table lists

@@ -38,6 +38,9 @@ and not when it should not, cited the right project, said when nothing
 comparable exists, and flagged an older edition
 (docs/roadmap/office-experience.md, step A).
 
+`--set editions` (`tests/fixtures/editions/at_edition_questions.yaml`, `edition_eval.py`) asks which
+OIB-RL edition binds in an Austrian Land on a given day, with no project; `--only r3` runs one group.
+
 `--set visual` (`tests/fixtures/visual/visual_questions.yaml`, ADR-0128) asks questions answered by looking
 at a drawing: three sheets are rendered from `drawings.json` into the output directory and served by the
 fixture BFF, and the report counts looks and the IoU of their regions against the gold boxes. `--look off`
@@ -54,6 +57,7 @@ reported not applicable; horizon rows are listed, never run.
     python scripts/turn_census/suite.py --baseline /tmp/suite/before/results.json
     python scripts/turn_census/suite.py --report /tmp/suite/after/results.json
     python scripts/turn_census/suite.py --set precedent --runs 2
+    python scripts/turn_census/suite.py --set editions --only r1 r2 --runs 1
     python scripts/turn_census/suite.py --set visual --runs 2 [--look off]
     python scripts/turn_census/suite.py --set north-star --runs 2
     python scripts/turn_census/suite.py --set files --arm all --runs 3 --out /tmp/fs/before
@@ -68,6 +72,7 @@ answer and latency, per arm and per row.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import re
@@ -88,6 +93,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 QUESTIONS = ROOT / "tests" / "fixtures" / "derivation" / "loop_eval_questions.yaml"
 PRECEDENT_QUESTIONS = ROOT / "tests" / "fixtures" / "precedent" / "precedent_questions.yaml"
+#: The sets whose rows are norm questions without a project, each in its own file (``--set``).
+NORM_QUESTIONS = {"loop": QUESTIONS, "editions": ROOT / "tests" / "fixtures" / "editions" / "at_edition_questions.yaml"}
 sys.path.insert(0, str(HERE))
 
 import turn_input  # noqa: E402
@@ -227,32 +234,13 @@ def load_precedent_questions(path: Path = PRECEDENT_QUESTIONS) -> list[dict]:
     return list((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("questions") or [])
 
 
-def _files_questions() -> list[dict]:
-    """The office-file set (``files_eval.py``): questions about a fixture project's own files."""
-    from files_eval import load_questions as load_files_questions
-
-    return load_files_questions()
-
-
-def _visual_questions() -> list[dict]:
-    """The visual set (``visual_eval.py``): questions answered by looking at a drawing."""
-    from visual_eval import load_questions as load_visual_questions
-
-    return load_visual_questions()
-
-
-def _north_star_questions() -> list[dict]:
-    """The north-star set (``north_star_eval.py``): the exemplars, as files-set and visual-set rows."""
-    from north_star_eval import load_questions as load_north_star_questions
-
-    return load_north_star_questions()
-
-
-def _workspace_questions() -> list[dict]:
-    """The workspace set (``workspace_eval.py``): office work in the fixture office, some rows several turns."""
-    from workspace_eval import load_questions as load_workspace_questions
-
-    return load_workspace_questions()
+def set_questions(name: str | None) -> list[dict]:
+    """Every row of a set, whatever its ``suite``: a fixture set's from its own module, a norm set's from its file."""
+    if name == "precedent":
+        return load_precedent_questions()
+    if module := _SET_MODULES.get(str(name)):
+        return importlib.import_module(module).load_questions()
+    return load_questions(path=NORM_QUESTIONS.get(str(name), QUESTIONS), core_only=False)[0]
 
 
 def load_questions(path: Path = QUESTIONS, *, core_only: bool = True) -> tuple[list[dict], list[str]]:
@@ -524,9 +512,9 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
         accepted = [question["kind"], *((question.get("expect") or {}).get("kind_also") or [])]
         checks["kind"] = run.kind in accepted
     family = _family_number(question.get("family"))
-    if family:
-        checks["family_cited"] = family in run.cited_families
     expect = question.get("expect") or {}
+    if family and not expect.get("abstain"):  # an abstention must cite no Richtlinie (`edition_eval`)
+        checks["family_cited"] = family in run.cited_families
     # The reader sees the prose AND the cards (a variant's table sits in a tab),
     # so a value counts wherever it was delivered.
     answer = _normal("\n".join([run.answer, *_card_strings((envelope or {}).get("cards") or [])]))
@@ -541,6 +529,9 @@ def check(question: dict, run: Run, envelope: dict | None) -> dict[str, bool]:
         cards = (envelope or {}).get("cards") or []
         checks[f"shape:{'|'.join(options)}"] = any(_has_shape(option, run.answer, cards) for option in options)
     projects = _office_projects(str(question.get("scenario") or "")) if expect.get("lookup") else None
+    from edition_eval import edition_checks
+
+    checks.update(edition_checks(question, answer, run.cited_families, _judge(), run.signals))
     checks.update(
         precedent_checks(
             expect, run, answer, question=str(question.get("question") or ""), judge=_judge(), projects=projects
@@ -746,27 +737,23 @@ def render(
         "",
         *(failing or ["None."]),
     ]
-    if meta.get("set") == "workspace":
-        from workspace_eval import report_lines
-
-        lines += ["", *report_lines(runs)]
-    if meta.get("set") == "files":
-        from files_eval import report_lines as files_report_lines
-
-        lines += ["", *files_report_lines(runs, meta)]
-    if meta.get("set") == "visual":
-        from visual_eval import report_lines as visual_report_lines
-
-        lines += ["", *visual_report_lines(runs, meta)]
-    if meta.get("set") == "north-star":
-        from north_star_eval import report_lines as north_star_report_lines
-
-        lines += ["", *north_star_report_lines(runs, meta)]
+    if module := _SET_MODULES.get(str(meta.get("set"))):
+        lines += ["", *importlib.import_module(module).report_lines(runs, meta)]
     if skipped:
         lines += ["", f"Skipped, need a project: {', '.join(skipped)}."]
     if not_in_corpus:
         lines += ["", f"Skipped, the ingested corpus lacks the Richtlinie: {', '.join(not_in_corpus)}."]
     return "\n".join(lines) + "\n"
+
+
+#: A set's own module: its ``load_questions()`` and the ``report_lines(runs, meta)`` it adds to the report.
+_SET_MODULES = {
+    "workspace": "workspace_eval",
+    "files": "files_eval",
+    "visual": "visual_eval",
+    "north-star": "north_star_eval",
+    "editions": "edition_eval",
+}
 
 
 def split_lines(runs: list[Run]) -> list[str]:
@@ -1246,20 +1233,7 @@ def _rerender(report: Path, baseline: dict | None) -> int:
     data = json.loads(report.read_text())
     runs = [Run(**row) for row in data["runs"]]
     chosen = data["meta"].get("set")
-    rows = (
-        load_precedent_questions()
-        if chosen == "precedent"
-        else _workspace_questions()
-        if chosen == "workspace"
-        else _files_questions()
-        if chosen == "files"
-        else _visual_questions()
-        if chosen == "visual"
-        else _north_star_questions()
-        if chosen == "north-star"
-        else load_questions(core_only=False)[0]
-    )
-    by_id = {str(q["id"]): q for q in rows}
+    by_id = {str(q["id"]): q for q in set_questions(chosen)}
     for index, run in enumerate(runs):
         question = by_id.get(run.question_id)
         if question is None:
@@ -1336,14 +1310,19 @@ def _preflight(out: Path, ingest: bool, corpus: Path | None = None, needs_corpus
     return 0
 
 
-def select_questions(only: list[str] | None, every: bool) -> tuple[list[dict], list[str]] | None:
-    """The questions to run and the ids skipped for a project; None (and why, on stderr) for a bad ``--only``."""
+def select_questions(
+    only: list[str] | None, every: bool, path: Path = QUESTIONS
+) -> tuple[list[dict], list[str]] | None:
+    """The questions to run and the ids skipped for a project; None (and why, on stderr) for a bad ``--only``.
+
+    An ``--only`` token is a question id or a row's ``group`` (the editions set's ``r1`` … ``r5``).
+    """
     if not only:
-        return load_questions(core_only=not every)
-    runnable, needs_project = load_questions(core_only=False)
+        return load_questions(path=path, core_only=not every)
+    runnable, needs_project = load_questions(path=path, core_only=False)
     wanted = set(only)
-    questions = [q for q in runnable if str(q["id"]) in wanted]
-    missing = wanted - {str(q["id"]) for q in questions}
+    questions = [q for q in runnable if wanted & {str(q["id"]), str(q.get("group"))}]
+    missing = wanted - {str(q["id"]) for q in questions} - {str(q.get("group")) for q in questions}
     if skipped := sorted(missing & set(needs_project)):
         print(
             f"Needs a project, which the suite has no backend for; nothing was run: {', '.join(skipped)}",
@@ -1433,17 +1412,7 @@ def main(argv: list[str] | None = None) -> int:
     horizon: list[str] = []
     fixture_sets = ("files", "visual", "north-star")
     if args.set in ("precedent", "workspace", *fixture_sets):
-        rows = (
-            load_precedent_questions()
-            if args.set == "precedent"
-            else _workspace_questions()
-            if args.set == "workspace"
-            else _visual_questions()
-            if args.set == "visual"
-            else _north_star_questions()
-            if args.set == "north-star"
-            else _files_questions()
-        )
+        rows = set_questions(args.set)
         if args.set == "files":
             from files_eval import split_applicable
 
@@ -1454,7 +1423,7 @@ def main(argv: list[str] | None = None) -> int:
             rows, not_applicable, horizon = split(rows)
         selected = ([q for q in rows if not args.only or str(q["id"]) in set(args.only)], [])
     else:
-        selected = select_questions(args.only, args.all)
+        selected = select_questions(args.only, args.all, NORM_QUESTIONS[args.set])
     if selected is None:
         return 2
     corpus = args.corpus.resolve() if args.corpus else None
