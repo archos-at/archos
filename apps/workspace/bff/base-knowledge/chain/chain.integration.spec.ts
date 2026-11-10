@@ -150,13 +150,13 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
         title: 'Testgesetz für Wien',
         designation: 'TG Wien',
         territoryIds: ['AT-9'],
-        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}` },
+        identifiers: { 'ris_gesetzesnummer': '20000006', eli: `https://example.test/eli/lgbl/w/${RUN}/` },
         citations: [{ url: 'https://www.ris.bka.gv.at/', note: 'fixture' }],
       },
     ])
     const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
     expect(graph.works.get(`work:wien-statute-${RUN}`)?.sourceRefs).toEqual([
-      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}` },
+      { scheme: 'eli', value: `https://example.test/eli/lgbl/w/${RUN}/` },
       { scheme: 'ris_gesetzesnummer', value: '20000006' },
     ])
   })
