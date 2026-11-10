@@ -466,7 +466,8 @@ outside agent, so this one rule is the whole split, read server-side by
 route's `platform:*` permission decides, as before. The gateway holds the same
 line per server: `tools` in `mcpServers` is `"all"` or an allowlist that
 agentgateway enforces (`mcpAuthorization`), and Langfuse's route offers its
-configuration tools only, because traces carry every office's turns.
+configuration tools only, because traces carry every office's turns, and
+reads only for prompts and evaluators, because a write there would move them.
 `exposure/platform.spec.ts` holds the door: no tenant-content operation is
 listed, found, described or called there, and a pinned list and a path pattern
 keep the ones known to read tenant content classified as such.

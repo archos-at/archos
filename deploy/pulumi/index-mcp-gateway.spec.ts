@@ -289,6 +289,15 @@ describe("the platform MCP gateway, switched on", () => {
       "runBatchEvaluation",
       "testEvaluator",
       "listAlerts",
+      // Writes that would steer every office's turns, or run agent-written code over every trace.
+      "createTextPrompt",
+      "createChatPrompt",
+      "updatePromptLabels",
+      "createEvaluator",
+      "updateEvaluator",
+      "createEvaluationRule",
+      "updateEvaluationRule",
+      "attachEvaluatorToEvaluationRule",
     ];
     expect(tenantContent.filter((tool) => (LANGFUSE_PLATFORM_TOOLS as readonly string[]).includes(tool))).toEqual([]);
     expect(LANGFUSE_PLATFORM_TOOLS).toContain("getPrompt");

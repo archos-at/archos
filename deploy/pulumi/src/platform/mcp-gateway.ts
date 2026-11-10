@@ -42,23 +42,30 @@ const SESSION_KEY = "session-key"; // pragma: allowlist secret (Secret key name,
 /**
  * The tools of Langfuse's MCP server an operator's agent may reach (ADR-0158),
  * read against Langfuse 4.74.0 (`web/src/features/mcp/`, the version
- * `config/langfuse.ts` pins): the project's configuration, which the team
- * writes. Left out is everything that holds what offices wrote, since traces
- * carry every turn's question and answer: observations, scores and their
- * comments, comments, datasets and experiments, annotation queues, media,
- * metrics and dashboards over traces, alerts, batch and test evaluation runs,
- * and the storage and feedback settings. A tool a later Langfuse adds stays
- * refused until it is named here.
+ * `config/langfuse.ts` pins).
+ *
+ * Nothing that holds what offices wrote: traces carry every turn's question and
+ * answer, so observations, scores and their comments, comments, datasets and
+ * experiments, annotation queues, media, metrics and dashboards over traces,
+ * alerts, and batch or test evaluation runs are left out.
+ *
+ * Nothing that would let an agent move offices' content out either. Prompts and
+ * evaluators are read-only here: a rewritten prompt under the `production`
+ * label steers every office's turns within a minute (`prompt_store.py`), and an
+ * evaluator or rule runs over every trace, a `CODE` evaluator with code the
+ * agent wrote. Both change through the repo's own reviewed, ask-first tasks
+ * (`task prompts:push -- --apply`, `task langfuse:provision -- --apply`) or in
+ * Langfuse's UI. Models, score configs and Langfuse's own skills, which the
+ * product does not read, stay writable.
+ *
+ * A tool a later Langfuse adds stays refused until it is named here.
  */
 export const LANGFUSE_PLATFORM_TOOLS = [
-  // Prompts: the platform prompt and the judges' templates (`task prompts:push`).
+  // Prompts, read only: the platform prompt and the judges' templates.
   "getPrompt",
   "getPromptUnresolved",
   "listPrompts",
-  "createTextPrompt",
-  "createChatPrompt",
-  "updatePromptLabels",
-  // Skills kept in Langfuse.
+  // Skills kept in Langfuse; the product does not read them.
   "getSkill",
   "listSkills",
   "loadSkill",
@@ -71,26 +78,18 @@ export const LANGFUSE_PLATFORM_TOOLS = [
   "getModel",
   "createModel",
   "deleteModel",
-  // The score catalogue (`SCORE_DEFINITIONS`, `task langfuse:provision`).
+  // The score catalogue (`SCORE_DEFINITIONS`).
   "listScoreConfigs",
   "getScoreConfig",
   "createScoreConfig",
   "updateScoreConfig",
   "deleteScoreConfig",
-  // The judges' configuration, not their runs.
+  // The judges' configuration, read only.
   "listEvaluators",
   "getEvaluator",
-  "createEvaluator",
-  "updateEvaluator",
-  "deleteEvaluator",
   "listManagedEvaluatorTemplates",
   "listEvaluationRules",
   "getEvaluationRule",
-  "createEvaluationRule",
-  "updateEvaluationRule",
-  "deleteEvaluationRule",
-  "attachEvaluatorToEvaluationRule",
-  "detachEvaluatorFromEvaluationRule",
   "listLlmConnections",
   "getHealth",
 ] as const;
@@ -131,7 +130,7 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
             timeout: "120s",
             // The public website and its blog, written by the team: platform-public whole (ADR-0158).
-            tools: "all",
+            tools: "all" as const,
           },
         ]
       : []),

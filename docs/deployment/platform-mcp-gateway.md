@@ -7,7 +7,7 @@ gateway presents each server's own credential, which never leaves the cluster.
 
 | Path | Server | Credential the gateway presents | Tools an agent reaches (ADR-0158) |
 |---|---|---|---|
-| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts, skills, models, score configs, evaluators and their rules, health. Never traces, scores, comments, datasets, queues, media or metrics: traces carry every office's turns |
+| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts and evaluators with their rules to read; skills, models and score configs to read and write; health. Never traces, scores, comments, datasets, queues, media or metrics, which carry every office's turns, and no prompt or evaluator write, which would move them (ADR-0158) |
 | `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft | all: the public website, written by the team |
 
 The gateway is [agentgateway](https://github.com/agentgateway/agentgateway)
@@ -156,7 +156,8 @@ file, and two behaviours read from its source at v1.7.0.
    as the AuthKit issuer.
 3. **Langfuse answers, not 403.** List the tools through a signed-in client (or
    MCP Inspector). The list is `LANGFUSE_PLATFORM_TOOLS` and nothing else: no
-   `listObservations`, `getObservation`, `listScores` or `listComments`. A
+   `listObservations`, `getObservation`, `listScores`, `listComments`,
+   `createTextPrompt` or `createEvaluator`. A
    configuration tool missing from it was renamed in this Langfuse version;
    name the new tool in the list, after checking it reads no trace. A 403 from Langfuse itself means the `Host` rewrite did not
    reach it. Then set `LANGFUSE_MCP_ALLOWED_HOSTS=langfuse-web` on

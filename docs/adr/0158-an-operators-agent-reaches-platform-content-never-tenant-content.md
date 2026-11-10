@@ -79,9 +79,16 @@ enforces it server-side. Nothing new has to be built on the request path.
   content, and becomes agentgateway's `mcpAuthorization` with one `allow` rule.
   agentgateway v1.7.0 then leaves every other tool out of `tools/list`, refuses
   it on `tools/call`, and refuses the server's prompts and resources. Langfuse
-  keeps its configuration tools: prompts, skills, models, score configs,
-  evaluators and their rules, and health. A tool a later Langfuse adds stays
-  refused until it is named.
+  keeps its configuration tools: prompts and evaluators with their rules to
+  read, and skills, models and score configs to read and write, plus health.
+  Prompts and evaluators are read-only because a write there moves offices'
+  content without reading it: a prompt under the `production` label steers
+  every office's turns within a minute, and an evaluator rule runs over every
+  trace (a `CODE` evaluator with code the agent wrote, in a sandbox whose
+  network we have not checked). Both still change through the repo's reviewed,
+  ask-first tasks (`task prompts:push -- --apply`,
+  `task langfuse:provision -- --apply`) or in Langfuse's UI. A tool a later
+  Langfuse adds stays refused until it is named.
 * **Staff.** The console's pages and routes are unchanged: the route's
   `platform:*` permission decides, under the audited platform bypass
   (`withPlatformAccess`, ADR-0041), as before. Langfuse's own UI stays behind
@@ -99,6 +106,11 @@ enforces it server-side. Nothing new has to be built on the request path.
   is on the door with no further work.
 * Bad, because a platform operator who triaged feedback or read conversation
   profiles through Claude now does it in the console. That is the intent.
+* Bad, because the platform door still offers writes of the same class as a
+  production prompt: `platform-skill-create` and `-update` publish instructions
+  every office's agent reads. They are platform-public data, and an operator
+  needs them; whether publishing one needs the person's yes on the server
+  (`personDecides`, design 4.4) is left to the agent-grade door's work.
 * Bad, because the Langfuse allowlist is a list of another product's tool names,
   read from its source at 4.74.0. A rename on upgrade removes a tool from the
   agent (fail closed), never adds one.
