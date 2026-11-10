@@ -26,6 +26,28 @@ export const platform: typeof en.platform = {
     queueTitle: 'Wartet auf Ihre Prüfung',
     queueDescription: 'Plattformwissen ändert sich nur über einen Änderungsantrag. Öffnen Sie einen, um seine Einträge mit den Quellen zu vergleichen.',
     queueEmpty: 'Nichts wartet auf Prüfung',
+    approval: {
+      single: 'Ohne Zweitprüfung freigegeben',
+    },
+    secondReview: {
+      due: 'Zweitprüfung offen',
+      confirmed: 'Zweitprüfung bestätigt',
+      disputed: 'Zweitprüfung beanstandet',
+      void: 'Zweitprüfung entfällt',
+    },
+    secondReviewDueIn: 'Zweitprüfung offen als: {roles}',
+    roles: {
+      domain_expert: 'Fachprüfung',
+      counsel: 'Rechtsprüfung',
+      second_reviewer: 'Zweitprüfung',
+      privacy_reviewer: 'Datenschutzprüfung',
+    },
+    secondReviewNext: {
+      due: 'Ohne Zweitprüfung freigegeben. Prüfen Sie jeden Eintrag gegen seine Quelle und bestätigen oder beanstanden Sie die Freigabe.',
+      disputed: 'Die Zweitprüfung hat die Freigabe beanstandet. Der Antrag wird nicht weiter veröffentlicht: Lehnen Sie ihn ab, das zieht auch seine Vorschau zurück, oder nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
+    },
+    aloneReason: 'Warum gibt niemand sonst frei?',
+    aloneReasonHint: 'Mindestens 20 Zeichen. Der Grund steht im Antrag und im Prüfprotokoll.',
     open: 'Prüfen',
     close: 'Schließen',
     columns: {
@@ -133,6 +155,7 @@ export const platform: typeof en.platform = {
     wrongCount: 'nicht richtig: {count}',
     why: {
       open: 'Noch zu prüfen: {count}',
+      alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
       wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
     },
     acceptAll: 'Alle richtig',
@@ -156,6 +179,9 @@ export const platform: typeof en.platform = {
       preview: 'In die Vorschau veröffentlichen',
       stable: 'Veröffentlichen',
       rollback: 'Zurücknehmen',
+      alone: 'Ohne Zweitprüfung freigeben',
+      confirm: 'Zweitprüfung bestätigen',
+      dispute: 'Beanstanden',
     },
     done: {
       approve: 'Freigegeben.',
@@ -163,6 +189,9 @@ export const platform: typeof en.platform = {
       preview: 'In der Vorschau veröffentlicht.',
       stable: 'Veröffentlicht. Berechtigte Büros lesen ihn ab jetzt.',
       rollback: 'Zurückgenommen. Die Büros lesen wieder den vorigen Stand.',
+      alone: 'Ohne Zweitprüfung freigegeben. Die Zweitprüfung bleibt offen.',
+      confirm: 'Zweitprüfung bestätigt.',
+      dispute: 'Beanstandet. Nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
     },
     confirm: {
       approve: {
@@ -184,6 +213,18 @@ export const platform: typeof en.platform = {
       rollback: {
         title: 'Diesen Änderungsantrag zurücknehmen?',
         body: 'Jeder Eintrag kehrt zu seinem Stand vor diesem Antrag zurück. Die Historie bleibt, damit frühere Antworten ihre Quellen weiter finden.',
+      },
+      alone: {
+        title: 'Ohne Zweitprüfung freigeben?',
+        body: 'Nur wenn niemand sonst prüfen kann. Der Antrag wird als ohne Zweitprüfung freigegeben markiert, und eine Zweitprüfung bleibt offen, bis eine andere Person sie gibt.',
+      },
+      confirm: {
+        title: 'Zweitprüfung bestätigen?',
+        body: 'Sie bestätigen, dass jeder Eintrag mit seiner Quelle verglichen wurde. Damit ist die offene Zweitprüfung erledigt.',
+      },
+      dispute: {
+        title: 'Freigabe beanstanden?',
+        body: 'Der Antrag wird als beanstandet markiert und nicht weiter veröffentlicht. Was schon veröffentlicht ist, bleibt, bis jemand ihn zurücknimmt.',
       },
     },
   },

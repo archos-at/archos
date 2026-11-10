@@ -29,6 +29,28 @@ export const platform = {
     queueTitle: 'Waiting for your review',
     queueDescription: 'Platform knowledge changes only through a change request. Open one to check its entries against their sources.',
     queueEmpty: 'Nothing waiting for review',
+    approval: {
+      single: 'Approved without a second review',
+    },
+    secondReview: {
+      due: 'Second review due',
+      confirmed: 'Second review confirmed',
+      disputed: 'Second review disputed',
+      void: 'No second review owed',
+    },
+    secondReviewDueIn: 'Second review due as: {roles}',
+    roles: {
+      domain_expert: 'domain expert',
+      counsel: 'counsel',
+      second_reviewer: 'second reviewer',
+      privacy_reviewer: 'privacy reviewer',
+    },
+    secondReviewNext: {
+      due: 'Approved without a second review. Check each entry against its source, then confirm or dispute the approval.',
+      disputed: 'The second review disputed the approval. The request is not published further: reject it, which also withdraws its preview, or roll it back if it is already published.',
+    },
+    aloneReason: 'Why can nobody else approve it?',
+    aloneReasonHint: 'At least 20 characters. The reason is kept on the request and in the audit trail.',
     open: 'Review',
     close: 'Close',
     columns: {
@@ -136,6 +158,7 @@ export const platform = {
     wrongCount: 'not correct: {count}',
     why: {
       open: 'Entries still to check: {count}',
+      alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
       wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
     },
     acceptAll: 'All correct',
@@ -159,6 +182,9 @@ export const platform = {
       preview: 'Publish to preview',
       stable: 'Publish',
       rollback: 'Roll back',
+      alone: 'Approve without a second review',
+      confirm: 'Confirm second review',
+      dispute: 'Dispute',
     },
     done: {
       approve: 'Approved.',
@@ -166,6 +192,9 @@ export const platform = {
       preview: 'Published to the preview.',
       stable: 'Published. Entitled offices read it now.',
       rollback: 'Rolled back. Offices read the previous state.',
+      alone: 'Approved without a second review. The second review stays due.',
+      confirm: 'Second review confirmed.',
+      dispute: 'Disputed. Roll it back if it is already published.',
     },
     confirm: {
       approve: {
@@ -187,6 +216,18 @@ export const platform = {
       rollback: {
         title: 'Roll this change request back?',
         body: 'Each entry returns to its state before this request. The history stays, so earlier answers still find their sources.',
+      },
+      alone: {
+        title: 'Approve without a second review?',
+        body: 'Only when nobody else can review it. The request is marked as approved without a second review, and a second review stays due until another person gives it.',
+      },
+      confirm: {
+        title: 'Confirm the second review?',
+        body: 'You confirm every entry was checked against its source. This closes the due second review.',
+      },
+      dispute: {
+        title: 'Dispute the approval?',
+        body: 'The request is marked as disputed and is not published further. What is already published stays until someone rolls it back.',
       },
     },
   },
