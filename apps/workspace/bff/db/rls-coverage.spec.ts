@@ -229,10 +229,11 @@ const BOUNDARY_MIGRATIONS = [
   // force, writes only its own), append-only, and the record type CHECK widened.
   '0204_rulesets.sql',
   '0205_platform_base_knowledge.sql',
+  '0209_knowledge_citation_captures.sql',
   // Adds relations as a base knowledge record type (ADR-0168): the relation body
   // table, layered like 0202's and append-only; and re-secures knowledge_records,
   // whose platform read now also follows a released relation across packs.
-  '0209_country_pack.sql',
+  '0210_country_pack.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

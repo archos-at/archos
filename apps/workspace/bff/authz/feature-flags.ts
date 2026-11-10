@@ -382,8 +382,11 @@ export const FEATURE_FLAGS = {
    *
    * An entitlement, off until an operator targets the organization: it widens
    * what an answer claims (an edition for a past date). With it off the as-of
-   * route answers 403 and `law-lookup` drops `asOf` before the backend sees it,
-   * so every answer is what it was.
+   * route answers 403, and `law-lookup` is offered without `as_of`: the agent's
+   * tool and the door's schema are byte for byte what they were before the flag
+   * (`ris_adapter.lookup.tool`). A call that names `as_of` anyway is refused by
+   * the backend, never answered with today's text. With it on, the chat agent's
+   * turn is offered `as_of`; the door's schema still hides it.
    */
   timeEditions: 'time-editions',
 } as const

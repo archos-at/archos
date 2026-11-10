@@ -60,6 +60,7 @@ import { MAIL_EXPOSURE } from './exposure-mail'
 import { BASE_KNOWLEDGE_EXPOSURE } from './exposure-base-knowledge'
 import { PLATFORM_EXPOSURE } from './exposure/platform'
 import { PLATFORM_KNOWLEDGE_EXPOSURE } from './exposure/platform-knowledge'
+import { PLATFORM_SKILL_EXPOSURE } from './exposure/platform-skills'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
@@ -447,6 +448,7 @@ export const EXPOSURE = {
   // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0160)
   ...PLATFORM_EXPOSURE,
   ...PLATFORM_KNOWLEDGE_EXPOSURE,
+  ...PLATFORM_SKILL_EXPOSURE,
 
   // the agent’s read tools (`backend-operations.ts`)
   'knowledge-search': { external: true, agent: 'native:knowledge_search', reason: NATIVE_READ },

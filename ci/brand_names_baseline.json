@@ -762,7 +762,6 @@
   "packages/agent/src/agent/citations/quote_verification.py": 1,
   "packages/agent/src/agent/common/canned_replies.py": 1,
   "packages/agent/src/agent/common/claim_queue.py": 7,
-  "packages/agent/src/agent/common/client_tools.py": 1,
   "packages/agent/src/agent/common/cost_tracking.py": 4,
   "packages/agent/src/agent/common/data_sources.py": 3,
   "packages/agent/src/agent/common/db_utils.py": 1,

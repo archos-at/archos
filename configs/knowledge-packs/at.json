@@ -1,5 +1,5 @@
 {
-  "$comment": "The Austria pack (ADR-0168): proposed through records-propose in one change request for AT, reviewed and published like any platform change; never seeded. Generated once from the OIB's in-force table; edit the records, not a generator.",
+  "$comment": "The Austria pack (ADR-0168): proposed through records-propose in one change request for AT, reviewed and published like any platform change; never seeded. Each record cites a capture of that change request with a quote before it can be proposed (ADR-0170, KC-6): the file holds the records, not their captures. Generated once from the OIB's in-force table; edit the records, not a generator.",
   "countryId": "AT",
   "title": "Austria: Länder, building laws, OIB-Richtlinien and their adoption per Land",
   "records": [

@@ -5,16 +5,22 @@
  * call passes; reads need `platform:settings:view`, writes
  * `platform:settings:manage`, entitlements `platform:organizations:manage`.
  *
- * The flow: change-request-create, records-propose (dryRun first), submit;
- * a reviewer's change-request-review per claim; change-request-decide (the
- * person's yes, never by the author); publish to preview, then stable (the
- * person's yes); rollback (the person's yes). `personDecides` makes the door ask
- * the person; the route refuses without that yes whatever path the call took.
+ * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
+ * schema-get; change-request-create; citation-capture for each page; then
+ * records-propose (dryRun first) and validate; submit; a reviewer's
+ * change-request-review per claim; change-request-decide (the person's yes,
+ * never by the author); publish to preview, then stable (the person's yes);
+ * rollback (the person's yes). `personDecides` makes the door ask the person,
+ * and a client that cannot ask gets `decideAt`, the page where they decide it;
+ * the route refuses without that yes whatever path the call took. Every write
+ * takes the door's `idempotencyKey`, and every refusal is an RFC 9457 problem.
  */
 
 import { z } from 'zod'
 import {
   approvalBodySchema,
+  captureBodySchema,
+  schemaQuerySchema,
   createChangeRequestBodySchema,
   entitleBodySchema,
   homeCountryBodySchema,
@@ -25,7 +31,16 @@ import {
   rollbackBodySchema,
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
-import type { AgentOperation } from '../operation'
+import type { AgentOperation, PersonConfirmation } from '../operation'
+
+/** Whether a review's verdicts vouch for a source (`sourceChecked`): the one verdict the person must give themselves. */
+function checksASource(body: unknown): boolean {
+  const decisions = (body as { decisions?: unknown } | null)?.decisions
+  return Array.isArray(decisions) && decisions.some((decision) => (decision as { sourceChecked?: unknown } | null)?.sourceChecked === true)
+}
+
+/** Where the person approves, publishes, rolls back or entitles in the app: the platform's countries view. */
+const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/countries' }
 
 const requestParams = z.object({
   changeRequestId: z.uuid().describe('The change request id, from platform-knowledge-change-request-create or -list.'),
@@ -82,26 +97,67 @@ export const platformKnowledgeOperations = [
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/route'),
   },
   {
+    name: 'platform-knowledge-schema-get',
+    domain: 'platform',
+    summary: 'Read the JSON Schema of each platform record type',
+    description:
+      'What platform-knowledge-records-propose takes, per record type (territory, authority, work, edition, ' +
+      'manifestation; `type` for one), the citation every record carries, the batch limit and the checks of the ' +
+      'validation kit with what to do about each. Read it before the first proposal.',
+    method: 'GET',
+    path: '/api/platform/knowledge/schemas',
+    query: schemaQuerySchema,
+    load: () => import('@/app/api/platform/knowledge/schemas/route'),
+  },
+  {
+    name: 'platform-knowledge-citation-capture',
+    domain: 'platform',
+    summary: 'Capture a page that platform records will cite',
+    description:
+      'Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host ' +
+      'of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` ' +
+      'stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. ' +
+      'Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/captures',
+    params: requestParams,
+    body: captureBodySchema,
+    examples: [
+      {
+        params: { changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e' },
+        body: { basis: 'fetched', sourceId: 'at-ris', url: 'https://www.ris.bka.gv.at/eli/lgbl/wi/1930/11' },
+      },
+    ],
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/captures/route'),
+  },
+  {
     name: 'platform-knowledge-records-propose',
     domain: 'platform',
     summary: 'Propose up to 200 cited records into a draft change request',
     description:
-      'Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation. Run it ' +
-      'with `dryRun: true` first: it answers the validation problems and writes nothing. A batch with problems is ' +
-      'refused (422). The same key again in the same draft adds a revision to the same record.',
+      'Records of any type by key (a territory by its id): territory, authority, work, edition, manifestation; shapes ' +
+      'from platform-knowledge-schema-get. Each cites a capture with a quote. Run it with `dryRun: true` first: every ' +
+      'record gets its result and its problems (code, JSON Pointer, hint) and nothing is written. A batch with a ' +
+      'problem is refused whole (422). The same key again adds a revision to the same record; the same proposal ' +
+      'again changes nothing (`unchanged`), so a repaired batch is resent as it is. Then platform-knowledge-validate.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/records',
     params: requestParams,
     body: proposeRecordsBodySchema,
-    idempotent: false,
+    idempotent: true,
     examples: [
       {
         params: { changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e' },
         body: {
           dryRun: true,
           records: [
-            { type: 'work', key: 'oenorm-b-5371', kind: 'technical_standard', title: 'Treppen', designation: 'ÖNORM B 5371' },
-            { type: 'edition', key: 'oenorm-b-5371-2021', workKey: 'oenorm-b-5371', label: '2021-01-15' },
+            {
+              type: 'edition',
+              key: 'at-9-building-code-2024',
+              workKey: 'at-9-building-code',
+              label: '2024-01-01',
+              citations: [{ captureId: '6f0c1a7e-2b7d-4c55-9a3e-6d1f0b2a9c11', quote: 'LGBl. Nr. 11/1930' }],
+            },
           ],
         },
       },
@@ -109,24 +165,40 @@ export const platformKnowledgeOperations = [
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/records/route'),
   },
   {
+    name: 'platform-knowledge-validate',
+    domain: 'platform',
+    summary: 'Run the validation kit on a whole change request',
+    description:
+      'The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with ' +
+      'its record, code (KC-1 references, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. ' +
+      'Repair with platform-knowledge-records-propose, then submit once it is valid.',
+    method: 'GET',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/validation',
+    params: requestParams,
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/validation/route'),
+  },
+  {
     name: 'platform-territory-import',
     domain: 'platform',
     summary: 'Import ISO 3166 territories into a draft change request',
     description:
       'A bulk file of ISO 3166 rows (`code`, `name`, optional `parent`) becomes territory records: a code without a ' +
-      'subdivision is a country, `AT-6` a state of AT. Validated and reviewed like any proposal.',
+      'subdivision is a country, `AT-6` a state of AT. `captureId` is the capture of the list; each name is checked ' +
+      'against it. Validated (`dryRun` first) and reviewed like any proposal; the same rows again change nothing.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/territories',
     params: requestParams,
     body: territoryImportBodySchema,
-    idempotent: false,
+    idempotent: true,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/territories/route'),
   },
   {
     name: 'platform-knowledge-change-request-submit',
     domain: 'platform',
     summary: 'Submit a draft change request for review',
-    description: 'No more records go into it after this. 409 unless it is a draft; 422 when it holds no records.',
+    description:
+      'No more records go into it after this. 409 unless it is a draft; 422 when it holds no records or fails ' +
+      'platform-knowledge-validate, with the problems.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/submit',
     params: requestParams,
@@ -138,13 +210,17 @@ export const platformKnowledgeOperations = [
     summary: 'Record verdicts on the claims of a submitted change request',
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
-      'rejected. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a ' +
-      'revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.',
+      'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
+      'capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is ' +
+      'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
+      'request; a verdict sent without the person’s confirmation is recorded as the agent’s.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
     body: reviewBodySchema,
     idempotent: false,
+    // `sourceChecked` vouches for a page nobody fetched: the person's own, asked of them (ADR-0170).
+    personDecidesWhen: (input) => checksASource(input.body),
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/route'),
   },
   {
@@ -159,6 +235,7 @@ export const platformKnowledgeOperations = [
     params: requestParams,
     body: approvalBodySchema,
     personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/decision/route'),
   },
   {
@@ -174,6 +251,7 @@ export const platformKnowledgeOperations = [
     body: publishBodySchema,
     destructive: true,
     personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/publish/route'),
   },
   {
@@ -189,6 +267,7 @@ export const platformKnowledgeOperations = [
     body: rollbackBodySchema,
     destructive: true,
     personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/rollback/route'),
   },
   {
@@ -216,6 +295,7 @@ export const platformKnowledgeOperations = [
     body: entitleBodySchema,
     destructive: true,
     personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/organizations/[organizationId]/countries/route'),
   },
   {
@@ -231,6 +311,7 @@ export const platformKnowledgeOperations = [
     body: homeCountryBodySchema,
     destructive: true,
     personDecides: true,
+    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
     load: () => import('@/app/api/platform/organizations/[organizationId]/home-country/route'),
   },
 ] as const satisfies readonly AgentOperation[]

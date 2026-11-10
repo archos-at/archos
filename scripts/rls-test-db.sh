@@ -241,6 +241,14 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/time/time.integration.spec.ts
 
+# The onboarding door (ADR-0170): a scripted client takes AT-9 through the
+# platform door to a stable release. Alone and after the platform suite, since
+# both release Austria's territories and a release over one moved since a
+# request was opened is a 409 by design.
+echo "==> running the onboarding door suite as app_rw"
+TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
+  npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
+
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
 # one its restore. The job-queue suites claim from the whole table and expect
@@ -3568,29 +3576,73 @@ check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0208 review four eyes and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# 0209: relations are records (ADR-0168): a relation names two records of its
-# owner, a mode only for makes_binding; the down removes relations and their
-# records and the record type, and 0209 applies again.
+# Migration 0209: citation captures and the reviewer's source check (ADR-0170).
+#
+# On a database of its own, migrated through 0209: a capture goes only into a
+# draft and is never rewritten, a fetched capture names its source, and an
+# approval waits until a verdict says an operator-supplied capture's source
+# was checked, by someone other than the revision's author (0208's four-eyes
+# trigger refuses an author's verdict outright). The down drops both, and 0209
+# applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0209 country pack and its down migration on cp_0209"
-migrate_until cp_0209 0209_country_pack
-sql_in cp_0209 <<'SQL'
-INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
-  ('work:t0209-ordinance', 'org_0209', 'work', 'user_author'),
-  ('work:t0209-norm', 'org_0209', 'work', 'user_author'),
-  ('relation:t0209', 'org_0209', 'relation', 'user_author');
-INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
-  VALUES ('00000000-0000-4000-8000-000000000209', 'relation:t0209', 'relation', 'org_0209', 'user_author');
-INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
-  VALUES ('00000000-0000-4000-8000-000000000209', 'relation:t0209', 'org_0209', 'makes_binding', 'declared',
-          'work:t0209-ordinance', 'work', 'work:t0209-norm', 'work');
+echo "==> verifying the 0209 citation captures and their down migration on cc_0209"
+migrate_until cc_0209 0209_knowledge_citation_captures
+CR="c0000000-0000-4000-8000-000000000209"
+RV="e0000000-0000-4000-8000-000000000209"
+CAP="a0000000-0000-4000-8000-000000000209"
+SHA="0000000000000000000000000000000000000000000000000000000000000209"
+sql_in cc_0209 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT-9', 'AT', 'user_author');
+INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, text, retrieved_at, created_by)
+  VALUES ('$CAP', '$CR', 'operator_supplied', 'https://www.wien.gv.at/ma37', '$SHA', 4, 'Wien', now(), 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-9', NULL, 'territory', 'AT', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id, provenance)
+  VALUES ('$RV', 'AT-9', 'territory', NULL, 'user_author', '$CR', '{"citations": [{"captureId": "$CAP", "quote": "Wien"}]}');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
+  VALUES ('$RV', 'AT-9', NULL, 'state', 'Wien', '{AT}');
 SQL
-refused_in cp_0209 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0209', 'org_0209', 'supersedes', 'declared', 'work:t0209-ordinance', 'work', 'work:t0209-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
-refused_in cp_0209 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
-apply_in cp_0209 0209_country_pack.down.sql
-check_in cp_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0209 down drops the relation bodies"
-check_in cp_0209 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0209 down removes the relation records"
-check_in cp_0209 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0209-%'" "2" "0209 down keeps the works"
-apply_in cp_0209 0209_country_pack.sql
-check_in cp_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0209 applies again after its down"
-echo "==> 0209 country pack and its down migration verified"
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'fetched', 'https://www.ris.bka.gv.at/x', '$SHA', 1, now(), 'user_author')" "knowledge_citation_captures_fetched_has_source" "a fetched capture without its source"
+refused_in cc_0209 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
+sql_in cc_0209 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
+sql_in cc_0209 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'app');"
+refused_in cc_0209 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
+sql_in cc_0209 <<SQL
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked, decision_source)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true, 'app');
+INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
+SQL
+check_in cc_0209 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0209: the approval counts once the source was checked"
+apply_in cc_0209 0209_knowledge_citation_captures.down.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_citation_captures'" "0" "0209 down drops the captures"
+apply_in cc_0209 0209_knowledge_citation_captures.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'source_checked'" "1" "0209 applies again after its down"
+echo "==> 0209 citation captures and their down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0210: relations are records (ADR-0168): a relation names two records of its
+# owner, a mode only for makes_binding; the down removes relations and their
+# records and the record type, and 0210 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0210 country pack and its down migration on cp_0210"
+migrate_until cp_0210 0210_country_pack
+sql_in cp_0210 <<'SQL'
+INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
+  ('work:t0210-ordinance', 'org_0210', 'work', 'user_author'),
+  ('work:t0210-norm', 'org_0210', 'work', 'user_author'),
+  ('relation:t0210', 'org_0210', 'relation', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+  VALUES ('00000000-0000-4000-8000-000000000210', 'relation:t0210', 'relation', 'org_0210', 'user_author');
+INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
+  VALUES ('00000000-0000-4000-8000-000000000210', 'relation:t0210', 'org_0210', 'makes_binding', 'declared',
+          'work:t0210-ordinance', 'work', 'work:t0210-norm', 'work');
+SQL
+refused_in cp_0210 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0210', 'org_0210', 'supersedes', 'declared', 'work:t0210-ordinance', 'work', 'work:t0210-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
+refused_in cp_0210 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
+apply_in cp_0210 0210_country_pack.down.sql
+check_in cp_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0210 down drops the relation bodies"
+check_in cp_0210 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0210 down removes the relation records"
+check_in cp_0210 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0210-%'" "2" "0210 down keeps the works"
+apply_in cp_0210 0210_country_pack.sql
+check_in cp_0210 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0210 applies again after its down"
+echo "==> 0210 country pack and its down migration verified"

@@ -55,7 +55,7 @@ column per Land cannot say.
 
 Chosen option 3.
 
-**Relations are records** (migration 0209): one `from` and one `to` (a work or
+**Relations are records** (migration 0210): one `from` and one `to` (a work or
 an edition), a type, a mode for `makes_binding` (`declared`, `static_reference`,
 `dynamic_reference`), paired AKN anchors, the provision, and a half-open
 interval. Append-only like every body; a platform relation names platform
@@ -83,7 +83,11 @@ record so the row policy stays cheap); a rollback of the relation withdraws it.
 are proposals in the records format, generated once from the OIB's own table
 of in-force dates and checked Land by Land against it in `chain/packs.spec.ts`.
 They enter as change requests through `records-propose`, reviewed, approved
-and published like any platform change; the repository has no seed path.
+and published like any platform change; the repository has no seed path. A
+file holds the records, not their sources: ADR-0170's KC-6 asks each record
+for a capture of its own change request and a quote from it, so the person
+proposing a pack captures the OIB's table and each Land's page first.
+`packs.spec.ts` holds every other check and pins that KC-6 is all that is left.
 
 **The turn.** Behind the `building-law-chain` flag the turn context carries the
 chain text and each edition's role (`buildingLaw`). The agent renders the

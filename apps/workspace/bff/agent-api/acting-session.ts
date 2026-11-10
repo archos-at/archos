@@ -39,6 +39,8 @@ interface ActingCall {
   readonly proposalId?: string
   /** How the door got the person's yes for this call, when it got one (`confirmation.ts`, `mcp-apps.ts`). */
   readonly decisionSource?: ActingDecisionSource
+  /** The OAuth client the call came through, for attribution (`via_client`, ADR-0170). */
+  readonly clientId?: string
 }
 
 /**
@@ -53,6 +55,7 @@ export type ActingDecisionSource = 'elicitation' | 'app' | 'app-unverified'
 export interface ActingOrigin {
   readonly proposalId?: string
   readonly decisionSource?: ActingDecisionSource
+  readonly clientId?: string
 }
 
 const acting = new AsyncLocalStorage<ActingCall>()
@@ -70,6 +73,7 @@ export function runAsActingSession<T>(
       reader,
       ...(origin.proposalId ? { proposalId: origin.proposalId } : {}),
       ...(origin.decisionSource ? { decisionSource: origin.decisionSource } : {}),
+      ...(origin.clientId ? { clientId: origin.clientId } : {}),
     },
     fn,
   )
@@ -106,4 +110,9 @@ export function actingDecision(): { proposalId?: string; decisionSource?: Acting
   const call = acting.getStore()
   if (!call) return undefined
   return { proposalId: call.proposalId, decisionSource: call.decisionSource }
+}
+
+/** The OAuth client of the door call in flight, or `undefined` (a person's own request, or a client that named none). */
+export function actingClientId(): string | undefined {
+  return acting.getStore()?.clientId
 }

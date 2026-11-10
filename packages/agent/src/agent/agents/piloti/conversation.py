@@ -464,11 +464,11 @@ class ConversationGraph:
             focus_region=state.focus_region,
             reply_in_thread=state.reply_in_thread,
             trigger=state.trigger,
-            # Told to the model so it writes an answer instead of a hand-off sentence. `_finalize_answer`
-            # still refuses the escalation if it asks anyway: the prompt is the fix, this the layer that holds.
+            # Told to the model so it answers instead of handing off; `_finalize_answer` still refuses one that asks.
             deep_research_allowed=state.deep_research_allowed,
             tasks_allowed=state.tasks_allowed,
             licensed_text_allowed=state.licensed_text_allowed,
+            time_editions_allowed=state.time_editions_allowed,
             confined=state.confined,
         )
 

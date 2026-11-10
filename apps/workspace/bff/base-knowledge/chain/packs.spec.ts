@@ -56,17 +56,27 @@ function bindingEditions(leaf: string, date: string, rl: string): string[] {
 }
 
 describe('the Austria and EU packs', () => {
-  it('are proposals the platform accepts: each within one request, valid against what it names', () => {
+  /** KC-6 asks every platform record for a capture of its change request; a pack file holds none (ADR-0170). */
+  const structural = (problems: readonly { code: string }[]) => problems.filter((problem) => problem.code !== 'KC-6')
+  const published = new Map<string, KnownRecord>(euRecords.map((record) => [recordIdOf(record), { type: record.type, countryId: 'EU' }]))
+
+  it('are proposals the platform accepts but for their captures: each within one request, valid against what it names', () => {
     expect(at.countryId).toBe('AT')
     expect(eu.countryId).toBe('EU')
     expect(atRecords.length).toBeLessThanOrEqual(MAX_PROPOSED_RECORDS)
-    expect(validateProposal(euRecords, 'EU', new Map())).toEqual([])
-    const published = new Map<string, KnownRecord>(euRecords.map((record) => [recordIdOf(record), { type: record.type, countryId: 'EU' }]))
-    expect(validateProposal(atRecords, 'AT', published)).toEqual([])
+    expect(structural(validateProposal(euRecords, 'EU', new Map(), new Map()))).toEqual([])
+    expect(structural(validateProposal(atRecords, 'AT', published, new Map()))).toEqual([])
+  })
+
+  it('cannot be published from the file alone: every record still needs a captured, quoted source', () => {
+    const uncited = (records: readonly ProposedRecord[], countryId: string, known: ReadonlyMap<string, KnownRecord>) =>
+      new Set(validateProposal(records, countryId, known, new Map()).filter((problem) => problem.code === 'KC-6').map((problem) => problem.index))
+    expect(uncited(euRecords, 'EU', new Map()).size).toBe(euRecords.length)
+    expect(uncited(atRecords, 'AT', published).size).toBe(atRecords.length)
   })
 
   it('needs the EU pack first: Austria names the union as a dated parent', () => {
-    expect(validateProposal(atRecords, 'AT', new Map()).map((problem) => problem.detail)).toContain(
+    expect(validateProposal(atRecords, 'AT', new Map(), new Map()).map((problem) => problem.detail)).toContain(
       'names territory EU, which is not imported; import it first.',
     )
   })

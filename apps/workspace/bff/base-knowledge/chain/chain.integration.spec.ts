@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  *
- * The Austria pack in the records, against a REAL Postgres (migration 0209,
+ * The Austria pack in the records, against a REAL Postgres (migration 0210,
  * ADR-0168), every office read through the restricted runtime role:
  *
  *   bash scripts/rls-test-db.sh --only bff/base-knowledge/chain/chain.integration.spec.ts
