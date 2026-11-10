@@ -74,7 +74,14 @@ def citation_key(facts: PlaceFacts) -> str:
     return f"{facts.file_name}, p.{facts.page}"
 
 
-def render_place(facts: PlaceFacts, preamble: str, reading_rows: str) -> str:
+def document_licence(collection: str, file_name: str, unindexed: Any = None) -> Any:
+    """The licence a document's points carry, through the licence port (``knowledge.licences``); fails closed."""
+    from agent.knowledge.licences import document_licence as read
+
+    return read(collection, file_name, unindexed=unindexed)
+
+
+def render_place(facts: PlaceFacts, preamble: str, reading_rows: str, licence: Any = None) -> str:
     """The look's text block as a grounding block: ``preamble`` for the model, one hit holding the reading.
 
     The whole text IS the rendering, so a live turn finds the record under its
@@ -97,6 +104,8 @@ def render_place(facts: PlaceFacts, preamble: str, reading_rows: str) -> str:
         status_note=None,
         body=reading_rows,
         regions=(SourceRegion(box=facts.box),) if facts.box is not None else (),
+        # A licensed page's reading is its text: a reference in the transcript, the text only inside the call.
+        licence=licence,
     )
     block = GroundingBlock(preamble=preamble, degraded_banner="", hits=(hit,), lanes=(), tool=TOOL)
     return render_grounding_block(block)

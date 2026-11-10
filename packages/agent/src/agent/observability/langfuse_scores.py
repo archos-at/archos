@@ -188,6 +188,12 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         min_value=0,
     ),
     ScoreDefinition(
+        "licensed-quote-capped",
+        "NUMERIC",
+        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0164); only on turns that read some.",
+        min_value=0,
+    ),
+    ScoreDefinition(
         "dialect-repairs",
         "NUMERIC",
         "Answer-dialect blocks the pipeline had to repair before the reader saw them.",
@@ -516,15 +522,6 @@ def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[Ru
     if literal:
         named.add("knowledge_search (literal)")
     return [RuntimeScore("file-tools-used", value, comment=", ".join(sorted(named)) or None)]
-
-
-def steer_scores(inbox: Any) -> list[RuntimeScore]:
-    """A steered turn's count of notes (``common.steering.SteerInbox``): taken, and how many the turn read."""
-    received = int(getattr(inbox, "received", 0) or 0)
-    if received <= 0:
-        return []
-    applied = len(getattr(inbox, "applied", None) or [])
-    return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:

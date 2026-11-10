@@ -273,3 +273,38 @@ class TestStandaloneWithoutTheAgent:
 
         assert "body a" in result  # the fake result came back through the standalone copy
         assert fake_langchain_tavily.call_args.kwargs["max_results"] == 5
+
+
+class TestLicensedTextNeverLeavesAsAQuery:
+    """A query repeating the office's licensed text is refused before Tavily sees it (ADR-0164, design 6.4)."""
+
+    NORM = (
+        "Die Mindesthöhe von Absturzsicherungen beträgt bei Absturzhöhen über zwölf Metern einhundertzehn Zentimeter."
+    )
+
+    async def _search_after_reading_a_norm(self, query: str, fake_langchain_tavily) -> str:
+        from agent.common.grounding_block import begin_grounding_capture
+        from agent.common.grounding_block import end_grounding_capture
+        from agent.common.licensed_text import LicenceTerms
+        from agent.common.licensed_text import licensed_body
+
+        token = begin_grounding_capture(licensed_text=True)
+        try:
+            licensed_body(self.NORM, LicenceTerms(licence_class="licensed", ai_processing=True))
+            return await _run_search(TavilyWebSearchToolConfig(), query=query)
+        finally:
+            end_grounding_capture(token)
+
+    async def test_a_query_that_repeats_the_norm_is_refused_and_never_sent(self, fake_langchain_tavily):
+        from agent.common.licensed_text import WEB_SEARCH_REFUSAL
+
+        result = await self._search_after_reading_a_norm(f"Stimmt das: {self.NORM[10:80]}", fake_langchain_tavily)
+        assert result == WEB_SEARCH_REFUSAL
+        fake_langchain_tavily.return_value.ainvoke.assert_not_called()
+
+    async def test_a_query_in_own_words_is_searched(self, fake_langchain_tavily):
+        result = await self._search_after_reading_a_norm(
+            "Absturzsicherung Mindesthöhe Österreich", fake_langchain_tavily
+        )
+        assert result != "" and "refused" not in result
+        fake_langchain_tavily.return_value.ainvoke.assert_awaited_once()

@@ -3844,6 +3844,10 @@
     "de": "Die Statuszeile über der Herleitung sagt, wonach Piloti gerade sucht, und sobald die Recherche abgeschlossen ist, dass die Antwort formuliert wird."
   },
   {
+    "en": "The subprocessor page in the legal section now names everyone who receives your data, including address search, voice dictation and our team's Slack notices, with the legal basis for each transfer, and says plainly that the AI reads whole pages of a document when a question needs them.",
+    "de": "Die Seite zu den Unterauftragsverarbeitern im Rechtsbereich nennt jetzt alle, die Ihre Daten erhalten – darunter die Adresssuche, die Spracheingabe und die Slack-Mitteilungen unseres Teams – samt Rechtsgrundlage für jede Übermittlung und hält klar fest, dass die KI ganze Dokumentseiten liest, wenn eine Frage dies erfordert."
+  },
+  {
     "en": "The summary of an image no longer starts with a stray text marker.",
     "de": "Die Zusammenfassung eines Bildes beginnt nicht mehr mit einer störenden Textmarkierung."
   },

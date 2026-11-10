@@ -28,6 +28,8 @@ export interface CacheStore {
   delete(key: string): Promise<void>
   /** Delete all keys starting with `prefix`. */
   deletePrefix(prefix: string): Promise<void>
+  /** Add `by` to an integer counter atomically and return its new value; its expiry is set only when it is created. */
+  increment?(key: string, by: number, ttlMs: number): Promise<number>
 }
 
 /**
@@ -111,6 +113,14 @@ class InProcessStore implements CacheStore {
       if (key.startsWith(prefix)) this.entries.delete(key)
     }
   }
+
+  async increment(key: string, by: number, ttlMs: number): Promise<number> {
+    const held = this.entries.get(key)
+    const live = held && Date.now() < held.expiresAt ? held : null
+    const total = (live ? Number(live.value) || 0 : 0) + by
+    this.entries.set(key, { value: String(total), expiresAt: live ? live.expiresAt : Date.now() + ttlMs })
+    return total
+  }
 }
 
 /**
@@ -118,7 +128,7 @@ class InProcessStore implements CacheStore {
  * call sites below, and additionally keeps timeouts tight here so a cache
  * outage degrades to loader calls instead of hanging requests.
  */
-class RedisStore implements CacheStore {
+export class RedisStore implements CacheStore {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any
 
@@ -136,6 +146,17 @@ class RedisStore implements CacheStore {
 
   async delete(key: string): Promise<void> {
     await this.client.del(key)
+  }
+
+  async increment(key: string, by: number, ttlMs: number): Promise<number> {
+    // One transaction: the add, and an expiry set only on the key's first write (NX), so the window never slides.
+    const ms = Math.max(1, Math.round(ttlMs))
+    const results = await this.client.multi().incrby(key, by).pexpire(key, ms, 'NX').exec()
+    const [[addError, total] = [], [expireError] = []] = results ?? []
+    if (addError) throw addError
+    // A store that refuses PEXPIRE NX inside MULTI would leave the counter without an expiry, kept for good.
+    if (expireError && (await this.client.pttl(key)) < 0) await this.client.pexpire(key, ms)
+    return Number(total)
   }
 
   async deletePrefix(prefix: string): Promise<void> {
@@ -233,6 +254,23 @@ export async function setCached<T>(key: string, value: T, ttlMs: number): Promis
   } catch (error) {
     counters.errors += 1
     console.warn(`[cache] direct write failed for ${key}:`, error)
+  }
+}
+
+/**
+ * A shared counter: add `by` atomically and return the new total, or `null` when the store cannot (an outage, a
+ * store without counters). The window is fixed: the expiry is set when the counter is first written and never
+ * moved, so name the window in the key (a calendar day) and give `ttlMs` a margin past it. Fails open: `null`.
+ */
+export async function incrementCounter(key: string, by: number, ttlMs: number): Promise<number | null> {
+  try {
+    if (!store.increment) return null
+    const total = await store.increment(key, by, ttlMs)
+    return Number.isFinite(total) ? total : null
+  } catch (error) {
+    counters.errors += 1
+    console.warn(`[cache] counter increment failed for ${key}:`, error)
+    return null
   }
 }
 

@@ -39,6 +39,7 @@ import os
 import time
 from collections.abc import AsyncIterator
 
+from agent.common.data_flow_register import assert_no_latent_vendor
 from agent.common.logging_utils import suppress_noisy_dependency_logs
 from agent.knowledge import ingest_cutover
 from agent.knowledge import ingest_workflow
@@ -165,6 +166,7 @@ def main() -> None:
     # needs the direct DSN (ADR-0083). It never LISTENs. Fail the boot, not the
     # first file.
     require_direct_dsns(listen=False)
+    assert_no_latent_vendor()
     ingest_workflow.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=_pool())
 
 
