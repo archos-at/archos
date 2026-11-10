@@ -21,6 +21,8 @@ fixtures through its own access type and engine on every commit.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import functools
 import os
 import re
@@ -102,10 +104,28 @@ class Monitor(_Strict):
 
 
 class InlineResponse(_Strict):
-    """A recorded response carried in the record itself, as a source configured in the database keeps it."""
+    """A recorded response carried in the record itself, as a source configured in the database keeps it.
+
+    A text body is carried as it came (``encoding: utf-8``); a binary one, a
+    PDF above all, as base64 (``encoding: base64``), within the same length.
+    """
 
     content_type: str
     text: str = Field(max_length=500_000)
+    encoding: Literal["utf-8", "base64"] = "utf-8"
+
+    @model_validator(mode="after")
+    def _decodes(self) -> InlineResponse:
+        if self.encoding == "base64":
+            try:
+                base64.b64decode(self.text, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ValueError(f"a base64 response body does not decode: {exc}") from exc
+        return self
+
+    def content(self) -> bytes:
+        """The body's bytes, as the source served them."""
+        return base64.b64decode(self.text) if self.encoding == "base64" else self.text.encode("utf-8")
 
 
 #: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).

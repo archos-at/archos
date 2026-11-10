@@ -544,7 +544,8 @@
     "knowledge_layer.ingest.office_extractors": 1
   },
   "tests/knowledge_layer_tests/test_text_pass_memory.py": {
-    "knowledge_layer.ingest.adapter": 1
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.pdf_text": 1
   },
   "tests/knowledge_layer_tests/test_trace_lanes.py": {
     "knowledge_layer.search.trace_lanes": 1
@@ -557,6 +558,7 @@
     "knowledge_layer.ingest.document_presence": 1,
     "knowledge_layer.ingest.office_extractors": 2,
     "knowledge_layer.ingest.page_triage": 1,
+    "knowledge_layer.ingest.pdf_text": 1,
     "knowledge_layer.ingest.processing": 1,
     "knowledge_layer.ingest.screening": 1,
     "knowledge_layer.ingest.text_formats": 1,

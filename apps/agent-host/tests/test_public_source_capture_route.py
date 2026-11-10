@@ -54,8 +54,26 @@ async def test_answers_the_capture_of_a_page(client, monkeypatch):
         "sha256": "a" * 64,
         "bytes": 12,
         "text": "Bauordnung",
+        "pages": None,
+        "note": None,
         "retrievedAt": "2026-11-10T00:00:00+00:00",
     }
+
+
+async def test_a_pdf_that_needs_a_password_is_refused_with_its_problem_code(client, monkeypatch):
+    from public_sources.capture import CaptureError
+
+    async def refused(source_id, url: str, **_: object):
+        raise CaptureError("the PDF needs a password to open", 422, "pdf_encrypted")
+
+    monkeypatch.setattr("public_sources.capture.capture_page", refused)
+    answer = await client.post(
+        "/v1/public-sources/capture",
+        headers=HEADERS,
+        json={"source": "at-ris", "url": "https://www.ris.bka.gv.at/x.pdf"},
+    )
+    assert answer.status_code == 422
+    assert answer.json() == {"detail": "the PDF needs a password to open", "code": "pdf_encrypted"}
 
 
 async def test_an_unknown_source_is_not_found_and_a_foreign_host_refused(client):

@@ -31,6 +31,7 @@ _CONTENT_TYPES = {
     ".xml": "application/xml",
     ".html": "text/html; charset=utf-8",
     ".htm": "text/html; charset=utf-8",
+    ".pdf": "application/pdf",
 }
 
 
@@ -58,7 +59,7 @@ def recorded_transport(
         if name is None:
             return httpx.Response(404, text=f"not recorded: {url}")
         if isinstance(name, InlineResponse):
-            return httpx.Response(200, headers={"content-type": name.content_type}, content=name.text.encode("utf-8"))
+            return httpx.Response(200, headers={"content-type": name.content_type}, content=name.content())
         if directory is None:
             return httpx.Response(404, text=f"{name} is a file, and this source has no directory")
         path = directory / "fixtures" / name
