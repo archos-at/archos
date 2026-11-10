@@ -52,7 +52,8 @@ def file_trace(file_name: str, config: dict[str, Any], job_id: str):
     """The Langfuse trace one file's ingest runs under: ids and the file type, never its text.
 
     A file the office marked licensed (``config["licence_class"]``) traces every model call it makes as
-    metadata only (``licensed_text.licensed_ingest``): its page reads are the licensed text itself.
+    metadata only (``licensed_text.licensed_ingest``): its page reads are the licensed text itself. One whose
+    licence is not attested for AI processing (``config["ai_processing_attested"]``) may call no model at all.
     """
     from agent.common.licensed_text import licence_from_metadata
     from agent.common.licensed_text import licensed_ingest
@@ -60,7 +61,7 @@ def file_trace(file_name: str, config: dict[str, Any], job_id: str):
 
     licence = licence_from_metadata(config)
     with (
-        licensed_ingest(licence is not None and licence.licensed),
+        licensed_ingest(licence),
         observed_span(
             INGEST_TRACE_NAME,
             metadata={

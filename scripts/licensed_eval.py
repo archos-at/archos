@@ -13,13 +13,15 @@ grounding block as the tool result. Three arms change only how the passage is ma
 - ``public``: unmarked, the text in the transcript, as every office document is today;
 - ``seam``: marked ``licensed`` with the ``licensed-seam`` flag on: a reference in the transcript,
   the text expanded inside the call, the reply capped (``common/licensed_text.py``);
-- ``off``: marked ``licensed`` with the flag off: listed, no text.
+- ``off``: marked ``licensed`` with the flag off: listed, no text;
+- ``unattested``: marked ``licensed``, flag on, but the office has not attested that its licence covers
+  processing by AI services: listed, no text, nothing quotable (design 4.7).
 
 Per run it records whether the expected value is stated, whether an unreadable value is pointed to
 and not guessed, the longest stretch of licensed text in the answer against the quote cap, and two
 leak checks: the longest licensed stretch any LangChain callback saw (what Langfuse and the agent
 runtime's spans are built from) and in the messages a checkpoint would store. ``off`` is the
-floor (the model never read the text) and ``public`` the ceiling the seam is measured against.
+floor (the model never read the text), as is ``unattested``, and ``public`` the ceiling the seam is measured against.
 
     .venv/bin/python scripts/licensed_eval.py --out /tmp/licensed-eval            # 2 runs per question and arm
     .venv/bin/python scripts/licensed_eval.py --arm seam --runs 1 --only barrier_mid
@@ -50,7 +52,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages" / "agent" / "src"))
 
 FIXTURE = ROOT / "tests" / "fixtures" / "licensed_eval" / "norms.yaml"
-ARMS = ("public", "seam", "off")
+ARMS = ("public", "seam", "off", "unattested")
 BOOT_MODEL = "openai/gpt-6-luna"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -128,7 +130,11 @@ def _hit(document: dict[str, Any], arm: str):
     from agent.common.licensed_text import LicenceTerms
 
     licence = (
-        None if arm == "public" else LicenceTerms(licence_class="licensed", quote_max_chars=document["quote_max_chars"])
+        None
+        if arm == "public"
+        else LicenceTerms(
+            licence_class="licensed", quote_max_chars=document["quote_max_chars"], ai_processing=arm != "unattested"
+        )
     )
     return GroundingHit(
         citation_key=f"{document['file_name']}, p.{document['page']}",

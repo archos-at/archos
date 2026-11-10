@@ -51,6 +51,15 @@ while the model still reads what the office licensed for this use.
   (`public_open`, `public_restricted`, `licensed`) and `quote_max_chars`; the office layer writes
   both at upload. `licensed_text.licence_from_metadata` reads them, and an unknown class is read as
   `licensed`.
+- **Attested for AI processing, or usable by no model.** An office licence for office-wide use does
+  not by itself allow processing by hosted AI services (design 4.7). The office attests that
+  separately, and the point or the ingest job carries it as `ai_processing_attested: true`; anything
+  else, a missing field included, is not attested. A licensed passage without it renders as listed
+  only (document, page, clause, no text, `UNATTESTED_NOTE`) whatever the flag says, nothing of it is
+  quotable (`licensed_text.quotable` gives the citation registry nothing), and the ingest of such a
+  document refuses every OpenRouter request in its scope (`licensed_ingest`,
+  `refuse_unattested_model_read` in `openrouter._pinned_request`), so it is never transcribed,
+  embedded or summarised.
 - **A reference, not the text.** `render_grounding_block` renders a licensed hit with a `Licence:`
   line and a reference token `⟦licensed:lp_…⟧` in its fence; the text is filed in the turn's
   `LicensedCapture`, opened with the grounding capture and dropped with it, never serialised.

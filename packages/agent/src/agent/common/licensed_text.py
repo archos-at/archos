@@ -72,6 +72,10 @@ LICENCE_CLASSES = (PUBLIC_OPEN, PUBLIC_RESTRICTED, LICENSED)
 #: The payload keys the mark is read from (``licence_class``) and the licence's quote cap (``quote_max_chars``).
 LICENCE_CLASS_KEY = "licence_class"
 QUOTE_MAX_CHARS_KEY = "quote_max_chars"
+#: Whether the office attested that its licence covers processing by the hosted AI services (indexing, model
+#: reads, quotation; design 4.7). Office-wide use alone is not enough, so only ``True`` counts: a licensed
+#: passage without it is usable by no model call at all.
+AI_PROCESSING_KEY = "ai_processing_attested"
 
 #: The quote cap a licensed passage gets when its terms state none: what we told feld72.
 DEFAULT_QUOTE_MAX_CHARS = 500
@@ -96,9 +100,19 @@ LICENSED_LINE = (
     "and the clause or table where it stands."
 )
 
+#: The ``Licence:`` line of a licensed hit no model may read.
+UNATTESTED_LINE = "licensed — the office's own copy, not confirmed for AI processing: listed only, never quoted."
+
 #: The body of a licensed hit on a turn that may not read licensed text.
 WITHHELD_NOTE = (
     "[Licensed text: listed, not readable in this conversation. Cite the document, page and clause; "
+    "state no value from it.]"
+)
+
+#: The body of a licensed hit whose licence the office has not attested for AI processing: no turn may read it.
+UNATTESTED_NOTE = (
+    "[Licensed text: listed only. The office has not confirmed that its licence covers processing by AI "
+    "services, so no text of it is available. Name the document, its edition and the clause; quote nothing and "
     "state no value from it.]"
 )
 
@@ -113,10 +127,17 @@ class LicenceTerms(BaseModel):
 
     licence_class: str
     quote_max_chars: int = DEFAULT_QUOTE_MAX_CHARS
+    #: The office attested that its licence covers processing by the hosted AI services (:data:`AI_PROCESSING_KEY`).
+    ai_processing: bool = False
 
     @property
     def licensed(self) -> bool:
         return self.licence_class == LICENSED
+
+    @property
+    def model_readable(self) -> bool:
+        """Whether any model call may read this text: always for a public class, for a licensed one only attested."""
+        return not self.licensed or self.ai_processing
 
 
 def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | None:
@@ -132,7 +153,11 @@ def licence_from_metadata(metadata: Mapping[str, Any] | None) -> LicenceTerms | 
     licence_class = str(raw) if str(raw) in LICENCE_CLASSES else LICENSED
     cap = (metadata or {}).get(QUOTE_MAX_CHARS_KEY)
     quote_max_chars = int(cap) if isinstance(cap, int | float | str) and str(cap).isdigit() and int(cap) > 0 else None
-    return LicenceTerms(licence_class=licence_class, quote_max_chars=quote_max_chars or DEFAULT_QUOTE_MAX_CHARS)
+    return LicenceTerms(
+        licence_class=licence_class,
+        quote_max_chars=quote_max_chars or DEFAULT_QUOTE_MAX_CHARS,
+        ai_processing=(metadata or {}).get(AI_PROCESSING_KEY) is True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +210,8 @@ def licensed_body(body: str, terms: LicenceTerms | None) -> str:
     """What a hit's fence holds: ``body``, or for a licensed one a reference to its filed text or the withheld note."""
     if terms is None or not terms.licensed:
         return body
+    if not terms.ai_processing:
+        return UNATTESTED_NOTE
     capture = _capture.get()
     if capture is None or not capture.text_allowed:
         return WITHHELD_NOTE
@@ -193,7 +220,17 @@ def licensed_body(body: str, terms: LicenceTerms | None) -> str:
 
 def licence_line(terms: LicenceTerms | None) -> str | None:
     """The ``Licence:`` header value of a licensed hit; ``None`` for any other."""
-    return LICENSED_LINE.format(cap=terms.quote_max_chars) if terms is not None and terms.licensed else None
+    if terms is None or not terms.licensed:
+        return None
+    return LICENSED_LINE.format(cap=terms.quote_max_chars) if terms.ai_processing else UNATTESTED_LINE
+
+
+def quotable(body: str, terms: LicenceTerms | None) -> str | None:
+    """What of ``body`` may persist as a quote (the citation registry): all of a public one, the cap of an
+    attested licensed one, nothing of an unattested one."""
+    if terms is None or not terms.licensed:
+        return body or None
+    return (body[: terms.quote_max_chars] or None) if terms.ai_processing else None
 
 
 # ---------------------------------------------------------------------------
@@ -380,21 +417,39 @@ class _Run:
 # ---------------------------------------------------------------------------
 
 _metadata_only: ContextVar[bool] = ContextVar("licensed_ingest", default=False)
+_reads_refused: ContextVar[bool] = ContextVar("licensed_reads_refused", default=False)
+
+
+class UnattestedLicensedText(RuntimeError):
+    """A model call inside the ingest of a licensed document the office has not attested for AI processing."""
 
 
 @contextmanager
-def licensed_ingest(active: bool) -> Iterator[None]:
-    """Trace the block's direct generations as metadata only (length, sha256), when ``active``.
+def licensed_ingest(terms: LicenceTerms | None) -> Iterator[None]:
+    """The scope a document's ingest runs in: what its model calls may do, by the document's licence.
 
-    For the ingest of a document marked licensed: every page read and transcription
-    is the licensed text itself, so neither its prompt nor its reply is recorded.
-    The generation, its model, usage and cost still are.
+    A licensed document traces its direct generations as metadata only (length, sha256): its page reads and
+    transcriptions are the licensed text itself; the generation, its model, usage and cost are still recorded.
+    One the office has not attested for AI processing may reach no model at all (design 4.7): every model
+    request inside the scope is refused (:func:`refuse_unattested_model_read`), so it is never transcribed,
+    embedded or summarised, and stays listed by its metadata.
     """
-    token = _metadata_only.set(active or _metadata_only.get())
+    licensed = terms is not None and terms.licensed
+    traced = _metadata_only.set(licensed or _metadata_only.get())
+    refused = _reads_refused.set((licensed and not terms.ai_processing) or _reads_refused.get())
     try:
         yield
     finally:
-        _metadata_only.reset(token)
+        _reads_refused.reset(refused)
+        _metadata_only.reset(traced)
+
+
+def refuse_unattested_model_read() -> None:
+    """Raise inside the ingest of a licensed document no model may read. Called by every OpenRouter transport."""
+    if _reads_refused.get():
+        raise UnattestedLicensedText(
+            "this document is licensed and its licence is not attested for AI processing: no model may read it"
+        )
 
 
 def trace_payload(text: str) -> str:

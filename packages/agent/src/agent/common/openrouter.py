@@ -71,6 +71,7 @@ import httpx
 
 from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common.licensed_text import refuse_unattested_model_read
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +284,9 @@ def pin_chat_model(llm: object, policy: DataPolicy) -> object:
 
 
 def _pinned_request(request: httpx.Request, policy: DataPolicy) -> httpx.Request:
-    """``request`` with ``policy`` merged into its JSON body."""
+    """``request`` with ``policy`` merged into its JSON body; refused inside an unattested licensed ingest."""
+    if targets_openrouter(str(request.url)):
+        refuse_unattested_model_read()
     if not policy.zdr or request.method != "POST" or not targets_openrouter(str(request.url)):
         return request
     try:

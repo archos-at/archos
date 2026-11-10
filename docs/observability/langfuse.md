@@ -259,7 +259,7 @@ length and sha256 (`ingest.measures.file_trace`, `licensed_text.licensed_ingest`
 Text an office marked licensed is a reference token (`⟦licensed:lp_…⟧`) in every
 chat-turn observation: the agent runtime's spans are built from what LangChain
 reports, and the chat-request contract expands the reference only after that
-(ADR-0158). A reply that read licensed text is capped at the passage's
+(ADR-0159). A reply that read licensed text is capped at the passage's
 `quote_max_chars` before any callback sees it, and every direct generation's
 payload passes `licensed_text.trace_payload` in `direct_trace._clip`. The
 generation is never dropped; only its content is. `test_licensed_seam.py` plants

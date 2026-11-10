@@ -57,7 +57,9 @@ LICENSED = "\n".join(
 #: The planted shingle: deep inside the passage, far past any quote cap.
 SHINGLE = LICENSED[1500:1560]
 
-TERMS = LicenceTerms(licence_class="licensed", quote_max_chars=CAP)
+TERMS = LicenceTerms(licence_class="licensed", quote_max_chars=CAP, ai_processing=True)
+#: The office's own copy, marked licensed, its licence NOT attested for AI processing: no model may read it.
+UNATTESTED = LicenceTerms(licence_class="licensed", quote_max_chars=CAP)
 
 
 def _hit(*, licence: LicenceTerms | None = TERMS) -> GroundingHit:
@@ -412,11 +414,11 @@ def test_a_direct_trace_records_the_turns_licensed_text_capped():
 
 
 def test_a_licensed_ingest_traces_metadata_only_and_the_public_control_its_text():
-    with licensed_ingest(True):
+    with licensed_ingest(TERMS):
         redacted = trace_payload(LICENSED)
     assert SHINGLE not in redacted
     assert json.loads(redacted)["chars"] == len(LICENSED)
-    with licensed_ingest(False):
+    with licensed_ingest(None):
         assert trace_payload(LICENSED) == LICENSED
 
 
@@ -427,7 +429,7 @@ def test_the_vision_generation_of_a_licensed_page_records_no_text(monkeypatch):
     starts = direct_trace.generation_start_attributes("ingest-vision", model="m", messages=[{"content": LICENSED}])
     traced = json.loads(starts[direct_trace.INPUT_ATTRIBUTE])[0]["content"]
     assert SHINGLE in traced, "positive control: outside the scope the text is traced"
-    with licensed_ingest(True):
+    with licensed_ingest(TERMS):
         starts = direct_trace.generation_start_attributes("ingest-vision", model="m", messages=[{"content": LICENSED}])
         result = direct_trace.generation_result_attributes(
             {"choices": [{"message": {"content": LICENSED}}], "model": "m"}
@@ -442,3 +444,48 @@ def test_the_citation_registry_keeps_only_a_quote_of_a_licensed_hit():
 
     assert len(_entry_from_hit_fields(_hit(), "knowledge_search").chunk_text) == CAP
     assert _entry_from_hit_fields(_hit(licence=None), "knowledge_search").chunk_text == LICENSED.strip()
+
+
+# ---------------------------------------------------------------------------
+# A licence not attested for AI processing: usable by no model call
+# ---------------------------------------------------------------------------
+
+
+async def test_an_unattested_licensed_passage_reaches_no_model_even_with_the_flag_on():
+    wire, recorder, messages, _ = await _turn(licence=UNATTESTED, allowed=True)
+
+    sent = _all_text(wire.bodies[0])
+    assert longest_licensed_run(sent) < licensed_text.SHINGLE_CHARS
+    assert licensed_text.UNATTESTED_NOTE in sent
+    assert "Page: 12" in sent and "Punkt: 4.3" in sent, "the reference to the place stays"
+    assert longest_licensed_run(recorder.text) < licensed_text.SHINGLE_CHARS
+
+
+def test_an_unattested_licensed_passage_is_not_quoted_in_the_registry():
+    from agent.citations.extraction import _entry_from_hit_fields
+
+    assert _entry_from_hit_fields(_hit(licence=UNATTESTED), "knowledge_search").chunk_text is None
+
+
+def test_the_attestation_counts_only_when_it_is_true():
+    assert licence_from_metadata({"licence_class": "licensed"}).ai_processing is False
+    assert licence_from_metadata({"licence_class": "licensed", "ai_processing_attested": "true"}).ai_processing is False
+    assert licence_from_metadata({"licence_class": "licensed", "ai_processing_attested": True}).model_readable
+    assert licence_from_metadata({"licence_class": "public_open"}).model_readable
+
+
+def _openrouter_call() -> httpx.Response:
+    from agent.common.openrouter import PLATFORM_FIXED
+    from agent.common.openrouter import _PinningTransport
+
+    transport = _PinningTransport(PLATFORM_FIXED, inner=httpx.MockTransport(lambda request: httpx.Response(200)))
+    with httpx.Client(transport=transport) as client:
+        return client.post("https://openrouter.ai/api/v1/embeddings", json={"model": "m", "input": LICENSED})
+
+
+def test_the_ingest_of_an_unattested_licensed_document_calls_no_model():
+    with licensed_ingest(UNATTESTED), pytest.raises(licensed_text.UnattestedLicensedText):
+        _openrouter_call()
+    with licensed_ingest(TERMS):
+        assert _openrouter_call().status_code == 200, "an attested copy is read, and traced as metadata only"
+    assert _openrouter_call().status_code == 200, "positive control: outside the scope nothing is refused"

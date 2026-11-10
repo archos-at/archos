@@ -825,7 +825,7 @@ while it runs, or run it from an exported copy of the commit
 ## The licensed-seam eval
 
 `task be:eval:licensed` (`scripts/licensed_eval.py`) asks how well answers use
-text an office licensed, and whether any of it leaks (ADR-0158). The documents in
+text an office licensed, and whether any of it leaks (ADR-0159). The documents in
 `tests/fixtures/licensed_eval/norms.yaml` are norm-like pages with tables, written
 for the eval; some cells are unreadable on purpose (`1?5 cm`, `■■ m`), and a
 question about one expects the answer to name the page or the table and state no
