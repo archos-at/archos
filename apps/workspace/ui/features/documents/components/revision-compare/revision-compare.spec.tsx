@@ -510,9 +510,10 @@ describe('RevisionCompare: one active change across sheet and list', () => {
 
   it('turns to the change\'s page and scrolls its box into the middle of the sheet\'s frame', async () => {
     const scrollTo = vi.fn()
-    // The method is inherited from Element: restore by descriptor, or the restore
-    // leaves an own property that shadows Element's for every later spec file.
-    const own = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
+    // Put back what was there, own property or none: assigning the inherited
+    // method back would leave an own one that shadows a later spec's stub on
+    // Element.prototype in the same vm-pool worker.
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
     HTMLElement.prototype.scrollTo = scrollTo as unknown as typeof HTMLElement.prototype.scrollTo
     try {
       await open(setup(2, 2), { overlays })
@@ -523,7 +524,7 @@ describe('RevisionCompare: one active change across sheet and list', () => {
       expect(frame.hasAttribute('data-compare-frame')).toBe(true)
       expect(within(frame).getByTestId('compare-region')).toHaveAttribute('data-region', '2')
     } finally {
-      if (own) Object.defineProperty(HTMLElement.prototype, 'scrollTo', own)
+      if (original) Object.defineProperty(HTMLElement.prototype, 'scrollTo', original)
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
     }
   })

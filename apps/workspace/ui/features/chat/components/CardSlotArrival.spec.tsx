@@ -37,6 +37,11 @@ vi.mock('@/adapters/auth', () => ({
 
 const PROSE = 'Die Antwort.\n\n[[card:1]]\n\nDanach.'
 
+// The card renderer is a dynamic import. A card checked in the commit it renders
+// needs it loaded, or the spec passes only after another spec in the same
+// worker happened to load it first.
+beforeAll(rendererSettled)
+
 describe('a placed card while the answer streams', () => {
   // The card's renderer is a dynamic import; until it settles a card draws its
   // placeholder, so the title is not in the first commit on a loaded runner.
