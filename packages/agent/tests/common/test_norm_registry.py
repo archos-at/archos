@@ -1199,6 +1199,7 @@ class TestPublishedOibFilenames:
                 for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
             ),
             "oib-rl-6-aenderungen-gegenueber-version-2011.pdf",
+            "oib-rl_6_normaussentemperaturen.pdf",  # a table beside RL 6 2025, under the Richtlinie's stem
             "pfd_normaussentemperaturen_2015.pdf",  # a table published beside RL 6
         ],
     )

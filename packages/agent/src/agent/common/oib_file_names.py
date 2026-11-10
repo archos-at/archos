@@ -50,6 +50,11 @@ PUBLISHED_EDITIONS = {
 }
 
 
+#: Files published under the ``oib-rl_<n>_`` stem that are no Richtlinie, each by its exact name and a
+#: name no OIB reader parses: the RL 6 temperature table on the 2025 item page.
+PUBLISHED_COMPANIONS = {"oib-rl_6_normaussentemperaturen": "normaussentemperaturen-zu-oib-rl-6"}
+
+
 def canonical_oib_file_name(file_name: str) -> str:
     """Lower-cased ``file_name`` with a published OIB spelling rewritten to the canonical form.
 
@@ -62,6 +67,8 @@ def canonical_oib_file_name(file_name: str) -> str:
     stem, suffix = (low[: -len(".pdf")], ".pdf") if low.endswith(".pdf") else (low, "")
     if stem in PUBLISHED_EDITIONS:
         return PUBLISHED_EDITIONS[stem] + suffix
+    if stem in PUBLISHED_COMPANIONS:
+        return PUBLISHED_COMPANIONS[stem] + suffix
     match = _PUBLISHED_STEM_RE.match(low)
     if not match:
         return low
