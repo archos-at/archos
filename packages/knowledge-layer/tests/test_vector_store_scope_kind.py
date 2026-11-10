@@ -27,6 +27,9 @@ from knowledge_layer_testing.vector_store import vector
 from knowledge_layer_testing.vector_store import write
 from qdrant_client import models
 
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 PROJECT = "proj_kind"
 RESTRICTED = "proj_kind_r_9"
 CARD_TEXT = "Brandschutz Fluchtwege Gutachten"

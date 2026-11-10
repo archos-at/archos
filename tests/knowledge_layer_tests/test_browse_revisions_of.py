@@ -20,11 +20,15 @@ from knowledge_layer.browse import list_files
 from knowledge_layer.browse import render_revisions
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer_testing.vector_store import reads_as_an_office  # noqa: F401 - a read names its office
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
+
+# Every read of a project scope names the office it reads as (``vector_store.reading_office``, ADR-0158).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 
 def _doc(name: str, *, shelf: str = "project", **extra) -> AvailableDocument:
