@@ -31,7 +31,7 @@ public addresses.
 | `src/monitor.py` | One monitor check: the record's `monitor.probe` against what was seen last (`sha256`, `etag`, `version`) and the terms page's hash; no model call |
 | `src/capture.py` | One page for a citation capture (ADR-0170) |
 | `src/egress.py` | The guard: hosts at every hop, public addresses after DNS, the headers that may leave |
-| `src/routing.py` | The transport a caller uses: through the fetcher when `PUBLIC_SOURCE_FETCHER_URL` is set, the guard in process when not |
+| `src/routing.py` | The transport a caller uses: through the fetcher (`PUBLIC_SOURCE_FETCHER_URL`), and refused without one; a test hands in a transport |
 | `src/fetcher.py` | The sandboxed fetcher service (`python -m public_sources.fetcher`), deployed by `deploy/pulumi/src/app/public-source-fetcher.ts` |
 | `src/fixtures.py`, `src/__main__.py` | `source-test`: run a record's fixtures |
 

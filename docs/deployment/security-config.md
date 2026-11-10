@@ -123,30 +123,22 @@ In production, consider:
 ## Public-source egress
 
 Every fetch of a public source (a statute portal, a geodata service, a page
-captured for a citation) goes through one guard, `public_sources.egress`: the
-source's hosts at every redirect hop, a connection only to an address the guard
-resolved itself and found public, and only the forwarded headers (ADR-0162).
-That holds on every path: the RIS adapter's own client is guarded too, with the
-`source-routing` flag off.
+captured for a citation) is made by one process, the `public-source-fetcher`,
+and every PDF from one is parsed there (`POST /v1/extract`). Every stack
+deploys it, and Compose runs it as a service; there is no switch and no path
+around it (ADR-0162 amendment). The backend roles find it by
+`PUBLIC_SOURCE_FETCHER_URL`; without it they refuse to read a source at all.
 
-Where the guard runs depends on one stack setting, **off by default**:
+Two layers hold it:
 
-```bash
-# in deploy/pulumi, on the stack to change; commit the stack file it rewrites
-pulumi config set publicSourceFetcherEnabled true
-```
-
-- **Off** (today's default): the guard runs inside the backend's own pods. A
-  bug in it would leave nothing behind it: those pods reach the cluster's
-  services, so no NetworkPolicy stops a fetch that the guard lets through.
-- **On**: Pulumi deploys the `public-source-fetcher` Deployment and sets
-  `PUBLIC_SOURCE_FETCHER_URL` on the chat, api and agent-worker roles; a fetch
-  for an organization with the `source-routing` flag is made by that pod,
-  whose NetworkPolicy admits public addresses on 443 and nothing in the
-  cluster. The guard then has a layer behind it that holds while code is wrong.
-
-Turn it on per stack once the fetcher has run on dev; the flag then moves
-organizations onto it one at a time.
+- **Its own guard**, `public_sources.egress`: the source's hosts at every
+  redirect hop, a connection only to an address it resolved itself and found
+  public, only the forwarded headers. A PDF is parsed in a child process with a
+  deadline, a memory ceiling, no core file and no environment beyond its locale.
+- **Its NetworkPolicy** (Kubernetes only): in, the chat, api and agent-worker
+  roles; out, DNS and public addresses on 443. It holds no secret and no
+  service-account token, so a hostile PDF that took the reader reaches nothing.
+  Compose has no NetworkPolicy; there the guard is the only layer.
 
 ## API Keys
 

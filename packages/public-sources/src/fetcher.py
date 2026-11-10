@@ -15,11 +15,16 @@ never logged and never kept on a client another request reuses. Its Deployment
 and DNS only. Logs carry the source, host, path, status and size, never the
 query string: a search term is derived from somebody's question.
 
+``POST /v1/extract`` takes a PDF's bytes and answers its text
+(:mod:`public_sources.pdf`): a third party's file is parsed here, in the pod
+with no secret and no way into the cluster, and never in a backend pod.
+
 Run: ``python -m public_sources.fetcher`` (``PORT``, default 8095).
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
@@ -95,6 +100,9 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
     async def health(_: Request) -> Response:
         return JSONResponse({"ok": True})
 
+    async def extract(request: Request) -> Response:
+        return await _extract(request)
+
     @contextlib.asynccontextmanager
     async def lifespan(_: Starlette):
         yield
@@ -102,13 +110,53 @@ def make_app(*, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
             await client.aclose()
 
     return Starlette(
-        routes=[Route("/v1/fetch", fetch, methods=["POST"]), Route("/healthz", health, methods=["GET"])],
+        routes=[
+            Route("/v1/fetch", fetch, methods=["POST"]),
+            Route("/v1/extract", extract, methods=["POST"]),
+            Route("/healthz", health, methods=["GET"]),
+        ],
         lifespan=lifespan,
     )
 
 
 class _TooLarge(Exception):
     pass
+
+
+async def _extract(request: Request) -> Response:
+    """``POST /v1/extract``: a PDF's text, parsed here, where a hostile file reaches nothing.
+
+    The body is the PDF (at most the egress ceiling), ``max_pages`` a query
+    parameter. Answers ``{pages, page_count, title}``, or a 422
+    ``{code, message}`` with :class:`public_sources.pdf.PdfError`'s code. The
+    parse runs in a child process with its deadline, memory ceiling and bare
+    environment (:func:`public_sources.pdf.parse_pdf`). Logs carry the size and
+    the outcome, never the text.
+    """
+    from public_sources.pdf import MAX_PDF_PAGES
+    from public_sources.pdf import PdfError
+    from public_sources.pdf import parse_pdf
+
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            return JSONResponse(
+                {"code": "body_too_large", "message": f"the PDF is larger than {MAX_BODY_BYTES} bytes"}, 422
+            )
+        chunks.append(chunk)
+    try:
+        max_pages = min(max(int(request.query_params.get("max_pages", MAX_PDF_PAGES)), 1), MAX_PDF_PAGES)
+    except ValueError:
+        max_pages = MAX_PDF_PAGES
+    try:
+        read = await asyncio.to_thread(parse_pdf, b"".join(chunks), max_pages=max_pages)
+    except PdfError as exc:
+        logger.info("extract refused bytes=%s code=%s", size, exc.code)
+        return JSONResponse({"code": exc.code, "message": str(exc)}, status_code=422)
+    logger.info("extracted bytes=%s pages=%s of=%s", size, len(read.pages), read.page_count)
+    return JSONResponse({"pages": list(read.pages), "page_count": read.page_count, "title": read.title})
 
 
 async def _send_for(source, credential, client_for, transport, request: tuple[str, str, dict, bytes]):

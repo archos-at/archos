@@ -100,10 +100,13 @@ The paths that went with them:
 | Switch | Why it stays |
 |---|---|
 | `licensed-seam` (ADR-0164) | A per-office licence decision, not an old path: off lists a licensed passage without its text, which is the right answer for an office that has not attested its licence (design 4.7) |
-| `source-routing` (ADR-0162) | Its off state is an old path (the agent fetches public sources from its own pod), but that path lives in the agent tier (`packages/`) and the fetcher Deployment must run in every environment before it can go. It goes in the release after the fetcher runs in production |
 | `site-resolution` (ADR-0172) | Gates the BEV import, data a cell does not hold yet |
 | `source-monitors` (ADR-0174) | Gates a sweep that fetches and writes; switched on per environment once its sources are published |
 | the residency switches (ADR-0167) | Gate the EU contract, which does not exist yet |
+
+`source-routing` was kept here until the fetcher ran in production; it went on
+2026-11-10, in the release that deploys the fetcher in every stack (ADR-0162
+amendment), because the fetcher became where a third party's PDF is parsed.
 
 ### Release order
 

@@ -55,6 +55,8 @@ services:
       # `ingest-document-heavy`, which only Kubernetes' `ingest-worker-heavy` serves.
       INGEST_HEAVY_FILE_BYTES: ${INGEST_HEAVY_FILE_BYTES:-0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Public sources are read, and their PDFs parsed, only by the fetcher below (ADR-0162).
+      PUBLIC_SOURCE_FETCHER_URL: ${PUBLIC_SOURCE_FETCHER_URL:-http://public-source-fetcher:8095}
       # PostHog for the Python roles (fail-open: both empty means no events leave
       # the backend, see packages/agent/src/agent/observability/posthog_client.py). The pair
       # the frontend reads as NEXT_PUBLIC_POSTHOG_* below; the Kubernetes mirror
@@ -343,6 +345,33 @@ services:
       pgbouncer:
         condition: service_healthy
     restart: "no"
+
+  # ── The public-source fetcher (ADR-0162), the mirror of
+  #    deploy/pulumi/src/app/public-source-fetcher.ts ──
+  # The one process that reads public sources (RIS, Fedlex, a configured
+  # source) and parses their PDFs (`POST /v1/extract`): the backend roles reach
+  # them only through it (PUBLIC_SOURCE_FETCHER_URL), never from their own
+  # process. It holds no secret: no env_file, only its port and the records.
+  # Compose cannot give it Kubernetes' NetworkPolicy; its own guard
+  # (public_sources/egress.py: the hosts at every hop, public addresses only)
+  # is what holds here.
+  public-source-fetcher:
+    image: ${BACKEND_IMAGE:-backend:local}
+    command: ["/app/.venv/bin/python", "-m", "public_sources.fetcher"]
+    environment:
+      PORT: "8095"
+      PUBLIC_SOURCES_DIR: /app/configs/sources
+    volumes:
+      - ../../configs:/app/configs:ro
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8095/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
 
   qdrant:
     # The vector store (ADR-0115), the single-node mirror of
