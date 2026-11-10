@@ -97,7 +97,7 @@ Option 1.
 `packages/agent/tests/common/test_residency.py` drives the real transport, the async limited client
 and the chat contract with a cell set and unset, plants a non-EU endpoint at boot and at runtime,
 and patches each guard out to show the planted call then leaves (the revert check).
-`apps/workspace/bff/residency/audit-names.spec.ts` and the ZDR route spec hold the BFF's half;
+`apps/workspace/bff/audit/residency-names.spec.ts` and the ZDR route spec hold the BFF's half;
 `tests/test_data_flow_register.py` holds the `endpoints` schema.
 
 ## Pros and Cons of the Options

@@ -7,7 +7,11 @@
  * withheld; outside a cell nothing changes.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NAME_HASH_PREFIX, nameHash, residencyAuditMetadata } from './audit-names'
+
+vi.mock('server-only', () => ({}))
+vi.mock('@/lib/workos/client', () => ({ getWorkOS: vi.fn() }))
+
+import { NAME_HASH_PREFIX, nameHash, residencyAuditMetadata } from './service'
 
 const EVENT = {
   filename: 'Gehaltsliste 2026.xlsx',
