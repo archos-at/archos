@@ -83,22 +83,49 @@ Chosen option 3.
   `knowledgeContext`) behind the rollout flag `knowledge-context`. With it off
   the key is absent, nothing is read and no phase is timed. With it on the
   phase is timed as `knowledge` in `Server-Timing`.
+- **The flag reads off when WorkOS cannot be asked** (`isOrgFeatureEnabled`
+  treats a failed lookup as off). A turn then runs the path before this ADR,
+  which still gates the Austrian corpus and the legal database on the site
+  (ADR-0158); it does not fall open to "everything applies". The four
+  operations stay in the agent catalog whatever the flag says, because
+  exposure is one static file for every office (`exposure.json`); with the flag
+  off each route answers the stable-coded 403 of `requireFeature`, so an agent
+  learns the capability is off for this office rather than calling a dead
+  route. Hiding an operation per office would need per-office exposure, which
+  nothing else needs yet.
+- **The prompt reads the gate.** With the context bound, the turn context's
+  jurisdiction note is the gate's (`knowledge_context.gate_note`): unplaced
+  office, unknown site, not included, unavailable, no base, open coverage, and
+  "the base moved since the last answer". A gate that withholds law renders no
+  OIB verdicts and refuses the legal-database tools
+  (`knowledge_context.law_tools_allowed`), even while the entitled corpus stays
+  readable for an unknown site (E04); core and full read as the flag off does.
 - **Cached per office and project.** The cheap inputs (placement,
   entitlements, site facts, pack sequences, the day, the procedure) make a
-  digest; the resolved context is cached under
+  digest, with a stamp of the office's newest record revision and the
+  platform's newest edition check, since neither moves a pack sequence; the
+  resolved context is cached under
   `knowledge-context:<org>:<project>:<digest>`, so a publish or a moved site
   is read on the next turn, and two offices with equal digests get two keys
   (`context/service.spec.ts`).
 - **Failure.** A read that throws gives `knowledge_unavailable`: retrieval,
   law lookup and classification are withheld, documents still answer, and the
   BFF logs `knowledge_context_available=false`, the line the alert reads.
+  Only a chat turn's failed read counts toward `knowledge_context.unavailable`;
+  an operation's (`project-base-get`, `-confirm`) is in its own response.
 - **Server-side record.** `message_edition_uses` holds which edition an answer
   used, in which role and at which pack sequences, keyed by its organization,
   append-only and gone only with its message (E25); `project_base_confirmations`
   holds a confirmed Steckbrief the same way.
   The BFF writes the uses when it persists the backend's answer
-  (`context/edition-uses.ts`): role, edition and sequences from its own
-  context, the backend's cited file names only choosing among them.
+  (`context/edition-uses.ts`): role, edition and sequences from the context
+  the turn was answered on, kept per conversation when the turn loaded it
+  (`context/turn-snapshot.ts`), never one resolved at persist time, so a
+  release landing mid-turn is not recorded as what the answer read; the
+  backend's cited file names only choose among them.
+- **Writes go on the person's yes.** `project-base-confirm` and
+  `base-knowledge-report` are `personDecides`: the report reaches a platform
+  reviewer outside the office, so an agent cannot file one on its own.
 - **The base moved (E42).** The turn context names the packs released since
   the conversation's newest recorded answer (`updatedSinceLastAnswer`), read
   per conversation after the cache, so the answer can say "Grundlage seit der
