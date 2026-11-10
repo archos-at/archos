@@ -3529,3 +3529,31 @@ check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE column_n
 apply_in te_0206 0206_editions_in_time.sql
 check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'transition'" "1" "0206 applies again after its down"
 echo "==> 0206 editions in time and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0208: relations are records (ADR-0168): a relation names two records of its
+# owner, a mode only for makes_binding; the down removes relations and their
+# records and the record type, and 0208 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0208 country pack and its down migration on cp_0208"
+migrate_until cp_0208 0208_country_pack
+sql_in cp_0208 <<'SQL'
+INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES
+  ('work:t0208-ordinance', 'org_0208', 'work', 'user_author'),
+  ('work:t0208-norm', 'org_0208', 'work', 'user_author'),
+  ('relation:t0208', 'org_0208', 'relation', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by)
+  VALUES ('00000000-0000-4000-8000-000000000208', 'relation:t0208', 'relation', 'org_0208', 'user_author');
+INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type)
+  VALUES ('00000000-0000-4000-8000-000000000208', 'relation:t0208', 'org_0208', 'makes_binding', 'declared',
+          'work:t0208-ordinance', 'work', 'work:t0208-norm', 'work');
+SQL
+refused_in cp_0208 "INSERT INTO knowledge_relation_revisions (revision_id, record_id, organization_id, relation_type, mode, from_id, from_type, to_id, to_type) VALUES (gen_random_uuid(), 'relation:t0208', 'org_0208', 'supersedes', 'declared', 'work:t0208-ordinance', 'work', 'work:t0208-norm', 'work')" "knowledge_relation_revisions_mode_iff_binding" "a mode on a relation that makes nothing binding"
+refused_in cp_0208 "UPDATE knowledge_relation_revisions SET provision = 'x'" "append-only" "a relation rewritten"
+apply_in cp_0208 0208_country_pack.down.sql
+check_in cp_0208 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "0" "0208 down drops the relation bodies"
+check_in cp_0208 "SELECT count(*) FROM knowledge_records WHERE type = 'relation'" "0" "0208 down removes the relation records"
+check_in cp_0208 "SELECT count(*) FROM knowledge_records WHERE id LIKE 'work:t0208-%'" "2" "0208 down keeps the works"
+apply_in cp_0208 0208_country_pack.sql
+check_in cp_0208 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_relation_revisions'" "1" "0208 applies again after its down"
+echo "==> 0208 country pack and its down migration verified"
