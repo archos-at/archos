@@ -62,4 +62,8 @@ def add_project_experience_routes(router: APIRouter) -> None:
     async def project_experience(request: ProjectExperienceRequest, http_request: Request) -> ProjectExperienceResponse:
         """Read the project's documents, or say why it could not be done."""
         _require_internal_token(http_request)
-        return await asyncio.to_thread(_read_project, request)
+        from knowledge_layer.search import reading_as
+
+        # The project's office reads its scope (ADR-0158); ``to_thread`` carries the context over.
+        with reading_as(request.organization_id):
+            return await asyncio.to_thread(_read_project, request)

@@ -38,6 +38,7 @@ from agent.common.source_kinds import office_shelf_organization_id
 from .scope import ScopeRead
 
 _OFFICE: ContextVar[str | None] = ContextVar("reading_office", default=None)
+_MAINTENANCE: ContextVar[bool] = ContextVar("reading_for_maintenance", default=False)
 
 
 @contextmanager
@@ -61,6 +62,23 @@ def office_for(scopes: Sequence[str]) -> str | None:
     return shelves.pop()
 
 
+@contextmanager
+def reading_for_maintenance() -> Iterator[None]:
+    """Structural reads inside the block are the platform's own sweep and carry no office condition.
+
+    For a job that reads every office's collections on the platform's behalf
+    and writes back only into the collection it read (the summary
+    reconciliation). Never for a read whose result reaches a person or a turn.
+    """
+    token = _MAINTENANCE.set(True)
+    try:
+        yield
+    finally:
+        _MAINTENANCE.reset(token)
+
+
 def office_read(scope: str) -> list[models.Filter]:
     """The office condition for a scroll of ``scope`` (none for the corpus); a tenant scope with no office raises."""
+    if _MAINTENANCE.get():
+        return []
     return ScopeRead((scope,), office_for([scope])).office()

@@ -20,6 +20,7 @@ from fastapi import Depends
 from fastapi import File
 from fastapi import Header
 from fastapi import HTTPException
+from fastapi import Request
 from fastapi import Response
 from fastapi import UploadFile
 from pydantic import BaseModel
@@ -433,15 +434,16 @@ async def list_documents(
 async def get_document_visual_details_route(
     collection_name: str,
     file_name: str,
+    http_request: Request,
     ingestor: BaseIngestor = Depends(_require_ingestor),
 ) -> dict:
-    """Return the rendered-drawing / image / chart descriptions ingestion
-    produced for a document (the "detailed information" the summary is
-    distilled from). Fail-open: returns an empty list when the lookup fails
-    or the document has no visual chunks."""
+    """The drawing, image and chart descriptions ingestion produced for a document, read as the office the
+    BFF names (ADR-0158). Fail-open: an empty list when the lookup fails or there are no visual chunks."""
+    from .internal_auth import read_as_internal_office
+
     try:
-        details = await asyncio.to_thread(ingestor.get_document_visual_details, collection_name, file_name)
-        return {"details": details}
+        visual = ingestor.get_document_visual_details
+        return {"details": await read_as_internal_office(http_request, visual, collection_name, file_name)}
     except Exception as e:
         logger.warning("Failed to fetch visual details for %s/%s: %s", collection_name, file_name, e)
         return {"details": []}

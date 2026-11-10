@@ -3515,24 +3515,21 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     def get_document_text_sample(self, collection_name: str, file_name: str, max_chars: int = 4000) -> str | None:
         """Return representative text for an already-indexed file (fail-open).
 
-        Used exclusively by the reconciliation backfill (see
-        ``agent.knowledge.factory.reconcile_collection_summaries``) to derive
-        a deterministic fallback summary for a document that is present in the
-        vector index but missing from the summaries table. Reads the file's
-        first chunks in reading order (a structural fetch: no embedding) and
-        concatenates their text, capped at ``max_chars``.
-
-        Not part of the ``BaseIngestor`` interface: the reconciliation driver in
-        the factory duck-types this method (``getattr(..., None)``) so other
-        backends can opt in without a forced interface change. Returns ``None``
-        on any lookup failure or when the file has no indexed text chunks.
+        Only the reconciliation backfill (``factory.reconcile_collection_summaries``,
+        which duck-types it) uses it: a fallback summary for an indexed file the
+        summaries table lacks, from its first chunks in reading order (no
+        embedding), capped at ``max_chars``. ``None`` on any failure or no text.
+        It is the platform's own sweep over every office's collections, so it
+        reads under ``reading_for_maintenance`` and names no office (ADR-0158).
         """
+        from knowledge_layer.vector_store import reading_for_maintenance
         from knowledge_layer.vector_store import reads as qdrant_reads
 
         from agent.knowledge.base import READING_ORDER
 
         try:
-            hits = qdrant_reads.fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
+            with reading_for_maintenance():
+                hits = qdrant_reads.fetch(collection_name, {"file_name": file_name}, 5, READING_ORDER)
         except Exception as e:
             logger.warning("Reconciliation: failed to fetch chunks for %s in %s: %s", file_name, collection_name, e)
             return None

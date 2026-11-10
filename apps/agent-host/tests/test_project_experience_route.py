@@ -174,3 +174,22 @@ async def test_a_knowledge_backend_that_cannot_be_reached_is_answered_as_extract
     assert response.status_code == 200
     assert response.json()["error"] == "extraction_failed"
     assert response.json()["documentsRead"] == []
+
+
+async def test_the_project_is_read_as_its_office(app, monkeypatch) -> None:
+    """No office in the test setup: the route reads as the request's organization (ADR-0158)."""
+    from knowledge_layer.vector_store import office_for
+
+    from agent.knowledge import collection_pages
+
+    _patch_knowledge(monkeypatch, _FakeLLM({"file_names": ["Baubeschreibung.pdf"]}, {"values": []}, {"decisions": []}))
+    offices: list[object] = []
+
+    def read(collection: str, file_name: str) -> Any:
+        offices.append(office_for(["proj_1"]))  # the office a project scope would be read as
+        return CHUNKS.get(file_name)
+
+    monkeypatch.setattr(collection_pages, "read_pages", read)
+    await _post(app, _body())
+
+    assert offices and set(offices) == {"org_1"}
