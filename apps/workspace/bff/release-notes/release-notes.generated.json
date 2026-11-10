@@ -24,6 +24,56 @@
   ],
   "releases": [
     {
+      "id": "2026-W46",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-09",
+      "dateEnd": "2026-11-15",
+      "summary": null,
+      "notes": [
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
+            "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
+            "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
+            "de": "In Word exportierte Antworten sowie Berichte und Diagramme, die der Agent als PDF ablegt, weisen jetzt in ihren Dateieigenschaften mit standardisierten Begriffen, die Archivierungs- und Compliance-Tools erkennen, darauf hin, dass sie von einer KI erstellt wurden. Jedes vom Agenten verfasste Dokument, auch ein Schreiben an eine Behörde, beginnt jetzt mit einer Zeile, die angibt, dass es von einem KI-System erstellt wurde und für welches Büro."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
+            "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
+            "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W45",
       "kind": "week",
       "version": null,
