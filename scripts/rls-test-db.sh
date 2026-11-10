@@ -3404,14 +3404,14 @@ U201="user_01J0MA1LUSERA00000000000A3"
 sql_in postal_0201 <<SQL
 INSERT INTO projects (id, organization_id, name, created_by, collection_name, profile) VALUES
   ('b0000000-0000-4000-8000-000000000201', 'org_0201', 'Graz', '$U201', 'proj_0201_a',
-   '{"facts":{},"assumptions":{"site_address":{"value":"Herrengasse 16, 8010 Graz","status":"unconfirmed","reason":"r","source":"onboarding_default","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
+   '{"facts":{},"goals":{},"unknowns":[],"assumptions":{"site_address":{"value":"Herrengasse 16, 8010 Graz","status":"unconfirmed","reason":"r","source":"onboarding_default","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
   ('b1000000-0000-4000-8000-000000000201', 'org_0201', 'Linz', '$U201', 'proj_0201_b',
-   '{"facts":{"site_address":{"value":"Hauptplatz 1, 4020 Linz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"assumptions":{}}'),
+   '{"facts":{"site_address":{"value":"Hauptplatz 1, 4020 Linz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}'),
   ('b2000000-0000-4000-8000-000000000201', 'org_0201', 'Zürich', '$U201', 'proj_0201_c',
-   '{"facts":{"site_address":{"value":"Bahnhofstrasse 1, 8001 Zürich","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}}}'),
-  ('b3000000-0000-4000-8000-000000000201', 'org_0201', 'No address', '$U201', 'proj_0201_d', '{}'),
+   '{"facts":{"site_address":{"value":"Bahnhofstrasse 1, 8001 Zürich","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}'),
+  ('b3000000-0000-4000-8000-000000000201', 'org_0201', 'No address', '$U201', 'proj_0201_d', '{"facts":{},"goals":{},"unknowns":[],"assumptions":{}}'),
   ('b4000000-0000-4000-8000-000000000201', 'org_0201', 'Placed', '$U201', 'proj_0201_e',
-   '{"facts":{"country":{"value":"de","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"},"site_address":{"value":"Herrengasse 16, 8010 Graz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}}}');
+   '{"facts":{"country":{"value":"de","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"},"site_address":{"value":"Herrengasse 16, 8010 Graz","confidence":"confirmed","source":"onboarding","updatedAt":"2026-11-01T00:00:00.000Z"}},"goals":{},"unknowns":[],"assumptions":{}}');
 SQL
 apply_in postal_0201 0201_postal_code_land_backfill.sql
 LAND="SELECT string_agg(name || '=' || coalesce(profile -> 'assumptions' -> 'federal_state' ->> 'value', '-'), ',' ORDER BY name) FROM projects WHERE organization_id = 'org_0201'"
