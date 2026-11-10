@@ -1,0 +1,8 @@
+---
+# area: agents
+security:
+  - >
+    An agent connected through the workspace's agent door no longer receives an
+    office's licensed copy of a standard as a file, link, preview or thumbnail,
+    and reads at most three quote lengths of its text per person and day; the
+    person in the app still reads the copy whole.
