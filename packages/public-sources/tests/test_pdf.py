@@ -277,8 +277,10 @@ def test_a_text_past_the_cap_is_kept_to_whole_pages_and_says_up_to_which():
 
 
 def test_a_read_past_its_memory_ceiling_is_refused_by_its_code():
+    # 8 MiB is far below what the interpreter maps to import the reader on any machine (64 MiB fitted on CI's
+    # runner): the ceiling, not the PDF, decides. Without the ceiling the read succeeds and this test fails.
     with pytest.raises(PdfError) as refused:
-        read_pdf(statute_pdf(), memory_limit=64 * 1024**2)
+        read_pdf(statute_pdf(), memory_limit=8 * 1024**2)
     assert refused.value.code == "pdf_reader_failed"
 
 
