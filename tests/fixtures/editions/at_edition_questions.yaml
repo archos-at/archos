@@ -36,7 +36,7 @@
 #   lgbl           the Landesgesetzblatt number that makes it binding („LGBl. Nr. 83/2026")
 #   in_force       the day that relation took effect, ISO; any common German date form matches
 #   ris_link       a link to ris.bka.gv.at or ogd.ris.bka.gv.at; `ris_lgbl` also asks that it point at the LGBl
-#   no_substitute  the corpus holds no text of the binding edition (the pack holds only the 2023 texts):
+#   no_substitute  the pack holds no text (manifestation) of the binding edition:
 #                  the answer cites no passage of that Richtlinie, since any it cites is another edition's
 #   abstain        no OIB-RL passage cited (`no_substitute`), the judge reads an abstention (`abstains`),
 #                  and in r3 no edition the pack holds is named (`no_held_edition`) and no sentence
@@ -61,7 +61,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r1-bgld-rl2
   group: r1
   land: AT-1
@@ -76,7 +75,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r1-bgld-rl3
   group: r1
   land: AT-1
@@ -91,7 +89,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r1-bgld-rl4
   group: r1
   land: AT-1
@@ -106,7 +103,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r1-bgld-rl5
   group: r1
   land: AT-1
@@ -121,7 +117,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r1-bgld-rl6
   group: r1
   land: AT-1
@@ -136,7 +131,6 @@ questions:
     lgbl: 75/2026
     in_force: '2026-11-05'
     ris_link: true
-    no_substitute: true
 - id: r1-ktn-rl1
   group: r1
   land: AT-2
@@ -388,7 +382,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-sbg-rl1
   group: r1
   land: AT-5
@@ -473,7 +466,6 @@ questions:
     lgbl: 83/2026
     in_force: '2026-09-01'
     ris_link: true
-    abstain: true
 - id: r1-stmk-rl1
   group: r1
   land: AT-6
@@ -487,7 +479,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-stmk-rl2
   group: r1
   land: AT-6
@@ -501,7 +492,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-stmk-rl3
   group: r1
   land: AT-6
@@ -515,7 +505,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-stmk-rl4
   group: r1
   land: AT-6
@@ -529,7 +518,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-stmk-rl5
   group: r1
   land: AT-6
@@ -543,7 +531,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-stmk-rl6
   group: r1
   land: AT-6
@@ -557,7 +544,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r1-tirol-rl1
   group: r1
   land: AT-7
@@ -642,7 +628,6 @@ questions:
     lgbl: 59/2026
     in_force: '2026-07-16'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl1
   group: r1
   land: AT-8
@@ -657,7 +642,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl2
   group: r1
   land: AT-8
@@ -672,7 +656,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl3
   group: r1
   land: AT-8
@@ -687,7 +670,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl4
   group: r1
   land: AT-8
@@ -702,7 +684,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl5
   group: r1
   land: AT-8
@@ -717,7 +698,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-vbg-rl6
   group: r1
   land: AT-8
@@ -732,7 +712,6 @@ questions:
     lgbl: 67/2021
     in_force: '2022-01-01'
     ris_link: true
-    no_substitute: true
 - id: r1-wien-rl1
   group: r1
   land: AT-9
@@ -817,7 +796,6 @@ questions:
     lgbl: 26/2026
     in_force: '2026-07-15'
     ris_link: true
-    no_substitute: true
 - id: r2-wien-rl6-2026-07-14
   group: r2
   land: AT-9
@@ -859,7 +837,6 @@ questions:
     lgbl: 26/2026
     in_force: '2026-07-15'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-wien-rl4-2024-02-22
   group: r2
@@ -876,7 +853,6 @@ questions:
     other_edition: '2023'
     in_force: '2020-02-01'
     ris_link: true
-    no_substitute: true
 - id: r2-wien-rl4-2024-02-23
   group: r2
   land: AT-9
@@ -912,7 +888,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-sbg-rl2-2026-08-06
   group: r2
@@ -933,7 +908,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-sbg-rl2-2026-08-31
   group: r2
@@ -954,7 +928,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-sbg-rl2-2026-09-01
   group: r2
@@ -996,7 +969,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-10-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-sbg-rl3-2026-09-01
   group: r2
@@ -1034,7 +1006,6 @@ questions:
     other_edition: '2025'
     in_force: '2020-06-01'
     ris_link: true
-    no_substitute: true
 - id: r2-tirol-rl6-2026-07-16
   group: r2
   land: AT-7
@@ -1051,7 +1022,6 @@ questions:
     lgbl: 59/2026
     in_force: '2026-07-16'
     ris_link: true
-    no_substitute: true
 - id: r2-tirol-rl3-2026-07-15
   group: r2
   land: AT-7
@@ -1067,7 +1037,6 @@ questions:
     other_edition: '2023'
     in_force: '2020-06-01'
     ris_link: true
-    no_substitute: true
 - id: r2-tirol-rl3-2026-07-16
   group: r2
   land: AT-7
@@ -1099,7 +1068,6 @@ questions:
     other_edition: '2023'
     in_force: '2020-09-12'
     ris_link: true
-    no_substitute: true
 - id: r2-ktn-rl4-2024-12-31
   group: r2
   land: AT-2
@@ -1135,7 +1103,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-07-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-noe-rl2-2025-03-18
   group: r2
@@ -1156,7 +1123,6 @@ questions:
     other_edition: '2023'
     in_force: '2021-07-01'
     ris_link: true
-    no_substitute: true
     transition: true
 - id: r2-noe-rl2-2025-03-20
   group: r2
@@ -1194,7 +1160,6 @@ questions:
     other_edition: '2023'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r2-ooe-rl1-2025-10-01
   group: r2
   land: AT-4
@@ -1227,7 +1192,6 @@ questions:
     lgbl: 22/2021
     in_force: '2021-04-10'
     ris_link: true
-    no_substitute: true
 - id: r2-bgld-rl6-2026-11-05
   group: r2
   land: AT-1
@@ -1244,7 +1208,6 @@ questions:
     lgbl: 75/2026
     in_force: '2026-11-05'
     ris_link: true
-    no_substitute: true
 - id: r2-ooe-rl6-2025-10-01
   group: r2
   land: AT-4
@@ -1259,7 +1222,6 @@ questions:
     edition: '2019'
     in_force: '2020-09-01'
     ris_link: true
-    no_substitute: true
 - id: r3-wien-rl2-2020-01-31
   group: r3
   land: AT-9
@@ -1494,7 +1456,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-stmk-rl4
   group: r5
   land: AT-6
@@ -1509,7 +1470,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-stmk-rl6
   group: r5
   land: AT-6
@@ -1524,7 +1484,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2025'
-    no_substitute: true
 - id: r5-vbg-rl1
   group: r5
   land: AT-8
@@ -1540,7 +1499,6 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-vbg-rl3
   group: r5
   land: AT-8
@@ -1556,7 +1514,6 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-vbg-rl6
   group: r5
   land: AT-8
@@ -1572,7 +1529,6 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: '2025'
-    no_substitute: true
 - id: r5-bgld-rl2
   group: r5
   land: AT-1
@@ -1588,7 +1544,6 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-bgld-rl5
   group: r5
   land: AT-1
@@ -1604,7 +1559,6 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-ooe-rl6
   group: r5
   land: AT-4
@@ -1619,7 +1573,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-ooe-rl6-2
   group: r5
   land: AT-4
@@ -1634,7 +1587,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: '2025'
-    no_substitute: true
 - id: r5-wien-rl6
   group: r5
   land: AT-9
@@ -1650,7 +1602,6 @@ questions:
     in_force: '2026-07-15'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-tirol-rl6
   group: r5
   land: AT-7
@@ -1666,7 +1617,6 @@ questions:
     in_force: '2026-07-16'
     ris_link: true
     premise: '2023'
-    no_substitute: true
 - id: r5-ktn-rl2
   group: r5
   land: AT-2
@@ -1801,7 +1751,6 @@ questions:
     in_force: '2020-09-01'
     ris_link: true
     premise: WBTV 2023
-    no_substitute: true
 - id: r5-ooe-rl4
   group: r5
   land: AT-4
@@ -1832,7 +1781,6 @@ questions:
     in_force: '2022-01-01'
     ris_link: true
     premise: TBV 2026
-    no_substitute: true
 - id: r5-bgld-rl1
   group: r5
   land: AT-1
@@ -1848,7 +1796,6 @@ questions:
     in_force: '2021-04-10'
     ris_link: true
     premise: NÖ BTV 2014
-    no_substitute: true
 - id: r5-tirol-rl3
   group: r5
   land: AT-7
@@ -1894,7 +1841,6 @@ questions:
     in_force: '2026-07-15'
     ris_link: true
     premise: LGBl. 14/2024
-    no_substitute: true
 - id: r5-ktn-rl2-2
   group: r5
   land: AT-2
@@ -1984,7 +1930,6 @@ questions:
     in_force: '2021-10-01'
     ris_link: true
     premise: 06.08.2026
-    no_substitute: true
 - id: r5-noe-rl4-2
   group: r5
   land: AT-3
@@ -1999,7 +1944,6 @@ questions:
     in_force: '2021-07-01'
     ris_link: true
     premise: 18.03.2025
-    no_substitute: true
 - id: r5-bgld-rl6
   group: r5
   land: AT-1
@@ -2015,7 +1959,6 @@ questions:
     in_force: '2026-11-05'
     ris_link: true
     premise: '2019'
-    no_substitute: true
 - id: r5-sbg-rl6
   group: r5
   land: AT-5
@@ -2031,4 +1974,3 @@ questions:
     in_force: '2026-09-01'
     ris_link: true
     premise: keine OIB-RL 6
-    abstain: true

@@ -638,7 +638,7 @@ items, 24 changeover days, 20 abstentions and 36 false premises. Its checks
 - patterns: the LGBl, the in-force day, a link to `ris.bka.gv.at` or
   `ogd.ris.bka.gv.at` (`ris_lgbl` also wants it to name that gazette), and
   `no_substitute`, which bans citing a Richtlinie whose binding edition has no text
-  (the pack holds only the 2023 texts), and in r3 `no_held_edition` and
+  in the pack (no manifestation), and in r3 `no_held_edition` and
   `no_remembered_requirement` (no edition named with a measure);
 - judge rubrics: `abstains`, `corrects_premise`, and `transition`, the quoted
   transitional rule of the Verordnung across an r2 changeover.

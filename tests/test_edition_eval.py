@@ -111,7 +111,6 @@ class TestAbstentions:
             held = _relation(row["relation"])["to"]["key"] in texts
             asks = bool(row["expect"].get("abstain") or row["expect"].get("no_substitute"))
             assert asks is not held, row["id"]
-        assert _row("r1-sbg-rl6")["expect"]["abstain"] and _row("r5-sbg-rl6")["expect"]["abstain"]
 
 
 class TestFalsePremises:
@@ -333,3 +332,31 @@ class TestAdversarialAnswers:
         assert checks["no_remembered_requirement"] is False and checks["abstains"] is True
         honest = "Für den 31. Jänner 2020 halte ich keinen Text der OIB-RL 2; die Ausgabe 2015 ist nicht im Bestand."
         assert edition_eval.set_checks(row, _run(honest), honest, _Judge(True))["no_remembered_requirement"] is True
+
+
+class TestCitedEditions:
+    """The re-review of #1595: a passage of the wrong edition must count against the answer."""
+
+    def test_an_answer_that_names_2019_but_cites_the_2023_text_fails(self):
+        row = _row("r1-stmk-rl2")
+        wrong = "In der Steiermark gilt die OIB-RL 2 Ausgabe April 2019.\n- [1] [KB] oib-rl_2_ausgabe_mai_2023.pdf, p.4"
+        checks = edition_eval.set_checks(row, _run(wrong), wrong, None)
+        assert checks["binding"] is True and checks["no_other_edition_cited"] is False
+        right = wrong.replace("oib-rl_2_ausgabe_mai_2023.pdf", "oib-rl-2-brandschutz-2019.pdf")
+        assert edition_eval.set_checks(row, _run(right), right, None)["no_other_edition_cited"] is True
+
+    def test_a_changeover_may_cite_both_editions(self):
+        row = _row("r2-wien-rl6-2026-07-15")
+        answer = (
+            "Ab 15. Juli 2026 gilt die OIB-RL 6 Ausgabe 2025.\n"
+            "[1] oib-rl_6_september_2025.pdf\n[2] oib-rl_6_ausgabe_mai_2023.pdf"
+        )
+        assert edition_eval.set_checks(row, _run(answer), answer, None)["no_other_edition_cited"] is True
+
+    def test_the_published_spellings_count_as_cited(self):
+        import cited_files
+
+        answer = "[1] richtlinie_1_12.04.19_0.pdf\n[2] oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf"
+        assert cited_files.cited_families(answer) == ["1", "6"]
+        assert cited_files.cited_edition_years(answer, "6") == {"2015"}
+        assert cited_files.cited_edition_years("[1] oib-rl-6-aenderungen-gegenueber-version-2015.pdf", "6") == set()

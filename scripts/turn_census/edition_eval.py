@@ -33,12 +33,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from cited_files import cited_edition_years
+
 ROOT = Path(__file__).resolve().parents[2]
 QUESTIONS = ROOT / "tests" / "fixtures" / "editions" / "at_edition_questions.yaml"
 PACK = ROOT / "configs" / "knowledge-packs" / "at.json"
 GROUPS = ("r1", "r2", "r3", "r5")
-#: The suite's generic ``family_cited`` does not apply: an abstention must cite nothing,
-#: and Salzburg's binding RL 6 (März 2015) has no text in the corpus to cite.
+#: The suite's generic ``family_cited`` does not apply: it reads only the Richtlinie's number, so a
+#: passage of the wrong edition would count. An abstention must cite nothing (``no_substitute``), and any
+#: other row may cite only the binding edition's own file (``no_other_edition_cited``, by canonical name).
 CHECKS_FAMILY = False
 
 #: A judge of meaning, as ``suite.Judge``: (check kind, question, answer) → yes, no, or None.
@@ -284,6 +287,8 @@ def set_checks(
     checks: dict[str, bool] = {}
     if expect.get("edition"):
         checks["binding"] = _binding(question, answer, prose, judge, records, run.signals)
+        allowed = {str(expect["edition"]), str(expect.get("other_edition") or expect["edition"])}
+        checks["no_other_edition_cited"] = not (cited_edition_years(answer, guideline) - allowed)
     if expect.get("other_edition"):
         checks["other_edition"] = mentions_edition(answer, guideline, str(expect["other_edition"]))
     if expect.get("lgbl"):
