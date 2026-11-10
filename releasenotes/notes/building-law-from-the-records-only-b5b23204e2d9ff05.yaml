@@ -6,9 +6,18 @@ fixes:
     records say it binds at the project's site, in the edition they name. When
     the site's law cannot be read, the answer says so instead of assuming
     Austrian law.
+  - >
+    Answers no longer cite a web copy of a guideline the knowledge base holds,
+    or the product's own website, as a source for law, and no longer show
+    internal notes such as "citation not verified" in the text.
+  - >
+    A question about an Austrian law is answered from the legal database even
+    before the office's building-law base is published; the answer no longer
+    claims the database is switched off.
 operators:
   - >
     Research runs now need the knowledge context in their submit payload; a run
     submitted without it answers with no building law. Publish the static chat
     prompt again after this release: a version that still holds the Austrian
-    building-law block is no longer served.
+    building-law block is no longer served. The time-editions switch is no
+    longer read: every turn may ask the legal database for a past day.
