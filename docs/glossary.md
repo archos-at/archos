@@ -176,6 +176,7 @@ replaced `agent_capability_missing`.
 
 | Term | Meaning | Defined in |
 |---|---|---|
+| Ruleset | A base knowledge record whose payload is a decision table (`decision_table.v1`): a country rule held as data, by purpose (`classification`, `competence`, `reference_date`, `derivation`), territory and validity. Rows apply first hit under Kleene's three-valued logic; the result is a row or `undetermined` with the facts still to ask (`unknownInputs`) | [ADR-0166](adr/0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md), [`apps/workspace/bff/base-knowledge/rulesets/`](../apps/workspace/bff/base-knowledge/rulesets/) |
 | Tenant slot | The request-scoped context (`runWithTenantSlot`) that carries the organization as data. A query outside one throws `MissingTenantContextError` | [`apps/workspace/bff/db/tenant-context.ts`](../apps/workspace/bff/db/tenant-context.ts) |
 | `getUserSession` | The one funnel every authenticated path goes through to resolve the caller and publish the organization and user into the tenant slot | [`apps/workspace/bff/auth/session.ts`](../apps/workspace/bff/auth/session.ts) |
 | `withPageSession` | The wrapper that gives a server component or server action an authorized session and an open tenant slot | [`apps/workspace/bff/auth/require-auth.ts`](../apps/workspace/bff/auth/require-auth.ts) |
