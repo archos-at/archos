@@ -56,6 +56,9 @@ export const gateSchema = z
 /** One identifier of a work at its source, by scheme (`SOURCE_REF_SCHEMES`): how a passage read live finds its work. */
 export const sourceRefSchema = z.object({ scheme: z.enum(SOURCE_REF_SCHEMES), value: z.string().min(1).max(300) }).strict()
 
+/** The longest chain text the context carries; the resolver cuts a longer one at a line, with a note. */
+export const MAX_CONTEXT_TEXT_CHARS = 16_000
+
 export const contextUseSchema = z
   .object({
     workId: z.string(),
@@ -110,7 +113,7 @@ export const knowledgeContextSchema = z
      * the site and why, in the roles of `uses`. Null where no law binds there by
      * the records, or where the gate names no law.
      */
-    text: z.string().max(16_000).nullable(),
+    text: z.string().max(MAX_CONTEXT_TEXT_CHARS).nullable(),
     /** What the turn may retrieve from the shared corpus: the countries whose chunks it may read. Empty reads none. */
     retrieval: z.object({ countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(300) }).strict(),
     /**

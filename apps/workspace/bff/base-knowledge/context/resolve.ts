@@ -16,11 +16,12 @@
 
 import { chainAt, resolveChain } from '../chain/resolve'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
-import { nameOf, renderChainText } from '../chain/text'
+import { nameOf, renderChainText, useKey, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
 import type { ConnectingFactor, CoverageLevel, EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import {
   GATE_STATES,
+  MAX_CONTEXT_TEXT_CHARS,
   MAX_CONTEXT_USES,
   type ContextUse,
   type Gate,
@@ -180,13 +181,23 @@ function contextUse(
  * law binds in its own territory by the records: there is no chain to read.
  */
 function textOf(graph: KnowledgeGraph, resolved: ResolvedChain, uses: readonly ContextUse[], leafId: string): string | null {
-  const roles = new Map(uses.map((use) => [`${use.workId}/${use.editionId ?? ''}`, use.role]))
+  const corrected = new Map(uses.map((use) => [useKey(use), use]))
   const named = resolved.uses.flatMap((use) => {
-    const role = roles.get(`${use.workId}/${use.editionId ?? ''}`)
-    return role ? [{ ...use, role }] : []
+    const context = corrected.get(useKey(use))
+    return context ? [{ ...use, role: context.role }] : []
   })
   const lawHere = named.some((use) => use.role === 'binding' && use.route.length === 1 && use.route[0]?.via === 'territory')
-  return lawHere ? renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId) : null
+  if (!lawHere) return null
+  const notes = new Map<string, UseNotes>([...corrected].map(([key, use]) => [key, use]))
+  return capText(renderChainText(graph, { ...resolved, uses: named }, graph.territories.get(leafId)?.name ?? leafId, notes))
+}
+
+/** The text within the wire's bound (`MAX_CONTEXT_TEXT_CHARS`): cut at a line, with a note saying so. */
+export function capText(text: string): string {
+  if (text.length <= MAX_CONTEXT_TEXT_CHARS) return text
+  const note = '\n[The rest of the building law at this site is cut; ask about one instrument by name.]'
+  const cut = text.slice(0, MAX_CONTEXT_TEXT_CHARS - note.length)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf('\n'), 0))}${note}`
 }
 
 /** The countries a site's chain reads from the shared corpus: its own, and a union the graph let it read. */
