@@ -12,7 +12,6 @@ hosts:
   smtp.google.com: the operator's project-mail smoke script sends a test mail through it; no product data
   gv.at: an example sender domain in the operator's smoke script
   docs.hatchet.run: a documentation link in a comment
-  nextjs.org: a documentation link in a generated comment
   esm.sh: Excalidraw's font fallback CDN; copy-excalidraw-assets.mjs stages every font so it is never fetched
   gateway.envoyproxy.io: a Kubernetes API group name, never fetched
   vcluster.cnpg.io: a Kubernetes API group name, never fetched

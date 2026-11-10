@@ -47,7 +47,9 @@ A retired variable name counts as the name it is read as now (`current_name` in
 kind of flow has a positive control in `tests/test_data_flow_register.py`: it
 plants the flow in a scratch tree and asserts the scan fails on it.
 
-Not read: specs, tests, fixtures, `/app/dev/` preview pages, migrations, `public/`
+Only files git tracks are read: what a local build writes and `.gitignore` names
+(`next-env.d.ts`) never ships, so it needs no row and keeps no exemption alive.
+Not read either: specs, tests, fixtures, `/app/dev/` preview pages, migrations, `public/`
 assets, build output and dependencies. Not flows: reserved names (`example.com`,
 `.invalid`, `.test`, `.internal`, `.svc`), Kubernetes API groups (`*.k8s.io`), the
 product's own domain (`packages/brand/identity.json`), and private, loopback and

@@ -34,6 +34,7 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -322,8 +323,26 @@ PRUNED_DIRS = frozenset(
 )
 
 
+def _tracked(roots: tuple[str, ...], repo_root: Path) -> list[Path] | None:
+    """The files git tracks under the roots, or None outside a repository.
+
+    Only what is committed ships: a gitignored file a local build wrote
+    (``next-env.d.ts``) must neither need a row nor keep an exemption alive.
+    """
+    if not (repo_root / ".git").exists():
+        return None
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--", *roots], cwd=repo_root, capture_output=True, check=True
+    ).stdout.decode()
+    parts = [Path(name) for name in listed.split("\0") if name]
+    return [repo_root / p for p in parts if not PRUNED_DIRS.intersection(p.parts)]
+
+
 @functools.cache
 def _files_cached(roots: tuple[str, ...], repo_root: Path) -> tuple[Path, ...]:
+    tracked = _tracked(roots, repo_root)
+    if tracked is not None:
+        return tuple(p for p in tracked if p.suffix in SUFFIXES and not _skipped(p, repo_root))
     found = []
     for root in roots:
         path = repo_root / root
