@@ -213,7 +213,7 @@ export interface DeployConfig {
    * `app/public-source-fetcher.ts`): RIS and later sources, fetched from a pod
    * that reaches public hosts and nothing in the cluster.
    */
-  publicSourceFetcher: { enabled: boolean; replicas: number };
+  publicSourceFetcher: { replicas: number };
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant

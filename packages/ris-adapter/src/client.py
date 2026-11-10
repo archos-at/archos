@@ -33,7 +33,6 @@ from public_sources import access_for
 from public_sources import engine_for
 from public_sources import get_source
 from public_sources.egress import EgressRefused
-from public_sources.egress import GuardedTransport
 
 # The format is the ``ris_xml`` engine's; its names are re-exported here, where
 # the tools, the routes and the tests have always imported them from.
@@ -47,7 +46,6 @@ from public_sources.engines.ris_xml import _as_text
 from public_sources.engines.ris_xml import _find_all
 from public_sources.engines.ris_xml import _find_first
 from public_sources.routing import source_transport
-from ris_adapter.routing import routing_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -169,33 +167,26 @@ class RisClient:
         self.cache_max_entries = cache_max_entries
         self.max_retries = max(1, max_retries)
         self._transport = transport
+        #: The client, its requests made by the public-source fetcher (ADR-0162). Built on first use.
         self._client: httpx.AsyncClient | None = None
-        #: The same client, its requests made through the public-source fetcher
-        #: (``sourceRouting``, ``ris_adapter.routing``). Built on first use.
-        self._routed: httpx.AsyncClient | None = None
         self._doc_cache: dict[str, tuple[float, RisDocument]] = {}
 
     def _http_client(self) -> httpx.AsyncClient:
-        """The client of a turn without ``sourceRouting``: the guard runs here, in process.
+        """The client whose requests the public-source fetcher makes, for the ``at-ris`` record.
 
-        :class:`public_sources.egress.GuardedTransport` dials only an address it
-        resolved itself and found public, at every hop, so a RIS name that
-        answers a cluster address (DNS rebinding) reaches nothing; the hop hook
-        below checks the host. A transport handed in (tests) stands in for the
-        network.
+        There is no other path: RIS is read from the fetcher's pod, which reaches
+        public addresses and nothing in the cluster, and the guard runs there
+        (:mod:`public_sources.egress`). Without a fetcher configured, a RIS
+        request is refused (:class:`RisError`). A transport handed in (tests)
+        stands in for the network.
         """
         if self._client is None or self._client.is_closed:
-            self._client = self._new_client(self._transport or GuardedTransport())
+            try:
+                transport = source_transport(RIS_SOURCE_ID, inner=self._transport)
+            except EgressRefused as exc:
+                raise RisError(f"OGD-RIS is not reachable from here: {exc}") from exc
+            self._client = self._new_client(transport)
         return self._client
-
-    def _routed_client(self) -> httpx.AsyncClient:
-        """The client whose requests go through the fetcher (or the guard here, without one)."""
-        if self._routed is None or self._routed.is_closed:
-            self._routed = self._new_client(source_transport(RIS_SOURCE_ID, inner=self._transport))
-        return self._routed
-
-    async def _client_for_turn(self) -> httpx.AsyncClient:
-        return self._routed_client() if await routing_enabled() else self._http_client()
 
     def _new_client(self, transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
         """``trust_env=False`` always: an environment proxy would take a request past the guard."""
@@ -237,11 +228,9 @@ class RisClient:
 
     async def aclose(self) -> None:
         """Close the pooled HTTP connection (idempotent)."""
-        for client in (self._client, self._routed):
-            if client is not None and not client.is_closed:
-                await client.aclose()
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
         self._client = None
-        self._routed = None
 
     async def _get_with_retries(self, url: str, params: dict[str, str] | None = None) -> httpx.Response:
         """GET with exponential backoff on transport errors and 5xx responses.
@@ -251,7 +240,7 @@ class RisClient:
         surface to the agent.
         """
         last_error: Exception | None = None
-        client = await self._client_for_turn()  # once per request, not per retry
+        client = self._http_client()  # once per request, not per retry
         for attempt in range(self.max_retries):
             try:
                 response = await client.get(url, params=params)
