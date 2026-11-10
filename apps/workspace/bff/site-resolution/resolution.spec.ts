@@ -31,9 +31,9 @@ import type { RegisterSite } from './wire'
 const DIR = join(process.cwd(), 'tests/fixtures/address-register/bev')
 const lines = (name: string) => readFileSync(join(DIR, name), 'utf8').split('\n')
 const LOOKUPS = bevLookups({
-  gemeinde: csvRecords(lines('GEMEINDE.csv')),
-  ortschaft: csvRecords(lines('ORTSCHAFT.csv')),
-  strasse: csvRecords(lines('STRASSE.csv')),
+  municipalityRows: csvRecords(lines('GEMEINDE.csv')),
+  localityRows: csvRecords(lines('ORTSCHAFT.csv')),
+  streetRows: csvRecords(lines('STRASSE.csv')),
 })
 const ENTRIES: RegisterEntry[] = [...csvRecords(lines('ADRESSE.csv'))].flatMap((row) => bevEntry(row, LOOKUPS) ?? [])
 const RELEASE = { id: 'release', register: 'at-bev', referenceDate: '2025-10-01', attribution: bevAttribution('2025-10-01') }

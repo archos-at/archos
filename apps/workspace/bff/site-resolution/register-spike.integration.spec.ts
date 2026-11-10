@@ -89,7 +89,7 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
       sourceUrl: null,
       entries: all,
     })
-    console.log(`imported ${result.entryCount} addresses in ${((Date.now() - started) / 1000).toFixed(0)} s`)
+    process.stdout.write(`imported ${result.entryCount} addresses in ${((Date.now() - started) / 1000).toFixed(0)} s\n`)
   }, 1_800_000)
 
   afterAll(async () => {
@@ -117,22 +117,14 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
       report[way] = tally
     }
     const quantile = (values: number[], q: number) => [...values].sort((a, b) => a - b)[Math.floor(q * (values.length - 1))]
-    console.table(
-      Object.fromEntries(
-        Object.entries(report).map(([way, tally]) => [
-          way,
-          {
-            verified: tally.verified,
-            'verified, the typed address': tally.right,
-            'ambiguous or multi_leaf': tally.ambiguous,
-            'not found or incomplete': tally.none,
-            'p50 ms': quantile(tally.ms, 0.5).toFixed(1),
-            'p95 ms': quantile(tally.ms, 0.95).toFixed(1),
-          },
-        ]),
-      ),
+    const header = 'way'.padEnd(20) + 'verified  right  ambiguous  none   p50 ms  p95 ms'
+    const lines = Object.entries(report).map(
+      ([way, tally]) =>
+        `${way.padEnd(20)}${String(tally.verified).padStart(8)}${String(tally.right).padStart(7)}${String(tally.ambiguous).padStart(11)}` +
+        `${String(tally.none).padStart(6)}${quantile(tally.ms, 0.5).toFixed(1).padStart(9)}${quantile(tally.ms, 0.95).toFixed(1).padStart(8)}`,
     )
-    console.log(`canonical misses:\n${misses.join('\n')}`)
+    process.stdout.write(`${header}\n${lines.join('\n')}\n`)
+    process.stdout.write(`canonical misses: ${misses.length}\n${misses.join('\n')}\n`)
     // A verified site is always the typed address: never a neighbour, never a guess.
     for (const [way, tally] of Object.entries(report)) expect(tally.right, way).toBe(tally.verified)
     // An address the register does not hold is never verified.

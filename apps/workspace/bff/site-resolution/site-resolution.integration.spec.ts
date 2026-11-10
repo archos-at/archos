@@ -60,9 +60,9 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   function fixtureEntries(keep = Number.POSITIVE_INFINITY) {
     const lines = (name: string) => readFileSync(join(FIXTURE, name), 'utf8').split('\n')
     const lookups = bev.bevLookups({
-      gemeinde: bev.csvRecords(lines('GEMEINDE.csv')),
-      ortschaft: bev.csvRecords(lines('ORTSCHAFT.csv')),
-      strasse: bev.csvRecords(lines('STRASSE.csv')),
+      municipalityRows: bev.csvRecords(lines('GEMEINDE.csv')),
+      localityRows: bev.csvRecords(lines('ORTSCHAFT.csv')),
+      streetRows: bev.csvRecords(lines('STRASSE.csv')),
     })
     return [...bev.csvRecords(lines('ADRESSE.csv'))].flatMap((row) => bev.bevEntry(row, lookups) ?? []).slice(0, keep)
   }

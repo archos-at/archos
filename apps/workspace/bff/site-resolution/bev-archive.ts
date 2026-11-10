@@ -48,9 +48,9 @@ export function readBevArchive(zip: Uint8Array): BevArchive {
     return found[1]
   }
   const lookups = bevLookups({
-    gemeinde: csvRecords(linesOf(table('GEMEINDE.csv'))),
-    ortschaft: csvRecords(linesOf(table('ORTSCHAFT.csv'))),
-    strasse: csvRecords(linesOf(table('STRASSE.csv'))),
+    municipalityRows: csvRecords(linesOf(table('GEMEINDE.csv'))),
+    localityRows: csvRecords(linesOf(table('ORTSCHAFT.csv'))),
+    streetRows: csvRecords(linesOf(table('STRASSE.csv'))),
   })
   let skipped = 0
   return {

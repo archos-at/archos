@@ -4,7 +4,8 @@
  * entries (ADR-0172). Pure: the importer (`scripts/import-address-register.ts`)
  * reads the files and writes what this returns.
  *
- * Four of the archive's tables are read: GEMEINDE (GKZ → name), ORTSCHAFT
+ * The BEV's own column names are read as string keys: they are the publisher's
+ * data, not names of ours. Four of the archive's tables are read: GEMEINDE (GKZ → name), ORTSCHAFT
  * (GKZ + OKZ → locality), STRASSE (SKZ → street, delivery place) and ADRESSE
  * (one row per address). An address with no street (a farm, a hamlet with
  * house numbers only) is keyed by its farm name, else its locality, which is
@@ -60,18 +61,18 @@ export interface BevLookups {
 
 /** The three small tables as maps, for {@link bevEntry}. */
 export function bevLookups(tables: {
-  gemeinde: Iterable<Record<string, string>>
-  ortschaft: Iterable<Record<string, string>>
-  strasse: Iterable<Record<string, string>>
+  municipalityRows: Iterable<Record<string, string>>
+  localityRows: Iterable<Record<string, string>>
+  streetRows: Iterable<Record<string, string>>
 }): BevLookups {
   const municipalities = new Map<string, string>()
-  for (const row of tables.gemeinde) municipalities.set(row.GKZ, row.GEMEINDENAME)
+  for (const row of tables.municipalityRows) municipalities.set(row.GKZ, row['GEMEINDENAME'])
   const localities = new Map<string, string>()
-  for (const row of tables.ortschaft) localities.set(`${row.GKZ}:${row.OKZ}`, row.ORTSNAME)
+  for (const row of tables.localityRows) localities.set(`${row.GKZ}:${row.OKZ}`, row['ORTSNAME'])
   const streets = new Map<string, { name: string; deliveryPlace: string }>()
-  for (const row of tables.strasse) {
-    const name = [row.STRASSENNAME, row.STRASSENNAMENZUSATZ].filter(Boolean).join(' ')
-    streets.set(row.SKZ, { name, deliveryPlace: row.ZUSTELLORT })
+  for (const row of tables.streetRows) {
+    const name = [row['STRASSENNAME'], row['STRASSENNAMENZUSATZ']].filter(Boolean).join(' ')
+    streets.set(row.SKZ, { name, deliveryPlace: row['ZUSTELLORT'] })
   }
   return { municipalities, localities, streets }
 }
@@ -106,11 +107,11 @@ function coordinate(raw: string | undefined): number | null {
  */
 export function bevEntry(row: Record<string, string>, lookups: BevLookups): RegisterEntry | null {
   const municipalityName = lookups.municipalities.get(row.GKZ)
-  const houseNumber = row.HNR_ADR_ZUSAMMEN?.trim()
+  const houseNumber = row['HNR_ADR_ZUSAMMEN']?.trim()
   if (!municipalityName || !row.PLZ || !houseNumber || !row.ADRCD) return null
   const localityName = lookups.localities.get(`${row.GKZ}:${row.OKZ}`) ?? null
   const street = row.SKZ ? lookups.streets.get(row.SKZ) : undefined
-  const streetName = street?.name || row.HOFNAME?.trim() || localityName
+  const streetName = street?.name || row['HOFNAME']?.trim() || localityName
   if (!streetName) return null
   const places = [municipalityName, localityName, street?.deliveryPlace].filter((place): place is string => Boolean(place))
   return {
