@@ -241,7 +241,6 @@ export function ChangeRequestReview({
   const holds: Record<ApprovalRole, boolean> = {
     domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
     counsel: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel),
-    second_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer),
     privacy_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer),
   }
 

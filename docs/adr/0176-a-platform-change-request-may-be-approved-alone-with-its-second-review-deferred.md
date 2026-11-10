@@ -56,6 +56,19 @@ never forgotten.
 
 ## Decision Outcome
 
+**Amended 2026-11-10 (architecture review of platform governance, migration
+0216):** an approval alone no longer defers the source check. A page an
+operator pasted is checked against its source by somebody other than its
+author before any approval, alone or not (ADR-0170 as it was), so a sole owner
+releases alone only what cites fetched captures. Every request needs a domain
+expert's approval besides counsel and privacy where they apply, a trigger holds
+a request's status to its lifecycle, and the `second_reviewer` role is gone.
+Drafting and reviewing take `platform:knowledge:write` and
+`platform:knowledge:review` instead of `platform:settings:manage`. Where this
+record says below that the source check waits for the second review, that no
+longer holds.
+
+
 Chosen option 1.
 
 **The permission.** `platform:knowledge:approve_alone`, in the platform tier

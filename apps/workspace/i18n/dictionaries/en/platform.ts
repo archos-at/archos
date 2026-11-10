@@ -42,7 +42,6 @@ export const platform = {
     roles: {
       domain_expert: 'domain expert',
       counsel: 'counsel',
-      second_reviewer: 'second reviewer',
       privacy_reviewer: 'privacy reviewer',
     },
     secondReviewNext: {

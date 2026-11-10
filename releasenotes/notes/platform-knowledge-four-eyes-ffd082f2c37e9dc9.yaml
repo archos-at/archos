@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    Every platform knowledge change request now needs a domain expert's approval, and approving alone is refused while a pasted source page has not been checked by someone else. Drafting and reviewing platform knowledge take their own permissions instead of the platform settings one.

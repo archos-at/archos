@@ -45,6 +45,8 @@ a trigger refuses any platform head that is not where the newest stable move
 points. A rollback appends the inverse moves. A publish over a record released
 by another request since this one was opened is a 409 (`base_release_seq`).
 
+**Amended 2026-11-10 (migration 0216):** every change request needs a domain expert's approval, besides counsel and a privacy reviewer where ADR-0174 asks for them; before, one approval in any role approved a request that needed no other role. A trigger holds a request's status to its lifecycle (draft → submitted → approved → published → rolled back, or rejected), and moves it to approved only once every role it needs has approved it and no claim is edited, rejected or unreviewed. Drafting takes `platform:knowledge:write`, review and release `platform:knowledge:review`, no longer `platform:settings:manage`.
+
 **Amended by [ADR-0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) (2026-11-10):** an author holding `platform:knowledge:approve_alone` may approve their own request with an explicit override and a reason; the request is marked `approval: single` and owes a second review that another person gives later (migration 0214).
 
 **Four eyes, in the database.** An approval on a request holding a revision its

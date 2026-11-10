@@ -138,7 +138,6 @@
       "enum": [
         "domain_expert",
         "counsel",
-        "second_reviewer",
         "privacy_reviewer"
       ]
     },
@@ -230,7 +229,6 @@
       "enum": [
         "domain_expert",
         "counsel",
-        "second_reviewer",
         "privacy_reviewer"
       ]
     },

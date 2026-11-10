@@ -244,13 +244,13 @@ export const PLATFORM_PERMISSION_SPECS: readonly PermissionSpec[] = [
       'Platform tier: read platform-wide settings, defaults, the base knowledge corpus and the skill catalog. The read half of platform:settings:manage.',
     tier: 'platform',
   },
-  {
-    slug: 'platform:settings:manage',
-    name: 'Manage platform settings',
-    description: 'Platform tier: manage platform-wide settings and defaults.',
-    tier: 'platform',
-  },
-  ...(['domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer'] as const).map((role) => ({
+  { slug: 'platform:settings:manage', name: 'Manage platform settings', tier: 'platform',
+    description: 'Platform tier: manage platform-wide settings and defaults (models, prices, retrieval); not the base knowledge corpus.' },
+  { slug: 'platform:knowledge:write', name: 'Write platform knowledge', tier: 'platform',
+    description: 'Platform tier: draft platform knowledge change requests: open one, capture sources, propose records, submit (ADR-0165).' },
+  { slug: 'platform:knowledge:review', name: 'Review platform knowledge', tier: 'platform',
+    description: 'Platform tier: review, approve or reject, publish and roll back platform knowledge change requests (ADR-0165).' },
+  ...(['domain_expert', 'counsel', 'privacy_reviewer'] as const).map((role) => ({
     slug: `platform:knowledge:approve_as_${role}`,
     name: `Approve knowledge as ${role.replaceAll('_', ' ')}`,
     description: `Platform tier: approve a platform knowledge change request in the ${role.replaceAll('_', ' ')} role.`,

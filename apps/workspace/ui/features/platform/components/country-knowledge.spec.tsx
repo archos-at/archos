@@ -81,7 +81,7 @@ const withPermissions = (permissions: string[]) => (
 describe('CountryKnowledge', () => {
   test('lists each country with what it released, and the queue', async () => {
     serve()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     const countries = await screen.findByTestId('country-knowledge-countries')
     expect(within(countries).getByText('Austria')).toBeInTheDocument()
     expect(within(countries).getByText('2 authorities · 3 works')).toBeInTheDocument()
@@ -97,7 +97,7 @@ describe('CountryKnowledge', () => {
   test('names the record and its fields in words, and says what to do now', async () => {
     serve()
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     const record = await screen.findByTestId('change-request-record')
     expect(within(record).getByText('Authority')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('CountryKnowledge', () => {
   test('keeps approval closed until every entry is correct, then asks before approving', async () => {
     serve()
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeDisabled()
     expect(screen.getByText('Entries still to check: 1')).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('CountryKnowledge', () => {
   test('offers to reject, not approve, a request with a wrong entry', async () => {
     serve()
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await user.click(await screen.findByRole('button', { name: 'Not correct' }))
     expect(await screen.findByRole('button', { name: 'Reject request' })).toBeEnabled()
@@ -157,7 +157,7 @@ describe('CountryKnowledge', () => {
     }
     serve(200, pasted as unknown as typeof REQUEST)
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     const record = await screen.findByTestId('change-request-record')
     expect(within(record).getByText('Magistratsabteilung 37')).toBeInTheDocument()
@@ -177,7 +177,7 @@ describe('CountryKnowledge', () => {
     viewer.id = 'u'
     serve()
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await user.click(await screen.findByRole('button', { name: 'Approve without a second review' }))
     const dialog = await screen.findByRole('dialog', { name: 'Approve without a second review?' })
@@ -198,7 +198,7 @@ describe('CountryKnowledge', () => {
     viewer.id = 'u'
     serve()
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()
@@ -216,7 +216,7 @@ describe('CountryKnowledge', () => {
       ],
     } as typeof REQUEST)
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     const badges = await screen.findByTestId('approval-badges')
     expect(badges).toHaveTextContent('Approved without a second review')
@@ -245,7 +245,7 @@ describe('CountryKnowledge', () => {
       secondReviewRoles: [{ role: 'counsel', state: 'due', by: null, at: null }],
     } as typeof REQUEST)
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await screen.findByTestId('second-review-roles')
     expect(screen.queryByTestId('second-review-dispute')).not.toBeInTheDocument()
@@ -254,7 +254,7 @@ describe('CountryKnowledge', () => {
   test('offers to reject an approved request whose second review disputed it, and no publish', async () => {
     serve(200, { ...REQUEST, status: 'approved', approval: 'single', secondReview: { state: 'disputed', by: 'x', at: '2026-11-10T00:00:00Z' } } as typeof REQUEST)
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     expect(await screen.findByTestId('change-request-step-reject')).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Publish to preview' })).not.toBeInTheDocument()
@@ -264,7 +264,7 @@ describe('CountryKnowledge', () => {
     viewer.id = 'u'
     serve(200, { ...REQUEST, approvals: [{ approver: 'u', role: 'domain_expert', decisionSource: 'app', decidedAt: '2026-11-10T00:00:00Z', overrideReason: 'x'.repeat(25) }] } as typeof REQUEST)
     const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview, PLATFORM_PERMISSIONS.knowledgeApproveAlone]))
     await user.click(await screen.findByRole('button', { name: 'Review' }))
     await screen.findByTestId('change-request-next')
     expect(screen.queryByRole('button', { name: 'Approve without a second review' })).not.toBeInTheDocument()

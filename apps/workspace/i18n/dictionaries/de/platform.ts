@@ -39,7 +39,6 @@ export const platform: typeof en.platform = {
     roles: {
       domain_expert: 'Fachprüfung',
       counsel: 'Rechtsprüfung',
-      second_reviewer: 'Zweitprüfung',
       privacy_reviewer: 'Datenschutzprüfung',
     },
     secondReviewNext: {

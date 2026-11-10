@@ -73,7 +73,6 @@ import {
 const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermission>> = {
   domain_expert: PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert,
   counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
-  second_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer,
   privacy_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer,
 }
 
@@ -111,7 +110,7 @@ export async function createPlatformChangeRequest(
   session: UserSession | null,
   body: { title: string; countryId: string },
 ): Promise<{ id: string }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   return { id: await insertChangeRequest({ ...body, createdBy: person.userId }) }
 }
 
@@ -127,7 +126,7 @@ export async function proposePlatformRecords(
   body: { records: ProposedRecord[]; dryRun: boolean },
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
   const sourceChecks = await sourceChecksOf(body.records)
   return platformTransaction(async (tx) => {
@@ -155,7 +154,7 @@ export async function proposePlatformRecords(
 }
 
 export async function submitPlatformChangeRequest(session: UserSession | null, requestId: string): Promise<{ status: 'submitted' }> {
-  await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const sourceChecks = await requestSourceChecks(requestId)
   await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
@@ -182,7 +181,7 @@ export async function reviewPlatformChangeRequest(
   requestId: string,
   decisions: ReviewDecisionBody['decisions'],
 ): Promise<{ recorded: number }> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   // A source check vouches for a page nobody fetched: the person's own yes, never a model's (ADR-0170).
   if (decisions.some((decision) => decision.sourceChecked)) requirePersonDecision('Marking a cited source as checked')
   await platformTransaction(async (tx) => {
@@ -220,7 +219,7 @@ export async function decidePlatformChangeRequest(
   requestId: string,
   body: ApprovalBody,
 ): Promise<DecisionOutcome> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const role = body.role ?? 'domain_expert'
   if (body.override && body.decision !== 'approve') throw new UnprocessableError('An override is for approving; a reject needs none.')
   await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[role])
@@ -248,7 +247,7 @@ export async function publishPlatformChangeRequest(
   requestId: string,
   body: ReleaseChannelBody,
 ): Promise<PublishReceipt> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const decisionSource = requirePersonDecision(`Publishing a change request to ${body.channel}`)
   const request = await requireRequest(requestId)
   if (request.secondReview === 'disputed') {
@@ -269,7 +268,7 @@ export async function rollbackPlatformChangeRequest(
   requestId: string,
   reason: string,
 ): Promise<RollbackOutcome> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeReview)
   const decisionSource = requirePersonDecision('Rolling back a published change request')
   await requireRequest(requestId)
   const outcome = await rollbackChangeRequest(requestId, reason, { by: person.userId, decisionSource })

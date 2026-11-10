@@ -199,7 +199,7 @@ export async function configuredSource(tx: Tx, source: RegisteredSource): Promis
 
 /** Capture a page into a draft request: what records then cite, and KC-6 checks quotes against. */
 export async function capturePlatformCitation(session: UserSession | null, requestId: string, body: CaptureBody): Promise<CaptureView> {
-  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
+  const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const { draft, configured } = await platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     // A configured source (ADR-0174): its testing revision in this request, else its released one. A repository

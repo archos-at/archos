@@ -48,7 +48,7 @@ vi.mock('./indexing', () => ({
 const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
 const REASON = 'Only platform owner on call this week; counsel back on Monday.'
-const MANAGE = ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:approve_as_domain_expert']
+const MANAGE = ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review', 'platform:knowledge:approve_as_domain_expert']
 
 const person = (userId: string, permissions: string[]) =>
   ({ userId, email: `${userId}@example.com`, organizationId: fixed.platformOrg, permissions }) as unknown as UserSession
@@ -63,6 +63,7 @@ describe('the approve-alone suite is not silently skipped in CI', () => {
 describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', () => {
   let service: typeof import('./service')
   let store: typeof import('./store')
+  let onboarding: typeof import('./onboarding')
   let wire: typeof import('./wire')
   let runAsActingSession: typeof import('@/lib/agent-api/acting-session').runAsActingSession
   let PersonDecisionRequiredError: typeof import('@/lib/agent-api/person-decision').PersonDecisionRequiredError
@@ -73,8 +74,8 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   const owner = person(AUTHOR, [...MANAGE, 'platform:knowledge:approve_alone'])
   const ownerWithout = person(AUTHOR, MANAGE)
   const expert = person(`user_alone_expert_${RUN}`, MANAGE)
-  const counsel = person(`user_alone_counsel_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:approve_as_counsel'])
-  const managerOnly = person(`user_alone_manager_${RUN}`, ['platform:settings:view', 'platform:settings:manage'])
+  const counsel = person(`user_alone_counsel_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review', 'platform:knowledge:approve_as_counsel'])
+  const managerOnly = person(`user_alone_manager_${RUN}`, ['platform:settings:view', 'platform:knowledge:write', 'platform:knowledge:review'])
 
   /** A submitted request holding one work, written by the owner; `key` names the work when two requests share it. */
   async function submitted(name: string, key = name): Promise<string> {
@@ -133,6 +134,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     db = (await import('@/lib/db')).getDb()
     service = await import('./service')
     store = await import('./store')
+    onboarding = await import('./onboarding')
     wire = await import('./wire')
     runAsActingSession = (await import('@/lib/agent-api/acting-session')).runAsActingSession
     PersonDecisionRequiredError = (await import('@/lib/agent-api/person-decision')).PersonDecisionRequiredError
@@ -362,5 +364,56 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       ),
     )
     expect(preview?.to).toBe(laterRevision!.revisionId)
+  })
+
+  it('needs a domain expert’s approval on every request: an approval in another role alone approves nothing', async () => {
+    const id = await submitted('counsel-only')
+    await acceptAll(id, expert)
+    await expect(service.decidePlatformChangeRequest(counsel, id, { decision: 'approve', role: 'counsel' })).resolves.toMatchObject({
+      status: 'submitted',
+      awaiting: ['domain_expert'],
+    })
+    // Nor does any path around the service: the status trigger refuses the move.
+    await expect(
+      withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = 'approved' WHERE id = ${id}::uuid`)),
+    ).rejects.toThrow()
+  })
+
+  it('moves a request’s status only along its lifecycle, and to approved only with no claim open', async () => {
+    const id = await submitted('status-guard')
+    const move = (status: string) =>
+      withPlatformAccess('alone spec', () => db.execute(sql`UPDATE knowledge_change_requests SET status = ${status} WHERE id = ${id}::uuid`))
+    await expect(move('published')).rejects.toThrow()
+    // A domain expert's approval with a rejected claim and nobody else's verdicts: still not approvable.
+    const view = await service.getPlatformChangeRequest(expert, id)
+    const [revision] = view.revisions
+    await service.reviewPlatformChangeRequest(expert, id, [{ revisionId: revision!.revisionId, claimPath: revision!.claims[0]!.path, decision: 'rejected' }])
+    await store.platformTransaction((tx) =>
+      store.insertApproval(tx, { changeRequestId: id, approver: expert.userId, role: 'domain_expert', decisionSource: 'app' }),
+    )
+    await expect(move('approved')).rejects.toThrow()
+  })
+
+  it('refuses an approval alone while a page the operator pasted is not checked against its source', async () => {
+    const id = await store.insertChangeRequest({ title: 'pasted', countryId: 'AT', createdBy: AUTHOR })
+    const capture = await onboarding.capturePlatformCitation(owner, id, {
+      basis: 'operator_supplied',
+      url: 'https://www.example.org/leitfaden',
+      text: 'Leitfaden Barrierefreiheit, Ausgabe 2026, des Landes',
+    })
+    const record = wire.proposedRecordSchema.parse({
+      type: 'work',
+      key: `pasted-${RUN}`,
+      kind: 'guideline',
+      title: 'Leitfaden Barrierefreiheit',
+      citations: [{ captureId: capture.captureId, quote: 'Leitfaden Barrierefreiheit, Ausgabe 2026' }],
+    })
+    await store.platformTransaction(async (tx) => {
+      const request = await store.lockChangeRequest(tx, id)
+      await store.insertProposedRecords(tx, request!, [record], { createdBy: AUTHOR, proposedBy: 'person' })
+      await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
+    })
+    await expect(service.decidePlatformChangeRequest(owner, id, alone)).rejects.toThrow(/operator-supplied capture/)
+    expect(await approvalRows(id)).toHaveLength(0)
   })
 })

@@ -231,12 +231,13 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Approve or reject a submitted change request, or give the second review of one approved alone',
     description:
-      'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
+      'The person’s own decision, asked of them. Every request needs a domain expert’s approval (`role: domain_expert`); ' +
+      'approval needs every claim accepted, is refused (409) for anyone ' +
       'who wrote a revision in the request, and (403) in a `role` the person does not hold. A request holding an ' +
       'advice policy also needs `counsel`, one holding a site-keyed source a `privacy_reviewer`: until then it stays ' +
       'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. ' +
       '`override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone ' +
-      '(403 without), is never implied, and marks the request `approval: single` with a second review due; propose it ' +
+      '(403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it ' +
       'and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
       'approved request whose second review is due, another person gives it in each role approved alone they hold ' +
       '(`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed ' +
