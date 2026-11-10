@@ -27,9 +27,11 @@ from dataclasses import field
 
 import httpx
 from public_sources.access import access_for
+from public_sources.capture import FETCH_TIMEOUT_SECONDS
 from public_sources.capture import MAX_TEXT_CHARS
 from public_sources.capture import page_text
 from public_sources.engines import engine_for
+from public_sources.engines.pdf_document import PdfDocument
 from public_sources.pdf import PdfError
 from public_sources.pdf import is_pdf
 from public_sources.pdf import read_pdf
@@ -92,14 +94,24 @@ async def _terms_hash(source: Source, client: httpx.AsyncClient) -> tuple[str, s
     return hashlib.sha256(response.content).hexdigest(), ""
 
 
+def _read(source: Source, fetched):
+    """``(document, text)``: what the engine reads and what a reviewer reads, a PDF parsed once for both.
+
+    Blocking (a PDF is read in a child process): the probe runs it off the event loop.
+    """
+    if not is_pdf(fetched.body, fetched.content_type):
+        return _parsed(source, fetched), _text_of(fetched)
+    try:
+        read = read_pdf(fetched.body)
+    except PdfError:  # the change is still reported, by its bytes; the reviewer opens the document
+        return None, None
+    engine = engine_for(source)
+    document = engine.document_from(read, url=fetched.url) if isinstance(engine, PdfDocument) else None
+    return document, read.text
+
+
 def _text_of(fetched) -> str | None:
-    """What a reviewer reads: the page's text, a PDF's pages, or a JSON body as it came (features, a collection)."""
-    if is_pdf(fetched.body, fetched.content_type):
-        try:
-            text = read_pdf(fetched.body).text
-        except PdfError:  # the change is still reported, by its bytes; the reviewer opens the document
-            return None
-        return text[:MAX_TEXT_CHARS] if text else None
+    """What a reviewer reads: the page's text, or a JSON body as it came (features, a collection)."""
     text = page_text(fetched.body, fetched.content_type)
     if text is None and "json" in fetched.content_type.lower():
         return fetched.body.decode("utf-8", errors="replace")[:MAX_TEXT_CHARS]
@@ -120,13 +132,14 @@ async def probe(
     if source.monitor.kind == "etag" and previous.etag:
         args["etag"] = previous.etag
     transport = source_transport(source, inner=inner, credential=credential)
-    async with httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=45.0, trust_env=False) as client:
+    async with httpx.AsyncClient(
+        transport=transport, follow_redirects=True, timeout=FETCH_TIMEOUT_SECONDS, trust_env=False
+    ) as client:
         fetched = await access_for(source).fetch(client, source.monitor.probe.operation, args)
         terms_sha256, terms_unwatched = await _terms_hash(source, client)
     unchanged_304 = fetched.status == 304
     # Off the event loop: an engine may parse for seconds (a PDF is read in a child process).
-    document = None if unchanged_304 else await asyncio.to_thread(_parsed, source, fetched)
-    text = None if unchanged_304 else await asyncio.to_thread(_text_of, fetched)
+    document, text = (None, None) if unchanged_304 else await asyncio.to_thread(_read, source, fetched)
     current = Seen(
         etag=fetched.etag or (previous.etag if unchanged_304 else ""),
         sha256=previous.sha256 if unchanged_304 else fetched.sha256,

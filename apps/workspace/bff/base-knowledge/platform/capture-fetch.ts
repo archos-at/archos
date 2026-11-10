@@ -57,10 +57,17 @@ export const CAPTURE_REFUSAL_CODES = [
   'pdf_malformed',
   'pdf_too_many_pages',
   'pdf_parse_timeout',
+  'pdf_reader_failed',
 ] as const
 
-/** A statute page is large and the source is a third party; a capture is no interactive read. */
-const CAPTURE_TIMEOUT_MS = 60_000
+/**
+ * How long the BFF waits for the api tier. The longest call is a monitor's probe: two fetches (the page and
+ * its terms, at most 45 s each, `public_sources.capture.FETCH_TIMEOUT_SECONDS`) and, for a PDF, one parse
+ * (at most 45 s, `public_sources.pdf.PARSE_TIMEOUT_SECONDS`). Longer than all of them together, so a parse past
+ * its deadline reaches the door as `PDF_PARSE_TIMEOUT` and not as "the reader did not answer"
+ * (`packages/public-sources/tests/test_pdf.py` holds the two tiers to it).
+ */
+export const CAPTURE_TIMEOUT_MS = 150_000
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 

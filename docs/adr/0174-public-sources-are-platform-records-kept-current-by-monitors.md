@@ -191,15 +191,22 @@ it.
   the index holds. A second extractor was written first and removed: two
   readers give two texts for one document.
 - **The guard is public-sources'.** `public_sources/pdf.py` runs that pass in a
-  child process with a deadline and a memory ceiling, caps pages, and refuses
-  by code: `pdf_encrypted`, `pdf_malformed`, `pdf_too_many_pages`,
-  `pdf_parse_timeout`. Every refusal of a capture is named now:
+  child process (`public_sources/pdf_reader.py`) with a 45 s deadline, a 2 GiB
+  address-space ceiling, no core file, an environment without the server's
+  secrets, and at most two at once per process. It refuses a PDF of more than
+  300 pages (about 0.09 s a page: the deadline reaches it) and keeps at most
+  2,000,000 characters, whole pages, saying up to which. The BFF waits 150 s,
+  longer than a probe's two fetches and one parse, so a slow parse reaches the
+  door by its own code. Refusals by code: `pdf_encrypted`, `pdf_malformed`,
+  `pdf_too_many_pages`, `pdf_parse_timeout`, `pdf_reader_failed` (the reader
+  stopped, with its exit status). Every refusal of a capture is named now:
   `body_too_large` past the egress ceiling and `egress_refused` for a URL or a
   redirect hop off the source's hosts or onto no public address. The door
   answers each as a 422 problem whose code is the name in capitals, with a hint.
 - **Pages are joined by a form feed**, as `pdftotext` joins them: the quote
   check reads it as whitespace, and the capture view counts `pages` from it.
-  No column was added.
+  No column was added. The quote check also joins a word a PDF hyphenated
+  across a line ("Bundes-" / "Immissionsschutzgesetzes"), on both sides.
 - **A scan keeps no text** and says so in the capture's `note`. Ingestion
   transcribes such pages with the vision model; a capture does not yet. The
   follow-up is that same transcription behind the same guard, not OCR of our own.

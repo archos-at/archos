@@ -11,18 +11,24 @@ dense pages read by PDFium, each page on its own), so a quote that holds
 against a capture holds against what the agent later retrieves from the same
 document. This module adds only what the bytes being a stranger's asks for:
 
-* **Bytes and pages are capped.** The body is capped by the egress ceiling
-  (:data:`public_sources.egress.MAX_BODY_BYTES`); a PDF of more than
-  :data:`MAX_PDF_PAGES` pages is refused (``pdf_too_many_pages``).
-* **A deadline and a memory ceiling.** The parse runs in a child process
-  (``python -I -m public_sources.pdf``) that is killed after
-  :data:`PARSE_TIMEOUT_SECONDS` and may not map more than
-  :data:`MEMORY_LIMIT_BYTES`: a parser loop or a decompression bomb costs the
-  child, never the server.
+* **Bytes, pages and text are capped.** The body is capped by the egress
+  ceiling (:data:`public_sources.egress.MAX_BODY_BYTES`); a PDF of more than
+  :data:`MAX_PDF_PAGES` pages is refused (``pdf_too_many_pages``), a number the
+  deadline reaches (about 0.09 s a page, measured on gesetze-im-internet.de's
+  PDFs); the text is cut at :data:`MAX_TEXT_CHARS`, at a page boundary, and the
+  note says up to which page.
+* **A child process, held.** The parse runs in
+  :mod:`public_sources.pdf_reader` (``python -I -m``), killed after
+  :data:`PARSE_TIMEOUT_SECONDS`, which stays well below the BFF's budget for a
+  capture so the door answers ``pdf_parse_timeout`` rather than "try again".
+  It may map at most :data:`MEMORY_LIMIT_BYTES`, writes no core file, and
+  starts with an environment of :data:`CHILD_ENV_KEYS` only, never the
+  server's secrets. At most :data:`MAX_PDF_READERS` run at once.
 * **A refusal names its reason.** :class:`PdfError` carries a ``code``:
   ``pdf_encrypted`` (it needs a password), ``pdf_malformed`` (no PDF the reader
   can open, or too many unreadable pages by ingestion's own verdict),
-  ``pdf_too_many_pages``, ``pdf_parse_timeout``.
+  ``pdf_too_many_pages``, ``pdf_parse_timeout``, and ``pdf_reader_failed``
+  (the reader stopped: its memory ceiling, or a crash, with its exit status).
 
 Pages are joined with a form feed (``\\f``), as ``pdftotext`` joins them: the
 quote check reads it as whitespace, so a quote over a page break still holds,
@@ -37,20 +43,31 @@ the same transcription, here).
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 
-#: The most pages a PDF may have to be read here.
-MAX_PDF_PAGES = 1000
-#: How long one parse may take before its process is killed.
-PARSE_TIMEOUT_SECONDS = 60.0
+#: The most pages a PDF may have to be read here: 300 pages read in about 27 s, inside the deadline.
+MAX_PDF_PAGES = 300
+#: How long one parse may take before its process is killed; the BFF waits 120 s for a whole capture.
+PARSE_TIMEOUT_SECONDS = 45.0
 #: The address space the parsing process may map.
 MEMORY_LIMIT_BYTES = 2 * 1024**3
+#: The most text a read answers; the BFF's capture column holds the same (0209).
+MAX_TEXT_CHARS = 2_000_000
+#: How many PDFs one process reads at once; a further read waits for one to finish.
+MAX_PDF_READERS = 2
+#: What the child's environment holds: what Python needs, and the one setting of the text pass.
+CHILD_ENV_KEYS = ("PATH", "LANG", "LC_ALL", "PDF_PAGE_MAX_OBJECTS")
 #: What joins two pages' text, and what a page is counted by.
 PAGE_BREAK = "\f"
 
 PDF_CONTENT_TYPE = "application/pdf"
+
+_READERS = threading.BoundedSemaphore(MAX_PDF_READERS)
 
 
 class PdfError(ValueError):
@@ -63,8 +80,10 @@ class PdfError(ValueError):
 
 @dataclass(frozen=True)
 class PdfText:
-    #: Each page's text, in order; an empty string for a page with no text layer.
+    #: Each page's text, in order, for the pages read; an empty string for a page with no text layer.
     pages: tuple[str, ...]
+    #: The pages the document has; more than ``len(pages)`` when the text cap stopped the read.
+    page_count: int = 0
     title: str = ""
 
     @property
@@ -76,12 +95,21 @@ class PdfText:
 
     @property
     def note(self) -> str:
-        """Which pages have no text layer, so nothing on them can be quoted. Empty when every page has text."""
+        """What a reader of :attr:`text` must know: pages with no text layer, or pages past the text cap."""
+        notes = []
         blank = [str(number) for number, page in enumerate(self.pages, start=1) if not page.strip()]
-        if not blank:
-            return ""
-        which = "all of its pages" if len(blank) == len(self.pages) else f"pages {', '.join(blank[:20])}"
-        return f"no text layer on {which} (a scan?): nothing there can be quoted; OCR is not done for a capture"
+        if blank:
+            which = "all of its pages" if len(blank) == len(self.pages) else f"pages {', '.join(blank[:20])}"
+            notes.append(
+                f"no text layer on {which} (a scan?): nothing there can be quoted; OCR is not done for a capture"
+            )
+        if self.page_count > len(self.pages):
+            notes.append(
+                f"read only in part, up to page {len(self.pages)} of {self.page_count}: a capture keeps at most "
+                f"{MAX_TEXT_CHARS:,} characters, so a quote from a later page is not found: "
+                "capture that part on its own"
+            )
+        return "; ".join(notes)
 
 
 def is_pdf(content: bytes, content_type: str | None = None) -> bool:
@@ -90,84 +118,57 @@ def is_pdf(content: bytes, content_type: str | None = None) -> bool:
     return kind == PDF_CONTENT_TYPE or content[:1024].lstrip().startswith(b"%PDF-")
 
 
-def _limit_memory() -> None:
+def _child_env() -> dict[str, str]:
+    return {key: os.environ[key] for key in CHILD_ENV_KEYS if key in os.environ}
+
+
+def _stopped(done: subprocess.CompletedProcess) -> PdfError:
+    """Why a child gave no answer, by its exit status: a signal (the memory ceiling, a crash) or an exit code."""
+    if done.returncode < 0:
+        try:
+            name = signal.Signals(-done.returncode).name
+        except ValueError:
+            name = f"signal {-done.returncode}"
+        status = f"was stopped by {name}"
+    else:
+        status = f"exited with status {done.returncode}"
+    return PdfError(
+        "pdf_reader_failed",
+        f"the PDF reader {status} before it answered; a read may map at most {MEMORY_LIMIT_BYTES // 1024**2} MiB",
+    )
+
+
+def read_pdf(
+    content: bytes,
+    *,
+    max_pages: int = MAX_PDF_PAGES,
+    timeout: float = PARSE_TIMEOUT_SECONDS,
+    memory_limit: int = MEMORY_LIMIT_BYTES,
+    max_chars: int = MAX_TEXT_CHARS,
+) -> PdfText:
+    """The text of ``content``, read in a child process killed after ``timeout`` seconds. Raises :class:`PdfError`.
+
+    Blocking: an async caller runs it with ``asyncio.to_thread``.
+    """
+    if not _READERS.acquire(timeout=timeout):
+        raise PdfError("pdf_parse_timeout", f"{MAX_PDF_READERS} PDFs were being read for {timeout:g} seconds")
     try:
-        import resource
-
-        resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT_BYTES, MEMORY_LIMIT_BYTES))
-    except ImportError, ValueError, OSError:  # pragma: no cover - a platform without the limit reads without it
-        pass
-
-
-def _gate(content: bytes, max_pages: int) -> str:
-    """Open the PDF once to refuse what ingestion's text pass would read as empty; answers its title."""
-    import pypdfium2 as pdfium
-    from pypdfium2 import raw
-
-    try:
-        document = pdfium.PdfDocument(content)
-    except pdfium.PdfiumError as exc:
-        if exc.err_code in (raw.FPDF_ERR_PASSWORD, raw.FPDF_ERR_SECURITY):
-            raise PdfError(
-                "pdf_encrypted", "the PDF needs a password to open; a source's text must be readable without one"
-            ) from exc
-        raise PdfError("pdf_malformed", f"the bytes are no PDF the reader can open: {exc}") from exc
-    try:
-        if len(document) > max_pages:
-            raise PdfError("pdf_too_many_pages", f"the PDF has {len(document)} pages; at most {max_pages} are read")
-        return str((document.get_metadata_dict() or {}).get("Title") or "").strip()
+        limits = [str(max_pages), str(memory_limit), str(max_chars)]
+        command = [sys.executable, "-I", "-m", "public_sources.pdf_reader", *limits]
+        try:
+            done = subprocess.run(  # noqa: S603 - our own interpreter and module, no shell
+                command, input=content, capture_output=True, timeout=timeout, check=False, env=_child_env()
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise PdfError("pdf_parse_timeout", f"reading the PDF took longer than {timeout:g} seconds") from exc
     finally:
-        document.close()
-
-
-def extract(content: bytes, max_pages: int = MAX_PDF_PAGES) -> PdfText:
-    """Read ``content`` in this process. Callers use :func:`read_pdf`, which runs this in a child with a deadline."""
-    from knowledge_layer.ingest import pdf_page_texts
-    from knowledge_layer.ingest import unreadable_pdf_verdict
-
-    title = _gate(content, max_pages)
-    read = pdf_page_texts(content)
-    verdict = unreadable_pdf_verdict(read)
-    if verdict:
-        raise PdfError("pdf_malformed", verdict)
-    by_number = {entry["page_number"]: str(entry.get("text") or "") for entry in read}
-    return PdfText(pages=tuple(by_number.get(n, "") for n in range(1, read.page_count + 1)), title=title)
-
-
-def read_pdf(content: bytes, *, max_pages: int = MAX_PDF_PAGES, timeout: float = PARSE_TIMEOUT_SECONDS) -> PdfText:
-    """The text of ``content``, read in a child process killed after ``timeout`` seconds. Raises :class:`PdfError`."""
-    command = [sys.executable, "-I", "-m", "public_sources.pdf", str(max_pages)]
-    try:
-        done = subprocess.run(command, input=content, capture_output=True, timeout=timeout, check=False)  # noqa: S603
-    except subprocess.TimeoutExpired as exc:
-        raise PdfError("pdf_parse_timeout", f"reading the PDF took longer than {timeout:g} seconds") from exc
+        _READERS.release()
     try:
         answer = json.loads(done.stdout)
     except ValueError:
         answer = None
     if not isinstance(answer, dict):
-        reason = done.stderr.decode("utf-8", errors="replace").strip().splitlines()[-1:] or [f"exit {done.returncode}"]
-        raise PdfError("pdf_malformed", f"the PDF reader stopped: {reason[0][:300]}")
+        raise _stopped(done)
     if "error" in answer:
         raise PdfError(str(answer["error"]), str(answer.get("message", "")))
-    return PdfText(pages=tuple(answer["pages"]), title=str(answer["title"]))
-
-
-def main() -> int:
-    """The child: PDF bytes on stdin, ``{pages, title}`` or ``{error, message}`` on stdout."""
-    _limit_memory()
-    max_pages = int(sys.argv[1]) if len(sys.argv) > 1 else MAX_PDF_PAGES
-    try:
-        result = extract(sys.stdin.buffer.read(), max_pages)
-    except PdfError as exc:
-        answer: dict = {"error": exc.code, "message": str(exc)}
-    except MemoryError:
-        answer = {"error": "pdf_malformed", "message": "the PDF needs more memory than a read may take"}
-    else:
-        answer = {"pages": list(result.pages), "title": result.title}
-    sys.stdout.write(json.dumps(answer))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    return PdfText(pages=tuple(answer["pages"]), page_count=int(answer["page_count"]), title=str(answer["title"]))

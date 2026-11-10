@@ -136,6 +136,8 @@ const CAPTURE_REFUSAL_HINTS: Readonly<Record<(typeof CAPTURE_REFUSAL_CODES)[numb
   pdf_malformed: 'Find another copy of the document, or upload the text as operator_supplied and say why in note.',
   pdf_too_many_pages: 'Capture the part of the document you cite (most publishers split long PDFs), or upload that text as operator_supplied.',
   pdf_parse_timeout: 'Try again later; if it keeps timing out, upload the text as operator_supplied and say why in note.',
+  pdf_reader_failed:
+    'The reader stopped on this file (its memory ceiling, or a crash): find a smaller or simpler copy, or upload the text as operator_supplied and say why in note.',
 }
 
 /**

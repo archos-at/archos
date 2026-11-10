@@ -13,6 +13,7 @@ record that moves a request is visible here before it reaches a publisher.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from dataclasses import field
@@ -87,7 +88,9 @@ async def run_fixture(source: Source, fixture: Fixture) -> FixtureResult:
         if expect.get("kind") == "search":
             _check_search(engine.search(json.loads(fetched.body)), expect, result)  # type: ignore[attr-defined]
         else:
-            _check_document(engine.document(fetched.body, url=fetched.url), fetched.version, expect, result)
+            # Off the event loop: the api tier serves chat sockets too, and a PDF is read in a child process.
+            document = await asyncio.to_thread(engine.document, fetched.body, url=fetched.url)
+            _check_document(document, fetched.version, expect, result)
     except Exception as exc:  # noqa: BLE001
         result.failures.append(f"engine failed: {exc}")
     return result

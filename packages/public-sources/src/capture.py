@@ -30,6 +30,7 @@ import httpx
 from lxml import html as lxml_html
 from public_sources.egress import MAX_BODY_BYTES
 from public_sources.egress import EgressRefused
+from public_sources.pdf import MAX_TEXT_CHARS
 from public_sources.pdf import PdfError
 from public_sources.pdf import is_pdf
 from public_sources.pdf import read_pdf
@@ -37,11 +38,12 @@ from public_sources.routing import source_transport
 from public_sources.source import Source
 from public_sources.source import get_source
 
+#: How long the fetch of one page may take; a PDF's parse has its own deadline after it (``pdf.PARSE_TIMEOUT_SECONDS``).
+FETCH_TIMEOUT_SECONDS = 45.0
+
 #: What a capture asks for: a page a person reads, text before anything else.
 ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,application/pdf;q=0.8,*/*;q=0.5"
 
-#: The most text a capture keeps; the BFF's column holds the same (0209).
-MAX_TEXT_CHARS = 2_000_000
 
 _TEXT_TYPES = ("text/html", "application/xhtml+xml", "application/xml", "text/xml", "text/plain")
 _DROPPED = ("script", "style", "noscript", "template", "head")
@@ -113,9 +115,9 @@ class CapturedPage:
     size: int
     text: str | None
     retrieved_at: str
-    #: A PDF's pages; ``None`` for a body that has none.
+    #: A PDF's pages the text holds; ``None`` for a body that has none.
     pages: int | None = None
-    #: What a reader of ``text`` must know: which pages of a PDF have no text layer (a scan). Empty otherwise.
+    #: What a reader of ``text`` must know: pages of a PDF with no text layer, or a PDF read only in part.
     note: str = ""
 
 
@@ -175,7 +177,9 @@ async def capture_page(
     transport = source_transport(
         source_id if isinstance(source_id, str) else source, inner=inner, credential=credential
     )
-    client = httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=45.0, trust_env=False)
+    client = httpx.AsyncClient(
+        transport=transport, follow_redirects=True, timeout=FETCH_TIMEOUT_SECONDS, trust_env=False
+    )
     try:
         async with client, client.stream("GET", url, headers={"Accept": ACCEPT}) as response:
             content = await _read_capped(response)
@@ -205,5 +209,5 @@ async def _text_of(content: bytes, content_type: str | None) -> tuple[str | None
         document = await asyncio.to_thread(read_pdf, content)
     except PdfError as exc:
         raise CaptureError(str(exc), 422, exc.code) from exc
-    text = document.text
-    return (text[:MAX_TEXT_CHARS] if text else None), len(document.pages), document.note
+    # The reader cut the text at a page boundary within MAX_TEXT_CHARS and says so in the note.
+    return document.text, len(document.pages), document.note

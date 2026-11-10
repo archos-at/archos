@@ -7,20 +7,29 @@ the same text as the api tier would, so a drift between the two fails here.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import json
+import subprocess
+import threading
+import time
 
 import httpx
 import pytest
 from public_sources import capture as capture_module
+from public_sources import pdf as pdf_module
 from public_sources import routing
 from public_sources.capture import CaptureError
 from public_sources.capture import capture_page
 from public_sources.fixtures import run_source
 from public_sources.monitor import Seen
 from public_sources.monitor import probe
+from public_sources.pdf import CHILD_ENV_KEYS
+from public_sources.pdf import MAX_PDF_READERS
 from public_sources.pdf import PAGE_BREAK
 from public_sources.pdf import PdfError
+from public_sources.pdf import PdfText
 from public_sources.pdf import read_pdf
 from public_sources.source import SourceError
 from public_sources.source import parse_inline_source
@@ -256,3 +265,145 @@ async def test_a_pdf_url_redirecting_to_a_listed_host_with_a_private_address_is_
     assert (refused.value.status, refused.value.code) == (403, "egress_refused")
     assert "169.254.169.254" in str(refused.value)
     assert dialled == ["93.184.216.34"]
+
+
+def test_a_text_past_the_cap_is_kept_to_whole_pages_and_says_up_to_which():
+    read = read_pdf(REAL_PDF.read_bytes(), max_chars=10_000)
+
+    assert read.page_count == 16 and 0 < len(read.pages) < 16
+    assert len(read.text or "") <= 10_000
+    assert read.text == "\f".join(real_text().split("\f")[: len(read.pages)])
+    assert f"up to page {len(read.pages)} of 16" in read.note
+
+
+def test_a_read_past_its_memory_ceiling_is_refused_by_its_code():
+    with pytest.raises(PdfError) as refused:
+        read_pdf(statute_pdf(), memory_limit=64 * 1024**2)
+    assert refused.value.code == "pdf_reader_failed"
+
+
+def test_a_child_that_dies_is_reported_by_its_exit_status_not_by_what_it_printed(monkeypatch):
+    def killed(*args, **kwargs):
+        return subprocess.CompletedProcess(args, -6, stdout=b"", stderr=b"RuntimeWarning: something unrelated")
+
+    monkeypatch.setattr(pdf_module.subprocess, "run", killed)
+    with pytest.raises(PdfError) as refused:
+        read_pdf(statute_pdf())
+    assert refused.value.code == "pdf_reader_failed"
+    assert "SIGABRT" in str(refused.value) and "RuntimeWarning" not in str(refused.value)
+
+
+def test_the_child_runs_a_module_the_package_does_not_import_so_it_warns_of_nothing(monkeypatch):
+    seen: list[subprocess.CompletedProcess] = []
+    real = subprocess.run
+
+    def recorded(*args, **kwargs):
+        seen.append(real(*args, **kwargs))
+        return seen[-1]
+
+    monkeypatch.setattr(pdf_module.subprocess, "run", recorded)
+    read_pdf(statute_pdf())
+    assert b"RuntimeWarning" not in seen[0].stderr
+
+
+def test_the_child_gets_none_of_the_servers_environment(monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "a-secret")
+    envs: list[dict] = []
+
+    def answered(*args, **kwargs):
+        envs.append(kwargs["env"])
+        return subprocess.CompletedProcess(
+            args, 0, stdout=json.dumps({"pages": ["x"], "page_count": 1, "title": ""}).encode()
+        )
+
+    monkeypatch.setattr(pdf_module.subprocess, "run", answered)
+    read_pdf(statute_pdf())
+    assert set(envs[0]) <= set(CHILD_ENV_KEYS)
+    assert "a-secret" not in envs[0].values()
+
+
+def test_no_more_than_the_allowed_readers_run_at_once(monkeypatch):
+    running = 0
+    most = 0
+    lock = threading.Lock()
+
+    def slow(*args, **kwargs):
+        nonlocal running, most
+        with lock:
+            running += 1
+            most = max(most, running)
+        time.sleep(0.2)
+        with lock:
+            running -= 1
+        return subprocess.CompletedProcess(
+            args, 0, stdout=json.dumps({"pages": ["x"], "page_count": 1, "title": ""}).encode()
+        )
+
+    monkeypatch.setattr(pdf_module.subprocess, "run", slow)
+    threads = [threading.Thread(target=read_pdf, args=(b"%PDF-",)) for _ in range(MAX_PDF_READERS + 3)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert most == MAX_PDF_READERS
+
+
+async def test_a_fixture_run_reads_its_pdf_off_the_event_loop(monkeypatch):
+    def slow_read(body, **kwargs):
+        time.sleep(0.5)
+        return PdfText(pages=("Allgemeine Vorschriften für Bauflächen und Baugebiete",), page_count=1)
+
+    monkeypatch.setattr("public_sources.engines.pdf_document.read_pdf", slow_read)
+    record = _pdf_source(expect={"contains": ["Allgemeine Vorschriften"]})
+    ticks = 0
+    done = asyncio.Event()
+
+    async def ticker():
+        nonlocal ticks
+        while not done.is_set():
+            ticks += 1
+            await asyncio.sleep(0.01)
+
+    async def run():
+        try:
+            return await run_source(parse_inline_source(record))
+        finally:
+            done.set()
+
+    [result], _ = await asyncio.gather(run(), ticker())
+    assert result.ok, result.failures
+    assert ticks >= 20  # the loop kept turning while the PDF was read
+
+
+async def test_a_monitor_probe_reads_a_pdf_once(monkeypatch):
+    reads: list[int] = []
+    real = read_pdf
+
+    def counted(body, **kwargs):
+        reads.append(1)
+        return real(body, **kwargs)
+
+    monkeypatch.setattr("public_sources.monitor.read_pdf", counted)
+    monkeypatch.setattr("public_sources.engines.pdf_document.read_pdf", counted)
+    source = parse_inline_source(_pdf_source())
+    terms = (SYNTHETIC_TERMS, ("text/html", b"terms"))
+
+    seen = await probe(source, Seen(), inner=_site(dict([terms, (PDF_URL, ("application/pdf", statute_pdf()))])))
+
+    assert len(reads) == 1
+    assert seen.anchors == ("page_1", "page_2") and PAGE_TWO in (seen.text or "")
+
+
+def test_the_bff_waits_longer_than_a_probe_s_fetches_and_parse_take_together():
+    """Else a parse past its deadline reaches the door as "did not answer" instead of pdf_parse_timeout."""
+    import re
+    from pathlib import Path
+
+    from public_sources.capture import FETCH_TIMEOUT_SECONDS
+    from public_sources.pdf import PARSE_TIMEOUT_SECONDS
+
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "apps/workspace/bff/base-knowledge/platform/capture-fetch.ts").read_text(encoding="utf-8")
+    budget_ms = int(re.search(r"export const CAPTURE_TIMEOUT_MS = ([\d_]+)", source).group(1).replace("_", ""))
+    # A probe fetches the page and its terms, then parses once.
+    assert budget_ms >= (2 * FETCH_TIMEOUT_SECONDS + PARSE_TIMEOUT_SECONDS) * 1000 + 10_000

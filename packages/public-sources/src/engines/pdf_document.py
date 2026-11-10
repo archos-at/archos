@@ -24,6 +24,7 @@ from public_sources.engines.base import ParsedDocument
 from public_sources.engines.base import Passage
 from public_sources.pdf import MAX_PDF_PAGES
 from public_sources.pdf import PdfError
+from public_sources.pdf import PdfText
 from public_sources.pdf import read_pdf
 from pydantic import Field
 
@@ -40,10 +41,15 @@ class PdfDocument(Engine):
     config_model = PdfDocumentConfig
 
     def document(self, body: bytes, *, url: str = "") -> ParsedDocument:
+        """Blocking: the PDF is read in a child process; an async caller runs this with ``asyncio.to_thread``."""
         try:
             read = read_pdf(body, max_pages=self.config.max_pages)
         except PdfError as exc:
             raise EngineError(f"{exc.code}: {exc}") from exc
+        return self.document_from(read, url=url)
+
+    def document_from(self, read: PdfText, *, url: str = "") -> ParsedDocument:
+        """The passages of a PDF already read, so a caller that also needs its text reads it once."""
         passages = tuple(
             Passage(anchor=f"page_{number}", number=str(number), heading="", text=text)
             for number, text in enumerate(read.pages, start=1)

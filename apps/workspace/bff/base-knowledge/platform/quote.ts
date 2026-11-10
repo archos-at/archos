@@ -3,7 +3,9 @@
  *
  * Verbatim, up to what a page's rendering changes and a person cannot see:
  * Unicode compatibility forms (NFKC), the typographic quotes, dashes and
- * spaces a statute portal prints, line breaks and runs of whitespace, and case.
+ * spaces a statute portal prints, line breaks and runs of whitespace, a word
+ * hyphenated across a line ("Bundes-\nImmissionsschutzgesetzes" in a PDF is
+ * "Bundes-Immissionsschutzgesetzes" on both sides, its hyphen kept), and case.
  * Nothing else: no stemming, no fuzzy match, so a quote a model paraphrased or
  * made up is not found.
  */
@@ -20,6 +22,8 @@ const EQUIVALENTS: readonly [RegExp, string][] = [
   [/[\u201c\u201d\u201e\u201f\u2033\u00ab\u00bb\u2039\u203a]/g, '"'],
   [/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-'],
   [/\u00ad/g, ''],
+  // A hyphen a line break split from the next word: the same word, hyphen kept, on both sides.
+  [/(?<=\p{L})-\s+(?=\p{L})/gu, '-'],
   [/\s+/gu, ' '],
 ]
 
