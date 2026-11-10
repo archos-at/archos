@@ -1,0 +1,320 @@
+{
+  "$comment": "Austria's applicability tables (ADR-0176): which of the OIB fire-safety guidelines a building needs, by its facts. Proposed through records-propose as a change request of its own for AT, after the Austria pack (at.json) is published: the tables name its works. Each record cites a capture of that change request with a quote before it can be proposed (ADR-0170, KC-6).",
+  "countryId": "AT",
+  "title": "Österreich: Anwendungsbereiche der OIB-Richtlinien 2.1, 2.2 und 2.3",
+  "records": [
+    {
+      "type": "ruleset",
+      "key": "at-oib-rl-2-1-applicability",
+      "values": {
+        "purpose": "applicability",
+        "territoryIds": [
+          "AT"
+        ],
+        "workIds": [
+          "work:oib-rl-2-1"
+        ],
+        "validFrom": "2019-04-12",
+        "validTo": null,
+        "basisEditionId": "edition:oib-rl-2-1-2023",
+        "body": {
+          "kind": "table",
+          "payloadSchema": "decision_table.v1",
+          "payload": {
+            "inputs": [
+              {
+                "key": "uses",
+                "type": "codes"
+              }
+            ],
+            "output": {
+              "type": "code",
+              "codes": [
+                "applies",
+                "check",
+                "not_applicable"
+              ]
+            },
+            "rows": [
+              {
+                "id": "production",
+                "when": {
+                  "in": [
+                    "production",
+                    {
+                      "var": "uses"
+                    }
+                  ]
+                },
+                "then": "applies",
+                "provision": {
+                  "citation": "OIB-Richtlinie 2.1 (Ausgabe Mai 2023), Brandschutz bei Betriebsbauten: Anwendungsbereich",
+                  "wording": "paraphrase"
+                }
+              },
+              {
+                "id": "agriculture-or-technical",
+                "when": {
+                  "some": [
+                    {
+                      "var": "uses"
+                    },
+                    {
+                      "in": [
+                        {
+                          "var": ""
+                        },
+                        [
+                          "agriculture",
+                          "technical"
+                        ]
+                      ]
+                    }
+                  ]
+                },
+                "then": "check",
+                "provision": {
+                  "citation": "OIB-Richtlinie 2.1 (Ausgabe Mai 2023), Anwendungsbereich: ob die Nutzung ein Betriebsbau ist, entscheidet der Einzelfall",
+                  "wording": "paraphrase"
+                }
+              }
+            ],
+            "otherwise": {
+              "then": "not_applicable"
+            },
+            "examples": [
+              {
+                "facts": {
+                  "uses": [
+                    "production"
+                  ]
+                },
+                "expect": {
+                  "then": "applies"
+                }
+              },
+              {
+                "facts": {
+                  "uses": [
+                    "residential",
+                    "garage"
+                  ]
+                },
+                "expect": {
+                  "then": "not_applicable"
+                }
+              },
+              {
+                "facts": {
+                  "uses": [
+                    "agriculture"
+                  ]
+                },
+                "expect": {
+                  "then": "check"
+                }
+              },
+              {
+                "facts": {},
+                "expect": {
+                  "undeterminedBy": [
+                    "uses"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien 2.1, 2.2 and 2.3 (Ausgabe Mai 2023): the title and scope of each name the buildings it is written for"
+        }
+      ]
+    },
+    {
+      "type": "ruleset",
+      "key": "at-oib-rl-2-2-applicability",
+      "values": {
+        "purpose": "applicability",
+        "territoryIds": [
+          "AT"
+        ],
+        "workIds": [
+          "work:oib-rl-2-2"
+        ],
+        "validFrom": "2019-04-12",
+        "validTo": null,
+        "basisEditionId": "edition:oib-rl-2-2-2023",
+        "body": {
+          "kind": "table",
+          "payloadSchema": "decision_table.v1",
+          "payload": {
+            "inputs": [
+              {
+                "key": "uses",
+                "type": "codes"
+              }
+            ],
+            "output": {
+              "type": "code",
+              "codes": [
+                "applies",
+                "check",
+                "not_applicable"
+              ]
+            },
+            "rows": [
+              {
+                "id": "garage",
+                "when": {
+                  "in": [
+                    "garage",
+                    {
+                      "var": "uses"
+                    }
+                  ]
+                },
+                "then": "applies",
+                "provision": {
+                  "citation": "OIB-Richtlinie 2.2 (Ausgabe Mai 2023), Brandschutz bei Garagen, überdachten Stellplätzen und Parkdecks: Anwendungsbereich",
+                  "wording": "paraphrase"
+                }
+              }
+            ],
+            "otherwise": {
+              "then": "not_applicable"
+            },
+            "examples": [
+              {
+                "facts": {
+                  "uses": [
+                    "residential",
+                    "garage"
+                  ]
+                },
+                "expect": {
+                  "then": "applies"
+                }
+              },
+              {
+                "facts": {
+                  "uses": [
+                    "office"
+                  ]
+                },
+                "expect": {
+                  "then": "not_applicable"
+                }
+              },
+              {
+                "facts": {},
+                "expect": {
+                  "undeterminedBy": [
+                    "uses"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien 2.1, 2.2 and 2.3 (Ausgabe Mai 2023): the title and scope of each name the buildings it is written for"
+        }
+      ]
+    },
+    {
+      "type": "ruleset",
+      "key": "at-oib-rl-2-3-applicability",
+      "values": {
+        "purpose": "applicability",
+        "territoryIds": [
+          "AT"
+        ],
+        "workIds": [
+          "work:oib-rl-2-3"
+        ],
+        "validFrom": "2019-04-12",
+        "validTo": null,
+        "basisEditionId": "edition:oib-rl-2-3-2023",
+        "body": {
+          "kind": "table",
+          "payloadSchema": "decision_table.v1",
+          "payload": {
+            "inputs": [
+              {
+                "key": "escape_level_m",
+                "type": "number"
+              }
+            ],
+            "output": {
+              "type": "code",
+              "codes": [
+                "applies",
+                "check",
+                "not_applicable"
+              ]
+            },
+            "rows": [
+              {
+                "id": "escape-level-over-22",
+                "when": {
+                  ">": [
+                    {
+                      "var": "escape_level_m"
+                    },
+                    22
+                  ]
+                },
+                "then": "applies",
+                "provision": {
+                  "citation": "OIB-Richtlinie 2.3 (Ausgabe Mai 2023), Brandschutz bei Gebäuden mit einem Fluchtniveau von mehr als 22 m: Anwendungsbereich",
+                  "wording": "paraphrase"
+                }
+              }
+            ],
+            "otherwise": {
+              "then": "not_applicable"
+            },
+            "examples": [
+              {
+                "facts": {
+                  "escape_level_m": 25
+                },
+                "expect": {
+                  "then": "applies"
+                }
+              },
+              {
+                "facts": {
+                  "escape_level_m": 22
+                },
+                "expect": {
+                  "then": "not_applicable"
+                }
+              },
+              {
+                "facts": {},
+                "expect": {
+                  "undeterminedBy": [
+                    "escape_level_m"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "citations": [
+        {
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien/",
+          "note": "OIB-Richtlinien 2.1, 2.2 and 2.3 (Ausgabe Mai 2023): the title and scope of each name the buildings it is written for"
+        }
+      ]
+    }
+  ]
+}

@@ -80,7 +80,7 @@ export const CHECK_TARGET_TYPES = ['edition', 'manifestation'] as const
 export type CheckTargetType = (typeof CHECK_TARGET_TYPES)[number]
 
 /**
- * What a ruleset decides (design §3.7). The first four are decision tables
+ * What a ruleset decides (design §3.7). The first five are decision tables
  * (`decision_table.v1`); the others are named now so the purpose list is one
  * list, and each gets its payload schema in the slice that first reads it
  * (setup facts, the advice policy, terminology).
@@ -90,6 +90,7 @@ export const RULESET_PURPOSES = [
   'derivation',
   'reference_date',
   'competence',
+  'applicability',
   'fact_definitions',
   'fact_sources',
   'advice_policy',
@@ -97,7 +98,16 @@ export const RULESET_PURPOSES = [
 ] as const
 export type RulesetPurpose = (typeof RULESET_PURPOSES)[number]
 
-export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'reference_date', 'competence'] as const satisfies readonly RulesetPurpose[]
+export const DECISION_TABLE_PURPOSES = ['classification', 'derivation', 'reference_date', 'competence', 'applicability'] as const satisfies readonly RulesetPurpose[]
+
+/**
+ * What an `applicability` table answers for one work and one building
+ * (ADR-0176): it `applies`; it is to `check`, because a fact the table reads
+ * is open or the case needs a person; or it is `not_applicable`, and the chain
+ * names the work for no building of the project.
+ */
+export const APPLICABILITY_VERDICTS = ['applies', 'check', 'not_applicable'] as const
+export type ApplicabilityVerdict = (typeof APPLICABILITY_VERDICTS)[number]
 
 /**
  * The payload schemas a ruleset body may carry: the evaluator's decision table,

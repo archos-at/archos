@@ -1,4 +1,4 @@
-// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, tests/fixtures/base-knowledge.schema.json
+// @disk-inputs: migrations/0202_base_knowledge.sql, migrations/0204_rulesets.sql, migrations/0205_platform_base_knowledge.sql, migrations/0207_setup_fact_records.sql, migrations/0211_country_pack.sql, migrations/0212_country_onboarding_tooling.sql, migrations/0213_knowledge_context.sql, migrations/0214_ruleset_applicability.sql, tests/fixtures/base-knowledge.schema.json
 /**
  * @vitest-environment node
  *
@@ -23,6 +23,7 @@ const MIGRATIONS = [
   'migrations/0211_country_pack.sql',
   'migrations/0212_country_onboarding_tooling.sql',
   'migrations/0213_knowledge_context.sql',
+  'migrations/0214_ruleset_applicability.sql',
 ].map((path) =>
   readFileSync(join(process.cwd(), path), 'utf8'),
 )
@@ -62,7 +63,12 @@ describe('the base knowledge vocabularies', () => {
   })
 
   it('allows a decision table only for the purposes the wire gives one', () => {
-    const constraint = /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\),\n/.exec(MIGRATIONS[1])?.[1] ?? ''
+    // The newest migration that states the constraint decides: 0204 created it, 0214 widened it.
+    const constraint =
+      [...MIGRATIONS]
+        .reverse()
+        .map((text) => /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\)[,;]\n/.exec(text)?.[1])
+        .find(Boolean) ?? ''
     expect(checkedValues('knowledge_ruleset_revisions', 'purpose', constraint).sort()).toEqual([...DECISION_TABLE_PURPOSES].sort())
   })
 

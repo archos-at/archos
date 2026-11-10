@@ -3766,3 +3766,16 @@ check_in kc_0213 "SELECT count(*) FROM information_schema.columns WHERE table_na
 apply_in kc_0213 0213_knowledge_context.sql
 check_in kc_0213 "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('message_edition_uses', 'project_base_confirmations')" "2" "0213 applies again after its down"
 echo "==> 0213 knowledge context and its down migration verified"
+# 0214: applicability is a decision purpose (ADR-0176), and an applicability
+# table names the works it speaks for; the down removes such rulesets and the
+# purpose, and 0214 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0214 ruleset applicability and its down migration on ra_0214"
+migrate_until ra_0214 0214_ruleset_applicability
+check_in ra_0214 "SELECT count(*) FROM pg_constraint WHERE conname IN ('knowledge_ruleset_revisions_purpose_known', 'knowledge_ruleset_revisions_table_purpose') AND pg_get_constraintdef(oid) LIKE '%applicability%'" "2" "0214: applicability is a purpose a decision table may serve"
+check_in ra_0214 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_applicability_targets'" "CHECK (((purpose <> 'applicability'::text) OR (cardinality(work_ids) >= 1)))" "0214: an applicability table names its works"
+apply_in ra_0214 0214_ruleset_applicability.down.sql
+check_in ra_0214 "SELECT count(*) FROM pg_constraint WHERE conname IN ('knowledge_ruleset_revisions_purpose_known', 'knowledge_ruleset_revisions_table_purpose', 'knowledge_ruleset_revisions_applicability_targets') AND pg_get_constraintdef(oid) LIKE '%applicability%'" "0" "0214 down removes the purpose"
+apply_in ra_0214 0214_ruleset_applicability.sql
+check_in ra_0214 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_applicability_targets'" "1" "0214 applies again after its down"
+echo "==> 0214 ruleset applicability and its down migration verified"

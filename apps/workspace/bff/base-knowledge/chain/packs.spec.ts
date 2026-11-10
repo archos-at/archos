@@ -1,4 +1,4 @@
-// @disk-inputs: ../../configs/knowledge-packs/at.json, ../../configs/knowledge-packs/eu.json
+// @disk-inputs: ../../configs/knowledge-packs/at-applicability.json, ../../configs/knowledge-packs/at.json, ../../configs/knowledge-packs/eu.json
 /**
  * @vitest-environment node
  *
@@ -73,6 +73,19 @@ describe('the Austria and EU packs', () => {
       new Set(validateProposal(records, countryId, known, new Map()).filter((problem) => problem.code === 'KC-6').map((problem) => problem.index))
     expect(uncited(euRecords, 'EU', new Map()).size).toBe(euRecords.length)
     expect(uncited(atRecords, 'AT', published).size).toBe(atRecords.length)
+  })
+
+  it('take Austria’s applicability tables as a request of their own, after the pack whose works they name (ADR-0176)', () => {
+    const tables = read('at-applicability.json')
+    const records = recordsOf(tables)
+    const withAustria = new Map<string, KnownRecord>([
+      ...published,
+      ...atRecords.map((record): [string, KnownRecord] => [recordIdOf(record), { type: record.type, countryId: 'AT' }]),
+    ])
+    expect(tables.countryId).toBe('AT')
+    expect(records.map((record) => record.type)).toEqual(['ruleset', 'ruleset', 'ruleset'])
+    expect(structural(validateProposal(records, 'AT', withAustria, new Map()))).toEqual([])
+    expect(structural(validateProposal(records, 'AT', published, new Map())).length).toBeGreaterThan(0)
   })
 
   it('needs the EU pack first: Austria names the union as a dated parent', () => {
