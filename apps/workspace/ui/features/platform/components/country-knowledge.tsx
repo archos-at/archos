@@ -16,19 +16,11 @@
 
 import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { toast } from 'sonner'
-import { Check, Globe2, ListChecks, X } from 'lucide-react'
+import { Globe2, ListChecks } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -45,41 +37,18 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
-import type {
-  ChangeRequestView,
-  PlatformKnowledgeOverview,
-} from '@/lib/base-knowledge/platform/wire'
+import type { PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
 
 type Load<T> =
   { state: 'loading' } | { state: 'error'; status: number } | { state: 'ready'; value: T }
 
 const BASE = '/api/platform/knowledge'
 
-async function postJson(path: string, body?: unknown): Promise<Response> {
-  return fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-}
-
-/** The route's own words for a refusal, or the status. */
-async function refusal(response: Response): Promise<string> {
-  const body = (await response.json().catch(() => null)) as { error?: string } | null
-  return body?.error ?? String(response.status)
-}
-
 function released(counts: Record<string, number>, t: Translator): string {
   const parts = (['territory', 'authority', 'work', 'edition', 'manifestation'] as const)
     .filter((type) => (counts[type] ?? 0) > 0)
     .map((type) => `${counts[type]} ${t(`countryKnowledge.types.${type}`)}`)
   return parts.length > 0 ? parts.join(' · ') : t('countryKnowledge.noneReleased')
-}
-
-function claimValue(value: unknown): string {
-  if (value === null || value === undefined) return '–'
-  if (typeof value === 'string') return value
-  return JSON.stringify(value)
 }
 
 export function CountryKnowledge(): JSX.Element {
