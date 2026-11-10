@@ -136,15 +136,6 @@ class TestFetchTurnFlags:
         with patch.object(bff_http._opener, "open", return_value=_body({"enabled": [], "features": features})):
             assert flags.fetch_turn_flags(organization_id="org_1").folder_cards_allowed is expected
 
-    @pytest.mark.parametrize(
-        ("features", "expected"),
-        [({"timeEditions": True}, True), ({"timeEditions": False}, False), ({}, False), (None, False), ("x", False)],
-    )
-    def test_time_editions_is_an_entitlement_only_an_explicit_true_grants(self, features, expected):
-        """law-lookup's as_of (ADR-0171): an older BFF or a missing field is a no, so as_of is refused."""
-        with patch.object(bff_http._opener, "open", return_value=_body({"enabled": [], "features": features})):
-            assert flags.fetch_turn_flags(organization_id="org_1").time_editions_allowed is expected
-
     def test_the_two_capabilities_are_read_independently(self):
         """`task-automation` is its own flag. An org may keep deep research and
         lose the right to queue work, or the reverse."""

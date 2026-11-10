@@ -1431,7 +1431,7 @@ export const platform: typeof en.platform = {
     // Dokumentarten. Deutsch identisch mit DOCUMENT_CLASS_LABELS im Backend
     // (`lib/knowledge/doc-class.ts`); base-knowledge.spec.tsx prüft das.
     docClasses: {
-      oib_guideline: 'OIB-Richtlinie (verbindlich)',
+      oib_guideline: 'OIB-Richtlinie',
       oib_guide: 'OIB-Leitfaden',
       oib_explanatory_note: 'OIB-Erläuterung',
       oib_definitions: 'OIB-Begriffsbestimmungen',

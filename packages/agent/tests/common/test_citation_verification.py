@@ -5,8 +5,6 @@ from urllib.parse import urlparse
 
 import pytest
 
-from agent.citations.binding import source_lane
-from agent.citations.binding import source_origin_token
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.citation_keys import parse_citation_ref
 from agent.citations.entries import EmptySourceRegistryError
@@ -17,6 +15,8 @@ from agent.citations.references import is_knowledge_citation
 from agent.citations.registry import SourceRegistry
 from agent.citations.report_layout import format_registry_reference
 from agent.citations.sanitize import sanitize_report
+from agent.citations.source_identity import source_lane
+from agent.citations.source_identity import source_origin_token
 from agent.citations.text_parsers import _PARSER_REGISTRY
 from agent.citations.text_parsers import register_source_parser
 from agent.citations.verification import cited_document_entries
@@ -786,7 +786,7 @@ class TestVerifyCitations:
         report = "Finding one [1]. Missing source [3]. Finding two [2]."
         result = verify_citations(report, registry, reference_sources=registry.all_sources()[:2])
 
-        assert "Missing source ." in result.verified_report
+        assert "Missing source." in result.verified_report
         assert "[3]" not in result.verified_report
         assert "[1] [Web] Article 1: https://valid.com/article1" in result.verified_report
         assert "[2] [Web] Article 2: https://valid.com/article2" in result.verified_report
@@ -944,7 +944,7 @@ class TestVerifyCitations:
         assert len(result.removed_citations) == 1
         assert result.removed_citations[0]["number"] == 2
         assert result.removed_citations[0]["reason"] == "url_not_in_registry"
-        assert "Good finding [1]. Bad finding ." in result.verified_report
+        assert "Good finding [1]. Bad finding." in result.verified_report
         assert "Fake Source" not in result.verified_report
 
     def test_ordered_list_parenthesis_references_are_normalized_and_verified(self, registry):
@@ -992,7 +992,7 @@ class TestVerifyCitations:
         report = "Good finding [1]. Missing reference [3].\n\n## Sources\n[1] Article 1: https://valid.com/article1"
         result = verify_citations(report, registry)
 
-        assert "Missing reference ." in result.verified_report
+        assert "Missing reference." in result.verified_report
         assert "[3]" not in result.verified_report
         assert len(result.valid_citations) == 1
         assert not result.removed_citations
@@ -1006,8 +1006,8 @@ class TestVerifyCitations:
         )
         result = verify_citations(report, registry)
 
-        assert "Bad finding ." in result.verified_report
-        assert "Missing reference ." in result.verified_report
+        assert "Bad finding." in result.verified_report
+        assert "Missing reference." in result.verified_report
         assert "[2]" not in result.verified_report
         assert "[3]" not in result.verified_report
         assert len(result.valid_citations) == 1
@@ -1098,7 +1098,7 @@ class TestVerifyCitations:
         assert len(result.removed_citations) == 1
         assert result.removed_citations[0]["reason"] == "url_not_in_registry"
         assert "https://fake.com/nichts" not in result.verified_report
-        assert "Erfundene Behauptung ." in result.verified_report
+        assert "Erfundene Behauptung." in result.verified_report
 
     @pytest.mark.parametrize(
         "heading",
@@ -1457,9 +1457,10 @@ class TestSourceOriginToken:
         )
         assert source_origin_token(entry) == "[RIS]"
 
-    def test_ris_source_by_host_gets_ris_token_even_without_tool_name(self):
+    def test_a_ris_host_without_the_ris_tool_is_web(self):
+        """The host regex went with ``citations/binding.py``: the tool that read a passage names its origin."""
         entry = SourceEntry(url="https://ris.bka.gv.at/GeltendeFassung.wxe", source_type="generic")
-        assert source_origin_token(entry) == "[RIS]"
+        assert source_origin_token(entry) == "[Web]"
 
     def test_a_ris_lookup_passage_is_ris_not_kb(self):
         # A grounding-block hit, so knowledge_layer; the suite saw every § go out
@@ -2121,7 +2122,7 @@ class TestAgentAuthoredDocumentNames:
         return registry
 
     def test_both_identities_a_model_could_name_are_included(self):
-        from agent.citations.binding import agent_authored_document_names
+        from agent.citations.source_identity import agent_authored_document_names
 
         registry = self._registry(
             SourceEntry(
@@ -2137,7 +2138,7 @@ class TestAgentAuthoredDocumentNames:
         assert agent_authored_document_names(registry) == frozenset({"brandschutzkonzept haus b"})
 
     def test_human_documents_are_never_listed(self):
-        from agent.citations.binding import agent_authored_document_names
+        from agent.citations.source_identity import agent_authored_document_names
 
         registry = self._registry(
             SourceEntry(citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.12", source_type="knowledge_layer"),
@@ -2146,7 +2147,7 @@ class TestAgentAuthoredDocumentNames:
         assert agent_authored_document_names(registry) == frozenset()
 
     def test_no_registry_is_an_empty_set_not_a_failure(self):
-        from agent.citations.binding import agent_authored_document_names
+        from agent.citations.source_identity import agent_authored_document_names
 
         assert agent_authored_document_names(None) == frozenset()
 
@@ -2954,45 +2955,6 @@ class TestVerifyQuotedSpans:
         )
         assert verify_quoted_spans(answer, reg) == []
 
-    def test_annotation_inserted_after_the_right_span(self):
-        from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
-        from agent.citations.quote_verification import annotate_unverified_quotes
-        from agent.citations.quote_verification import verify_quoted_spans
-
-        reg = self._registry(self.CHUNK)
-        answer = (
-            'Erst „Die lichte Durchgangshoehe von Treppen muss mindestens 2,10 m betragen" '
-            'und dann „ein voellig erfundener Satz ohne jede Deckung in der Quelle" [1].\n\n'
-            "## Sources\n[1] doc1.pdf, p.1"
-        )
-        unverified = verify_quoted_spans(answer, reg)
-        assert len(unverified) == 1
-        annotated = annotate_unverified_quotes(answer, unverified)
-        # Marker sits right after the fabricated span's closing quote…
-        assert 'in der Quelle" ' + UNVERIFIED_QUOTE_MARKER in annotated
-        # …and NOT after the verbatim span.
-        assert "2,10 m betragen" + '" ' + UNVERIFIED_QUOTE_MARKER not in annotated
-        # Fail-open: the original sentences are preserved verbatim.
-        assert "ein voellig erfundener Satz ohne jede Deckung in der Quelle" in annotated
-
-    def test_annotation_idempotent(self):
-        from agent.citations.entries import UNVERIFIED_QUOTE_MARKER
-        from agent.citations.quote_verification import annotate_unverified_quotes
-        from agent.citations.quote_verification import verify_quoted_spans
-
-        reg = self._registry(self.CHUNK)
-        answer = 'Er sagt „ein voellig frei erfundener Satz ohne jeden Beleg hier" [1].'
-        unverified = verify_quoted_spans(answer, reg)
-        once = annotate_unverified_quotes(answer, unverified)
-        twice = annotate_unverified_quotes(once, unverified)
-        assert once.count(UNVERIFIED_QUOTE_MARKER) == 1
-        assert twice.count(UNVERIFIED_QUOTE_MARKER) == 1
-
-    def test_empty_unverified_returns_answer_unchanged(self):
-        from agent.citations.quote_verification import annotate_unverified_quotes
-
-        assert annotate_unverified_quotes("hello world", []) == "hello world"
-
 
 class TestKnowledgeLayerChunkTextCapture:
     """The KB parser captures the retrieved passage body into chunk_text."""
@@ -3102,8 +3064,6 @@ class TestKnowledgeLayerChunkTextCapture:
             chunk_text="Brandabschnitte sind so auszubilden.",
             clause="3.5.2",
             score=0.87,
-            rank="oib_guideline",
-            binding_status="binding",
         )
 
         hydrated = _registry_from_cached_entries([dataclasses.asdict(original)])
@@ -3356,202 +3316,54 @@ class TestCitedDocumentsKeepTheirShelf:
         assert [entry.citation_key for entry in cited_document_entries(report, registry)] == ["NÖ Bauordnung.pdf, p.3"]
 
 
-class TestBindingClassification:
-    """Carry a source's structured BINDING STATUS (rank + coarse status) to the client.
+class TestBindingStatusComesFromRolesOnly:
+    """ADR-0175: a source's binding status is its edition's role at the site, and ``unknown`` without one.
 
-    ``binding_note`` (prose) only ever matched RIS URLs, so a KB-retrieved
-    OIB-Richtlinie carried nothing. ``binding_classification_for_entry`` widens
-    the match beyond RIS and yields a small structured result the UI can badge.
+    The guesses that came before (an OIB filename, a doc class, a RIS document number in the
+    norm registry, a host regex) are gone with ``citations/binding.py``; these hold them gone.
     """
 
-    @staticmethod
-    def _registry(*entries):
-        from agent.common.norm_registry import NormEntry
-        from agent.common.norm_registry import NormRegistry
+    def test_the_old_module_cannot_be_imported(self):
+        import importlib
 
-        return NormRegistry(entries=[NormEntry(**e) for e in entries])
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("agent.citations.binding")
 
-    def test_ris_federal_law_is_binding(self):
-        from agent.citations.binding import binding_classification_for_entry
-
-        registry = self._registry(
-            {
-                "id": "aschg",
-                "title": "ArbeitnehmerInnenschutzgesetz",
-                "short": "ASchG",
-                "rank": "federal_law",
-                "application": "BrKons",
-                "document_number": "NOR40000001",
-            }
-        )
-        entry = SourceEntry(url="https://www.ris.bka.gv.at/eli/bgbl/1994/450/NOR40000001")
-        result = binding_classification_for_entry(entry, registry)
-        assert result.rank == "federal_law"
-        assert result.binding_status == "binding"
-
-    def test_oib_guideline_matched_by_alias_is_declared_binding(self):
-        # The OIB corpus is NOT in the registry, but a curated entry can catalogue
-        # it: matching WIDENS beyond RIS URLs to the entry's alias against the
-        # source's filename. behoerdliche_info (the OIB-covering lane) -> declared binding.
-        from agent.citations.binding import binding_classification_for_entry
-
-        registry = self._registry(
-            {
-                "id": "oib-2-wien",
-                "title": "OIB-Richtlinie 2 (in Wien verbindlich erklärt)",
-                "short": "OIB-RL 2",
-                "rank": "authority_info",
-                "federal_state": "Wien",
-                "aliases": ["oib-rl_2"],
-            }
-        )
-        entry = SourceEntry(
-            citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.5",
-            source_type="knowledge_layer",
-        )
-        result = binding_classification_for_entry(entry, registry, federal_state="Wien")
-        assert result.rank == "authority_info"
-        assert result.binding_status == "declared_binding"
-
-    def test_oib_guideline_from_corpus_filename_is_declared_binding(self):
-        # No registry entry at all: the OIB Richtlinie is recognised from its
-        # corpus filename convention. rank stays None (the corpus carries no RIS
-        # rank) but the role is honest — the Richtlinie is what a Land declares binding.
-        from agent.citations.binding import binding_classification_for_entry
-
-        entry = SourceEntry(
-            citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.5",
-            source_type="knowledge_layer",
-        )
-        result = binding_classification_for_entry(entry, self._registry())
-        assert result.rank is None
-        assert result.binding_status == "declared_binding"
-
-    def test_oib_guide_is_interpretive(self):
-        from agent.citations.binding import binding_classification_for_entry
-
-        entry = SourceEntry(
-            citation_key="oib-rl_6-leitfaden_ausgabe_mai_2023.pdf, p.2",
-            source_type="knowledge_layer",
-        )
-        result = binding_classification_for_entry(entry, self._registry())
-        assert result.rank is None
-        assert result.binding_status == "interpretive"
-
-    def test_unmatched_kb_document_is_unknown(self):
-        # The whole point: a source matching no catalogued norm is honestly
-        # unknown, NEVER a guessed rank. A fabricated "binding" badge would be a
-        # false legal claim.
-        from agent.citations.binding import binding_classification_for_entry
-
-        entry = SourceEntry(
-            citation_key="internes_projektmemo.pdf, p.1",
-            source_type="knowledge_layer",
-        )
-        result = binding_classification_for_entry(entry, self._registry())
-        assert result.rank is None
-        assert result.binding_status == "unknown"
-
-    def test_wien_entry_is_not_claimed_for_a_tirol_project(self):
-        # Bundesland is respected: a Wien landesgesetz entry must never lend its
-        # rank to a Tyrolean project. It matches for Wien, and falls through to
-        # unknown for Tirol rather than lying.
-        from agent.citations.binding import binding_classification_for_entry
-
-        registry = self._registry(
-            {
-                "id": "bo-wien",
-                "title": "Bauordnung für Wien",
-                "short": "BO für Wien",
-                "rank": "state_law",
-                "federal_state": "Wien",
-                "aliases": ["bauordnung-wien-auszug"],
-            }
-        )
-        entry = SourceEntry(
-            citation_key="bauordnung-wien-auszug.pdf, p.1",
-            source_type="knowledge_layer",
-        )
-        for_wien = binding_classification_for_entry(entry, registry, federal_state="Wien")
-        assert for_wien.rank == "state_law"
-        assert for_wien.binding_status == "binding"
-
-        for_tirol = binding_classification_for_entry(entry, registry, federal_state="Tirol")
-        assert for_tirol.rank is None
-        assert for_tirol.binding_status == "unknown"
-
-    def test_external_standard_is_interpretive(self):
-        from agent.citations.binding import binding_classification_for_entry
-
-        registry = self._registry(
-            {
-                "id": "oenorm-b-1600",
-                "title": "ÖNORM B 1600",
-                "short": "ÖNORM B 1600",
-                "rank": "external_standard",
-                "aliases": ["oenorm-b-1600"],
-            }
-        )
-        entry = SourceEntry(citation_key="oenorm-b-1600.pdf, p.1", source_type="knowledge_layer")
-        result = binding_classification_for_entry(entry, registry)
-        assert result.rank == "external_standard"
-        assert result.binding_status == "interpretive"
-
-    def test_plain_web_source_is_unknown(self):
-        from agent.citations.binding import binding_classification_for_entry
-
-        entry = SourceEntry(url="https://example.com/some-blog", title="A blog post")
-        result = binding_classification_for_entry(entry, self._registry())
-        assert result.rank is None
-        assert result.binding_status == "unknown"
-
-    def test_fail_open_when_registry_load_raises(self, monkeypatch):
-        # A binding classification must never take a turn down: a registry that
-        # raises on load yields unknown, not an exception.
-        from agent.citations.binding import binding_classification_for_entry
-        from agent.common import norm_registry
-
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("registry unavailable")
-
-        monkeypatch.setattr(norm_registry, "load_registry", boom)
-        entry = SourceEntry(url="https://www.ris.bka.gv.at/eli/bgbl/1994/450/NOR40000001")
-        result = binding_classification_for_entry(entry, registry=None)
-        assert result.rank is None
-        assert result.binding_status == "unknown"
-
-    def test_fail_open_when_registry_is_none(self, monkeypatch):
-        from agent.citations.binding import binding_classification_for_entry
-        from agent.common import norm_registry
-
-        monkeypatch.setattr(norm_registry, "load_registry", lambda *a, **k: None)
-        entry = SourceEntry(citation_key="internes_memo.pdf, p.1", source_type="knowledge_layer")
-        result = binding_classification_for_entry(entry, registry=None)
-        assert result.binding_status == "unknown"
-
-
-class TestWireCarriesBindingStatus:
-    """``source_entry_to_wire`` emits rank + binding_status alongside binding_note."""
-
-    def test_oib_guideline_wire_binding_status(self):
+    def test_an_oib_guideline_with_no_role_is_unknown(self):
         from agent.citations.wire import source_entry_to_wire
 
         entry = SourceEntry(
-            citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.5",
-            source_type="knowledge_layer",
+            citation_key="oib-rl_2_ausgabe_mai_2023.pdf, p.5", source_type="knowledge_layer", doc_class="oib_guideline"
         )
         wire = source_entry_to_wire(entry)
-        assert wire["binding_status"] == "declared_binding"
-        # rank is None for a corpus doc → dropped by the None-filter.
-        assert "rank" not in wire
+        assert wire["binding_status"] == "unknown"
+        assert "rank" not in wire and "binding_note" not in wire
+
+    def test_a_ris_passage_with_no_role_is_unknown(self):
+        from agent.citations.wire import source_entry_to_wire
+
+        entry = SourceEntry(
+            url="https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=20000006",
+            title="Bauordnung für Wien",
+            tool_name="ris_fetch_document",
+        )
+        wire = source_entry_to_wire(entry)
+        assert wire["binding_status"] == "unknown"
+        assert wire["origin"] == "ris"
 
     def test_unknown_source_wire_binding_status_is_unknown(self):
         from agent.citations.wire import source_entry_to_wire
 
-        entry = SourceEntry(url="https://example.com/blog", title="Blog")
-        wire = source_entry_to_wire(entry)
+        wire = source_entry_to_wire(SourceEntry(url="https://example.com/blog", title="Blog"))
         assert wire["binding_status"] == "unknown"
         assert "rank" not in wire
+
+    def test_a_ris_url_found_by_web_search_is_a_web_source(self):
+        """The host regex is gone: origin is the tool that read it, not the URL's host."""
+        from agent.citations.source_identity import source_origin_token
+
+        entry = SourceEntry(url="https://www.ris.bka.gv.at/x", title="x", tool_name="tavily_search")
+        assert source_origin_token(entry) == "[Web]"
 
 
 class TestQuoteWordElision:
@@ -3738,4 +3550,6 @@ class TestTheSessionCacheFromBeforeTheRename:
             ]
         )
         entry = registry._all[0]
-        assert (entry.clause, entry.rank, entry.binding_status) == ("3.5.2", "state_law", "declared_binding")
+        assert entry.clause == "3.5.2"
+        # A cached rank and binding status are read by nothing since ADR-0175: the roles decide.
+        assert not hasattr(entry, "rank") and not hasattr(entry, "binding_status")

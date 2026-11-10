@@ -1434,7 +1434,7 @@ export const platform = {
     // Document types. The German dictionary mirrors the backend's
     // DOCUMENT_CLASS_LABELS (`lib/knowledge/doc-class.ts`).
     docClasses: {
-      oib_guideline: 'OIB directive (binding)',
+      oib_guideline: 'OIB directive',
       oib_guide: 'OIB guideline',
       oib_explanatory_note: 'OIB explanatory notes',
       oib_definitions: 'OIB definitions',

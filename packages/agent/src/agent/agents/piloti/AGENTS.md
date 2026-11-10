@@ -24,11 +24,9 @@ narrow the binding: the tool stays bound and the call is refused at the
 it) is the same for every turn of an org — with ONE exception, scope: a turn
 without a project is not sent `ifc_query` / `ifc_measure` (`turn_tools.tools_in_scope`),
 which can only say "no project" there and are ~8k tokens of every call. Two
-shards per org, never one per toggle combination. An entitlement may widen a
-tool for its org (`turn_tools.tools_for_flags`): `time-editions` binds the RIS
-lookup's copy that offers `as_of` (`ris_adapter.lookup.tool.offer_as_of`,
-ADR-0171); without the flag the registered tool, which hides it, is bound
-as it is, so the payload stays what it was before the flag existed. Anything you add that reads a file, compiles a
+shards per org, never one per toggle combination. The RIS lookup offers `as_of`
+(ADR-0171) on every turn; the `time-editions` switch that bound a second copy of
+it went with ADR-0175. Anything you add that reads a file, compiles a
 graph or builds an index belongs in the boot half.
 `packages/agent/tests/agents/piloti/test_build_once.py` counts it.
 
@@ -47,8 +45,10 @@ this turn's workspace records and the turn context's profile and inventory
 the readings, and which quotations the quote check found. The evidence is
 delimited data; an instruction inside it is ignored. The reply is a level and
 the statements the answer relies on that are unbacked or contradicted
-(`confidence_check`). The one rule on top is the quote gate
-(`markers._quote_cap`); the self-report sets no level. No model, a timeout, an
+(`confidence_check`). Two structural gates sit on top, never a word list: the
+quote gate (`markers._quote_cap`) and the law gate (`law_unsettled`: an answer
+citing building law the records do not settle is at most medium, ADR-0139's
+amendment); the self-report sets no level. No model, a timeout, an
 error or an unreadable reply surfaces NO level, never a guessed one. Do not put
 rules back in front of the grader: five rounds of word lists, sentence classes
 and aggregation each moved the errors to the other side (ADR-0139). Deep

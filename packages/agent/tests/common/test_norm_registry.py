@@ -293,7 +293,8 @@ class TestRenderPromptBlock:
         assert "ASchG" in block
         assert "State law (Landesrecht) — Wien:" in block
         assert "State law (Landesrecht) — Tirol:" in block
-        assert "OIB corpus" in block  # static corpus pointer always present
+        # ADR-0175: no corpus edition is asserted here; the chain text names what binds.
+        assert "Ausgabe Mai 2023" not in block
 
     def test_focused_state_drops_other_states(self):
         block = nr.render_prompt_block(_render_registry(), federal_state="Wien")
@@ -302,14 +303,15 @@ class TestRenderPromptBlock:
         assert "State law (Landesrecht) — Wien:" in block
         assert "Tirol" not in block  # other state's law entirely absent
 
-    def test_binding_note_rendered(self):
+    def test_no_binding_note_is_rendered(self):
+        """ADR-0175: which edition binds is the records' chain text, not the catalogue's prose."""
         block = nr.render_prompt_block(_render_registry(), federal_state="Wien")
 
-        assert "Legal notes (curated):" in block
-        assert "Macht die OIB-Richtlinien in Wien verbindlich." in block
+        assert "Legal notes (curated):" not in block
+        assert "Macht die OIB-Richtlinien in Wien verbindlich." not in block
 
     def test_render_block_for_prompt_none_when_missing(self, tmp_path):
-        assert nr.render_block_for_prompt(None, norms_dir=str(tmp_path / "nope")) is None
+        assert nr.render_block_for_prompt(norms_dir=str(tmp_path / "nope")) is None
 
 
 # ---------------------------------------------------------------------------
@@ -688,21 +690,13 @@ class TestParcelNote:
             {"file_name": "fwp_wien.pdf", "tags": ["Flächenwidmungsplan"]},
             {"file_name": "gutachten.pdf", "tags": ["Gutachten"]},
         ]
-        note = nr.parcel_note(docs, "at")
+        note = nr.parcel_note(docs)
         assert note is not None
         assert "Bebauungsplan: bplan_7602.pdf" in note
         assert "Flächenwidmungsplan: fwp_wien.pdf" in note
         # The heading names what these documents govern; that is the whole claim.
-        assert "authoritative for zoning, building class, building height, building lines" in note
-        assert "gutachten.pdf" not in note
-
-    @pytest.mark.parametrize("country", ["de", "other", None])
-    def test_the_austrian_building_class_is_named_only_in_austria(self, country):
-        """The Bauklasse is an Austrian zoning class; a plan abroad, or of an unplaced project, settles the rest."""
-        note = nr.parcel_note([{"file_name": "bplan.pdf", "tags": ["Bebauungsplan"]}], country)
-        assert note is not None
-        assert "building class" not in note
         assert "authoritative for zoning, building height, building lines" in note
+        assert "gutachten.pdf" not in note
 
     def test_the_note_is_the_file_list_and_not_the_doctrine(self):
         """What to DO with a parcel document is standing doctrine and lives

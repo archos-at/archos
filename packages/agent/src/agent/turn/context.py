@@ -18,7 +18,7 @@ from dataclasses import replace
 from typing import Any
 
 from agent.auth import get_current_principal
-from agent.citations.roles import BuildingLaw
+from agent.common.knowledge_context import UNAVAILABLE
 from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
 from agent.common.platform_lessons import resolve_platform_lessons
@@ -79,18 +79,13 @@ class TurnContext:
     #: The data of each confirmed office copy's answer label (ADR-0163), for the
     #: answer's renderer to word. Empty with the flag off or from an older BFF.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
-    #: The building law of the project's site from the platform's records
-    #: (ADR-0168): the chain text and every edition's role. None with the flag off.
-    building_law: BuildingLaw | None = None
-    #: The turn's knowledge context (ADR-0173); None with the ``knowledge-context`` flag off.
-    knowledge_context: KnowledgeContext | None = None
+    #: The turn's knowledge context (ADR-0173); ``knowledge_unavailable`` unless the BFF sent one (ADR-0175).
+    knowledge_context: KnowledgeContext = UNAVAILABLE
     #: Whether this turn may hand work over (`create_task`). Its own flag, see
     #: :class:`agent.stages.flags.TurnFlags`.
     tasks_allowed: bool = True
     #: Whether licensed text may reach the model inside the call (``stages.flags.TurnFlags``).
     licensed_text_allowed: bool = False
-    #: Whether ``law-lookup`` is offered ``as_of`` this turn (``stages.flags.TurnFlags``, ADR-0171).
-    time_editions_allowed: bool = False
     #: The restricted-folder collections this turn may draw on (ADR-0087,
     #: ADR-0088): those of its VERIFIED scope that the asker and everyone the
     #: conversation is shared with may read now. Non-empty makes the turn
@@ -315,7 +310,6 @@ async def _turn_flags(request: RequestContext, resolve_stages: bool) -> TurnFlag
         deep_research_allowed=flags.deep_research_allowed,
         tasks_allowed=flags.tasks_allowed,
         licensed_text_allowed=flags.licensed_text_allowed,
-        time_editions_allowed=flags.time_editions_allowed,
     )
 
 
@@ -373,7 +367,6 @@ async def _load_turn_context(
         reference_projects=blocks.reference_projects,
         workspace=blocks.workspace,
         base_knowledge_labels=blocks.base_knowledge_labels,
-        building_law=blocks.building_law,
         knowledge_context=blocks.knowledge_context,
         phase_facts=blocks.timing,
         # The restriction is settled after the whole setup gather
@@ -381,7 +374,6 @@ async def _load_turn_context(
         deep_research_allowed=turn_flags.deep_research_allowed,
         tasks_allowed=turn_flags.tasks_allowed,
         licensed_text_allowed=turn_flags.licensed_text_allowed,
-        time_editions_allowed=turn_flags.time_editions_allowed,
         stage_facts=TurnFacts(
             conversation_id=conversation_id,
             ws_parent_id=get_user_message_id_from_context(),

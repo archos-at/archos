@@ -64,7 +64,11 @@ def test_the_agent_parses_every_use_and_keeps_the_gate(land: str) -> None:
     parsed = parse_knowledge_context(raw)
     assert parsed.gate == raw["gate"]["state"]
     assert len(parsed.uses) == len(raw["uses"])
-    assert [use["workId"] for use in parsed.uses] == [use["workId"] for use in raw["uses"]]
+    assert [(use.work_id, use.role, use.qualifier) for use in parsed.uses] == [
+        (use["workId"], use["role"], use["qualifier"]) for use in raw["uses"]
+    ]
+    assert [len(use.source_refs) for use in parsed.uses] == [len(use["sourceRefs"]) for use in raw["uses"]]
+    assert parsed.text == raw["text"]
 
 
 def test_the_schema_refuses_a_qualifier_or_a_scheme_the_bff_never_sends() -> None:

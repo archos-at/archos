@@ -438,7 +438,7 @@ def prefetch_calls(
     focus_shelf: str | None = None,
     previous_message: str | None = None,
     reference_projects: int = 0,
-    austrian_law: bool = True,
+    austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
     """The tool calls round 0 runs, as the agent's tools node reads them.
 
@@ -453,8 +453,8 @@ def prefetch_calls(
     families' overviews — ``knowledge_search`` recognises ``OIB-Richtlinie n``
     as a family query and returns every member's scope and Gliederung. Nothing
     for the model corpus (a measurement needs the model, not a search), nothing
-    when the decision said no evidence is needed, and no family read for a site
-    the Austrian corpus does not serve (``austrian_law``, ADR-0158).
+    when the decision said no evidence is needed, and no family read unless
+    the turn's knowledge context allows Austria's corpus (``austrian_law``, ADR-0175; False unless the caller says so).
 
     When the decision did NOT run, a question that names an OIB family
     („Was weißt du über die OIB 2?") still prefetches its own search: that
@@ -534,7 +534,7 @@ def _corpus_prefetch(
     focus_file_name: str | None,
     question: str,
     focus_shelf: str | None = None,
-    austrian_law: bool = True,
+    austrian_law: bool = False,
 ) -> list[dict[str, Any]]:
     """The chosen corpus's own search, and the chosen families' overviews for a law question.
 

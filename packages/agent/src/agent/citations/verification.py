@@ -16,7 +16,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 
-from agent.citations.binding import source_origin_token
 from agent.citations.citation_keys import parse_citation_key
 from agent.citations.citation_keys import path_in_citation
 from agent.citations.entries import DUPLICATE_REASON_PREFIX
@@ -36,13 +35,13 @@ from agent.citations.references import is_knowledge_citation
 from agent.citations.registry import SourceRegistry
 from agent.citations.report_layout import ORIGIN_TOKEN_RE
 from agent.citations.report_layout import drop_inline_citations_not_in
+from agent.citations.report_layout import drop_locus_mismatches
 from agent.citations.report_layout import format_registry_reference
 from agent.citations.report_layout import inject_origin_token
 from agent.citations.report_layout import inline_citation_numbers
-from agent.citations.report_layout import label_inline_citations_not_in
-from agent.citations.report_layout import label_locus_mismatches
 from agent.citations.report_layout import normalize_citation_syntax
 from agent.citations.report_layout import normalize_source_section_layout
+from agent.citations.source_identity import source_origin_token
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +109,7 @@ def _rewrite_numbers(body: str, rewrites: dict[int, int]) -> str:
     return body
 
 
-def _label_without_sources(report_text: str) -> CitationVerificationResult:
+def _drop_without_sources(report_text: str) -> CitationVerificationResult:
     """Nothing was retrieved: every inline number is unresolvable, and the model's source list names nothing real."""
     ref_match = REFERENCE_SECTION_RE.search(report_text)
     body = report_text[: ref_match.start()].rstrip() if ref_match else report_text
@@ -119,7 +118,7 @@ def _label_without_sources(report_text: str) -> CitationVerificationResult:
         return CitationVerificationResult(verified_report=report_text)
     removed = [{"number": number, "line": "", "reason": NO_SOURCE_REASON} for number in numbers]
     return CitationVerificationResult(
-        verified_report=label_inline_citations_not_in(body, set()), removed_citations=removed
+        verified_report=drop_inline_citations_not_in(body, set()), removed_citations=removed
     )
 
 
@@ -128,7 +127,7 @@ def verify_citations(
     registry: SourceRegistry,
     *,
     reference_sources: Sequence[SourceEntry | None] | None = None,
-    label_dropped: bool = False,
+    drop_unresolved: bool = False,
     check_locus: bool = False,
 ) -> CitationVerificationResult:
     """Verify cited source identities against the captured source registry.
@@ -153,14 +152,14 @@ def verify_citations(
         reference_sources: Optional writer-facing source list, in the same
             numbering order the writer saw, ``None`` where a number names
             nothing. Used only to synthesize a missing source section.
-        label_dropped: Put :data:`DROPPED_CITATION_MARKER` where an
-            unresolvable inline citation stood instead of deleting it silently
-            (chat, ADR-0125). Also applies to an empty registry: every number
-            the answer wrote is then unresolvable, and the model's own source
-            list goes with them.
+        drop_unresolved: Hold the answer to what was retrieved even with
+            nothing retrieved (chat): every number then goes, the model's own
+            source list and an emptied source section with them; without it an
+            empty registry leaves the text as it is (deep research). Removed,
+            never labelled (ADR-0125, amended 2026-11-10).
         check_locus: Hold a § or Punkt written beside a resolved ``[N]`` to
             the passage it resolves to (``common/citation_locus``); an
-            occurrence whose locus is not there is labelled like an
+            occurrence whose locus is not there is removed like an
             unresolvable one.
 
     Returns:
@@ -173,8 +172,8 @@ def verify_citations(
     all_sources = registry.all_sources()
     if not all_sources:
         logger.debug("[CitationVerify] Skipping — registry is empty (no tool calls captured)")
-        if label_dropped:
-            return _label_without_sources(report_text)
+        if drop_unresolved:
+            return _drop_without_sources(report_text)
         return CitationVerificationResult(verified_report=report_text)
 
     logger.info(
@@ -186,7 +185,7 @@ def verify_citations(
         [s.url for s in all_sources if s.url],
     )
 
-    located = _locate_source_section(report_text, reference_sources, label_dropped=label_dropped)
+    located = _locate_source_section(report_text, reference_sources)
     if isinstance(located, CitationVerificationResult):
         return located
     report_text, ref_start = located
@@ -211,9 +210,8 @@ def verify_citations(
         c["number"] for c in lines.removed if c.get("reason") != LOCUS_MISMATCH_REASON
     } | removed_numbers_for_locus
     cleaned_ref_section = lines.clean_section(ref_section, removed_numbers)
-    if label_dropped and not CITATION_LINE_RE.search(cleaned_ref_section):
-        # Every line went: a „## Quellen" with nothing under it reads as a
-        # rendering fault, and the labels in the prose already say why.
+    if drop_unresolved and not CITATION_LINE_RE.search(cleaned_ref_section):
+        # Every line went: a „## Quellen" with nothing under it reads as a rendering fault.
         cleaned_ref_section = ""
         body = body.rstrip()
 
@@ -223,7 +221,7 @@ def verify_citations(
     #  * Genuinely invalid citations get stripped — the source is fabricated
     #    or unverifiable.
     valid_numbers = {c["number"] for c in lines.valid}
-    cleaned_body = drop_inline_citations_not_in(body, valid_numbers, label=label_dropped)
+    cleaned_body = drop_inline_citations_not_in(body, valid_numbers)
 
     # Note: renumbering is deferred to sanitize_report() which always runs after
     # this function and handles renumbering in a single pass.
@@ -236,7 +234,7 @@ def verify_citations(
 
 
 def _locate_source_section(
-    report_text: str, reference_sources: Sequence[SourceEntry | None] | None, *, label_dropped: bool
+    report_text: str, reference_sources: Sequence[SourceEntry | None] | None
 ) -> tuple[str, int] | CitationVerificationResult:
     """Where the source section starts, synthesizing one from the writer's list when the answer has none.
 
@@ -267,9 +265,7 @@ def _locate_source_section(
     ]
     if not reference_lines:
         logger.warning("[CitationVerify] No source section found and no renderable writer-facing sources")
-        return CitationVerificationResult(
-            verified_report=drop_inline_citations_not_in(report_text, set(), label=label_dropped)
-        )
+        return CitationVerificationResult(verified_report=drop_inline_citations_not_in(report_text, set()))
 
     logger.warning(
         "[CitationVerify] No source section found; appending %d inline-cited registered source(s)",
@@ -334,7 +330,7 @@ class _SourceLines:
 
     def check_locus(self, body: str, registry: SourceRegistry) -> tuple[str, set[int]]:
         """Label the occurrences whose § or Punkt is not in the passage; returns the body and the numbers gone."""
-        body, locus_removed, locus_gone = label_locus_mismatches(body, self.valid, registry)
+        body, locus_removed, locus_gone = drop_locus_mismatches(body, self.valid, registry)
         self.removed.extend(
             {**record, "line": next((c["line"] for c in self.valid if c["number"] == record["number"]), "")}
             for record in locus_removed

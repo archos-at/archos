@@ -81,6 +81,7 @@ export const answerExport: typeof en.answerExport = {
   confidenceCapped: {
     ungrounded: 'Begrenzt: die Antwort ist nicht durch Quellen belegt.',
     quoteUnverified: 'Begrenzt: ein Zitat war nicht wortgleich gegen die Quelle prüfbar.',
+    lawUnsettled: 'Begrenzt: die verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest.',
   },
   page: 'S. {page}',
   untitledSource: 'Quelle ohne Titel',

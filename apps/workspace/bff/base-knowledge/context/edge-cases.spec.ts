@@ -119,6 +119,10 @@ describe('the chain text’s bound', () => {
     const capped = capText(long)
     expect(capped.length).toBeLessThanOrEqual(MAX_CONTEXT_TEXT_CHARS)
     expect(capped).toMatch(/x\n\[The rest of the building law at this site is cut; ask about one instrument by name\.\]$/)
+    // Every line before the note is a whole line of the original: the cut never splits one.
+    const kept = capped.split('\n').slice(0, -1)
+    expect(kept.length).toBeGreaterThan(0)
+    expect(kept).toEqual(long.split('\n').slice(0, kept.length))
     expect(capText('short')).toBe('short')
   })
 })

@@ -79,10 +79,6 @@ class TurnFlags:
     #: flag, ``common/licensed_text.py``). An entitlement like the one above: off unless the BFF says yes,
     #: and off means a licensed passage is listed without its text, never that it is sent unguarded.
     licensed_text_allowed: bool = False
-    #: Whether ``law-lookup`` may answer for a past day (``as_of``, the ``time-editions`` flag, ADR-0171).
-    #: An entitlement: off unless the BFF says yes, and off means an ``as_of`` call is refused, never
-    #: answered with today's text.
-    time_editions_allowed: bool = False
 
 
 #: The evaluation runs on the per-turn critical path, in the same gather as the
@@ -139,7 +135,6 @@ def fetch_turn_flags(*, organization_id: str | None, project_id: str | None = No
         tasks_allowed=features.get("tasks") is not False,
         folder_cards_allowed=features.get("folderCards") is True,
         licensed_text_allowed=features.get("licensedSeam") is True,
-        time_editions_allowed=features.get("timeEditions") is True,
     )
 
 

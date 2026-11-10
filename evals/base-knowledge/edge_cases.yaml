@@ -152,7 +152,7 @@ cases:
         work:bo-wien: { role: binding, editionId: edition:bo-wien-2023, freshness: newer_known }
       textContains:
         - 'Bauordnung für Wien, edition Fassung 2023: law of AT-9, in force by the records; a newer edition is known at its source: say so, and check which one binds'
-      textLacks: ['AT-9, in force;', 'AT-9, in force\n']
+      textLacks: ['AT-9, in force;', "AT-9, in force\n"]
 
   - id: E-undetermined
     title: Two editions of the Wiener Bauordnung recorded as in force on one day bind neither, and the context names the law as undetermined
