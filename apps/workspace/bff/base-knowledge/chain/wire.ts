@@ -50,7 +50,8 @@ export function buildingLawTurn(graph: KnowledgeGraph, leafId: string, date: str
   // A truncated resolution would leave some cited editions with no role, read as the old guess: none at all.
   if (resolved.truncated) return null
   const lawHere = resolved.uses.some((use) => use.role === 'binding' && use.route[0]?.via === 'territory' && use.route.length === 1)
-  if (!lawHere) return null
+  // A law whose edition is undetermined still reaches the turn: its "Not determined here" line says so, never silence.
+  if (!lawHere && resolved.undetermined.length === 0) return null
   return {
     text: renderChainText(graph, resolved, place),
     chain: [...resolved.chain],

@@ -64,7 +64,7 @@ Chosen option 2.
   `no_reference_date_rule` with the edition each known event gives.
 - **Edition on a day.** An edition is in force on `[in_force_from,
   in_force_to)`: `in_force_to` is the first day it no longer holds, the
-  successor's `in_force_from` (amended 2026-11-10, migration 0216; until then
+  successor's `in_force_from` (amended 2026-11-10, migration 0217; until then
   it was the last day, the reading RIS prints, while relations, territories
   and rulesets were already half-open, and the chain resolver dropped a law on
   its edition's last day). A source that prints the last day in force (RIS's

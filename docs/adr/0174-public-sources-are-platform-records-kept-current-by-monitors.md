@@ -215,7 +215,8 @@ it.
 - **A scan keeps no text** and says so in the capture's `note`. Ingestion
   transcribes such pages with the vision model; a capture does not yet. The
   follow-up is that same transcription behind the same guard, not OCR of our own.
-- **`pdf_document`** is a format (migration 0215 widens the CHECK): a passage
+- **`pdf_document`** is a format (migration 0215 widened the CHECK, which 0216
+  then dropped: a format is the `ENGINES` key alone, generated into the UI): a passage
   per page, anchor `page_<n>`, monitored by sha256 like every format. A fixture
   response may carry a binary body as base64 (`encoding: base64`), within the
   same length; a reviewer's view shows such a body as its type, size and

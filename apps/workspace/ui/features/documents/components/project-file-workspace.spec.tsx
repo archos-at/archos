@@ -122,6 +122,15 @@ vi.mock('@/components/shell/project-section-frame', () => ({
   // No tabs row in the spec: the root's tools stay on the path row, where the specs look for them.
   ProjectSectionTabActions: () => null,
   useSectionTabActionsSlot: () => false,
+  // No header in the spec either: a folder keeps its path row, where the specs look for the way back.
+  ProjectSectionPlace: () => null,
+  useSectionPlaceSlot: () => false,
+  // Outside the frame: no tool row, so no tier, the level's tools on the path row and Hochladen as it is.
+  useSectionToolTier: () => null,
+  SectionLevelTools: () => null,
+  useSectionNewFolder: () => null,
+  useSectionPrimaryYields: () => false,
+  useInSectionToolRow: () => false,
 }))
 
 // useFileDragDrop reads accepted MIME types from AppConfig for its drag affordance.
@@ -1349,7 +1358,7 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await user.type(await screen.findByRole('textbox', { name: /add tag/i }), 'Brandschutz{Enter}')
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
 
     // Switch to doc-b (the pane re-seeds from the newly selected file's tags)...
@@ -1368,9 +1377,9 @@ describe('ProjectFileWorkspace — saved tags survive reselect', () => {
     // The reading is static again; open the editor to see what was saved.
     await user.click(await screen.findByRole('button', { name: 'Correct' }))
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeDefined()
     )
-    expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeDefined()
   })
 })
 

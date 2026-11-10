@@ -61,8 +61,11 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     const id = await store.insertChangeRequest({ title, countryId, createdBy: AUTHOR })
     await store.platformTransaction(async (tx) => {
       const request = await store.lockChangeRequest(tx, id)
-      const records = wire.proposeRecordsBodySchema.parse({ records: raw }).records
-      await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
+      // In batches, as records-propose takes them: a pack may hold more records than one batch carries.
+      for (let start = 0; start < raw.length; start += wire.MAX_PROPOSED_RECORDS) {
+        const records = wire.proposeRecordsBodySchema.parse({ records: raw.slice(start, start + wire.MAX_PROPOSED_RECORDS) }).records
+        await store.insertProposedRecords(tx, request!, records, { createdBy: AUTHOR, proposedBy: 'person' })
+      }
       await store.setChangeRequestStatus(tx, id, 'submitted', 'submittedAt')
     })
     const view = await store.readChangeRequest(id)
@@ -191,6 +194,10 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
     expect((await visible()).sort()).toEqual([`edition:sia-500-2009-${RUN}`, `work:sia-500-${RUN}`])
     expect(await bindingOf(AUSTRIAN, 'AT-9', `work:sia-500-${RUN}`)).toEqual([[`edition:sia-500-2009-${RUN}`, 'binding']])
+    // What binds in the chain is what the time path answers for: one visibility predicate (store/visibility.ts).
+    const { readWorkInTime } = await import('../time/repository')
+    expect((await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`))?.work.editions.map((edition) => edition.id)).toEqual([`edition:sia-500-2009-${RUN}`])
+    expect(await readWorkInTime(GERMAN, `work:sia-500-${RUN}`)).toBeNull()
     // A German office reaches nothing through an Austrian relation it cannot read.
     const german = await withTenant({ organizationId: GERMAN }, () =>
       db.execute(sql`SELECT id FROM knowledge_records WHERE id = ${`work:sia-500-${RUN}`}`),
@@ -198,6 +205,7 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(german).toHaveLength(0)
     await release.rollbackChangeRequest(relation, 'spec: the reference goes', ACTOR)
     expect(await visible()).toEqual([])
+    expect(await readWorkInTime(AUSTRIAN, `work:sia-500-${RUN}`)).toBeNull()
   })
 
   it('reads an office relation for its own office only, as a route the office maintains', async () => {

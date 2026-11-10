@@ -15,13 +15,13 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { describe, expect, it } from 'vitest'
 import { graphFromProposals } from '../chain/from-proposals'
-import { proposeRecordsBodySchema } from '../platform/wire'
+import { proposedRecordSchema } from '../platform/wire'
 import { resolveKnowledgeContext } from './resolve'
 
 const read = (name: string) =>
-  proposeRecordsBodySchema.parse({
-    records: JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'configs', 'knowledge-packs', name), 'utf8')).records,
-  }).records
+  proposedRecordSchema
+    .array()
+    .parse(JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'configs', 'knowledge-packs', name), 'utf8')).records)
 
 const GRAPH = graphFromProposals([...read('eu.json'), ...read('at.json')])
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9']

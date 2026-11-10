@@ -283,7 +283,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
     })
   })
 
-  it('holds an edition’s end exclusive in the database: one ending on the day it begins is refused (0216)', async () => {
+  it('holds an edition’s end exclusive in the database: one ending on the day it begins is refused (0217)', async () => {
     const rows = await withPlatformAccess('test: the edition order check', () =>
       db.execute<{ definition: string }>(sql`
         SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint

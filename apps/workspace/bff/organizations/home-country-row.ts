@@ -39,13 +39,18 @@ const warned = new Set<string>()
 const unplacedUntil = new Map<string, number>()
 export const UNPLACED_RECHECK_MS = 5 * 60_000
 
+/** The home country a WorkOS organization's metadata names (`home_country`), or null. Pure: the one parse of it. */
+export function homeCountryFromMetadata(metadata: Record<string, unknown> | null | undefined): HomeCountry | null {
+  const raw = metadata?.home_country
+  const parsed = homeCountrySchema.safeParse(typeof raw === 'string' ? raw.trim().toUpperCase() : raw)
+  return parsed.success ? parsed.data : null
+}
+
 /** The home country the WorkOS organization's metadata names, or null. Never throws. */
 export async function homeCountryFromDirectory(organizationId: string): Promise<HomeCountry | null> {
   try {
     const organization = await getWorkOS().organizations.getOrganization(organizationId)
-    const raw = organization.metadata?.home_country
-    const parsed = homeCountrySchema.safeParse(typeof raw === 'string' ? raw.trim().toUpperCase() : raw)
-    return parsed.success ? parsed.data : null
+    return homeCountryFromMetadata(organization.metadata)
   } catch {
     return null
   }

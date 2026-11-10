@@ -248,25 +248,6 @@
         "elicitation"
       ]
     },
-    "knowledge_source_revisions.protocol": {
-      "type": "string",
-      "enum": [
-        "rest",
-        "http_eli",
-        "web_document",
-        "ogc"
-      ]
-    },
-    "knowledge_source_revisions.format": {
-      "type": "string",
-      "enum": [
-        "ris_xml",
-        "akn",
-        "html_statute",
-        "geojson",
-        "pdf_document"
-      ]
-    },
     "knowledge_source_revisions.data_flow": {
       "type": "string",
       "enum": [

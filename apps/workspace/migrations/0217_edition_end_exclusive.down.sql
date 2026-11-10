@@ -1,4 +1,4 @@
--- Reverse 0216. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0217. ORDER: roll the frontend back first; the newer build writes
 -- and reads `in_force_to` as the first day no longer in force.
 --
 -- Lossless: every end moves back one day, to the last day in force.

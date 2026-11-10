@@ -1,7 +1,6 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useState } from 'react'
 import { Camera, ChevronDown, CircleAlert, CircleDashed, Clock, CornerDownRight, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,13 +9,17 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SegmentMeter, TONE_INK, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { dossierCopy } from '@/i18n/namespaces/dossier'
+import type { DocumentFindingsResponse } from '@/lib/documents/findings-wire'
 import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
+import { AsksYouChip } from '@/components/ui/asks-you-chip'
 import type { BulkReingestProgress } from '../hooks/use-bulk-reingest'
-import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { FolderReadState } from './folder-read-state'
+import { DocumentFindingsSection, useOpenOnFindingsLink } from './document-findings-panel'
+import { BRIEF_CHEVRON, BriefDisclosure } from './brief-disclosure'
 import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
 import {
   readShare,
@@ -95,6 +98,10 @@ export interface FolderBriefProps {
   onLoadDetails?: () => void
   /** The shelf is being read for {@link onLoadDetails}. */
   detailsLoading?: boolean
+  /** What the project's documents say about each other (`useDocumentFindings`): at the project's root only. */
+  findings?: { projectId: string; response: DocumentFindingsResponse } | null
+  /** The folder holds folders, so the brief speaks for them too. */
+  hasSubfolders?: boolean
 }
 
 /**
@@ -118,7 +125,6 @@ export interface FolderBriefProps {
  * It never shows CONTENT of a document Piloti cannot cite: a quarantined file
  * is counted, never described (`buildFolderBrief`).
  */
-const BRIEF_CHEVRON = 'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none'
 
 export function FolderBrief({
   brief,
@@ -133,18 +139,24 @@ export function FolderBrief({
   missing,
   onLoadDetails,
   detailsLoading = false,
+  findings,
+  hasSubfolders = false,
 }: FolderBriefProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const td = useTranslations(dossierCopy)
   const { locale } = useLocale()
   const { tally } = brief
-  const phone = usePhoneLayout()
+  // What it found, beside what it read: at the root, where the findings are the project's.
+  const found = folderName === null && findings && findings.response.findings.length > 0 ? findings : null
+  const foundCount = found?.response.findings.length ?? 0
+  useOpenOnFindingsLink(foundCount > 0, collapsed, onCollapsedChange)
+  // On a phone too, at every level: shown at the root (for its finding) and gone in every folder, the read line was a
+  // rule nobody could see (review of 2026-11-10, finding 10).
   if (tally.total === 0) return null
-  // Nothing to act on, and a phone has no room for a line that only reassures: when every document is read the
-  // disclosure is gone. One unread, failed, held, unplaced or missing document brings it back, folded to one line.
-  if (phone && briefHasNothingToSay(tally, folderName === null ? missing : null)) return null
 
+  // The title above names the folder; the line says only how far it reaches („and its subfolders“ where there are some).
   const scope = folderName
-    ? t('brief.scopeFolder', { name: folderName })
+    ? t(hasSubfolders ? 'brief.scopeFolderTree' : 'brief.scopeFolder')
     : t(shelfKind === 'office' ? 'brief.scopeOffice' : 'brief.scopeProject')
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
@@ -159,7 +171,8 @@ export function FolderBrief({
     <Card
       className={cn(
         'gap-0 border-0 bg-sheet py-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
-        collapsed && 'bg-transparent shadow-none'
+        // Open, a sheet: 32px to the listing under it, as between sections; folded, its line keeps 16px (principle 5).
+        collapsed ? 'bg-transparent shadow-none' : 'mb-4'
       )}
       data-testid="folder-brief"
       data-state={open ? 'open' : 'closed'} data-surface={open ? 'sunken' : undefined}
@@ -167,30 +180,44 @@ export function FolderBrief({
       role="region"
     >
       <Collapsible open={open} onOpenChange={(next) => onCollapsedChange(!next)}>
-        <h2 className="m-0">
+        {/* Folded, what it read is the quiet line and what asks the reader a chip of its own after it (`AsksYouChip`): at
+            the end of the grey sentence, 13px of ink had no weight (finding 12). */}
+        <h2 className={cn('m-0', !open && foundCount > 0 && 'flex flex-wrap items-center gap-x-2')}>
           <CollapsibleTrigger asChild>
             <button data-attr="folder-brief-toggle"
               type="button"
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                'hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-control py-2 text-left text-xs',
+                (open || foundCount === 0) && 'w-full',
+                'transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
                 open ? 'text-foreground px-4' : 'text-muted-foreground px-0' /* folded, its glyph on the listing's edge */
               )}
               data-testid="folder-brief-toggle"
             >
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 truncate phone:whitespace-normal" /* the chevron follows the words; a phone wraps, never cuts */>
+              <span className="min-w-0" /* wraps, never cuts (a long project's line was cut at 768px); the chevron follows the last word */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
                 {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
                 {open && quietPages && <span className="text-muted-foreground tabular-nums">{CLAUSE_JOIN}{pagesLine}</span>}
-                {/* On a phone the line wraps, and the chevron follows its last word there too. */}
-                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
+                {/* What it found is ink on the quiet line: one more clause, not a second strip (dev, 2026-11-10). */}
+                {open && foundCount > 0 && (
+                  <span className="text-foreground tabular-nums" data-testid="folder-brief-findings-count">
+                    {CLAUSE_JOIN}
+                    {td('findings.count', { count: foundCount })}
+                  </span>
+                )}
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 inline align-[-2px]', open && 'rotate-180')} aria-hidden />
               </span>
-              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
             </button>
           </CollapsibleTrigger>
+          {!open && foundCount > 0 && (
+            <AsksYouChip onPress={() => onCollapsedChange(false)} testId="folder-brief-findings-count">
+              {td('findings.count', { count: foundCount })}
+            </AsksYouChip>
+          )}
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
@@ -204,13 +231,16 @@ export function FolderBrief({
 
           {/* Ordered by what the reader has to do: what needs them first, open; then what is missing, what the folder
               is about and where the trouble sits, each folded to one line (open in full it was taller than a laptop). */}
-          <div className="flex flex-col gap-1" data-testid="folder-brief-sections">
+          {/* A measure for its sentences, and each action right after its own: across the page „Anzeigen“ stood 1300px
+              from the sentence it acts on (finding 12). */}
+          <div className="flex max-w-[720px] flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
               onReadAgain={onReadAgain}
               readAgainProgress={readAgainProgress}
             />
+            {found && <DocumentFindingsSection projectId={found.projectId} response={found.response} />}
             {folderName === null && missing && missing.length > 0 && <MissingSection missing={missing} />}
             {brief.partial ? (
               <DeferredAboutSection tally={tally} onLoadDetails={onLoadDetails} loading={detailsLoading} />
@@ -230,18 +260,6 @@ type Translate = ReturnType<typeof useTranslations>
 /** Every document Piloti is meant to read has been read: nothing reading, failed or held. */
 export function everythingRead(tally: KnowledgeTally): boolean {
   return tally.reading + tally.failed + tally.held === 0 && tally.readable === tally.total - tally.unindexed
-}
-
-/**
- * True when the brief would only reassure: everything is read, nothing waits to
- * be placed in a document type, and the agent misses nothing here (`missing` is
- * the root's list, null in a folder or while unknown).
- */
-export function briefHasNothingToSay(
-  tally: KnowledgeTally,
-  missing: readonly MissingDocument[] | null | undefined
-): boolean {
-  return everythingRead(tally) && tally.unplaced === 0 && (missing?.length ?? 0) === 0
 }
 
 function briefHeadline(tally: KnowledgeTally, t: Translate): string {
@@ -418,49 +436,6 @@ function ChipFamily({ label, testId, children }: { label: string; testId?: strin
       <p className="text-muted-foreground text-[11px]">{label}</p>
       <div className="flex min-w-0 flex-wrap gap-1.5 pointer-coarse:gap-2">{children}</div>
     </div>
-  )
-}
-
-/**
- * A secondary section of the brief, folded to its title and one line of what
- * it holds. The heading wraps the trigger (the disclosure pattern): a heading
- * inside a button is not one a screen reader can jump to.
- */
-function BriefDisclosure({
-  id,
-  title,
-  summary,
-  children,
-}: {
-  id: string
-  title: string
-  summary: string
-  children: ReactNode
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} asChild>
-      <section aria-labelledby={id} data-testid={id} data-state={open ? 'open' : 'closed'}>
-        <h3 id={id} className="m-0">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
-              data-testid={`${id}-toggle`}
-            >
-              <span className="text-muted-foreground min-w-28 shrink-0 text-xs" /* one column: summaries on one edge; muted, its value ink */>{title}</span>
-              {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
-                {open ? '' : summary}
-                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
-              </span>
-              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
-            </button>
-          </CollapsibleTrigger>
-        </h3>
-        <CollapsibleContent className="flex flex-col gap-2.5 px-4 pb-3">{children}</CollapsibleContent>
-      </section>
-    </Collapsible>
   )
 }
 

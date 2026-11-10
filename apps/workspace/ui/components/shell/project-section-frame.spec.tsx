@@ -78,7 +78,8 @@ describe('ProjectSectionFrame', () => {
     )
     const tabs = screen.getByTestId('files-tabs')
     const names = Array.from(tabs.querySelectorAll('a')).map((link) => link.textContent)
-    expect(names).toEqual(['All files', 'Project mail', 'Open points', 'Bin'])
+    // „Folders“, true at every depth of the tree: „All files“ over a subfolder named the wrong place.
+    expect(names).toEqual(['Folders', 'Project mail', 'Open points', 'Bin'])
     expect(screen.getByRole('link', { name: 'Project mail' })).toHaveAttribute('aria-current', 'page')
     // The open place is the title, under a muted crumb of the project and the section: „Files“ over the inbox
     // was a headline that said nothing the rail did not, and no standing subtitle explains the place.
@@ -94,8 +95,28 @@ describe('ProjectSectionFrame', () => {
       </ProjectSectionFrame>,
     )
     expect(screen.queryByRole('link', { name: 'Project mail' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'All files' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { level: 1, name: 'All files' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Folders' })).toHaveAttribute('aria-current', 'page')
+    // The top level: the project alone as the crumb, „Files“ as the title. The tab goes to the top level from any
+    // folder, its href carrying no `?folder=`.
+    expect(screen.getByRole('heading', { level: 1, name: 'Files' })).toBeInTheDocument()
+    expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien$/)
+    expect(screen.getByRole('link', { name: 'Folders' })).toHaveAttribute('href', '/app/projects/p1/files')
+  })
+
+  test('Dateien’s tools are one row under the tabs, never on the title’s line', () => {
+    pathname = '/app/projects/p1/files'
+    render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien">
+        <ProjectSectionActions>
+          <button type="button">Upload</button>
+        </ProjectSectionActions>
+        <p>files body</p>
+      </ProjectSectionFrame>,
+    )
+    // Beside a long folder name the tools wrapped into three rows at 1440px (review of 2026-11-10, finding 1).
+    const row = screen.getByTestId('files-tool-row')
+    expect(row).toContainElement(screen.getByRole('button', { name: 'Upload' }))
+    expect(screen.getByRole('heading', { level: 1 }).closest('header')).not.toContainElement(screen.getByRole('button', { name: 'Upload' }))
   })
 
   // Below `md` there is no rail, and no project name above the page: it starts with its title, whose line holds the

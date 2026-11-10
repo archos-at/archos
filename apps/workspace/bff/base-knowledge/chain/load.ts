@@ -21,6 +21,7 @@ import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DatedParent, RelationAnchor } from '@/lib/db/schema/knowledge-platform'
 import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import { recordReadable } from '../store/visibility'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
 
 /** Most rows of one type a graph reads. */
@@ -89,12 +90,9 @@ interface EditionRow extends Record<string, unknown> {
 const dateText = (value: unknown): string | null => (value === null || value === undefined ? null : String(value).slice(0, 10))
 
 /** A platform row the office may read, or the office's own row: the owner condition every query below names. */
-const readable = (organizationId: string) => sql`(
-  (r.organization_id IS NULL AND r.head_revision_id IS NOT NULL
-    AND (knowledge_country_entitled(r.country_id) OR knowledge_reached_by_relation(r.id)))
-  OR r.organization_id = ${organizationId})`
+const readable = (organizationId: string) => recordReadable('r', organizationId)
 
-async function territoriesOn(leafId: string): Promise<TerritoryRow[]> {
+async function territoriesOn(organizationId: string, leafId: string): Promise<TerritoryRow[]> {
   const iso = /^([A-Z]{2})-/.exec(leafId)?.[1] ?? leafId
   return getDb().execute<TerritoryRow>(sql`
     WITH RECURSIVE chain(id, depth) AS (
@@ -113,7 +111,7 @@ async function territoriesOn(leafId: string): Promise<TerritoryRow[]> {
     SELECT r.id, t.kind, t.name, t.parent_ids, t.dated_parents, t.valid_from, t.valid_to, t.coverage_level, t.municipal_law
     FROM knowledge_records r JOIN knowledge_territory_revisions t ON t.revision_id = r.head_revision_id
     WHERE r.organization_id IS NULL AND r.type = 'territory' AND r.id IN (SELECT id FROM chain)
-      AND (knowledge_country_entitled(r.country_id) OR knowledge_reached_by_relation(r.id))
+      AND ${readable(organizationId)}
     LIMIT ${MAX_ROWS}`)
 }
 
@@ -234,7 +232,7 @@ function toEdition(row: EditionRow): GraphEdition {
 /** The graph an office reads for a site whose leaf is `leafId`. */
 export async function loadGraph(organizationId: string, leafId: string): Promise<LoadedGraph> {
   return withTenant({ organizationId }, async () => {
-    const [territoryRows, relationRows] = await Promise.all([territoriesOn(leafId), relationsFor(organizationId)])
+    const [territoryRows, relationRows] = await Promise.all([territoriesOn(organizationId, leafId), relationsFor(organizationId)])
     const chain = [...new Set([leafId, ...territoryRows.map((row) => row.id)])]
     const named = [...new Set(relationRows.flatMap((row) => [row.from_id, row.to_id]))]
     const workRows = await worksFor(organizationId, chain, named)

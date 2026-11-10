@@ -33,12 +33,15 @@ import { ProjectUppyUpload } from './project-uppy-upload'
  * only choose folders — so the split lives in a menu behind the single button.
  */
 describe('ProjectUppyUpload', () => {
-  it('labels the drop card with the per-file limit the server enforces, in decimal MB', () => {
-    // It used to divide by 1024², so a 100 MB limit read "max. 95 MB".
-    render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} variant="dropcard" />)
-    expect(screen.getByTestId('project-upload-dropcard')).toHaveTextContent(
-      /· max\. 100 MB per file$/
-    )
+  it('says at the foot of its menu where else files may go, the formats, and the per-file limit in decimal MB', async () => {
+    // It used to divide by 1024², so a 100 MB limit read "max. 95 MB". The grid's dashed drop tile said this as a
+    // fake file among the files; it went (dev, 2026-11-10), and the menu where the hand already is says it now.
+    const user = userEvent.setup()
+    render(<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} allowFolders />)
+    await user.click(screen.getByTestId('project-upload-trigger'))
+    const note = await screen.findByTestId('project-upload-limits')
+    expect(note).toHaveTextContent('Or drop files anywhere on this page.')
+    expect(note).toHaveTextContent(/PDF, DOCX, TXT, MD.* · max\. 100 MB per file$/)
   })
 
   it('is a plain button where folders are not offered', () => {
