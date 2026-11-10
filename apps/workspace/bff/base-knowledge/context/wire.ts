@@ -8,23 +8,13 @@
  */
 
 import { z } from 'zod'
-import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES } from '../wire/vocab'
+import { CONNECTING_FACTORS, COVERAGE_LEVELS, EDITION_ROLES, GATE_STATES } from '../wire/vocab'
 
 /** Most uses a turn carries (design §5.5: works ≤ 40). */
 export const MAX_CONTEXT_USES = 40
 
-/**
- * What the turn may claim about the law of its site, weakest first after the
- * three refusals:
- *
- * - `organization_unplaced`: the office has no home country; nothing territorial answers (E47).
- * - `site_unknown`: no site and no place the turn named; the answer asks for the place (E04).
- * - `not_entitled`: the site's country is not entitled; documents and office copies still answer (E01).
- * - `knowledge_unavailable`: the records could not be read; retrieval, law lookup and classification are withheld.
- * - a coverage level: how far the platform's records go at the weakest leaf (design §4.6).
- */
-export const GATE_STATES = ['organization_unplaced', 'site_unknown', 'not_entitled', 'knowledge_unavailable', ...COVERAGE_LEVELS] as const
-export type GateState = (typeof GATE_STATES)[number]
+/** What the turn may claim about the law of its site: in the vocabulary (`wire/vocab.ts`), so the intake's wire reads it too. */
+export { GATE_STATES, type GateState } from '../wire/vocab'
 
 /** Why a site is unknown: no site was stated, or a point lies in no territory the records hold. */
 export const SITE_UNKNOWN_REASONS = ['no_site', 'no_territory'] as const

@@ -1,16 +1,51 @@
 /**
  * What the office layer asks of the platform's own base knowledge (ADR-0163,
  * ADR-0165), behind one interface. The platform's records (migration 0205)
- * answer it, behind the `platform-base-knowledge` flag per organization: with
- * the flag off an office reads exactly what the stub answered, nothing.
+ * answer it, for the countries each office is entitled to (ADR-0175).
  *
  * The outcome it serves: a norm the platform lists without text reads, for an
  * office that holds no copy, as "gelistet, kein Text"; for an office that holds
  * one, as its own copy (the office's entry, not this). A platform directive
- * reaches a project's turn only where its authority is competent.
+ * reaches a project's turn only where its authority is competent, by the
+ * competence rulesets of the site's chain (ADR-0175), never by a guess.
  */
 
-import type { PlatformDirectiveVerdict } from './platform/applicability'
+import type { SiteAuthority } from '@/lib/site-resolution/wire'
+
+/** One addressee of a directive: the authority record it names, if any. */
+export interface PlatformAddressee {
+  name: string
+  territoryId: string
+  authorityId?: string
+}
+
+export type PlatformDirectiveVerdict =
+  | { verdict: 'applies'; authority: string; territoryId: string }
+  | { verdict: 'excluded' }
+  | { verdict: 'authority_unknown' }
+
+/**
+ * Whether a directive applies at a site, from the competence rulesets'
+ * answer there (`competentAuthorities`). It applies where a body the rulesets
+ * name is one of its addressees' authority records, and is excluded where the
+ * rulesets decided and named none of them. Where the site is unknown, the
+ * rulesets decided nothing, or no addressee names an authority record, the
+ * answer says the authority is unknown instead of guessing. Pure.
+ */
+export function directiveVerdict(
+  addressees: readonly PlatformAddressee[],
+  site: SiteAuthority | null,
+  territoryId: string | null,
+): PlatformDirectiveVerdict {
+  if (!territoryId || !site || site.status !== 'decided') return { verdict: 'authority_unknown' }
+  const named = addressees.filter((addressee) => addressee.authorityId)
+  if (named.length === 0) return { verdict: 'authority_unknown' }
+  for (const addressee of named) {
+    const body = site.bodies.find((candidate) => candidate.authorityId === addressee.authorityId)
+    if (body) return { verdict: 'applies', authority: body.name ?? addressee.name, territoryId }
+  }
+  return { verdict: 'excluded' }
+}
 
 /** An edition the platform lists: designation and label, and whether the platform holds its text. */
 export interface ListedEdition {

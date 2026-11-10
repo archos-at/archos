@@ -10,6 +10,7 @@
  */
 
 import { FEDERAL_STATE_TERRITORIES } from '@/lib/base-knowledge/office/reading'
+import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
 export interface AddressRegister {
   /** `<country>-<publisher>`, the `register` column of `address_register_releases`. */
@@ -73,15 +74,7 @@ export function federalStateToken(stateTerritory: string): string | null {
   return FEDERAL_STATE_TOKEN_BY_TERRITORY[stateTerritory] ?? null
 }
 
-/** The Länder as a person reads them, by ISO 3166-2 code. */
-export const STATE_NAMES: Readonly<Record<string, string>> = {
-  'AT-1': 'Burgenland',
-  'AT-2': 'Kärnten',
-  'AT-3': 'Niederösterreich',
-  'AT-4': 'Oberösterreich',
-  'AT-5': 'Salzburg',
-  'AT-6': 'Steiermark',
-  'AT-7': 'Tirol',
-  'AT-8': 'Vorarlberg',
-  'AT-9': 'Wien',
-}
+/** The Länder as a person reads them, by ISO 3166-2 code, from the country's `fact_definitions` record (`SITE_SUBDIVISIONS`). */
+export const STATE_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
+  SITE_SUBDIVISIONS.options.map((option) => [option.territoryId, option.label]),
+)

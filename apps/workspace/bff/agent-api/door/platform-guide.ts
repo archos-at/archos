@@ -18,12 +18,10 @@ export const ONBOARDING_GUIDE_URI = GUIDE_URI.replace(/guide$/, 'platform/onboar
 
 /**
  * Whether `ctx`'s caller is offered the onboarding guide: the platform door,
- * with platform knowledge on and its operations visible to them. Off, the
- * guide would describe operations that answer 403.
+ * with the operations it describes visible to them.
  */
 export function offersOnboardingGuide(ctx: McpCallContext): boolean {
   return (
-    ctx.onboardingGuide === true &&
     doorOfPrincipal(ctx.principal) === 'platform' &&
     findVisibleOperation(ctx.principal, 'platform-knowledge-records-propose') !== undefined
   )

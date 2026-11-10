@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { projectLawSchema } from '../wire/project-law'
 import { COVERAGE_LEVELS } from '../wire/vocab'
 import { knowledgeContextSchema } from './wire'
 
@@ -59,6 +60,8 @@ export const baseKnowledgeReportResultSchema = z.object({ changeRequestId: z.uui
 export const projectBaseViewSchema = z
   .object({
     context: knowledgeContextSchema,
+    /** The law at the site, with designations and editions: what a person reads of the context. */
+    law: projectLawSchema,
     /** The newest base a person confirmed for this project (the Steckbrief); null when none was. */
     confirmed: z
       .object({ id: z.uuid(), confirmedAt: z.string(), confirmedBy: z.string(), packSeqs: z.record(z.string(), z.number()) })
@@ -83,5 +86,6 @@ export type CoverageView = z.infer<typeof coverageViewSchema>
 export type BaseKnowledgeReportBody = z.infer<typeof baseKnowledgeReportBodySchema>
 export type BaseKnowledgeReportResult = z.infer<typeof baseKnowledgeReportResultSchema>
 export type ProjectBaseView = z.infer<typeof projectBaseViewSchema>
+export type { ProjectLaw, ProjectLawUse } from '../wire/project-law'
 export type ProjectBaseConfirmBody = z.infer<typeof projectBaseConfirmBodySchema>
 export type ProjectBaseConfirmResult = z.infer<typeof projectBaseConfirmResultSchema>

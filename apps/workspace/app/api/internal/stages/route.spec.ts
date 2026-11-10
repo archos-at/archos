@@ -68,11 +68,10 @@ describe('/api/internal/stages features.licensedSeam', () => {
 describe('/api/internal/stages features.timeEditions', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('is the time-editions flag of the organization asked about, off unless WorkOS says yes', async () => {
-    vi.mocked(isOrgFeatureEnabled).mockImplementation(async (flag, org) => flag === 'time-editions' && org === 'org_on')
+  it('is true for every office, and asks WorkOS nothing about it: the time-editions switch is gone (ADR-0175)', async () => {
+    vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
 
-    expect(await call('org_on')).toMatchObject({ features: { timeEditions: true, licensedSeam: false } })
-    expect(await call('org_off')).toMatchObject({ features: { timeEditions: false } })
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('time-editions', 'org_off')
+    expect(await call('org_any')).toMatchObject({ features: { timeEditions: true } })
+    expect(vi.mocked(isOrgFeatureEnabled).mock.calls.map(([flag]) => flag)).not.toContain('time-editions')
   })
 })

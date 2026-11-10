@@ -28,7 +28,7 @@ Every model call already passes one of two seams (ADR-0164): the httpx transport
   not a configuration someone believes.
 - **Fail closed on unknown.** A host the register does not place is in no zone; a policy that cannot
   be read allows the service alone; a cell nobody defined refuses to start.
-- **Flag off is unchanged.** Without a cell nothing is rewritten or refused.
+- **Flag off is unchanged.** Without a cell nothing is rewritten or refused. ([ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) keeps this switch, and says why.)
 - **Zero retention and the licensed-text rules keep holding.** Routing is added on top of the pin,
   never instead of it.
 - **One code path.** No second client per zone, no per-call-site switch.

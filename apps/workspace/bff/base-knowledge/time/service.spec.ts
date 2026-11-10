@@ -27,7 +27,7 @@ import { asOfQuerySchema } from '@/lib/base-knowledge/wire/time'
 import { readRulesetsInForce } from '../store/rulesets'
 import { AS_OF_RULESETS, NOW, WORKS } from './as-of-set.fixture'
 import { readTerritoryChain, readWorkInTime } from './repository'
-import { editionAsOfForSession, TimeEditionsDisabledError } from './service'
+import { editionAsOfForSession } from './service'
 
 const MEMBER: AuthorizedSession = {
   userId: 'user-1',
@@ -38,9 +38,8 @@ const MEMBER: AuthorizedSession = {
   organizationMembershipId: 'om-1',
   role: 'member',
   permissions: [],
-  featureFlags: ['time-editions'],
+  featureFlags: [],
 }
-const FLAG_OFF: AuthorizedSession = { ...MEMBER, featureFlags: [] }
 
 const ask = (session: AuthorizedSession, query: Record<string, string>) =>
   editionAsOfForSession(
@@ -60,15 +59,7 @@ beforeEach(() => {
 })
 
 describe('editionAsOfForSession', () => {
-  it('answers 403 with the flag off, and reads nothing', async () => {
-    vi.mocked(readWorkInTime).mockClear()
-    await expect(ask(FLAG_OFF, { asOf: '2020-01-01' })).rejects.toBeInstanceOf(
-      TimeEditionsDisabledError
-    )
-    expect(readWorkInTime).not.toHaveBeenCalled()
-  })
-
-  it('names the edition in force on a date (positive control)', async () => {
+  it('names the edition in force on a date for a session with no feature flags (the switch is gone, ADR-0175)', async () => {
     const response = await ask(MEMBER, { asOf: '2020-01-01' })
     expect(response).toMatchObject({
       territoryChain: ['AT-3', 'AT'],

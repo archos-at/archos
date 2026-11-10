@@ -62,7 +62,6 @@ import type { McpCallContext, McpMode } from './telemetry'
 
 import { IDEMPOTENCY_KEY_DESCRIPTION } from './door-idempotency'
 import { ONBOARDING_GUIDE_URI, offersOnboardingGuide, registerOnboardingGuide } from './door/platform-guide'
-import { platformKnowledgeEnabled } from '@/lib/base-knowledge/platform/service-gate'
 
 export const MODE_HEADER = 'x-piloti-mcp-mode'
 
@@ -305,8 +304,6 @@ export function buildMcpServer(
   era: McpEra = 'legacy',
   /** The request's client capabilities (2026-07-28 `_meta`); a 2025-era request carries none. */
   clientCapabilities?: unknown,
-  /** Platform knowledge is on for the platform (`withOnboardingGuide`): the onboarding guide may be offered. */
-  onboardingGuide = false,
 ): McpServer {
   const { name, title, instructions } = SERVER_IDENTITY[doorOfPrincipal(principal)]
   const confirmation = era === 'modern' ? confirmationFor(principal) : null
@@ -316,7 +313,6 @@ export function buildMcpServer(
     mode,
     ...(confirmation ? { confirmation } : {}),
     ...(appHost ? { appHost } : {}),
-    ...(onboardingGuide ? { onboardingGuide } : {}),
   }
   // The deployment's pinned origin; omitted where none is configured (never the inbound Host header).
   const websiteUrl = configuredAppOrigin()
@@ -345,8 +341,6 @@ export interface AgentDoorRequest {
   mode: McpMode
   /** The 2026-07-28 request's client capabilities, read off its `_meta` before the SDK serves it. */
   clientCapabilities?: unknown
-  /** The platform has platform knowledge on (`withOnboardingGuide`); set on the platform door only. */
-  onboardingGuide?: boolean
 }
 
 /**
@@ -388,22 +382,9 @@ function acceptingJson(request: Request): Request {
  * fallback's own transport always streams, whatever the handler's
  * `responseMode`) and a client that accepts JSON is served.
  */
-/**
- * The request's door context, with whether the platform has platform knowledge
- * on: read once per request, and only on the platform door, so the onboarding
- * guide is listed exactly when the operations it describes answer. Unknown
- * reads as off.
- */
-async function withOnboardingGuide(options: { authInfo?: AuthInfo }): Promise<{ authInfo?: AuthInfo }> {
-  const extra = options.authInfo?.extra as Partial<AgentDoorRequest> | undefined
-  if (!options.authInfo || !extra?.principal || doorOfPrincipal(extra.principal) !== 'platform') return options
-  const onboardingGuide = await platformKnowledgeEnabled().catch(() => false)
-  return { ...options, authInfo: { ...options.authInfo, extra: { ...options.authInfo.extra, onboardingGuide } } }
-}
-
 async function serveLegacyAsJson(request: Request, authInfo: AuthInfo | undefined, onerror: (error: Error) => void): Promise<Response> {
-  const { principal, mode, onboardingGuide } = authInfo?.extra as unknown as AgentDoorRequest
-  const server = buildMcpServer(principal, mode, 'legacy', undefined, onboardingGuide === true)
+  const { principal, mode } = authInfo?.extra as unknown as AgentDoorRequest
+  const server = buildMcpServer(principal, mode, 'legacy')
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
   transport.onerror = onerror
   await server.connect(transport)
@@ -435,16 +416,15 @@ export function createAgentDoorHandler(
 ) {
   const modern = createMcpHandler(
     (context) => {
-      const { principal, mode, clientCapabilities, onboardingGuide } = context.authInfo?.extra as unknown as AgentDoorRequest
-      return buildMcpServer(principal, mode, 'modern', clientCapabilities, onboardingGuide === true)
+      const { principal, mode, clientCapabilities } = context.authInfo?.extra as unknown as AgentDoorRequest
+      return buildMcpServer(principal, mode, 'modern', clientCapabilities)
     },
     { legacy: 'reject', responseMode: 'auto', onerror, bus },
   )
   return {
     /** The bus listen streams hear; publish through `realtime/door-events.ts`, which stamps the organization. */
     bus: modern.bus,
-    async fetch(request: Request, given: { authInfo?: AuthInfo } = {}): Promise<Response> {
-      const options = await withOnboardingGuide(given)
+    async fetch(request: Request, options: { authInfo?: AuthInfo } = {}): Promise<Response> {
       if (request.method.toUpperCase() !== 'POST') return modern.fetch(request, options)
       if (await isLegacyRequest(request)) return serveLegacyAsJson(request, options.authInfo, onerror)
       if (request.headers.get('mcp-method') === 'subscriptions/listen' && options.authInfo) {
