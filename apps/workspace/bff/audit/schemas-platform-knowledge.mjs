@@ -14,9 +14,10 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { role: 'string', decisionSource: 'string', awaiting: 'string' },
   },
+  // `withdrawn`: previews a disputed request withdrew when it was rejected (ADR-0176), else 0.
   'platform.knowledge.change_request_rejected': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string', awaiting: 'string' },
+    metadata: { role: 'string', decisionSource: 'string', awaiting: 'string', withdrawn: 'number' },
   },
   // An author's own approval through the override (ADR-0176): the reason they gave, the
   // revisions approved alone (ids, comma-separated, cut at 500 characters; `revisionCount`
@@ -25,15 +26,16 @@ export const PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'knowledge_change_request' }],
     metadata: { role: 'string', decisionSource: 'string', reason: 'string', revisions: 'string', revisionCount: 'number', awaiting: 'string' },
   },
-  // Another person's deferred review of a request approved alone: confirmed, or disputed
-  // (rollback stays the next person's decision). `status` is the request's when they gave it.
+  // Another person's deferred review of a request approved alone, one event per role approved
+  // alone: confirmed, or disputed (reject or rollback stays the next person's decision).
+  // `status` is the request's when they gave it; `state` its review after (due while another role is owed).
   'platform.knowledge.second_review_confirmed': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string', status: 'string' },
+    metadata: { role: 'string', decisionSource: 'string', status: 'string', state: 'string' },
   },
   'platform.knowledge.second_review_disputed': {
     targets: [{ type: 'knowledge_change_request' }],
-    metadata: { role: 'string', decisionSource: 'string', status: 'string' },
+    metadata: { role: 'string', decisionSource: 'string', status: 'string', state: 'string' },
   },
   'platform.knowledge.published': {
     targets: [{ type: 'knowledge_change_request' }],

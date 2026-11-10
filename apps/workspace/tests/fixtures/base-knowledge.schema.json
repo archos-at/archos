@@ -221,7 +221,31 @@
       "enum": [
         "due",
         "confirmed",
+        "disputed",
+        "void"
+      ]
+    },
+    "knowledge_second_reviews.role": {
+      "type": "string",
+      "enum": [
+        "domain_expert",
+        "counsel",
+        "second_reviewer",
+        "privacy_reviewer"
+      ]
+    },
+    "knowledge_second_reviews.decision": {
+      "type": "string",
+      "enum": [
+        "confirmed",
         "disputed"
+      ]
+    },
+    "knowledge_second_reviews.decision_source": {
+      "type": "string",
+      "enum": [
+        "app",
+        "elicitation"
       ]
     },
     "knowledge_source_revisions.protocol": {

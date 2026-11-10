@@ -237,9 +237,11 @@ export const platformKnowledgeOperations = [
       'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. ' +
       '`override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone ' +
       '(403 without), is never implied, and marks the request `approval: single` with a second review due; propose it ' +
-      'and ask, the person decides. On a request whose second review is due, another person’s approve (every claim ' +
-      'accepted) confirms it and a reject disputes it; a disputed request is not published further, and its rollback ' +
-      '(platform-knowledge-rollback) is a separate decision. Audited.',
+      'and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
+      'approved request whose second review is due, another person gives it in each role approved alone they hold ' +
+      '(`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed ' +
+      'request is not published further; rejecting it again withdraws its preview, and a published one is rolled back ' +
+      '(platform-knowledge-rollback), each a separate decision. Answers `secondReviewDue`, the roles still owed. Audited.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/decision',
     params: requestParams,

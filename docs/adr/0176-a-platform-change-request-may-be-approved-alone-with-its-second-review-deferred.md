@@ -88,9 +88,11 @@ nothing in the request (nothing to override).
   needs `counsel`, one holding a site-keyed source a `privacy_reviewer`
   (ADR-0174). Each is its own approval: an override in that role also needs
   that role's permission, so one person satisfies it only when they hold the
-  role. The override does not swallow them because those roles answer
-  different questions (legal advice, privacy) from the domain review that four
-  eyes protects, and the publish trigger keeps refusing without them.
+  role, and the publish trigger keeps refusing without them. `org-platform-owner`
+  holds every `approve_as_<role>`, so the owner can approve every role alone.
+  That is why the second review owes **every role approved alone** (below),
+  not only the domain review: counsel or privacy approved alone is reviewed
+  again by somebody holding that role.
 
 **The mark.** Migration 0214 adds `approval` (`four_eyes`, `single`) and
 `second_review` (`due`, `confirmed`, `disputed`, with who and when) to
@@ -110,18 +112,38 @@ It replaces the plain `_approved` event for that approval.
 `platform.knowledge.second_review_confirmed` and `_disputed` record the
 follow-up.
 
-**How a deferred review closes.** The request is in the overview's `queue` while
-its review is due, and `change-request-list?secondReview=due` finds it. It stays
-reviewable after approval. Another person records verdicts
-(`platform-knowledge-change-request-review`), then decides:
+**How a deferred review closes.** The second review is owed in every role
+approved alone: one row per role in `knowledge_second_reviews` (append-only,
+once per role). It is given once the request is approved (or published, or
+rolled back). The request is in the overview's `queue` while its review is due,
+and `change-request-list?secondReview=due` finds it. It stays reviewable after
+approval. Another person records verdicts
+(`platform-knowledge-change-request-review`), then decides in a role approved
+alone that they hold (`approve_as_<role>`, checked like an approval):
 - `approve` with every claim accepted (and every operator-supplied capture
-  source-checked) **confirms** it. The queue item closes.
-- `reject` **disputes** it. The request is marked. A further publish is
-  refused, and `platform-knowledge-rollback` is offered, never run
-  automatically: rolling back what offices already read is its own decision.
+  source-checked) **confirms** that role. The request's review is confirmed
+  once every owed role is, and the queue item closes.
+- `reject` **disputes** it. One dispute in any role disputes the request, and
+  a further publish is refused, by the service under the request's lock and by
+  the release trigger. What follows is a person's decision, never automatic:
+  an approved request is rejected, which first withdraws its preview (a
+  preview rollback, allowed only for a disputed request); a published one is
+  rolled back (`platform-knowledge-rollback`).
 
-A trigger moves `second_review` only `due → confirmed | disputed`, never by
-somebody who wrote a revision in the request, and never back.
+A request approved alone and then rejected while still submitted (counsel or
+privacy still owed) reached no office: its review becomes `void`, and nothing
+is owed.
+
+The triggers hold all of it. A second review row is accepted only while the
+review is due, only in a role approved alone, and never from somebody who
+wrote a revision in the request. `second_review` on the request moves only
+from `due`: to `confirmed` once no role is owed, to `disputed` with a dispute
+on record, or to `void` with the request rejected. Never back.
+
+**A reject names its role too.** A reject is checked against the
+`approve_as_<role>` permission of the role it names, as an approve is. Before,
+a reject needed only `platform:settings:manage`, and its audit recorded
+whatever role the client sent.
 
 ### Consequences
 
@@ -136,7 +158,9 @@ somebody who wrote a revision in the request, and never back.
   reader of a release must look at `approval` to know which kind it had.
 - Neutral: a request still `submitted` while it waits for counsel shows its
   second review as due but cannot take it yet. It becomes reviewable once it is
-  approved.
+  approved, and owes nothing if it is rejected instead.
+- Neutral: the platform view approves and reviews as domain expert, or as the
+  first due role the reviewer holds; another role is given through the door.
 
 ### Confirmation
 
@@ -146,8 +170,12 @@ plain approve is refused; the override is refused without the permission and
 without the person's yes (the elicited yes passes); a short reason is refused
 at the wire and by the CHECK; an override passes, is audited, marks the request
 and its releases, and puts the request in the queue; another person's review
-and approve closes it; a reject disputes it and blocks the next publish; an
-author cannot close the review, and a closed review cannot reopen.
+and approve closes it; a reject disputes it and blocks the next publish, which
+the release trigger refuses too; a request disputed in preview can be rejected,
+withdrawing its preview; every role approved alone owes its own review from a
+holder of that role; a request rejected before approval owes none; a dispute or
+reject without the named role's permission is refused; an author cannot close
+the review, and a closed review cannot reopen.
 `bff/base-knowledge/platform/service.spec.ts` holds the permission, the yes
 and the audit event at the service. `knowledge-consumers.spec.ts` names a test
 for every new column.

@@ -96,6 +96,7 @@ const APPROVED_ALONE = {
   file: ALONE_SPEC,
   name: 'approves alone with the permission and a reason: audited, marked on the request and its releases, a second review due',
 }
+const EVERY_ROLE = { file: ALONE_SPEC, name: 'owes a second review in every role approved alone, each from somebody holding that role' }
 const SECOND_REVIEW_KEPT = { file: ALONE_SPEC, name: 'keeps the author from giving the second review themselves' }
 const FOUR_EYES = { file: PLATFORM_SPEC, name: 'refuses an approval by the request’s own author (four eyes)' }
 const RACE = { file: PLATFORM_SPEC, name: 'publishes to stable only after preview, and refuses a record released by another request since' }
@@ -294,6 +295,13 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_change_requests.second_review', consumer: PLATFORM_SERVICE, test: APPROVED_ALONE },
   { element: 'knowledge_change_requests.second_review_by', consumer: PLATFORM_STORE, test: SECOND_REVIEW_KEPT },
   { element: 'knowledge_change_requests.second_review_at', consumer: PLATFORM_STORE, test: APPROVED_ALONE },
+  { element: 'knowledge_second_reviews.id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.change_request_id', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.role', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decision', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.reviewer', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decision_source', consumer: PLATFORM_STORE, test: EVERY_ROLE },
+  { element: 'knowledge_second_reviews.decided_at', consumer: PLATFORM_STORE, test: EVERY_ROLE },
   { element: 'knowledge_release_moves.seq', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
   { element: 'knowledge_release_moves.record_id', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },
   { element: 'knowledge_release_moves.channel', consumer: PLATFORM_RELEASE, test: ROUND_TRIP },

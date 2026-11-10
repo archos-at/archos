@@ -28,6 +28,7 @@ import type {
   RelationType,
   ReviewDecision,
   ReviewDecisionSource,
+  SecondReviewDecision,
   SecondReviewState,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
@@ -156,6 +157,17 @@ export const knowledgeApprovals = pgTable('knowledge_approvals', {
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
   /** Set only on an author's own approval through the override (migration 0214): why no second person approved. */
   overrideReason: text('override_reason'),
+})
+
+/** One role's second review of a request approved alone (migration 0214, ADR-0176): append-only, once per role. */
+export const knowledgeSecondReviews = pgTable('knowledge_second_reviews', {
+  id: uuid('id').primaryKey(),
+  changeRequestId: uuid('change_request_id').notNull(),
+  role: text('role').$type<ApprovalRole>().notNull(),
+  decision: text('decision').$type<SecondReviewDecision>().notNull(),
+  reviewer: text('reviewer').notNull(),
+  decisionSource: text('decision_source').$type<PersonDecisionSource>().notNull(),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const knowledgeReleaseMoves = pgTable('knowledge_release_moves', {

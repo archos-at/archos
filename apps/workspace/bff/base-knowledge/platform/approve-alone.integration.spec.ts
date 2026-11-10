@@ -13,7 +13,10 @@
  * override, marks the request and every release from it `single` and puts the
  * request in the queue with its second review due; another person's review
  * and approve closes it, and their reject disputes it, which stops a further
- * publish and leaves the rollback to a person.
+ * publish (also by trigger) and leaves the rollback, or a reject that withdraws
+ * the preview, to a person. Every role approved alone owes its own second
+ * review, from somebody holding that role; a request rejected before approval
+ * owes none.
  */
 
 import { sql } from 'drizzle-orm'
@@ -70,6 +73,8 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   const owner = person(AUTHOR, [...MANAGE, 'platform:knowledge:approve_alone'])
   const ownerWithout = person(AUTHOR, MANAGE)
   const expert = person(`user_alone_expert_${RUN}`, MANAGE)
+  const counsel = person(`user_alone_counsel_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:knowledge:approve_as_counsel'])
+  const managerOnly = person(`user_alone_manager_${RUN}`, ['platform:settings:view', 'platform:settings:manage'])
 
   /** A submitted request holding one work, written by the owner. */
   async function submitted(name: string): Promise<string> {
@@ -101,6 +106,25 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
   }
 
   const alone = { decision: 'approve' as const, role: 'domain_expert' as const, override: { reason: REASON } }
+
+  /** A request the owner approved alone in two roles, as a request needing counsel would be, and so approved. */
+  async function approvedAloneTwice(name: string): Promise<string> {
+    const id = await submitted(name)
+    await store.platformTransaction(async (tx) => {
+      for (const role of ['domain_expert', 'counsel'] as const) {
+        await store.insertApproval(tx, { changeRequestId: id, approver: AUTHOR, role, decisionSource: 'app', overrideReason: REASON })
+      }
+      await store.setChangeRequestStatus(tx, id, 'approved', 'decidedAt')
+    })
+    return id
+  }
+
+  const moves = (id: string) =>
+    withPlatformAccess('alone spec', () =>
+      db.execute<{ channel: string; action: string }>(
+        sql`SELECT channel, action FROM knowledge_release_moves WHERE change_request_id = ${id}::uuid ORDER BY seq`,
+      ),
+    )
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
@@ -160,6 +184,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       awaiting: [],
       approval: 'single',
       secondReview: 'due',
+      secondReviewDue: ['domain_expert'],
     })
     expect(audit.record).toHaveBeenCalledTimes(1)
     expect(audit.record).toHaveBeenCalledWith(
@@ -182,7 +207,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     expect(view.approvals[0]?.overrideReason).toBe(REASON)
 
     // Another person's review, then their approve: the second review closes and leaves the queue.
-    await expect(service.decidePlatformChangeRequest(owner, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/second review/)
+    await expect(service.decidePlatformChangeRequest(owner, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/four eyes/)
     await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).rejects.toThrow(/not accepted/)
     await acceptAll(id, expert)
     await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).resolves.toEqual({
@@ -190,6 +215,7 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
       awaiting: [],
       approval: 'single',
       secondReview: 'confirmed',
+      secondReviewDue: [],
     })
     expect(audit.record).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'platform.knowledge.second_review_confirmed', targetId: id }))
     expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ secondReview: { state: 'confirmed', by: expert.userId } })
@@ -223,16 +249,94 @@ describe.skipIf(!url)('approving a platform change request alone (ADR-0176)', ()
     ).rejects.toThrow()
   })
 
-  it('drops a request rejected while it waited for another role from the queue: nothing of it reached an office', async () => {
+  it('voids the review a request owed once it is rejected before approval: off the queue and the list, no badge left due', async () => {
     const id = await submitted('rejected-after-alone')
-    // A request still submitted after the override (awaiting counsel) is rejected by another person.
-    await withPlatformAccess('alone spec', () =>
-      db.execute(sql`INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source, override_reason)
-        VALUES (gen_random_uuid(), ${id}::uuid, ${AUTHOR}, 'domain_expert', 'app', ${REASON})`),
+    // The owner's override left it submitted, as one still waiting for counsel would be.
+    await store.platformTransaction((tx) =>
+      store.insertApproval(tx, { changeRequestId: id, approver: AUTHOR, role: 'domain_expert', decisionSource: 'app', overrideReason: REASON }),
     )
-    await service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })
-    expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ status: 'rejected', secondReview: { state: 'due' } })
+    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })).resolves.toMatchObject({
+      status: 'rejected',
+      secondReview: 'void',
+    })
+    expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ status: 'rejected', secondReview: { state: 'void', by: expert.userId } })
     expect(await queued(id)).toBe(false)
-    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).rejects.toMatchObject({ status: 409 })
+    const due = await service.listPlatformChangeRequests(expert, { secondReview: 'due' })
+    expect(due.changeRequests.some((request) => request.id === id)).toBe(false)
+    // A void review stays void: nothing moves it back to due.
+    await expect(
+      withPlatformAccess('alone spec', () =>
+        db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'due', second_review_by = NULL, second_review_at = NULL WHERE id = ${id}::uuid`),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it('lets a request disputed before its stable publish be rejected, which withdraws its preview', async () => {
+    const id = await submitted('disputed-in-preview')
+    await service.decidePlatformChangeRequest(owner, id, alone)
+    await service.publishPlatformChangeRequest(owner, id, { channel: 'preview' })
+    await service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })
+    await expect(service.publishPlatformChangeRequest(owner, id, { channel: 'stable' })).rejects.toThrow(/Reject it, which withdraws its preview/)
+    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })).resolves.toMatchObject({
+      status: 'rejected',
+      secondReview: 'disputed',
+    })
+    expect(audit.record).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'platform.knowledge.change_request_rejected', metadata: expect.objectContaining({ withdrawn: 1 }) }),
+    )
+    expect(await moves(id)).toEqual([
+      { channel: 'preview', action: 'publish' },
+      { channel: 'preview', action: 'rollback' },
+    ])
+    const overview = await service.platformKnowledgeOverview(expert)
+    expect(overview.queue.some((request) => request.id === id)).toBe(false)
+  })
+
+  it('refuses in the database a publish of a disputed request, whatever path reaches it', async () => {
+    const id = await submitted('disputed-trigger')
+    await service.decidePlatformChangeRequest(owner, id, alone)
+    await service.decidePlatformChangeRequest(expert, id, { decision: 'reject', role: 'domain_expert' })
+    const [revision] = (await service.getPlatformChangeRequest(expert, id)).revisions
+    await expect(
+      withPlatformAccess('alone spec', () =>
+        db.execute(sql`INSERT INTO knowledge_release_moves (record_id, channel, action, to_revision_id, change_request_id, released_by, decision_source)
+          VALUES (${revision!.recordId}, 'stable', 'publish', ${revision!.revisionId}::uuid, ${id}::uuid, ${AUTHOR}, 'app')`),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it('owes a second review in every role approved alone, each from somebody holding that role', async () => {
+    const id = await approvedAloneTwice('two-roles')
+    await acceptAll(id, expert)
+    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'domain_expert' })).resolves.toMatchObject({
+      secondReview: 'due',
+      secondReviewDue: ['counsel'],
+    })
+    expect(await queued(id)).toBe(true)
+    // The expert does not hold counsel, so cannot close that role; the database refuses a confirmation while it is owed.
+    await expect(service.decidePlatformChangeRequest(expert, id, { decision: 'approve', role: 'counsel' })).rejects.toMatchObject({ status: 403 })
+    await expect(
+      withPlatformAccess('alone spec', () =>
+        db.execute(sql`UPDATE knowledge_change_requests SET second_review = 'confirmed', second_review_by = ${expert.userId}, second_review_at = now() WHERE id = ${id}::uuid`),
+      ),
+    ).rejects.toThrow()
+    await expect(service.decidePlatformChangeRequest(counsel, id, { decision: 'approve', role: 'counsel' })).resolves.toMatchObject({
+      secondReview: 'confirmed',
+      secondReviewDue: [],
+    })
+    expect((await service.getPlatformChangeRequest(expert, id)).secondReviewRoles).toEqual([
+      { role: 'counsel', state: 'confirmed', by: counsel.userId, at: expect.any(String) },
+      { role: 'domain_expert', state: 'confirmed', by: expert.userId, at: expect.any(String) },
+    ])
+    expect(await queued(id)).toBe(false)
+  })
+
+  it('refuses a dispute, and a plain reject, from somebody without the role they name', async () => {
+    const id = await submitted('unroled-dispute')
+    await expect(service.decidePlatformChangeRequest(managerOnly, id, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
+    await service.decidePlatformChangeRequest(owner, id, alone)
+    await expect(service.decidePlatformChangeRequest(managerOnly, id, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
+    await expect(service.decidePlatformChangeRequest(counsel, id, { decision: 'reject', role: 'counsel' })).rejects.toThrow(/No second review is due in the counsel role/)
+    expect(await service.getPlatformChangeRequest(expert, id)).toMatchObject({ secondReview: { state: 'due' } })
   })
 })

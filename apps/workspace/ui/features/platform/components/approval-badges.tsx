@@ -12,7 +12,7 @@ import { useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { ChangeRequestSummary } from '@/lib/base-knowledge/platform/wire'
 
-const TONE = { due: 'warning', confirmed: 'success', disputed: 'destructive' } as const
+const TONE = { due: 'warning', confirmed: 'success', disputed: 'destructive', void: 'secondary' } as const
 
 export function ApprovalBadges({
   approval,

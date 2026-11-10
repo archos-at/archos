@@ -1,11 +1,34 @@
 -- Reverse 0214. ORDER: roll the frontend back first; the newer build writes
 -- override approvals and reads `approval` and `second_review`.
 --
--- Lossy: every override reason and the record of which requests were approved
--- alone and whether their second review closed. The override approvals stay as
+-- Lossy: every override reason, every second review given, and the record of
+-- which requests were approved alone and whether their second review closed.
+-- A preview a disputed request retracted stays retracted. The override approvals stay as
 -- plain approvals by an author, which 0205's trigger would never have let in.
+CREATE OR REPLACE FUNCTION knowledge_release_move_allowed() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE request_status text;
+BEGIN
+  SELECT status INTO request_status FROM knowledge_change_requests WHERE id = NEW.change_request_id;
+  IF NEW.action = 'publish' THEN
+    IF request_status IS DISTINCT FROM 'approved' THEN
+      RAISE EXCEPTION 'only an approved change request is published' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM knowledge_revisions
+                   WHERE revision_id = NEW.to_revision_id AND change_request_id = NEW.change_request_id) THEN
+      RAISE EXCEPTION 'a publish releases a revision of its own change request' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF request_status IS DISTINCT FROM 'published' THEN
+    RAISE EXCEPTION 'only a published change request is rolled back' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
 DROP TRIGGER IF EXISTS knowledge_change_requests_second_review ON "knowledge_change_requests";
 DROP FUNCTION IF EXISTS knowledge_second_review_moves();
+DROP TABLE IF EXISTS "knowledge_second_reviews";
+DROP FUNCTION IF EXISTS knowledge_second_review_closes();
+DROP FUNCTION IF EXISTS knowledge_second_review_given();
+DROP FUNCTION IF EXISTS knowledge_second_review_owed(uuid);
 DROP TRIGGER IF EXISTS knowledge_approvals_override_marks ON "knowledge_approvals";
 DROP FUNCTION IF EXISTS knowledge_approval_override_marks();
 CREATE OR REPLACE FUNCTION knowledge_approval_sources_checked() RETURNS trigger LANGUAGE plpgsql AS $$

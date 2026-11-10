@@ -29,6 +29,7 @@ import { useAuth } from '@/adapters/auth/use-auth'
 import { usePlatformCan } from '@/features/platform/platform-access'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { MIN_OVERRIDE_REASON } from '@/lib/base-knowledge/platform/wire'
+import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { ApprovalBadges } from './approval-badges'
 import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
@@ -49,6 +50,9 @@ import {
 const BASE = '/api/platform/knowledge/change-requests'
 
 type Step = 'approve' | 'reject' | 'preview' | 'stable' | 'rollback' | 'alone' | 'confirm' | 'dispute'
+
+/** Where a due second review is given, as the server has it (`decide.ts`). */
+const REVIEWED_AFTER_APPROVAL: readonly ChangeRequestStatus[] = ['approved', 'published', 'rolled_back']
 type Verdict = 'accepted' | 'rejected'
 
 const KIND_WORDS = new Set([
@@ -233,6 +237,13 @@ export function ChangeRequestReview({
   const [reason, setReason] = useState('')
   const { user } = useAuth()
   const canApproveAlone = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAlone)
+  // Each second review is given in a role approved alone that the reviewer holds (ADR-0176).
+  const holds: Record<ApprovalRole, boolean> = {
+    domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
+    counsel: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel),
+    second_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer),
+    privacy_reviewer: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer),
+  }
 
   const load = useCallback(async () => {
     const response = await fetch(`${BASE}/${id}`).catch(() => null)
@@ -275,11 +286,17 @@ export function ChangeRequestReview({
   const open = claims.length - checked - wrong
   const stage = stageOf(view, open, wrong)
   // A request approved alone stays under review until another person gives its second review (ADR-0176).
-  const secondReviewDue = view.secondReview?.state === 'due' && view.status !== 'submitted'
+  // Keyed off status as the server is: only an approved request (or later) takes its second review.
+  const secondReviewDue = view.secondReview?.state === 'due' && REVIEWED_AFTER_APPROVAL.includes(view.status)
   const disputed = view.secondReview?.state === 'disputed'
   const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
+  const dueRoles = (view.secondReviewRoles ?? []).filter((role) => role.state === 'due').map((role) => role.role)
+  const reviewRole = dueRoles.find((role) => holds[role]) ?? null
   const canDecide = canManage && (view.status === 'submitted' || (secondReviewDue && !authored))
-  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0
+  const canReview = canManage && secondReviewDue && !authored && reviewRole !== null
+  // The UI approves as domain expert; once that role is approved, alone or not, another override can only answer 409.
+  const approvedAsExpert = view.approvals.some((approval) => approval.role === 'domain_expert')
+  const offerAlone = canManage && canApproveAlone && authored && view.status === 'submitted' && wrong === 0 && !approvedAsExpert
   const decide = (revisionId: string) => (entries: { path: string; decision: Verdict }[], sourceChecked = false) =>
     void post(
       'review',
@@ -302,7 +319,9 @@ export function ChangeRequestReview({
           enabled: open === 0 && wrong === 0,
           why: wrong > 0 ? t('countryKnowledge.why.wrong', { count: wrong }) : open > 0 ? t('countryKnowledge.why.open', { count: open }) : undefined,
         }
-      : view.status === 'approved' && !disputed
+      : view.status === 'approved' && disputed
+        ? { step: 'reject', enabled: true }
+      : view.status === 'approved'
         ? { step: stage.index === 3 ? 'stable' : 'preview', enabled: true }
         : view.status === 'published'
           ? { step: 'rollback', enabled: true }
@@ -312,8 +331,8 @@ export function ChangeRequestReview({
     if (step === 'alone') {
       return post('decision', { decision: 'approve', role: 'domain_expert', override: { reason: reason.trim() } }, t('countryKnowledge.done.alone'))
     }
-    if (step === 'confirm') return post('decision', { decision: 'approve', role: 'domain_expert' }, t('countryKnowledge.done.confirm'))
-    if (step === 'dispute') return post('decision', { decision: 'reject', role: 'domain_expert' }, t('countryKnowledge.done.dispute'))
+    if (step === 'confirm') return post('decision', { decision: 'approve', role: reviewRole }, t('countryKnowledge.done.confirm'))
+    if (step === 'dispute') return post('decision', { decision: 'reject', role: reviewRole }, t('countryKnowledge.done.dispute'))
     if (step === 'approve') return post('decision', { decision: 'approve', role: 'domain_expert' }, t('countryKnowledge.done.approve'))
     if (step === 'reject') return post('decision', { decision: 'reject', role: 'domain_expert' }, t('countryKnowledge.done.reject'))
     if (step === 'rollback') return post('rollback', { reason: t('countryKnowledge.rollbackReason') }, t('countryKnowledge.done.rollback'))
@@ -351,6 +370,11 @@ export function ChangeRequestReview({
               ? t('countryKnowledge.secondReviewNext.disputed')
               : t(`countryKnowledge.next.${stage.say}`)}
         </p>
+        {secondReviewDue && dueRoles.length > 0 ? (
+          <p className="text-muted-foreground text-xs" data-testid="second-review-roles">
+            {t('countryKnowledge.secondReviewDueIn', { roles: dueRoles.map((role) => t(`countryKnowledge.roles.${role}`)).join(', ') })}
+          </p>
+        ) : null}
         {view.status === 'submitted' || secondReviewDue ? (
           <>
             <Progress value={claims.length ? (checked / claims.length) * 100 : 0} aria-label={t('countryKnowledge.progressLabel')} />
@@ -375,10 +399,10 @@ export function ChangeRequestReview({
         ))}
       </div>
 
-      {primary || (canManage && secondReviewDue && !authored) ? (
+      {primary || canReview ? (
         <div className="bg-card sticky -bottom-6 -mx-6 -mb-6 mt-6 flex flex-wrap items-center justify-end gap-3 border-t px-6 py-4">
           {primary?.why ? <p className="text-muted-foreground mr-auto text-sm">{primary.why}</p> : null}
-          {canManage && secondReviewDue && !authored ? (
+          {canReview ? (
             <>
               <Button variant="outline" disabled={busy} onClick={() => setConfirming('dispute')} data-testid="second-review-dispute">
                 {t('countryKnowledge.steps.dispute')}

@@ -39,13 +39,16 @@ const writes = vi.hoisted(() => ({
   home: vi.fn(async (..._args: unknown[]) => 'DE'),
   awaiting: vi.fn(async (): Promise<string[]> => []),
 }))
+const roles = vi.hoisted(() => ({ due: vi.fn(async (): Promise<{ role: string; state: string }[]> => []) }))
 
 const REVISION = 'e0000000-0000-4000-8000-000000000001'
 vi.mock('./store', () => ({
   platformTransaction: async <T,>(fn: (tx: unknown) => Promise<T>) => fn({}),
   lockChangeRequest: async (_tx: unknown, id: string) => ({ id, status: 'submitted', countryId: 'AT', approval: 'four_eyes', secondReview: null }),
   requestAuthors: async () => new Set(['user_author']),
-  closeSecondReview: writes.status,
+  secondReviewRoles: async () => roles.due(),
+  insertSecondReview: writes.status,
+  voidSecondReview: writes.status,
   findChangeRequest: async (id: string) => ({ id, status: 'approved' }),
   reviewedRevisions: async () => [
     { revisionId: REVISION, recordId: 'work:x', createdBy: 'user_author', claims: [{ path: 'title', decision: 'accepted' }] },
@@ -164,6 +167,7 @@ describe("an approval's role", () => {
       awaiting: [],
       approval: 'four_eyes',
       secondReview: null,
+      secondReviewDue: [],
     })
     expect(writes.approval).toHaveBeenCalledWith({}, expect.objectContaining({ approver: 'user_expert', role: 'counsel' }))
   })
@@ -177,6 +181,7 @@ describe("an approval's role", () => {
       awaiting: ['counsel'],
       approval: 'four_eyes',
       secondReview: null,
+      secondReviewDue: [],
     })
     expect(writes.status).not.toHaveBeenCalled()
   })
@@ -197,11 +202,13 @@ describe('an approval alone (ADR-0176)', () => {
   it('records the reason on the approval and audits one override event with the revisions approved alone', async () => {
     const { recordAuditEvent } = await import('@/lib/audit/service')
     vi.mocked(recordAuditEvent).mockClear()
+    roles.due.mockResolvedValueOnce([{ role: 'domain_expert', state: 'due' }])
     await expect(service.decidePlatformChangeRequest(OWNER, REQUEST, ALONE)).resolves.toEqual({
       status: 'approved',
       awaiting: [],
       approval: 'single',
       secondReview: 'due',
+      secondReviewDue: ['domain_expert'],
     })
     expect(writes.approval).toHaveBeenCalledWith({}, expect.objectContaining({ approver: 'user_author', overrideReason: ALONE.override.reason }))
     expect(recordAuditEvent).toHaveBeenCalledTimes(1)
@@ -211,6 +218,12 @@ describe('an approval alone (ADR-0176)', () => {
         metadata: expect.objectContaining({ reason: ALONE.override.reason, revisions: REVISION, revisionCount: 1 }),
       }),
     )
+  })
+
+  it('is refused for a reject in a role the decider does not hold, as an approve is', async () => {
+    held.permissions.delete(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert)
+    await expect(service.decidePlatformChangeRequest(EXPERT, REQUEST, { decision: 'reject', role: 'domain_expert' })).rejects.toMatchObject({ status: 403 })
+    expect(anyWrite()).toBe(false)
   })
 
   it('is refused on a reject: an override is for approving', async () => {

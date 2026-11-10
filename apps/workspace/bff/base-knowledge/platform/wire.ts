@@ -25,6 +25,8 @@ import {
   RELEASE_CHANNELS,
   REVIEW_DECISIONS,
   SECOND_REVIEW_STATES,
+  type ApprovalRole,
+  type SecondReviewDecision,
   type SecondReviewState,
   TERRITORY_KINDS,
 } from '@/lib/base-knowledge/wire/vocab'
@@ -462,6 +464,8 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   revisions: RevisionView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
+  /** Each role approved alone and its second review (ADR-0176); empty on a four-eyes request. */
+  secondReviewRoles: SecondReviewRoleView[]
   /** `overrideReason` is set on an author's own approval through the override (ADR-0176). */
   approvals: { approver: string; role: string; decisionSource: string; decidedAt: string; overrideReason: string | null }[]
   releases: {
@@ -473,6 +477,14 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
     releasedAt: string
     approval: ChangeRequestApproval
   }[]
+}
+
+/** One role approved alone, and where its second review stands. */
+export interface SecondReviewRoleView {
+  role: ApprovalRole
+  state: 'due' | SecondReviewDecision
+  by: string | null
+  at: string | null
 }
 
 export interface ChangeRequestSummary {

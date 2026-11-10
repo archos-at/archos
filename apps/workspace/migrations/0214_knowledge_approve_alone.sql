@@ -15,8 +15,15 @@
 -- - The source-check trigger (0209) waits for the second review on an override:
 --   `knowledge_sources_unchecked` is the one test, and the confirmation of the
 --   second review is held to it.
--- - `second_review` moves only `due` → `confirmed` or `disputed`, by somebody
---   who wrote nothing in the request, and never back.
+-- - The second review owes every role approved alone: one row per role in
+--   `knowledge_second_reviews`, given by somebody who wrote nothing in the
+--   request (the service checks they hold the role). A dispute in any role
+--   disputes the request; it is confirmed once every owed role is.
+-- - `second_review` on the request follows those rows: `due` → `confirmed` or
+--   `disputed`, or `void` when the request is rejected before it was approved
+--   (nothing of it reached an office), never back.
+-- - A disputed request publishes nothing more; its preview may be retracted
+--   (a preview rollback) so it can be rejected.
 ALTER TABLE "knowledge_approvals" ADD COLUMN IF NOT EXISTS "override_reason" text;
 --> statement-breakpoint
 ALTER TABLE "knowledge_approvals" ADD CONSTRAINT knowledge_approvals_override_reasoned
@@ -34,7 +41,7 @@ ALTER TABLE "knowledge_change_requests" ADD CONSTRAINT knowledge_change_requests
   CHECK ("approval" IN ('four_eyes', 'single'));
 --> statement-breakpoint
 ALTER TABLE "knowledge_change_requests" ADD CONSTRAINT knowledge_change_requests_second_review_known
-  CHECK ("second_review" IN ('due', 'confirmed', 'disputed'));
+  CHECK ("second_review" IN ('due', 'confirmed', 'disputed', 'void'));
 --> statement-breakpoint
 -- A single approval always owes a second review, and only a single approval does.
 ALTER TABLE "knowledge_change_requests" ADD CONSTRAINT knowledge_change_requests_single_owes_review
@@ -106,6 +113,33 @@ $$;
 CREATE TRIGGER knowledge_approvals_override_marks AFTER INSERT ON "knowledge_approvals"
   FOR EACH ROW WHEN (NEW.override_reason IS NOT NULL) EXECUTE FUNCTION knowledge_approval_override_marks();
 --> statement-breakpoint
+-- One second review per role approved alone: confirmed or disputed, append-only.
+CREATE TABLE IF NOT EXISTS "knowledge_second_reviews" (
+  "id" uuid PRIMARY KEY NOT NULL,
+  "change_request_id" uuid NOT NULL REFERENCES "knowledge_change_requests" ("id"),
+  "role" text NOT NULL,
+  "decision" text NOT NULL,
+  "reviewer" text NOT NULL,
+  "decision_source" text NOT NULL,
+  "decided_at" timestamp with time zone DEFAULT now() NOT NULL,
+  CONSTRAINT knowledge_second_reviews_role_known CHECK ("role" IN ('domain_expert', 'counsel', 'second_reviewer', 'privacy_reviewer')),
+  CONSTRAINT knowledge_second_reviews_decision_known CHECK ("decision" IN ('confirmed', 'disputed')),
+  CONSTRAINT knowledge_second_reviews_source_known CHECK ("decision_source" IN ('app', 'elicitation')),
+  CONSTRAINT knowledge_second_reviews_once UNIQUE ("change_request_id", "role")
+);
+--> statement-breakpoint
+CREATE TRIGGER knowledge_second_reviews_append_only BEFORE UPDATE OR DELETE ON "knowledge_second_reviews"
+  FOR EACH ROW EXECUTE FUNCTION knowledge_append_only();
+--> statement-breakpoint
+-- The roles a request still owes a second review in: each role approved alone with no confirmation yet.
+CREATE OR REPLACE FUNCTION knowledge_second_review_owed(request uuid) RETURNS text[]
+  LANGUAGE sql STABLE AS $$
+  SELECT coalesce(array_agg(DISTINCT a.role ORDER BY a.role), '{}') FROM knowledge_approvals a
+  WHERE a.change_request_id = request AND a.override_reason IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM knowledge_second_reviews s
+                    WHERE s.change_request_id = request AND s.role = a.role AND s.decision = 'confirmed')
+$$;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION knowledge_second_review_moves() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.approval IS DISTINCT FROM OLD.approval AND NOT (OLD.approval = 'four_eyes' AND NEW.approval = 'single') THEN
@@ -117,11 +151,24 @@ BEGIN
   IF OLD.second_review IS NULL AND NEW.second_review = 'due' THEN
     RETURN NEW;
   END IF;
-  IF OLD.second_review IS DISTINCT FROM 'due' OR NEW.second_review NOT IN ('confirmed', 'disputed') THEN
-    RAISE EXCEPTION 'a second review moves only from due to confirmed or disputed' USING ERRCODE = 'check_violation';
+  IF OLD.second_review IS DISTINCT FROM 'due' THEN
+    RAISE EXCEPTION 'a second review moves only from due' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.second_review = 'void' THEN
+    IF NEW.status IS DISTINCT FROM 'rejected' THEN
+      RAISE EXCEPTION 'a second review is void only on a rejected change request' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
   END IF;
   IF EXISTS (SELECT 1 FROM knowledge_revisions WHERE change_request_id = NEW.id AND created_by = NEW.second_review_by) THEN
     RAISE EXCEPTION 'a second reviewer may not have written a revision in the change request' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.second_review = 'disputed' AND NOT EXISTS (
+    SELECT 1 FROM knowledge_second_reviews WHERE change_request_id = NEW.id AND decision = 'disputed') THEN
+    RAISE EXCEPTION 'a second review is disputed only by a dispute in a role' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.second_review = 'confirmed' AND cardinality(knowledge_second_review_owed(NEW.id)) > 0 THEN
+    RAISE EXCEPTION 'a second review is confirmed only once every role approved alone is' USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.second_review = 'confirmed' AND knowledge_sources_unchecked(NEW.id) THEN
     RAISE EXCEPTION 'a revision cites an operator-supplied capture whose source no reviewer checked' USING ERRCODE = 'check_violation';
@@ -132,3 +179,68 @@ $$;
 --> statement-breakpoint
 CREATE TRIGGER knowledge_change_requests_second_review BEFORE UPDATE ON "knowledge_change_requests"
   FOR EACH ROW EXECUTE FUNCTION knowledge_second_review_moves();
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION knowledge_second_review_given() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM knowledge_change_requests WHERE id = NEW.change_request_id
+                 AND second_review = 'due' AND status IN ('approved', 'published', 'rolled_back')) THEN
+    RAISE EXCEPTION 'a second review is given only while it is due on an approved change request' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM knowledge_approvals WHERE change_request_id = NEW.change_request_id
+                 AND role = NEW.role AND override_reason IS NOT NULL) THEN
+    RAISE EXCEPTION 'a second review is owed only in a role approved alone' USING ERRCODE = 'check_violation';
+  END IF;
+  IF EXISTS (SELECT 1 FROM knowledge_revisions WHERE change_request_id = NEW.change_request_id AND created_by = NEW.reviewer) THEN
+    RAISE EXCEPTION 'a second reviewer may not have written a revision in the change request' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+CREATE TRIGGER knowledge_second_reviews_given BEFORE INSERT ON "knowledge_second_reviews"
+  FOR EACH ROW EXECUTE FUNCTION knowledge_second_review_given();
+--> statement-breakpoint
+-- A dispute in any role disputes the request; the last owed confirmation confirms it.
+CREATE OR REPLACE FUNCTION knowledge_second_review_closes() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.decision = 'disputed' THEN
+    UPDATE knowledge_change_requests SET second_review = 'disputed', second_review_by = NEW.reviewer, second_review_at = NEW.decided_at
+    WHERE id = NEW.change_request_id;
+  ELSIF cardinality(knowledge_second_review_owed(NEW.change_request_id)) = 0 THEN
+    UPDATE knowledge_change_requests SET second_review = 'confirmed', second_review_by = NEW.reviewer, second_review_at = NEW.decided_at
+    WHERE id = NEW.change_request_id;
+  END IF;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+CREATE TRIGGER knowledge_second_reviews_close AFTER INSERT ON "knowledge_second_reviews"
+  FOR EACH ROW EXECUTE FUNCTION knowledge_second_review_closes();
+--> statement-breakpoint
+-- A disputed request publishes nothing more; its preview may be retracted so it can be rejected.
+CREATE OR REPLACE FUNCTION knowledge_release_move_allowed() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE request_status text; request_review text;
+BEGIN
+  SELECT status, second_review INTO request_status, request_review FROM knowledge_change_requests WHERE id = NEW.change_request_id;
+  IF NEW.action = 'publish' THEN
+    IF request_status IS DISTINCT FROM 'approved' THEN
+      RAISE EXCEPTION 'only an approved change request is published' USING ERRCODE = 'check_violation';
+    END IF;
+    IF request_review = 'disputed' THEN
+      RAISE EXCEPTION 'a change request whose second review disputed it is not published' USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM knowledge_revisions
+                   WHERE revision_id = NEW.to_revision_id AND change_request_id = NEW.change_request_id) THEN
+      RAISE EXCEPTION 'a publish releases a revision of its own change request' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF request_status = 'approved' AND request_review = 'disputed' AND NEW.channel = 'preview' THEN
+    RETURN NEW;
+  ELSIF request_status IS DISTINCT FROM 'published' THEN
+    RAISE EXCEPTION 'only a published change request is rolled back' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+-- The second reviews are platform-private, as every change-request table.
+SELECT secure_table('knowledge_second_reviews', 'false');

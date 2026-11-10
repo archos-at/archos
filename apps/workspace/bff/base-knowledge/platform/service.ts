@@ -30,26 +30,21 @@ import { callDecisionSource, requirePersonDecision } from '@/lib/agent-api/perso
 import { homeCountrySchema } from '@/lib/organizations/home-country'
 import type {
   ApprovalRole,
-  ChangeRequestApproval,
   ChangeRequestOrigin,
   ChangeRequestStatus,
-  PersonDecisionSource,
   SecondReviewState,
 } from '@/lib/base-knowledge/wire/vocab'
 import { moveHomeCountry, readOrganizationCountries, setEntitlement } from './entitlements'
 import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
+import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
 import { requestSourceChecks, runKit, validateRequest } from './onboarding'
 import { sourceChecksOf } from './source-checks'
 import { requirePlatform } from './service-gate'
 import { proposalKey as keyOf, recordIdOf } from './records'
-import { publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
-import type { Tx } from '../store/repository'
+import { DISPUTED_NOT_PUBLISHED, publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
 import {
-  awaitedApprovalRoles,
-  closeSecondReview,
   findChangeRequest,
-  insertApproval,
   insertChangeRequest,
   insertProposedRecords,
   insertReviewDecisions,
@@ -57,9 +52,7 @@ import {
   lockChangeRequest,
   platformTransaction,
   readChangeRequest,
-  requestAuthors,
   reviewedRevisions,
-  type ChangeRequestRow,
   setChangeRequestStatus,
 } from './store'
 import {
@@ -83,38 +76,6 @@ const APPROVAL_ROLE_PERMISSIONS: Readonly<Record<ApprovalRole, PlatformPermissio
   counsel: PLATFORM_PERMISSIONS.knowledgeApproveAsCounsel,
   second_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsSecondReviewer,
   privacy_reviewer: PLATFORM_PERMISSIONS.knowledgeApproveAsPrivacyReviewer,
-}
-
-/**
- * Where a due second review is given: once the request was approved. A submitted one still waits for a role
- * (counsel, a privacy reviewer) and is decided as before; a rejected one reached no office, so it owes nothing.
- */
-const SECOND_REVIEW_STATUSES: readonly ChangeRequestStatus[] = ['approved', 'published', 'rolled_back']
-
-type KnowledgeAuditAction =
-  | 'platform.knowledge.change_request_approved'
-  | 'platform.knowledge.change_request_rejected'
-  | 'platform.knowledge.change_request_approved_alone'
-  | 'platform.knowledge.second_review_confirmed'
-  | 'platform.knowledge.second_review_disputed'
-  | 'platform.knowledge.published'
-  | 'platform.knowledge.rolled_back'
-
-/** A decision on a change request, in the platform organization's trail. */
-async function audit(
-  session: UserSession,
-  { action, targetId, metadata }: { action: KnowledgeAuditAction; targetId: string; metadata: Record<string, string | number | boolean> },
-) {
-  const organizationId = await getPlatformOrganizationId()
-  if (!organizationId) return
-  await recordAuditEvent({
-    organizationId,
-    actor: { userId: session.userId, email: session.email },
-    action,
-    targetType: 'knowledge_change_request',
-    targetId,
-    metadata,
-  })
 }
 
 async function requireRequest(id: string) {
@@ -244,24 +205,17 @@ export async function reviewPlatformChangeRequest(
   return { recorded: decisions.length }
 }
 
-/** What a decision answers: where the request stands, and how it was approved. */
-export interface DecisionOutcome {
-  status: ChangeRequestStatus
-  awaiting: ApprovalRole[]
-  approval: ChangeRequestApproval
-  secondReview: SecondReviewState | null
-}
-
 /**
  * Approve or reject a submitted request: the person's yes. Approval needs every
  * claim accepted; an edited or rejected claim goes into a follow-up request.
+ * The role is the decider's, not the client's word: WorkOS says who holds it,
+ * for a reject as for an approve.
  *
  * With `override` (ADR-0176) an author approves their own request alone: it
  * needs `platform:knowledge:approve_alone`, a reason, and the person's own yes,
- * and it is never implied. A claim nobody reviewed waits for the second review
- * then; one somebody marked edited or rejected still blocks. The request is
- * marked single and a second review is due. On such a request, once approved,
- * another person's approve confirms that review and a reject disputes it.
+ * and it is never implied. On such a request, once approved, another person
+ * holding the role gives its second review in each role approved alone:
+ * approve confirms it, reject disputes it (`./decide.ts`).
  */
 export async function decidePlatformChangeRequest(
   session: UserSession | null,
@@ -271,129 +225,18 @@ export async function decidePlatformChangeRequest(
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.settingsManage)
   const role = body.role ?? 'domain_expert'
   if (body.override && body.decision !== 'approve') throw new UnprocessableError('An override is for approving; a reject needs none.')
-  // The role is the approver's, not the client's word: WorkOS says who holds it.
-  if (body.decision === 'approve') await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[role])
+  await requirePlatformPermission(person, APPROVAL_ROLE_PERMISSIONS[role])
   if (body.override) await requirePlatformPermission(person, PLATFORM_PERMISSIONS.knowledgeApproveAlone)
   const verb = body.override ? 'Approving a change request alone, without a second person' : `${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`
   const decisionSource = requirePersonDecision(verb)
-  const outcome = await platformTransaction(async (tx) => {
-    const request = await lockChangeRequest(tx, requestId)
-    if (!request) throw new NotFoundError('No change request with this id; list them first.')
-    if (request.secondReview === 'due' && SECOND_REVIEW_STATUSES.includes(request.status)) {
-      if (body.override) throw new ConflictError('The second review of this change request is due; another person gives it, without an override.')
-      return { ...(await giveSecondReview(tx, request, body.decision, person.userId)), alone: [] as string[] }
-    }
-    return decideSubmitted(tx, request, { decision: body.decision, role, override: body.override, approver: person.userId, decisionSource })
-  })
+  const outcome = await platformTransaction((tx) => decideInTransaction(tx, requestId, { ...body, role }, { by: person.userId, decisionSource }))
   await audit(person, auditOfDecision(requestId, body, role, decisionSource, outcome))
-  return { status: outcome.status, awaiting: outcome.awaiting, approval: outcome.approval, secondReview: outcome.secondReview }
-}
-
-type Decided = DecisionOutcome & { alone: string[]; secondReviewGiven?: boolean }
-
-async function decideSubmitted(
-  tx: Tx,
-  request: ChangeRequestRow,
-  input: { decision: 'approve' | 'reject'; role: ApprovalRole; override?: { reason: string }; approver: string; decisionSource: PersonDecisionSource },
-): Promise<Decided> {
-  const marks = { approval: request.approval, secondReview: request.secondReview }
-  // A draft may be rejected too: a monitor's request a reviewer finds nothing to do for is closed that way (ADR-0174).
-  const decidable = input.decision === 'reject' ? ['draft', 'submitted'] : ['submitted']
-  if (!decidable.includes(request.status)) {
-    throw new ConflictError(`The change request is ${request.status}; only a ${decidable.join(' or ')} one is ${input.decision === 'reject' ? 'rejected' : 'approved'}.`)
-  }
-  if (input.decision === 'reject') {
-    await setChangeRequestStatus(tx, request.id, 'rejected', 'decidedAt')
-    return { status: 'rejected', awaiting: [], ...marks, alone: [] }
-  }
-  const revisions = await reviewedRevisions(tx, request.id)
-  // Four eyes first: an author's plain approve names the rule, not the claims they may not review (the trigger holds it too).
-  const authored = (await requestAuthors(tx, request.id)).has(input.approver)
-  if (authored && !input.override) {
-    throw new ConflictError('You wrote a revision in this change request, so another person approves it (four eyes).')
-  }
-  if (!authored && input.override) {
-    throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
-  }
-  // Alone, an unreviewed claim waits for the second review; a claim somebody marked edited or rejected blocks either way.
-  const blocks = (decision: string | null) => (input.override ? decision !== null && decision !== 'accepted' : decision !== 'accepted')
-  const open = revisions.flatMap((revision) => revision.claims.filter((claim) => blocks(claim.decision)).map((claim) => `${revision.recordId}.${claim.path}`))
-  if (open.length > 0) {
-    throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them first.`)
-  }
-  await insertApproval(tx, {
-    changeRequestId: request.id,
-    approver: input.approver,
-    role: input.role,
-    decisionSource: input.decisionSource,
-    ...(input.override ? { overrideReason: input.override.reason } : {}),
-  })
-  // The override's trigger marked the request single with a second review due (migration 0214).
-  const after = input.override ? { approval: 'single' as const, secondReview: request.secondReview ?? ('due' as const) } : marks
-  const alone = input.override ? revisions.map((revision) => revision.revisionId) : []
-  // Counsel for an advice policy, a privacy reviewer for a site-keyed source (ADR-0174): until each has said
-  // yes the request stays submitted, and the publish trigger refuses it whatever path reaches it.
-  const awaiting = await awaitedApprovalRoles(tx, request.id)
-  if (awaiting.length > 0) return { status: 'submitted', awaiting, ...after, alone }
-  await setChangeRequestStatus(tx, request.id, 'approved', 'decidedAt')
-  return { status: 'approved', awaiting, ...after, alone }
-}
-
-/**
- * Another person's second review of a request approved alone (ADR-0176): approve
- * confirms it once they accepted every claim, reject disputes it. A dispute
- * changes nothing offices read: the request is marked, and its rollback is the
- * person's own next decision, never automatic.
- */
-async function giveSecondReview(tx: Tx, request: ChangeRequestRow, decision: 'approve' | 'reject', by: string): Promise<DecisionOutcome & { secondReviewGiven: true }> {
-  if ((await requestAuthors(tx, request.id)).has(by)) {
-    throw new ConflictError('You wrote a revision in this change request, so another person gives its second review (four eyes).')
-  }
-  if (decision === 'approve') {
-    const open = (await reviewedRevisions(tx, request.id)).flatMap((revision) =>
-      revision.claims.filter((claim) => claim.decision !== 'accepted').map((claim) => `${revision.recordId}.${claim.path}`),
-    )
-    if (open.length > 0) {
-      throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them before confirming.`)
-    }
-  }
-  const state = decision === 'approve' ? 'confirmed' : 'disputed'
-  await closeSecondReview(tx, request.id, state, by)
-  return { status: request.status, awaiting: [], approval: request.approval, secondReview: state, secondReviewGiven: true }
-}
-
-function auditOfDecision(
-  requestId: string,
-  body: ApprovalBody,
-  role: ApprovalRole,
-  decisionSource: PersonDecisionSource,
-  outcome: Decided,
-): { action: KnowledgeAuditAction; targetId: string; metadata: Record<string, string | number | boolean> } {
-  if (outcome.secondReviewGiven) {
-    const action = outcome.secondReview === 'confirmed' ? 'platform.knowledge.second_review_confirmed' : 'platform.knowledge.second_review_disputed'
-    return { action, targetId: requestId, metadata: { role, decisionSource, status: outcome.status } }
-  }
-  if (body.override) {
-    // One event per override: who and when are the event's own, the reason and what was approved alone its metadata.
-    return {
-      action: 'platform.knowledge.change_request_approved_alone',
-      targetId: requestId,
-      metadata: {
-        role,
-        decisionSource,
-        reason: body.override.reason,
-        // Cut at 500 characters like every list in the trail; the count says when, and the approval row keeps the request.
-        revisions: outcome.alone.join(',').slice(0, 500),
-        revisionCount: outcome.alone.length,
-        awaiting: outcome.awaiting.join(','),
-      },
-    }
-  }
-  // Every yes is audited, also one that leaves the request waiting for another role.
   return {
-    action: body.decision === 'approve' ? 'platform.knowledge.change_request_approved' : 'platform.knowledge.change_request_rejected',
-    targetId: requestId,
-    metadata: { role, decisionSource, awaiting: outcome.awaiting.join(',') },
+    status: outcome.status,
+    awaiting: outcome.awaiting,
+    approval: outcome.approval,
+    secondReview: outcome.secondReview,
+    secondReviewDue: outcome.secondReviewDue,
   }
 }
 
@@ -411,7 +254,7 @@ export async function publishPlatformChangeRequest(
   const decisionSource = requirePersonDecision(`Publishing a change request to ${body.channel}`)
   const request = await requireRequest(requestId)
   if (request.secondReview === 'disputed') {
-    throw new ConflictError('The second review disputed this change request; it is not published further. Roll it back, or open a follow-up request.')
+    throw new ConflictError(DISPUTED_NOT_PUBLISHED)
   }
   const outcome = await publishChangeRequest(requestId, body.channel, { by: person.userId, decisionSource })
   const indexing = await enqueueIndexRuns(await getPlatformOrganizationId(), outcome.indexRuns)

@@ -47,6 +47,7 @@ const REQUEST = {
   submittedAt: '2026-11-10T09:00:00Z',
   publishedAt: null,
   ...FOUR_EYES,
+  secondReviewRoles: [],
   approvals: [],
   releases: [],
   captures: [
@@ -121,6 +122,7 @@ const REQUEST = {
 const ALONE = {
   ...REQUEST,
   ...DUE,
+  secondReviewRoles: [{ role: 'domain_expert', state: 'due', by: null, at: null }],
   id: ALONE_ID,
   title: 'Liechtenstein: Baugesetz 2026',
   countryId: 'LI',
