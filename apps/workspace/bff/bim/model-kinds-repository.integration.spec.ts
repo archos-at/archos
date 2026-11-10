@@ -27,6 +27,7 @@ describe.skipIf(!url)('projectModelKinds', () => {
   let closeDb: typeof import('@/lib/db').closeDb
   let WITH_IFC: string
   let WITH_NOTHING: string
+  let WITH_IFCZIP: string
   let OFFICE_ONLY_ORG: string
   const CONVERSATION = `s_kinds_${Date.now()}`
   const OTHER_CONVERSATION = `s_kinds_other_${Date.now()}`
@@ -76,6 +77,8 @@ describe.skipIf(!url)('projectModelKinds', () => {
 
     WITH_IFC = await seedProject(ORG, 'with-ifc')
     WITH_NOTHING = await seedProject(ORG, 'with-nothing')
+    WITH_IFCZIP = await seedProject(ORG, 'with-ifczip')
+    await seedDocument({ filename: 'Haus.ifczip', scope: 'project', projectId: WITH_IFCZIP, conversationId: null })
     await seedConversation(CONVERSATION)
     await seedConversation(OTHER_CONVERSATION)
     await seedDocument({ filename: 'Haus.IFC', scope: 'project', projectId: WITH_IFC, conversationId: null })
@@ -107,6 +110,10 @@ describe.skipIf(!url)('projectModelKinds', () => {
 
   it('names the kind a project holds, whatever the extension case', async () => {
     expect(await projectModelKinds(ORG, WITH_IFC, CONVERSATION)).toEqual({ ifc: true, dxf: false })
+  })
+
+  it('counts a zipped IFC, which the IFC pipeline claims too', async () => {
+    expect(await projectModelKinds(ORG, WITH_IFCZIP, null)).toEqual({ ifc: true, dxf: false })
   })
 
   it('does not count another project, a held file or another conversation', async () => {

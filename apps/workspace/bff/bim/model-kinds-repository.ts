@@ -4,11 +4,18 @@ import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
 import { SCREENED_ONLY, documentVisibleTo } from '@/lib/documents/visibility'
+import { DRAWING_RENDITION_EXTENSIONS } from '@/lib/documents/preview-types'
+import { IFC_EXTENSIONS } from './types'
 
 /** Which kinds of model file a turn's project holds: what the agent's measuring tools can read. */
 export interface ProjectModelKinds {
   ifc: boolean
   dxf: boolean
+}
+
+/** The file name ends in one of `extensions`, the lists the IFC and DXF pipelines claim (`.ifczip` included). */
+function endsWithAny(extensions: readonly string[]): SQL {
+  return or(...extensions.map((ext) => sql`lower(btrim(${documents.filename})) LIKE ${`%${ext}`}`)) as SQL
 }
 
 /**
@@ -32,8 +39,8 @@ export async function projectModelKinds(
   const [row] = await withTenant({ organizationId }, () =>
     db
       .select({
-        ifc: sql<boolean>`coalesce(bool_or(lower(${documents.filename}) like '%.ifc'), false)`,
-        dxf: sql<boolean>`coalesce(bool_or(lower(${documents.filename}) like '%.dxf'), false)`,
+        ifc: sql<boolean>`coalesce(bool_or(${endsWithAny(IFC_EXTENSIONS)}), false)`,
+        dxf: sql<boolean>`coalesce(bool_or(${endsWithAny(DRAWING_RENDITION_EXTENSIONS)}), false)`,
       })
       .from(documents)
       .where(

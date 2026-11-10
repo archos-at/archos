@@ -18,6 +18,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 
 from agent.agents.piloti import prompt as prompt_module
+from agent.agents.piloti.context_layout import CONVERSATION_PROVENANCE
 from agent.agents.piloti.context_layout import CONVERSATION_VALUES
 from agent.agents.piloti.context_layout import LAYOUT_ENV
 from agent.agents.piloti.context_layout import TURN_VALUES
@@ -95,7 +96,7 @@ class TestTheHeadHoldsAcrossTurns:
 
     def test_the_project_is_in_the_head_and_the_turn_in_the_note(self, monkeypatch):
         prompt = _render(monkeypatch, 2, _state("Frage", user_info={"name": "Anna Weber"}))
-        assert prompt.conversation.startswith("<conversation_context>")
+        assert prompt.conversation.startswith(f"<conversation_context>\n{CONVERSATION_PROVENANCE}")
         for value in ("Wohnbau", "Grundriss_EG.pdf", "Kurz antworten.", "<restricted_conversation>"):
             assert value in prompt.conversation, value
             assert value not in prompt.context, value
@@ -124,6 +125,29 @@ class TestTheHeadHoldsAcrossTurns:
             assert text in one.context, text
         # The template's own note on what a memory note is rides with the notes.
         assert "is what you concluded in earlier conversations" in one.context
+
+    def test_a_listing_of_one_shelf_shows_no_other_shelf_anywhere(self, monkeypatch):
+        """With every shelf in view the model read OIB filenames out as the Büroablage (``focus_shelf``)."""
+        from agent.knowledge.inventory import set_listing_shelf
+
+        state = ResearchAgentState(
+            messages=[HumanMessage(content="Welche Dateien liegen in der Büroablage?")],
+            project_context=PROJECT,
+            available_documents=[
+                {"file_name": "Bauordnung_Wien.pdf", "shelf": "base"},
+                {"file_name": "OIB-RL_2_2023.pdf", "shelf": "base"},
+                {"file_name": "Bürostandard_Details.pdf", "shelf": "office_shelf"},
+            ],
+        )
+        set_listing_shelf("office_shelf")
+        try:
+            prompt = _render(monkeypatch, 1, state)
+        finally:
+            set_listing_shelf(None)
+        seen = (prompt.conversation or "") + prompt.context
+        assert "Bürostandard_Details.pdf" in prompt.context
+        for base_file in ("Bauordnung_Wien.pdf", "OIB-RL_2_2023.pdf"):
+            assert base_file not in seen, base_file
 
     def test_files_still_being_read_are_the_turns_not_the_heads(self, monkeypatch):
         prompt = _render(monkeypatch, 1, _state("Frage", in_flight_documents=["Schnitt_AA.pdf"]))

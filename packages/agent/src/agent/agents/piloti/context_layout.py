@@ -94,6 +94,17 @@ _QUIET_IN_NOTE: dict[str, Any] = {
 #: The template values that hold for the conversation: they make the conversation context.
 CONVERSATION_VALUES = frozenset(_QUIET_IN_NOTE)
 
+#: Where the head comes from. The static prompt describes the `<turn_context>`
+#: before the newest message as the platform's; this message, after the system
+#: prompt, holds the project's profile, the office's instructions and the file
+#: names, and says the same of itself rather than leave the model to guess
+#: whether a person wrote it. Said here, not in ``chat_static.md``, whose bytes
+#: key every cache shard and are published to Langfuse by hand.
+CONVERSATION_PROVENANCE = (
+    "From the platform, not the person's words: what holds for this whole conversation (the project, "
+    "the office, the files). What only this turn has comes in `<turn_context>` before the newest message."
+)
+
 _TURN_TAG = "turn_context"
 _CONVERSATION_TAG = "conversation_context"
 
@@ -127,19 +138,23 @@ def _inventories(values: dict[str, Any]) -> tuple[str, str]:
 
     The head lists every settled file on every shelf in scope: the same bytes
     until a file settles. The note carries what a turn varies: the files still
-    being read, and, for a question that lists one shelf, which shelf it asked
-    about, so the model answers from that group and no other.
+    being read. A question that lists ONE shelf gets that shelf's inventory in
+    its note and none in the head: with every shelf in view, the model read
+    OIB filenames out as the Büroablage (``render_inventory_block``'s
+    ``focus_shelf``), so on that turn the head gives up its cache.
     """
     from agent.knowledge.inventory import get_listing_shelf
     from agent.knowledge.inventory import in_scope_shelves_from_context
     from agent.knowledge.inventory import render_inventory_block
-    from agent.knowledge.inventory_notes import focus_paragraph
     from agent.knowledge.inventory_notes import in_flight_paragraph
 
     documents = values.get("available_documents") or []
-    whole = render_inventory_block(documents, in_scope_shelves=in_scope_shelves_from_context() or None)
-    parts = (focus_paragraph(get_listing_shelf()), in_flight_paragraph(values.get("in_flight_documents")))
-    return whole, "\n\n".join(part for part in parts if part)
+    in_flight = values.get("in_flight_documents")
+    scope = in_scope_shelves_from_context() or None
+    focus = get_listing_shelf()
+    if focus is not None:
+        return "", render_inventory_block(documents, in_scope_shelves=scope, focus_shelf=focus, in_flight=in_flight)
+    return render_inventory_block(documents, in_scope_shelves=scope), in_flight_paragraph(in_flight) or ""
 
 
 #: The headers that open the parts of the project context after the profile
@@ -183,6 +198,6 @@ def as_conversation_context(rendered: str) -> str | None:
     inner = rendered.replace(f"<{_TURN_TAG}>", "").replace(f"</{_TURN_TAG}>", "")
     if not inner.strip():
         return None
-    return rendered.replace(f"<{_TURN_TAG}>", f"<{_CONVERSATION_TAG}>", 1).replace(
+    return rendered.replace(f"<{_TURN_TAG}>", f"<{_CONVERSATION_TAG}>\n{CONVERSATION_PROVENANCE}", 1).replace(
         f"</{_TURN_TAG}>", f"</{_CONVERSATION_TAG}>", 1
     )
