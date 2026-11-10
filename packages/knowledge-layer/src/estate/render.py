@@ -173,7 +173,7 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
-def document_licence(collection: str, file_name: str) -> Any:
+def document_licence(collection: str, file_name: str, *, unindexed: Any = None) -> Any:
     """The licence a document's points carry (``licensed_text.licence_from_metadata``), or ``None`` when unmarked.
 
     Read off one point of the file, where the office layer stamps it. Fails CLOSED: a store that cannot be
@@ -200,7 +200,9 @@ def document_licence(collection: str, file_name: str) -> Any:
         records = list(get_store().scroll(collection, {"file_name": file_name}, limit=1, fields=fields))
     except Exception:  # noqa: BLE001 - fails closed, see the docstring
         return LicenceTerms(licence_class=LICENSED)
-    return licence_from_metadata(records[0].payload or {}) if records else None
+    # No point at all is `unindexed`: the office layer indexes no unconfirmed or unattested copy, so a caller
+    # whose document may be one (an office shelf file) passes the licence that fails closed.
+    return licence_from_metadata(records[0].payload or {}) if records else unindexed
 
 
 def file_licence(row: Any) -> Any:

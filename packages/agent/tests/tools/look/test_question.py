@@ -293,7 +293,7 @@ class TestAPageOfALicensedCopy:
         from agent.tools.look import register
 
         terms = {"value": LicenceTerms(licence_class="licensed", ai_processing=True)}
-        monkeypatch.setattr(register, "document_licence", lambda collection, file_name: terms["value"])
+        monkeypatch.setattr(register, "document_licence", lambda collection, file_name, unindexed=None: terms["value"])
         cred = ResolvedCredential(
             api_key="sk-vlm", base_url="https://openrouter.ai/api/v1", model="vision-1", source="test"
         )
@@ -343,6 +343,44 @@ class TestAPageOfALicensedCopy:
         assert licence.licensed and not licence.ai_processing
         base = SimpleNamespace(collection="", file_name="OIB-RL2.pdf", target=None)
         assert await register._licence_of(base) is None, "the published legal corpus holds no office copy"
+
+    async def test_an_office_file_with_no_point_at_all_is_read_as_an_unattested_licensed_copy(
+        self, monkeypatch
+    ) -> None:
+        """The office layer indexes no unconfirmed or unattested copy, so an office shelf file with no point may be
+        the most restricted copy there is: its licence is asked with the answer that fails closed."""
+        from types import SimpleNamespace
+
+        from agent.common.source_kinds import OFFICE_SHELF_COLLECTION_PREFIXES
+        from agent.tools.look import register
+
+        asked = []
+
+        def lookup(collection, file_name, unindexed=None):
+            asked.append(collection)
+            return unindexed
+
+        monkeypatch.setattr(register, "document_licence", lookup)
+        office = SimpleNamespace(
+            collection=f"{OFFICE_SHELF_COLLECTION_PREFIXES[0]}org_a", file_name="norm.pdf", target=None
+        )
+        licence = await register._licence_of(office)
+        assert licence is not None and licence.licensed and not licence.ai_processing
+        project = SimpleNamespace(collection="proj_1", file_name="plan.pdf", target=None)
+        assert await register._licence_of(project) is None, "a project file with no point is no office copy"
+
+    async def test_a_turn_that_may_not_read_licensed_text_makes_no_vision_call(self, sees, model, licensed) -> None:
+        from agent.common.grounding_block import begin_grounding_capture
+        from agent.common.grounding_block import end_grounding_capture
+
+        token = begin_grounding_capture(licensed_text=False)
+        try:
+            result = await run_look(page=1, region=REGION, question="How long is room 1.04?")
+        finally:
+            end_grounding_capture(token)
+
+        assert all(block["type"] == "text" for block in result)
+        assert model["requests"] == [], "nothing of the reading could reach the model, so nothing is read"
 
     async def test_one_its_office_has_not_attested_is_not_looked_at(self, sees, model, licensed) -> None:
         from agent.common.licensed_text import LicenceTerms

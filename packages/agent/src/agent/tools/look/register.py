@@ -126,15 +126,20 @@ async def _licence_of(resolved: Any) -> Any:
 
     The base corpus (the published legal corpus: no collection, no workspace document) holds no office's copy.
     Anything else with no collection to ask fails closed, as a licensed copy nobody attested, so no image of it
-    goes out (ADR-0159). The lookup itself answers a store it cannot read the same way.
+    goes out (ADR-0159); so does an office shelf file with no point at all, since the office layer indexes no
+    unconfirmed or unattested copy. The lookup itself answers a store it cannot read the same way.
     """
     from agent.common.licensed_text import LICENSED
     from agent.common.licensed_text import LicenceTerms
+    from agent.common.source_kinds import Shelf
+    from agent.common.source_kinds import legacy_shelf_for_collection_name
 
     collection = (getattr(resolved, "collection", "") or "").strip()
+    unknown = LicenceTerms(licence_class=LICENSED)
     if not collection:
-        return None if getattr(resolved, "target", None) is None else LicenceTerms(licence_class=LICENSED)
-    return await asyncio.to_thread(document_licence, collection, resolved.file_name)
+        return None if getattr(resolved, "target", None) is None else unknown
+    office = legacy_shelf_for_collection_name(collection) == Shelf.OFFICE_SHELF
+    return await asyncio.to_thread(document_licence, collection, resolved.file_name, unknown if office else None)
 
 
 def refuse_unattested_look(licence: Any) -> None:
@@ -156,13 +161,17 @@ async def _licensed_blocks(
     whose body the chat contract expands only inside the call. The reading runs in the document's licensed scope
     (zero retention, traced as metadata only). The card keeps no reading of it.
     """
+    from agent.common.licensed_text import current_capture
     from agent.common.licensed_text import licensed_document_scope
 
     from .reading import DEFAULT_QUESTION
     from .reading import read_region
     from .reading import render_readings
 
-    if place is None:
+    capture = current_capture()
+    if place is None or capture is None or not capture.text_allowed:
+        # Nothing of the reading could reach the model (no place to cite, or a turn that may expand no
+        # licensed text), so no vision call is made either.
         return [{"type": "text", "text": "This page belongs to a licensed copy no look may read."}], "", ""
     with licensed_document_scope(licence):
         reading = await read_region(view.jpeg, question.strip() or DEFAULT_QUESTION, region=True)

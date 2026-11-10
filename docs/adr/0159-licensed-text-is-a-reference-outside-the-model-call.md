@@ -67,7 +67,10 @@ while the model still reads what the office licensed for this use.
   the chat contract merges the pin into the request), a non-OpenRouter (BYOK) endpoint is refused,
   and the generations are traced as metadata (length, sha256), still recorded with model, usage and
   cost. `look` sends a licensed page's text, never its image, and returns its reading as a licensed
-  hit, so the reading too is a reference in the transcript.
+  hit, so the reading too is a reference in the transcript. `look` reads the licence off the document whatever its shelf, and fails
+  closed where a copy may hide: an office shelf file with no point at all (the office layer indexes no
+  unconfirmed or unattested copy) or a workspace document with no collection is read as licensed and
+  unattested. On a turn that may expand no licensed text it makes no vision call at all.
 - **A reference, not the text.** `render_grounding_block` renders a licensed hit with a `Licence:`
   line and a reference token in its fence, `⟦licensed:lp_<16 hex of the passage's sha256>.<anchor>⟧`.
   The anchor is base64url JSON of the hit's collection, file, page and body length: metadata the

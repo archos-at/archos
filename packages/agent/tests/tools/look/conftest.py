@@ -13,4 +13,4 @@ def _unmarked_documents(monkeypatch):
     tests do not run, and fails closed (``place.document_licence``)."""
     from agent.tools.look import register
 
-    monkeypatch.setattr(register, "document_licence", lambda collection, file_name: None)
+    monkeypatch.setattr(register, "document_licence", lambda collection, file_name, unindexed=None: None)

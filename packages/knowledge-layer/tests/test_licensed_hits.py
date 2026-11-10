@@ -137,3 +137,19 @@ def test_a_licensed_page_is_read_again_from_its_points_and_its_page_text(monkeyp
         render, "document_licence", lambda collection, file_name: LicenceTerms(licence_class="licensed")
     )
     assert render.licensed_passage_sources("office-org-a", "oenorm_b_1600.pdf", 12)[1] == [], "unattested: no text"
+
+
+def test_a_document_with_no_point_answers_what_its_caller_says_an_unindexed_one_is(monkeypatch):
+    """The office layer indexes no unconfirmed or unattested copy: a caller that may hold one asks closed."""
+    from knowledge_layer import vector_store
+    from knowledge_layer.estate import document_licence
+
+    class Empty:
+        def scroll(self, *_args, **_kwargs):
+            return iter(())
+
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant.test:6333")
+    monkeypatch.setattr(vector_store, "get_store", Empty)
+
+    assert document_licence("office-org-a", "norm.pdf") is None
+    assert document_licence("office-org-a", "norm.pdf", unindexed="closed") == "closed"
