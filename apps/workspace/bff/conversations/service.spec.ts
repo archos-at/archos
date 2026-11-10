@@ -120,7 +120,8 @@ vi.mock('./engagement', () => ({
 }))
 
 import { ConflictError, ForbiddenError, NotFoundError, ResourceRightsLostError, UpstreamError } from '@/lib/api/errors'
-import { FeatureDisabledError, featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { featureDisabledProblem } from '@/lib/authz/feature-disabled'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
 import { purgeConversationCollaboration } from '@/lib/collaboration/cleanup'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
