@@ -417,9 +417,13 @@
       "issuer": "Land Wien",
       "citations": [
         {
-          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LWI40000225"
+          "note": "configs/norms/at/registry.yml (reviewed norm registry); RIS document LWI40000225, Gesetzesnummer 20000006, ELI https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/P0/LWI40000225"
         }
-      ]
+      ],
+      "identifiers": {
+        "ris_gesetzesnummer": "20000006",
+        "eli": "https://www.ris.bka.gv.at/eli/lgbl/WI/1930/11/"
+      }
     },
     {
       "type": "work",

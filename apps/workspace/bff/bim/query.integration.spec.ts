@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * The BIM query layer against a REAL Postgres, with the real migration chain
  * and the real fixture model (ADR-0041's harness — `task db:test:rls`).
  *

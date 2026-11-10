@@ -11,8 +11,10 @@
  * - a directive applies only when its authority decides for the project's
  *   territory, and an unknown authority is said, not guessed;
  * - every line carries its last check, and an overdue one says so;
- * - a licensed copy the office has not confirmed for AI processing is named as
- *   held, and its text is not used (design §4.7).
+ * - a licensed copy whose licence is not attested for AI processing, confirmed
+ *   or still a proposal, is named with its file as held and LISTED ONLY, NOT
+ *   READ (design §4.7, ADR-0164), so the answer can say the office holds it and
+ *   why it may not read it, instead of guessing.
  */
 
 import type { BaseKnowledgeEntry } from '../wire'
@@ -31,8 +33,9 @@ export const BASE_KNOWLEDGE_HEADER =
   'checked; when the check is overdue, say so in the answer. The role decides what a passage can carry: ' +
   '"requirement source" may ground a requirement; "interpretation only" may explain a provision but never be cited ' +
   'as the source of a requirement; "authority practice" counts only where it says it applies, and when the authority ' +
-  'is unknown, say that you could not tell whether the directive applies. An entry marked TEXT NOT USED has no ' +
-  'passages to find: say the office holds that edition, and answer the rest from other sources.'
+  'is unknown, say that you could not tell whether the directive applies. An entry marked LISTED ONLY, NOT READ has no ' +
+  'passages to find: say the office holds that file, and that you may not read it until the office attests its licence ' +
+  'for AI processing; answer the rest from other sources.'
 
 const KIND_WORDS: Record<BaseKnowledgeEntry['values']['kind'], string> = {
   technical_standard: 'technical standard',
@@ -73,13 +76,22 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
   const parts = [
     `${name}: ${KIND_WORDS[values.kind]}, edition ${values.editionLabel}`,
     `role: ${role(entry, project)}`,
-    entry.textUse === 'metadata_only'
-      ? 'TEXT NOT USED: the office holds this edition, but its licence is not confirmed for AI processing; say so, and do not quote or paraphrase it'
-      : `file „${entry.fileName}“`,
+    `file „${entry.fileName}“`,
+    entry.textUse === 'metadata_only' ? UNATTESTED : null,
     entry.textUse === 'used' && values.licenceClass === 'licensed' ? 'licensed copy' : null,
     checkWords(entry),
   ].filter(Boolean)
   const text = `- ${parts.join('; ')}`
+  return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
+}
+
+const UNATTESTED = 'LISTED ONLY, NOT READ: its licence is not attested for AI processing; say so, and do not quote or paraphrase it'
+
+/** A licensed copy still a proposal: its text stays unread until a person confirms it, so it is named and never read. */
+function unreadLine(entry: BaseKnowledgeEntry): string {
+  const { values } = entry
+  const name = values.designation ? `${values.designation} „${values.title}“` : `„${values.title}“`
+  const text = `- ${name}: ${KIND_WORDS[values.kind]}, edition ${values.editionLabel}; file „${entry.fileName}“; licensed copy, not yet confirmed; ${UNATTESTED}`
   return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
 }
 
@@ -117,9 +129,10 @@ export function renderBaseKnowledgeBlock(
   directives: readonly PlatformDirective[] = [],
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
-  if (confirmed.length === 0 && listed.length === 0 && directives.length === 0) return null
-  const shown = confirmed.slice(0, MAX_TURN_ENTRIES).map((entry) => line(entry, project))
-  const rest = confirmed.length - shown.length
+  const unread = entries.filter((entry) => entry.status === 'proposed' && entry.values.licenceClass === 'licensed')
+  if (confirmed.length === 0 && unread.length === 0 && listed.length === 0 && directives.length === 0) return null
+  const shown = [...confirmed.map((entry) => line(entry, project)), ...unread.map(unreadLine)].slice(0, MAX_TURN_ENTRIES)
+  const rest = confirmed.length + unread.length - shown.length
   const more = rest > 0 ? [`- … and ${rest} more not listed here.`] : []
   const listedLines = listed.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length)).map(listedLine)
   const room = Math.max(0, MAX_TURN_ENTRIES - shown.length - listedLines.length)

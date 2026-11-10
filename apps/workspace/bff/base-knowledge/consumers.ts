@@ -154,7 +154,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_work_revisions.organization_id', consumer: STORE, test: ISOLATION },
   { element: 'knowledge_work_revisions.kind', consumer: TURN, test: NAMED },
   { element: 'knowledge_work_revisions.title', consumer: TURN, test: NAMED },
-  { element: 'knowledge_work_revisions.identifiers', consumer: STORE, test: ISOLATION },
+  { element: 'knowledge_work_revisions.identifiers', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads a work’s identifiers at its source as its sourceRefs, by scheme, and nothing else of them' } },
   { element: 'knowledge_work_revisions.territory_ids', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.issuer', consumer: SERVICE, test: PROPOSAL },
   { element: 'knowledge_work_revisions.addressees', consumer: TURN, test: DIRECTIVE },

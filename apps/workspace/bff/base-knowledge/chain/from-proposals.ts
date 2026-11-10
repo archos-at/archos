@@ -6,6 +6,7 @@
  * (`./platform/records.ts`).
  */
 
+import { sourceRefsOf } from './source-refs'
 import { recordIdOf } from '../platform/records'
 import type { ProposedRecord } from '../platform/wire'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
@@ -18,10 +19,9 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
   const relations: GraphRelation[] = []
   const corpusFiles = new Map<string, string[]>()
   for (const record of records) {
-    if (record.type === 'manifestation' && record.corpusFile) {
-      const id = `edition:${record.editionKey}`
-      corpusFiles.set(id, [...(corpusFiles.get(id) ?? []), record.corpusFile])
-    }
+    if (record.type !== 'manifestation' || !record.corpusFile) continue
+    const id = `edition:${record.editionKey}`
+    corpusFiles.set(id, [...(corpusFiles.get(id) ?? []), record.corpusFile])
   }
   for (const record of records) {
     const id = recordIdOf(record)
@@ -49,6 +49,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           territoryIds: record.territoryIds,
           addresseeTerritoryIds: record.addressees.map((addressee) => addressee.territoryId),
           connectsBy: record.connectsBy,
+          sourceRefs: sourceRefsOf(record.identifiers),
           historyAvailableFrom: record.historyAvailableFrom,
         })
         break

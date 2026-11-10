@@ -27,12 +27,11 @@ vi.mock('@/lib/tasks/repository', () => ({ listRunsInProject: vi.fn(async () => 
 vi.mock('@/lib/proposals/repository', () => ({ listConversationProposals: vi.fn(async () => []) }))
 vi.mock('@/lib/cross-project/reference-brief', () => ({ loadReferenceBrief: vi.fn(async () => null) }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ baseKnowledgeForTurn: vi.fn(async () => null) }))
-vi.mock('@/lib/base-knowledge/chain/turn', () => ({ buildingLawForTurn: vi.fn(async () => null) }))
 // Every turn carries a context (ADR-0175); one that could not be read is `knowledge_unavailable`.
 const { UNAVAILABLE } = vi.hoisted(() => ({
   UNAVAILABLE: {
     gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
-    packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], retrieval: { countries: [] },
+    packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], text: null, retrieval: { countries: [] },
   } as const,
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => structuredClone(UNAVAILABLE)) }))
@@ -160,7 +159,7 @@ describe('POST /api/internal/turn-context', () => {
   it('carries the resolved knowledge context', async () => {
     const context = {
       gate: { state: 'not_entitled', reason: null, leaves: [{ territoryId: 'DE-BY', country: 'DE', certainty: 'verified', entitled: false, coverage: null, municipalLaw: null }] },
-      packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], retrieval: { countries: [] },
+      packs: [], chains: {}, date: '2026-12-14', procedures: [], uses: [], text: null, retrieval: { countries: [] },
     } as const
     vi.mocked(knowledgeContextForTurn).mockResolvedValueOnce(structuredClone(context) as never)
     const { data } = await (await call()).json()
@@ -180,7 +179,6 @@ describe('POST /api/internal/turn-context', () => {
       workspace: expect.stringContaining('WORKSPACE v1'),
       baseKnowledge: null,
       baseKnowledgeLabels: [],
-      buildingLaw: null,
       knowledgeContext: UNAVAILABLE,
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)

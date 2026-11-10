@@ -120,7 +120,7 @@ export const normEntrySchema = z.preprocess(renameLegacyNormEntry, z.object({
   citation_url: z.string().default(''),
   full_law_url: z.string().default(''),
   aliases: z.array(z.string()).default([]),
-  /** Legal hint shown to the agent as part of the prompt. */
+  /** A legal hint for the platform's reviewers; no prompt or citation reads it since ADR-0175. */
   binding_note: z.string().nullish(),
   /** Internal review task — never surfaced in the prompt. */
   review_note: z.string().nullish(),
@@ -148,9 +148,8 @@ export const normsFileSchema = z.object({
   /** RAG base collection this country's catalog belongs to. UI preserves it verbatim. */
   corpus_collection: z.string().default('oib_knowledge'),
   /**
-   * Optional CountryProfile data overrides (see agent.common.country_profile).
-   * No UI surface — the admin editor preserves them verbatim across the PUT
-   * round-trip so a registry that carries country-#2 overrides is not flattened.
+   * Profile fields the registry file still carries; nothing reads them since
+   * ADR-0175 (the country's records do). Kept so a stored file still parses.
    */
   language: z.string().default(''),
   states: z.preprocess(renameLegacyStateKeys, z.record(z.string(), z.string().nullable()).default({})),

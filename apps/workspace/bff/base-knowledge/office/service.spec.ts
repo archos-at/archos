@@ -219,8 +219,25 @@ describe('confirming', () => {
     expect(writeConfirmedValues).toHaveBeenCalledWith(
       expect.objectContaining({ workId: 'work_1' }),
       expect.objectContaining({ editionLabel: '2017-05-01' }),
-      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'person' } }),
+      expect.objectContaining({ firstCheck: true, provenance: { proposedBy: 'reading', confirmedBy: 'user-1' } }),
     )
+  })
+
+  it('keeps who proposed the entry beside who confirmed it', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true, provenance: { proposedBy: 'agent', confirmedBy: 'user-1' } })])
+    const entry = await updateBaseKnowledge(MANAGER, 'work_1', { editionLabel: '2017-05-01' })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ provenance: { proposedBy: 'agent', confirmedBy: 'user-1' } }),
+    )
+    expect(entry).toMatchObject({ proposedBy: 'agent', confirmedBy: 'user-1' })
+  })
+
+  it('names nobody as confirming a proposal', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
+    const { entries } = await listBaseKnowledge(MANAGER, {})
+    expect(entries[0]).toMatchObject({ proposedBy: 'reading', confirmedBy: null })
   })
 
   it('keeps a licensed copy metadata-only when only office-wide use is stated', async () => {
@@ -333,17 +350,18 @@ describe('the turn', () => {
     expect(readOfficeEntries).toHaveBeenCalledWith('org-1')
   })
 
-  it('carries confirmed entries only, with the project’s territory for directives', async () => {
+  it('carries confirmed entries, and a licensed proposal as listed only and never as a label (A7)', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([
       stored({ confirmed: true }),
       stored({ workId: 'work_2', documentId: 'doc-1', confirmed: false }),
+      stored({ workId: 'work_3', documentId: 'doc-1', confirmed: false, values: { ...stored().values, licenceClass: 'public_open' } }),
     ])
     vi.mocked(findProjectProfileInOrg).mockResolvedValue({
       profile: { facts: { federal_state: { value: 'vienna' } } },
     } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
     const turn = await baseKnowledgeForTurn('org-1', 'proj-1')
-    expect(turn?.block?.split('\n')).toHaveLength(2)
-    expect(turn?.block).toContain('ÖNORM B 1600:2017')
+    expect(turn?.block?.split('\n')).toHaveLength(3)
+    expect(turn?.block?.split('\n')[2]).toContain('licensed copy, not yet confirmed; LISTED ONLY, NOT READ')
     expect(turn?.labels).toEqual([
       expect.objectContaining({ documentId: 'doc-1', holder: 'office', role: 'requirement_source', editionLabel: '2017-04-01' }),
     ])
