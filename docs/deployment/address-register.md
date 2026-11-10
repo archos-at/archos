@@ -49,6 +49,14 @@ becomes `active`, the previous one `retired`, and the retired release's rows
 are deleted. A full Austrian import takes a few minutes and adds about 2.5
 million rows.
 
+**Memory and the swap.** The importer holds the archive and its unzipped
+tables in memory: about 1.3 GB peak for Austria (measured on the dry run of
+the 2025-10-01 archive), so run it where that fits, not in a frontend pod. The
+swap is one transaction that retires the active release and deletes its
+roughly 2.5 million rows; until it commits, every lookup reads the old release
+(Postgres reads the snapshot it started with), and the delete's WAL is about
+the size of the release, so run it outside office hours on a small cell.
+
 ## When it refuses
 
 - `ReleaseRefusedError: … at least N are needed (maxShrink 0.05)`: the new
