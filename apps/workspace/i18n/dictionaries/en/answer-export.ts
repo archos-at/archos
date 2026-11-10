@@ -36,6 +36,16 @@ export const answerExport = {
    * not, because a draft mistaken for a Nachweis is the failure this block is
    * here to prevent.
    */
+  /**
+   * The Art. 50(1) AI Act disclosure, at the top of every document
+   * {productName} writes: that an AI system is writing, and on whose behalf
+   * (the Commission's Art. 50 guidelines, 2026-11-05, points 31 and 36). Not
+   * part of the branding an office may override.
+   */
+  aiDisclosure: {
+    withOrganization: 'Written by {productName}, an AI system, on behalf of {organization}.',
+    withoutOrganization: 'Written by {productName}, an AI system.',
+  },
   aiNotice: {
     title: 'AI-generated — not reviewed',
     body: '{productName} wrote this document; no person has reviewed it. It is a draft, not proof of compliance — check every statement before you pass the document on or submit it.',
