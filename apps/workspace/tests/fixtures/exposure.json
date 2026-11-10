@@ -341,6 +341,16 @@
    "withheld": null,
    "reason": null
   },
+  "project-site-set": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-standards-get": {
    "kind": "catalog",
    "domain": "projects",
@@ -2701,6 +2711,16 @@
    "reason": null
   },
   "norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "site-resolve": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,

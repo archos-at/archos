@@ -263,10 +263,9 @@ describe('PdfDocumentView', () => {
     // can fire after the mark is on screen: a spy put on the frame only then
     // caught the settle and read it as a zoom re-reveal.
     const scrollTo = vi.fn()
-    // Put back what was there, own property or none: assigning the inherited
-    // method back would leave an own one that shadows a later spec's stub on
-    // Element.prototype in the same vm-pool worker.
-    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
+    // The method is inherited from Element: restore by descriptor, or the restore
+    // leaves an own property that shadows Element's for every later spec file.
+    const own = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
     HTMLElement.prototype.scrollTo = scrollTo
     try {
       render(
@@ -296,7 +295,7 @@ describe('PdfDocumentView', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Go to passage' }))
       expect(scrollTo).toHaveBeenCalled()
     } finally {
-      if (original) Object.defineProperty(HTMLElement.prototype, 'scrollTo', original)
+      if (own) Object.defineProperty(HTMLElement.prototype, 'scrollTo', own)
       else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
     }
   })

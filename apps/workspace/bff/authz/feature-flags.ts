@@ -375,6 +375,18 @@ export const FEATURE_FLAGS = {
    */
   buildingLawChain: 'building-law-chain',
   /**
+   * Site resolution from official address registers hosted in the cell
+   * (ADR-0172): `site-resolve` and `project-site-set` answer, and a register
+   * hit places a project with its Gemeinde, Land and competent authority. Read
+   * from the session by the routes (`requireFeature`).
+   *
+   * A rollout: public register data that costs nothing per office and changes
+   * nobody's reads. With it off both routes answer 403 and everything else is as
+   * before: the typed address is kept unconfirmed, the geocoder stays as its
+   * deployment set it (ADR-0159).
+   */
+  siteResolution: 'site-resolution',
+  /**
    * Base knowledge in time (ADR-0171, migration 0206): which edition of a work
    * applied on a date or to a permit procedure, by the legislating node's
    * reference-date ruleset and the amending editions' transitions
@@ -424,6 +436,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'office-base-knowledge': 'entitlement',
   'platform-base-knowledge': 'entitlement',
   'building-law-chain': 'entitlement',
+  'site-resolution': 'rollout',
   'time-editions': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',

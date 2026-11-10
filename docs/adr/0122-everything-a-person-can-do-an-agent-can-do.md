@@ -661,6 +661,11 @@ because it reaches persisted data or another wave's code:
 
 ## More Information
 
+Amended by [ADR-0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md):
+`site-resolve` and `project-site-set` are offered on the door, because they
+answer from address registers only this deployment hosts; `address-search`,
+which proxies a public geocoder, stays withheld.
+
 - [ADR-0055](0055-api-first-workspace-primitives.md): one HTTP route per
   primitive, every consumer a client. This record extends it to every capability.
 - [ADR-0105](0105-piloti-works-on-shared-objects.md):
