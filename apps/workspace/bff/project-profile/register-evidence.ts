@@ -22,18 +22,18 @@ function registerClaimsOf(profile: SiteEntries): string[] {
     ['facts', profile.facts ?? {}],
     ['assumptions', profile.assumptions ?? {}],
   ]
+  const claim = (where: string, value: unknown, item: ProfileEvidence): string[] =>
+    item.kind === 'register'
+      ? [[where, JSON.stringify(value ?? null), item.addressId, item.label, item.referenceDate, item.resolvedAt].join('\u0000')]
+      : []
   return sections.flatMap(([section, entries]) =>
-    Object.entries(entries).flatMap(([key, entry]) => {
-      const evidence: ProfileEvidence[] = [
-        ...(entry?.evidence ?? []),
-        ...(entry?.alternatives ?? []).flatMap((alternative) => alternative.evidence),
-      ]
-      return evidence.flatMap((item) =>
-        item.kind === 'register'
-          ? [[section, key, JSON.stringify(entry?.value ?? null), item.addressId, item.label, item.referenceDate, item.resolvedAt].join('\u0000')]
-          : []
-      )
-    })
+    Object.entries(entries).flatMap(([key, entry]) => [
+      // The entry's own evidence vouches for the entry's value; an alternative's, for that alternative's.
+      ...(entry?.evidence ?? []).flatMap((item) => claim(`${section}/${key}`, entry?.value, item)),
+      ...(entry?.alternatives ?? []).flatMap((alternative, index) =>
+        alternative.evidence.flatMap((item) => claim(`${section}/${key}/alternatives/${index}`, alternative.value, item))
+      ),
+    ])
   )
 }
 

@@ -48,6 +48,19 @@ describe('register evidence a generic profile write may not add (ADR-0172)', () 
     expect(addsRegisterEvidence(withFact([register]), leoben)).toBe(true)
   })
 
+  it('refuses register evidence copied onto an alternative with another value', () => {
+    const copied: ProjectProfile = {
+      ...empty,
+      facts: {
+        municipality: {
+          value: 'Graz', confidence: 'confirmed', source: 'user_confirmed', updatedAt: NOW, evidence: [register],
+          alternatives: [{ value: 'Leoben', evidence: [register], recordedAt: NOW }],
+        },
+      },
+    }
+    expect(addsRegisterEvidence(withFact([register]), copied)).toBe(true)
+  })
+
   it('lets a write drop the evidence or the entry', () => {
     expect(addsRegisterEvidence(withFact([register]), withFact([]))).toBe(false)
     expect(addsRegisterEvidence(withFact([register]), empty)).toBe(false)
