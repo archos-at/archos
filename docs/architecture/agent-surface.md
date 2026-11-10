@@ -537,8 +537,8 @@ makes it so, and where it lives:
 | Every refusal as an RFC 9457 problem in `structuredContent.problem`, the door's own refusals included | `door-problem.ts` |
 | Per-record results and `dryRun`; problems with an RFC 6901 `pointer`, a `code` and a `hint`; the same proposal again is `unchanged` | `platform-knowledge-records-propose`, `bff/base-knowledge/platform/validate.ts` |
 | The kit on a whole request, and submit only when green | `platform-knowledge-validate` |
-| Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 triggers |
-| The person's yes for a review verdict, approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
+| Citations from captures of the request, KC-6 on every quote for every proposer and record type (three words or fifteen characters, found in the capture, naming what the record claims); a pasted source checked only by someone other than its author | `platform-knowledge-citation-capture`, `bff/base-knowledge/platform/onboarding.ts`, `validate.ts`, the 0208 and 0209 triggers |
+| The person's yes for a source check (`personDecidesWhen`), approve, publish, rollback, entitlement, home country, and a platform skill's publish, edit or delete; `decideAt` for a client that cannot ask | `personDecides` + `requiresPersonConfirmation` in `catalog/platform-knowledge.ts`, `catalog/platform-skills.ts`; `requirePersonDecision` at each route |
 
 A `fetched` capture is made by the api tier (`POST /v1/public-sources/capture`)
 because the public-source fetcher admits only the backend roles. The measure is

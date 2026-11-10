@@ -92,7 +92,7 @@ either fetches the page now (`fetched`, a configured public source's hosts only,
 through the api tier's `POST /v1/public-sources/capture`, because only the
 backend roles may call the sandboxed fetcher, ADR-0162) or stores an operator's
 text (`operator_supplied`). It keeps the bytes' sha256, size and text
-(`knowledge_citation_captures`, migration 0208, platform-private, insert-only,
+(`knowledge_citation_captures`, migration 0209, platform-private, insert-only,
 into a draft only). KC-6, beside KC-1, KC-3 and KC-5, holds every record type, rulesets included.
 It refuses a record with no captured citation, a bare link, an unknown capture,
 a capture with no text, a quote shorter than three words or fifteen
@@ -102,12 +102,15 @@ record none of whose quotes names what it claims (a territory's or an
 authority's name, a work's designation or title, an edition's label). A
 trigger refuses an approval while a revision cites an operator-supplied
 capture that no verdict marked `source_checked`, and only a verdict from
-someone other than the revision's author counts: a second trigger refuses an
-author's own source check, the service refuses it first (409), and a review
-is now `personDecides`, so a source check needs the person's yes.
+someone other than the revision's author counts (0208's four-eyes trigger
+refuses an author's verdict outright). A verdict that sets `sourceChecked` is
+the person's own: the route holds it with `requirePersonDecision`, and the
+door asks the person for that call only (`personDecidesWhen` on the review
+operation, a catalog field this record adds), while a plain verdict stays the
+agent's to give, recorded as such.
 
-**The person decides, and is told where when they cannot be asked.** Review,
-approve, publish, rollback, entitlement and a home-country move keep `personDecides` and
+**The person decides, and is told where when they cannot be asked.** A source
+check, approve, publish, rollback, entitlement and a home-country move keep `personDecides` and
 `requirePersonDecision` at the route (ADR-0165), and gain `requiresPersonConfirmation`
 with `decideAt: /app/platform/countries`, so a client without form elicitation
 gets `person_required` with the link instead of a bare 403.
@@ -127,9 +130,8 @@ dispatcher, routes and Postgres takes `tests/fixtures/onboarding/at-9.json` from
 the guide to a green validation, then review, approval, publish and entitlement
 on the person's yes. Its revert checks were run by hand: with the publish
 route's `requirePersonDecision` removed, with KC-6 removed from the kit, with
-the door's idempotency bypassed, with the service's author check on a source
-check removed (the trigger then answers alone), and with either skill route's
-`requirePersonDecision` removed, the spec fails or holds as stated. The 0208 block of
+the door's idempotency bypassed, and with either skill route's
+`requirePersonDecision` removed, the spec fails or holds as stated. The 0209 block of
 `scripts/rls-test-db.sh` holds the triggers and the down; `validate.spec.ts`,
 `door-idempotency.spec.ts`, `door-problem.spec.ts`, `packages/public-sources/tests/test_capture.py`
 and `apps/agent-host/tests/test_public_source_capture_route.py` hold the parts.

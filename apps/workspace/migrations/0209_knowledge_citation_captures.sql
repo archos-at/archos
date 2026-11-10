@@ -16,8 +16,8 @@
 --   cited capture against its source. A trigger refuses an approval of a
 --   request with a revision that cites an operator-supplied capture until a
 --   verdict on that revision says so, from someone other than the revision's
---   author: what nobody fetched, another person checked. A second trigger
---   refuses an author's own `source_checked` verdict outright.
+--   author: what nobody fetched, another person checked. (0208's four-eyes
+--   trigger already refuses an author's verdict in their own request.)
 --
 -- ## RLS
 --
@@ -102,20 +102,5 @@ $$;
 --> statement-breakpoint
 CREATE TRIGGER knowledge_approvals_sources_checked BEFORE INSERT ON "knowledge_approvals"
   FOR EACH ROW EXECUTE FUNCTION knowledge_approval_sources_checked();
---> statement-breakpoint
--- Nobody checks their own source: a `source_checked` verdict from the revision's author is refused.
-CREATE OR REPLACE FUNCTION knowledge_source_check_not_by_author() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.source_checked AND EXISTS (
-    SELECT 1 FROM knowledge_revisions WHERE revision_id = NEW.revision_id AND created_by = NEW.reviewer
-  ) THEN
-    RAISE EXCEPTION 'a source is checked by someone other than the revision''s author' USING ERRCODE = 'check_violation';
-  END IF;
-  RETURN NEW;
-END
-$$;
---> statement-breakpoint
-CREATE TRIGGER knowledge_review_decisions_source_check_not_by_author BEFORE INSERT ON "knowledge_review_decisions"
-  FOR EACH ROW EXECUTE FUNCTION knowledge_source_check_not_by_author();
 --> statement-breakpoint
 SELECT secure_table('knowledge_citation_captures', 'false');

@@ -156,7 +156,7 @@ export function declaresFormElicitation(req: ServerContext): boolean {
 function operationToConfirm(principal: AgentPrincipal, call: PendingCall): AgentOperation | null {
   const op = findVisibleOperation(principal, call.operation)
   if (!op || callDecision(principal, op) !== 'run') return null
-  if (op.requiresPersonConfirmation || op.personDecides) return op
+  if (op.requiresPersonConfirmation || op.personDecides || op.personDecidesWhen?.(call.input)) return op
   const annotations = annotationsOf(op)
   return !annotations.readOnlyHint && annotations.destructiveHint ? op : null
 }

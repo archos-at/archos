@@ -3536,21 +3536,59 @@ check_in te_0206 "SELECT count(*) FROM information_schema.columns WHERE table_na
 echo "==> 0206 editions in time and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0208: citation captures and the reviewer's source check (ADR-0170).
+# 0208: four eyes on the claim review, and a verdict says how it was given.
 #
-# On a database of its own, migrated through 0208: a capture goes only into a
-# draft and is never rewritten, a fetched capture names its source, and an
-# approval waits until a verdict says an operator-supplied capture's source
-# was checked, by someone other than the revision's author. The down drops
-# both, and 0208 applies again.
+# On a database migrated through 0207, a verdict written before 0208 has no
+# source and keeps it (verdicts are append-only); after 0208 an author's verdict
+# is refused, a new verdict without a source is refused, and another person's
+# lands. The down restores 0205's trigger and drops the column; 0208 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0208 citation captures and their down migration on cc_0208"
-migrate_until cc_0208 0208_knowledge_citation_captures
+echo "==> verifying 0208 review four eyes and its down migration on rv_0208"
+migrate_before rv_0208 0208_review_four_eyes
 CR="c0000000-0000-4000-8000-000000000208"
 RV="e0000000-0000-4000-8000-000000000208"
-CAP="a0000000-0000-4000-8000-000000000208"
-SHA="0000000000000000000000000000000000000000000000000000000000000208"
-sql_in cc_0208 <<SQL
+sql_in rv_0208 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT territories', 'AT', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('AT-6', NULL, 'territory', 'AT', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'AT-6', 'territory', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
+  VALUES ('$RV', 'AT-6', NULL, 'state', 'Steiermark', '{AT}');
+UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';
+INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer)
+  VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author');
+SQL
+apply_in rv_0208 0208_review_four_eyes.sql
+check_in rv_0208 "SELECT count(*) FROM knowledge_review_decisions WHERE decision_source IS NULL" "1" "0208 keeps a verdict written before it, without a source"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author', 'agent')" "revision they wrote" "an author reviewing their own request"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert')" "knowledge_review_decisions_source_given" "a new verdict without a source"
+refused_in rv_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'model')" "knowledge_review_decisions_source_known" "a source nobody defined"
+sql_in rv_0208 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, decision_source) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', 'agent');"
+check_in rv_0208 "SELECT decision_source FROM knowledge_review_decisions WHERE reviewer = 'user_expert'" "agent" "0208: another person's verdict lands with its source"
+apply_in rv_0208 0208_review_four_eyes.down.sql
+check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'decision_source'" "0" "0208 down drops the source"
+sql_in rv_0208 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author');"
+apply_in rv_0208 0208_review_four_eyes.sql
+check_in rv_0208 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'decision_source'" "1" "0208 applies again after its down"
+echo "==> 0208 review four eyes and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0209: citation captures and the reviewer's source check (ADR-0170).
+#
+# On a database of its own, migrated through 0209: a capture goes only into a
+# draft and is never rewritten, a fetched capture names its source, and an
+# approval waits until a verdict says an operator-supplied capture's source
+# was checked, by someone other than the revision's author (0208's four-eyes
+# trigger refuses an author's verdict outright). The down drops both, and 0209
+# applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0209 citation captures and their down migration on cc_0209"
+migrate_until cc_0209 0209_knowledge_citation_captures
+CR="c0000000-0000-4000-8000-000000000209"
+RV="e0000000-0000-4000-8000-000000000209"
+CAP="a0000000-0000-4000-8000-000000000209"
+SHA="0000000000000000000000000000000000000000000000000000000000000209"
+sql_in cc_0209 <<SQL
 INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'AT-9', 'AT', 'user_author');
 INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, text, retrieved_at, created_by)
   VALUES ('$CAP', '$CR', 'operator_supplied', 'https://www.wien.gv.at/ma37', '$SHA', 4, 'Wien', now(), 'user_author');
@@ -3560,21 +3598,20 @@ INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organizati
 INSERT INTO knowledge_territory_revisions (revision_id, record_id, organization_id, kind, name, parent_ids)
   VALUES ('$RV', 'AT-9', NULL, 'state', 'Wien', '{AT}');
 SQL
-refused_in cc_0208 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'fetched', 'https://www.ris.bka.gv.at/x', '$SHA', 1, now(), 'user_author')" "knowledge_citation_captures_fetched_has_source" "a fetched capture without its source"
-refused_in cc_0208 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
-sql_in cc_0208 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
-refused_in cc_0208 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
-sql_in cc_0208 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert');"
-refused_in cc_0208 "INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_author', true)" "someone other than the revision" "an author checking their own source"
-refused_in cc_0208 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
-sql_in cc_0208 <<SQL
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'fetched', 'https://www.ris.bka.gv.at/x', '$SHA', 1, now(), 'user_author')" "knowledge_citation_captures_fetched_has_source" "a fetched capture without its source"
+refused_in cc_0209 "UPDATE knowledge_citation_captures SET text = 'Graz'" "append-only" "a capture rewritten"
+sql_in cc_0209 <<<"UPDATE knowledge_change_requests SET status = 'submitted' WHERE id = '$CR';"
+refused_in cc_0209 "INSERT INTO knowledge_citation_captures (id, change_request_id, basis, url, sha256, byte_size, retrieved_at, created_by) VALUES (gen_random_uuid(), '$CR', 'operator_supplied', 'https://x.example/', '$SHA', 1, now(), 'user_author')" "into a draft change request" "a capture into a submitted request"
+sql_in cc_0209 <<<"INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer) VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert');"
+refused_in cc_0209 "INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app')" "no reviewer checked" "an approval before the operator-supplied source was checked"
+sql_in cc_0209 <<SQL
 INSERT INTO knowledge_review_decisions (id, change_request_id, revision_id, claim_path, decision, reviewer, source_checked)
   VALUES (gen_random_uuid(), '$CR', '$RV', 'name', 'accepted', 'user_expert', true);
 INSERT INTO knowledge_approvals (id, change_request_id, approver, role, decision_source) VALUES (gen_random_uuid(), '$CR', 'user_expert', 'domain_expert', 'app');
 SQL
-check_in cc_0208 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0208: the approval counts once the source was checked"
-apply_in cc_0208 0208_knowledge_citation_captures.down.sql
-check_in cc_0208 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_citation_captures'" "0" "0208 down drops the captures"
-apply_in cc_0208 0208_knowledge_citation_captures.sql
-check_in cc_0208 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'source_checked'" "1" "0208 applies again after its down"
-echo "==> 0208 citation captures and their down migration verified"
+check_in cc_0209 "SELECT count(*) FROM knowledge_approvals WHERE change_request_id = '$CR'" "1" "0209: the approval counts once the source was checked"
+apply_in cc_0209 0209_knowledge_citation_captures.down.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'knowledge_citation_captures'" "0" "0209 down drops the captures"
+apply_in cc_0209 0209_knowledge_citation_captures.sql
+check_in cc_0209 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_review_decisions' AND column_name = 'source_checked'" "1" "0209 applies again after its down"
+echo "==> 0209 citation captures and their down migration verified"

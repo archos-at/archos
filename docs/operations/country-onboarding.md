@@ -29,8 +29,8 @@ people around it.
 - The author of a revision cannot approve the request (four eyes, a trigger).
 - An operator-supplied capture blocks approval until a verdict on the record
   that cites it says its source was checked, by someone other than the
-  record's author (two triggers).
-- A review verdict, approve, publish, rollback and entitlement run only on the
+  record's author (triggers in 0208 and 0209).
+- A source check, approve, publish, rollback and entitlement run only on the
   person's yes; a client that cannot ask them is sent to Platform → Countries.
 - Every write may be retried with the same `idempotencyKey`.
 

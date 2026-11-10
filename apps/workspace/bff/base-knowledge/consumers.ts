@@ -56,6 +56,10 @@ const PLATFORM_READ = 'apps/workspace/bff/base-knowledge/platform/office-read.ts
 const PLATFORM_INDEXING = 'apps/workspace/bff/base-knowledge/platform/indexing.ts'
 const PLATFORM_ENTITLEMENTS = 'apps/workspace/bff/base-knowledge/platform/entitlements.ts'
 const PLATFORM_VALIDATE = 'apps/workspace/bff/base-knowledge/platform/validate.ts'
+const REVIEW_FOUR_EYES = {
+  file: PLATFORM_SPEC,
+  name: 'refuses a verdict by the request’s own author (four eyes), and takes the expert’s with its source',
+}
 const ROUND_TRIP = { file: PLATFORM_SPEC, name: 'a rollback round trip: each head returns to where it was, and every move is kept' }
 const LISTING = {
   file: PLATFORM_SPEC,
@@ -198,6 +202,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_review_decisions.decision', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_review_decisions.note', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_review_decisions.reviewer', consumer: PLATFORM_STORE, test: ROUND_TRIP },
+  { element: 'knowledge_review_decisions.decision_source', consumer: PLATFORM_STORE, test: REVIEW_FOUR_EYES },
   { element: 'knowledge_review_decisions.decided_at', consumer: PLATFORM_STORE, test: ROUND_TRIP },
   { element: 'knowledge_review_decisions.source_checked', consumer: PLATFORM_STORE, test: SOURCES_CHECKED },
   { element: 'knowledge_citation_captures.id', consumer: PLATFORM_CAPTURES, test: CAPTURED },

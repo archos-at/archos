@@ -1321,7 +1321,6 @@
   "packages/agent/src/agent/common/answer_envelope.py": 1,
   "packages/agent/src/agent/common/backend_tools.py": 3,
   "packages/agent/src/agent/common/canned_replies.py": 1,
-  "packages/agent/src/agent/common/client_tools.py": 1,
   "packages/agent/src/agent/common/content_screen.py": 1,
   "packages/agent/src/agent/common/cost_tracking.py": 1,
   "packages/agent/src/agent/common/data_sources.py": 1,

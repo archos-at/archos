@@ -33,6 +33,12 @@ import {
 } from '@/lib/base-knowledge/platform/wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
 
+/** Whether a review's verdicts vouch for a source (`sourceChecked`): the one verdict the person must give themselves. */
+function checksASource(body: unknown): boolean {
+  const decisions = (body as { decisions?: unknown } | null)?.decisions
+  return Array.isArray(decisions) && decisions.some((decision) => (decision as { sourceChecked?: unknown } | null)?.sourceChecked === true)
+}
+
 /** Where the person approves, publishes, rolls back or entitles in the app: the platform's countries view. */
 const IN_COUNTRIES_VIEW: PersonConfirmation = { decideAt: () => '/app/platform/countries' }
 
@@ -205,16 +211,16 @@ export const platformKnowledgeOperations = [
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
       'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
-      'capture needs before approval and only someone other than its author may give. The person decides it. A verdict ' +
-      'is not an approval and changes nothing offices read.',
+      'capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is ' +
+      'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
+      'request; a verdict sent without the person’s confirmation is recorded as the agent’s.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
     body: reviewBodySchema,
     idempotent: false,
-    // A verdict vouches for a claim, and `sourceChecked` for a page nobody fetched: the person's own (ADR-0170).
-    personDecides: true,
-    requiresPersonConfirmation: IN_COUNTRIES_VIEW,
+    // `sourceChecked` vouches for a page nobody fetched: the person's own, asked of them (ADR-0170).
+    personDecidesWhen: (input) => checksASource(input.body),
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/review/route'),
   },
   {
@@ -222,8 +228,8 @@ export const platformKnowledgeOperations = [
     domain: 'platform',
     summary: 'Approve or reject a submitted change request',
     description:
-      'The person’s own decision, asked of them; approval needs every claim accepted and is refused (409) for anyone ' +
-      'who wrote a revision in the request. Audited.',
+      'The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone ' +
+      'who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/decision',
     params: requestParams,

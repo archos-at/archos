@@ -106,6 +106,13 @@ export interface AgentOperation {
    * is (`confirmation.ts`), since a proposal it applies may itself delete.
    */
   readonly personDecides?: true
+  /**
+   * The person decides this call only when its input says so: a review verdict
+   * that vouches for a source (`sourceChecked`, ADR-0170), while a plain verdict
+   * is the agent's to give. Read on the raw input; the route holds the same
+   * rule with `requirePersonDecision`.
+   */
+  readonly personDecidesWhen?: (input: OperationInput) => boolean
   /** Calling it twice with the same input leaves the same state. Defaults to GET, PUT and DELETE. */
   readonly idempotent?: boolean
   /**

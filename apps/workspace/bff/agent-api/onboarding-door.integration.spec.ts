@@ -104,9 +104,10 @@ describe.skipIf(!url)('an operator’s agent onboards AT-9 through the platform 
     featureFlags: null,
   })
   const operator = (who: AuthorizedSession): Principal => ({ actor: 'external_agent', clientId: 'client_claude', scopes: [], session: who, door: 'platform' })
-  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage']))
+  const APPROVER = 'platform:knowledge:approve_as_domain_expert'
+  const author = operator(session(`user_onb_author_${RUN}`, ['platform:settings:view', 'platform:settings:manage', APPROVER]))
   const expert = operator(
-    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:organizations:manage']),
+    session(`user_onb_expert_${RUN}`, ['platform:settings:view', 'platform:settings:manage', 'platform:organizations:manage', APPROVER]),
   )
 
   const ELICITS = { elicitation: { form: {} } }

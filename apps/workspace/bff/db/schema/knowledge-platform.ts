@@ -21,6 +21,7 @@ import type {
   ReleaseAction,
   ReleaseChannel,
   ReviewDecision,
+  ReviewDecisionSource,
   TerritoryKind,
 } from '@/lib/base-knowledge/wire/vocab'
 
@@ -68,12 +69,14 @@ export const knowledgeReviewDecisions = pgTable('knowledge_review_decisions', {
   decision: text('decision').$type<ReviewDecision>().notNull(),
   note: text('note'),
   reviewer: text('reviewer').notNull(),
+  /** NULL only on verdicts written before migration 0208. */
+  decisionSource: text('decision_source').$type<ReviewDecisionSource>(),
   decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
-  /** The reviewer checked the cited capture against its source (0208); required for an operator-supplied one. */
+  /** The reviewer checked the cited capture against its source (0209); required for an operator-supplied one. */
   sourceChecked: boolean('source_checked').notNull().default(false),
 })
 
-/** A page as the product captured it for a citation (0208, ADR-0170): what KC-6 checks a quote against. */
+/** A page as the product captured it for a citation (0209, ADR-0170): what KC-6 checks a quote against. */
 export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', {
   id: uuid('id').primaryKey(),
   changeRequestId: uuid('change_request_id').notNull(),

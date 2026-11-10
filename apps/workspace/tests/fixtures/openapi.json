@@ -28414,7 +28414,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-decide",
         "summary": "Approve or reject a submitted change request",
-        "description": "The person’s own decision, asked of them; approval needs every claim accepted and is refused (409) for anyone who wrote a revision in the request. Audited.",
+        "description": "The person’s own decision, asked of them; approval needs every claim accepted, is refused (409) for anyone who wrote a revision in the request, and (403) in a `role` the person does not hold. Audited.",
         "tags": [
           "platform"
         ],
@@ -28555,7 +28555,7 @@
       "post": {
         "operationId": "platform-knowledge-change-request-review",
         "summary": "Record verdicts on the claims of a submitted change request",
-        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval and only someone other than its author may give. The person decides it. A verdict is not an approval and changes nothing offices read.",
+        "description": "One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the request; a verdict sent without the person’s confirmation is recorded as the agent’s.",
         "tags": [
           "platform"
         ],
@@ -28657,7 +28657,7 @@
         "x-mcp-annotations": {
           "title": "Record verdicts on the claims of a submitted change request",
           "readOnlyHint": false,
-          "destructiveHint": true,
+          "destructiveHint": false,
           "idempotentHint": false,
           "openWorldHint": false
         }

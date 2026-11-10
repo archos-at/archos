@@ -158,7 +158,7 @@
     "packages/agent/src/agent/agents/piloti/answer_pipeline.py": 1142,
     "packages/agent/src/agent/agents/piloti/clarify.py": 779,
     "packages/agent/src/agent/agents/piloti/conversation.py": 718,
-    "packages/agent/src/agent/agents/piloti/register.py": 671,
+    "packages/agent/src/agent/agents/piloti/register.py": 642,
     "packages/agent/src/agent/cards/catalog.py": 1109,
     "packages/agent/src/agent/cards/surface_documents.py": 770,
     "packages/agent/src/agent/common/answer_envelope.py": 1359,

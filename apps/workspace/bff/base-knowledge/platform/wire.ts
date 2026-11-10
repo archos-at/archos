@@ -308,7 +308,8 @@ export const publishBodySchema = z.object({
 })
 
 export type ReleaseChannelBody = z.infer<typeof publishBodySchema>
-export type ReviewDecisionBody = z.infer<typeof reviewBodySchema>
+/** A review as the service takes it: `sourceChecked` may be left out (false). */
+export type ReviewDecisionBody = z.input<typeof reviewBodySchema>
 
 export const rollbackBodySchema = z.object({
   reason: z.string().trim().min(1).max(1000),

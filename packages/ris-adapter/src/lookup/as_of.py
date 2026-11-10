@@ -69,11 +69,22 @@ def in_force_on(metadata: dict[str, str], day: date) -> bool:
 ENV_OVERRIDE = "TIME_EDITIONS"
 
 
+def _override() -> bool | None:
+    override = os.environ.get(ENV_OVERRIDE, "").strip().lower()
+    return override == "on" if override in {"on", "off"} else None
+
+
+def as_of_offered(flag_allowed: bool) -> bool:
+    """Whether a turn is offered ``as_of``: the turn's flag, unless the process override says otherwise."""
+    override = _override()
+    return flag_allowed if override is None else override
+
+
 def _allowed_for(organization_id: str | None) -> bool:
     """The ``time-editions`` flag for ``organization_id``; anything short of a yes is no. Blocking."""
-    override = os.environ.get(ENV_OVERRIDE, "").strip().lower()
-    if override in {"on", "off"}:
-        return override == "on"
+    override = _override()
+    if override is not None:
+        return override
     if not organization_id:
         return False
     try:

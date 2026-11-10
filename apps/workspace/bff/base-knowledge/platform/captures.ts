@@ -2,7 +2,7 @@
  * Citation captures (ADR-0170): the page a platform record cites, as the
  * product fetched it or as an operator supplied it, kept with its sha256 and
  * text so KC-6 checks every quote against it. Insert-only; a capture goes into
- * a draft change request only (0208's trigger). Platform-private.
+ * a draft change request only (0209's trigger). Platform-private.
  */
 
 import 'server-only'
