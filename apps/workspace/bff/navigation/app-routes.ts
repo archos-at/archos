@@ -43,6 +43,7 @@ export const APP_ROUTE_URLS: readonly string[] = [
   '/app/platform/models',
   '/app/platform/countries',
   '/app/platform/countries/[countryId]',
+  '/app/platform/countries/[countryId]/map',
   '/app/platform/organizations/[id]',
   '/app/platform/quality',
   '/app/platform/retrieval',
