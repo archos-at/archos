@@ -8,6 +8,9 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTurnSocket, type TurnSocketOptions, type WebSocketLike } from './turn-socket'
+import { getWebSocketUrl } from './config'
+
+vi.mock('./config', () => ({ getWebSocketUrl: vi.fn() }))
 
 const setup = (extra: Partial<TurnSocketOptions> = {}) => {
   const sockets: WebSocketLike[] = []
@@ -39,6 +42,7 @@ const setup = (extra: Partial<TurnSocketOptions> = {}) => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('the driver and its statechart', () => {
@@ -55,20 +59,44 @@ describe('the driver and its statechart', () => {
     expect(sockets).toHaveLength(1)
   })
 
-  it('rejects the connect when the socket cannot be constructed, and tries again when asked', async () => {
+  it('takes the ladder when the socket cannot be constructed, and connects once it can', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     let refuse = true
     const made = setup()
     const { socket, statuses } = setup({
+      ladder: { delaysMs: [100, 100] },
       createWebSocket: () => {
         if (refuse) throw new Error('refused')
         return made.createWebSocket()
       },
     })
-    await expect(socket.connect()).rejects.toThrow('refused')
+    // Every caller drops this promise (`void socket.connect()`): it must not reject.
+    await expect(socket.connect()).resolves.toBeUndefined()
+    expect(statuses).toEqual(['connecting', 'reconnecting'])
     refuse = false
-    await socket.connect()
-    expect(statuses).toEqual(['connecting', 'connecting'])
+    await vi.advanceTimersByTimeAsync(100)
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting'])
     expect(made.sockets).toHaveLength(1)
+  })
+
+  it('takes the ladder when the socket address cannot be had, and says failed when the ladder is spent', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.mocked(getWebSocketUrl).mockRejectedValue(new Error('no config'))
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    const { socket, sockets, statuses } = setup({ url: undefined, ladder: { delaysMs: [100, 100] } })
+    await expect(socket.connect()).resolves.toBeUndefined()
+    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(statuses).toEqual(['connecting', 'reconnecting', 'connecting', 'reconnecting', 'connecting', 'reconnecting', 'failed'])
+    expect(sockets).toHaveLength(0)
+    // The ladder's own attempts have no caller to hand a rejection to.
+    vi.useRealTimers()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    process.off('unhandledRejection', unhandled)
+    expect(unhandled).not.toHaveBeenCalled()
   })
 
   it('keeps running when a status callback throws, and reports the error as uncaught', async () => {

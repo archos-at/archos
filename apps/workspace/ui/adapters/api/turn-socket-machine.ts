@@ -24,12 +24,14 @@
  *   until the hello, `open`). A failed attempt passes through `retry`, which
  *   rests nowhere: it lands in `suspended` or `offline` when nobody can see an
  *   attempt through, in `reconnecting` while the ladder has a rung, and in
- *   `failed` or `incompatible` when it has none.
+ *   `failed` or `incompatible` when it has none. An attempt whose preparation
+ *   threw, or whose socket could not be constructed, failed like any other:
+ *   it used to rest at `connecting` for good, and the chat said nothing.
+ * - A suspend moves a state without a socket to `suspended` or `offline`, and
+ *   only when the page really is hidden or offline. It is never a failed
+ *   attempt: read as one, it spent a rung and said `failed` a second time.
  * - `outdated` stays inside `active` and ignores the page: only the caller
  *   leaves it.
- * - `stalled` is an attempt whose preparation threw. The status stays
- *   `connecting` and nothing retries until the caller or the page asks; the
- *   driver behaved so before the chart and the chart keeps it visible.
  */
 
 import { assign, enqueueActions, fromCallback, setup } from 'xstate'
@@ -190,7 +192,11 @@ export const turnSocketMachine = setup({
         RECONNECT: { target: '.opening', actions: 'resetLadder' },
         PAGE_RESUMED: { target: '.opening', actions: 'resetLadder' },
         // A rung waiting to fire is not spent on a page nobody can see through.
-        PAGE_SUSPENDED: { target: '.retry' },
+        // A page that is still visible and online did not go away: nothing moves.
+        PAGE_SUSPENDED: [
+          { guard: 'pageHidden', target: '.suspended' },
+          { guard: 'pageOffline', target: '.offline' },
+        ],
       },
       states: {
         opening: {
@@ -210,10 +216,10 @@ export const turnSocketMachine = setup({
               target: 'connected',
               actions: assign({ preparing: false, lastFailure: 'failed' }),
             },
-            PREPARE_FAILED: { target: 'stalled', actions: 'prepared' },
+            // This attempt never reached a server, whatever the one before it met.
+            PREPARE_FAILED: { target: 'retry', actions: assign({ preparing: false, lastFailure: 'failed' }) },
           },
         },
-        stalled: {},
         connected: {
           invoke: {
             id: 'socket',
@@ -231,7 +237,7 @@ export const turnSocketMachine = setup({
           states: {
             dialing: {
               on: {
-                SOCKET_REFUSED: { target: '#turnSocket.active.stalled' },
+                SOCKET_REFUSED: { target: '#turnSocket.active.retry' },
                 SOCKET_OPENED: { target: 'greeting' },
                 HELLO: { target: 'open', actions: 'resetLadder' },
                 GREETING_FOREIGN: { target: '#turnSocket.active.retry', actions: 'blameTheDialect' },

@@ -203,10 +203,15 @@ withdrawn before it was committed. What it taught:
   last took, and a report older than that is dropped. That needs the server to
   send one, so it is a change to the listing and the job status, not to the
   store.
-* One defect confirmed on the way and not fixed: `mapToDisplayStatus`
-  (`features/documents/utils.ts`) has no case for `canceled` and draws such a
-  row as uploading in the chat's file sources; the fix needs a `canceled`
-  member on `FileSourceStatus`.
+* Three narrow defects on this row were fixed instead, none by reading the
+  status as a guard: a cancelled row was drawn as uploading in the chat's file
+  sources (`mapToDisplayStatus` is exhaustive over the status now); a row this
+  session just created could take a same-named file's status from a job
+  already being polled (`lib/job-file-match.ts`: a row that still holds its
+  local file and has no id is never matched by name); and a stop wrote
+  `canceled` over a read that had finished meanwhile (`lib/stop-reading.ts`
+  re-reads the row). The stop route still does not say whether the document
+  ended cancelled; the client asks once in the rare case it needs to know.
 
 ## Wire and protocol vocabularies
 

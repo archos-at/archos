@@ -120,7 +120,11 @@ export interface WebSocketLike {
 }
 
 export interface TurnSocket {
-  /** Open, or keep open. After the ladder gave up, a new ladder: this is a new request. */
+  /**
+   * Open, or keep open. After the ladder gave up, a new ladder: this is a new
+   * request. Resolves when the attempt's preparation is over and never
+   * rejects: how the attempt went is said by `onStatus`.
+   */
   connect: () => Promise<void>
   /**
    * False when the socket is not open (no hello yet), or when its server does
@@ -243,8 +247,6 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
   const warned = new Set<string>()
   let socket: WebSocketLike | null = null
   let opening: Promise<void> | null = null
-  /** What constructing the socket threw, for the attempt's promise to reject with. */
-  let refused: { error: unknown } | null = null
   /** The current socket's server said hello: it speaks v2, and `send` may use it. */
   let ready = false
   /** The optional client fields the current socket's server named in its hello. */
@@ -321,7 +323,7 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     try {
       ws = options.createWebSocket ? options.createWebSocket(input.url) : new WebSocket(input.url)
     } catch (error) {
-      refused = { error }
+      warnOnce(`could not construct a socket: ${String(error)}`)
       sendBack({ type: 'SOCKET_REFUSED' })
       return undefined
     }
@@ -378,8 +380,12 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     }
   })
 
-  const page = fromCallback<TurnSocketEvent>(({ sendBack }) =>
-    lifecycle.subscribe({
+  const page = fromCallback<TurnSocketEvent>(({ sendBack }) => {
+    // Nothing listened while the socket was closed: a hide from before the
+    // close may be long over, and the away clock must describe the page now.
+    if (isActive(lifecycle)) awaySince = null
+    else awaySince ??= Date.now()
+    return lifecycle.subscribe({
       // A ready socket that heard nothing while the page was away longer than a
       // beat may be dead without its close having reached us (iOS).
       resume: () => {
@@ -389,26 +395,30 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
         sendBack({ type: 'PAGE_RESUMED', socketWentQuiet })
       },
       suspend: () => {
-        awaySince ??= Date.now()
+        // Away only if the page says so: a suspend on a page still visible and
+        // online has no resume to end it, and would count as away for good.
+        if (!isActive(lifecycle)) awaySince ??= Date.now()
         sendBack({ type: 'PAGE_SUSPENDED' })
       },
     })
-  )
+  })
 
-  /** Refresh auth and build the URL, then tell the machine, which opens the socket in the same step. */
+  /**
+   * Refresh auth and build the URL, then tell the machine, which opens the
+   * socket in the same step. It never rejects: an attempt the ladder starts
+   * has no caller, and a failure is the machine's to count and to announce.
+   */
   const prepare = async (): Promise<void> => {
     let url: string
     try {
       await options.refreshAuth?.().catch(() => undefined)
       url = await urlOf()
     } catch (error) {
+      warnOnce(`could not prepare an attempt: ${String(error)}`)
       actor.send({ type: 'PREPARE_FAILED' })
-      throw error
+      return
     }
     actor.send({ type: 'PREPARED', url })
-    const failure = refused
-    refused = null
-    if (failure) throw failure.error
   }
 
   const actor = createActor(

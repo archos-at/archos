@@ -79,11 +79,6 @@ const REACH: Record<string, { events: TurnSocketEvent[]; ladder: RetryLadderOpti
   idle: { events: [], ladder: { delaysMs: [100, 100] }, page: HERE },
   closed: { events: [{ type: 'CLOSE' }], ladder: { delaysMs: [100, 100] }, page: HERE },
   'active.opening': { events: [{ type: 'CONNECT' }], ladder: { delaysMs: [100, 100] }, page: HERE },
-  'active.stalled': {
-    events: [{ type: 'CONNECT' }, { type: 'PREPARE_FAILED' }],
-    ladder: { delaysMs: [100, 100] },
-    page: HERE,
-  },
   'active.connected.dialing': { events: TO_DIALING, ladder: { delaysMs: [100, 100] }, page: HERE },
   'active.connected.greeting': {
     events: [...TO_DIALING, { type: 'SOCKET_OPENED' }],
@@ -149,13 +144,12 @@ const MOVES: Record<keyof typeof REACH, Record<string, Move>> = {
   'active.opening': {
     CLOSE: CLOSED,
     PREPARED: ['active.connected.dialing'],
-    PREPARE_FAILED: ['active.stalled'],
+    PREPARE_FAILED: RECONNECTING,
   },
-  'active.stalled': { ...RESTING, PAGE_SUSPENDED: RECONNECTING },
   'active.connected.dialing': {
     RECONNECT: OPENING,
     CLOSE: CLOSED,
-    SOCKET_REFUSED: ['active.stalled'],
+    SOCKET_REFUSED: RECONNECTING,
     SOCKET_OPENED: ['active.connected.greeting'],
     HELLO: ['active.connected.open', 'open'],
     GREETING_FOREIGN: RECONNECTING,
@@ -186,11 +180,12 @@ const MOVES: Record<keyof typeof REACH, Record<string, Move>> = {
     'WATCHDOG_EXPIRED(page away)': RECONNECTING,
     'PAGE_RESUMED(went quiet)': OPENING,
   },
-  'active.reconnecting': { ...RESTING, PAGE_SUSPENDED: RECONNECTING, RUNG_DUE: OPENING },
+  // A suspend on a page that is still visible and online (the table's page) is no failed attempt.
+  'active.reconnecting': { ...RESTING, RUNG_DUE: OPENING },
   'active.suspended': { ...RESTING, PAGE_SUSPENDED: ['active.suspended', 'suspended'] },
   'active.offline': { ...RESTING, PAGE_SUSPENDED: ['active.offline', 'offline'] },
-  'active.failed': { ...RESTING, PAGE_SUSPENDED: ['active.failed', 'reconnecting', 'failed'] },
-  'active.incompatible': { ...RESTING, PAGE_SUSPENDED: ['active.incompatible', 'reconnecting', 'incompatible'] },
+  'active.failed': RESTING,
+  'active.incompatible': RESTING,
   'active.outdated': { CONNECT: OPENING, RECONNECT: OPENING, CLOSE: CLOSED },
 }
 
@@ -281,6 +276,26 @@ describe('the ladder', () => {
     expect(run.state).toBe('active.failed')
   })
 
+  it('takes a rung for a preparation that failed and for a socket that could not be made, and gives up as failed', () => {
+    const unprepared = walk([{ type: 'CONNECT' }, { type: 'PREPARE_FAILED' }], { delaysMs: [10] }, HERE)
+    expect(unprepared.state).toBe('active.reconnecting')
+    expect(unprepared.snapshot.context.attempts).toBe(1)
+    expect(unprepared.snapshot.context.preparing).toBe(false)
+
+    const again = walk([RUNG_DUE, PREPARED, { type: 'SOCKET_REFUSED' }], { delaysMs: [10] }, HERE, unprepared.snapshot)
+    expect(again.state).toBe('active.failed')
+    expect(again.announced).toEqual(['connecting', 'reconnecting', 'failed'])
+  })
+
+  it('does not blame the dialect when the attempt after a foreign greeting could not even be prepared', () => {
+    const run = walk(
+      [{ type: 'CONNECT' }, PREPARED, { type: 'GREETING_FOREIGN' }, RUNG_DUE, { type: 'PREPARE_FAILED' }],
+      { delaysMs: [10] },
+      HERE
+    )
+    expect(run.state).toBe('active.failed')
+  })
+
   it('starts over on the hello, the evidence that it works', () => {
     const run = walk([{ type: 'CONNECT' }, ...failOnce, PREPARED, { type: 'HELLO' }], { delaysMs: [10, 20] }, HERE)
     expect(run.snapshot.context.attempts).toBe(0)
@@ -364,6 +379,19 @@ describe('a page away', () => {
     expect(walk([RUNG_DUE], { delaysMs: [10] }, page, waiting.snapshot).state).toBe('active.offline')
     page.hidden = true
     expect(walk([RUNG_DUE], { delaysMs: [10] }, page, waiting.snapshot).state).toBe('active.suspended')
+  })
+
+  it('takes a suspend on a page still visible and online for nothing: no rung, and a failure is not said twice', () => {
+    const waiting = walk([...TO_OPEN, DROPPED], { delaysMs: [10, 20] }, HERE)
+    const nudged = walk([{ type: 'PAGE_SUSPENDED' }], { delaysMs: [10, 20] }, HERE, waiting.snapshot)
+    expect(nudged.state).toBe('active.reconnecting')
+    expect(nudged.announced).toEqual([])
+    expect(nudged.snapshot.context.attempts).toBe(1)
+    // The rung that is waiting still falls due.
+    expect(nudged.actions).not.toContain('xstate.cancel')
+
+    const spent = walk([...TO_DIALING, DROPPED], { delaysMs: [] }, HERE)
+    expect(walk([{ type: 'PAGE_SUSPENDED' }], { delaysMs: [] }, HERE, spent.snapshot).announced).toEqual([])
   })
 
   it('keeps an open socket through it, and an attempt that is preparing', () => {
