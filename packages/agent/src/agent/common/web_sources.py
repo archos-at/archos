@@ -175,14 +175,23 @@ def _registry_hosts() -> set[str]:
     return {host_of(url) for entry in entries for url in (entry.citation_url, entry.full_law_url, entry.source_url)}
 
 
+#: The European Legislation Identifier: the one scheme whose value is an address (``platform/wire.ts`` checks it).
+_ELI = "eli"
+
+
 def own_source_hosts() -> frozenset[str]:
     """The hosts a work's own text is read from: every configured source's, the hosts the norm registry points
-    at, and the hosts the turn's records name for an edition (an identity that is an address, such as an ELI)."""
+    at, and the host of a work's ELI. Only ``eli`` is an address by its standard: any other scheme is an open word
+    whose value no rule makes a URL, so its value names no host to trust."""
     from agent.common.knowledge_context import turn_knowledge_context
 
     hosts = {host for source in configured_sources() for host in source.hosts} | _registry_hosts()
     for use in turn_knowledge_context().uses:
-        hosts.update(host_of(ref.value) for ref in use.source_refs if ref.value.lower().startswith("https://"))
+        hosts.update(
+            host_of(ref.value)
+            for ref in use.source_refs
+            if ref.scheme == _ELI and ref.value.lower().startswith("https://")
+        )
     return frozenset(host for host in hosts if host)
 
 

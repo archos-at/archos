@@ -26,7 +26,7 @@
  */
 
 import type { JSX } from 'react'
-import { useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { motion, springSnap, useMotionToken } from '@/components/motion'
 import { SHELL_COUNT } from '@/components/shell/shell-count'
 import { CountPill } from '@/components/ui/count-pill'
@@ -55,11 +55,17 @@ export function InboxBadge({ pending, className, tone = 'attention' }: InboxBadg
   const t = useTranslations(collaborationCopy)
   const settle = useMotionToken(springSnap)
   const shown = Number.isFinite(pending) && pending > 0 ? Math.floor(pending) : 0
-  const previous = useRef(shown)
-  const rose = shown > previous.current
-  useEffect(() => {
-    previous.current = shown
-  }, [shown])
+  // How often the count has risen while the badge was on screen. The pill is
+  // keyed by it, so each rise replays the arrival once and nothing else does.
+  // It was keyed by „rose in this render“, which is false again one render
+  // later: any re-render of the shell inside the spring's 0.44s remounted the
+  // pill at rest and cut the arrival off.
+  const [seen, setSeen] = useState(shown)
+  const [rises, setRises] = useState(0)
+  if (shown !== seen) {
+    setSeen(shown)
+    if (shown > seen) setRises(rises + 1)
+  }
 
   if (shown === 0) return null
 
@@ -68,10 +74,10 @@ export function InboxBadge({ pending, className, tone = 'attention' }: InboxBadg
 
   return (
     <motion.span
-      // A new key on each rise replays the arrival; a fall keeps the pill as it is.
-      key={rose ? count : 'steady'}
+      // A fall keeps the pill as it is.
+      key={rises}
       className={className ? `inline-flex ${className}` : 'inline-flex'}
-      initial={rose ? { scale: 0.7 } : false}
+      initial={rises > 0 ? { scale: 0.7 } : false}
       animate={{ scale: 1 }}
       transition={settle}
     >

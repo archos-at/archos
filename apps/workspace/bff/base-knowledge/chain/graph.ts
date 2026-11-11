@@ -40,7 +40,7 @@ export interface GraphWork {
   addresseeTerritoryIds: readonly string[]
   /** What it attaches to (0213); absent reads as the site. */
   connectsBy?: readonly ConnectingFactor[]
-  /** Its identifiers at its source (`ris_gesetzesnummer`, `eli`): how a passage read live finds it; absent reads as none. */
+  /** Its identifiers at its source, by the scheme its source record declares (`eli`, a law number): how a passage read live finds it; absent reads as none. */
   sourceRefs?: readonly SourceRef[]
   /** The first day whose edition is held (0206); absent or null: no earlier than the oldest edition present. */
   historyAvailableFrom?: string | null

@@ -13,8 +13,10 @@ import {
   deleteKnowledgeBaseDocument,
   getKnowledgeBaseStatus,
   getReleasedKnowledgeBaseStatus,
+  reingestKnowledgeBaseDocuments,
   syncKnowledgeBase,
   uploadKnowledgeBaseDocument,
+  withdrawCorpusFile,
 } from './service'
 
 const fetchMock = vi.fn()
@@ -296,5 +298,66 @@ describe('getReleasedKnowledgeBaseStatus', () => {
 
   it('keeps the whole corpus for the platform’s own reader', async () => {
     expect((await getKnowledgeBaseStatus()).files).toHaveLength(5)
+  })
+})
+
+describe('withdrawCorpusFile', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    process.env.INTERNAL_API_TOKEN = 'test-token'
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.INTERNAL_API_TOKEN
+  })
+
+  it('marks the file unreleased and keeps its country', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ released: false, chunks: 3 }), { status: 200 }))
+
+    await withdrawCorpusFile('rolled-back.pdf')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/knowledge-mark')
+    expect(JSON.parse(String(init.body))).toEqual({ file_name: 'rolled-back.pdf', released: false })
+  })
+
+  it('throws, so the job retries, when the backend does not echo the withdrawal', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ chunks: 3 }), { status: 200 }))
+
+    await expect(withdrawCorpusFile('rolled-back.pdf')).rejects.toBeInstanceOf(UpstreamError)
+  })
+
+  it('takes a file with no chunks as withdrawn once its row is, and a 404 as a backend that wrote nothing', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ released: false, chunks: 0 }), { status: 200 }))
+    await expect(withdrawCorpusFile('rolled-back.pdf')).resolves.toBeUndefined()
+
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 404 }))
+    await expect(withdrawCorpusFile('rolled-back.pdf')).rejects.toBeInstanceOf(UpstreamError)
+  })
+})
+
+describe('reingestKnowledgeBaseDocuments with release marks', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    vi.stubEnv('ADMIN_TOKEN', 'admin-secret')
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+  const marks = { 'a.pdf': { countryId: 'XA', editionId: 'edition:one' } }
+
+  it('accepts an answer that recorded every marked file as released', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'pending', queued: ['a.pdf'], released: ['a.pdf'] }), { status: 200 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).resolves.toMatchObject({ queued: ['a.pdf'] })
+  })
+
+  it('throws, so the indexing job retries, when a backend from before the flag leaves the file unreleased', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'pending', queued: ['a.pdf'] }), { status: 200 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).rejects.toBeInstanceOf(UpstreamError)
   })
 })

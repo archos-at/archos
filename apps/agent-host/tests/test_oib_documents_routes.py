@@ -817,7 +817,10 @@ async def test_reingest_records_the_country_and_edition_the_platform_sent(app, i
         )
 
     assert response.status_code == 200
-    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(country_id="DE", edition_id="edition:baybo-2025")
+    assert response.json()["released"] == ["a.pdf"]  # the BFF refuses an answer without it
+    assert corpus_store.get_mark("a.pdf") == corpus_store.FileMark(
+        country_id="DE", edition_id="edition:baybo-2025", released=True
+    )
     assert refused.status_code == 422
 
 

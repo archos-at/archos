@@ -30582,22 +30582,17 @@
                             },
                             "identifiers": {
                               "default": {},
-                              "description": "The work’s identifiers at its source: how a passage the agent reads live at that source finds this work and its role.",
+                              "description": "The work’s identifiers at its source, {\"<scheme>\": \"<value>\"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. A passage finds the work when its address carries the value where the source record says (a query parameter); a scheme no source record declares is kept and finds nothing. At most 8 schemes; `designation` is not one (it is the work’s own field). `eli` is the European Legislation Identifier, a URL ending with \"/\": checked for shape, read by no source record yet.",
                               "type": "object",
-                              "properties": {
-                                "ris_gesetzesnummer": {
-                                  "description": "RIS: the law number of the consolidated text, as the number parameter of its RIS link carries it, e.g. \"20000006\".",
-                                  "type": "string",
-                                  "pattern": "^\\d{1,12}$"
-                                },
-                                "eli": {
-                                  "description": "The European Legislation Identifier of the work, as a URL ending with \"/\"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).",
-                                  "type": "string",
-                                  "maxLength": 300,
-                                  "pattern": "\\/$"
-                                }
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,39}$"
                               },
-                              "additionalProperties": false
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
                             },
                             "citations": {
                               "default": [],

@@ -71,13 +71,21 @@ def test_the_agent_parses_every_use_and_keeps_the_gate(land: str) -> None:
     assert parsed.text == raw["text"]
 
 
-def test_the_schema_refuses_a_qualifier_or_a_scheme_the_bff_never_sends() -> None:
+def test_the_schema_refuses_a_qualifier_or_a_malformed_scheme_the_bff_never_sends() -> None:
     raw = copy.deepcopy(_context("AT-9"))
     raw["uses"][0]["qualifier"] = "decisive"
     assert not VALIDATOR.is_valid(raw)
+    for scheme in ("Gesetzesnummer", "law-number", "1st"):
+        raw = copy.deepcopy(_context("AT-9"))
+        raw["uses"][0]["sourceRefs"] = [{"scheme": scheme, "value": "1"}]
+        assert not VALIDATOR.is_valid(raw), scheme
+
+
+def test_the_schema_takes_a_scheme_no_code_names() -> None:
+    """A scheme is an open word a source record declares (country-as-data §3.5): another country's is data."""
     raw = copy.deepcopy(_context("AT-9"))
-    raw["uses"][0]["sourceRefs"] = [{"scheme": "gesetzesnummer", "value": "1"}]
-    assert not VALIDATOR.is_valid(raw)
+    raw["uses"][0]["sourceRefs"] = [{"scheme": "xa_gazette_number", "value": "42"}]
+    assert VALIDATOR.is_valid(raw)
 
 
 def test_vienna_names_its_building_code_by_its_ris_identifiers() -> None:

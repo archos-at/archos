@@ -303,8 +303,8 @@ def released_record() -> dict[str, Any]:
 
 
 @contextlib.contextmanager
-def _turn_carrying(record: dict[str, Any] | None):
-    """Bind a knowledge context that carries ``record`` as the turn's released source (or none)."""
+def _turn_carrying(record: dict[str, Any] | None, uses: tuple = ()):
+    """Bind a knowledge context that carries ``record`` as the turn's released source (or none), and ``uses``."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import LawSource as TurnSource
     from agent.common.knowledge_context import get_turn_knowledge_context
@@ -318,7 +318,11 @@ def _turn_carrying(record: dict[str, Any] | None):
         source = TurnSource(key=record["id"], revision_id=revision, country=country, config=record)
         set_turn_knowledge_context(
             KnowledgeContext(
-                gate="core", site_country=country, sources=(source,), retrieval_countries=frozenset({country})
+                gate="core",
+                site_country=country,
+                uses=uses,
+                sources=(source,),
+                retrieval_countries=frozenset({country}),
             )
         )
     try:
@@ -332,8 +336,11 @@ async def run_law_lookup_from_turn(case: Case, upstream: Upstream) -> Result:
     return await run_law_lookup(case, upstream, turn_record=released_record())
 
 
-async def run_law_lookup(case: Case, upstream: Upstream, turn_record: dict[str, Any] | None = None) -> Result:
-    """The country-neutral lookup (``agent.knowledge.law_lookup``), reading RIS from its record.
+async def run_law_lookup(
+    case: Case, upstream: Upstream, turn_record: dict[str, Any] | None = None, uses: tuple = ()
+) -> Result:
+    """The country-neutral lookup (``agent.knowledge.law_lookup``), reading RIS from its record, or the
+    ``turn_record`` the turn carries beside ``uses`` (the edition uses its records resolved).
 
     Bound as the RIS tool is, under its name, so its errors and its sources step say ``ris_lookup``.
     """
@@ -378,7 +385,7 @@ async def run_law_lookup(case: Case, upstream: Upstream, turn_record: dict[str, 
     with contextlib.ExitStack() as stack:
         stack.enter_context(patch("agent.knowledge.law_lookup.tool.SourceClient", _client))
         stack.enter_context(patch("agent.knowledge.law_lookup.tool._resolve_llms", _resolve))
-        stack.enter_context(_turn_carrying(turn_record))
+        stack.enter_context(_turn_carrying(turn_record, uses))
         records = stack.enter_context(_capturing_hits("agent.knowledge.law_lookup.render"))
         async with law_lookup(config, MagicMock()) as info:
             fn = LambdaFunction.from_info(config=_probe_config(), info=info)
