@@ -76,7 +76,82 @@ describe('purger tick during a database outage', () => {
 
     expect(error.mock.calls.map(([line]) => line)).toEqual([
       '[purger] failed to reap stranded rows:',
+      '[purger] failed to re-offer exhausted rows:',
       '[purger] tick failed, retrying on the next poll:',
     ])
+  })
+})
+
+/**
+ * A database that hands the purger one due folder entry, and records every
+ * statement with the transaction it ran in.
+ */
+function queueWithOneFolder() {
+  const statements = []
+  let transactions = 0
+  let claimed = false
+  const begin = async (cb) => {
+    transactions += 1
+    const index = transactions
+    const tx = (strings, ...values) => {
+      const text = strings.join('$').replace(/\s+/g, ' ').trim()
+      statements.push({ text, values, transaction: index })
+      if (/^SELECT q\.\* FROM deletion_queue/.test(text) && !claimed) {
+        claimed = true
+        return Promise.resolve([{ id: 'q1', entity_type: 'folder', entity_id: 'f1', organization_id: 'org_1', display_name: 'Pläne' }])
+      }
+      if (/legal_hold_blocks/.test(text)) return Promise.resolve([{ held: false }])
+      return Promise.resolve([])
+    }
+    tx.unsafe = () => Promise.resolve([])
+    return cb(tx)
+  }
+  return { sql: { begin }, statements }
+}
+
+describe('a purge and its record are one transaction', () => {
+  it('marks the row purged in the transaction the purge ran in, not in one after it', async () => {
+    // As a write of its own it could fail alone after the purge committed. On
+    // the last attempt the row of an erased folder then went `failed`: from
+    // the catch that records a failed purge, or from the reap 15 minutes on.
+    spies()
+    const { sql, statements } = queueWithOneFolder()
+    const deps = {
+      frontendUrl: 'http://frontend:3000',
+      internalToken: 't',
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ counts: {}, traceConversationIds: [] }) }),
+      eraseConversationTraces: async () => ({ traces: 0 }),
+    }
+    const purger = createPurger({
+      sql,
+      deps: /** @type {never} */ (deps),
+      streak: createFailureStreak({ label: '[purger] queue', escalateAfter: ESCALATE_AFTER }),
+    })
+
+    await purger.processOne()
+
+    const payload = statements.find((statement) => statement.text.includes('SET payload ='))
+    const purged = statements.find((statement) => statement.text.includes("SET status = 'purged'"))
+    expect(payload).toBeDefined()
+    expect(purged).toBeDefined()
+    expect(purged.transaction).toBe(payload.transaction)
+    expect(statements.some((statement) => /SET status = (CASE|'failed')/.test(statement.text))).toBe(false)
+  })
+
+  it('re-offers exhausted pending rows on every tick, before it claims', async () => {
+    spies()
+    const { sql, statements } = queueWithOneFolder()
+    const purger = createPurger({
+      sql,
+      deps: /** @type {never} */ ({ fetchImpl: async () => ({ ok: false, status: 500, json: async () => ({}) }) }),
+      streak: createFailureStreak({ label: '[purger] queue', escalateAfter: ESCALATE_AFTER }),
+    })
+
+    await purger.tick()
+
+    const reoffer = statements.findIndex((statement) => /SET attempts = \$ WHERE status = 'pending'/.test(statement.text))
+    const claim = statements.findIndex((statement) => /^SELECT q\.\* FROM deletion_queue/.test(statement.text))
+    expect(reoffer).toBeGreaterThanOrEqual(0)
+    expect(reoffer).toBeLessThan(claim)
   })
 })

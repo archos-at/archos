@@ -181,6 +181,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
     bff/bim/query.integration.spec.ts \
+    bff/bim/extraction-repository.integration.spec.ts \
     bff/bim/model-shelf.integration.spec.ts \
     bff/bim/model-kinds-repository.integration.spec.ts \
     bff/projects/memory-service.integration.spec.ts \

@@ -15,6 +15,10 @@
 // so each runs under the platform step-up — see workers/platform-scope.js.
 const { withPlatformScope } = require('../workers/platform-scope')
 
+// The statuses and the attempt cap are declared in TypeScript
+// (`bff/db/schema/deletion-queue.ts`, `DELETION_LIFECYCLE`), which this process
+// cannot import: it runs unbuilt. `deletion-lifecycle.spec.mjs` holds every
+// status literal and every move in this file to that declaration.
 const MAX_ATTEMPTS = 10
 const STALE_CLAIM_MINUTES = 15
 
@@ -103,22 +107,33 @@ async function releaseHeld(sql, entryId) {
     SET status = 'pending',
         attempts = GREATEST(attempts - 1, 0),
         last_error = 'blocked by active legal hold at purge time'
-    WHERE id = ${entryId}
+    WHERE id = ${entryId} AND status = 'purging'
   `)
 }
 
-/** Mark an entry done: nothing left in object storage or the database. */
 /**
- * @param {Sql} sql
+ * Mark an entry done: nothing left in object storage or the database.
+ *
+ * Takes the purge's own transaction, so the row is `purged` exactly when the
+ * purge committed. As a write of its own after the commit it could fail alone
+ * (a database restart between the two), and the row of an erased entity then
+ * read `failed` once its attempts were spent.
+ *
+ * Like every write below it moves only a row that is still `purging`: after a
+ * stale claim was taken over, or „Endgültig löschen" closed the row in a
+ * request, a second holder's late answer must not move a finished row.
+ */
+/**
+ * @param {Tx} tx  the purge's transaction, already in platform scope
  * @param {string} entryId
  * @returns {Promise<void>}
  */
-async function markPurged(sql, entryId) {
-  await withPlatformScope(sql, (tx) => tx`
+async function markPurged(tx, entryId) {
+  await tx`
     UPDATE deletion_queue
     SET status = 'purged', purged_at = now(), last_error = NULL
-    WHERE id = ${entryId}
-  `)
+    WHERE id = ${entryId} AND status = 'purging'
+  `
 }
 
 /**
@@ -137,7 +152,7 @@ async function markFailed(sql, entryId, message) {
     UPDATE deletion_queue
     SET status = CASE WHEN attempts >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END,
         last_error = ${String(message).slice(0, 2000)}
-    WHERE id = ${entryId}
+    WHERE id = ${entryId} AND status = 'purging'
   `)
 }
 
@@ -157,7 +172,7 @@ async function markFailedPermanent(sql, entryId, message) {
     UPDATE deletion_queue
     SET status = 'failed',
         last_error = ${String(message).slice(0, 2000)}
-    WHERE id = ${entryId}
+    WHERE id = ${entryId} AND status = 'purging'
   `)
 }
 
@@ -195,6 +210,34 @@ async function reapStranded(sql) {
   return rows.length
 }
 
+/**
+ * Give a `pending` row that has no attempts left its last one back.
+ *
+ * claimNext never takes a row at MAX_ATTEMPTS, so such a row reads as waiting
+ * and is never purged. No writer leaves one any more: a request-side release
+ * („Endgültig löschen" failing, `releaseBinEntry`) used to, when it had claimed
+ * a row the purger had already given up on, or spent the last attempt itself.
+ * Rows stranded before that was fixed are still there, and this is what brings
+ * them back: one more purge, which ends them `purged` or `failed`. Returns the
+ * number re-offered.
+ */
+/**
+ * @param {Sql} sql
+ * @returns {Promise<number>}
+ */
+async function reofferExhausted(sql) {
+  const rows = /** @type {{ id: string }[]} */ (
+    await withPlatformScope(sql, (tx) => tx`
+    UPDATE deletion_queue
+    SET attempts = ${MAX_ATTEMPTS - 1}
+    WHERE status = 'pending'
+      AND attempts >= ${MAX_ATTEMPTS}
+    RETURNING id
+  `)
+  )
+  return rows.length
+}
+
 module.exports = {
   claimNext,
   hasActiveHold,
@@ -202,6 +245,7 @@ module.exports = {
   markFailedPermanent,
   markPurged,
   reapStranded,
+  reofferExhausted,
   releaseHeld,
   MAX_ATTEMPTS,
 }

@@ -11,6 +11,7 @@ import {
   closingOf,
   defaultClosing,
   canTransition,
+  invalidTransition,
   PROJECT_STATUSES,
   runsOnSchedule,
   statusesThatMayBecome,
@@ -29,6 +30,15 @@ describe('the lifecycle', () => {
     for (const status of PROJECT_STATUSES) expect(canTransition(status, status)).toBe(false)
     expect(statusesThatMayBecome('paused')).toEqual(['active'])
     expect(statusesThatMayBecome('closed')).toEqual(['active', 'paused'])
+  })
+
+  it('tells a refused move which states the project may become', () => {
+    expect(invalidTransition('closed', 'paused')).toEqual({
+      reason: 'invalid-transition',
+      from: 'closed',
+      to: 'paused',
+      allowed: ['active'],
+    })
   })
 
   it('runs schedules only in an active project', () => {

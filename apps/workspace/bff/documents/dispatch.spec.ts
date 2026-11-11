@@ -867,7 +867,10 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     // finishes (no throw), and "Erneut lesen" is what runs the converter again.
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', RENDITION_REQUIRED_MESSAGE)
+    // Held to the bytes the job was queued for: a row archived or replaced meanwhile is not failed.
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', RENDITION_REQUIRED_MESSAGE, {
+      storageKey: input('Baubeschreibung.docx').storageKey,
+    })
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -881,7 +884,9 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     await dispatchDocument(input('Katasterauszug.dxf'))
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', DRAWING_UNREADABLE_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', DRAWING_UNREADABLE_MESSAGE, {
+      storageKey: input('Katasterauszug.dxf').storageKey,
+    })
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -913,7 +918,9 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
 
     await expect(runQueuedJob({ last: true })).rejects.toThrow('database gone')
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE)
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', INGEST_DISPATCH_FAILED_MESSAGE, {
+      storageKey: input('Baubeschreibung.docx').storageKey,
+    })
   })
 
   it('leaves a row alone that is no longer waiting for the job: deleted, replaced or already moved on', async () => {

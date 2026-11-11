@@ -90,7 +90,7 @@ Two kinds of file skip steps 6 and 7 and return `processing` with no ingest
 job id: an IFC model (`beginModelExtraction`) and, when `GOTENBERG_URL` is set,
 an office file. Each becomes a `bim_extract` or `office_rendition` BFF job, a
 `bff-job` run on Hatchet (ADR-0150, [`kubernetes.md`](../deployment/kubernetes.md) §6.3c;
-`bff_job_queue` is kept until the cutover drains it), and the row remembers the
+its row in `bff_job_queue` stays the record of the job), and the row remembers the
 job as `metadata.bffJobId`. Without a converter,
 a Word, presentation, `.xls` or `.ods` file returns `failed` at once.
 

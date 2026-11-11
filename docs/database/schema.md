@@ -2372,7 +2372,12 @@ One row per IFC document, unique on `document_id` — a model is not a separate
 upload, it is what the document *is*, so deleting the document deletes the
 model. Carries `organization_id` and the nullable `project_id` (org-wide Archiv
 models have none), the extraction `status`
-(`pending | extracting | ready | failed`), the declared `schema_version`, an
+(`pending | extracting | ready | failed`, held by the CHECK
+`bim_models_status_known` since migration 0222; the moves are
+`BIM_MODEL_LIFECYCLE` in `bff/bim/types.ts`), the `run_id` of the extraction the
+row waits for or last heard from (migration 0222: `start` writes a fresh one and
+`complete` and `fail` match on it, so a run a newer one superseded changes
+nothing), the declared `schema_version`, an
 `index_storage_key` pointing at the full JSON index in object storage, and a
 `summary` jsonb holding the spatial tree, storeys, type counts, totals and the
 validation findings.

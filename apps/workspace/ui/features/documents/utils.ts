@@ -93,8 +93,9 @@ export const mapUploadResponseStatus = (
  * model path, the agent's byte lookup for a chat subject included. The chat
  * cannot answer from it, so it gets the neutral „Abgelegt“, never the green
  * „Verfügbar“. `held` has its own look: nothing failed, so not „Fehler“.
+ * `canceled` is the reader's own decision: at rest, no spinner, not an error.
  */
-export const mapToDisplayStatus = (status: string): FileSourceStatus => {
+export const mapToDisplayStatus = (status: TrackedFileStatus): FileSourceStatus => {
   switch (status) {
     case 'uploading':
       return 'uploading'
@@ -110,8 +111,16 @@ export const mapToDisplayStatus = (status: string): FileSourceStatus => {
       return 'held'
     case 'deleting':
       return 'deleting'
-    default:
+    case 'canceled':
+      return 'canceled'
+    default: {
+      // Unreachable while the cases cover the type: a status added to
+      // `TrackedFileStatus` fails the typecheck on this line until it has a
+      // case, where it used to be drawn silently as an upload in flight. Only
+      // a value outside the type (untyped data at runtime) still lands here.
+      status satisfies never
       return 'uploading'
+    }
   }
 }
 

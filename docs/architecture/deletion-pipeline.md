@@ -112,7 +112,16 @@ LIMIT 10;
 
 The hold guard lives in the claim query itself — same database, same transaction — so there is no failure mode where an external check being unavailable lets a held entity get purged.
 
-For each row: set `status='purging'`, run the entity's step list, then set `purged_at`/`status='purged'`. Any step throws → record `last_error`, increment `attempts`, reset `status='pending'` → retried next tick from step 1 (all steps idempotent). After 10 consecutive failures → `status='failed'` + loud log; failed rows are surfaced, not retried forever. Restore (project/org, within grace) → `status='restored'`, clear entity `deleted_at`.
+For each row: set `status='purging'`, run the entity's step list, then set `purged_at`/`status='purged'`. Any step throws → record `last_error`, reset `status='pending'` (the attempt was counted when the row was claimed; a release for a legal hold refunds it) → retried next tick from step 1 (all steps idempotent). After 10 consecutive failures → `status='failed'` + loud log; failed rows are surfaced, not retried forever. Restore (project/org, within grace, and only a row that was never claimed) → `status='restored'`, clear entity `deleted_at`.
+
+The status and its moves are declared once (`DELETION_LIFECYCLE` in `apps/workspace/bff/db/schema/deletion-queue.ts`, ADR-0179; migration 0223 adds the CHECK on the five values), and four rules keep a row from saying something untrue:
+
+- **The purged mark is written in the purge's own transaction** (`markPurged(tx, id)`), so a purge that committed is `purged`. One case remains: a chat or folder is erased through the BFF over HTTP, and if the purger's transaction then fails on its final attempt, `reapStranded` records `failed` for something already erased.
+- **Every write of the purger matches `status = 'purging'`.** A request's claim has no deadline and the purger takes a claim over after 15 minutes, so two holders can run the same idempotent purge; the later one's report changes nothing.
+- **A request that releases its claim applies the purger's rule**: `failed` at the attempt cap, `pending` below it. A request that purged the folder and hands the trace erasure to the purger resets the attempts.
+- **The purger re-offers a row left `pending` at the cap** (`reofferExhausted`, every tick), which is how rows stranded before these rules existed are picked up.
+
+The purger is plain JavaScript with no build step and cannot import the declaration; `purger/deletion-lifecycle.spec.mjs` runs every writer in `purger/db.js` and holds its literals, its moves and its attempt cap to it.
 
 ### Purge step lists
 

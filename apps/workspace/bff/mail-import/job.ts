@@ -28,7 +28,13 @@
 
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { MailImport, MailImportErrorCode, MailImportSkippedSample, MailImportStatus } from '@/lib/db/schema/mail-imports'
+import {
+  MAIL_IMPORT_LIFECYCLE,
+  type MailImport,
+  type MailImportErrorCode,
+  type MailImportSkippedSample,
+  type MailImportStatus,
+} from '@/lib/db/schema/mail-imports'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { isAuthzRefusal } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -90,7 +96,8 @@ interface Failure {
   detail: string
 }
 
-const OPEN: MailImportStatus[] = ['queued', 'importing']
+/** The states the job works an import in: what it may end. An `uploading` import is still the browser's. */
+const OPEN: readonly MailImportStatus[] = MAIL_IMPORT_LIFECYCLE.sourcesOf('complete')
 
 const ARCHIVE_FOLDER_DELETED = 'The import’s folder was deleted (Papierkorb); nothing more is filed into it.'
 
@@ -271,7 +278,7 @@ async function startSlice(
   const running =
     initial.status === 'importing'
       ? initial
-      : await repository.updateMailImport(initial.organizationId, initial.id, ['queued'], { status: 'importing' })
+      : await repository.updateMailImport(initial.organizationId, initial.id, MAIL_IMPORT_LIFECYCLE.sourcesOf('start'), { status: 'importing' })
   if (!running) return null
   let archiveFolderId: string
   try {

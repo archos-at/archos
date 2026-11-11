@@ -496,6 +496,27 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
       expect(await statusOf(quarantinedId)).toBe('pending')
     })
 
+    it('sends a held file that is not quarantined back to uploaded for a re-screen', async () => {
+      const failed = await insert({ scope: 'project', status: 'failed', outcome: null, authoredBy: 'user', createdBy: OTHER })
+      await expect(repo.markForRescreening(failed.id, ORG, failed.contentHash!)).resolves.toBe(true)
+      expect(await statusOf(failed.id)).toBe('uploaded')
+    })
+
+    // A known defect, stated as what should hold: „Erneut prüfen" on a
+    // QUARANTINED file is refused by the trigger above (GQH01), because
+    // `markForRescreening` writes `uploaded` without a release. The fix is a
+    // rule in the database, not in the repository: let a quarantined row go to
+    // `uploaded` when the write lifts nothing (the verdict columns
+    // `screening_outcome`, `screened_hash` and `screening_released_hash` are
+    // unchanged), so the row stays held until the new reading passes. When
+    // that migration lands this test passes: drop `.fails`, and declare
+    // `rescreen` from `quarantined` in `./reading-lifecycle`.
+    it.fails('re-screens a quarantined file', async () => {
+      const held = await insert({ scope: 'project', status: 'quarantined', outcome: 'quarantined', authoredBy: 'user', createdBy: OTHER })
+      await expect(repo.markForRescreening(held.id, ORG, held.contentHash!)).resolves.toBe(true)
+      expect(await statusOf(held.id)).toBe('uploaded')
+    })
+
     it('still dispatches a row that is not quarantined', async () => {
       const uploaded = await insert({ scope: 'project', status: 'uploaded', outcome: null, authoredBy: 'user', createdBy: OTHER })
       await expect(repo.setDocumentIngestJob(uploaded.id, ORG, 'job-first')).resolves.toBe(true)

@@ -50,7 +50,13 @@ export interface StuckProcessingSweepResult {
 
 async function recoverOne(row: StuckProcessingDocument): Promise<'requeued' | 'failed' | 'gone'> {
   if (row.jobStatus === 'dead') {
-    await markDocumentIngestFailed(row.id, row.organizationId, INGEST_DISPATCH_FAILED_MESSAGE)
+    // Only while the row still names that job: the batch is read once and
+    // worked row by row, each a backend call, so a person may have read this
+    // one again since.
+    const failed = await markDocumentIngestFailed(row.id, row.organizationId, INGEST_DISPATCH_FAILED_MESSAGE, {
+      backgroundJobId: row.jobId,
+    })
+    if (!failed) return 'gone'
     console.warn(`[documents] ${row.id} failed every attempt of its background job: ${row.lastError ?? 'no reason kept'}`)
     return 'failed'
   }

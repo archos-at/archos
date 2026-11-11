@@ -182,6 +182,9 @@ export const research: typeof en.research = {
     // Gespeichert, nie gelesen: Piloti kann daraus nicht antworten, nichts ist fehlgeschlagen.
     statusStored: 'Abgelegt',
     statusDeleting: 'Wird gelöscht...',
+    // Wie in der Upload-Leiste (`uploads.row.canceled`, `uploads.actions.dismiss`).
+    statusCanceled: 'Abgebrochen',
+    dismiss: '{title} ausblenden',
     expiryPending: 'Löschung ausstehend – erneut hochladen',
     expiresIn: 'Läuft in {minutes} Min. ab',
     deleteDisabled: '{title} löschen (deaktiviert)',

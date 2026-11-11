@@ -9,6 +9,7 @@ import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils
 import type { UseSpectatedTurnOptions } from '@/features/collaboration/hooks/use-spectated-turn'
 import { initialTurnView, type TurnView } from '@/features/chat/lib/turn-fold'
 import { useAnswerRevealStore } from '@/features/chat/stores/answer-reveal-store'
+import { RESTORING_NOTE_AFTER_MS, watchRestoring } from '@/features/chat/connection-restoring'
 
 /**
  * The store slice and the messages ChatArea reads, as these tests fixture them.
@@ -2623,6 +2624,64 @@ describe('ChatArea — opening a thread, its endings and its dock', () => {
     use(thread([question(), answer('Antwort')]))
     rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
     await waitFor(() => expect(screen.getByTestId('thread-status-dock')).toHaveTextContent(/reconnected/i))
+  })
+
+  test('a socket still reconnecting under a running answer is said in the same line, to a screen reader too, and goes when it is open', async () => {
+    vi.useFakeTimers()
+    const onStatus = watchRestoring('c1', () => undefined)
+    try {
+      use(thread([question(), answer('Erster Satz.', { isStreaming: true })], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      const dock = screen.getByTestId('thread-status-dock')
+      const announced = () => dock.querySelector('[aria-live="polite"]')
+
+      // A drop the next attempt mends says nothing.
+      act(() => onStatus('reconnecting'))
+      act(() => void vi.advanceTimersByTime(RESTORING_NOTE_AFTER_MS - 1))
+      expect(dock).not.toHaveTextContent(/restoring the connection/i)
+
+      act(() => void vi.advanceTimersByTime(1))
+      expect(dock).toHaveTextContent(/restoring the connection/i)
+      expect(announced()).toHaveTextContent(/restoring the connection/i)
+      // A line, not a card and not the lost line.
+      expect(screen.queryByTestId('error-card')).not.toBeInTheDocument()
+      expect(dock).not.toHaveTextContent(/connection lost/i)
+
+      act(() => onStatus('open'))
+      expect(announced()).toBeEmptyDOMElement()
+      vi.useRealTimers()
+      await waitFor(() => expect(dock).not.toHaveTextContent(/restoring the connection/i))
+    } finally {
+      act(() => onStatus('closed'))
+      vi.useRealTimers()
+    }
+  })
+
+  test('a socket reconnecting under an idle thread says nothing, and a spent ladder says lost in its place', () => {
+    vi.useFakeTimers()
+    const onStatus = watchRestoring('c1', () => undefined)
+    try {
+      use(thread([question(), answer('Antwort')]))
+      const { rerender } = render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      const dock = screen.getByTestId('thread-status-dock')
+      act(() => onStatus('reconnecting'))
+      act(() => void vi.advanceTimersByTime(RESTORING_NOTE_AFTER_MS))
+      expect(dock).not.toHaveTextContent(/restoring the connection/i)
+
+      // An answer starts meanwhile: now somebody waits on the socket.
+      use(thread([question(), answer('Antwort')], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      expect(dock).toHaveTextContent(/restoring the connection/i)
+
+      // The ladder is spent: the thread carries the transient error, and the line says lost.
+      const lost: MessageFixture = { id: 'err-conn', role: 'assistant', content: '', messageType: 'error', errorData: { errorCode: 'connection.failed' } }
+      use(thread([question(), answer('Antwort'), lost], { isStreaming: true, currentUserMessageId: 'user-1' }))
+      rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+      expect(dock.querySelector('[aria-live="polite"]')).toHaveTextContent(/connection lost/i)
+    } finally {
+      act(() => onStatus('closed'))
+      vi.useRealTimers()
+    }
   })
 
   test('a colleague typing is said in the dock, outside the thread it would bob', () => {

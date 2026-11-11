@@ -44,6 +44,7 @@ import { openDraftForRevision } from '@/lib/documents/revision'
 import { fileResearchReport, queueResearchReportFiling } from '@/lib/documents/research-report'
 import type { FileResearchReportPayload, JobAttempt } from '@/lib/jobs-queue/types'
 import { sessionOf } from '@/lib/jobs-queue/types'
+import { endingOfClosedRun } from '@/lib/runs/run-ending'
 import { settleRunLedger } from '@/lib/runs/service'
 import { resolvePeople } from '@/lib/sharing/directory'
 import { loadRunSummaries, toTaskRunView } from './list-projection'
@@ -77,15 +78,17 @@ export async function loadRunForOutcome(backendJobId: string): Promise<TaskRun |
 }
 
 /**
- * How an outcome may close its row.
+ * How an outcome may close its row. Either way the close is a compare-and-set
+ * from the live states (`closeActiveRun`), so the first ending stands: the job
+ * store keeps its first terminal verdict too, and every reporter speaks for it.
  *
- * `onlyIfActive` is the run reconciler's mode (`lib/runs/reconcile.ts`): it
- * closes the row only while it is still `queued`/`running`, and when it is not,
- * nothing else happens — no filing, no audit event, no inbox row. That is what
- * keeps a reconciler racing the worker's own late report from telling the
- * requester twice. The outcome route keeps the unconditional close: a worker
- * retrying a report after a half-finished first attempt must still reach the
- * filing and the inbox, and both of those are idempotent.
+ * `onlyIfActive` is the run reconciler's mode (`lib/runs/reconcile.ts`): when
+ * the row had already ended, nothing else happens (no filing, no audit event,
+ * no inbox row), so a reconciler racing the worker's own report cannot tell
+ * the requester twice. The outcome route differs in one case: a worker
+ * repeating the report it already delivered (same status) still reaches the
+ * filing and the inbox, both idempotent. A report that disagrees with the
+ * standing ending changes nothing.
  */
 export interface RecordOutcomeOptions {
   onlyIfActive?: boolean
@@ -98,22 +101,35 @@ function closingPatch(outcome: TaskOutcome) {
 }
 
 /**
- * Close the run with the worker's outcome and, for a finished deep-research
- * run, file its report as the requester. Never throws: the outcome route's job
- * is to tell the requester, and that must not wait on a filing.
+ * Settle the run's block with the ending its ROW holds, so a report that lost
+ * the close never writes its own ending there. Never throws: the row is
+ * closed, and the reconciler's heal settles a block that could not be written.
  */
-export async function completeRunForOutcome(run: TaskRun, outcome: TaskOutcome): Promise<CompletedRun> {
-  const closed = (await repository.updateRun(run.id, run.organizationId, closingPatch(outcome))) ?? run
-  return afterClose(run, closed, outcome)
+async function settleBlock(run: TaskRun, standing: TaskRun): Promise<void> {
+  try {
+    await settleRunLedger(run, endingOfClosedRun(standing), standing.finishedAt ?? new Date())
+  } catch (error) {
+    console.error('[runs] the block of run', run.id, 'could not be settled; the heal will', error)
+  }
 }
 
 /**
- * The same, but only while the row is still active; null when it had already
- * ended, and then nothing else is done. See {@link RecordOutcomeOptions}.
+ * Close the run with an outcome and, for a kind that files, file its result
+ * as the requester. Null when another ending stands and nothing was done; see
+ * {@link RecordOutcomeOptions}. `first` is false for a worker's repeated report.
  */
-async function completeActiveRunForOutcome(run: TaskRun, outcome: TaskOutcome): Promise<CompletedRun | null> {
+export async function completeRunForOutcome(
+  run: TaskRun,
+  outcome: TaskOutcome,
+  options: RecordOutcomeOptions = {},
+): Promise<(CompletedRun & { first: boolean }) | null> {
   const closed = await repository.closeActiveRun(run.id, run.organizationId, closingPatch(outcome))
-  return closed ? afterClose(run, closed, outcome) : null
+  const standing = closed ?? (await repository.findRunById(run.id))
+  if (!standing) return null
+  await settleBlock(run, standing)
+  const repeated = !options.onlyIfActive && standing.status === OUTCOME_TO_STATUS[outcome.status]
+  if (!closed && !repeated) return null
+  return { ...(await afterClose(run, standing, outcome)), first: closed !== null }
 }
 
 /** What follows a close: the audit event, and the filing for a kind that files. */
@@ -420,26 +436,20 @@ function announceRunFinished(run: TaskRun, outcome: TaskOutcome, closed: TaskRun
  * `onlyIfActive` (see {@link RecordOutcomeOptions}); `closed: false` is its
  * answer when the row had already ended and nothing was done.
  *
- * The run's block is settled FIRST, and only if it still reads as live
- * (`settleRunLedger`): the row and the block are two records of one ending,
- * and every path that closes the row passes here — including the ones with no
- * worker left to send the block its terminal op. Block before row, so a
- * failure between them leaves the row active and a retry does both.
+ * The row is closed FIRST, and the block is then settled with the ending the
+ * row holds, only if it still reads as live (`settleRunLedger`): the row and
+ * the block are two records of one ending, and the row's compare-and-set is
+ * what decides which ending that is.
  */
 export async function recordRunOutcome(
   run: TaskRun,
   outcome: TaskOutcome,
   options: RecordOutcomeOptions = {},
 ): Promise<{ notified: boolean; filed: { documentId: string; filename: string } | null; closed: boolean }> {
-  await settleRunLedger(run, outcome)
-  const completed = options.onlyIfActive
-    ? await completeActiveRunForOutcome(run, outcome)
-    : await completeRunForOutcome(run, outcome)
+  const completed = await completeRunForOutcome(run, outcome, options)
   if (!completed) return { notified: false, filed: null, closed: false }
-
-  // The worker's report closes unconditionally so a retry still reaches the
-  // inbox; the event is sent once, for the report that found the run active.
-  if (options.onlyIfActive || isActiveTaskRunStatus(run.status)) announceRunFinished(run, outcome, completed.run)
+  // A repeated report reaches the inbox again; the event is sent once, by the report that closed the row.
+  if (completed.first) announceRunFinished(run, outcome, completed.run)
 
   const type: InboxItemType = outcome.status === 'success' ? 'task_run.completed' : 'task_run.failed'
   const anchor = run.backendJobId ?? run.id

@@ -36,7 +36,11 @@ Everything Payload is configured with is code here, changed by pull request:
   for raw HTML or MDX.
 - **Social posts**: one text for one account in one language, the blog post or link
   it carries, a UTM campaign, an optional image, a time, and a status
-  (`draft`, `in_review`, `approved`, `scheduled`, `published`, `failed`, `archived`).
+  (`draft`, `in_review`, `approved`, `sending`, `scheduled`, `published`, `failed`,
+  `archived`). `sending` is the hand-off's claim: it is set before a post goes to
+  Buffer, so an interrupted hand-off is looked up there on the next run and never
+  sent a second time. Once a post is `sending`, `scheduled` or `published` its
+  content is locked; the way back is `failed`, then edit and approve again.
 - **Media**: images only (no SVG), in the sizes the website asks for, cut at the
   focal point you set. Files are public by URL.
 
@@ -49,7 +53,7 @@ Everything Payload is configured with is code here, changed by pull request:
 | Editor | Write drafts (also of a live post: the change waits as a draft), set "ready for review" |
 | Agent | What an editor may, through the API or MCP; no admin panel |
 | Website | Read what is live (its API key) |
-| Social hand-off | Read approved social posts, mark them scheduled or failed (its API key) |
+| Social hand-off | Read approved and `sending` social posts; claim one as `sending`, then mark it scheduled or failed (its API key) |
 
 The rules are on the collections (`src/access/`), so the admin panel, REST, the
 MCP server and scheduled publishing all meet them. `tests/` and `tests/int/` hold

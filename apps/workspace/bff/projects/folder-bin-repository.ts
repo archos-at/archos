@@ -1,7 +1,7 @@
 /**
  * The SQL behind the Papierkorb (migration 0115): moving a folder's subtree to
- * the bin and back, its queue row, its listing, the purge marker, and the
- * search for what was derived from a folder.
+ * the bin and back, its listing, the purge marker, and the search for what
+ * was derived from a folder. Its queue row is `folder-bin-queue.ts`.
  *
  * Repository rules: organization in every WHERE (or a project already proven
  * to be the organization's), lists bounded or paged to the end. A function
@@ -14,16 +14,19 @@
  */
 
 import 'server-only'
-import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { executeRows } from '@/lib/db/execute-rows'
 import { withTenant } from '@/lib/db/tenant-context'
-import { deletionQueue } from '@/lib/db/schema/deletion-queue'
+import { DELETION_LIFECYCLE } from '@/lib/db/schema/deletion-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { projects } from '@/lib/db/schema/projects'
+import { statusesAccepting } from '@/lib/documents/reading-lifecycle'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
+
+export * from './folder-bin-queue'
 
 /**
  * The ids of the documents filed in any of `folderIds`, inside the caller's
@@ -217,7 +220,7 @@ export async function markDocumentsRestoring(
         eq(documents.organizationId, organizationId),
         eq(documents.projectId, projectId),
         inArray(documents.folderId, [...folderIds]),
-        ne(documents.status, 'quarantined'),
+        inArray(documents.status, statusesAccepting('process')),
         or(eq(documents.authoredBy, 'user'), isNotNull(documents.publishedVersionId))
       )
     )
@@ -357,264 +360,6 @@ export async function setDocumentCollection(organizationId: string, documentId: 
   )
 }
 
-/** What the bin entry's queue row carries besides its columns. No content: ids and counts. */
-export interface FolderBinPayload {
-  projectId: string
-  folderIds: string[]
-  documents: number
-  /**
-   * When every document's chunks were confirmed purged. Absent while the
-   * delete's purge is unfinished: the request that binned the folder died
-   * before it was done, and its `purge_binned_chunks` job finishes it.
-   */
-  chunksPurgedAt?: string
-  /** Set when the purge removed what was derived from the folder („Mit dem Ordner entfernen"): the ids. */
-  derivedRemoval?: DerivedRemovalRecord
-  /** What a purge removed, counted. */
-  purged?: FolderPurgeCounts
-  /**
-   * The document this entry was made for, when one document went to the bin
-   * on its own (`document-bin.ts`): the folder is the document's holder, and
-   * restoring the document takes it back out.
-   */
-  documentId?: string
-}
-
-export interface FolderPurgeCounts {
-  documents: number
-  folders: number
-  memoryNotes: number
-  answers: number
-  conversations: number
-  reports: number
-  tracesErased: number
-}
-
-/** What a purge under „Mit dem Ordner entfernen" removed: ids and when, never content. */
-export interface DerivedRemovalRecord {
-  removedAt: string
-  /** The ids of what the removal touched; never their content. */
-  conversationIds?: string[]
-  messageIds?: string[]
-  memoryIds?: string[]
-  reportIds?: string[]
-}
-
-/** Insert the bin entry's queue row. */
-export async function insertFolderBinEntry(
-  tx: DbExecutor,
-  entry: {
-    organizationId: string
-    folderId: string
-    displayName: string
-    requestedBy: string
-    purgeAfter: Date
-    payload: FolderBinPayload
-  }
-): Promise<string> {
-  const [row] = await tx
-    .insert(deletionQueue)
-    .values({
-      entityType: 'folder',
-      entityId: entry.folderId,
-      displayName: entry.displayName,
-      organizationId: entry.organizationId,
-      requestedBy: entry.requestedBy,
-      purgeAfter: entry.purgeAfter,
-      payload: { ...entry.payload },
-    })
-    .returning({ id: deletionQueue.id })
-  return row.id
-}
-
-/** A bin entry's queue row by its id, in any state; null when it is not the organization's folder entry. */
-export async function findBinEntryById(organizationId: string, entryId: string): Promise<FolderQueueRow | null> {
-  const db = getDb()
-  const [row] = await withTenant({ organizationId }, () =>
-    db
-      .select()
-      .from(deletionQueue)
-      .where(
-        and(eq(deletionQueue.id, entryId), eq(deletionQueue.entityType, 'folder'), eq(deletionQueue.organizationId, organizationId))
-      )
-      .limit(1)
-  )
-  return row ?? null
-}
-
-export type FolderQueueRow = typeof deletionQueue.$inferSelect
-
-/** The live (pending or purging) queue row of a bin entry. */
-export async function findActiveBinEntry(
-  executor: DbExecutor,
-  organizationId: string,
-  folderId: string
-): Promise<FolderQueueRow | null> {
-  const [row] = await executor
-    .select()
-    .from(deletionQueue)
-    .where(
-      and(
-        eq(deletionQueue.entityType, 'folder'),
-        eq(deletionQueue.entityId, folderId),
-        eq(deletionQueue.organizationId, organizationId),
-        inArray(deletionQueue.status, ['pending', 'purging', 'failed'])
-      )
-    )
-    .limit(1)
-  return row ?? null
-}
-
-/**
- * Close a bin entry as restored. Only a row the purger has never claimed: one
- * it has claimed may have erased documents already, and a half-restored folder
- * is worse than a refusal.
- */
-export async function closeBinEntryRestored(tx: DbExecutor, organizationId: string, folderId: string): Promise<boolean> {
-  const rows = await tx
-    .update(deletionQueue)
-    .set({ status: 'restored' })
-    .where(
-      and(
-        eq(deletionQueue.entityType, 'folder'),
-        eq(deletionQueue.entityId, folderId),
-        eq(deletionQueue.organizationId, organizationId),
-        eq(deletionQueue.status, 'pending'),
-        isNull(deletionQueue.claimedAt)
-      )
-    )
-    .returning({ id: deletionQueue.id })
-  return rows.length > 0
-}
-
-/**
- * Claim a bin entry for a purge run in the request („Endgültig löschen"):
- * `pending` to `purging`, as the purger's claim does. False
- * when the purger holds it, or it is gone.
- */
-export async function claimBinEntryNow(organizationId: string, folderId: string): Promise<FolderQueueRow | null> {
-  const db = getDb()
-  const [row] = await withTenant({ organizationId }, () =>
-    db
-      .update(deletionQueue)
-      .set({ status: 'purging', claimedAt: new Date(), attempts: sql`${deletionQueue.attempts} + 1` })
-      .where(
-        and(
-          eq(deletionQueue.entityType, 'folder'),
-          eq(deletionQueue.entityId, folderId),
-          eq(deletionQueue.organizationId, organizationId),
-          inArray(deletionQueue.status, ['pending', 'failed'])
-        )
-      )
-      .returning()
-  )
-  return row ?? null
-}
-
-/** Finish a claimed bin entry: `purged`, with what was removed merged into its payload. */
-export async function closeBinEntryPurged(
-  organizationId: string,
-  folderId: string,
-  payload: Partial<FolderBinPayload>
-): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(deletionQueue)
-      .set({
-        status: 'purged',
-        purgedAt: new Date(),
-        lastError: null,
-        payload: sql`coalesce(${deletionQueue.payload}, '{}'::jsonb) || ${JSON.stringify(payload)}::jsonb`,
-      })
-      .where(
-        and(
-          eq(deletionQueue.entityType, 'folder'),
-          eq(deletionQueue.entityId, folderId),
-          eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
-        )
-      )
-  )
-}
-
-/** Put a claimed bin entry back after a purge in the request failed: the purger retries it. */
-export async function releaseBinEntry(organizationId: string, folderId: string, error: string): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(deletionQueue)
-      .set({ status: 'pending', lastError: error.slice(0, 2000) })
-      .where(
-        and(
-          eq(deletionQueue.entityType, 'folder'),
-          eq(deletionQueue.entityId, folderId),
-          eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
-        )
-      )
-  )
-}
-
-/**
- * Give a claimed bin entry whose purge is done to the purger, for the one step
- * the BFF does not take: erasing the Langfuse traces of the conversations the
- * removal touched. The BFF has neither Langfuse's credentials nor a network
- * path to it (`deploy/pulumi`); the purger has both. Due now and never claimed
- * (no backoff, the attempt refunded), so the purger takes it on its next tick:
- * its purge call finds the folder purged and answers with the conversations
- * whose traces are owed (`purgeBinnedFolder`), and it closes the row.
- */
-export async function handBinEntryToPurger(
-  organizationId: string,
-  folderId: string,
-  payload: Partial<FolderBinPayload>
-): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(deletionQueue)
-      .set({
-        status: 'pending',
-        purgeAfter: sql`least(${deletionQueue.purgeAfter}, now())`,
-        claimedAt: null,
-        attempts: sql`greatest(${deletionQueue.attempts} - 1, 0)`,
-        lastError: null,
-        payload: sql`coalesce(${deletionQueue.payload}, '{}'::jsonb) || ${JSON.stringify(payload)}::jsonb`,
-      })
-      .where(
-        and(
-          eq(deletionQueue.entityType, 'folder'),
-          eq(deletionQueue.entityId, folderId),
-          eq(deletionQueue.organizationId, organizationId),
-          eq(deletionQueue.status, 'purging')
-        )
-      )
-  )
-}
-
-/** Merge into a live bin entry's payload (the purge records what it removed as it goes). */
-export async function mergeBinEntryPayload(
-  organizationId: string,
-  folderId: string,
-  payload: Partial<FolderBinPayload>
-): Promise<void> {
-  const db = getDb()
-  await withTenant({ organizationId }, () =>
-    db
-      .update(deletionQueue)
-      .set({ payload: sql`coalesce(${deletionQueue.payload}, '{}'::jsonb) || ${JSON.stringify(payload)}::jsonb` })
-      .where(
-        and(
-          eq(deletionQueue.entityType, 'folder'),
-          eq(deletionQueue.entityId, folderId),
-          eq(deletionQueue.organizationId, organizationId),
-          inArray(deletionQueue.status, ['pending', 'purging', 'failed'])
-        )
-      )
-  )
-}
-
 /** One entry of a project's Papierkorb, as the listing reads it. */
 export interface BinEntryRow {
   folderId: string
@@ -629,6 +374,9 @@ export interface BinEntryRow {
   /** The document of a single-document entry, when this reader may see it. */
   document: { id: string; name: string } | null
 }
+
+/** The statuses of a row still in work, as a SQL list: constants of the declaration, never input. */
+const LIVE_STATUS_LIST = `(${DELETION_LIFECYCLE.liveStates.map((status) => `'${status}'`).join(', ')})`
 
 /** The `to_char` pattern of {@link BinEntryCursor.deletedAt}. */
 const BIN_CURSOR_TIMESTAMP_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS.US'
@@ -683,7 +431,7 @@ export async function listBinEntries(
       JOIN deletion_queue q
         ON q.entity_type = 'folder' AND q.entity_id = f.id::text
        AND q.organization_id = ${organizationId}
-       AND q.status IN ('pending', 'purging', 'failed')
+       AND q.status IN ${sql.raw(LIVE_STATUS_LIST)}
       WHERE f.project_id = ${projectId}::uuid
         AND f.bin_root_id = f.id
         AND f.deleted_at IS NOT NULL

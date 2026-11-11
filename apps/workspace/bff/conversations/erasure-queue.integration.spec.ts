@@ -206,4 +206,28 @@ describe.skipIf(!url)('chat erasure retry queue against live Postgres (migration
     expect(await inOrg(() => repo.recordConversationErased(CHAT, ORG))).toBe(0)
     expect((await queueRows(CHAT))[0].status).toBe('purging')
   })
+
+  it('a closed erasure stays closed when the purger answers late', async () => {
+    // The purger's writes used to match the row by id alone, so a failure it
+    // recorded after a request had closed the row made an erased chat read as
+    // pending, and as failed once its attempts were spent.
+    const [{ id }] = Array.from(
+      await withPlatformAccess('test: a closed row', () =>
+        db.execute<{ id: string }>(sql`
+          update deletion_queue set status = 'purged', purged_at = now(), attempts = 10
+           where entity_type = 'conversation' and entity_id = ${CHAT}
+          returning id`),
+      ),
+    )
+    const { markFailed, markFailedPermanent, releaseHeld } = await import('../../purger/db.js')
+    const client = postgres(url as string, { prepare: false, max: 1 })
+    try {
+      await markFailed(client as never, id, 'chat erasure answered 502')
+      await markFailedPermanent(client as never, id, 'late')
+      await releaseHeld(client as never, id)
+    } finally {
+      await client.end()
+    }
+    expect((await queueRows(CHAT))[0]).toMatchObject({ status: 'purged', attempts: 10 })
+  })
 })

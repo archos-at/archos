@@ -180,20 +180,31 @@ export function DictationControl({
     )
   }
 
-  const busy = state.phase === 'starting' || state.phase === 'transcribing'
+  const starting = state.phase === 'starting'
+  const busy = starting || state.phase === 'transcribing'
   return (
     <Button
       variant="ghost"
       size="icon"
       className="text-subtle size-[34px] rounded-lg"
       onClick={onToggle}
-      disabled={disabled || busy}
-      aria-label={state.phase === 'transcribing' ? t('dictation.transcribing') : t('dictation.start')}
+      // Pressable while the microphone opens, even in a composer that has since
+      // gone read-only: a permission prompt nobody answers is ended by a second press.
+      disabled={starting ? false : disabled || busy}
+      aria-label={
+        state.phase === 'transcribing'
+          ? t('dictation.transcribing')
+          : starting
+            ? t('dictation.starting')
+            : t('dictation.start')
+      }
       aria-busy={busy}
       title={
         state.phase === 'transcribing'
           ? t('dictation.transcribing')
-          : t('dictation.startHint', { seconds: MAX_DICTATION_SECONDS })
+          : starting
+            ? t('dictation.starting')
+            : t('dictation.startHint', { seconds: MAX_DICTATION_SECONDS })
       }
       data-testid="dictation-button"
     >

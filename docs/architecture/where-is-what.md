@@ -57,6 +57,7 @@ does not exist, so a moved file is caught; a missing row is not.
 | Moving a document into a folder (either shelf) | `apps/workspace/bff/documents/move-to-folder.ts` — `moveDocumentToFolder` | [`docs/api/bff-routes.md`](../api/bff-routes.md) | ADR-0049, ADR-0078 |
 | Roles on a document | `apps/workspace/bff/db/schema/document-roles.ts` | [`document-roles.md`](document-roles.md) | ADR-0032 |
 | Diagram filing | `apps/workspace/bff/diagrams/filing.ts` | [`diagrams.md`](diagrams.md) | — |
+| Every declared lifecycle (states and legal moves of a record), and the helper that declares one | `apps/workspace/bff/lifecycles/registry.ts`; `apps/workspace/shared/lifecycle/define-lifecycle.ts` — `defineLifecycle` | [`lifecycles.generated.md`](lifecycles.generated.md), [`../audit/implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md) | ADR-0179 |
 | Version states and the transition table | `apps/workspace/bff/documents/lifecycle-types.ts` — `DOCUMENT_VERSION_TRANSITIONS` | [`docs/roadmap/agent-writes-artifacts-and-approval.md`](../roadmap/agent-writes-artifacts-and-approval.md) | ADR-0054 |
 | The one place a version changes state | `apps/workspace/bff/documents/lifecycle.ts` — `transitionDocumentVersion` | same | ADR-0054, ADR-0055 |
 | A version's BYTES: storage keys, the producer re-render, the marking re-check, the quota admission, the reads | `apps/workspace/bff/documents/version-content.ts` | same | ADR-0054 |

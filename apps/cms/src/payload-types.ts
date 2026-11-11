@@ -342,9 +342,9 @@ export interface Author {
 export interface SocialPost {
   id: number;
   /**
-   * draft -> in_review -> approved (a publisher) -> scheduled (handed to Buffer) -> published. Only a publisher approves.
+   * draft -> in_review -> approved (a publisher) -> sending -> scheduled (Buffer holds it) -> published. Only a publisher approves; only the hand-off sets sending and scheduled. From sending on the text, link, image and time are locked: change or delete the post in Buffer, then set it failed here to edit it and send it again.
    */
-  status: 'draft' | 'in_review' | 'approved' | 'scheduled' | 'published' | 'failed' | 'archived';
+  status: 'draft' | 'in_review' | 'approved' | 'sending' | 'scheduled' | 'published' | 'failed' | 'archived';
   account: number | SocialAccount;
   language: 'de' | 'en';
   /**
@@ -376,7 +376,7 @@ export interface SocialPost {
    */
   sourceRef?: string | null;
   /**
-   * The id Buffer gave the post.
+   * The id Buffer gave the post. Empty while sending: the hand-off has not recorded the answer yet.
    */
   externalId?: string | null;
   publishError?: string | null;

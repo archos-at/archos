@@ -1,11 +1,12 @@
 /** Document writes: deletion, display name and ingest or processing state. */
 
 import 'server-only'
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { documents } from '@/lib/db/schema/documents'
 import { FILING_CHOICE_METADATA_KEY } from '../filing-choice-key'
+import { statusesAccepting, type DocumentReadingEvent } from '../reading-lifecycle'
 
 /**
  * Hard-delete a project document row (the DB record; SeaweedFS + backend
@@ -61,21 +62,24 @@ export async function setDocumentDisplayName(
 }
 
 /**
- * A row the content gate quarantined keeps its status through every write but
- * a reviewer's release (`markScreeningReleased`) and a delete (ADR-0086). A
+ * The rows a write of `event` may land on, read from the declared lifecycle
+ * (`../reading-lifecycle`, ADR-0179).
+ *
+ * For every writer below that is each state but `quarantined`: a row the
+ * content gate quarantined keeps its status through every write but a
+ * reviewer's release (`markScreeningReleased`) and a delete (ADR-0086). A
  * dispatch, a local conversion or a failure does not clear a held state: a new
  * screening produces a new verdict, written by the reconcile, never a reset to
- * `pending` that the next reader takes for an ordinary upload. Every status
- * writer below carries it; migration 0122's trigger refuses any other write
- * that tries.
+ * `pending` that the next reader takes for an ordinary upload. Migration
+ * 0122's trigger refuses any other write that tries.
  */
-export const notQuarantined = ne(documents.status, 'quarantined')
+export const statusAccepts = (event: DocumentReadingEvent): SQL => inArray(documents.status, statusesAccepting(event))
 
 /**
  * Persist the backend ingest job id so status reads can reconcile the row
  * with the backend's ingestion state (see lib/documents/reconcile-status.ts).
  * Returns whether the row took it: a quarantined row does not
- * ({@link notQuarantined}).
+ * ({@link statusAccepts}).
  *
  * Beside the job id, the digest of the bytes this job reads
  * (`ingestContentHash`): the verdict it brings back is about those bytes, and
@@ -110,7 +114,7 @@ export async function setDocumentIngestJob(
         ingestAttempts: sql`coalesce(${documents.ingestAttempts}, 0) + 1`,
         updatedAt: new Date(),
       })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), notQuarantined))
+      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), statusAccepts('dispatch')))
       .returning({ id: documents.id }),
   )
   return moved.length > 0
@@ -133,7 +137,7 @@ export async function markDocumentNotIndexed(documentId: string, organizationId:
     db
       .update(documents)
       .set({ status: 'stored', updatedAt: new Date() })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), notQuarantined)),
+      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), statusAccepts('unindex'))),
   )
 }
 
@@ -179,7 +183,7 @@ export async function markDocumentProcessing(
         metadata: sql`coalesce(${documents.metadata}, '{}'::jsonb) - 'ingestJobId' - 'bffJobId' - ${PLACEMENT_REINGEST_MARKER}::text`,
         updatedAt: new Date(),
       })
-      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), notQuarantined)),
+      .where(and(eq(documents.id, documentId), eq(documents.organizationId, organizationId), statusAccepts('process'))),
   )
 }
 
