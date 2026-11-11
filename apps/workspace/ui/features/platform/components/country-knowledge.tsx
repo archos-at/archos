@@ -6,13 +6,15 @@
  * published), the one thing it needs next, and how many offices read it. A row
  * opens the country's page, where that work is done.
  *
- * A link from elsewhere (`?request=<id>`) still opens that change request here.
+ * A link from elsewhere (`?request=<id>`) still lands on that change request:
+ * on its country's law map, where a request is reviewed and released.
  */
 
 import type { JSX } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { ChevronRight, Globe2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -21,8 +23,8 @@ import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
-import { countryName } from './change-request-format'
-import { ChangeRequestDialog } from './countries/change-request-dialog'
+import { countryName } from './country-name'
+import { isRequestId, lawMapHref } from './law-map/request-link'
 import { countryNextStep, countryStage } from './countries/country-state'
 import { NextStepText, StageBadge } from './countries/country-atoms'
 import { usePlatformJson } from './countries/use-platform-json'
@@ -34,12 +36,20 @@ export function CountryKnowledge(): JSX.Element {
   const router = useRouter()
   const { locale } = useLocale()
   const { load, reload } = usePlatformJson<PlatformKnowledgeOverview>('/api/platform/knowledge')
-  const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
     const linked = new URLSearchParams(window.location.search).get('request')
-    if (linked) setOpenId(linked)
-  }, [])
+    if (linked === null) return
+    const from = window.location.href
+    void (async () => {
+      const response = isRequestId(linked) ? await fetch(`/api/platform/knowledge/change-requests/${linked}`).catch(() => null) : null
+      const view = response?.ok ? ((await response.json()) as { countryId?: string }) : null
+      // Someone who moved on meanwhile stays where they went.
+      if (window.location.href !== from) return
+      if (view?.countryId) router.replace(lawMapHref(view.countryId, linked))
+      else toast.error(t('countryKnowledge.failed', { reason: response ? String(response.status) : linked }))
+    })()
+  }, [router, t])
 
   if (load.state === 'error' && load.status === 403) {
     return <EmptyState icon={Globe2} title={t('countryKnowledge.disabledTitle')} description={t('countryKnowledge.disabledBody')} />
@@ -106,7 +116,6 @@ export function CountryKnowledge(): JSX.Element {
           </Table>
         ) : null}
       </SectionCard>
-      <ChangeRequestDialog id={openId} onClose={() => setOpenId(null)} onChanged={reload} />
     </>
   )
 }

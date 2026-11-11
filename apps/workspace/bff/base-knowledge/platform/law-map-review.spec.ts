@@ -84,6 +84,19 @@ describe('reviewUnitsOf', () => {
     expect(grouped.flatMap((one) => one.revisions)).toHaveLength(many.length)
   })
 
+  it('puts an edition outside every statement in its year, and a text for a released edition among the texts', () => {
+    const more = [
+      ...REVISIONS,
+      revision('edition', 'edition:ba-n-2022', { workId: 'work:ba-n', label: 'Consolidated 2022' }),
+      revision('manifestation', 'manifestation:mc-2-2015-text', { editionId: 'edition:mc-2-2015', corpusFile: 'mc-2-2015.pdf' }),
+    ]
+    const units = reviewUnitsOf(lawMapOf('XA', more, []), { revisions: more, captures: [], texts: [] })
+    const holding = (recordId: string) => units.find((one) => one.revisions.some((revision) => revision.recordId === recordId))?.key
+    expect(holding('edition:ba-n-2022')).toBe('batch:Building Act Nordland 2022')
+    expect(holding('manifestation:mc-2-2015-text')).toBe('kind:manifestation')
+    expect(units.flatMap((one) => one.revisions)).toHaveLength(more.length)
+  })
+
   it('knows who wrote a unit and which of its records needs a person’s source check', () => {
     expect(units[0]?.authors).toEqual(['user_b', 'user_a'])
     expect(units[0]?.uncheckedRevisionIds).toEqual([REVISIONS[7]?.revisionId])

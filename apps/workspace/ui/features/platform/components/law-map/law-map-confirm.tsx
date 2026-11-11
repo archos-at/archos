@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import { verdictCalls, type ReviewUnit } from '@/lib/base-knowledge/platform/law-map-review'
+import type { CaptureView } from '@/lib/base-knowledge/platform/wire'
 
 const BASE = '/api/platform/knowledge/change-requests'
 
@@ -34,6 +35,8 @@ export interface ConfirmContext {
   canReview: boolean
   /** The viewer wrote a revision anywhere in the request: the server refuses their verdicts unless one operator runs alone. */
   authored: boolean
+  /** The request's captures by id: whether a cited page was fetched, for the entries a confirmation covers. */
+  captures: ReadonlyMap<string, CaptureView>
   /** Read the request again; `advance` also opens what comes next. */
   onDone: (advance: boolean) => void
 }
@@ -44,8 +47,21 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
   const [checked, setChecked] = useState(false)
   const [wrong, setWrong] = useState<string | null>(null)
   const [waits, setWaits] = useState(false)
-  if (unit.review === 'accepted') return <p className="text-success text-sm">{t('review.accepted')}</p>
-  if (!context.canReview || !context.open) return <p className="text-muted-foreground text-xs">{t(context.open ? 'cannotReview' : 'notSubmitted')}</p>
+  const reviewing = context.canReview && context.open
+  // A confirmed unit can still be sent back until the request is decided, as each claim could be before.
+  if (unit.review === 'accepted' && wrong === null) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="text-success">{t('review.accepted')}</span>
+        {reviewing && !waits ? (
+          <Button size="sm" variant="link" onClick={() => setWrong('')}>
+            {t('somethingWrong')}
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
+  if (!reviewing) return <p className="text-muted-foreground text-xs">{t(context.open ? 'cannotReview' : 'notSubmitted')}</p>
   if (waits) return <p className="text-muted-foreground text-sm">{t('waitsForSecond')}</p>
   const needsCheck = unit.uncheckedRevisionIds.length > 0
 

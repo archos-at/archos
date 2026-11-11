@@ -5,12 +5,13 @@
  * kept. Its sections follow the work: overview with the one next step, works
  * and editions with their texts, sources, rules, review, quality. The open
  * section is in the address (`?section=`), so a link lands on it; a change
- * request opens over the page (`?request=`).
+ * request opens on the law map, and an older link (`?request=`) is sent there.
  */
 
 import type { JSX } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Globe2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -23,8 +24,8 @@ import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import type { ChangeRequestSummary, PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
 import type { TextPlacementList } from '@/lib/base-knowledge/platform/text-wire'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
-import { countryName } from '../change-request-format'
-import { ChangeRequestDialog } from './change-request-dialog'
+import { countryName } from '../country-name'
+import { lawMapHref } from '../law-map/request-link'
 import { StageBadge } from './country-atoms'
 import { COUNTRY_SECTIONS, countryNextStep, countryStage, isCountrySection, type CountrySection } from './country-state'
 import { OverviewSection, QualitySection, ReviewSection, RulesSection, SourcesSection, WorksSection } from './country-sections'
@@ -32,16 +33,19 @@ import { usePlatformJson } from './use-platform-json'
 
 const BASE = '/api/platform/knowledge'
 
-/** The open section and request, kept in the address without a navigation. */
-function useAddressState(): [CountrySection, (section: CountrySection) => void, string | null, (id: string | null) => void] {
+/** The open section, kept in the address without a navigation; a change request opens on the law map. */
+function useAddressState(countryId: string): [CountrySection, (section: CountrySection) => void, (id: string) => void] {
+  const router = useRouter()
   const [section, setSection] = useState<CountrySection>('overview')
-  const [request, setRequest] = useState<string | null>(null)
+  const open = useCallback((id: string) => router.push(lawMapHref(countryId, id)), [router, countryId])
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const named = params.get('section')
     if (isCountrySection(named)) setSection(named)
-    setRequest(params.get('request'))
-  }, [])
+    const request = params.get('request')
+    // The map reads the request's own country and says so when the link names none.
+    if (request !== null) router.replace(lawMapHref(countryId, request))
+  }, [router, countryId])
   const write = useCallback((key: string, value: string | null) => {
     const url = new URL(window.location.href)
     if (value) url.searchParams.set(key, value)
@@ -49,15 +53,14 @@ function useAddressState(): [CountrySection, (section: CountrySection) => void, 
     window.history.replaceState(null, '', url)
   }, [])
   const go = useCallback((next: CountrySection) => (setSection(next), write('section', next)), [write])
-  const open = useCallback((id: string | null) => (setRequest(id), write('request', id)), [write])
-  return [section, go, request, open]
+  return [section, go, open]
 }
 
 export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   const t = useTranslations(platformCopy)
   const tMap = useTranslations(lawMapCopy)
   const { locale } = useLocale()
-  const [section, go, request, open] = useAddressState()
+  const [section, go, open] = useAddressState(countryId)
   const overview = usePlatformJson<PlatformKnowledgeOverview>(BASE)
   const requests = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}/change-requests?countryId=${countryId}&limit=200`)
   const texts = usePlatformJson<TextPlacementList>(`${BASE}/texts?countryId=${countryId}`)
@@ -82,7 +85,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   // The map reads the change requests, not the overview: it stays one click away while the overview loads or fails.
   const mapLink = (
     <Button asChild variant="outline" size="sm">
-      <Link href={`/app/platform/countries/${countryId.toLowerCase()}/map`} data-testid="open-law-map">
+      <Link href={lawMapHref(countryId)} data-testid="open-law-map">
         {tMap('open')}
       </Link>
     </Button>
@@ -143,7 +146,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
             onRetry={texts.reload}
             onOpen={open}
             onAdded={reloadAll}
-            onReview={(id) => (go('review'), open(id))}
+            onReview={open}
           />
         </TabsContent>
         <TabsContent value="sources">
@@ -159,7 +162,6 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
           <QualitySection />
         </TabsContent>
       </Tabs>
-      <ChangeRequestDialog id={request} onClose={() => open(null)} onChanged={reloadAll} />
     </div>
   )
 }

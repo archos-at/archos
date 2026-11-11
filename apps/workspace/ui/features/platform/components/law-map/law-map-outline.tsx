@@ -19,6 +19,9 @@ import { ConfirmBar, type ConfirmContext } from './law-map-confirm'
 import { AddActForm, AddEditionForm } from './law-map-add-forms'
 import { namer, RecordBody } from './law-map-record'
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
+import type { AttachedTextView } from '@/lib/base-knowledge/platform/text-wire'
+import { ManifestationText } from './manifestation-text'
+import { Entries, Sources } from './law-map-entries'
 
 const designationOf = (map: LawMap, workId: string): string => map.topics.find((topic) => topic.workId === workId)?.designation ?? workId
 
@@ -38,6 +41,7 @@ interface Outline {
   map: LawMap
   units: ReadonlyMap<string, ReviewUnit>
   confirm: ConfirmContext
+  texts: TextContext
   open: string | null
   flip: (key: string) => void
   t: Translator
@@ -45,12 +49,33 @@ interface Outline {
   today: string
 }
 
+/** The request's attached texts by manifestation, and whether one may be attached (a draft, and the person writes). */
+export interface TextContext {
+  requestId: string
+  countryId: string
+  byRecord: ReadonlyMap<string, AttachedTextView>
+  canAttach: boolean
+  onAttached: () => void
+}
+
+/** A text's row: its file or link, and in a draft the way to attach one. */
+function TextOf({ o, recordId }: { o: Outline; recordId: string }): JSX.Element {
+  return <ManifestationText requestId={o.texts.requestId} countryId={o.texts.countryId} recordId={recordId} text={o.texts.byRecord.get(recordId)} canAttach={o.texts.canAttach} onAttached={o.texts.onAttached} />
+}
+
 /** A unit's row marks: a dot while it waits for a verdict, a check once confirmed. */
 const marks = (unit: ReviewUnit | undefined) => ({ attention: unit?.review === 'open', confirmed: unit?.review === 'accepted' })
 
+/** The yes or no, after every entry it covers; a kind's records are already said in words above it. */
 function Decide({ o, unitKey, yes }: { o: Outline; unitKey: string; yes: string }): JSX.Element | null {
   const unit = o.units.get(unitKey)
-  return unit ? <ConfirmBar unit={unit} context={o.confirm} yes={yes} /> : null
+  if (!unit) return null
+  return (
+    <>
+      {unit.kind === 'kind' ? <Sources revisions={unit.revisions} captures={o.confirm.captures} /> : <Entries unit={unit} map={o.map} captures={o.confirm.captures} />}
+      <ConfirmBar unit={unit} context={o.confirm} yes={yes} />
+    </>
+  )
 }
 
 function StatementBody({ o, statement }: { o: Outline; statement: LawMapStatement }): JSX.Element {
@@ -91,21 +116,8 @@ function EditionLine({ o, edition, name }: { o: Outline; edition: LawMapEdition;
         {name(edition.id)}
         {edition.issuedOn ? <span className="text-muted-foreground">{` · ${t('published', { date: date(edition.issuedOn) })}`}</span> : null}
       </span>
-      <span className="text-muted-foreground text-xs">
-        {edition.text ? (
-          edition.text.url ? (
-            <a href={edition.text.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-              {edition.text.file ?? edition.text.url}
-            </a>
-          ) : (
-            edition.text.file
-          )
-        ) : (
-          t('noText')
-        )}
-        {' · '}
-        {lands.length ? t('bindsIn', { territories: lands.join(', ') }) : t('bindsNowhere')}
-      </span>
+      {edition.manifestationIds.length > 0 ? edition.manifestationIds.map((recordId) => <TextOf key={recordId} o={o} recordId={recordId} />) : <span className="text-muted-foreground text-xs">{t('noText')}</span>}
+      <span className="text-muted-foreground text-xs">{lands.length ? t('bindsIn', { territories: lands.join(', ') }) : t('bindsNowhere')}</span>
     </li>
   )
 }
@@ -256,11 +268,12 @@ function AddRow({ o, id, label, children }: { o: Outline; id: string; label: str
   return o.open === id ? <>{children(() => o.flip(id))}</> : <AddLine label={label} onClick={() => o.flip(id)} testId={id} />
 }
 
-export function LawMapOutline({ map, units, confirm, add, today, rootName, expanded, toggle, open, setOpen }: {
+export function LawMapOutline({ map, units, confirm, texts, add, today, rootName, expanded, toggle, open, setOpen }: {
   map: LawMap
   add: AddContext | null
   units: ReadonlyMap<string, ReviewUnit>
   confirm: ConfirmContext
+  texts: TextContext
   today: string
   rootName: string
   expanded: ReadonlySet<string>
@@ -270,7 +283,7 @@ export function LawMapOutline({ map, units, confirm, add, today, rootName, expan
 }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const date = useDate()
-  const o: Outline = { map, units, confirm, open, flip: (id) => setOpen(open === id ? null : id), t, today }
+  const o: Outline = { map, units, confirm, texts, open, flip: (id) => setOpen(open === id ? null : id), t, today }
 
   // The country is the root when the request holds it; else every topmost region is a region of its own.
   const rootId = map.countryId
@@ -372,6 +385,7 @@ export function LawMapOutline({ map, units, confirm, add, today, rootName, expan
                         <section key={revision.revisionId} className="flex flex-col gap-2 border-b pb-3 last:border-b-0">
                           <h3 className="font-medium">{name(revision.recordId)}</h3>
                           <RecordBody revision={revision} name={name} />
+                          {revision.type === 'manifestation' ? <TextOf o={o} recordId={revision.recordId} /> : null}
                         </section>
                       ))}
                       <Decide o={o} unitKey={unit.key} yes={t('yesKind', { count: unit.revisions.length })} />

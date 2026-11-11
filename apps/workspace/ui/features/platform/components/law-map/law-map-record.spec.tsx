@@ -29,6 +29,8 @@ const MAP: LawMap = {
   editions: new Map([['edition:mc-2-2023', { id: 'edition:mc-2-2023', workId: 'work:mc-2', label: '2023', issuedOn: null, text: null, review: 'open' }]]) as unknown as LawMap['editions'],
   statutes: [],
   statements: [],
+  otherWorks: [],
+  looseTexts: [],
 }
 
 const SOURCE = revision('source', 'source:xa-guidelines', {

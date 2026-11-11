@@ -137,6 +137,18 @@ describe('lawMapOf', () => {
     expect(bindingOn(lawMapOf('XA', open, CAPTURES), 'XA-1', 'work:mc-2', '2025-01-01')?.cell.editionId).toBe('edition:mc-2-2023')
   })
 
+  it('gives a work no act binds, and a text for an edition the request does not hold, a place of their own', () => {
+    const more = [
+      ...REVISIONS,
+      revision('edition', 'edition:ba-n-2022', { workId: 'work:ba-n', label: 'Consolidated 2022' }),
+      revision('manifestation', 'manifestation:mc-2-2019-text', { editionId: 'edition:mc-2-2015', corpusFile: 'mc-2-2015.pdf' }),
+    ]
+    const map = lawMapOf('XA', more, CAPTURES)
+    expect(map.otherWorks.map((work) => work.workId)).toEqual(['work:ba-n'])
+    expect(map.looseTexts).toEqual([{ recordId: 'manifestation:mc-2-2019-text', editionId: 'edition:mc-2-2015', file: 'mc-2-2015.pdf' }])
+    expect(map.editions.get('edition:mc-2-2023')?.manifestationIds).toEqual(['manifestation:mc-2-2023-text'])
+  })
+
   it('lets a statement marked wrong bind nothing, now or later, while it stays on the map', () => {
     expect(map.statements.find((statement) => statement.territoryId === 'XA-2')?.review).toBe('rejected')
     expect(bindingOn(map, 'XA-2', 'work:mc-2', '2025-01-01')).toBeNull()

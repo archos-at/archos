@@ -175,7 +175,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Spectated turn | running, anything else | `features/collaboration/` | catch-all |
 | Diagram filing | idle, filing, filed, partial, failed | `features/diagrams/use-diagram-filing.ts` | |
 | Skill editor and review verdict | steps; idle, running, done, unavailable | `features/skills/` | |
-| Change-request review ladder | the server's | `features/platform/components/change-request-review.tsx` | repeats a server list |
+| Change-request review ladder | the server's | `features/platform/components/change-request-release.tsx` | repeats a server list |
 | Schedule wizard | task, schedule, review | `features/jobs/components/schedule-wizard.tsx` | |
 | Fetch state | at least seven shapes, about twelve components with a `loading` and a `failed` boolean | `features/platform`, `search`, `knowledge`, `product-feedback` | no shared hook |
 

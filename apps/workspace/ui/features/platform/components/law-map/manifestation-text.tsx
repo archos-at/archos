@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input'
 import { useLocale, useTranslations } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
 import type { AttachedTextView } from '@/lib/base-knowledge/platform/text-wire'
-import { countryName } from './change-request-format'
+import { countryName } from '../country-name'
 
 interface Props {
   requestId: string

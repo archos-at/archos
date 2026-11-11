@@ -176,6 +176,8 @@ An `adoption` statement is keyed by the act's structured identifier (its gazette
 
 A **pointer** is not a source. The OIB's page of adoption dates, a Wikipedia article, a commentary: the agent may read them to find the act, and the record may keep them as `seeAlso`, but a statement whose only citation is a pointer shows as "needs the act" and cannot be confirmed. This is the rule the owner asked for ("the source of binds is that adoption act"), made checkable: the confirm action is disabled until the statement cites a capture from a host of a source whose role is `gazette` or `legal_database`.
 
+**A verdict covers a unit, not a field.** In the law map one yes or no covers a whole unit: a statement with its act, an edition with its texts, a statute, a series, the regions. It is sent as the existing per-claim verdicts (`law-map-review.ts`, `verdictCalls`). Before the reviewer answers, the unit unfolds to every record it holds, each field in words and each source with its quote (`law-map-entries.tsx`), so the yes covers nothing the reviewer could not read. A no comes with one note, and it marks every claim of the unit wrong: the proposer corrects the unit and proposes it again, which is how they would fix one field of a statement anyway. A confirmed unit can be sent back until the request is decided. This is on purpose: per-field verdicts are what made Austria 1,150 decisions.
+
 ### C3. What the machine checks, and what a person checks
 
 The machine already checks more than the review shows. The division becomes explicit:
@@ -242,7 +244,7 @@ Measured at `7f771068` with `wc -l`. The record kit today is about 12,800 lines 
 
 | Goes or shrinks | Why | About |
 |---|---|---|
-| Field-by-field review: `change-request-review.tsx`, `change-request-format.ts`, `claimsOf` field paths, `approval-badges.tsx` | Replaced by claim views on the map, documents and rules | −700 UI, −60 BFF |
+| Field-by-field review: `change-request-review.tsx`, `change-request-format.ts`, `claimsOf` field paths, `approval-badges.tsx` | Replaced by claim views on the map, documents and rules. The UI part is removed once the law map approves, publishes and attaches texts (the deletion PR, held until Austria is stable on prod); `claimsOf` stays, the map's review state reads it | −700 UI, −60 BFF |
 | Approve-alone and second review: `decide.ts` branches, `SecondReviewState`, `secondReviewRoles`, `voidSecondReview`, `retractPreview`, the `override` path, second-review routes and door wording | One rule: confirmer ≠ releaser | −300 BFF, −80 door, migration drops `knowledge_second_reviews` |
 | Preview channel as a human step: `release.ts` preview moves and the "publish to preview first" gate | The golden run on the staged release does its job | −120 |
 | Per-row citations for territories, ISO import's per-row quote check (`onboarding.ts`, `wire.ts` territory import) | Reference data cites its dataset once | −150 |

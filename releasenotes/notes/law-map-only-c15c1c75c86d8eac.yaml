@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    A change request now opens on its country's law map, everywhere a link
+    names one: what each confirmation covers is shown in full, texts for
+    editions already released are attached there, and the old review dialog
+    is gone.
