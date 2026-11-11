@@ -5,24 +5,31 @@
  * region → adoption statement, everything opening in place
  * (docs/design/international/country-onboarding-ux.md, section B). It reads
  * the open change request the review reads (`change-requests/[id]`), so what
- * it shows is what a reviewer decides on; `?request=` names another.
+ * it shows is what a reviewer decides on; `?request=` names another. A
+ * reviewer confirms there, unit by unit (`law-map-review.ts`); approving and
+ * publishing stay in the change request.
  */
 
 import type { JSX } from 'react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Map as MapIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/features/platform/components/section-card'
+import { usePlatformCan } from '@/features/platform/platform-access'
+import { useAuth } from '@/adapters/auth/use-auth'
+import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import { lawMapOf } from '@/lib/base-knowledge/platform/law-map'
+import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowledge/platform/wire'
 import { countryName } from '../change-request-format'
 import { usePlatformJson } from '../countries/use-platform-json'
-import { LawMapOutline } from './law-map-outline'
+import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
 
@@ -46,6 +53,12 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const loaded = request.load.state === 'ready' && request.load.value.id === requestId ? request.load.value : null
   const current = loaded && loaded.countryId === countryId ? loaded : null
   const map = useMemo(() => (current ? lawMapOf(countryId, current.revisions, current.captures) : null), [current, countryId])
+  const units = useMemo(() => (map && current ? reviewUnitsOf(map, current) : []), [map, current])
+  const canReview = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeReview)
+  const { user } = useAuth()
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
+  const [open, setOpen] = useState<string | null>(null)
+  const toggle = (id: string) => setExpanded((now) => (now.has(id) ? new Set([...now].filter((one) => one !== id)) : new Set([...now, id])))
   // A link naming another country's request lands on that country's map.
   const router = useRouter()
   const elsewhere = loaded && loaded.countryId !== countryId ? loaded : null
@@ -76,10 +89,55 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   }
 
   const view = current
+  // What waits for a verdict; a unit sent back waits for its proposer, not for this reviewer.
+  const waiting = units.filter((unit) => unit.review === 'open')
+  const reviewable = view.status === 'submitted'
+  // "Next" opens what waits and the branches it sits in, then brings it into view.
+  const goTo = (key: string): void => {
+    const unit = units.find((one) => one.key === key)
+    if (!unit) return
+    setExpanded((now) => new Set([...now, ...branchesOf(map, unit)]))
+    setOpen(key)
+    window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
+  }
+  const confirm = {
+    requestId: view.id,
+    open: reviewable,
+    canReview,
+    // As the server decides it (0208, 0218): an author of any revision in the request.
+    authored: Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id),
+    onDone: (advance: boolean) => {
+      request.reload()
+      if (!advance) return
+      const next = waiting.find((unit) => unit.key !== open)
+      if (next) goTo(next.key)
+      else setOpen(null)
+    },
+  }
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="law-map">
       {header(t('request', { title: view.title }))}
-      {map.territories.size === 0 && map.statements.length === 0 ? <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} /> : <LawMapOutline map={map} today={today} rootName={name} />}
+      {reviewable && canReview ? (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {waiting.length > 0 ? (
+            <Button size="sm" variant="outline" onClick={() => goTo(waiting[0]?.key ?? '')} data-testid="next-to-confirm">
+              {t('toConfirm', { count: waiting.length })}
+            </Button>
+          ) : (
+            <span>
+              {view.sourcesUnchecked ? t('sourcesUnchecked') : t('allConfirmed')}{' '}
+              <Link href={`${countryHref}?section=review&request=${view.id}`} className="underline underline-offset-2">
+                {t('approveThere')}
+              </Link>
+            </span>
+          )}
+        </div>
+      ) : null}
+      {units.length === 0 ? (
+        <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
+      ) : (
+        <LawMapOutline map={map} units={new Map(units.map((unit) => [unit.key, unit]))} confirm={confirm} today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
+      )}
       <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground text-sm underline underline-offset-2">
         {t('openRequest')}
       </Link>

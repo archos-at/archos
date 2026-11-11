@@ -24,6 +24,15 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) return Response.json({ changeRequests: [SUMMARY], nextCursor: null })
+      // A verdict lands on the fixture's claims, so the outline shows it after its reload.
+      if (url === `/api/platform/knowledge/change-requests/${REQUEST_ID}/review` && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { decisions: { revisionId: string; claimPath: string; decision: string }[] }
+        for (const one of body.decisions) {
+          const claim = VIEW.revisions.find((revision) => revision.revisionId === one.revisionId)?.claims.find((candidate) => candidate.path === one.claimPath) as { decision: string | null } | undefined
+          if (claim) claim.decision = one.decision
+        }
+        return Response.json({ recorded: body.decisions.length })
+      }
       if (url === `/api/platform/knowledge/change-requests/${REQUEST_ID}`) return Response.json(VIEW)
       return real(input, init)
     }
