@@ -20,6 +20,8 @@
 export const APP_ROUTE_URLS: readonly string[] = [
   '/app',
   '/app/office-shelf',
+  // Grundlagen des Büros, the office's standards beside the Büroablage (ADR-0163 amendment).
+  '/app/base-knowledge',
   '/app/chat',
   '/app/inbox',
   '/app/memory',
