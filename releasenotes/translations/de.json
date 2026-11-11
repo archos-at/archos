@@ -372,6 +372,10 @@
     "de": "Eine Datei, deren Lesen durch eine Unterbrechung abgebrochen wurde, wird jetzt als fehlgeschlagen angezeigt, mit einem erneuten Versuch, statt bei „Wird gelesen“ hängen zu bleiben und sich nicht mehr lesen zu lassen."
   },
   {
+    "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
+    "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
+  },
+  {
     "en": "A file whose upload is still on its way says „Wird hochgeladen“ again instead of „Wird gelesen“.",
     "de": "Bei einer Datei, deren Upload noch läuft, steht wieder „Wird hochgeladen“ statt „Wird gelesen“."
   },

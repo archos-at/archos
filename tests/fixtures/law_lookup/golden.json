@@ -159,6 +159,6 @@
  },
  "empty-question": {
   "requested": [],
-  "output": "Error: ris_lookup needs a question — the legal question in German, not a search string."
+  "output": "Error: law_lookup needs a question — the legal question in German, not a search string."
  }
 }
