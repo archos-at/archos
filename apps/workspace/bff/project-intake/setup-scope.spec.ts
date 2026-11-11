@@ -190,6 +190,35 @@ describe('a site written by a reading', () => {
   })
 })
 
+describe('an edit before the country’s records are released', () => {
+  const evidence = { kind: 'document' as const, fileName: 'Einreichplan.pdf', page: 1, quote: '3 Geschosse' }
+  const building = {
+    'building_type@bldg1': 'building',
+    'building_position@bldg1': 'freestanding',
+    'access_three_sides@bldg1': true,
+    'storeys_above_ground@bldg1': 2,
+    'escape_level_m@bldg1': 3.2,
+    'gfa_above_ground@bldg1': 180,
+    'use_units@bldg1': 1,
+    'uses@bldg1': ['residential'],
+  }
+  const edit = (profile: ReturnType<typeof placedProfile>, records: typeof THREE_COUNTRIES) =>
+    planRecord(
+      profile,
+      projectIntakeDefinitionV1,
+      [{ key: 'storeys_above_ground@bldg1', screened: { key: 'storeys_above_ground@bldg1', value: 3, evidence, reason: 'gelesen' }, refusal: null }],
+      { now: '2026-11-10T00:00:00Z', readingId: 'job-2', needs: { mode: 'active', dismissed: [], records }, records }
+    )
+
+  it('keeps a derived class while no record is released', () => {
+    const derived = edit(placedProfile({ country: 'at', ...building }), THREE_COUNTRIES).profile
+    expect(derived.assumptions['building_class@bldg1']).toBeDefined()
+    const unpublished = edit(derived, [])
+    expect(unpublished.profile.assumptions['building_class@bldg1']).toEqual(derived.assumptions['building_class@bldg1'])
+    expect(unpublished.changedKeys).not.toContain('building_class@bldg1')
+  })
+})
+
 describe('a country whose records are not published', () => {
   it('is placed in its country and nothing more: no subdivision, class or request stands in', () => {
     const none = (facts: Parameters<typeof placedProfile>[0]) => setupScopeOf(placedProfile(facts), { records: [], on: '2026-11-10' })

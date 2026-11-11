@@ -47,6 +47,7 @@ import { documentEvidence, reasonFromEvidence } from './evidence'
 import { computeNeeds } from './needs'
 import { readSetupRecords } from './setup-records'
 import { planRecord, planWithdraw, staticRefusal, type ScreenedValue } from './record'
+import { setupUnpublished } from './setup-scope'
 import { patchForKeys } from './profile-edits'
 import {
   addIntakeDismissed,
@@ -485,9 +486,9 @@ export async function intakeNeeds(
     needs: needsOf(profile, row, records).slice(0, MAX_INTAKE_NEEDS),
     unreadFiles: unread.slice(0, MAX_UNREAD_FILES),
     description: row.description ?? null,
-    location: row.location ?? null,
-    mode: row.mode,
+    location: row.location ?? null, mode: row.mode,
     previousSummary: row.summary ?? null,
+    setupPublished: !setupUnpublished(profile, records),
   }
 }
 

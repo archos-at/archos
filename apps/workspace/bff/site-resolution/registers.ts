@@ -14,7 +14,7 @@
  */
 
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
-import type { AddressRegisterRecord } from '@/lib/base-knowledge/wire/setup-facts'
+import { compileRecordPattern, type AddressRegisterRecord } from '@/lib/base-knowledge/wire/setup-facts'
 import { addressRegistersOf, subdivisionLabels, subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 
 export interface AddressRegister {
@@ -41,17 +41,24 @@ export interface AddressRegister {
   downloadUrl: (referenceDate: string) => string
 }
 
+/** A pattern the record validation already accepted; a record that skipped it fails loudly rather than run unchecked. */
+function compiled(pattern: string): RegExp {
+  const regex = compileRecordPattern(pattern)
+  if (!regex) throw new Error(`The register pattern ${pattern} is not a safe, anchored pattern.`)
+  return regex
+}
+
 /** A register record as the functions the resolver and the importer call. */
 export function registerFromRecord(country: string, record: AddressRegisterRecord): AddressRegister {
   const stateOfCode = record.stateFromCode
-  const statePattern = stateOfCode ? new RegExp(stateOfCode.pattern) : null
+  const statePattern = stateOfCode ? compiled(stateOfCode.pattern) : null
   return {
     id: record.id,
     country,
     publisher: record.publisher,
     municipalityTerritory: (code) => record.municipalityTerritory.replace('{code}', code),
-    postcodeShape: new RegExp(record.postcodePattern),
-    crossBorderPostcodes: record.crossBorderPostcodePattern ? new RegExp(record.crossBorderPostcodePattern) : null,
+    postcodeShape: compiled(record.postcodePattern),
+    crossBorderPostcodes: record.crossBorderPostcodePattern ? compiled(record.crossBorderPostcodePattern) : null,
     stateOf: (code) => {
       const match = statePattern?.exec(code)
       return match && stateOfCode ? stateOfCode.territory.replace('{1}', match[1] ?? '') : null

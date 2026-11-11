@@ -21,7 +21,7 @@ import { gateNamesLaw, type ProjectLaw } from '@/lib/base-knowledge/wire/project
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import { deriveAll, withoutDerivedClasses } from './derivation-view'
 import { locationRegisterFor } from './location-register'
-import { BUILDING_CLASS_RULE } from './setup-scope'
+import { BUILDING_CLASS_RULE, setupUnpublished } from './setup-scope'
 import { profileKeyParts } from './profile-edits'
 import {
   MAX_INTAKE_NEEDS,
@@ -240,6 +240,7 @@ export function buildIntakeView(input: IntakeViewInput): IntakeView {
     ...(input.applicableLaw ? { applicableLaw: input.applicableLaw } : {}),
     // Step 4, Rückfragen: what the location decides, and the documents for it.
     locationRegister: locationRegisterFor({ profile, location: row.location ?? null, mode: row.mode, needs, records: input.records }),
+    setupPublished: !setupUnpublished(profile, input.records),
     readingProgress: readingProgressOf(input),
   }
 }

@@ -201,3 +201,17 @@ export function addressRegistersOf(
 export function hasSetupRecords(records: readonly StoredRuleset[], country: string, on: string = today()): boolean {
   return definitionsInForce(records, on).some(({ countries }) => countries.includes(country))
 }
+
+/**
+ * True when no setup record is released for the project's country (or for any country, when the
+ * project names none): the intake then asks and derives nothing, and says so instead of staying silent.
+ */
+export function setupUnpublished(
+  profile: Pick<ProjectProfile, 'facts' | 'assumptions'>,
+  records: readonly StoredRuleset[],
+  on?: string
+): boolean {
+  const { chain } = setupScopeOf(profile, { records, on })
+  const country = chain.length > 0 ? chain[chain.length - 1] : null
+  return country ? !hasSetupRecords(records, country, on) : records.length === 0
+}

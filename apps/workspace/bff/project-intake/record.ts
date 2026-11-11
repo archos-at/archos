@@ -52,7 +52,7 @@ import {
   isBuildingClassKey,
   withDerivedClass,
 } from './derivation-view'
-import { classificationInputs, type SetupScopeOptions } from './setup-scope'
+import { classificationInputs, setupUnpublished, type SetupScopeOptions } from './setup-scope'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import {
   isMeaningfulValue,
@@ -196,6 +196,9 @@ function withClassesDerived(
   now: string,
   scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>
 ): ProjectProfile {
+  // No records released for the country (before or after the batch): nothing can be derived, so
+  // nothing may be taken away either; the stored classes stay until the records publish.
+  if (setupUnpublished(before, scope.records) && setupUnpublished(profile, scope.records)) return profile
   let current = profile
   // Read before the loop: a class written below moves no input, and the site is the batch's.
   const classification = classificationFor(current, scope)

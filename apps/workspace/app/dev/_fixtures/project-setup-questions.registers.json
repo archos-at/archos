@@ -1,0 +1,819 @@
+{
+  "ready": {
+    "federalState": "vienna",
+    "municipality": "Wien",
+    "questions": [],
+    "documentRequests": [
+      {
+        "determinant": "plot",
+        "label": "Grundstück, Fläche und Einlagezahl",
+        "document": "Grundbuchauszug",
+        "reason": "Der Grundbuchauszug nennt Einlagezahl und Katastralgemeinde, die Grundstücke mit ihrer Fläche, die Eigentümer und Lasten wie Dienstbarkeiten.",
+        "keys": [
+          "plot_register_number",
+          "plot_area"
+        ],
+        "needs": [
+          {
+            "key": "plot_register_number",
+            "baseKey": "plot_register_number",
+            "buildingId": null,
+            "label": "Einlagezahl und Katastralgemeinde",
+            "type": "text",
+            "why": "Bezeichnet das Grundstück eindeutig. Damit lassen sich Grundbuch, Widmung und Gefahrenzonen für genau dieses Grundstück nachschlagen.",
+            "foundIn": [
+              "Grundbuchauszug",
+              "Lageplan",
+              "Bescheid"
+            ],
+            "decisive": false,
+            "state": "open"
+          },
+          {
+            "key": "plot_area",
+            "baseKey": "plot_area",
+            "buildingId": null,
+            "label": "Grundstücksfläche",
+            "type": "number_tri",
+            "unit": "m²",
+            "why": "Bezugsgröße für Bebauungsdichte und bebaubare Fläche.",
+            "foundIn": [
+              "Grundbuchauszug",
+              "Lageplan",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Allgemeines Grundbuchsgesetz 1955 (GBG 1955)",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "zoning",
+        "label": "Widmung und Bebauungsbestimmungen",
+        "document": "Plandokument (Flächenwidmungs- und Bebauungsplan)",
+        "reason": "In Wien legt ein Plandokument Widmung und Bebauungsbestimmungen gemeinsam fest: Widmung, Bauklasse, Bauweise, Fluchtlinien und Schutzzonen.",
+        "keys": [
+          "zoning",
+          "development_plan"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "Bauordnung für Wien (BO für Wien)",
+            "reference": "§§ 1–5 (Flächenwidmungs- und Bebauungspläne), § 7 (Schutzzonen)",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "heritage",
+        "label": "Denkmal- und Ortsbildschutz",
+        "document": "Auszug aus der Denkmalliste oder Unterschutzstellungsbescheid",
+        "reason": "Ein Gebäude unter Denkmalschutz darf nur mit Bewilligung des Bundesdenkmalamts verändert werden. Ob es geschützt ist, steht in der Denkmalliste des Bundesdenkmalamts oder in einem Bescheid.",
+        "keys": [
+          "heritage_protection@bldg1"
+        ],
+        "needs": [
+          {
+            "key": "heritage_protection@bldg1",
+            "baseKey": "heritage_protection",
+            "buildingId": "bldg1",
+            "label": "Steht das Gebäude unter Denkmalschutz?",
+            "type": "yes_no_open",
+            "why": "Denkmalschutz bringt ein eigenes Verfahren und teils Erleichterungen bei anderen Anforderungen mit sich.",
+            "foundIn": [
+              "Bescheid",
+              "Denkmalliste (Bundesdenkmalamt)",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Denkmalschutzgesetz (DMSG)",
+            "needsReview": false
+          }
+        ]
+      },
+      {
+        "determinant": "hazards",
+        "label": "Naturgefahren und Altlasten",
+        "document": "Auszug aus dem Gefahrenzonenplan, Auskunft aus dem Verdachtsflächenkataster",
+        "reason": "Gefahrenzonen der Wildbach- und Lawinenverbauung und Hochwasserabflussbereiche können Bauverbote oder Auflagen bedeuten; meist sind sie im Flächenwidmungsplan ersichtlich gemacht. Eine Altlast oder Verdachtsfläche betrifft Aushub, Abbruch und Gründung.",
+        "keys": [
+          "hazard_zones"
+        ],
+        "needs": [
+          {
+            "key": "hazard_zones",
+            "baseKey": "hazard_zones",
+            "buildingId": null,
+            "label": "Standortrisiken & Schutzgüter",
+            "type": "multi_select",
+            "options": [
+              {
+                "token": "flood_hq30",
+                "label": "Hochwasser HQ30"
+              },
+              {
+                "token": "flood_hq100",
+                "label": "Hochwasser HQ100"
+              },
+              {
+                "token": "torrent_yellow",
+                "label": "Wildbach/Lawine – gelbe Zone"
+              },
+              {
+                "token": "torrent_red",
+                "label": "Wildbach/Lawine – rote Zone"
+              },
+              {
+                "token": "landslide",
+                "label": "Rutschung / Steinschlag"
+              },
+              {
+                "token": "contaminated_land",
+                "label": "Altlast / Verdachtsfläche"
+              },
+              {
+                "token": "tree_stock",
+                "label": "geschützter Baumbestand"
+              },
+              {
+                "token": "protected_area",
+                "label": "Natur- oder Landschaftsschutzgebiet"
+              },
+              {
+                "token": "none",
+                "label": "keine"
+              }
+            ],
+            "why": "Solche Punkte können Einschränkungen oder zusätzliche Verfahren mit sich bringen — der Assistent behält sie im Blick.",
+            "foundIn": [
+              "Gefahrenzonenplan",
+              "Flächenwidmungsplan",
+              "Altlasten-Auskunft (Verdachtsflächenkataster)",
+              "Bescheid"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Forstgesetz 1975",
+            "reference": "§ 11 (Gefahrenzonenpläne)",
+            "needsReview": true
+          },
+          {
+            "title": "Wasserrechtsgesetz 1959 (WRG 1959)",
+            "reference": "§ 42a (Gefahrenzonenplanungen)",
+            "needsReview": true
+          },
+          {
+            "title": "Altlastensanierungsgesetz (ALSAG)",
+            "reference": "Verdachtsflächenkataster und Altlastenatlas des Umweltbundesamts",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "noise",
+        "label": "Lärm",
+        "document": "Lärmgutachten oder Auszug aus der Lärmkarte",
+        "reason": "Der Außenlärm am Standort bestimmt, wie gut Fenster und Außenbauteile dämmen müssen. Die strategischen Lärmkarten für Straße, Bahn, Flugverkehr und Industrie zeigt lärminfo.at.",
+        "keys": [
+          "noise_situation"
+        ],
+        "needs": [
+          {
+            "key": "noise_situation",
+            "baseKey": "noise_situation",
+            "buildingId": null,
+            "label": "Lärmsituation am Standort",
+            "type": "single_select",
+            "options": [
+              {
+                "token": "quiet",
+                "label": "ruhig"
+              },
+              {
+                "token": "urban",
+                "label": "innerstädtisch üblich"
+              },
+              {
+                "token": "road",
+                "label": "stark befahrene Straße"
+              },
+              {
+                "token": "rail",
+                "label": "Bahn"
+              },
+              {
+                "token": "air",
+                "label": "Fluglärm"
+              },
+              {
+                "token": "commercial",
+                "label": "Gewerbelärm"
+              }
+            ],
+            "why": "Die Lärmsituation beeinflusst typischerweise die Anforderungen an Fenster und Außenbauteile — exakte Pegel kommen später mit dem Gutachten.",
+            "foundIn": [
+              "Lärmgutachten",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "OIB-Richtlinie 5, Schallschutz (Ausgabe 2023)",
+            "reference": "Anforderungen an Außenbauteile nach dem maßgeblichen Außenlärmpegel",
+            "needsReview": true
+          },
+          {
+            "title": "Bundes-Umgebungslärmschutzgesetz (Bundes-LärmG)",
+            "reference": "strategische Lärmkarten",
+            "needsReview": true
+          }
+        ]
+      }
+    ]
+  },
+  "typedAddress": {
+    "federalState": null,
+    "municipality": null,
+    "questions": [
+      {
+        "key": "federal_state",
+        "baseKey": "federal_state",
+        "buildingId": null,
+        "label": "Bundesland",
+        "type": "single_select",
+        "options": [
+          {
+            "token": "vienna",
+            "label": "Wien"
+          },
+          {
+            "token": "lower_austria",
+            "label": "Niederösterreich"
+          },
+          {
+            "token": "upper_austria",
+            "label": "Oberösterreich"
+          },
+          {
+            "token": "styria",
+            "label": "Steiermark"
+          },
+          {
+            "token": "carinthia",
+            "label": "Kärnten"
+          },
+          {
+            "token": "salzburg",
+            "label": "Salzburg"
+          },
+          {
+            "token": "tyrol",
+            "label": "Tirol"
+          },
+          {
+            "token": "vorarlberg",
+            "label": "Vorarlberg"
+          },
+          {
+            "token": "burgenland",
+            "label": "Burgenland"
+          },
+          {
+            "token": "outside_austria",
+            "label": "Außerhalb Österreichs"
+          }
+        ],
+        "why": "Bestimmt, welche landesspezifischen Rechtstexte für den Standort herangezogen werden.",
+        "foundIn": [
+          "Einreichplan (Plankopf)",
+          "Bescheid",
+          "Baubeschreibung"
+        ],
+        "decisive": false,
+        "state": "open"
+      },
+      {
+        "key": "work_type",
+        "baseKey": "work_type",
+        "buildingId": null,
+        "label": "Art des Vorhabens (Projekt gesamt)",
+        "type": "multi_select",
+        "options": [
+          {
+            "token": "new_build",
+            "label": "Neubau"
+          },
+          {
+            "token": "extension",
+            "label": "Zubau"
+          },
+          {
+            "token": "conversion",
+            "label": "Umbau"
+          },
+          {
+            "token": "refurbishment",
+            "label": "Sanierung"
+          },
+          {
+            "token": "change_of_use",
+            "label": "Nutzungsänderung"
+          },
+          {
+            "token": "demolition",
+            "label": "Abbruch"
+          },
+          {
+            "token": "external_works",
+            "label": "Außenanlagen"
+          }
+        ],
+        "why": "Steuert, welche Fragen und Themen für dieses Projekt überhaupt relevant sind.",
+        "foundIn": [
+          "Baubeschreibung",
+          "Bescheid",
+          "Einreichplan (Plankopf)"
+        ],
+        "decisive": false,
+        "state": "open"
+      }
+    ],
+    "documentRequests": [
+      {
+        "determinant": "plot",
+        "label": "Grundstück, Fläche und Einlagezahl",
+        "document": "Grundbuchauszug",
+        "reason": "Der Grundbuchauszug nennt Einlagezahl und Katastralgemeinde, die Grundstücke mit ihrer Fläche, die Eigentümer und Lasten wie Dienstbarkeiten.",
+        "keys": [
+          "plot_register_number",
+          "plot_area"
+        ],
+        "needs": [
+          {
+            "key": "plot_register_number",
+            "baseKey": "plot_register_number",
+            "buildingId": null,
+            "label": "Einlagezahl und Katastralgemeinde",
+            "type": "text",
+            "why": "Bezeichnet das Grundstück eindeutig. Damit lassen sich Grundbuch, Widmung und Gefahrenzonen für genau dieses Grundstück nachschlagen.",
+            "foundIn": [
+              "Grundbuchauszug",
+              "Lageplan",
+              "Bescheid"
+            ],
+            "decisive": false,
+            "state": "open"
+          },
+          {
+            "key": "plot_area",
+            "baseKey": "plot_area",
+            "buildingId": null,
+            "label": "Grundstücksfläche",
+            "type": "number_tri",
+            "unit": "m²",
+            "why": "Bezugsgröße für Bebauungsdichte und bebaubare Fläche.",
+            "foundIn": [
+              "Grundbuchauszug",
+              "Lageplan",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Allgemeines Grundbuchsgesetz 1955 (GBG 1955)",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "zoning",
+        "label": "Widmung und Bebauungsbestimmungen",
+        "document": "Auszug aus Flächenwidmungs- und Bebauungsplan",
+        "reason": "Die Gemeinde legt im Flächenwidmungsplan fest, wofür das Grundstück genutzt werden darf, und im Bebauungsplan, wie hoch, wie dicht und wo gebaut werden darf. Nicht für jedes Grundstück gibt es einen Bebauungsplan.",
+        "keys": [
+          "zoning",
+          "development_plan"
+        ],
+        "needs": [
+          {
+            "key": "zoning",
+            "baseKey": "zoning",
+            "buildingId": null,
+            "label": "Flächenwidmung (Kategorie)",
+            "type": "single_select",
+            "options": [
+              {
+                "token": "residential",
+                "label": "Wohngebiet"
+              },
+              {
+                "token": "mixed",
+                "label": "gemischtes Baugebiet"
+              },
+              {
+                "token": "core",
+                "label": "Kerngebiet"
+              },
+              {
+                "token": "commercial",
+                "label": "Betriebs-/Industriegebiet"
+              },
+              {
+                "token": "special",
+                "label": "Sondergebiet"
+              },
+              {
+                "token": "green_special",
+                "label": "Grünland mit Sonderwidmung"
+              },
+              {
+                "token": "other",
+                "label": "sonstige"
+              }
+            ],
+            "why": "Hilft einzuschätzen, ob die geplante Nutzung an diesem Standort grundsätzlich möglich ist.",
+            "foundIn": [
+              "Flächenwidmungsplan",
+              "Bebauungsplan (Plandokument)",
+              "Bescheid"
+            ],
+            "decisive": false,
+            "state": "open"
+          },
+          {
+            "key": "development_plan",
+            "baseKey": "development_plan",
+            "buildingId": null,
+            "label": "Liegt ein Bebauungsplan vor?",
+            "type": "yes_no_open",
+            "foundIn": [
+              "Bebauungsplan (Plandokument)",
+              "Bescheid",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Raumordnungsgesetz des Bundeslandes",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "hazards",
+        "label": "Naturgefahren und Altlasten",
+        "document": "Auszug aus dem Gefahrenzonenplan, Auskunft aus dem Verdachtsflächenkataster",
+        "reason": "Gefahrenzonen der Wildbach- und Lawinenverbauung und Hochwasserabflussbereiche können Bauverbote oder Auflagen bedeuten; meist sind sie im Flächenwidmungsplan ersichtlich gemacht. Eine Altlast oder Verdachtsfläche betrifft Aushub, Abbruch und Gründung.",
+        "keys": [
+          "hazard_zones"
+        ],
+        "needs": [
+          {
+            "key": "hazard_zones",
+            "baseKey": "hazard_zones",
+            "buildingId": null,
+            "label": "Standortrisiken & Schutzgüter",
+            "type": "multi_select",
+            "options": [
+              {
+                "token": "flood_hq30",
+                "label": "Hochwasser HQ30"
+              },
+              {
+                "token": "flood_hq100",
+                "label": "Hochwasser HQ100"
+              },
+              {
+                "token": "torrent_yellow",
+                "label": "Wildbach/Lawine – gelbe Zone"
+              },
+              {
+                "token": "torrent_red",
+                "label": "Wildbach/Lawine – rote Zone"
+              },
+              {
+                "token": "landslide",
+                "label": "Rutschung / Steinschlag"
+              },
+              {
+                "token": "contaminated_land",
+                "label": "Altlast / Verdachtsfläche"
+              },
+              {
+                "token": "tree_stock",
+                "label": "geschützter Baumbestand"
+              },
+              {
+                "token": "protected_area",
+                "label": "Natur- oder Landschaftsschutzgebiet"
+              },
+              {
+                "token": "none",
+                "label": "keine"
+              }
+            ],
+            "why": "Solche Punkte können Einschränkungen oder zusätzliche Verfahren mit sich bringen — der Assistent behält sie im Blick.",
+            "foundIn": [
+              "Gefahrenzonenplan",
+              "Flächenwidmungsplan",
+              "Altlasten-Auskunft (Verdachtsflächenkataster)",
+              "Bescheid"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "Forstgesetz 1975",
+            "reference": "§ 11 (Gefahrenzonenpläne)",
+            "needsReview": true
+          },
+          {
+            "title": "Wasserrechtsgesetz 1959 (WRG 1959)",
+            "reference": "§ 42a (Gefahrenzonenplanungen)",
+            "needsReview": true
+          },
+          {
+            "title": "Altlastensanierungsgesetz (ALSAG)",
+            "reference": "Verdachtsflächenkataster und Altlastenatlas des Umweltbundesamts",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "noise",
+        "label": "Lärm",
+        "document": "Lärmgutachten oder Auszug aus der Lärmkarte",
+        "reason": "Der Außenlärm am Standort bestimmt, wie gut Fenster und Außenbauteile dämmen müssen. Die strategischen Lärmkarten für Straße, Bahn, Flugverkehr und Industrie zeigt lärminfo.at.",
+        "keys": [
+          "noise_situation"
+        ],
+        "needs": [
+          {
+            "key": "noise_situation",
+            "baseKey": "noise_situation",
+            "buildingId": null,
+            "label": "Lärmsituation am Standort",
+            "type": "single_select",
+            "options": [
+              {
+                "token": "quiet",
+                "label": "ruhig"
+              },
+              {
+                "token": "urban",
+                "label": "innerstädtisch üblich"
+              },
+              {
+                "token": "road",
+                "label": "stark befahrene Straße"
+              },
+              {
+                "token": "rail",
+                "label": "Bahn"
+              },
+              {
+                "token": "air",
+                "label": "Fluglärm"
+              },
+              {
+                "token": "commercial",
+                "label": "Gewerbelärm"
+              }
+            ],
+            "why": "Die Lärmsituation beeinflusst typischerweise die Anforderungen an Fenster und Außenbauteile — exakte Pegel kommen später mit dem Gutachten.",
+            "foundIn": [
+              "Lärmgutachten",
+              "Baubeschreibung"
+            ],
+            "decisive": false,
+            "state": "open"
+          }
+        ],
+        "satisfied": false,
+        "sources": [
+          {
+            "title": "OIB-Richtlinie 5, Schallschutz (Ausgabe 2023)",
+            "reference": "Anforderungen an Außenbauteile nach dem maßgeblichen Außenlärmpegel",
+            "needsReview": true
+          },
+          {
+            "title": "Bundes-Umgebungslärmschutzgesetz (Bundes-LärmG)",
+            "reference": "strategische Lärmkarten",
+            "needsReview": true
+          }
+        ]
+      }
+    ]
+  },
+  "closing": {
+    "federalState": null,
+    "municipality": null,
+    "questions": [
+      {
+        "key": "federal_state",
+        "baseKey": "federal_state",
+        "buildingId": null,
+        "label": "Bundesland",
+        "type": "single_select",
+        "options": [
+          {
+            "token": "vienna",
+            "label": "Wien"
+          },
+          {
+            "token": "lower_austria",
+            "label": "Niederösterreich"
+          },
+          {
+            "token": "upper_austria",
+            "label": "Oberösterreich"
+          },
+          {
+            "token": "styria",
+            "label": "Steiermark"
+          },
+          {
+            "token": "carinthia",
+            "label": "Kärnten"
+          },
+          {
+            "token": "salzburg",
+            "label": "Salzburg"
+          },
+          {
+            "token": "tyrol",
+            "label": "Tirol"
+          },
+          {
+            "token": "vorarlberg",
+            "label": "Vorarlberg"
+          },
+          {
+            "token": "burgenland",
+            "label": "Burgenland"
+          },
+          {
+            "token": "outside_austria",
+            "label": "Außerhalb Österreichs"
+          }
+        ],
+        "why": "Bestimmt, welche landesspezifischen Rechtstexte für den Standort herangezogen werden.",
+        "foundIn": [
+          "Einreichplan (Plankopf)",
+          "Bescheid",
+          "Baubeschreibung"
+        ],
+        "decisive": false,
+        "state": "open"
+      }
+    ],
+    "documentRequests": []
+  },
+  "done": {
+    "federalState": "vienna",
+    "municipality": "Wien",
+    "questions": [],
+    "documentRequests": [
+      {
+        "determinant": "plot",
+        "label": "Grundstück, Fläche und Einlagezahl",
+        "document": "Grundbuchauszug",
+        "reason": "Der Grundbuchauszug nennt Einlagezahl und Katastralgemeinde, die Grundstücke mit ihrer Fläche, die Eigentümer und Lasten wie Dienstbarkeiten.",
+        "keys": [
+          "plot_register_number",
+          "plot_area"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "Allgemeines Grundbuchsgesetz 1955 (GBG 1955)",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "zoning",
+        "label": "Widmung und Bebauungsbestimmungen",
+        "document": "Plandokument (Flächenwidmungs- und Bebauungsplan)",
+        "reason": "In Wien legt ein Plandokument Widmung und Bebauungsbestimmungen gemeinsam fest: Widmung, Bauklasse, Bauweise, Fluchtlinien und Schutzzonen.",
+        "keys": [
+          "zoning",
+          "development_plan"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "Bauordnung für Wien (BO für Wien)",
+            "reference": "§§ 1–5 (Flächenwidmungs- und Bebauungspläne), § 7 (Schutzzonen)",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "heritage",
+        "label": "Denkmal- und Ortsbildschutz",
+        "document": "Auszug aus der Denkmalliste oder Unterschutzstellungsbescheid",
+        "reason": "Ein Gebäude unter Denkmalschutz darf nur mit Bewilligung des Bundesdenkmalamts verändert werden. Ob es geschützt ist, steht in der Denkmalliste des Bundesdenkmalamts oder in einem Bescheid.",
+        "keys": [
+          "heritage_protection@bldg1"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "Denkmalschutzgesetz (DMSG)",
+            "needsReview": false
+          }
+        ]
+      },
+      {
+        "determinant": "hazards",
+        "label": "Naturgefahren und Altlasten",
+        "document": "Auszug aus dem Gefahrenzonenplan, Auskunft aus dem Verdachtsflächenkataster",
+        "reason": "Gefahrenzonen der Wildbach- und Lawinenverbauung und Hochwasserabflussbereiche können Bauverbote oder Auflagen bedeuten; meist sind sie im Flächenwidmungsplan ersichtlich gemacht. Eine Altlast oder Verdachtsfläche betrifft Aushub, Abbruch und Gründung.",
+        "keys": [
+          "hazard_zones"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "Forstgesetz 1975",
+            "reference": "§ 11 (Gefahrenzonenpläne)",
+            "needsReview": true
+          },
+          {
+            "title": "Wasserrechtsgesetz 1959 (WRG 1959)",
+            "reference": "§ 42a (Gefahrenzonenplanungen)",
+            "needsReview": true
+          },
+          {
+            "title": "Altlastensanierungsgesetz (ALSAG)",
+            "reference": "Verdachtsflächenkataster und Altlastenatlas des Umweltbundesamts",
+            "needsReview": true
+          }
+        ]
+      },
+      {
+        "determinant": "noise",
+        "label": "Lärm",
+        "document": "Lärmgutachten oder Auszug aus der Lärmkarte",
+        "reason": "Der Außenlärm am Standort bestimmt, wie gut Fenster und Außenbauteile dämmen müssen. Die strategischen Lärmkarten für Straße, Bahn, Flugverkehr und Industrie zeigt lärminfo.at.",
+        "keys": [
+          "noise_situation"
+        ],
+        "needs": [],
+        "satisfied": true,
+        "sources": [
+          {
+            "title": "OIB-Richtlinie 5, Schallschutz (Ausgabe 2023)",
+            "reference": "Anforderungen an Außenbauteile nach dem maßgeblichen Außenlärmpegel",
+            "needsReview": true
+          },
+          {
+            "title": "Bundes-Umgebungslärmschutzgesetz (Bundes-LärmG)",
+            "reference": "strategische Lärmkarten",
+            "needsReview": true
+          }
+        ]
+      }
+    ]
+  }
+}

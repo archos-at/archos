@@ -17,6 +17,7 @@
  * reaches a prompt"); it reaches a person, in the setup's own views.
  */
 
+import safeRegex from 'safe-regex2'
 import { z } from 'zod'
 import { FACT_TYPES, SETUP_DETERMINANTS } from './vocab'
 
@@ -77,20 +78,29 @@ export const derivationDefinitionSchema = z
   .strict()
 export type DerivationDefinition = z.infer<typeof derivationDefinitionSchema>
 
-/** A regular expression an operator's record carries: it compiles, is anchored and stays short (it runs on every lookup). */
+/**
+ * The one place a record's pattern becomes a RegExp. A pattern is data the operator publishes, so it
+ * is anchored, short and checked for catastrophic backtracking (`safe-regex2`, a maintained star-height
+ * and repetition-limit checker, chosen over writing our own) before anything compiles it. Null: refused.
+ */
+export function compileRecordPattern(pattern: string): RegExp | null {
+  if (pattern.length < 3 || pattern.length > 200 || !pattern.startsWith('^') || !pattern.endsWith('$')) return null
+  try {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- validated just below: anchored, at most 200 characters, safe-regex2
+    const compiled = new RegExp(pattern)
+    return safeRegex(compiled) ? compiled : null
+  } catch {
+    return null
+  }
+}
+
+/** A regular expression an operator's record carries: it compiles, is anchored, stays short and cannot backtrack catastrophically (it runs on every lookup). */
 const patternSchema = z
   .string()
   .min(3)
   .max(200)
   .refine((pattern) => pattern.startsWith('^') && pattern.endsWith('$'), 'anchored: starts with ^ and ends with $')
-  .refine((pattern) => {
-    try {
-      new RegExp(pattern)
-      return true
-    } catch {
-      return false
-    }
-  }, 'a regular expression that compiles')
+  .refine((pattern) => compileRecordPattern(pattern) !== null, 'a regular expression that compiles and is safe to run (no nested repetition)')
 
 /**
  * How a country's official address register places a site (ADR-0172): who

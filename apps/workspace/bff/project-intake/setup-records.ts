@@ -13,10 +13,16 @@
  */
 
 import 'server-only'
+import { cache } from 'react'
 import { readSetupRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
-export async function readSetupRecords(organizationId: string): Promise<readonly StoredRuleset[]> {
+/**
+ * Read once per request and organization (React `cache`): the intake view, the needs and a
+ * reading's writes each ask for them. No read crosses a request, so a release is seen by the next
+ * one; the repo has no cross-request cache keyed by head revisions to reuse, and none is added here.
+ */
+export const readSetupRecords = cache(async (organizationId: string): Promise<readonly StoredRuleset[]> => {
   const read = await readSetupRulesetsInForce(organizationId)
   if (read.truncated || read.unreadable.length > 0) {
     console.error('[setup_records_read=false] the setup records could not be read completely; none is used', {
@@ -27,4 +33,4 @@ export async function readSetupRecords(organizationId: string): Promise<readonly
     return []
   }
   return read.rulesets
-}
+})
