@@ -51,6 +51,7 @@ import { inboundMail } from './inbound-mail'
 import { mailThread } from './mail-thread'
 import { search } from './search'
 import { whatsNew } from './whats-new'
+import { personalMemory } from './personal-memory'
 
 export const en = {
   common,
@@ -98,4 +99,5 @@ export const en = {
   mailThread,
   search,
   whatsNew,
+  personalMemory,
 } as const

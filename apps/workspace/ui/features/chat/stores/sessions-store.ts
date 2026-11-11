@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import { getActiveLocale } from '@/i18n'
 import type { StateCreator } from 'zustand'
 import type {
@@ -27,7 +26,9 @@ import {
 import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages, turnStateFor } from './messages-store'
 import { encodeCitations } from '../lib/citations'
-import { markConversationMinted, markConversationOnServer } from '../lib/conversation-on-server'
+import { markConversationOnServer } from '../lib/conversation-on-server'
+import { recordCreatedTemporary } from '../lib/temporary-created'
+import { createNewConversation } from './new-conversation'
 import type { CardInteractions } from '@/features/cards/card-decision'
 import type { MessageStages } from '@/lib/conversations/message-stages'
 
@@ -150,31 +151,6 @@ export type SessionsSlice = {
 
 // Helper functions
 
-/** An id minted here names nothing on the server until its first message is stored. */
-const mintConversationId = (): string => {
-  const id = `s_${uuidv4().replace(/-/g, '_')}`
-  markConversationMinted(id)
-  return id
-}
-
-const createNewConversation = (
-  userId: string,
-  projectId: string | null,
-  subject?: { resourceType: 'document'; resourceId: string; title?: string | null } | null
-): Conversation => ({
-  id: mintConversationId(),
-  userId,
-  // Stamp the active project so the session stays scoped to it (UX-8);
-  // null = created outside a project context (visible everywhere).
-  projectId,
-  title: subject?.title ?? '',
-  subjectResourceType: subject?.resourceType ?? null,
-  subjectResourceId: subject?.resourceId ?? null,
-  messages: [],
-  createdAt: new Date(),
-  updatedAt: new Date(),
-})
-
 const updateConversationInList = (
   conversations: Conversation[],
   updatedConversation: Conversation
@@ -290,14 +266,17 @@ const ensureServerConversation = (
     const conversationsClient = await getConversationsClient()
     // Stamp the server row with the session's project so future
     // project-scoped lists stay accurate.
-    await conversationsClient.create(
+    const created = await conversationsClient.create(
       conversation.id,
       conversation.title || undefined,
       conversation.projectId ?? fallbackProjectId,
       conversation.subjectResourceId
         ? { resourceType: 'document', resourceId: conversation.subjectResourceId }
-        : null
+        : null,
+      conversation.temporary
     )
+    // Before the readers are told: a switch made while this was in flight settles against it.
+    recordCreatedTemporary(conversation.id, created?.temporary === true)
     // The readers that were waiting for the row may ask about it now.
     markConversationOnServer(conversation.id)
   })()
@@ -454,6 +433,7 @@ export const createSessionsSlice: StateCreator<
           // which quietly re-fills the owner's chat history with 52 job
           // threads a year while every test still passes.
           jobId: serverConv.jobId ?? null,
+          temporary: serverConv.temporary === true,
           subjectResourceType: locked
             ? null
             : serverConv.subjectResourceType === 'document'

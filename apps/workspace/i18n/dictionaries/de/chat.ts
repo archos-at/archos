@@ -2062,6 +2062,13 @@ export const chat: typeof en.chat = {
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
     manageHint: 'Diese Einträge können Sie im Projektgedächtnis verwalten und löschen.',
+    // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
+    manageLink: 'Im Projektgedächtnis verwalten',
+    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): Projekt oder Büro.
+    audience: {
+      project: 'Liest das Projektteam',
+      organization: 'Lesen alle im Büro',
+    },
     kinds: {
       decision: 'Entscheidung',
       constraint: 'Vorgabe',
@@ -2073,6 +2080,22 @@ export const chat: typeof en.chat = {
       distillation: 'nach der Antwort ergänzt',
       inTurn: 'während der Antwort notiert',
     },
+  },
+  // Temporärer Chat (ADR-0180): aus ihm kommt nichts in ein Gedächtnis.
+  temporary: {
+    label: 'Temporär',
+    switchOn: 'Temporären Chat einschalten',
+    switchOff: 'Temporären Chat ausschalten',
+    switchOnTitle: 'Temporären Chat einschalten: {productName} merkt sich aus diesem Chat nichts.',
+    switchOffTitle:
+      'Temporären Chat ausschalten: Ab jetzt kann {productName} sich wieder etwas merken. Was bisher gesagt wurde, bleibt außen vor.',
+    statement: 'Temporärer Chat. {productName} merkt sich aus diesem Chat nichts.',
+    ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
+    switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
+  },
+  // Wer den Chat liest: die Zeile unter dem Eingabefeld.
+  privacy: {
+    onlyYou: 'Privater Chat. Sie haben ihn mit niemandem geteilt.',
   },
   confidence: {
     label: 'Einschätzung: {level}',

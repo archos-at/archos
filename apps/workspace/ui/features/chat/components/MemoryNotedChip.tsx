@@ -1,15 +1,18 @@
 'use client'
 
 import { useId, useState, type FC } from 'react'
+import Link from 'next/link'
 import {
   Brain,
   BrainCog,
+  Building2,
   CircleHelp,
   FileText,
   Gavel,
   Lock,
   Sparkles,
   Star,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { Chip, ChipCount } from '@/components/ui/chip'
@@ -26,7 +29,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
-import type { TurnMemoryItem } from '../lib/turn-memory'
+import { useChatStore } from '../store'
+import type { TurnMemoryAudience, TurnMemoryItem } from '../lib/turn-memory'
 
 interface MemoryNotedChipProps {
   /**
@@ -39,6 +43,18 @@ interface MemoryNotedChipProps {
    * so after turn five turn one's answer also read „Piloti hat sich 5 gemerkt".
    */
   items: TurnMemoryItem[]
+  /**
+   * The project whose memory page the hint links to. Read from the open
+   * conversation when not given; a preview or a spec passes it. Without a
+   * project the hint stays a sentence: there is no page to point at.
+   */
+  projectId?: string | null
+}
+
+/** Who reads a note, by the shelf it went onto (ADR-0180 rule 1). The glyphs are the access chip's. */
+const AUDIENCE_META: Record<TurnMemoryAudience, { icon: LucideIcon; labelKey: string }> = {
+  project: { icon: Users, labelKey: 'memory.audience.project' },
+  organization: { icon: Building2, labelKey: 'memory.audience.organization' },
 }
 
 const KIND_META: Record<string, { icon: LucideIcon; labelKey: string }> = {
@@ -72,8 +88,10 @@ const KIND_META: Record<string, { icon: LucideIcon; labelKey: string }> = {
  * at least one item exists. The chip is `interactive`, so its catchment is
  * 44px (`touch-target`) while the pill stays chip-sized.
  */
-export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items }) => {
+export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items, projectId }) => {
   const t = useTranslations(chatCopy)
+  const openProjectId = useChatStore((state) => state.currentConversation?.projectId ?? state.projectId ?? null)
+  const memoryProjectId = projectId === undefined ? openProjectId : projectId
   const titleId = useId()
   const hintId = useId()
   // The reflection stage lands seconds after the answer settled. A chip that
@@ -135,6 +153,7 @@ export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items }) => {
           {ordered.map((item) => {
             const meta = KIND_META[item.kind]
             const label = meta ? t(meta.labelKey) : item.kind
+            const audience = item.audience ? AUDIENCE_META[item.audience] : null
             return (
               <NoteRow
                 key={item.id}
@@ -150,6 +169,14 @@ export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items }) => {
                           {item.provenance === 'distillation' && <Sparkles className="size-3" aria-hidden="true" />}
                           {provenanceLabel(item.provenance)}
                         </>,
+                        ...(audience
+                          ? [
+                              <span key="audience" className="inline-flex items-center gap-1" data-testid="memory-item-audience">
+                                <audience.icon className="size-3" aria-hidden="true" />
+                                {t(audience.labelKey)}
+                              </span>,
+                            ]
+                          : []),
                       ]}
                     />
                     {item.supersedes ? (
@@ -165,7 +192,19 @@ export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items }) => {
             )
           })}
         </NoteList>
-        <NotePanelHint id={hintId}>{t('memory.manageHint')}</NotePanelHint>
+        <NotePanelHint id={hintId}>
+          {memoryProjectId ? (
+            <Link
+              href={`/app/projects/${encodeURIComponent(memoryProjectId)}/settings/memory`}
+              className="text-foreground touch-target font-medium underline underline-offset-2"
+              data-testid="memory-manage-link"
+            >
+              {t('memory.manageLink')}
+            </Link>
+          ) : (
+            t('memory.manageHint')
+          )}
+        </NotePanelHint>
       </PopoverContent>
     </Popover>
   )

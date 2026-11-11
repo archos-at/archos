@@ -129,4 +129,46 @@ describe('MemoryNotedChip', () => {
     expect(screen.getByText('Korrigiert')).toBeInTheDocument()
     expect(screen.getByTestId('memory-item-supersedes')).toHaveTextContent(/^Ersetzt:/)
   })
+  test('says who reads each note, by where it was kept (ADR-0180)', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryNotedChip
+        projectId="p-1"
+        items={[
+          { ...inTurn, audience: 'organization' },
+          { ...afterwards, audience: 'project' },
+        ]}
+      />
+    )
+    await user.click(screen.getByTestId('memory-chip'))
+
+    const audiences = screen.getAllByTestId('memory-item-audience').map((node) => node.textContent)
+    expect(audiences).toEqual(['Read by everyone in the office', 'Read by the project team'])
+  })
+
+  test('a note whose home was not recorded claims no audience', async () => {
+    const user = userEvent.setup()
+    render(<MemoryNotedChip projectId="p-1" items={[inTurn]} />)
+    await user.click(screen.getByTestId('memory-chip'))
+
+    expect(screen.queryByTestId('memory-item-audience')).not.toBeInTheDocument()
+  })
+
+  test('the hint is a link to the project’s memory, where the notes are managed', async () => {
+    const user = userEvent.setup()
+    render(<MemoryNotedChip projectId="p 1" items={[afterwards]} />)
+    await user.click(screen.getByTestId('memory-chip'))
+
+    const link = screen.getByRole('link', { name: 'Manage in project memory' })
+    expect(link).toHaveAttribute('href', '/app/projects/p%201/settings/memory')
+  })
+
+  test('outside a project there is no page to link to: the hint stays a sentence', async () => {
+    const user = userEvent.setup()
+    render(<MemoryNotedChip projectId={null} items={[afterwards]} />)
+    await user.click(screen.getByTestId('memory-chip'))
+
+    expect(screen.queryByTestId('memory-manage-link')).not.toBeInTheDocument()
+    expect(screen.getByText('You can manage and delete these entries in the project memory.')).toBeInTheDocument()
+  })
 })

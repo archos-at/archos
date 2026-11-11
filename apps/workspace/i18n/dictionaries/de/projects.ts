@@ -634,6 +634,8 @@ export const projects: typeof en.projects = {
     deleted: 'Eintrag entfernt.',
     heading: 'Projektspeicher',
     description: 'Was {productName} über dieses Projekt gelernt hat — bearbeitbar.',
+    // Wer liest (ADR-0180): die eine Zeile unter der Überschrift.
+    audience: 'Alle Mitglieder dieses Projekts sehen diese Notizen.',
     addMemory: 'Eintrag hinzufügen',
     kindAria: 'Art des Eintrags',
     scopeAria: 'Geltungsbereich des Eintrags',
@@ -646,7 +648,7 @@ export const projects: typeof en.projects = {
     emptyDescription:
       '{productName} hat zu diesem Projekt noch nichts erfasst. Das geschieht, während Sie chatten — oder fügen Sie selbst etwas hinzu.',
     orgWide: 'organisationsweit',
-    confidence: 'Konfidenz {confidence}',
+    confidence: { low: 'Sicherheit: gering', medium: 'Sicherheit: mittel', high: 'Sicherheit: hoch' },
     save: 'Speichern',
     pinned: 'Angeheftet',
     remove: 'Entfernen',

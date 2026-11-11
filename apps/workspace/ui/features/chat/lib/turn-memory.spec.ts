@@ -68,6 +68,8 @@ describe('turnMemoryItems', () => {
         kind: 'derived_fact',
         content: 'Das oberste Fluchtniveau beträgt 9,80 m.',
         provenance: 'distillation',
+        // The stage writes the project's memory only, and its frame leaves a personal note out.
+        audience: 'project',
       },
     ])
   })
@@ -83,8 +85,25 @@ describe('turnMemoryItems', () => {
         kind: 'constraint',
         content: 'Die Fluchtwegbreite ist mit 1,20 m vorgegeben.',
         provenance: 'inTurn',
+        audience: 'project',
       },
     ])
+  })
+
+  it('says who reads the note by where the reader’s decision put it', () => {
+    const cards = [proposal('Die Fluchtwegbreite ist mit 1,20 m vorgegeben.')]
+    expect(turnMemoryItems({ cards, cardInteractions: answered('savedOrg') })[0]?.audience).toBe('organization')
+    expect(turnMemoryItems({ cards, cardInteractions: answered('savedProject') })[0]?.audience).toBe('project')
+  })
+
+  it('reads a server proposal’s audience from its result, and claims none when it recorded none', () => {
+    const cards = [serverProposal('Die Fluchtwegbreite ist mit 1,20 m vorgegeben.')]
+    const applied = (results: ProposedChangeView['results']): DecidedProposals => ({
+      [PROPOSAL_ID]: { id: PROPOSAL_ID, kind: 'memory', status: 'applied', results } as ProposedChangeView,
+    })
+    const inProject = applied([{ label: 'Notiz', ok: true, scope: 'project' }])
+    expect(turnMemoryItems({ cards, decidedProposals: inProject })[0]?.audience).toBe('project')
+    expect(turnMemoryItems({ cards, decidedProposals: applied(null) })[0]).not.toHaveProperty('audience')
   })
 
   it('carries the note an accepted proposal corrected, so the chip can say it changed', () => {

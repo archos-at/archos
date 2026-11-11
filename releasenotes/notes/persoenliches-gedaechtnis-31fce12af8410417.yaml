@@ -11,3 +11,14 @@ features:
     The assistant draws on what it keeps about you personally only in chats
     that you alone read. In a chat you share with colleagues it leaves those
     notes out, because others read the answers there.
+  - >
+    Your own notes have a page, "Mein Gedächtnis", in the menu under your name.
+    There you read, add, correct, pin and remove what the assistant keeps about
+    you.
+  - >
+    A chat can be switched to temporary beside the message field. The assistant
+    then keeps nothing from it, in no memory, and the chat says so for as long
+    as the switch is on.
+  - >
+    A project's memory now says that every member of the project reads its
+    notes, and a private chat says that you have not shared it with anyone.

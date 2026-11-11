@@ -4,6 +4,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
 import { EffortDial } from '@/features/chat/components/effort-dial'
+import { TemporaryChatToggle } from '@/features/chat/conversation-privacy'
 
 import { DictationButton } from '@/features/dictation'
 import { ComposerAttach } from '../ComposerAttach'
@@ -113,6 +114,16 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                 <FileText className="size-3" aria-hidden="true" />
                 <span className="text-xs font-medium">{controller.attachedFilesCount}</span>
               </Button>
+            )}
+
+            {/* Whether anything from this chat is kept (ADR-0180), beside the
+                        other per-chat setting. Not for a HITL response: that
+                        answers a prompt, it does not set up a chat. */}
+            {!controller.isResponseMode && (
+              <TemporaryChatToggle
+                conversationId={controller.currentConversationId}
+                disabled={controller.cannotContribute}
+              />
             )}
 
             {/* How hard Piloti thinks, for this chat. A HITL response is

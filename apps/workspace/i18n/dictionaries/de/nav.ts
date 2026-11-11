@@ -127,6 +127,7 @@ export const nav: typeof en.nav = {
     defaultUser: 'Standardbenutzer',
     authNotConfigured: 'Authentifizierung nicht konfiguriert',
     profile: 'Profil',
+    memory: 'Mein Gedächtnis',
     organization: 'Organisation',
     platform: 'Plattform',
     switchOrganization: 'Organisation wechseln',

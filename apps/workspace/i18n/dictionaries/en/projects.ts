@@ -629,6 +629,8 @@ export const projects = {
     deleted: 'Memory removed.',
     heading: 'Project memory',
     description: 'What {productName} has learned about this project — editable.',
+    // Who reads (ADR-0180): the one line under the heading.
+    audience: 'Every member of this project sees these notes.',
     addMemory: 'Add memory',
     kindAria: 'Memory kind',
     scopeAria: 'Memory scope',
@@ -641,7 +643,7 @@ export const projects = {
     emptyDescription:
       "{productName} hasn't recorded anything about this project yet. It will as you chat — or add something yourself.",
     orgWide: 'org-wide',
-    confidence: '{confidence} confidence',
+    confidence: { low: 'Confidence: low', medium: 'Confidence: medium', high: 'Confidence: high' },
     save: 'Save',
     pinned: 'Pinned',
     remove: 'Remove',

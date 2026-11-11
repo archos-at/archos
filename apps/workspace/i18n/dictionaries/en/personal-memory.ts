@@ -1,0 +1,48 @@
+/** personalMemory namespace: the person's own notes, read by nobody else (`/app/memory`, ADR-0180). */
+export const personalMemory = {
+  title: 'My memory',
+  subtitle: 'What {productName} keeps about you and how you want to work.',
+  // The one checkable promise of the page. It names colleagues and the office's administrators, as ADR-0180 does.
+  audience: 'Only you see these notes, neither colleagues nor the administrators of your office.',
+  backToApp: 'Back',
+  add: 'Add note',
+  addSubmit: 'Add',
+  save: 'Save',
+  cancel: 'Cancel',
+  kindLabel: 'Kind of note',
+  kinds: {
+    preference: 'Way of working',
+    profile: 'Role and topics',
+  },
+  contentLabel: 'Note',
+  addPlaceholder: 'One sentence about you, for example: keep answers short and name the source.',
+  editLabel: 'Edit note',
+  edit: 'Edit',
+  pinned: 'Pinned',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  pinTitle: 'Pin: comes first in every chat',
+  unpinTitle: 'Unpin: no longer comes first',
+  remove: 'Remove',
+  removeTitle: 'Remove from my memory',
+  removeConfirmTitle: 'Remove note?',
+  removeConfirmDescription: '{productName} no longer takes it into account. This cannot be undone.',
+  provenance: {
+    user: 'added by you',
+    agent: 'noted by {productName}',
+    distillation: 'added by {productName} after an answer',
+  },
+  emptyTitle: 'No notes yet',
+  emptyDescription:
+    '{productName} keeps here how you want to work and what you are responsible for at the office. You can also add a note yourself.',
+  added: 'Note added.',
+  updated: 'Note saved.',
+  removed: 'Note removed.',
+  errors: {
+    loadTitle: 'The notes could not be loaded',
+    loadDescription: 'Try again.',
+    conflict: 'Another note already says this.',
+    saveFailed: 'The note was not saved. Try again.',
+    removeFailed: 'The note was not removed. Try again.',
+  },
+}

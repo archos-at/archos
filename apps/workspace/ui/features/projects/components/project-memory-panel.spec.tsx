@@ -75,6 +75,32 @@ describe('ProjectMemoryPanel', () => {
     expect(screen.getAllByRole('button', { name: /edit/i }).length).toBeGreaterThan(0)
   })
 
+  test('says under its heading who reads these notes (ADR-0180)', async () => {
+    render(<ProjectMemoryPanel projectId="p1" readOnly />)
+
+    await screen.findByText('Flachdach extensiv begrünt.')
+    expect(screen.getByTestId('memory-audience')).toHaveTextContent('Every member of this project sees these notes.')
+  })
+
+  test('shows the confidence as a word, never the stored token', async () => {
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await screen.findByText('Flachdach extensiv begrünt.')
+    expect(screen.getAllByText(/Confidence: medium/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/medium confidence/)).not.toBeInTheDocument()
+  })
+
+  test('a confidence this build does not know is shown as it is', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ items: [wire({ id: 'odd', content: 'Sonderfall.', confidence: 'certain' as 'high' })] }))
+    )
+    render(<ProjectMemoryPanel projectId="p1" />)
+
+    await screen.findByText('Sonderfall.')
+    expect(screen.getByText(/certain/)).toBeInTheDocument()
+  })
+
   test('says on the lock when a language model helped decide who reads the note, and only there', async () => {
     render(<ProjectMemoryPanel projectId="p1" />)
 

@@ -146,6 +146,7 @@ export const nav = {
     defaultUser: 'Default User',
     authNotConfigured: 'Authentication not configured',
     profile: 'Profile',
+    memory: 'My memory',
     organization: 'Organization',
     platform: 'Platform',
     switchOrganization: 'Switch organization',

@@ -2037,6 +2037,13 @@ export const chat = {
     correctedLabel: 'Corrected',
     replaced: 'Replaces:',
     manageHint: 'You can manage and delete these entries in the project memory.',
+    // The hint as a door: leads to the project's memory (Settings → Memory).
+    manageLink: 'Manage in project memory',
+    // Who reads a note follows from where it is kept (ADR-0180): project or office.
+    audience: {
+      project: 'Read by the project team',
+      organization: 'Read by everyone in the office',
+    },
     kinds: {
       decision: 'Decision',
       constraint: 'Constraint',
@@ -2048,6 +2055,22 @@ export const chat = {
       distillation: 'added after the response',
       inTurn: 'noted during the response',
     },
+  },
+  // Temporary chat (ADR-0180): nothing from it goes into any memory.
+  temporary: {
+    label: 'Temporary',
+    switchOn: 'Turn on temporary chat',
+    switchOff: 'Turn off temporary chat',
+    switchOnTitle: 'Turn on temporary chat: {productName} keeps nothing from this chat.',
+    switchOffTitle:
+      'Turn off temporary chat: from now on {productName} can keep things again. What was said so far stays out.',
+    statement: 'Temporary chat. {productName} keeps nothing from this chat.',
+    ownerOnly: 'Only the owner of the chat can change this.',
+    switchFailed: 'The setting was not saved. Try again.',
+  },
+  // Who reads the chat: the line under the composer.
+  privacy: {
+    onlyYou: 'Private chat. You have not shared it with anyone.',
   },
   confidence: {
     label: 'Confidence: {level}',

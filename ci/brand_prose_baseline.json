@@ -774,7 +774,7 @@
   "apps/workspace/ui/features/chat/store.spec.ts": 7,
   "apps/workspace/ui/features/chat/stores/effort-store.ts": 1,
   "apps/workspace/ui/features/chat/stores/messages-store.remote.spec.ts": 4,
-  "apps/workspace/ui/features/chat/types.ts": 2,
+  "apps/workspace/ui/features/chat/types.ts": 1,
   "apps/workspace/ui/features/collaboration/components/AddresseeIndicator.spec.tsx": 3,
   "apps/workspace/ui/features/collaboration/components/AddresseeIndicator.tsx": 10,
   "apps/workspace/ui/features/collaboration/components/AwaitingBanner.spec.tsx": 3,

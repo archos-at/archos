@@ -34,6 +34,12 @@
  * and the old chip only appeared to by showing the whole conversation's memory
  * against every answer. Those rows live in the project memory panel, which is
  * where they are curated. See §11.3 for the change that would give them a turn.
+ *
+ * A PERSONAL note (ADR-0180) is not here either, from either path: the
+ * `remember` tool and the reflection stage write it through
+ * `POST /api/internal/personal-memory`, which answers the row to the agent and
+ * puts nothing on the turn (no card, no stage frame item). It is listed under
+ * „Mein Gedächtnis“ (`/app/memory`).
  */
 
 import type { AnswerCard } from '@/shared/cards/schemas'
@@ -69,7 +75,17 @@ export interface TurnMemoryItem {
    * most needs to see, because something they may have relied on is gone.
    */
   supersedes?: string
+  /**
+   * Who reads the note: the project's members, or everyone in the office
+   * (ADR-0180 rule 1, a note's home says who reads it). Absent when the write
+   * did not record where it went (a proposal decided before `results.scope`
+   * existed): the chip then says nothing rather than guess.
+   */
+  audience?: TurnMemoryAudience
 }
+
+/** The two shelves a turn's write can be attributed to today; a personal note is not among them (see below). */
+export type TurnMemoryAudience = 'project' | 'organization'
 
 /**
  * The card decisions that mean a memory was actually WRITTEN.
@@ -97,6 +113,23 @@ function wasRemembered(
 ): boolean {
   if (card.proposal_id) return decidedProposals?.[card.proposal_id]?.status === 'applied'
   return SAVED.has(cardInteractions?.[key]?.decision ?? '')
+}
+
+/**
+ * Where the reader's decision put the note, which is not always where the card
+ * asked for („Nur im Projekt merken“): the proposal's own result says it, and
+ * for an older card the decision's name does.
+ */
+function rememberedFor(
+  card: Extract<AnswerCard, { type: 'memory_proposal' }>,
+  key: string,
+  cardInteractions: CardInteractions | undefined,
+  decidedProposals: DecidedProposals | undefined
+): TurnMemoryAudience | undefined {
+  if (card.proposal_id) {
+    return decidedProposals?.[card.proposal_id]?.results?.find((result) => result.scope)?.scope
+  }
+  return cardInteractions?.[key]?.decision === 'savedOrg' ? 'organization' : 'project'
 }
 
 interface TurnMemoryInput {
@@ -132,17 +165,21 @@ export function turnMemoryItems({ stages, cards, cardInteractions, decidedPropos
     const key = cardKey(card, index)
     if (!wasRemembered(card, key, cardInteractions, decidedProposals)) continue
     const supersedes = card.supersedes?.trim()
+    const audience = rememberedFor(card, key, cardInteractions, decidedProposals)
     items.push({
       id: key,
       kind: card.kind,
       content: card.content,
       provenance: 'inTurn',
       ...(supersedes ? { supersedes } : {}),
+      ...(audience ? { audience } : {}),
     })
   }
 
+  // The reflection stage's frame lists what it wrote to the PROJECT's memory;
+  // a personal note it kept (ADR-0180) is not in the frame.
   for (const item of stages?.memoryReflection?.items ?? []) {
-    items.push({ ...item, provenance: 'distillation' })
+    items.push({ ...item, provenance: 'distillation', audience: 'project' })
   }
 
   return items
