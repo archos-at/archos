@@ -212,16 +212,21 @@ def hold_seconds() -> int:
     return int(SCHEDULE_TIMEOUT.total_seconds()) + ordinary + waits
 
 
+def organization_limit(name: str, max_runs: int) -> ConcurrencyExpression:
+    """A tenant-scoped limit of ``max_runs`` per ``input.organization_id``; a free slot goes to them in turn."""
+    return ConcurrencyExpression(
+        name=name,
+        expression="input.organization_id",
+        max_runs=max_runs,
+        limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
+        is_tenant_scoped=True,
+    )
+
+
 def concurrency() -> list[ConcurrencyExpression]:
     """Both workflows' limits, in one order (the SDK: chains that share tenant-scoped limits order them alike)."""
     return [
-        ConcurrencyExpression(
-            name=ORG_LIMIT,
-            expression="input.organization_id",
-            max_runs=max_runs_per_org(),
-            limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
-            is_tenant_scoped=True,
-        ),
+        organization_limit(ORG_LIMIT, max_runs_per_org()),
         ConcurrencyExpression(
             name=SUPERSEDE_LIMIT,
             expression="input.document_id",
@@ -328,14 +333,12 @@ def settle_step(job_id: str) -> dict[str, Any]:
 
 
 def _sanitized(job_id: str, error: Exception, *, retry: bool = True) -> Exception:
-    """``error`` as Hatchet may store it: class and category, no message (``task_failures``); logged in full here.
+    """``error`` as Hatchet may store it: class and category, no message; logged in full (``orchestrator_client``).
 
     Tried again under the step's policy while ``retry``: a failure of the bytes
     ends as a FAILED status the step reads (``_ended``), not as an exception.
     """
-    failure = task_failures.classify(error)
-    logger.error("Ingestion job %s failed on Hatchet: %s", job_id, failure.text, exc_info=error)
-    return orchestrator_client.task_error(failure, retry=retry)
+    return orchestrator_client.sanitized(f"Ingestion job {job_id}", error, retry=retry)
 
 
 def workflow_for(byte_size: int | None) -> bool:
@@ -543,7 +546,8 @@ def serve(
 
     ``also`` are further workflows the worker serves beside ingestion, and
     ``durable_slots`` the slots their durable tasks share, counted apart from
-    ``slots`` (the folder card builder: ``folder_cards.workflow``).
+    ``slots``: the one second pool a worker has (the folder card builder,
+    ``folder_cards.workflow``, whose header holds the evidence).
 
     The standard pool serves ``ingest-document``, the high-memory pool (``HEAVY_POOL``)
     ``ingest-document-heavy``, labelled ``pool=highmem`` so the heavy ``index``

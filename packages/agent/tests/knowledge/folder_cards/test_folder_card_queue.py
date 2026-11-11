@@ -123,18 +123,39 @@ class TestDue:
         queue.mark("other", ["B"], now=T0, url=url)
         failed_at = T0 + queue.MAX_DIRTY_SECONDS + 5
 
-        assert queue.defer("proj", now=failed_at, url=url) == 1
+        assert queue.defer("proj", now=failed_at, url=url) == (1, 0)
 
         assert _due(url, failed_at + 1) == ["B"]
         assert _due(url, failed_at + queue.QUIET_SECONDS, "proj") == ["A"]
 
+    def test_a_folder_deferred_round_after_round_is_dropped_and_a_newer_mark_is_not(self, url):
+        queue.mark("proj", ["A"], now=T0, url=url)
+        for _round in range(queue.GIVE_UP_ROUNDS - 1):
+            assert queue.defer("proj", now=T0, url=url) == (1, 0)
+        queue.mark("proj", ["B"], now=T0, url=url)
+
+        assert queue.defer("proj", now=T0, url=url) == (1, 1)
+
+        assert _paths(url) == ["B"]
+
+    def test_a_folder_marked_again_keeps_its_count_and_a_passed_build_clears_it(self, url):
+        queue.mark("proj", ["A"], now=T0, url=url)
+        for _round in range(queue.GIVE_UP_ROUNDS - 1):
+            queue.defer("proj", now=T0, url=url)
+        queue.mark("proj", ["A"], now=T0 + 30, url=url)  # marked while its build ran: the row stays
+        queue.finish("proj", "A", T0, url=url)
+
+        assert queue.defer("proj", now=T0, url=url) == (1, 0)
+
     def test_a_table_of_the_release_before_still_takes_marks(self, url):
-        """Its dead ``attempts`` column is ``NOT NULL`` with no database default: a mark must still fill it."""
+        """It has the claim loop's ``claimed_at``, which nothing writes or reads any more."""
         from sqlalchemy import text
 
-        queue.mark("proj", ["A"], now=T0, url=url)
         with queue._engine(url).begin() as conn:
-            assert conn.execute(text("SELECT attempts, claimed_at FROM folder_card_queue")).fetchall() == [(0, None)]
+            conn.execute(text("ALTER TABLE folder_card_queue ADD COLUMN claimed_at FLOAT"))
+
+        assert queue.mark("proj", ["A"], now=T0, url=url) == 1
+        assert queue.defer("proj", now=T0, url=url) == (1, 0)
 
 
 class TestBudget:

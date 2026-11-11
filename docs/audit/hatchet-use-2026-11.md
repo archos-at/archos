@@ -102,11 +102,11 @@ beside the queue, a clock beside the clock.
 | Inbox retention and the platform-lesson upkeep had no caller (the first never ran, production's old scheduler included) | two hourly crons, `collaboration-retention` and `platform-lessons-sweep`; both uncalled routes deleted |
 | The Frist reminder ran hourly behind an office-clock gate | one cron, `CRON_TZ=Europe/Vienna 45 6 * * *`, proven against the engine at our tag; `office-clock.ts` deleted. The documentation still says UTC, so an engine spec in CI holds it |
 | A fired scheduled run logged "could not delete" on every fire | a 404 on delete is done |
-| Dead schema: `jobs`, `job_runs`, `tasks`, `bff_job_lane_turns` | dropped in 0226 (0086 had copied every row and promised a drop that never came) |
+| Dead schema: `jobs`, `job_runs`, `tasks` | dropped in 0226 (0086 had copied every row and promised a drop that never came). The fourth dead table, `bff_job_lane_turns`, stays until production's cutover: see below |
 | The purger repaired `pending` deletions with no attempts left | a CHECK forbids the state (0227); the repair is deleted |
 | A new-version notice could be lost after its claim committed | the claim and the job row are one transaction |
 | A received mail whose original could not be read was re-queued every dead-row retention, without end | the last attempt holds it, visibly |
-| The folder-card build was claimed from our own table by a loop in every ingest pod, and a build over 900 s could run twice | three Hatchet tasks (`folder-cards-sweep`, `-build`, `-reconcile`); the table stays as the dirty set that debounces and orders children before parents. This one added code (about 140 lines net): what went is the defect and the per-pod polling |
+| The folder-card build was claimed from our own table by a loop in every ingest pod, and a build over 900 s could run twice | three Hatchet tasks (`folder-cards-sweep`, `-build`, `-reconcile`); the table stays as the dirty set that debounces and orders children before parents. This one added code (about 70 lines net, after a deletion pass took back half of the first 140): what went is the defect and the per-pod polling. A run that died on every attempt was then retried every quiet period without end; its failure handler now counts such runs on the folder's row (`attempts`) and drops the mark at three, until the nightly reconcile |
 | The browser polled every 4 to 5 s for an upload's reading, a filing suggestion, a mail import and a project's IFC model | each re-reads on a `shelf.changed` hint, with a 60 s fallback |
 
 Examined and left, with the reason written where the code is: the job row's
@@ -140,14 +140,40 @@ ADR-0150), the backend housekeeping clocks (below).
 Also open: chat attachments, the project intake and the count of waiting
 project mail still poll, because no browser channel carries a project's (rather
 than a shelf's) changes; a `project:<id>` channel is a new authorization
-decision. `folder_card_queue.claimed_at` and `.attempts` are dead columns the
-Python `ensure_schema` still creates.
+decision.
+
+`folder_card_queue.claimed_at` is a dead column on every table made before this
+change; nothing creates, writes or reads it now. It is not dropped yet: the
+agent tier creates and alters that table at first use, so a drop would run in
+the first new pod of a rollout while production's old pods still claim through
+the column. Trigger: the release after the one that removes the claim loop is
+on production ([runbook](../deployment/hatchet.md#folder-cards-need-no-re-dispatch)).
+`.attempts` is in use again, as the bound below.
+
+The folder-card tasks are durable tasks although nothing in them waits durably,
+which the feature table above counts as "no". Examined and left: durable slots
+are the only second slot pool a worker of the Python SDK at 1.44.0 has, and a
+build must not share a pod's two or three document slots (evidence in the
+header of `folder_cards/workflow.py` and in the runbook, "Folder cards on the
+ingest worker").
 
 ### After production's cutover
 
 Delete `ingest_cutover.py`, the retired `ClaimQueue` (about 900 lines), the
 cutover loop in `ingest_worker.py`, and the old tables with a drop migration.
 Trigger: the runbook's table counts read zero on production.
+
+`bff_job_lane_turns` goes in that same drop migration, and not before. It has no
+reader on this tree since ADR-0150, but production's running release claims
+through it: the claim SQL in its `workers/job-queue.js` joins the table and
+upserts into it on every claim. A migration is applied before the new pods are
+ready and stays applied through a rollback
+([rollback.md](../deployment/rollback.md)), so a drop any earlier breaks
+production's old pods during the rollout of its first Hatchet release, and a
+rollback to the release before it. 0226 first dropped it with the other three
+and CI's migration contract check (`ci/migration_contract.py`) stopped that.
+With the table go its Drizzle declaration (`bff/db/schema/bff-job-queue.ts`)
+and the `DELETE` in `eraseLane` (`workers/job-queue.js`).
 
 ## Reported defects
 

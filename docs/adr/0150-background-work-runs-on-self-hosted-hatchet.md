@@ -444,9 +444,26 @@ The table stays as a dirty set, because its debounce (two clocks per folder,
 moved by every mark), its order (children before parents) and its dedupe are
 records our code reads and no engine feature; and a folder path may not reach
 Hatchet's database. The three tasks are durable tasks for their slot pool
-alone, a deviation from "durable means a durable wait" that the file's header
-explains. Runbook: [`hatchet.md`](../deployment/hatchet.md), "Folder cards on
-the ingest worker".
+alone, a deviation from "durable means a durable wait". It was challenged the
+same day and kept: the Python SDK at 1.44.0 gives a worker the pools `default`
+and `durable` and no public way to name a third, a second worker in one process
+does not drain on SIGTERM (tried on the engine at our tag), and sharing the two
+or three document slots of a pod lets two organisations' builds hold every
+upload for up to half an hour. The file's header carries the SDK file and line
+for each; the day a task can name a pool, these become plain tasks.
+
+One loop the move had left open is closed with it: a run that died on every
+attempt only made its folders wait a quiet period, without end. The failure
+handler now counts such a run on each dirty folder (`folder_card_queue.attempts`,
+the retired claim counter's column) and a folder leaves the set at three, until
+the nightly reconcile. The engine bounds the attempts of a run; the bound on
+runs of the same dirty record is ours, because the record is.
+
+`claimed_at`, the claim's other column, stays on existing tables until the
+release after the one that removes the claim loop is on production: the table
+is created by the agent tier at first use, so a drop would run in the first new
+pod of a rollout while old pods still claim through the column. Runbook:
+[`hatchet.md`](../deployment/hatchet.md), "Folder cards on the ingest worker".
 
 ### AI-native check (2026-11-03)
 

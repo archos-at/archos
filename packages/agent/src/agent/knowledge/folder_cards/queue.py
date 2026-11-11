@@ -35,18 +35,26 @@ the order (a parent waits for every dirty folder below it), and the dedupe of a
 burst into one row. A folder path is also a name a person chose, which Hatchet's
 database must never hold; the run carries the collection and the organization.
 
-``claimed_at`` and ``attempts`` are dead columns nothing reads. A table made
-before this change has them (``attempts`` is ``NOT NULL`` without a database
-default, so :func:`mark` still writes its zero), and a pod of the release before
-still claims with them while a rollout lasts. They go with a later ``ALTER TABLE``
-(``docs/deployment/hatchet.md``, "Folder cards").
+``attempts`` is ours again, with a new meaning: how many runs of the folder's
+collection failed for good while the folder was dirty (:func:`defer`). After
+:data:`GIVE_UP_ROUNDS` of them the folder leaves the set until the nightly
+reconcile marks it again, so a build that dies on every attempt is tried a few
+times a day, not every quiet period for ever.
+
+``claimed_at`` is dead: nothing here creates, reads or writes it, and a table
+made before November 2026 still has it. It is deliberately not dropped yet.
+Production runs the release whose claim loop reads it, and this module's
+``ensure_schema`` runs in the first new pod of a rollout: a drop there would
+break every old pod's claim until the rollout ends. Drop it in
+``_create_tables`` in the release after the one that removes the claim loop is
+on production (``docs/deployment/hatchet.md``, "Folder cards need no
+re-dispatch").
 
 Plain SQL both SQLite (the tests) and PostgreSQL speak; times are epoch seconds.
 """
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from collections.abc import Iterable
@@ -54,10 +62,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
+from typing import Any
 
 from agent.common.db_utils import ensure_schema
-
-logger = logging.getLogger(__name__)
 
 QUEUE_TABLE = "folder_card_queue"
 COLLECTIONS_TABLE = "folder_card_collections"
@@ -68,6 +75,8 @@ MANIFEST_TABLE = "folder_card_manifests"
 QUIET_SECONDS = 600
 #: ... or once it has been dirty this long, however busy it stays.
 MAX_DIRTY_SECONDS = 3600
+#: Runs that may fail for good over a dirty folder before it leaves the set until the nightly reconcile.
+GIVE_UP_ROUNDS = 3
 
 _lock = threading.Lock()
 _ensured: set[str] = set()
@@ -126,6 +135,30 @@ def _engine(url: str):
     return engine
 
 
+def _begin(url: str | None):
+    """A transaction on the agent database (or on ``url``, a test's)."""
+    return _engine(url or db_url()).begin()
+
+
+def _execute(conn, statement: str, values: Any = None):
+    """Run one statement. Callers interpolate module constants only; every value is bound."""
+    from sqlalchemy import text
+
+    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+    return conn.execute(text(statement), values)
+
+
+def _read(statement: str, values: dict[str, Any], url: str | None) -> list[Any]:
+    with _begin(url) as conn:
+        return _execute(conn, statement, values).fetchall()
+
+
+def _write(statement: str, values: Any, url: str | None) -> int:
+    """One statement in a transaction of its own; how many rows it touched."""
+    with _begin(url) as conn:
+        return _execute(conn, statement, values).rowcount
+
+
 def _create_tables(conn) -> None:
     from sqlalchemy import Column
     from sqlalchemy import Float
@@ -146,9 +179,8 @@ def _create_tables(conn) -> None:
         Column("depth", Integer, nullable=False),
         Column("dirty_since", Float, nullable=False),
         Column("marked_at", Float, nullable=False),
-        # Dead since the build runs on Hatchet (the module docstring); nothing reads them.
-        Column("claimed_at", Float, nullable=True),
-        Column("attempts", Integer, nullable=False, default=0),
+        # No database default (a table made before November 2026 has none either): ``mark`` writes the zero.
+        Column("attempts", Integer, nullable=False),
         Index("ix_folder_card_queue_marked", "marked_at"),
     )
     Table(
@@ -190,8 +222,6 @@ def mark(
     url: str | None = None,
 ) -> int:
     """Mark each folder (and, by default, every folder above it) dirty; how many rows were written."""
-    from sqlalchemy import text
-
     paths: set[str] = set()
     for path in folder_paths:
         chain = ancestors(path)
@@ -209,17 +239,15 @@ def mark(
         }
         for path in sorted(paths)
     ]
-    # Only module constants are interpolated; every value is bound.
-    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-    statement = text(
+    _write(
         f"INSERT INTO {QUEUE_TABLE} "
-        "(collection, folder_path, organization_id, depth, dirty_since, marked_at, claimed_at, attempts) "
-        "VALUES (:collection, :folder_path, :organization_id, :depth, :now, :now, NULL, 0) "
+        "(collection, folder_path, organization_id, depth, dirty_since, marked_at, attempts) "
+        "VALUES (:collection, :folder_path, :organization_id, :depth, :now, :now, 0) "
         "ON CONFLICT (collection, folder_path) DO UPDATE SET marked_at = excluded.marked_at, "
-        f"organization_id = COALESCE(excluded.organization_id, {QUEUE_TABLE}.organization_id)"
+        f"organization_id = COALESCE(excluded.organization_id, {QUEUE_TABLE}.organization_id)",
+        rows,
+        url,
     )
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(statement, rows)
     return len(rows)
 
 
@@ -235,19 +263,14 @@ def due(collection: str | None = None, *, now: float | None = None, url: str | N
     :func:`drop`. Who builds it, and that nobody else does meanwhile, is the
     run's business (``workflow``: one live run per collection).
     """
-    from sqlalchemy import text
-
     stamp = time.time() if now is None else now
     scope = "AND collection = :collection " if collection else ""
-    with _engine(url or db_url()).begin() as conn:
-        rows = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"SELECT collection, folder_path, organization_id, depth FROM {QUEUE_TABLE} "
-                f"WHERE (marked_at <= :quiet OR dirty_since <= :overdue) {scope}"
-                "ORDER BY depth DESC, dirty_since ASC, folder_path ASC"
-            ),
+    with _begin(url) as conn:
+        rows = _execute(
+            conn,
+            f"SELECT collection, folder_path, organization_id, depth FROM {QUEUE_TABLE} "
+            f"WHERE (marked_at <= :quiet OR dirty_since <= :overdue) {scope}"
+            "ORDER BY depth DESC, dirty_since ASC, folder_path ASC",
             {"quiet": stamp - QUIET_SECONDS, "overdue": stamp - MAX_DIRTY_SECONDS, "collection": collection},
         ).fetchall()
         dirty = {name: _dirty_paths(conn, name) for name in sorted({row[0] for row in rows})}
@@ -259,43 +282,18 @@ def due(collection: str | None = None, *, now: float | None = None, url: str | N
 
 
 def _dirty_paths(conn, collection: str) -> list[str]:
-    from sqlalchemy import text
-
-    rows = conn.execute(
-        # Only module constants are interpolated; every value is bound.
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        text(f"SELECT folder_path FROM {QUEUE_TABLE} WHERE collection = :collection"),
-        {"collection": collection},
-    ).fetchall()
-    return [row[0] for row in rows]
+    statement = f"SELECT folder_path FROM {QUEUE_TABLE} WHERE collection = :collection"
+    return [row[0] for row in _execute(conn, statement, {"collection": collection}).fetchall()]
 
 
 def finish(collection: str, folder_path: str, started: float, *, url: str | None = None) -> None:
     """The folder is built from what it held at ``started``: the row goes, unless it was marked since."""
-    from sqlalchemy import text
-
     keys = {"collection": collection, "path": folder_path, "started": started}
-    with _engine(url or db_url()).begin() as conn:
-        gone = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection AND folder_path = :path "
-                "AND marked_at <= :started"
-            ),
-            keys,
-        ).rowcount
-        if not gone:
-            # Marked during the build: a new quiet period starts from that mark.
-            conn.execute(
-                # Only module constants are interpolated; every value is bound.
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                text(
-                    f"UPDATE {QUEUE_TABLE} SET dirty_since = marked_at "
-                    "WHERE collection = :collection AND folder_path = :path"
-                ),
-                keys,
-            )
+    where = "WHERE collection = :collection AND folder_path = :path"
+    with _begin(url) as conn:
+        if not _execute(conn, f"DELETE FROM {QUEUE_TABLE} {where} AND marked_at <= :started", keys).rowcount:
+            # Marked during the build, which passed: a new quiet period starts from that mark, with no failed run.
+            _execute(conn, f"UPDATE {QUEUE_TABLE} SET dirty_since = marked_at, attempts = 0 {where}", keys)
 
 
 def drop(collection: str, folder_path: str | None = None, *, url: str | None = None) -> int:
@@ -304,49 +302,41 @@ def drop(collection: str, folder_path: str | None = None, *, url: str | None = N
     For a folder given up after its run's last attempt, and for a collection
     whose organization lost the flag or cannot be named.
     """
-    from sqlalchemy import text
-
     scope = "" if folder_path is None else " AND folder_path = :path"
-    with _engine(url or db_url()).begin() as conn:
-        return conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection{scope}"),
-            {"collection": collection, "path": folder_path},
-        ).rowcount
+    return _write(
+        f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection{scope}",
+        {"collection": collection, "path": folder_path},
+        url,
+    )
 
 
-def defer(collection: str, *, now: float | None = None, url: str | None = None) -> int:
-    """Start both clocks of every dirty folder of ``collection`` again; how many rows.
+def defer(collection: str, *, now: float | None = None, url: str | None = None) -> tuple[int, int]:
+    """A run of ``collection`` failed for good without settling its folders: ``(deferred, dropped)`` rows.
 
-    What a run that failed for good leaves behind: its folders wait out a quiet
-    period before the next run, so a build that cannot pass is no tight loop.
+    Every dirty folder counts the run and starts both clocks again, so the next
+    run waits out a quiet period and a build that cannot pass is no tight loop.
+    A folder that counted :data:`GIVE_UP_ROUNDS` of them is dropped instead.
     """
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        return conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"UPDATE {QUEUE_TABLE} SET marked_at = :now, dirty_since = :now WHERE collection = :collection"),
-            {"collection": collection, "now": time.time() if now is None else now},
+    values = {"collection": collection, "now": time.time() if now is None else now, "last": GIVE_UP_ROUNDS - 1}
+    where = "WHERE collection = :collection"
+    with _begin(url) as conn:
+        dropped = _execute(conn, f"DELETE FROM {QUEUE_TABLE} {where} AND attempts >= :last", values).rowcount
+        deferred = _execute(
+            conn,
+            f"UPDATE {QUEUE_TABLE} SET marked_at = :now, dirty_since = :now, attempts = attempts + 1 {where}",
+            values,
         ).rowcount
+    return deferred, dropped
 
 
 def queued(collection: str, *, url: str | None = None) -> list[tuple[str, float, float]]:
     """``(folder_path, dirty_since, marked_at)`` of a collection's rows: what is waiting, for an operator or a test."""
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        rows = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"SELECT folder_path, dirty_since, marked_at FROM {QUEUE_TABLE} "
-                "WHERE collection = :collection ORDER BY folder_path"
-            ),
-            {"collection": collection},
-        ).fetchall()
+    rows = _read(
+        f"SELECT folder_path, dirty_since, marked_at FROM {QUEUE_TABLE} "
+        "WHERE collection = :collection ORDER BY folder_path",
+        {"collection": collection},
+        url,
+    )
     return [(row[0], float(row[1]), float(row[2])) for row in rows]
 
 
@@ -356,64 +346,40 @@ def queued(collection: str, *, url: str | None = None) -> list[tuple[str, float,
 
 
 def remember_collection(collection: str, organization_id: str, *, url: str | None = None) -> None:
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"INSERT INTO {COLLECTIONS_TABLE} (collection, organization_id, reconciled_at) "
-                "VALUES (:collection, :organization_id, NULL) "
-                "ON CONFLICT (collection) DO UPDATE SET organization_id = excluded.organization_id"
-            ),
-            {"collection": collection, "organization_id": organization_id},
-        )
+    _write(
+        f"INSERT INTO {COLLECTIONS_TABLE} (collection, organization_id, reconciled_at) "
+        "VALUES (:collection, :organization_id, NULL) "
+        "ON CONFLICT (collection) DO UPDATE SET organization_id = excluded.organization_id",
+        {"collection": collection, "organization_id": organization_id},
+        url,
+    )
 
 
 def organization_of(collection: str, *, url: str | None = None) -> str | None:
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        row = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"SELECT organization_id FROM {COLLECTIONS_TABLE} WHERE collection = :collection"),
-            {"collection": collection},
-        ).fetchone()
-    return row[0] if row else None
+    statement = f"SELECT organization_id FROM {COLLECTIONS_TABLE} WHERE collection = :collection"
+    rows = _read(statement, {"collection": collection}, url)
+    return rows[0][0] if rows else None
 
 
 def collections_due_for_reconcile(
     older_than: float, *, now: float | None = None, url: str | None = None
 ) -> list[tuple[str, str]]:
     """``(collection, organization_id)`` not reconciled in the last ``older_than`` seconds."""
-    from sqlalchemy import text
-
-    stamp = time.time() if now is None else now
-    with _engine(url or db_url()).begin() as conn:
-        rows = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"SELECT collection, organization_id FROM {COLLECTIONS_TABLE} "
-                "WHERE reconciled_at IS NULL OR reconciled_at < :before ORDER BY collection"
-            ),
-            {"before": stamp - older_than},
-        ).fetchall()
+    rows = _read(
+        f"SELECT collection, organization_id FROM {COLLECTIONS_TABLE} "
+        "WHERE reconciled_at IS NULL OR reconciled_at < :before ORDER BY collection",
+        {"before": (time.time() if now is None else now) - older_than},
+        url,
+    )
     return [(row[0], row[1]) for row in rows]
 
 
 def set_reconciled(collection: str, *, now: float | None = None, url: str | None = None) -> None:
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"UPDATE {COLLECTIONS_TABLE} SET reconciled_at = :now WHERE collection = :collection"),
-            {"collection": collection, "now": time.time() if now is None else now},
-        )
+    _write(
+        f"UPDATE {COLLECTIONS_TABLE} SET reconciled_at = :now WHERE collection = :collection",
+        {"collection": collection, "now": time.time() if now is None else now},
+        url,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -422,83 +388,49 @@ def set_reconciled(collection: str, *, now: float | None = None, url: str | None
 
 
 def tokens_used(organization_id: str, *, now: float | None = None, url: str | None = None) -> int:
-    from sqlalchemy import text
-
-    month = month_of(time.time() if now is None else now)
-    with _engine(url or db_url()).begin() as conn:
-        row = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"SELECT tokens FROM {USAGE_TABLE} WHERE organization_id = :organization_id AND month = :month"),
-            {"organization_id": organization_id, "month": month},
-        ).fetchone()
-    return int(row[0]) if row else 0
+    rows = _read(
+        f"SELECT tokens FROM {USAGE_TABLE} WHERE organization_id = :organization_id AND month = :month",
+        {"organization_id": organization_id, "month": month_of(time.time() if now is None else now)},
+        url,
+    )
+    return int(rows[0][0]) if rows else 0
 
 
 def add_tokens(organization_id: str, tokens: int, *, now: float | None = None, url: str | None = None) -> None:
-    from sqlalchemy import text
-
     if tokens <= 0:
         return
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"INSERT INTO {USAGE_TABLE} (organization_id, month, tokens) "
-                "VALUES (:organization_id, :month, :tokens) "
-                f"ON CONFLICT (organization_id, month) DO UPDATE SET tokens = {USAGE_TABLE}.tokens + excluded.tokens"
-            ),
-            {
-                "organization_id": organization_id,
-                "month": month_of(time.time() if now is None else now),
-                "tokens": tokens,
-            },
-        )
+    _write(
+        f"INSERT INTO {USAGE_TABLE} (organization_id, month, tokens) "
+        "VALUES (:organization_id, :month, :tokens) "
+        f"ON CONFLICT (organization_id, month) DO UPDATE SET tokens = {USAGE_TABLE}.tokens + excluded.tokens",
+        {"organization_id": organization_id, "month": month_of(time.time() if now is None else now), "tokens": tokens},
+        url,
+    )
 
 
 # ---------------------------------------------------------------------------
 # What each card was written from
 # ---------------------------------------------------------------------------
 
+_MANIFEST_KEY = "WHERE collection = :collection AND folder_path = :path"
+
 
 def get_manifest(collection: str, folder_path: str, *, url: str | None = None) -> str | None:
     """The stored manifest's JSON, or ``None``."""
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        row = conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"SELECT manifest FROM {MANIFEST_TABLE} WHERE collection = :collection AND folder_path = :path"),
-            {"collection": collection, "path": folder_path},
-        ).fetchone()
-    return row[0] if row else None
+    statement = f"SELECT manifest FROM {MANIFEST_TABLE} {_MANIFEST_KEY}"
+    rows = _read(statement, {"collection": collection, "path": folder_path}, url)
+    return rows[0][0] if rows else None
 
 
 def put_manifest(collection: str, folder_path: str, manifest: str, *, url: str | None = None) -> None:
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"INSERT INTO {MANIFEST_TABLE} (collection, folder_path, manifest) "
-                "VALUES (:collection, :path, :manifest) "
-                "ON CONFLICT (collection, folder_path) DO UPDATE SET manifest = excluded.manifest"
-            ),
-            {"collection": collection, "path": folder_path, "manifest": manifest},
-        )
+    _write(
+        f"INSERT INTO {MANIFEST_TABLE} (collection, folder_path, manifest) "
+        "VALUES (:collection, :path, :manifest) "
+        "ON CONFLICT (collection, folder_path) DO UPDATE SET manifest = excluded.manifest",
+        {"collection": collection, "path": folder_path, "manifest": manifest},
+        url,
+    )
 
 
 def delete_manifest(collection: str, folder_path: str, *, url: str | None = None) -> None:
-    from sqlalchemy import text
-
-    with _engine(url or db_url()).begin() as conn:
-        conn.execute(
-            # Only module constants are interpolated; every value is bound.
-            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(f"DELETE FROM {MANIFEST_TABLE} WHERE collection = :collection AND folder_path = :path"),
-            {"collection": collection, "path": folder_path},
-        )
+    _write(f"DELETE FROM {MANIFEST_TABLE} {_MANIFEST_KEY}", {"collection": collection, "path": folder_path}, url)

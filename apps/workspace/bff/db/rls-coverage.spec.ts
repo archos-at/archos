@@ -91,8 +91,8 @@ const BOUNDARY_MIGRATIONS = [
   // added or removed, and the replaced policy is the single one — the shape the
   // `messages` re-securing in 0032 has.
   '0102_archiv_folders.sql',
-  // Adds bff_job_queue and bff_job_lane_turns (the latter dropped by 0226) — the
-  // BFF's durable background work (ADR-0081). The lane is the organization id, so both are tenant tables
+  // Adds bff_job_queue and bff_job_lane_turns — the BFF's durable background
+  // work (ADR-0081). The lane is the organization id, so both are tenant tables
   // whose predicate compares `lane` (not an `organization_id` column) to the
   // active tenant; the runner reads across lanes under the platform role.
   '0104_bff_job_queue.sql',
@@ -249,10 +249,8 @@ const BOUNDARY_MIGRATIONS = [
   // Adds knowledge_second_reviews, one second review per role approved alone
   // (ADR-0176), platform-private like the change-request tables.
   '0214_knowledge_approve_alone.sql',
-  // Drops bff_job_lane_turns, the lane order of the claim queue Hatchet
-  // replaced (ADR-0150), and jobs, job_runs and tasks, which 0086 copied into
-  // task_definitions and task_runs. Their 0043, 0075 and 0104 lines then secure
-  // tables that are gone.
+  // Drops jobs, job_runs and tasks, which 0086 copied into task_definitions
+  // and task_runs. Their 0043 and 0075 lines then secure tables that are gone.
   '0226_drop_dead_scheduler_schema.sql',
 ]
 

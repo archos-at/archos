@@ -5,10 +5,11 @@ Runs only when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` name an
 gets its own namespace, so it shares the engine with nothing.
 
 One worker process (``agent_testing.folder_cards_engine_worker``) serves the real tasks
-beside the ingest workflow, as the standard ingest worker does, one standard slot and the
-builder's durable slots. Only one folder's build is scripted. The tests mark folders dirty
-in the database both processes share, start runs as the sweep does (or wait for the
-engine's own cron), and read the dirty set and the worker's log of each build.
+beside the ingest workflow, as the standard ingest worker does: one standard slot, where
+``agent_testing.orchestrator_engine_worker`` scripts the documents, and the builder's
+durable slots. Only one folder's build is scripted. The tests mark folders dirty in the
+database both processes share, start runs as the sweep does (or wait for the engine's own
+cron), and read the dirty set and the worker's log of each build.
 """
 
 from __future__ import annotations
@@ -35,8 +36,8 @@ def engine(tmp_path_factory):
     """A namespace of our own, the agent database both processes share, and the worker serving the tasks."""
     from agent.common import orchestrator_client
     from agent.knowledge import factory
+    from agent.knowledge import ingest_status_store
     from agent.knowledge.folder_cards import queue
-    from agent.knowledge.folder_cards import workflow
 
     directory = tmp_path_factory.mktemp("folder-cards-engine")
     url = f"sqlite:///{directory}/agent.db"
@@ -53,7 +54,6 @@ def engine(tmp_path_factory):
     factory.configure_summary_db(url)
     queue.QUIET_SECONDS = 0
     orchestrator_client.reset_for_tests(None)
-    workflow._declared = None
     process = subprocess.Popen(  # noqa: S603 - our own module, with our own interpreter
         [sys.executable, "-m", "agent_testing.folder_cards_engine_worker", str(directory)], env=env
     )
@@ -64,7 +64,7 @@ def engine(tmp_path_factory):
         process.terminate()
         process.wait(timeout=60)
         orchestrator_client.reset_for_tests(None)
-        workflow._declared = None
+        ingest_status_store._initialized.discard(url)
         factory._document_metadata_store, queue.QUIET_SECONDS = previous_store, quiet
         for key, value in saved.items():
             if value is None:
@@ -183,3 +183,33 @@ def test_an_organization_builds_one_collection_at_a_time(engine):
 
     spans = sorted((start[3], end[3]) for start, end in (_events(engine, "fair-1")[:2], _events(engine, "fair-2")[:2]))
     assert spans[0][1] <= spans[1][0], "the organization's second build started before its first ended"
+
+
+def _documents(directory: Path, event: str) -> list[float]:
+    """When the scripted ingestor logged ``event`` for a slow document, in order."""
+    log = directory / "ingest-events.log"
+    lines = [line.split() for line in log.read_text().splitlines()] if log.exists() else []
+    return [float(line[3]) for line in lines if line[0] == event and line[1].startswith("slow-")]
+
+
+def test_a_build_neither_waits_for_the_document_slot_nor_takes_it(engine):
+    """The worker has one standard slot. Two documents hold it in turn; the build runs beside both."""
+    from agent_testing import orchestrator_engine_worker as scripted
+
+    from agent.knowledge import ingest_status_store
+    from agent.knowledge import ingest_workflow
+    from agent.knowledge.folder_cards import workflow
+
+    _mark("beside", ["slow-a"], "org-e")
+    for _document in range(2):
+        job = f"slow-{uuid.uuid4().hex[:6]}"
+        ingest_status_store.put(scripted.status(job, organization_id="org-e"))
+        assert ingest_workflow.trigger(job, "org-e", "interactive", scripted.payload(job, "org-e"))
+    _until(lambda: _documents(engine, "start"), "the first document to take the slot")
+
+    workflow.trigger("beside", "org-e")
+    _until(lambda: not _dirty("beside") and len(_documents(engine, "end")) == 2, "the build and both documents")
+
+    (build_start, build_end) = (event[3] for event in _events(engine, "beside")[:2])
+    assert build_start < _documents(engine, "end")[0], "the build waited for the document slot"
+    assert _documents(engine, "start")[1] < build_end, "the second document waited for the build"

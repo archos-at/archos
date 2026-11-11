@@ -20,7 +20,7 @@ From boot on it also moves what the retired claim queue holds onto Hatchet
 (``agent.knowledge.ingest_cutover``), every minute while that table has jobs,
 since API pods on the old release write it until the rollout ends. The standard
 pool also serves the folder card builder's tasks (``agent.knowledge.folder_cards.workflow``),
-on durable slots of their own.
+on the worker's durable slots, the one second pool a worker has.
 
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
@@ -148,7 +148,7 @@ async def _liveness(stop: asyncio.Event) -> None:
 
 
 def _folder_cards(pool: str) -> dict:
-    """What the standard pool serves beside ingestion: the folder card builder, on durable slots of its own.
+    """What the standard pool serves beside ingestion: the folder card builder, on the durable slots.
 
     Always: whether an organization has cards is its ``folder-cards`` WorkOS flag,
     which the builder asks the BFF per run (ADR-0127), so a deployment where no

@@ -28,9 +28,7 @@ ORG = "org_1"
 
 @pytest.fixture
 def hatchet(monkeypatch):
-    fake = orchestrator_fake.install_for(monkeypatch)
-    monkeypatch.setattr(workflow, "_declared", None)
-    return fake
+    return orchestrator_fake.install_for(monkeypatch)
 
 
 def _declared(hatchet):
@@ -193,7 +191,7 @@ class TestBuildStep:
         assert _paths() == ["Behörde"]
 
     def test_the_failure_handler_makes_the_folders_wait_again(self, project, monkeypatch):
-        assert workflow.give_up_step(_run_input()) == {"collection": "proj", "deferred": 1}
+        assert workflow.give_up_step(_run_input()) == {"collection": "proj", "deferred": 1, "dropped": 0}
 
         monkeypatch.setattr(queue, "QUIET_SECONDS", 600)
         assert queue.due("proj") == [] and _paths() == ["Behörde"]

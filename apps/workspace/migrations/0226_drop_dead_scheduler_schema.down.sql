@@ -1,17 +1,9 @@
--- Reverse 0226: the four tables exist again, empty, with the columns, checks,
+-- Reverse 0226: the three tables exist again, empty, with the columns, checks,
 -- indexes, foreign keys and policies they had before it. What they held is not
--- restored: the lane turns were scheduling state of a claim that is gone, and
--- the rows of `jobs`, `job_runs` and `tasks` live on in `task_definitions` and
--- `task_runs` since 0086. So reversing 0086 after this finds no job for a
--- conversation to name and clears every `conversations.job_id`, which is the
--- fallback its own down documents.
-CREATE TABLE IF NOT EXISTS "bff_job_lane_turns" (
-  "lane" text PRIMARY KEY NOT NULL,
-  "last_claimed_at" timestamp with time zone
-);
---> statement-breakpoint
-SELECT secure_table('bff_job_lane_turns', 'lane = current_org()');
---> statement-breakpoint
+-- restored: the rows of `jobs`, `job_runs` and `tasks` live on in
+-- `task_definitions` and `task_runs` since 0086. So reversing 0086 after this
+-- finds no job for a conversation to name and clears every
+-- `conversations.job_id`, which is the fallback its own down documents.
 CREATE TABLE IF NOT EXISTS "jobs" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,

@@ -43,7 +43,7 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `project-memory.ts` | `project_memory` (documented in [`project-memory-design.md`](../architecture/project-memory-design.md); the restricted-memory column below; `evidence` (0127, `jsonb`, CHECK array or NULL): the file names and pages a source-grounded decision was read from, set by the closing extraction) |
 | `jobs.ts` | `skills`, and the `JOB_OUTPUTS` vocabulary. Named for the `jobs` and `job_runs` tables it declared until migration 0226 dropped them |
 | `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086), and the `TaskPlan` both carry |
-| `bff-job-queue.ts` | `bff_job_queue` — the record of each BFF job (migration 0104, ADR-0079, ADR-0150). `bff_job_lane_turns`, the claim queue's lane order, was dropped by 0226 |
+| `bff-job-queue.ts` | `bff_job_queue` — the record of each BFF job (migration 0104, ADR-0079, ADR-0150). `bff_job_lane_turns`, the claim queue's lane order, has no reader on this tree since ADR-0150 and stays for now: production's running release is from before the move and claims through it ([below](#bff_job_queue-migration-0104-adr-0079-each-bff-jobs-record-adr-0150)) |
 | `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0196, ADR-0137) |
 | `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0196, ADR-0137) |
 | `mail-imports.ts` | `mail_imports` — the Outlook archive import ([`mail-import.md`](../architecture/mail-import.md); its Verlauf counts below) |
@@ -613,9 +613,11 @@ work. 0086 copied every row into `task_definitions` and `task_runs` (next
 section) under the same ids and repointed `conversations.job_id`. Its header
 said a migration 0087 would drop the three; 0087 became
 `organization_instructions`, and the tables stayed, written and read by
-nothing, until `0226_drop_dead_scheduler_schema` dropped them together with
-`bff_job_lane_turns`. Its down recreates all four empty and secured; the rows
-are not restored, because they live on in the task model. What the columns
+nothing, until `0226_drop_dead_scheduler_schema` dropped them. Production's
+running release has no query on any of the three either, so the drop is a
+contract migration that breaks no rollback (the pull request carries the
+`migration:contract` label, [rollback.md](../deployment/rollback.md)). Its down
+recreates the three empty and secured; the rows are not restored, because they live on in the task model. What the columns
 were is in migrations 0043 and 0075.
 
 ---
@@ -1898,9 +1900,19 @@ decides when a job runs and where; the row is what the run reads and leaves
 behind (payload, attempts, holder, the wait before a retry), and every query on
 it is in `apps/workspace/bff/jobs-queue/repository.ts`. Why the row and Hatchet
 both hold a retry's wait and count attempts: ADR-0150, "The row and the run
-after a failed attempt". The claim queue's own lane order,
-`bff_job_lane_turns`, had no reader once the claim SQL left and was dropped by
-migration 0226.
+after a failed attempt".
+
+**`bff_job_lane_turns` (0104) is still there, and nothing on this tree reads
+it.** It was the claim queue's lane order (`lane`, `last_claimed_at`), and it
+has had no reader or writer here since ADR-0150 removed the claim SQL; only
+`eraseLane` still deletes an organization's row. It stays because production's
+running release is from before the move to Hatchet and claims through it: its
+`workers/job-queue.js` joins the table and upserts into it on every claim. A
+migration is applied before the new pods are ready and stays applied through a
+rollback, so a drop now would break production's old pods during the rollout of
+its first Hatchet release, and a rollback to the release before it. Drop it in
+the release after production has cut over to Hatchet, together with the retired
+claim queues ([the audit, "After production's cutover"](../audit/hatchet-use-2026-11.md#after-productions-cutover)).
 
 Under the claim queue, one row was one job a `bff-jobs` replica
 claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
@@ -1910,7 +1922,7 @@ IFC extraction `bim_extract`, office conversion `office_rendition` and research
 report filing `file_research_report`). The claim is SQL in
 `apps/workspace/workers/job-queue.js` until ADR-0150 removed it, in the order
 ADR-0076 proved for ingestion: the lane with the fewest live claims, then the
-lane served longest ago (`bff_job_lane_turns`, dropped by 0226), then inside a
+lane served longest ago (`bff_job_lane_turns`), then inside a
 lane `priority` (0 interactive, 1 bulk), then oldest, with
 `FOR UPDATE SKIP LOCKED`.
 

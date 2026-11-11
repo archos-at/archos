@@ -4003,19 +4003,21 @@ check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'
 echo "==> 0224 text four eyes and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# 0226: what two retired schedulers left behind is dropped. The lane order of
-# the BFF claim queue (`bff_job_lane_turns`) has no reader since Hatchet
-# (ADR-0150); `jobs`, `job_runs` and `tasks` have none since 0086 copied their
-# rows into `task_definitions` and `task_runs` under the same ids. The rows
-# below are a job with its fire and its task, and the definition and run 0086
-# made of them: 0226 takes the old three and leaves the copies, the
-# conversation's link to the definition included. `bff_job_queue` stays. The
-# down gives the four tables back empty, with their policies, checks, foreign
-# keys and the partial due index, and 0226 applies again.
+# 0226: what the scheduler before 0086 left behind is dropped. `jobs`,
+# `job_runs` and `tasks` have no reader since 0086 copied their rows into
+# `task_definitions` and `task_runs` under the same ids. The rows below are a
+# job with its fire and its task, and the definition and run 0086 made of them:
+# 0226 takes the old three and leaves the copies, the conversation's link to
+# the definition included. `bff_job_queue` stays, and so does the lane order
+# of the retired claim (`bff_job_lane_turns`) with its row: production's
+# running release still claims through it. The down gives the three tables back
+# empty, with their policies, checks, foreign keys and the partial due index,
+# and 0226 applies again.
 # ---------------------------------------------------------------------------
 echo "==> verifying 0226 dead scheduler schema and its down migration on dead_0226"
 migrate_before dead_0226 0226_drop_dead_scheduler_schema
-TABLES_0226="SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname IN ('bff_job_lane_turns', 'jobs', 'job_runs', 'tasks')"
+TABLES_0226="SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname IN ('jobs', 'job_runs', 'tasks')"
+LANE_0226="SELECT (SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname = 'bff_job_lane_turns') || ':' || (SELECT count(*) FROM bff_job_lane_turns WHERE lane = 'org_0226')"
 COPIES_0226="SELECT (SELECT count(*) FROM task_definitions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000226') || ':' || (SELECT count(*) FROM task_runs WHERE id = 'cccccccc-0000-4000-8000-000000000226') || ':' || (SELECT job_id FROM conversations WHERE id = 's_0226')"
 sql_in dead_0226 <<SQL
 INSERT INTO bff_job_lane_turns (lane, last_claimed_at) VALUES ('org_0226', now());
@@ -4036,17 +4038,19 @@ VALUES ('cccccccc-0000-4000-8000-000000000226', 'org_0226', 'aaaaaaaa-0000-4000-
 INSERT INTO conversations (id, organization_id, created_by, project_id, job_id)
 VALUES ('s_0226', 'org_0226', 'user_1', 'aaaaaaaa-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226');
 SQL
-check_in dead_0226 "$TABLES_0226" "4" "before 0226 the lane table and the three legacy tables exist"
+check_in dead_0226 "$TABLES_0226" "3" "before 0226 the three legacy tables exist"
 check_in dead_0226 "SELECT count(*) FROM pg_constraint WHERE confrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND conrelid NOT IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass)" "0" "no other table references the legacy three"
 apply_in dead_0226 0226_drop_dead_scheduler_schema.sql
-check_in dead_0226 "$TABLES_0226" "0" "0226 drops the lane table and the three legacy tables"
+check_in dead_0226 "$TABLES_0226" "0" "0226 drops the three legacy tables"
+check_in dead_0226 "$LANE_0226" "1:1" "0226 leaves the lane order production still claims through, and its row"
 check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('idx_jobs_due', 'uniq_tasks_backend_job_id', 'idx_job_runs_backend_job_id')" "0" "0226 takes their indexes with them"
 check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('bff_job_queue', 'task_definitions', 'task_runs') AND relkind = 'r'" "3" "0226 leaves bff_job_queue and the task model"
 check_in dead_0226 "$COPIES_0226" "1:1:bbbbbbbb-0000-4000-8000-000000000226" "0226 leaves the definition, its run and the conversation's link"
 apply_in dead_0226 0226_drop_dead_scheduler_schema.down.sql
-check_in dead_0226 "$TABLES_0226" "4" "0226 down gives the four tables back"
-check_in dead_0226 "SELECT (SELECT count(*) FROM jobs) + (SELECT count(*) FROM job_runs) + (SELECT count(*) FROM tasks) + (SELECT count(*) FROM bff_job_lane_turns)" "0" "0226 down gives them back empty"
-check_in dead_0226 "SELECT string_agg(c.relname || '=' || c.relrowsecurity::text || '/' || (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation'), ',' ORDER BY c.relname) FROM pg_class c WHERE c.relkind = 'r' AND c.relname IN ('bff_job_lane_turns', 'jobs', 'job_runs', 'tasks')" "bff_job_lane_turns=true/1,job_runs=true/1,jobs=true/1,tasks=true/1" "0226 down secures all four again"
+check_in dead_0226 "$TABLES_0226" "3" "0226 down gives the three tables back"
+check_in dead_0226 "SELECT (SELECT count(*) FROM jobs) + (SELECT count(*) FROM job_runs) + (SELECT count(*) FROM tasks)" "0" "0226 down gives them back empty"
+check_in dead_0226 "SELECT string_agg(c.relname || '=' || c.relrowsecurity::text || '/' || (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation'), ',' ORDER BY c.relname) FROM pg_class c WHERE c.relkind = 'r' AND c.relname IN ('jobs', 'job_runs', 'tasks')" "job_runs=true/1,jobs=true/1,tasks=true/1" "0226 down secures all three again"
+check_in dead_0226 "$LANE_0226" "1:1" "0226 down leaves the lane order and its row alone"
 check_in dead_0226 "SELECT string_agg(conrelid::regclass || '.' || conname, ',' ORDER BY conrelid::regclass::text, conname) FROM pg_constraint WHERE conrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND contype IN ('c', 'f')" "job_runs.job_runs_conversation_id_organization_id_fkey,job_runs.job_runs_schedule_id_fkey,jobs.jobs_project_id_fkey,jobs.jobs_skill_pair_check,tasks.tasks_filing_status_known,tasks.tasks_job_id_fkey,tasks.tasks_job_run_id_fkey,tasks.tasks_project_id_fkey,tasks.tasks_review_complete,tasks.tasks_review_known,tasks.tasks_status_known" "0226 down gives the checks and foreign keys their names back"
 check_in dead_0226 "SELECT (pg_get_indexdef('idx_jobs_due'::regclass) LIKE '%(next_run_at) WHERE ((schedule_cron IS NOT NULL) AND enabled)')::text" "true" "0226 down gives the due index its predicate back"
 check_in dead_0226 "SELECT count(*) FROM pg_indexes WHERE tablename IN ('jobs', 'job_runs', 'tasks')" "15" "0226 down gives every index back"

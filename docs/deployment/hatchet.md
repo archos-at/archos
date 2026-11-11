@@ -184,10 +184,32 @@ What the engine does, and what stayed ours:
   minutes apart, 30 minutes per attempt. A failed folder fails the attempt
   after the other folders were built; the last attempt gives it up (out of the
   set, its card `failed`), and the nightly reconcile marks it again.
-* **Slots.** The three tasks are durable tasks only because a worker counts
-  durable slots apart from its standard ones: each standard ingest pod offers
-  two (`WORKER_SLOTS`), so a build neither takes a document's slot nor waits
-  behind ingestion. The heavy pool serves none of them.
+* **Ours: the bound on a build that cannot pass.** A run that dies on every
+  attempt (its worker lost, every attempt timed out) settles no folder, so its
+  failure handler `give-up` counts the run on each dirty folder of the
+  collection (`folder_card_queue.attempts`) and starts their clocks again. A
+  folder that has counted three such runs (`queue.GIVE_UP_ROUNDS`) leaves the
+  set, with a warning `N folder(s) of <collection> left the dirty set`, and the
+  nightly reconcile marks it again if its card is still stale: at most three
+  runs a day, where it used to be one every quiet period without end. A build
+  that passes, or a row that goes, ends the count.
+* **Slots.** The three tasks are durable tasks for one reason: the durable
+  slots are the only second pool a worker of hatchet-sdk 1.44.0 has. Each
+  standard ingest pod offers two (`WORKER_SLOTS`), so a build, which waits on a
+  model for up to half an hour, neither takes one of the pod's two or three
+  document slots nor waits behind ingestion
+  (`test_a_build_neither_waits_for_the_document_slot_nor_takes_it`, on a real
+  engine). The heavy pool serves none of them. What was tried instead, read in
+  the SDK and run on engine v0.114.2 on 2026-11-11: a worker has the pools
+  `default` and `durable` and no public way to name a third (`slot_cost`
+  charges `default`); a second `hatchet.worker(...)` in the process serves, but
+  only the worker built last gets SIGTERM, the other took a new run after it
+  and the process never exited, and its tasks run on another event loop than
+  the lifespan that built the summary model; a worker label routes a run to a
+  worker and reserves nothing inside one. File and line for each are in the
+  header of `folder_cards/workflow.py`. Sharing the standard slots was
+  rejected on the numbers: one build per organisation, so two organisations'
+  builds would hold every upload of a two-slot pod for up to half an hour.
 * **Scaling.** KEDA counts `ingest-document` only. A stack whose
   `ingestWorkerMinReplicas` is 0 (dev) builds cards while an ingest pod is up
   and not otherwise, as it did when the builder was a loop in that pod: a sweep
@@ -378,13 +400,24 @@ card through the same idempotent `PUT`; the cost is one model call, and it ends
 with the last old pod. A rollback needs nothing either: the old code reads the
 columns it left.
 
-`claimed_at` and `attempts` are now dead. `attempts` is `NOT NULL` with no
-database default, so `queue.mark` still writes its zero. No migration owns the
-table: the agent tier creates it at first use (`folder_cards/queue.py`,
-`ensure_schema`), in the agent database, not the BFF's. Dropping the two
-columns is an `ALTER TABLE folder_card_queue DROP COLUMN claimed_at, DROP
-COLUMN attempts` once no pod of the release before runs, together with
-removing them from `_create_tables` and from the `INSERT` in `mark`.
+`attempts` has a use again: the count of runs that failed for good over a dirty
+folder (above). It is `NOT NULL` with no database default, so `queue.mark`
+writes its zero. An old pod still raises it on each claim and gives a folder up
+at three, so while a rollout lasts a folder can leave the set a run early; the
+reconcile marks it again.
+
+`claimed_at` is dead and deliberately still there. Nothing on this release
+creates, writes or reads it, so a table made from now on lacks it. A table made
+before has it, and it is **not** dropped yet: no migration owns the table, the
+agent tier creates it at first use (`folder_cards/queue.py`, `ensure_schema`),
+in the agent database, not the BFF's, so a drop there would run in the first
+new pod of the rollout while every old pod's claim still reads the column, and
+a rollback would land on a table its claim cannot read. The trigger for the
+drop: the release after the one that removes the claim loop is on production.
+Then add `ALTER TABLE folder_card_queue DROP COLUMN claimed_at` to
+`_create_tables`, behind a check that the column exists (SQLite has no `IF
+EXISTS` for a column; `db_utils` has the column check the sibling stores use
+before an `ADD COLUMN`).
 
 ## Compose
 

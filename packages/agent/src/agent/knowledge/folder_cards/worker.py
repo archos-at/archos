@@ -25,11 +25,14 @@ run. Until nothing of the collection is due, deepest folder first, it:
    the parent only when the abstract came out different: an identical abstract
    stops the climb.
 
-One folder's failure never stops the others. The run then ends as failed
-(:class:`BuildFailed`) and the engine tries it again, where only the failed
-folders are left; on its last attempt a folder that fails is given up instead:
-out of the dirty set, its stored card marked ``failed``. The nightly reconcile
-marks every card that is not ``fresh``, so given up is until tomorrow.
+One folder's failure never stops the others. The run then ends by raising the
+first of them and the engine tries it again, where only the failed folders are
+left; on its last attempt a folder that fails is given up instead: out of the
+dirty set, its stored card marked ``failed``. A run that never gets that far (it
+dies on every attempt) is counted on its folders, which leave the dirty set
+after ``queue.GIVE_UP_ROUNDS`` such runs (:func:`give_up_run`). The nightly
+reconcile marks every card that is not ``fresh`` or no longer matches its
+inputs, so given up either way is until tomorrow.
 
 Spend lands twice, by design: on the organization's usage ledger as ingest
 activity (``track_llm_costs``, like every summary ingestion writes), and in
@@ -137,14 +140,6 @@ def collection_rows(collection: str) -> list[Any]:
     from agent.knowledge import get_available_documents
 
     return file_rows([{**doc.model_dump(), "collection": collection} for doc in get_available_documents(collection)])
-
-
-class BuildFailed(Exception):
-    """Folders of a run failed and the run has an attempt left: the engine tries the run again."""
-
-    def __init__(self, report: RunReport) -> None:
-        super().__init__(f"{len(report.failures)} folder(s) failed")
-        self.report = report
 
 
 def _load(collection: str, organization_id: str) -> _Collection:
@@ -442,8 +437,8 @@ async def build_collection(
 ) -> RunReport:
     """Build every due folder of ``collection``, children before parents; the folders it left are still dirty.
 
-    Raises :class:`BuildFailed` when a folder failed and ``final`` is not set;
-    on the final attempt a failed folder is given up and the run ends well.
+    Raises what the first failed folder raised when ``final`` is not set; on the
+    final attempt a failed folder is given up and the run ends well.
     Raises as well when the flag or the collection cannot be read: nothing was
     built, and the next attempt asks again.
     """
@@ -489,7 +484,7 @@ def _ended(report: RunReport, final: bool) -> RunReport:
         logger.info("folder cards: %s", report.outcomes)
     _emit_freshness(report)
     if report.failures and not final:
-        raise BuildFailed(report)
+        raise report.failures[0]
     return report
 
 
@@ -519,9 +514,22 @@ def sweep(trigger: Trigger) -> int:
     return started
 
 
-def give_up_run(collection: str) -> int:
-    """A run failed for good without settling its folders (a worker lost on every attempt): they wait again."""
-    return queue.defer(collection)
+def give_up_run(collection: str) -> dict[str, int]:
+    """A run failed for good without settling its folders (it died on every attempt): how many wait again.
+
+    And how many were dropped instead, having seen ``queue.GIVE_UP_ROUNDS`` such
+    runs: the bound on a build that can never pass. The nightly reconcile marks
+    what is still stale, so a dropped folder is tried again tomorrow.
+    """
+    deferred, dropped = queue.defer(collection)
+    if dropped:
+        logger.warning(
+            "folder cards: %d folder(s) of %s left the dirty set after %d runs failed for good",
+            dropped,
+            collection,
+            queue.GIVE_UP_ROUNDS,
+        )
+    return {"deferred": deferred, "dropped": dropped}
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,12 @@
 -- since the fix). Runs as the table owner, which row-level security does not
 -- bind (0031 does not FORCE it).
 --
+-- An older build beside this schema (a rollout's old pods, a rollback): its
+-- request-side release of a folder's permanent delete at the cap sets
+-- `pending` without touching `attempts`, and that UPDATE now raises, inside a
+-- request that is already failing. The row stays `purging` and the purger's
+-- `reapStranded` ends it `failed`, which is where this release puts it too.
+--
 -- NOT VALID, as 0223: no existing row is read to add the constraint. After the
 -- UPDATE above none violates it, so
 -- `ALTER TABLE deletion_queue VALIDATE CONSTRAINT deletion_queue_pending_has_attempts`

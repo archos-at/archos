@@ -7,6 +7,7 @@ from agent_testing.folder_cards import FakeModel
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent.knowledge import factory
+from agent.knowledge.folder_cards import build
 from agent.knowledge.folder_cards import queue
 from agent.knowledge.folder_cards import worker
 from agent.observability import direct_trace
@@ -284,15 +285,14 @@ class TestAFailedFolder:
         for name in ("Schnitt.pdf", "Ansicht.pdf", "Detail.pdf"):
             _file(name, "Pläne")
 
-        with pytest.raises(worker.BuildFailed) as failed:
+        with pytest.raises(RuntimeError, match="provider down"):
             await _run(FakeModel(self._failing("Gutachten/Behörde")))
 
-        assert failed.value.report.outcomes == {"failed": 1, "fresh": 1}  # Pläne built all the same
+        assert [put["folder_path"] for put in project.puts] == ["Pläne"]  # built all the same
         assert _paths() == ["Gutachten", "Gutachten/Behörde"]  # the parent waits for its child
-        assert "Behörde" not in str(failed.value)
 
     async def test_the_next_attempt_builds_what_the_first_could_not(self, project):
-        with pytest.raises(worker.BuildFailed):
+        with pytest.raises(RuntimeError, match="provider down"):
             await _run(FakeModel(self._failing("Gutachten/Behörde")))
         model = FakeModel(_abstracts)
 
@@ -326,7 +326,7 @@ class TestAFailedFolder:
                 message.content = "kein JSON"
                 return message
 
-        with pytest.raises(worker.BuildFailed):
+        with pytest.raises(build.GenerationRejected):
             await _run(Garbage(_abstracts))
 
         assert queue.tokens_used(ORG) == 1100
@@ -380,11 +380,22 @@ class TestSweep:
         assert worker.sweep(lambda collection, organization: pytest.fail("no model")) == 0
 
     def test_a_run_that_failed_for_good_makes_its_folders_wait_again(self, project, monkeypatch):
-        assert worker.give_up_run("proj") == 3
+        assert worker.give_up_run("proj") == {"deferred": 3, "dropped": 0}
         monkeypatch.setattr(queue, "QUIET_SECONDS", 600)
 
         assert queue.due("proj") == []
         assert _paths() == ["Gutachten", "Gutachten/Behörde", "Pläne"]
+
+    def test_a_build_that_dies_on_every_attempt_is_not_tried_for_ever(self, project, caplog):
+        """Each run that failed for good is a round; after the last the folders wait for the nightly reconcile."""
+        rounds = [worker.give_up_run("proj") for _round in range(queue.GIVE_UP_ROUNDS)]
+
+        assert rounds[-1] == {"deferred": 0, "dropped": 3}
+        assert _paths() == []
+        (logged,) = [record.getMessage() for record in caplog.records if record.name == worker.__name__]
+        assert "3 folder(s) of proj left the dirty set" in logged and "Behörde" not in logged
+        # Tomorrow's run: the reconcile marks the two that deserve a card and have none.
+        assert worker.reconcile_collection("proj", ORG) == 2
 
 
 class TestFreshnessScore:
