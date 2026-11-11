@@ -8,7 +8,7 @@
  */
 
 import type { JSX, ReactNode } from 'react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { toast } from 'sonner'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
@@ -27,11 +27,12 @@ import { addDocument, capture, draftFor, propose, Refused, sourceFor } from './l
 const NEW = '__new__'
 
 function Picker({ label, value, options, onChange }: { label: string; value: string; options: [string, string][]; onChange: (value: string) => void }): JSX.Element {
+  const id = useId()
   return (
     <Field>
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-full" aria-label={label}>
+        <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -47,16 +48,27 @@ function Picker({ label, value, options, onChange }: { label: string; value: str
 }
 
 function Text({ label, value, onChange, type = 'text', hint, area = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; hint?: string; area?: boolean }): JSX.Element {
+  const id = useId()
+  const described = hint ? `${id}-hint` : undefined
   return (
     <Field>
-      <FieldLabel>{label}</FieldLabel>
-      {area ? <Textarea value={value} onChange={(event) => onChange(event.target.value)} rows={3} aria-label={label} /> : <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} aria-label={label} />}
-      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {area ? (
+        <Textarea id={id} value={value} onChange={(event) => onChange(event.target.value)} rows={3} aria-describedby={described} />
+      ) : (
+        <Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} aria-describedby={described} />
+      )}
+      {hint ? <FieldDescription id={described}>{hint}</FieldDescription> : null}
     </Field>
   )
 }
 
-function FormShell({ title, children, problems, onCancel, busy, submit, onSubmit, disabled }: { title: string; children: ReactNode; problems: string[]; onCancel: () => void; busy: boolean; submit: string; onSubmit: () => void; disabled: boolean }): JSX.Element {
+interface FormProblem {
+  key: string
+  text: string
+}
+
+function FormShell({ title, children, problems, onCancel, busy, submit, onSubmit, disabled }: { title: string; children: ReactNode; problems: FormProblem[]; onCancel: () => void; busy: boolean; submit: string; onSubmit: () => void; disabled: boolean }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   return (
     <Unfold>
@@ -64,9 +76,9 @@ function FormShell({ title, children, problems, onCancel, busy, submit, onSubmit
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
       {problems.length > 0 ? (
         <FieldError>
-          {problems.map((problem) => (
-            <span key={problem} className="block">
-              {problem}
+          {problems.map((problem, index) => (
+            <span key={`${problem.key}-${index}`} className="block">
+              {problem.text}
             </span>
           ))}
         </FieldError>
@@ -84,7 +96,7 @@ function FormShell({ title, children, problems, onCancel, busy, submit, onSubmit
 }
 
 /** "+ Add an act to <region>": the act, the gazette page and its adopting clause, the day and the editions. */
-export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCancel }: { map: LawMap; territoryId: string; countryId: string; sources: readonly SourceStatusView[]; onAdded: (requestId: string) => void; onCancel: () => void }): JSX.Element {
+export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCancel }: { map: LawMap; territoryId: string; countryId: string; sources: readonly SourceStatusView[]; onAdded: () => void; onCancel: () => void }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const region = map.territories.get(territoryId)?.name ?? territoryId
   const acts = [...new Map(map.statements.filter((statement) => statement.territoryId === territoryId).map((statement) => [statement.actWorkId, statement.actTitle])).entries()]
@@ -94,6 +106,8 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
   const [act, setAct] = useState(acts[0]?.[0] ?? NEW)
   const [title, setTitle] = useState('')
   const [designation, setDesignation] = useState('')
+  const [kind, setKind] = useState<'ordinance' | 'statute'>('ordinance')
+  const [namedBy, setNamedBy] = useState('')
   const [url, setUrl] = useState('')
   const [pasted, setPasted] = useState('')
   const [quote, setQuote] = useState('')
@@ -103,7 +117,9 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
   const [exceptTopic, setExceptTopic] = useState('')
   const [exceptLabel, setExceptLabel] = useState(labels[0] ?? '')
   const [busy, setBusy] = useState(false)
-  const [problems, setProblems] = useState<string[]>([])
+  const [problems, setProblems] = useState<FormProblem[]>([])
+  // One capture per page and draft: a second try reuses it, so the draft a reviewer reads holds no copies.
+  const [captured, setCaptured] = useState<{ requestId: string; url: string; text: string; captureId: string } | null>(null)
   const sourceId = url ? sourceFor(url, sources) : null
 
   const editions = map.topics.flatMap((topic) => {
@@ -111,26 +127,27 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
     const edition = [...map.editions.values()].find((one) => one.workId === topic.workId && one.label === wanted)
     return edition ? [{ workId: topic.workId, editionId: edition.id }] : []
   })
-  const ready = Boolean(url && quote.trim().length >= 15 && from && editions.length > 0 && (act !== NEW || title.trim()) && (sourceId || pasted.trim()))
+  const ready = Boolean(url && quote.trim().length >= 15 && from && editions.length > 0 && (act !== NEW || (title.trim() && namedBy.trim().length >= 3)) && (sourceId || pasted.trim()))
 
   const submit = async (): Promise<void> => {
     setBusy(true)
     setProblems([])
     try {
       const requestId = await draftFor(countryId, t('draftTitle', { region }))
-      const page = await capture(requestId, { url, sourceId, text: pasted })
+      const same = captured && captured.requestId === requestId && captured.url === url && captured.text === (sourceId ? '' : pasted)
+      const captureId = same ? captured.captureId : (await capture(requestId, { url, sourceId, text: pasted })).captureId
+      if (!same) setCaptured({ requestId, url, text: sourceId ? '' : pasted, captureId })
       const actKey = act === NEW ? null : act.replace(/^work:/, '')
-      const records = addActRecords({ territoryId, act: actKey ? { workKey: actKey } : { title: title.trim(), designation: designation.trim() || null }, provision: provision.trim() || null, captureId: page.captureId, quote: quote.trim(), validFrom: from, editions })
+      const records = addActRecords({ territoryId, act: actKey ? { workKey: actKey } : { title: title.trim(), designation: designation.trim() || null, kind, namedBy: namedBy.trim() }, provision: provision.trim() || null, captureId, quote: quote.trim(), validFrom: from, editions })
+      const problemsOf = (view: Awaited<ReturnType<typeof propose>>) => view.results.flatMap((result) => result.problems.map((problem) => ({ key: result.key, text: `${result.key}: ${problem.detail} ${problem.hint}` })))
       const check = await propose(requestId, records, true)
-      if (!check.valid) {
-        setProblems(check.results.flatMap((result) => result.problems.map((problem) => `${problem.detail} ${problem.hint}`)))
-        return
-      }
-      await propose(requestId, records, false)
+      if (!check.valid) return setProblems(problemsOf(check))
+      const written = await propose(requestId, records, false)
+      if (!written.valid) return setProblems(problemsOf(written))
       toast.success(t('added'))
-      onAdded(requestId)
+      onAdded()
     } catch (error) {
-      setProblems([error instanceof Refused ? error.message : String(error)])
+      setProblems([{ key: 'request', text: error instanceof Refused ? error.message : String(error) }])
     } finally {
       setBusy(false)
     }
@@ -141,26 +158,31 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
       <Picker label={t('field.act')} value={act} onChange={setAct} options={[...acts, [NEW, t('field.newAct')]]} />
       {act === NEW ? (
         <>
+          <Picker label={t('field.kind')} value={kind} onChange={(value) => setKind(value === 'statute' ? 'statute' : 'ordinance')} options={[['ordinance', t('field.ordinance')], ['statute', t('field.statute')]]} />
           <Text label={t('field.title')} value={title} onChange={setTitle} />
           <Text label={t('field.designation')} value={designation} onChange={setDesignation} />
+          <Text label={t('field.namedBy')} value={namedBy} onChange={setNamedBy} hint={t('field.namedByHint')} />
         </>
-      ) : (
-        <div />
-      )}
+      ) : null}
       <Text label={t('field.url')} value={url} onChange={setUrl} type="url" hint={url ? (sourceId ? t('field.fetched', { source: sourceId }) : t('field.notFetched')) : t('field.urlHint')} />
-      {url && !sourceId ? <Text label={t('field.pasted')} value={pasted} onChange={setPasted} area /> : <div />}
+      {url && !sourceId ? <Text label={t('field.pasted')} value={pasted} onChange={setPasted} area /> : null}
       <Text label={t('field.quote')} value={quote} onChange={setQuote} area hint={t('field.quoteHint')} />
       <Text label={t('field.provision')} value={provision} onChange={setProvision} hint={t('field.provisionHint')} />
       <Text label={t('field.from')} value={from} onChange={setFrom} type="date" />
       <Picker label={t('field.edition')} value={label} onChange={setLabel} options={labels.map((one) => [one, one])} />
       <Picker label={t('field.except')} value={exceptTopic || NEW} onChange={(value) => setExceptTopic(value === NEW ? '' : value)} options={[[NEW, t('field.none')], ...map.topics.map((topic): [string, string] => [topic.workId, topic.designation])]} />
-      {exceptTopic ? <Picker label={t('field.exceptEdition')} value={exceptLabel} onChange={setExceptLabel} options={labels.map((one) => [one, one])} /> : <div />}
+      {exceptTopic ? <Picker label={t('field.exceptEdition')} value={exceptLabel} onChange={setExceptLabel} options={labels.map((one) => [one, one])} /> : null}
+      <p className="text-muted-foreground text-xs sm:col-span-2">
+        {editions.length > 0
+          ? t('field.binds', { list: editions.map(({ workId, editionId }) => `${map.topics.find((topic) => topic.workId === workId)?.designation ?? workId} ${map.editions.get(editionId)?.label ?? ''}`).join(' · ') })
+          : t('field.bindsNothing')}
+      </p>
     </FormShell>
   )
 }
 
 /** "+ Add an edition": its label, the day it applies from, and its text from the publisher, fetched or uploaded. */
-export function AddEditionForm({ workId, designation, countryId, onAdded, onCancel }: { workId: string; designation: string; countryId: string; onAdded: (requestId: string) => void; onCancel: () => void }): JSX.Element {
+export function AddEditionForm({ workId, designation, countryId, onAdded, onCancel }: { workId: string; designation: string; countryId: string; onAdded: () => void; onCancel: () => void }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const [label, setLabel] = useState('')
   const [from, setFrom] = useState('')
@@ -168,18 +190,18 @@ export function AddEditionForm({ workId, designation, countryId, onAdded, onCanc
   const [file, setFile] = useState<File | null>(null)
   const [titleText, setTitleText] = useState('')
   const [busy, setBusy] = useState(false)
-  const [problems, setProblems] = useState<string[]>([])
+  const [problems, setProblems] = useState<FormProblem[]>([])
   const ready = Boolean(label.trim() && url && (!file || titleText.trim().length >= 15))
 
   const submit = async (): Promise<void> => {
     setBusy(true)
     setProblems([])
     try {
-      const done = await addDocument(countryId, { workKey: workId.replace(/^work:/, ''), label: label.trim(), inForceFrom: from || null, url, file, titleText: titleText.trim() })
+      await addDocument(countryId, { workKey: workId.replace(/^work:/, ''), label: label.trim(), inForceFrom: from || null, url, file, titleText: titleText.trim() })
       toast.success(t('added'))
-      onAdded(done.changeRequestId)
+      onAdded()
     } catch (error) {
-      setProblems([error instanceof Refused ? error.message : String(error)])
+      setProblems([{ key: 'request', text: error instanceof Refused ? error.message : String(error) }])
     } finally {
       setBusy(false)
     }

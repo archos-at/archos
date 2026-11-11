@@ -13,8 +13,11 @@ import type { proposeRecordsBodySchema } from './wire'
 
 export interface AddActInput {
   territoryId: string
-  /** An act the request already holds, by its work key, or a new one by its printed title. */
-  act: { workKey: string } | { title: string; designation: string | null }
+  /**
+   * An act already on record, by its work key, or a new one by its printed title, its kind, and the words on the
+   * page that name it: KC-6 holds a work to a quote naming its designation (else its title).
+   */
+  act: { workKey: string } | { title: string; designation: string | null; kind: 'ordinance' | 'statute'; namedBy: string }
   /** Where the act says so, e.g. "§ 1"; prefixed with the act's designation when it has one. */
   provision: string | null
   captureId: string
@@ -35,16 +38,31 @@ export function actKeyOf(input: AddActInput): string {
   return `${keyPart(input.territoryId, 12)}-${keyPart(input.act.designation ?? input.act.title, 60)}`
 }
 
+/** A short stable fingerprint, so a long act key never cuts off the edition or the day that tell two bindings apart. */
+function fingerprint(text: string): string {
+  let hash = 5381
+  for (const char of text) hash = ((hash * 33) ^ char.charCodeAt(0)) >>> 0
+  return hash.toString(16).padStart(8, '0')
+}
+
+/** One key per act, edition and day, within the key's 100 characters. */
+export function relationKey(actKey: string, editionKey: string, validFrom: string): string {
+  const full = `${actKey}-${editionKey}-${validFrom}`
+  return full.length <= 100 ? full : `${full.slice(0, 90)}-${fingerprint(full)}`
+}
+
 export function addActRecords(input: AddActInput): ProposedRecord[] {
   const actKey = actKeyOf(input)
   const citations = [{ captureId: input.captureId, quote: input.quote }]
   const designation = 'workKey' in input.act ? null : input.act.designation
   const provision = input.provision ? [designation, input.provision].filter(Boolean).join(' ').slice(0, 120) : designation
   const act: ProposedRecord[] =
-    'workKey' in input.act ? [] : [{ type: 'work', key: actKey, kind: 'ordinance', title: input.act.title, designation, territoryIds: [input.territoryId], citations }]
+    'workKey' in input.act
+      ? []
+      : [{ type: 'work', key: actKey, kind: input.act.kind, title: input.act.title, designation, territoryIds: [input.territoryId], citations: [{ captureId: input.captureId, quote: input.act.namedBy }, ...citations] }]
   const relations: ProposedRecord[] = input.editions.map(({ editionId }) => ({
     type: 'relation',
-    key: `${actKey}-${keyOf(editionId)}-${input.validFrom}`.slice(0, 100),
+    key: relationKey(actKey, keyOf(editionId), input.validFrom),
     relationType: 'makes_binding',
     mode: 'declared',
     from: { type: 'work', key: actKey },

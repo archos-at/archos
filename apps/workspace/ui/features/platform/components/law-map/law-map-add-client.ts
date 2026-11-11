@@ -24,8 +24,9 @@ const post = (url: string, body: unknown): Promise<Response> => fetch(url, { met
 
 /** The country's open draft, or a new one with this title: where additions go, as the document flow does it. */
 export async function draftFor(countryId: string, title: string): Promise<string> {
-  const { changeRequests } = await json<{ changeRequests: ChangeRequestSummary[] }>(await fetch(`${BASE}/change-requests?countryId=${countryId}&status=draft&limit=20`))
-  const open = changeRequests.filter((one) => one.origin !== 'monitor').sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+  // The newest operator draft, as the document flow finds it (`document-add.ts`); a monitor's draft is its own.
+  const { changeRequests } = await json<{ changeRequests: ChangeRequestSummary[] }>(await fetch(`${BASE}/change-requests?countryId=${countryId}&status=draft&origin=operator&limit=1`))
+  const open = changeRequests[0]
   if (open) return open.id
   return (await json<{ id: string }>(await post(`${BASE}/change-requests`, { title, countryId }))).id
 }
@@ -38,7 +39,8 @@ export function sourceFor(url: string, sources: readonly SourceStatusView[]): st
   } catch {
     return null
   }
-  return sources.find((source) => source.hosts.some((one) => one.state !== 'expired' && one.host.toLowerCase() === host))?.sourceKey ?? null
+  // Only an active host: one still testing in another request's draft is refused for this one.
+  return sources.find((source) => source.hosts.some((one) => one.state === 'active' && one.host.toLowerCase() === host))?.sourceKey ?? null
 }
 
 export async function capture(requestId: string, page: { url: string; sourceId: string | null; text: string }): Promise<CaptureView> {
@@ -50,9 +52,11 @@ export async function propose(requestId: string, records: unknown[], dryRun: boo
   const response = await post(`${BASE}/change-requests/${requestId}/records`, { records, dryRun })
   // A refused batch (422) still answers with its results: read them, never a bare status.
   if (response.status === 422) {
-    const body = (await response.json().catch(() => null)) as ProposalView | { detail?: string } | null
-    if (body && 'results' in body) return body
-    throw new Refused((body as { detail?: string } | null)?.detail ?? '422')
+    // A dry run answers its results in the body; a refused write puts them in the problem's `details` (`problem.ts`).
+    const body = (await response.json().catch(() => null)) as (ProposalView & { detail?: string; details?: ProposalView }) | null
+    if (body?.results) return body
+    if (body?.details?.results) return { ...body.details, valid: false }
+    throw new Refused(body?.detail ?? '422')
   }
   return json<ProposalView>(response)
 }

@@ -13,7 +13,7 @@
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Map as MapIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -30,6 +30,7 @@ import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowled
 import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
 import { countryName } from '../change-request-format'
 import { usePlatformJson } from '../countries/use-platform-json'
+import { QuietLinks } from './law-map-atoms'
 import { branchesOf, LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
@@ -50,7 +51,6 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}?countryId=${countryId}&limit=200`)
   const canWrite = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
   const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
-  const router = useRouter()
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
   const map = useMemo(() => (request.load.state === 'ready' ? lawMapOf(countryId, request.load.value.revisions, request.load.value.captures) : null), [request.load, countryId])
@@ -113,7 +113,11 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="law-map">
       {header(t('request', { title: view.title }))}
       {list.load.state === 'ready' ? (
-        <OtherRequests requests={list.load.value.changeRequests.filter((one) => one.id !== view.id && ['draft', 'submitted', 'approved'].includes(one.status))} href={(id) => `${countryHref}/map?request=${id}`} label={(title) => t('otherRequest', { title })} />
+        <QuietLinks
+          links={list.load.value.changeRequests
+            .filter((one) => one.id !== view.id && ['draft', 'submitted', 'approved'].includes(one.status))
+            .map((one) => ({ href: `${countryHref}/map?request=${one.id}`, label: t('otherRequest', { title: one.title }) }))}
+        />
       ) : null}
       {reviewable && canReview ? (
         <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -140,7 +144,16 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
           confirm={confirm}
           add={
             canWrite && sources.load.state === 'ready'
-              ? { countryId, sources: sources.load.value.sources.filter((source) => source.countryId === countryId), onAdded: (id) => router.push(`${countryHref}/map?request=${id}`) }
+              ? {
+                  countryId,
+                  sources: sources.load.value.sources.filter((source) => source.countryId === countryId),
+                  // Stay here: the draft's link appears above, and this request is read again in case it was the draft.
+                  onAdded: () => {
+                    setOpen(null)
+                    list.reload()
+                    request.reload()
+                  },
+                }
               : null
           } today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
       )}
@@ -148,19 +161,5 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
         {t('openRequest')}
       </Link>
     </div>
-  )
-}
-
-/** The country's other open requests, one link each: a draft "+ Add" wrote into, or the one under review. */
-function OtherRequests({ requests, href, label }: { requests: readonly ChangeRequestSummary[]; href: (id: string) => string; label: (title: string) => string }): JSX.Element | null {
-  if (requests.length === 0) return null
-  return (
-    <p className="text-muted-foreground flex flex-wrap gap-x-4 text-sm">
-      {requests.map((one) => (
-        <Link key={one.id} href={href(one.id)} className="underline underline-offset-2">
-          {label(one.title)}
-        </Link>
-      ))}
-    </p>
   )
 }
