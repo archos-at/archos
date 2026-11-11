@@ -63,12 +63,6 @@ register_source_parser(is_web_search_tool, parse_web_results)
 # reads its text, so the old name keeps its parser.
 register_source_parser(lambda name: "law_lookup" in name or "ris_lookup" in name, parse_knowledge_layer)
 
-# The country-neutral lookup (``agent.knowledge.law_lookup``) renders that grammar too. Bound under its own
-# name (``law_lookup``, its default and the name the model tool takes in the country-as-data plan's step
-# 4b), a replayed turn otherwise fell to the non-URL fallback and cited the tool's name
-# (``tests/knowledge/law_lookup/test_law_lookup_format.py``).
-register_source_parser(lambda name: "law_lookup" in name, parse_knowledge_layer)
-
 
 # ``read_passage`` is the third producer of that grammar: it renders through the
 # knowledge layer's own ``_format_results``, and its name does not contain
