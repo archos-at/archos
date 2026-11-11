@@ -43,6 +43,8 @@ const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
   // Paper bar on paper page above a project: the rule is the only edge between the scrolling
   // page and the fixed bar. Inside a project the bar is the desk and draws none.
   'ui/components/shell/phone-tab-bar.tsx': [{ pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' }],
+  // The rail's one edge, to the page (owner decision 2026-11-11): the desk's 1.08:1 step alone left the rail without an end.
+  'ui/components/ui/sidebar.tsx': [{ pattern: /'group-data-\[side=left\]:border-r group-data-\[side=right\]:border-l border-sidebar-border'/, reason: 'the rail’s edge to the page' }],
 }
 
 /**
@@ -69,7 +71,8 @@ function source(file: string): string {
 }
 
 describe('the app rail’s material', () => {
-  it('draws no rule between its parts, under its header or along its edge, in either theme', () => {
+  it('draws no rule between its parts or under its header, and one hairline along the page’s edge', () => {
+    expect(readFileSync(join(ROOT, 'ui/components/ui/sidebar.tsx'), 'utf8')).toMatch(RULES_ALLOWED['ui/components/ui/sidebar.tsx'][0].pattern)
     const offenders = RAIL_FILES.filter((file) => /(?<![\w-:])(dark:)?border-[tbrl](?![\w-])|\bdivide-[xy]\b|<Separator\b|bg-border [^'"]*\bw-px\b/.test(source(file)))
     expect(offenders).toEqual([])
   })
@@ -139,10 +142,27 @@ describe('the app rail’s material', () => {
     expect(existsSync(join(ROOT, 'ui/components/shell/project-crumb.tsx'))).toBe(false)
   })
 
-  it('sets a row in ink at 500 and where the reader is at 600, never muted at 440', () => {
+  it('sets a row at 13px, muted at 440 at rest and ink at 500 where the reader is: never 14px or 600', () => {
+    // Owner decision 2026-11-11: 14px rows in ink at 500, the current one at 600, read as too large and too heavy.
     const rail = source('ui/components/shell/app-sidebar.tsx')
-    expect(rail).toMatch(/'text-foreground h-9 [^']*text-sm font-medium/)
-    expect(rail).toMatch(/font-semibold data-\[active=true\]:font-semibold/)
+    expect(rail).toMatch(/'text-muted-foreground h-9 [^']*text-\[13px\] font-normal/)
+    expect(rail).toMatch(/font-medium data-\[active=true\]:font-medium/)
+    for (const file of ['ui/components/shell/app-sidebar.tsx', 'ui/components/shell/rail-chats.tsx']) expect(source(file)).not.toMatch(/\bfont-semibold\b/)
+    // The selector's name too; 600 stays only on the icon rail's initials, the one place no name fits.
+    expect(source('ui/components/shell/project-switcher.tsx').match(/\bfont-semibold\b/g)).toHaveLength(1)
+    expect(source('ui/components/shell/project-switcher.tsx')).toMatch(/<MiddleTruncate text=\{name\}[^>]*text-\[13px\] font-medium/)
+    expect(source('ui/components/shell/rail-chats.tsx')).not.toMatch(/\btext-(sm|name)\b/)
+  })
+
+  it('lists the last chats under the sections as the one part that scrolls, between two parts that stand still', () => {
+    const rail = source('ui/components/shell/app-sidebar.tsx')
+    const chats = source('ui/components/shell/rail-chats.tsx')
+    // A list of its own after the sections' nav, not rows nested under „Chat“.
+    expect(rail).toMatch(/<SidebarMenu className="gap-0\.5">\{projectItems\.map\(railItem\)\}<\/SidebarMenu>[\s\S]*?<RailChatList /)
+    expect(chats).toMatch(/\{t\('recentChats'\)\}/)
+    expect(chats).toMatch(/<ul [^>]*className="[^"]*\boverflow-y-auto\b/)
+    // The box round the sections does not scroll, so the office's doorways at the foot stay put.
+    expect(rail).toMatch(/'mt-3 min-h-0 flex-1 gap-0 overflow-hidden'/)
   })
 
   it('sets its labels at 12px or larger: no 10.5px or 11px fine print', () => {

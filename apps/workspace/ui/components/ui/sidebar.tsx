@@ -292,9 +292,9 @@ function Sidebar({
           side === 'left'
             ? 'left-0 group-data-[collapsible=offcanvas]:-translate-x-full'
             : 'right-0 group-data-[collapsible=offcanvas]:translate-x-full',
-          // No rule along the page's edge: the desk's step to the paper is the edge in both themes
-          // (design-language.md, „The app rail“). The resize handle draws its own line while held.
-          'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+          // A hairline along the page's edge (owner decision 2026-11-11, design-language.md, „The app rail“):
+          // the desk's step to the paper alone (1.08:1) left the rail without a clear end.
+          'group-data-[side=left]:border-r group-data-[side=right]:border-l border-sidebar-border', 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
           className,
         )}
         {...props}

@@ -370,7 +370,8 @@ describe('AppSidebar - active state', () => {
     expect(pill).toHaveClass('bg-sheet', 'shadow-xs')
     // The edge is the shadow's ring, never a border: a border would move the row's content by 1px.
     expect(pill.className).not.toMatch(/\bborder\b|\bborder-/)
-    expect(pill.closest('a')).toHaveClass('font-semibold')
+    // Ink at 500, a step over the rows' muted 440; 600 read as too heavy (2026-11-11).
+    expect(pill.closest('a')).toHaveClass('text-foreground', 'font-medium')
   })
 
   test('a preview can pin the route the rail lights', () => {
@@ -436,7 +437,7 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
 
 // None of the pilot offices found the chat history (2026-11-10): its one door was a glyph in the chat's toolbar.
 // The project's last chats stand under „Chat“ in the rail, the open one as the current place.
-describe('AppSidebar - the project’s last chats under „Chat“', () => {
+describe('AppSidebar - the project’s last chats under the sections', () => {
   const chats = (over: Partial<RailChats> = {}): RailChats => ({
     items: [
       { id: 'c1', title: 'Rettungswege Bürogebäude GK4 Wien', href: '/app/projects/p1/chat?session=c1', current: false },
@@ -454,17 +455,18 @@ describe('AppSidebar - the project’s last chats under „Chat“', () => {
       </RailChatsSource>
     )
 
-  test('lists them right under „Chat“, newest first, and „All chats“ last', () => {
+  test('lists them under the sections, headed „Recent chats“, newest first, and „All chats“ last', () => {
     renderWith(chats())
     const list = screen.getByRole('list', { name: 'Recent chats' })
     const links = within(list).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
     expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
     expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
-    // In the sections' list, between „Chat“ and „Files“.
-    const sections = within(screen.getByLabelText('Project sections')).getAllByRole('link').map((link) => link.textContent)
-    expect(sections.indexOf('Chat')).toBeLessThan(sections.indexOf('Rettungswege Bürogebäude GK4 Wien'))
-    expect(sections.indexOf('All chats')).toBeLessThan(sections.indexOf('Files'))
+    // A list of its own after the sections (2026-11-11), not rows nested under „Chat“.
+    const sectionsNav = screen.getByLabelText('Project sections')
+    expect(within(sectionsNav).queryByText('Rettungswege Bürogebäude GK4 Wien')).toBeNull()
+    expect(sectionsNav.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Recent chats' })).toBeInTheDocument()
   })
 
   test('a title stays on one line, whole in its tooltip', () => {
@@ -483,7 +485,7 @@ describe('AppSidebar - the project’s last chats under „Chat“', () => {
     expect(pills[0]!.closest('a')).toBe(open)
     const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
     expect(chat).not.toHaveAttribute('aria-current')
-    expect(chat).toHaveClass('font-semibold')
+    expect(chat).toHaveClass('text-foreground', 'font-medium')
   })
 
   test('with no chat open, „Chat“ stays the current place', () => {

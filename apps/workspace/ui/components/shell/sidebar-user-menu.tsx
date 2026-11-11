@@ -194,8 +194,8 @@ export function SidebarUserMenu({
           <>
             {/* The person's name alone: the organisation's name heads its
                 doorways just above, and the menu's header says it too. */}
-            {/* 14px at 500, as the rail's rows. */}
-            <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{displayName}</span>
+            {/* 13px at 500, muted as the rail's rows at rest: one step under the 14px ink it had (owner decision 2026-11-11). */}
+            <span className="text-muted-foreground group-hover/user:text-foreground min-w-0 flex-1 truncate text-[13px] font-medium">{displayName}</span>
             {/* Says the row opens something, as the switcher's chevrons do. */}
             <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </>
