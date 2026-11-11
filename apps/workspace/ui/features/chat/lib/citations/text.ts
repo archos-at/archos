@@ -1,12 +1,7 @@
-/** The small pure text and URL helpers of the citation model. Split from `model.ts`, which re-exports them. */
+/** The small pure URL helpers of the citation model, split from `model.ts`; import them from here. */
 
 /** URL reduced to a comparison form (scheme/host lowercased, trailing slash dropped). */
 export const normalizeUrl = (url: string): string => url.trim().toLowerCase().replace(/\/+$/, '')
-
-const ORIGIN_TOKEN_RE = /^\s*\[(KB|Web|RIS)\]\s*/i
-
-/** Strip a leading `[KB]`/`[RIS]`/`[Web]` token from display text. */
-export const stripOriginToken = (text: string): string => text.replace(ORIGIN_TOKEN_RE, '').trim()
 
 export const isHttpUrl = (url: string | undefined | null): boolean =>
   !!url && /^https?:\/\//i.test(url)

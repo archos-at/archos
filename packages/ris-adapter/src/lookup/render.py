@@ -13,7 +13,6 @@ from __future__ import annotations
 from knowledge_layer.search.trace_lanes import _trace_lanes_for_chunks
 from ris_adapter.lookup.address import Address
 from ris_adapter.lookup.address import federal_state_sentence
-from ris_adapter.lookup.as_of import parse_day
 from ris_adapter.lookup.passages import DOC_CLASS
 from ris_adapter.lookup.passages import Passage
 
@@ -24,6 +23,8 @@ from agent.common.grounding_block import SourceRevision
 from agent.common.grounding_block import render_grounding_block
 from agent.common.source_kinds import Shelf
 from agent.common.wire_v2 import TraceLane
+
+from .as_of import parse_day
 
 #: The tool's basename, as the ``sources`` step names it.
 RIS_LOOKUP_TOOL = "ris_lookup"
@@ -150,10 +151,10 @@ def _record_of(url: str) -> tuple[str | None, str | None]:
     ``source.yml``); the turn's knowledge context says which work carries that identifier. Neither is
     written here. No identifier, or no work that carries it: no record, and the citation states no role.
     """
-    from ris_adapter.client import source_record
-
     from agent.common.knowledge_context import turn_knowledge_context
     from agent.common.knowledge_context import use_for_source_ref
+
+    from ..client import source_record
 
     source = source_record()
     context = turn_knowledge_context()

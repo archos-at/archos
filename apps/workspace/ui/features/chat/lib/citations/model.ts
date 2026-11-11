@@ -33,9 +33,8 @@
 import { mergePageRegions, type PageRegion } from '@/features/knowledge/lib/page-region'
 import type { CitationProject, CitationSource } from '../../types'
 import type { CitationLineWire } from '@/shared/citation-line'
-import { hostnameOf, isHttpUrl, normalizeUrl, stripOriginToken } from './text'
-
-export { hostnameOf, isHttpUrl, normalizeUrl, stripOriginToken }
+import { hostnameOf, isHttpUrl, normalizeUrl } from './text'
+export { isHttpUrl } // `bff/agent-asks/answer-evidence.ts` imports it from here
 import {
   KIND_TO_SIGNAL,
   accentForLane,
@@ -301,8 +300,6 @@ const oibCorpusKey = (nameOrLabel: string | undefined | null): string | null => 
 const isBaseOrUnknownShelf = (shelf: Shelf | undefined): boolean =>
   shelf === undefined || shelf === 'base'
 
-
-
 /**
  * Filename reduced to a comparison form: trimmed, lowercased, separators
  * (`_`, whitespace, `-`) unified to a single `-`, and ONE trailing
@@ -499,6 +496,9 @@ export const locusKey = (page: number | undefined, citationKey?: string): string
 // Presentation — derived once, here
 // ---------------------------------------------------------------------------
 
+/** Strip a leading `[KB]`/`[RIS]`/`[Web]` token from display text. */
+export const stripOriginToken = (text: string): string =>
+  text.replace(/^\s*\[(KB|Web|RIS)\]\s*/i, '').trim()
 
 /**
  * Coarse kind for a source, canonical wire value first.
