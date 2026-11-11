@@ -2,6 +2,6 @@
 # area: general
 improvements:
   - >
-    Page titles read the same across the app again: one size and a lighter
-    weight on every page, the project list included, instead of a heavy title
-    on some pages and a thin one on others.
+    Page headers are calmer again: every page title has one size and a lighter
+    weight, a line now separates the header from the page, and the office
+    filing keeps its search, filter and buttons in one row under its title.

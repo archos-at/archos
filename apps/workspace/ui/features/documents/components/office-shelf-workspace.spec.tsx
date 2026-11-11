@@ -8,6 +8,14 @@ import { OfficeShelfWorkspace } from './office-shelf-workspace'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
 import { shelfGet, shelfPost } from '@/test-utils/shelf-handlers'
 
+/** The tool row measures itself: every box reports `width`, as a sheet that wide would. Restored after each test. */
+function deskWidth(width: number): void {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+}
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 /**
  * The completion toast is an assertion here, not decoration: it is the only
  * moment the Archiv tells a user that the file they uploaded became usable.
@@ -128,10 +136,15 @@ describe('OfficeShelfWorkspace — library listing', () => {
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('pins the row with „All files" and „New folder" while the listing scrolls', async () => {
+  // As a project's Dateien (review of 2026-11-11): the title on its line, the tools in one row under it, the level's
+  // „Select“ and „Create folder“ in that row and not in a row of their own over the listing.
+  it('puts the level\u2019s tools in the tool row under the title', async () => {
+    deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
-    const row = await screen.findByTestId('folder-breadcrumb-row')
-    expect(row).toHaveClass('sticky', 'top-0', 'z-10', 'bg-background')
+    const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
+    expect(row).toHaveAttribute('data-tier', 'wide')
+    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
   // The count is the shelf's, counted by the server (ADR-0102): the listing on
@@ -869,6 +882,7 @@ describe('OfficeShelfWorkspace — folders', () => {
         )
       })
     )
+    deskWidth(1200)
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 

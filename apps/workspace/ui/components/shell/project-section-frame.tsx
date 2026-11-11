@@ -16,7 +16,6 @@ import {
   useCallback,
   useContext,
   useLayoutEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -33,6 +32,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { phoneBackTarget } from './phone-tabs'
 import { SectionNav, type SectionNavItem } from './section-nav'
 import { ShellSearchButton } from './shell-search-button'
+import { SectionToolRow, SectionToolRowScope } from './section-tool-row'
 import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -71,7 +71,7 @@ const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['memb
 
 /**
  * Pages inside a section: Dateien's places. The header names the open place
- * („E-Mail-Eingang“, 24/32/500) under a muted crumb of where it is („Projekt ›
+ * („E-Mail-Eingang“, 20/28/500) under a muted crumb of where it is („Projekt ›
  * Dateien“), and carries the places as tabs (Alle Dateien, E-Mail-Eingang,
  * Offene Punkte, Papierkorb), so a sub-page never draws a second title or its
  * own way back, and the E-Mail-Eingang is a place beside the files rather than a
@@ -94,75 +94,26 @@ function subpageOf(pathname: string): Subpage | null {
  * Büroablage is a project's Dateien with the project taken out, and its header
  * is this one: one class, so the two stores cannot drift apart.
  */
-// No line under it (the design system: none under the header): white space and the content's own start separate it.
-export const SECTION_HEADER_CLASS = 'shrink-0 bg-background px-4 py-4 phone:py-2 md:px-8'
+// One rule under it: the header (title, places, tools) is one block and the listing another, and with white space
+// alone the tools read as the listing's first row (review of 2026-11-11, „im Zweifelsfall wieder eine Outline an den
+// unteren Rand“). It had one until 2026-11-10. The only rule Dateien draws between blocks (`tests/brand-literals.spec.ts`).
+export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
 
 const ActionsContext = createContext<(node: ReactNode, onTitleLine?: boolean) => void>(() => {})
 
-/**
- * The end of the tabs row, for the tools of the level a tab shows (Dateien's
- * „Auswählen“ and „Ordner anlegen“ at the root): null where there is no such
- * row (a phone, a page outside the frame), and the caller keeps them inline.
- */
-const TabActionsContext = createContext<((node: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => void) | null>(null)
+// The tool row moved to its own module so the Büroablage can draw it too; its readers still import it from here.
+export {
+  ProjectSectionTabActions,
+  SectionLevelTools,
+  useInSectionToolRow,
+  useSectionNewFolder,
+  useSectionPrimaryYields,
+  useSectionTabActionsSlot,
+  useSectionToolTier,
+  type SectionToolTier,
+} from './section-tool-row'
 
-/**
- * How much of Dateien's tool row fits beside itself, from the row's own width: `wide` holds every press with its
- * words; `medium` moves „Ordner anlegen“ into Hochladen's menu (from about 1100px of screen beside the rail);
- * `narrow` (a tablet beside the rail) folds the view into the ⋯, the filter to its glyph and Hochladen to its glyph.
- * The row never wraps: it wrapped into three rows at 1440px beside a long title (review of 2026-11-10, finding 1).
- */
-export type SectionToolTier = 'wide' | 'medium' | 'narrow'
-/** The row widths (px) at which a tier begins; the German words are the wider ones. */
-const TIER_FLOORS: readonly [SectionToolTier, number][] = [
-  ['wide', 860],
-  ['medium', 680],
-]
-const tierFor = (width: number): SectionToolTier => TIER_FLOORS.find(([, floor]) => width >= floor)?.[0] ?? 'narrow'
-interface LevelTools {
-  tools: ReactNode
-  newFolder?: () => void
-  /** The level shows its empty state, whose Hochladen is the pane's one primary: the row's steps back. */
-  emptyLevel?: boolean
-}
-// Two contexts: the level's tools are registered by a reader of the tier (`FolderBreadcrumbRow`), and one context
-// holding both re-rendered it on every registration, which registered again (a render loop).
-const ToolTierContext = createContext<SectionToolTier | null>(null)
-const LevelToolsContext = createContext<LevelTools | null>(null)
 
-/** True inside the tool row: its Hochladen is the one that steps back, folds to its glyph and takes „Neuer Ordner“. */
-const ToolRowContext = createContext(false)
-
-/** Whether this control stands in Dateien's tool row (the empty state's Hochladen does not, and keeps its ink). */
-export function useInSectionToolRow(): boolean {
-  return useContext(ToolRowContext)
-}
-
-/** The tool row's tier, or null outside the section's frame (the Büroablage, a spec), which keeps its own header. */
-export function useSectionToolTier(): SectionToolTier | null {
-  return useContext(ToolTierContext)
-}
-
-/** Where the level's own tools („Auswählen“, „Ordner anlegen“) stand in the tool row: before Hochladen. */
-export function SectionLevelTools(): ReactNode {
-  return useContext(LevelToolsContext)?.tools ?? null
-}
-
-/**
- * Whether the tool row's Hochladen steps back to the raised press: an empty level's own Hochladen is the one ink press
- * then (one primary per pane; two black Hochladen 300px apart asked which one, review of 2026-11-10, finding 8).
- */
-export function useSectionPrimaryYields(): boolean {
-  return useContext(LevelToolsContext)?.emptyLevel === true
-}
-
-/** „Neuer Ordner“ for Hochladen's menu, where the row has no room for its press; null where the press stands. */
-export function useSectionNewFolder(): (() => void) | null {
-  const tier = useContext(ToolTierContext)
-  const level = useContext(LevelToolsContext)
-  if (tier === null || tier === 'wide') return null
-  return level?.newFolder ?? null
-}
 
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
   return PROJECT_SECTION_KEY_SET.has(segment)
@@ -275,36 +226,6 @@ export function ProjectSectionPlace({ title, trail, phoneTrail, up, count }: Sec
   return null
 }
 
-/** Whether {@link ProjectSectionTabActions} has a row to go to; where not, the caller renders its tools itself. */
-export function useSectionTabActionsSlot(): boolean {
-  return useContext(TabActionsContext) !== null
-}
-
-/**
- * Portal a tab's level tools to the end of its tabs row. At the root of
- * Dateien the path row held only these two presses, a row of its own above
- * the brief; beside the tab that names the level they cost no row. Renders
- * nothing at the call site.
- */
-export function ProjectSectionTabActions({
-  children,
-  newFolder,
-  emptyLevel = false,
-}: {
-  children: ReactNode
-  /** Opens „Neuer Ordner“ from Hochladen's menu, where the row has no room for the press (`useSectionNewFolder`). */
-  newFolder?: () => void
-  /** The level shows its empty state (`useSectionPrimaryYields`). */
-  emptyLevel?: boolean
-}): null {
-  const setTabActions = useContext(TabActionsContext)
-  useLayoutEffect(() => {
-    if (!setTabActions) return
-    setTabActions(children, newFolder, emptyLevel)
-    return () => setTabActions(null)
-  }, [children, newFolder, emptyLevel, setTabActions])
-  return null
-}
 
 /**
  * Shows what a page portals into the section header right above the page,
@@ -402,15 +323,9 @@ export function ProjectSectionFrame({
   const t = useTranslations(navCopy)
   const [{ node: actions, onTitleLine: actionsOnTitle }, setActionsState] = useState<{ node: ReactNode; onTitleLine: boolean }>({ node: null, onTitleLine: false })
   const setActions = useCallback((node: ReactNode, onTitleLine = false) => setActionsState({ node, onTitleLine }), [])
-  const [level, setLevel] = useState<LevelTools | null>(null)
-  const setTabActions = useCallback(
-    (tools: ReactNode, newFolder?: () => void, emptyLevel?: boolean) => setLevel(tools === null ? null : { tools, newFolder, emptyLevel }),
-    []
-  )
   const [pageBack, setPageBack] = useState<SectionBack | null>(null)
   const [placeState, setPlace] = useState<SectionPlace | null>(null)
   const phone = useMediaQuery(PHONE_QUERY)
-  const tier = useToolTier()
 
   if (isProjectChatPath(pathname, projectId)) {
     return <>{children}</>
@@ -455,9 +370,7 @@ export function ProjectSectionFrame({
     <BackContext.Provider value={setPageBack}>
     <PlaceContext.Provider value={allFiles ? setPlace : null}>
     <ActionsContext.Provider value={setActions}>
-    <TabActionsContext.Provider value={files && !phone ? setTabActions : null}>
-    <ToolTierContext.Provider value={files && !phone ? tier.value : null}>
-    <LevelToolsContext.Provider value={files && !phone ? level : null}>
+    <SectionToolRowScope enabled={files && !phone}>
       <div className="@container/section flex h-full min-h-0 flex-col">
         {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
             section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
@@ -530,35 +443,14 @@ export function ProjectSectionFrame({
           )}
           {/* The tab's tools, on the title's left edge, one row that never wraps (`useSectionToolTier`). */}
           {toolRow && (
-            <div ref={tier.ref} className="mt-4 flex min-w-0 items-center" data-testid="files-tool-row" data-tier={tier.value}>
-              <ToolRowContext.Provider value>{actions}</ToolRowContext.Provider>
-            </div>
+            <SectionToolRow className="mt-4">{actions}</SectionToolRow>
           )}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden pt-px' : 'overflow-y-auto')}>{children}</div>
       </div>
-    </LevelToolsContext.Provider>
-    </ToolTierContext.Provider>
-    </TabActionsContext.Provider>
+    </SectionToolRowScope>
     </ActionsContext.Provider>
     </PlaceContext.Provider>
     </BackContext.Provider>
   )
-}
-
-/** The tool row's tier from its width, measured before paint and on every resize. */
-function useToolTier(): { ref: (element: HTMLDivElement | null) => void; value: SectionToolTier } {
-  const [value, setValue] = useState<SectionToolTier>('wide')
-  const observer = useRef<ResizeObserver | null>(null)
-  const ref = useCallback((element: HTMLDivElement | null) => {
-    observer.current?.disconnect()
-    observer.current = null
-    if (!element) return
-    const read = (): void => setValue(tierFor(element.getBoundingClientRect().width))
-    read()
-    if (typeof ResizeObserver === 'undefined') return
-    observer.current = new ResizeObserver(read)
-    observer.current.observe(element)
-  }, [])
-  return { ref, value }
 }

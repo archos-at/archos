@@ -52,11 +52,11 @@ describe('weight', () => {
     expect(offenders).toEqual([])
   })
 
-  it('the type scale carries a title by size at 500 and the small heading at 600: section 16/600, pane title 20/500, page title 24/500', () => {
-    // The titles were 600 from 2026-11-10 and read heavy beside every page that still set its own 500 title
+  it('the type scale carries a title by size at 500 and the small heading at 600: section 16/600, pane title 18/500, page title 20/500', () => {
+    // The titles were 24/600 from 2026-11-10 and read heavy beside every page that still set its own 20/500 title
     // (review of 2026-11-11). 600 stays for the 16px heading, which size alone does not lift off the body.
     const tokens = readFileSync(join(ROOT, 'ui/styles/tokens.css'), 'utf8')
-    for (const [name, size, weight] of [['section', '1rem', '600'], ['pane-title', '1.25rem', '500'], ['page-title', '1.5rem', '500']]) {
+    for (const [name, size, weight] of [['section', '1rem', '600'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500']]) {
       expect(tokens, name).toMatch(new RegExp(`--text-${name}:\\s*${size};`))
       expect(tokens, name).toMatch(new RegExp(`--text-${name}--font-weight:\\s*${weight};`))
     }
@@ -372,12 +372,19 @@ describe('lines for lists, space for sections', () => {
   // a block or a dashed box; the rows of a list are separated by an inset hairline (`ROW_HAIRLINE`, ink at 8%).
   // A pinned bar over scrolling content takes the faint `shadow-pinned-foot`; a split view's pane divider is a
   // function and not matched.
+  // The one rule a page draws between blocks: under its header band, one class for every section and the Büroablage
+  // (review of 2026-11-11: without it the tool row read as the listing's first row).
+  const HEADER_BAND = /export const SECTION_HEADER_CLASS = '[^']*'/
   it('Dateien and the E-Mail-Eingang draw no rule between sections (a list\u2019s rows use ROW_HAIRLINE)', () => {
     const offenders = files
       .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
-      .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text)))
+      .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text).replace(HEADER_BAND, '')))
       .map((f) => f.name)
     expect(offenders).toEqual([])
+  })
+  it('the header band ends in one rule', () => {
+    const frame = files.find((f) => f.name === 'ui/components/shell/project-section-frame.tsx')?.text ?? ''
+    expect(frame.match(HEADER_BAND)?.[0]).toMatch(/\bborder-b border-border\b/)
   })
   it('the hairline is the token, and the Papierkorb, Offene Punkte and the mail list wear it', () => {
     expect(files.find((f) => f.name === 'ui/components/ui/row-hairline.ts')?.text).toMatch(/after:bg-hairline/)

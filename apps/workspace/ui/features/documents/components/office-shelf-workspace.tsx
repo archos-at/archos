@@ -4,10 +4,12 @@ import { useMemo, type ReactNode } from 'react'
 import { CountPill } from '@/components/ui/count-pill'
 import { PageHeader } from '@/components/ui/page-header'
 import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
+import { SectionToolRow, SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { useTranslations } from '@/i18n'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
 import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
+import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
@@ -43,6 +45,7 @@ export function OfficeShelfWorkspace({
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
+  const phone = usePhoneLayout()
   // „Suche“ in place of the listing (`?mode=search`), scoped to the shelf and the open folder.
   const search = useShelfSearchMode()
 
@@ -89,19 +92,19 @@ export function OfficeShelfWorkspace({
   }
 
   return (
-    <FileWorkspace
-      shelf={shelf}
-      onOpenSearch={search.open}
-      renderHeader={(controls, { count }) => (
-        // The project section's header band and PageHeader, so the Büroablage
-        // reads as the same kind of store. The count stays with the title: it is
-        // a property of the store, and the one number a reader wants before they
-        // filter. The sheet's close sits beside the header, top right on a phone
-        // too, where the thumb looks for the way out.
-        <div className={SECTION_HEADER_CLASS} data-testid="office-shelf-header">
-          <div className="flex min-w-0 items-start gap-3 sm:items-end">
+    // Dateien's tool row, in the same scope a project's Dateien has from its frame: the level's „Auswählen“ and
+    // „Ordner anlegen“ join it instead of standing in a row of their own over the brief.
+    <SectionToolRowScope enabled={!phone}>
+      <FileWorkspace
+        shelf={shelf}
+        onOpenSearch={search.open}
+        renderHeader={(controls, { count }) => (
+          // The project section's header band and PageHeader, so the Büroablage reads as the same kind of store: the
+          // title with its count on one line (the sheet's close at its end, top right on a phone too, where the thumb
+          // looks for the way out), the tools in one row under it, a line under the band. The count stays with the
+          // title: it is a property of the store, and the one number a reader wants before they filter.
+          <div className={SECTION_HEADER_CLASS} data-testid="office-shelf-header">
             <PageHeader
-              className="flex-1"
               title={
                 <span className="inline-flex min-w-0 items-center gap-2">
                   {t('title')}
@@ -109,21 +112,17 @@ export function OfficeShelfWorkspace({
                 </span>
               }
               subtitle={t('subtitle')}
-              action={
-                // `max-w-full` keeps the controls inside the card: on a phone the
-                // header stacks and the controls take the full width under the title.
-                <div
-                  className="flex min-w-0 max-w-full items-center justify-end gap-2 max-sm:w-full [&>*]:max-w-full"
-                  data-testid="office-shelf-controls"
-                >
-                  {controls}
-                </div>
-              }
+              action={trailingActions}
+              actionInline
             />
-            {trailingActions && <div className="flex shrink-0 items-center">{trailingActions}</div>}
+            <SectionToolRow className="mt-4">
+              <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
+                {controls}
+              </div>
+            </SectionToolRow>
           </div>
-        </div>
-      )}
-    />
+        )}
+      />
+    </SectionToolRowScope>
   )
 }

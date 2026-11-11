@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 /**
  * PageHeader — the single, documented page-title block every content page opens
  * with (see `design-language.md` §"Component patterns"). One primitive so
- * the title stays on-spec (`text-page-title`, 24/32/500) instead of the
+ * the title stays on-spec (`text-page-title`, 20/28/500) instead of the
  * drifted copies each page hand-rolled.
  *
  * @example
@@ -95,7 +95,7 @@ const TITLE_ROW_CLASS =
 const TITLE_COLUMN_CLASS = 'min-w-0 sm:min-w-56'
 
 /**
- * A page's title: 24/32/500 (`text-page-title`), 16/24/500 on a phone. For the few pages whose header the primitive
+ * A page's title: 20/28/500 (`text-page-title`), 16/24/500 on a phone. For the few pages whose header the primitive
  * cannot lay out (the projects list's three-cell grid, the intake wizard's eyebrow row), so their title is the same
  * as every other page's. It was `text-xl font-medium` there while `PageHeader` set 24/600, and the app's titles read
  * in two weights. `font-medium` holds 500 on a phone, where the title takes the section's size and would otherwise
