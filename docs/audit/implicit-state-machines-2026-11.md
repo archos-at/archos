@@ -147,7 +147,7 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Card decision | accepted, rejected, saved, dismissed, partiallyApplied | `features/cards/card-decision.ts` | |
 | Run block (four literal sets) | the ledger's | `features/runs/components/RunBlock.tsx` | |
 | Task list filter | active, broken | `features/tasks/lib/task-view.ts` | `skipped` and `interrupted` in neither |
-| Tracked upload row | uploading, ingesting, success, failed, deleting, canceled, held, stored | `features/documents/types.ts`, six writers | statechart candidate |
+| Tracked upload row | uploading, ingesting, success, failed, deleting, canceled, held, stored | `features/documents/types.ts`, six writers | tried and withdrawn, see below (read) |
 | Upload pollers (three loops) | polling, session poll, watching | `features/documents/orchestrator.ts` | a stored `isPolling` kept by hand |
 | Canvas ask | composing, thinking, answered, declined, handedOff, stopped, failed | `features/documents/hooks/use-canvas-ask.ts` | a stored projection of the turn |
 | Root-sort dialog phase | loading, intro, working, review, done, undone, failed, cancelled | `features/documents/lib/root-sort-phase.ts` | already one pure function |
@@ -176,6 +176,37 @@ Paths are under `apps/workspace/` unless they start with a package.
 | Change-request review ladder | the server's | `features/platform/components/change-request-review.tsx` | repeats a server list |
 | Schedule wizard | task, schedule, review | `features/jobs/components/schedule-wizard.tsx` | |
 | Fetch state | at least seven shapes, about twelve components with a `loading` and a `failed` boolean | `features/platform`, `search`, `knowledge`, `product-feedback` | no shared hook |
+
+### The upload row: why a status guard is the wrong fix
+
+A guard was written for this row (a declared lifecycle, and one function that
+refuses a report moving a settled row back to `uploading` or `ingesting`) and
+withdrawn before it was committed. What it taught:
+
+* The row mirrors the server, so almost every move between its states is one
+  the server really makes. A table of its legal moves is close to the complete
+  graph and constrains nothing.
+* The status alone cannot tell a stale report from a true one. A read-again
+  started in another tab, or from the document menu, reaches this row only as
+  a listing that says `ingesting` on a row that says `success`: the same write
+  as a poll that is one answer behind. Refusing it hides a read that is
+  running. A job that retries reports `failed` and then `ingesting` under one
+  job id (`ingest_execution.reopen`), and refusing that shows a failure the
+  retry is about to undo.
+* The flicker the comment in `use-settle-tracked-uploads.ts` names is prevented
+  today by a rule about who writes (the settle hook takes only rows without a
+  job). No sequence that produces it now was found.
+* Two facts about the vocabulary: `deleting` is drawn but never written (a
+  delete removes the row), and no writer moves a `failed` row back to
+  `uploading` (a retry removes the row and adds a new one).
+* What would fix the class: the row carries the id or the time of the report it
+  last took, and a report older than that is dropped. That needs the server to
+  send one, so it is a change to the listing and the job status, not to the
+  store.
+* One defect confirmed on the way and not fixed: `mapToDisplayStatus`
+  (`features/documents/utils.ts`) has no case for `canceled` and draws such a
+  row as uploading in the chat's file sources; the fix needs a `canceled`
+  member on `FileSourceStatus`.
 
 ## Wire and protocol vocabularies
 
@@ -221,8 +252,9 @@ is one change: declare, replace the literals at the writers, register.
 6. **The Python tier.** A `define_lifecycle` with the same shape, and the
    declarations generated into `contracts/` so the mirrored lists (job state,
    file status, run ledger, annotation, document version) have one source.
-7. **The four UI statecharts** (turn socket, dictation, upload row, chat turn
-   fold), on XState when v6 is stable; and one shared fetch-state hook for the
+7. **The UI statecharts.** Dictation and the turn socket run on XState v5 now;
+   the chat turn fold can follow. The upload row needs a report id first (see
+   above); and one shared fetch-state hook for the
    twelve components with two booleans.
 8. **The agent door.** A resource that serves the registry, so a calling agent
    can read which moves a record accepts before it asks for one.

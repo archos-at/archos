@@ -23,9 +23,9 @@ there, a literal list repeated in a second file.
 That costs each of the three readers something:
 
 * **A person using the product** meets the gaps as states that disagree. The
-  upload tray has eight statuses written from six files by three writers, and a
-  comment in `use-settle-tracked-uploads.ts` records that finished uploads
-  flickered back. A mail import had two lists both called "open" with different
+  upload tray has eight statuses written from six files by three writers, kept
+  apart only by a rule in a comment (`use-settle-tracked-uploads.ts`: two
+  writers on one row is how a finished upload flickers back). A mail import had two lists both called "open" with different
   members.
 * **A developer** cannot answer "what may this become" without reading every
   writer. The annotation's moves were five `if` lines in a service; the root
