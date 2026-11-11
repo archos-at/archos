@@ -138,7 +138,7 @@ describe('ProfileStep', () => {
       )
     })
 
-    it('marks an edition whose scope waits for a building fact as to check, and says which fact (ADR-0176)', async () => {
+    it('marks an edition whose scope waits for a building fact as to check, and says which fact (ADR-0178)', async () => {
       setup(PROFILE_REVIEW)
       const chip = screen.getByRole('button', { name: 'OIB-RL 2.3 2023, binding, to check' })
       expect(chip).toHaveAttribute('data-applicability', 'check')

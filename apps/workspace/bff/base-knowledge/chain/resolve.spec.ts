@@ -243,6 +243,31 @@ describe('law and routes', () => {
     expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
     expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
   })
+
+  it('reads the scope of the edition chosen for the date, not of another edition of the work (ADR-0178)', () => {
+    // Synthetic thresholds: the 2023 edition is written for buildings above 22 m, the 2025 one above 25 m.
+    const above = (metres: number) => ({
+      inputs: [{ key: 'escape_level_m', type: 'number' }],
+      output: { type: 'boolean' },
+      rows: [
+        { id: 'above', when: { '>': [{ var: 'escape_level_m' }, metres] }, then: true },
+        { id: 'up-to', when: { '<=': [{ var: 'escape_level_m' }, metres] }, then: false },
+      ],
+      otherwise: { then: false },
+    })
+    const thresholds: Record<string, number> = { 'oib-rl-6-2023': 22, 'oib-rl-6-2025': 25 }
+    const scoped = graphFromProposals(
+      parse(AUSTRIA.map((record) => ('key' in record && record.key in thresholds ? { ...record, appliesWhen: above(thresholds[record.key]) } : record))),
+    )
+    const bindingAt = (date: string, metres: number) =>
+      usesOf(resolveChain(scoped, 'AT-9', date, { buildings: [{ buildingId: 'bldg1', inputs: { escape_level_m: metres } }] }), 'work:oib-rl-6').filter(
+        (use) => use.role === 'binding',
+      )
+    // Wien binds the 2023 edition until 2026-07-15 and the 2025 edition from that day.
+    expect(bindingAt('2026-07-14', 23)).toMatchObject([{ editionId: 'edition:oib-rl-6-2023', applicability: { verdict: 'applies' } }])
+    expect(bindingAt('2026-07-15', 23)).toEqual([])
+    expect(bindingAt('2026-07-15', 26)).toMatchObject([{ editionId: 'edition:oib-rl-6-2025', applicability: { verdict: 'applies' } }])
+  })
 })
 
 describe('deviations, precedence and packs', () => {
