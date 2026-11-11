@@ -179,6 +179,14 @@
           "section": "features",
           "area": "building-law",
           "text": {
+            "en": "A project with a filing date of today or earlier now gets its building-law answers, and the law named on its project page, on the editions in force that day, not today's. The answer says it took the filing date as the reference date and did not check transitional provisions.",
+            "de": "Ein Projekt mit einem Einreichdatum von heute oder früher erhält seine baurechtlichen Antworten und das auf seiner Projektseite angeführte Gesetz nun in der an diesem Tag geltenden Fassung statt in der heutigen. Die Antwort gibt an, dass sie das Einreichdatum als Stichtag herangezogen und Übergangsbestimmungen nicht geprüft hat."
+          }
+        },
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
             "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
             "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
           }

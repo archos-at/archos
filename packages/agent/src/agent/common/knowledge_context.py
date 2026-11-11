@@ -183,7 +183,7 @@ class KnowledgeContext:
     chains: dict[str, tuple[str, ...]] = field(default_factory=dict)
     packs: dict[str, int] = field(default_factory=dict)
     retrieval_countries: frozenset[str] = frozenset()
-    #: Per procedure, per node: the reference day's basis (``undetermined`` until a reviewed rule names it).
+    #: Per procedure, per node: the reference day (a filing day that has come), else its basis (``undetermined``).
     reference_dates: dict[str, dict[str, str]] = field(default_factory=dict)
     uses: tuple[EditionUse, ...] = ()
     #: The chain text the BFF rendered for the site: the turn's ``<building_law>`` block. None when nothing binds.
