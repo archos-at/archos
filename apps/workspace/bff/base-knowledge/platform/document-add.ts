@@ -17,13 +17,13 @@
  */
 
 import 'server-only'
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { ApiError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { knowledgeEditionRevisions, knowledgeRecords, knowledgeWorkRevisions } from '@/lib/db/schema/knowledge-records'
 import { capturesOf, isPdf } from './captures'
-import { type AddDocumentBody, type AddDocumentResult, type CountryWorkView, keyPart, quoteNaming, type UploadDocumentFields } from './document-add-wire'
+import { type AddDocumentBody, type AddDocumentResult, type CountryWorkView, keyPart, type ListWorksQuery, quoteNaming, type UploadDocumentFields } from './document-add-wire'
 import { capturePlatformCitation } from './onboarding'
 import { createPlatformChangeRequest, proposePlatformRecords } from './service'
 import { requirePlatform } from './service-gate'
@@ -36,17 +36,30 @@ import { type CaptureBody, type ProposedRecord, proposedRecordSchema } from './w
 type ProposedBy = 'person' | 'agent'
 type DocumentInput = Pick<AddDocumentBody, 'work' | 'label' | 'inForceFrom'> & { licenceClass?: AddDocumentBody['licenceClass'] }
 
-/** The released works of a country, newest key last, with their released editions' labels. */
-export async function listCountryWorks(session: UserSession | null, countryId: string): Promise<{ works: CountryWorkView[] }> {
+/** The released works of a country by key, a page at a time, with their released editions' labels. */
+export async function listCountryWorks(
+  session: UserSession | null,
+  countryId: string,
+  page: ListWorksQuery = { limit: 500 },
+): Promise<{ works: CountryWorkView[]; nextCursor: string | null }> {
   await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
   return platformTransaction(async (tx) => {
     const works = await tx
       .select({ id: knowledgeRecords.id, title: knowledgeWorkRevisions.title, kind: knowledgeWorkRevisions.kind, identifiers: knowledgeWorkRevisions.identifiers })
       .from(knowledgeRecords)
       .innerJoin(knowledgeWorkRevisions, eq(knowledgeWorkRevisions.revisionId, knowledgeRecords.headRevisionId))
-      .where(and(isNull(knowledgeRecords.organizationId), eq(knowledgeRecords.type, 'work'), eq(knowledgeRecords.countryId, countryId)))
+      .where(
+        and(
+          isNull(knowledgeRecords.organizationId),
+          eq(knowledgeRecords.type, 'work'),
+          eq(knowledgeRecords.countryId, countryId),
+          page.cursor ? gt(knowledgeRecords.id, `work:${page.cursor}`) : undefined,
+        ),
+      )
       .orderBy(knowledgeRecords.id)
-      .limit(500)
+      .limit(page.limit + 1)
+    const more = works.length > page.limit
+    works.splice(page.limit)
     const ids = works.map((work) => work.id)
     const editions = ids.length
       ? await tx
@@ -58,6 +71,7 @@ export async function listCountryWorks(session: UserSession | null, countryId: s
           .limit(5000)
       : []
     return {
+      nextCursor: more ? (works.at(-1)?.id.replace(/^work:/, '') ?? null) : null,
       works: works.map((work) => ({
         workKey: work.id.replace(/^work:/, ''),
         title: work.title,
@@ -71,7 +85,8 @@ export async function listCountryWorks(session: UserSession | null, countryId: s
 
 /** The work the document belongs to, as the records name it. */
 async function resolveWork(session: UserSession, countryId: string, work: DocumentInput['work']) {
-  const { works } = await listCountryWorks(session, countryId)
+  // Every work, so the one named or a new one's key is found whatever page it is on.
+  const { works } = await listCountryWorks(session, countryId, { limit: 5000 })
   if ('workKey' in work) {
     const found = works.find((one) => one.workKey === work.workKey)
     if (!found) throw new NotFoundError(`No released work ${work.workKey} in ${countryId}; list them with platform-knowledge-work-list, or name a new work.`)

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { guessFromName, keyPart, quoteNaming, uploadDocumentFieldsSchema, type CountryWorkView } from './document-add-wire'
 import { citationProblems } from './validate'
+import { proposedRecordSchema } from './wire'
 
 /** What "Add a document" composes before it calls the services: keys, the quotes KC-6 checks, and the prefill. */
 
@@ -19,8 +20,8 @@ describe('document-add wire', () => {
     const text = 'Guideline\nRL 1\n\nMechanical resistance and stability\fEdition April 2019 issued by the institute'
     const quote = quoteNaming(text, 'April 2019')
     expect(quote).toContain('April 2019')
-    const edition = { type: 'edition', key: 'e', workKey: 'w', label: 'April 2019', issuedOn: null, inForceFrom: null, inForceTo: null, transition: null, appliesWhen: null, citations: [{ captureId: 'c', quote: quote ?? '' }] } as const
-    expect(citationProblems(edition, new Map([['c', { text, basis: 'fetched' as const }]]))).toEqual([])
+    const edition = proposedRecordSchema.parse({ type: 'edition', key: 'e', workKey: 'w', label: 'April 2019', citations: [{ captureId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e', quote }] })
+    expect(citationProblems(edition, new Map([['0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e', { text, basis: 'fetched' as const }]]))).toEqual([])
     expect(quoteNaming(text, 'May 2020')).toBeNull()
   })
 

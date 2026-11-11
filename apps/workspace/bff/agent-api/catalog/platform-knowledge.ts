@@ -36,7 +36,8 @@ import {
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
 import { importTextBodySchema, listTextsQuerySchema, uploadTextFields } from '@/lib/base-knowledge/platform/text-wire'
-import { addDocumentBodySchema, uploadDocumentFields } from '@/lib/base-knowledge/platform/document-add-wire'
+import { goldenRunAdvanceBodySchema, goldenRunBodySchema, goldenRunParamsSchema } from '@/lib/base-knowledge/wire/golden-case'
+import { addDocumentBodySchema, listWorksQuerySchema, uploadDocumentFields } from '@/lib/base-knowledge/platform/document-add-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
 import { MAX_UPLOAD_BYTES, uploadBodySchemaWith } from '../upload-wire'
 
@@ -256,10 +257,11 @@ export const platformKnowledgeOperations = [
     summary: 'List a country’s released works with their editions',
     description:
       'Each released work of `countryId` with its `workKey`, title, designation and kind, and its released editions’ labels: ' +
-      'what platform-knowledge-document-add files a PDF under, by `workKey`.',
+      'what platform-knowledge-document-add files a PDF under, by `workKey`. Sorted by key; `nextCursor` pages on.',
     method: 'GET',
     path: '/api/platform/knowledge/countries/[countryId]/works',
     params: countryParams,
+    query: listWorksQuerySchema,
     load: () => import('@/app/api/platform/knowledge/countries/[countryId]/works/route'),
   },
   {
@@ -278,14 +280,14 @@ export const platformKnowledgeOperations = [
     idempotent: true,
     examples: [
       {
-        params: { countryId: 'AT' },
-        body: { url: 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf', work: { workKey: 'at-oib-rl-1' }, label: 'April 2019', inForceFrom: null },
+        params: { countryId: 'XX' },
+        body: { url: 'https://publisher.example/files/guideline-1-2019.pdf', work: { workKey: 'xx-guideline-1' }, label: 'April 2019', inForceFrom: null },
       },
     ],
     load: () => import('@/app/api/platform/knowledge/countries/[countryId]/documents/route'),
   },
   {
-    name: 'platform-knowledge-document-upload',
+    name: 'platform-knowledge-document-add-upload',
     domain: 'platform',
     summary: 'Add an uploaded PDF to a country, in one call',
     description:
@@ -467,6 +469,58 @@ export const platformKnowledgeOperations = [
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/index-status',
     params: requestParams,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/index-status/route'),
+  },
+  {
+    name: 'platform-knowledge-golden-run',
+    domain: 'platform',
+    summary: 'Run a country’s golden cases through the real answer path and score them',
+    description:
+      'Starts a run of the country’s golden cases (golden_case records): the released ones, or with `changeRequestId` ' +
+      'those of a change request published to preview. Each case is asked as you, in the platform organization, as ' +
+      'agent-ask-create asks, at the site and with the facts the case states, on the law released for that country; ' +
+      'the platform organization must be entitled to it. Each answer is scored against its case: expected values ' +
+      'present, the edition named, each citation resolving to a cited source and its locus, no must-not violated, ' +
+      'with its seconds and its cost from the usage ledger. An expectation with grounding `unconfirmed` is scored and ' +
+      'never decides the case. Asks four cases at once and returns the run; then call ' +
+      'platform-knowledge-golden-run-advance until `finishedAt` is set. Uses the platform organization’s model ' +
+      'budget. Scores are on each answer’s Langfuse trace, under the dataset run `datasetRun`.',
+    method: 'POST',
+    path: '/api/platform/knowledge/golden-runs',
+    body: goldenRunBodySchema,
+    idempotent: false,
+    examples: [{ body: { countryId: 'XA' } }],
+    load: () => import('@/app/api/platform/knowledge/golden-runs/route'),
+  },
+  {
+    name: 'platform-knowledge-golden-run-advance',
+    domain: 'platform',
+    summary: 'Step a golden run: score the cases that were answered and ask the next',
+    description:
+      'Waits up to `waitSeconds` for the running cases, scores those whose answer arrived, asks the next pending ' +
+      'cases (four at once) and returns the run as platform-knowledge-golden-run-get does. Repeat until `finishedAt` ' +
+      'is set. Only the person who started the run steps it. A case that could not be answered is settled with ' +
+      '`failure` and no verdict.',
+    method: 'POST',
+    path: '/api/platform/knowledge/golden-runs/[runId]/advance',
+    params: goldenRunParamsSchema,
+    body: goldenRunAdvanceBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/platform/knowledge/golden-runs/[runId]/advance/route'),
+  },
+  {
+    name: 'platform-knowledge-golden-run-get',
+    domain: 'platform',
+    summary: 'Read a golden run: every case with its verdict, checks and scores',
+    description:
+      'The run’s `summary` (cases pending, asked, settled, passed, failed, unanswered, and expectations no reviewer ' +
+      'confirmed), `medianSeconds`, `medianCostUsd`, the stable `releaseSeq` it was answered on, and per case its ' +
+      '`state`, `passed`, and `result`: each check (value, edition, citation, must_not) with `passed`, whether it ' +
+      '`decides` and why it failed, the scores by name, the confidence the answer stated, its seconds, cost and ' +
+      'trace id. The answer itself is in the asker’s own conversation, by `askId` (agent-ask-get).',
+    method: 'GET',
+    path: '/api/platform/knowledge/golden-runs/[runId]',
+    params: goldenRunParamsSchema,
+    load: () => import('@/app/api/platform/knowledge/golden-runs/[runId]/route'),
   },
   {
     name: 'platform-org-countries-list',

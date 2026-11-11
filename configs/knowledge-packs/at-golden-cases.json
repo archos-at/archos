@@ -1,0 +1,2522 @@
+{
+  "$comment": "Austria's golden cases (migration 0228, ADR-0165 amendment): the 20 questions of the before-baseline (docs/design/international/quality-and-cost.md) and the dev-acceptance scenarios A1 to A8 (docs/design/international/dev-acceptance.md), proposed through records-propose in a change request for AT once the Austria pack is published, reviewed and published like any platform change; never seeded. Each record's note says where its expectation was taken from; the operator captures that source and cites it with a quote before the record can be proposed (KC-6). An expectation with grounding `unconfirmed` was not checked against a text or a record in this repository: a reviewer confirms or rewrites it. Edit the records, not a generator.",
+  "countryId": "AT",
+  "title": "Austria: golden cases from the before-baseline and the dev acceptance",
+  "records": [
+    {
+      "type": "golden_case",
+      "key": "at-b01-escape-route-vienna",
+      "question": "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "longest walking distance to the stair",
+            "anyOf": [
+              "40 m",
+              "40 Meter"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 2",
+            "alsoKnownAs": [
+              "OIB-RL 2",
+              "oib-rl_2"
+            ],
+            "grounding": "text",
+            "locus": "5.1.1"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b1",
+        "fire-safety"
+      ],
+      "citations": [
+        {
+          "note": "OIB-Richtlinie 2, Ausgabe Mai 2023 (OIB-330.2-029/23), Punkt 5.1.1: in höchstens 40 m Gehweglänge; binding in AT-9 by relation at-9-oib-rl-2-2023 (configs/knowledge-packs/at.json).",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b02-binding-edition-vienna",
+      "question": "Welche Fassung der OIB-Richtlinie 2 ist in Wien verbindlich?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "binding in Wien since",
+            "anyOf": [
+              "23. Februar 2024",
+              "23.02.2024",
+              "23.2.2024"
+            ],
+            "grounding": "records"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Wiener Bautechnikverordnung",
+            "alsoKnownAs": [
+              "WBTV"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b2",
+        "editions"
+      ],
+      "citations": [
+        {
+          "note": "Relation at-9-oib-rl-2-2023 (configs/knowledge-packs/at.json): WBTV 2023, LGBl. 14/2024, validFrom 2024-02-23."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b03-escape-route-no-site",
+      "question": "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?",
+      "language": "de-AT",
+      "context": {
+        "note": "A project with no site."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "asks where the project lies",
+            "anyOf": [
+              "Standort",
+              "Bundesland",
+              "Wo liegt"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b3",
+        "site"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/quality-and-cost.md, the before-baseline: B3 chose law from an unconfirmed site in project memory. What a right answer says is the reviewer's to confirm."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b04-building-class-munich",
+      "question": "Welche Gebäudeklasse hat ein Wohnhaus mit 4 Geschoßen in München?",
+      "language": "de-AT",
+      "context": {
+        "note": "No project. The office is entitled to Austria only."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "says the office's base knowledge does not cover the place",
+            "anyOf": [
+              "nicht abgedeckt",
+              "nicht freigeschaltet",
+              "deckt Deutschland nicht",
+              "kein geprüftes Basiswissen"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b4",
+        "entitlement"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A4: the office's base knowledge does not cover Germany. The wording is the reviewer's to confirm."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b05-garage-act-section-50",
+      "question": "Was sagt § 50 Wiener Garagengesetz?",
+      "language": "de-AT",
+      "context": {},
+      "expected": {
+        "values": [
+          {
+            "label": "what § 50 governs",
+            "anyOf": [
+              "Stellplatzverpflichtung",
+              "Stellplatzpflicht",
+              "Pflichtstellplätze"
+            ],
+            "grounding": "unconfirmed"
+          },
+          {
+            "label": "the ratio for dwellings",
+            "anyOf": [
+              "100 m²",
+              "100 m2"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Wiener Garagengesetz 2008",
+            "alsoKnownAs": [
+              "WGarG"
+            ],
+            "locus": "§ 50",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b5",
+        "law-lookup"
+      ],
+      "citations": [
+        {
+          "note": "§ 50 WGarG 2008 as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms each value against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b06-building-class-project",
+      "question": "Welche Gebäudeklasse ist das?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "facts": {
+          "building_type": "residential",
+          "storeys_above_ground": 6,
+          "escape_level_m": 14
+        }
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the building class",
+            "anyOf": [
+              "Gebäudeklasse 5",
+              "GK 5",
+              "GK5"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Begriffsbestimmungen",
+            "alsoKnownAs": [
+              "oib-rl_begriffsbestimmungen"
+            ],
+            "locus": null,
+            "grounding": "text"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b6",
+        "classification"
+      ],
+      "citations": [
+        {
+          "note": "OIB-Richtlinien, Begriffsbestimmungen, Ausgabe Mai 2023: GK 5 is a building with a Fluchtniveau of at most 22 m that falls into none of GK 1 to 4 (GK 4 ends at 11 m and four storeys).",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b07-office-shelf-penetration-seals",
+      "question": "Welche Brandabschottung ist für Leitungsdurchführungen laut unserer Büroablage vorgesehen?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "note": "Needs the office document Planungsbericht on the office shelf; a run in an office without it cannot pass."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "what the report provides",
+            "anyOf": [
+              "geprüfte Abschottungen",
+              "geprüften Abschottungen"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Planungsbericht",
+            "locus": null,
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b7",
+        "office-shelf"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/quality-and-cost.md, the before-baseline: B7 answered from the test office's Planungsbericht. The document is the office's, so a reviewer confirms the wording in the office that runs the case."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b08-edition-on-filing-day",
+      "question": "Welche Ausgabe der OIB-Richtlinie 2 galt für eine Einreichung am 01.06.2023?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "referenceDate": "2023-06-01"
+      },
+      "expected": {
+        "edition": {
+          "editionKey": "oib-rl-2-2019",
+          "anyOf": [
+            "Ausgabe April 2019",
+            "April 2019"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Wiener Bautechnikverordnung",
+            "alsoKnownAs": [
+              "WBTV"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b8",
+        "editions",
+        "as-of"
+      ],
+      "citations": [
+        {
+          "note": "Relation at-9-oib-rl-2-2019 (configs/knowledge-packs/at.json): validFrom 2020-02-01, validTo 2024-02-23 (exclusive)."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b09-required-parking-spaces",
+      "question": "Wie viele Pflichtstellplätze brauchen 12 Wohnungen hier?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "facts": {
+          "building_type": "residential",
+          "use_units": 12
+        }
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the ratio for dwellings",
+            "anyOf": [
+              "100 m²",
+              "100 m2"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Wiener Garagengesetz 2008",
+            "alsoKnownAs": [
+              "WGarG"
+            ],
+            "locus": "§ 50",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b9",
+        "law-lookup"
+      ],
+      "citations": [
+        {
+          "note": "§ 50 WGarG 2008 as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms each value against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b10-fire-resistance-load-bearing-gk4",
+      "question": "Welche Feuerwiderstandsklasse brauchen tragende Wände in Gebäudeklasse 4?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "other storeys above ground",
+            "anyOf": [
+              "R 60",
+              "R60"
+            ],
+            "grounding": "text"
+          },
+          {
+            "label": "top storey",
+            "anyOf": [
+              "R 30",
+              "R30"
+            ],
+            "grounding": "text"
+          },
+          {
+            "label": "storeys below ground",
+            "anyOf": [
+              "R 90"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 2",
+            "alsoKnownAs": [
+              "OIB-RL 2",
+              "oib-rl_2"
+            ],
+            "grounding": "text",
+            "locus": "Tabelle 1b"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b10",
+        "fire-safety"
+      ],
+      "citations": [
+        {
+          "note": "OIB-Richtlinie 2, Ausgabe Mai 2023 (OIB-330.2-029/23), Tabelle 1b, Zeilen 1.1 bis 1.3, Spalte GK 4: R 30, R 60, R 90 und A2; binding in AT-9 by relation at-9-oib-rl-2-2023 (configs/knowledge-packs/at.json).",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b11-lift-required-from-storeys",
+      "question": "Ab wie vielen Geschoßen ist ein Aufzug Pflicht?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the threshold",
+            "anyOf": [
+              "mehr als zwei Hauptgeschoße",
+              "mehr als zwei Hauptgeschoßen",
+              "dritten Hauptgeschoß"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Bauordnung für Wien",
+            "alsoKnownAs": [
+              "BO für Wien"
+            ],
+            "locus": "§ 111",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b11",
+        "law-lookup"
+      ],
+      "citations": [
+        {
+          "note": "§ 111 BO für Wien as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms the threshold against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b12-distance-to-boundary-styria",
+      "question": "Welcher Abstand zur Nachbargrundgrenze ist einzuhalten?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-6"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the rule",
+            "anyOf": [
+              "Geschoßanzahl + 2",
+              "Geschoßanzahl plus 2",
+              "vermehrt um 2"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Steiermärkisches Baugesetz",
+            "alsoKnownAs": [
+              "Stmk. BauG"
+            ],
+            "locus": "§ 13",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b12",
+        "law-lookup"
+      ],
+      "citations": [
+        {
+          "note": "§ 13 Stmk. BauG as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms the rule against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b13-binding-edition-styria",
+      "question": "Welche Ausgabe der OIB-Richtlinien ist in der Steiermark verbindlich?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-6"
+      },
+      "expected": {
+        "edition": {
+          "editionKey": "oib-rl-2-2019",
+          "anyOf": [
+            "Ausgabe April 2019",
+            "April 2019"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Steiermärkische Bautechnikverordnung",
+            "alsoKnownAs": [
+              "StBTV"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b13",
+        "editions"
+      ],
+      "citations": [
+        {
+          "note": "Relation at-6-oib-rl-2-2019 (configs/knowledge-packs/at.json): StBTV 2020, validFrom 2020-09-01, still in force."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b14-binding-edition-salzburg",
+      "question": "Welche Ausgabe der OIB-Richtlinien ist in Salzburg verbindlich und seit wann?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-5"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "binding since",
+            "anyOf": [
+              "1. September 2026",
+              "01.09.2026",
+              "1.9.2026"
+            ],
+            "grounding": "records"
+          },
+          {
+            "label": "the edition of Richtlinie 6",
+            "anyOf": [
+              "März 2015"
+            ],
+            "grounding": "records"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Bautechnikverordnung",
+            "alsoKnownAs": [
+              "Sbg. BTV",
+              "LGBl. 83/2026",
+              "LGBl. Nr. 83/2026"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b14",
+        "editions"
+      ],
+      "citations": [
+        {
+          "note": "Relations at-5-oib-rl-2-2023 and at-5-oib-rl-6-2015 (configs/knowledge-packs/at.json): Sbg. BTV, LGBl. 83/2026, validFrom 2026-09-01 (RIS LGBLA_SA_20260806_83, § 9 Abs 1)."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b15-u-value-external-wall-tyrol",
+      "question": "Welcher U-Wert gilt für eine Außenwand im Neubau?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-7"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "a U-value with its unit",
+            "anyOf": [
+              "W/(m²K)",
+              "W/m²K"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-6-2025",
+          "anyOf": [
+            "Ausgabe September 2025",
+            "September 2025"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 6",
+            "alsoKnownAs": [
+              "OIB-RL 6",
+              "oib-rl_6"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b15",
+        "energy"
+      ],
+      "citations": [
+        {
+          "note": "The edition from the relation that binds OIB-RL 6 in AT-7 (configs/knowledge-packs/at.json). The value itself is in OIB-Richtlinie 6, Ausgabe September 2025, which this checkout does not hold: a reviewer writes it from the text.",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b16-setback-areas-munich-project",
+      "question": "Wie groß müssen die Abstandsflächen sein?",
+      "language": "de-AT",
+      "context": {
+        "note": "A project whose site is in München. The office is entitled to Austria only."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "says the office's base knowledge does not cover the place",
+            "anyOf": [
+              "nicht abgedeckt",
+              "nicht freigeschaltet",
+              "deckt Deutschland nicht",
+              "kein geprüftes Basiswissen"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b16",
+        "entitlement"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A4, applied to a project in Germany. The wording is the reviewer's to confirm."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b17-difference-rl2-rl2-3",
+      "question": "Was ist der Unterschied zwischen OIB-Richtlinie 2 und 2.3?",
+      "language": "de-AT",
+      "context": {},
+      "expected": {
+        "values": [
+          {
+            "label": "the scope of Richtlinie 2.3",
+            "anyOf": [
+              "mehr als 22 m"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 2.3",
+            "alsoKnownAs": [
+              "OIB-RL 2.3",
+              "oib-rl_2.3"
+            ],
+            "locus": null,
+            "grounding": "text"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b17",
+        "fire-safety"
+      ],
+      "citations": [
+        {
+          "note": "OIB-Richtlinie 2, Ausgabe Mai 2023 (OIB-330.2-029/23), Punkt 10: Gebäude mit einem Fluchtniveau von mehr als 22 m, for which OIB-Richtlinie 2.3 applies.",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b18-minimum-room-height",
+      "question": "Welche Mindestraumhöhe brauchen Aufenthaltsräume?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the clear room height",
+            "anyOf": [
+              "2,50 m",
+              "2,5 m"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-3-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 3",
+            "alsoKnownAs": [
+              "OIB-RL 3",
+              "oib-rl_3"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b18",
+        "hygiene"
+      ],
+      "citations": [
+        {
+          "note": "The edition from relation at-9-oib-rl-3-2023 (configs/knowledge-packs/at.json). The height is in OIB-Richtlinie 3, Ausgabe Mai 2023, which this checkout does not hold: a reviewer confirms it from the text.",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b19-documents-for-submission-vienna",
+      "question": "Welche Unterlagen brauche ich für eine Baueinreichung in Wien?",
+      "language": "de-AT",
+      "context": {},
+      "expected": {
+        "values": [
+          {
+            "label": "the plans",
+            "anyOf": [
+              "Baupläne"
+            ],
+            "grounding": "unconfirmed"
+          },
+          {
+            "label": "the application",
+            "anyOf": [
+              "Bauansuchen"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Bauordnung für Wien",
+            "alsoKnownAs": [
+              "BO für Wien"
+            ],
+            "locus": "§ 63",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b19",
+        "procedure"
+      ],
+      "citations": [
+        {
+          "note": "§ 63 BO für Wien as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms the list against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-b20-rl6-2025-in-force-vienna",
+      "question": "Ab wann gilt die OIB-Richtlinie 6 Ausgabe 2025 in Wien?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "binding in Wien since",
+            "anyOf": [
+              "15. Juli 2026",
+              "15.07.2026",
+              "15.7.2026"
+            ],
+            "grounding": "records"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-6-2025",
+          "anyOf": [
+            "Ausgabe September 2025",
+            "September 2025"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Wiener Bautechnikverordnung",
+            "alsoKnownAs": [
+              "WBTV",
+              "LGBl. 26/2026",
+              "LGBl. Nr. 26/2026"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        }
+      ],
+      "tags": [
+        "scorecard",
+        "b20",
+        "editions"
+      ],
+      "citations": [
+        {
+          "note": "Relation at-9-oib-rl-6-2025 (configs/knowledge-packs/at.json): LGBl. 26/2026, validFrom 2026-07-15 (RIS LGBLA_WI_20260715_26, Anlage 13)."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a1-escape-route-states-edition",
+      "question": "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "longest walking distance to the stair",
+            "anyOf": [
+              "40 m",
+              "40 Meter"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "OIB-Richtlinie 2",
+            "alsoKnownAs": [
+              "OIB-RL 2",
+              "oib-rl_2"
+            ],
+            "grounding": "text",
+            "locus": "5.1.1"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "binding-before-release",
+          "anyOf": [
+            "ist verbindlich",
+            "verbindlich ist",
+            "verbindlich erklärt"
+          ],
+          "whenRecords": "unreleased"
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a1",
+        "fire-safety"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A1. OIB-Richtlinie 2, Ausgabe Mai 2023 (OIB-330.2-029/23), Punkt 5.1.1: in höchstens 40 m Gehweglänge; binding in AT-9 by relation at-9-oib-rl-2-2023 (configs/knowledge-packs/at.json).",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a2-binding-edition-from-records",
+      "question": "Welche Fassung der OIB-Richtlinie 2 ist in Wien verbindlich?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "binding in Wien since",
+            "anyOf": [
+              "23. Februar 2024",
+              "23.02.2024",
+              "23.2.2024"
+            ],
+            "grounding": "records"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2023",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Mai 2023"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Wiener Bautechnikverordnung",
+            "alsoKnownAs": [
+              "WBTV"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "edition-named-before-release",
+          "anyOf": [
+            "Ausgabe Mai 2023",
+            "Ausgabe April 2019"
+          ],
+          "whenRecords": "unreleased"
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a2",
+        "editions"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A2. Relation at-9-oib-rl-2-2023 (configs/knowledge-packs/at.json): WBTV 2023, LGBl. 14/2024, validFrom 2024-02-23."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a3-no-site-asks-for-it",
+      "question": "Wie lang darf der Fluchtweg bis zum Treppenhaus höchstens sein?",
+      "language": "de-AT",
+      "context": {
+        "note": "A project with no site."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "asks where the project lies",
+            "anyOf": [
+              "Standort",
+              "Bundesland",
+              "Wo liegt"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "value-without-site",
+          "anyOf": [
+            "40 m",
+            "35 m"
+          ]
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a3",
+        "site"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A3: asks for the site; no value is presented as this project's requirement."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a4-germany-not-covered",
+      "question": "Welche Gebäudeklasse hat ein Wohnhaus mit 4 Geschoßen in München?",
+      "language": "de-AT",
+      "context": {
+        "note": "No project. The office is entitled to Austria only."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "says the office's base knowledge does not cover the place",
+            "anyOf": [
+              "nicht abgedeckt",
+              "nicht freigeschaltet",
+              "deckt Deutschland nicht",
+              "kein geprüftes Basiswissen"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a4",
+        "entitlement"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A4. That BayBO is not stated as verified, and no Austrian law applied, is read by the reviewer: no phrase tells it."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a5-garage-act-quoted-from-source",
+      "question": "Was sagt § 50 Wiener Garagengesetz?",
+      "language": "de-AT",
+      "context": {},
+      "expected": {
+        "values": [
+          {
+            "label": "what § 50 governs",
+            "anyOf": [
+              "Stellplatzverpflichtung",
+              "Stellplatzpflicht",
+              "Pflichtstellplätze"
+            ],
+            "grounding": "unconfirmed"
+          },
+          {
+            "label": "the ratio for dwellings",
+            "anyOf": [
+              "100 m²",
+              "100 m2"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Wiener Garagengesetz 2008",
+            "alsoKnownAs": [
+              "WGarG"
+            ],
+            "locus": "§ 50",
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "law-from-web",
+          "sourceKinds": [
+            "web"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "lookup-said-to-be-off",
+          "anyOf": [
+            "deaktiviert"
+          ]
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a5",
+        "law-lookup"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A5. § 50 WGarG 2008 as RIS consolidates it; this checkout holds no capture of it, so a reviewer confirms each value against RIS."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a6-building-class-from-ruleset",
+      "question": "Welche Gebäudeklasse ist das?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "facts": {
+          "building_type": "residential",
+          "storeys_above_ground": 6,
+          "escape_level_m": 14
+        }
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "the building class",
+            "anyOf": [
+              "Gebäudeklasse 5",
+              "GK 5",
+              "GK5"
+            ],
+            "grounding": "text"
+          }
+        ],
+        "citations": [
+          {
+            "designation": "Begriffsbestimmungen",
+            "alsoKnownAs": [
+              "oib-rl_begriffsbestimmungen"
+            ],
+            "locus": null,
+            "grounding": "text"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "class-derived-before-release",
+          "anyOf": [
+            "Gebäudeklasse 5",
+            "GK 5",
+            "GK5"
+          ],
+          "whenRecords": "unreleased"
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a6",
+        "classification"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A6. OIB-Richtlinien, Begriffsbestimmungen, Ausgabe Mai 2023: GK 5 is a building with a Fluchtniveau of at most 22 m that falls into none of GK 1 to 4 (GK 4 ends at 11 m and four storeys).",
+          "url": "https://www.oib.or.at/kernaufgaben/oib-richtlinien"
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a7-licensed-document-listed-not-read",
+      "question": "Was steht in unserer ÖNORM B 1600 zur Rampenneigung?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "note": "Needs a licensed office document on the shelf without AI attestation (ADR-0164); the question names it."
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "says the document is listed and not read",
+            "anyOf": [
+              "nicht gelesen",
+              "nur gelistet",
+              "gelistet, kein Text"
+            ],
+            "grounding": "unconfirmed"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "document-said-not-to-exist",
+          "anyOf": [
+            "liegt nicht vor",
+            "nicht vorhanden"
+          ]
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a7",
+        "licensed"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A7 names no question; this one and its wording are the reviewer's to confirm in the office that runs it."
+        }
+      ]
+    },
+    {
+      "type": "golden_case",
+      "key": "at-a8-edition-on-filing-day-with-interval",
+      "question": "Welche Ausgabe der OIB-Richtlinie 2 galt für eine Einreichung am 01.06.2023?",
+      "language": "de-AT",
+      "context": {
+        "territoryId": "AT-9",
+        "referenceDate": "2023-06-01"
+      },
+      "expected": {
+        "values": [
+          {
+            "label": "in force in Wien from",
+            "anyOf": [
+              "1. Februar 2020",
+              "01.02.2020",
+              "1.2.2020"
+            ],
+            "grounding": "records"
+          }
+        ],
+        "edition": {
+          "editionKey": "oib-rl-2-2019",
+          "anyOf": [
+            "Ausgabe April 2019",
+            "April 2019"
+          ],
+          "role": "binding",
+          "grounding": "records"
+        },
+        "citations": [
+          {
+            "designation": "Wiener Bautechnikverordnung",
+            "alsoKnownAs": [
+              "WBTV"
+            ],
+            "locus": null,
+            "grounding": "records"
+          }
+        ]
+      },
+      "mustNot": [
+        {
+          "kind": "phrase",
+          "id": "confident-despite-open-point",
+          "in": "confidence_reason",
+          "anyOf": [
+            "offen",
+            "nicht abschließend",
+            "ungeklärt",
+            "nicht geprüft",
+            "noch zu prüfen",
+            "noch zu klären"
+          ],
+          "whenConfidence": [
+            "high"
+          ]
+        },
+        {
+          "kind": "phrase",
+          "id": "internal-text-shown",
+          "anyOf": [
+            "citation not verified",
+            "knowledge_search",
+            "ris_lookup_tool",
+            "web_search_tool",
+            "Traceback"
+          ]
+        },
+        {
+          "kind": "source",
+          "id": "web-copy-of-held-text",
+          "sourceKinds": [
+            "web"
+          ],
+          "naming": [
+            "OIB-Richtlinie",
+            "oib-rl"
+          ]
+        }
+      ],
+      "tags": [
+        "dev-acceptance",
+        "a8",
+        "editions",
+        "as-of"
+      ],
+      "citations": [
+        {
+          "note": "docs/design/international/dev-acceptance.md, A8. Relation at-9-oib-rl-2-2019 (configs/knowledge-packs/at.json): validFrom 2020-02-01, validTo 2024-02-23 (exclusive)."
+        }
+      ]
+    }
+  ]
+}

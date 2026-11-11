@@ -15,6 +15,9 @@ import { z } from 'zod'
 import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { conversationIdSchema } from '@/lib/session-documents/conversation-id'
 import { PRODUCT_NAME } from '@/lib/brand'
+import type { SOURCE_KINDS } from '@/shared/vocabularies.generated'
+
+type SourceKind = (typeof SOURCE_KINDS)[number]
 
 export const ASK_STATES = ['submitted', 'working', 'completed', 'canceled', 'failed', 'rejected'] as const
 export type AskState = (typeof ASK_STATES)[number]
@@ -141,12 +144,17 @@ export interface AskDocument {
  * one. `documentId` is the answer's own document identity (what its citations
  * group on), not a workspace document id. `url` opens the cited page in Piloti
  * for the asker (the UI's `?cite=` link on their conversation), or is the
- * outbound address of a web or RIS source.
+ * outbound address of a web or RIS source. `kind` says which it is, so a caller
+ * tells law read at its source from a web page without parsing an id.
  */
 export interface AskSource {
   documentId: string
   name: string
   page?: number
+  /** The clause within the document the citation names, when it names one. */
+  clause?: string
+  /** What kind of source it is: building law, the office's or the project's own document, a web page, or a measurement. */
+  kind: SourceKind
   url: string
 }
 

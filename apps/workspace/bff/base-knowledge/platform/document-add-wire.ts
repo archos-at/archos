@@ -67,6 +67,12 @@ export const uploadDocumentFieldsSchema = z.object({
 })
 export type UploadDocumentFields = z.infer<typeof uploadDocumentFieldsSchema>
 
+export const listWorksQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  cursor: keySchema.optional().describe('nextCursor of the previous page: the last workKey it held.'),
+})
+export type ListWorksQuery = z.infer<typeof listWorksQuerySchema>
+
 /** One work of a country, as the dialog offers it, with its editions' labels. */
 export interface CountryWorkView {
   workKey: string

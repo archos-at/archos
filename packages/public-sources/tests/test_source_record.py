@@ -91,3 +91,22 @@ def test_two_records_with_one_id_are_refused(tmp_path):
     (other / "source.yml").write_text((tmp_path / "xx" / "portal" / "source.yml").read_text())
     with pytest.raises(SourceError, match="used twice"):
         load_sources(tmp_path)
+
+
+def test_a_record_names_the_hosts_that_republish_it():
+    """``copy_hosts`` is read by the web screen (``agent.common.web_sources``); a fetch never reaches one."""
+    source = parse_source(html_source(copy_hosts=["mirror.example.net"]))
+    assert source.copy_hosts == ("mirror.example.net",)
+    assert not source.allows("https://mirror.example.net/bo.html")
+    assert parse_source(html_source()).copy_hosts == ()
+
+
+@pytest.mark.parametrize("host", ["https://mirror.example.net", "*.example.net", "Mirror.example.net", "mirror"])
+def test_copy_hosts_are_exact_dns_names(host):
+    with pytest.raises(SourceError, match="copy_hosts"):
+        parse_source(html_source(copy_hosts=[host]))
+
+
+def test_a_host_is_the_source_s_own_or_a_copy_of_it_never_both():
+    with pytest.raises(SourceError, match="never both"):
+        parse_source(html_source(copy_hosts=["law.example.org"]))

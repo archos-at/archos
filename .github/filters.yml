@@ -267,6 +267,7 @@ workspace:
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
   - 'tests/fixtures/base-knowledge/turn_law_austria.json'
+  - 'tests/fixtures/golden/scoring_parity.json'
   # End of the files this tier's tests read.
 site:
   # The Node version every job of this tier runs on (setup-node reads it).

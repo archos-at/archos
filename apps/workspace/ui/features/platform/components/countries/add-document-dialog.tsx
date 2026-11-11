@@ -4,7 +4,7 @@
  * "Add a document" on a country's Works and editions tab: one PDF, from the
  * publisher's URL or an upload, into the country's open draft change request
  * (or a new one), as the text of an edition of a work. One call to the BFF
- * (`platform-knowledge-document-add` / `-upload`), the same an agent makes on
+ * (`platform-knowledge-document-add` / `-document-add-upload`), the same an agent makes on
  * the platform door. What the platform can tell from the name is prefilled and
  * stays editable; a refusal says what to do.
  */

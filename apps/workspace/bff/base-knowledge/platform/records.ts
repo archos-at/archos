@@ -42,6 +42,8 @@ export function referencesOf(record: ProposedRecord): { id: string; type: Knowle
         ...record.values.workIds.map((id) => ({ id, type: 'work' as const })),
         ...(record.values.basisEditionId ? [{ id: record.values.basisEditionId, type: 'edition' as const }] : []),
       ]
+    case 'golden_case':
+      return record.expected.edition ? [{ id: `edition:${record.expected.edition.editionKey}`, type: 'edition' }] : []
     default:
       return []
   }
@@ -136,6 +138,15 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         monitorIntervalHours: record.monitor.intervalHours,
         licence: record.terms.licence,
         config: sourceConfigOf(record),
+      }
+    case 'golden_case':
+      return {
+        question: record.question,
+        language: record.language,
+        context: record.context,
+        expected: record.expected,
+        mustNot: record.mustNot,
+        tags: record.tags,
       }
   }
 }

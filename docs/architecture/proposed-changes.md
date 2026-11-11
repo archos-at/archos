@@ -453,6 +453,14 @@ what must not drift between them:
   every decision, and when the channel says a colleague decided. It draws the
   card's own copy of the payload until the object is read, so the first paint is
   never empty and what a reader decides is what is stored.
+- Its read is one state: loading, loaded or failed. A failed read (the first
+  one, or the re-read after a 409) holds no object, so the card says „could not
+  be loaded“ and offers nothing to press, never that beside buttons. Failed is
+  not final: the card asks again when its channel comes up or says something,
+  and when the reader comes back to the tab (focus, or the tab shown again),
+  which is the only one of the three where there is no channel (an MCP Apps
+  frame). There is no retry button; the sibling cards have none either.
+  `ProposalReceipt.load.spec.tsx`.
 - It offers „Übernehmen“ and „Verwerfen“ only when the server says this reader
   may decide (`canDecide`).
 - Once decided it says who and when: „Übernommen von Anna · 14:02“. A
