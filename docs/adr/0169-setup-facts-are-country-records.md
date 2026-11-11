@@ -103,7 +103,7 @@ nothing.
 publishes it, how a row names a municipality's territory and its state, its
 postcode shape, the bulk file's address (ADR-0172). The resolver searches no
 register a record does not describe. A territory record states its `zone`
-(migration 0234): the day a procedure still open is read in is the nearest zone
+(migration 0235): the day a procedure still open is read in is the nearest zone
 on the chain; where none states one, the build's zone of the country
 (`time/today.ts`, deleted with the seeds), and otherwise `zone_unknown`.
 

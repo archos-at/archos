@@ -139,6 +139,18 @@ restore_rls_role_names() {
   OWNER=grid_app_owner
 }
 
+# The release transfer suite (rollover-to-prod, step 2) moves a country's release
+# from one deployment to another: two fresh copies of the migrated database,
+# taken before any suite writes to it, one per deployment.
+RELEASE_DATABASES="grid_app_release_source grid_app_release_target"
+release_databases() {
+  local name
+  for name in $RELEASE_DATABASES; do
+    $PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $name TEMPLATE grid_app OWNER $OWNER;"
+  done
+}
+RELEASE_URLS="TEST_RELEASE_SOURCE_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_source TEST_RELEASE_TARGET_DATABASE_URL=postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app_release_target"
+
 # `--only <spec…>`: the migrated cluster and the restricted role, for the specs
 # named and nothing else. For one suite while you work on it, and for the
 # measurements that are not part of the gate (`task workspace:search:latency`). The
@@ -147,7 +159,9 @@ restore_rls_role_names() {
 if [ "${1:-}" = "--only" ]; then
   shift
   rename_rls_roles
+  release_databases
   echo "==> running $* as app_rw"
+  env $RELEASE_URLS \
   TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     npx vitest run "$@"
@@ -169,6 +183,7 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
+release_databases
 # Site resolution: alone and first. It asserts that no territory record holds a
 # Gemeinde yet (no_territory), and the platform suite in the batch below releases
 # that territory; in one batch whichever ran first decided the outcome (seen
@@ -192,6 +207,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/documents/quarantine-listing.integration.spec.ts \
     bff/documents/visibility.integration.spec.ts \
     bff/documents/local-work-ownership.integration.spec.ts \
+    bff/documents/dispatch-failure-race.integration.spec.ts \
     bff/upload-batches/upload-batches.integration.spec.ts \
     bff/authz/folder-access.integration.spec.ts \
     bff/projects/collection-placement.integration.spec.ts \
@@ -286,6 +302,11 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
+
+# A country's release, exported from one deployment's database and imported as a
+# draft into another's (rollover-to-prod, step 2). Its own two databases.
+echo "==> running the release transfer suite as app_rw"
+env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -4276,3 +4297,30 @@ check_in so_0233 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single
 apply_in so_0233 0233_knowledge_single_operator.sql
 check_in so_0233 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
 echo "==> 0233 one operator alone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0234: a country's citation style is a ruleset of the purpose
+# `citation_style` (`citation_style.v1`). The payload serves that purpose and no
+# other. The down deletes the records that held one, by cascade (revisions are
+# append-only), and 0234 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0234 citation style and its down migration on cs_0234"
+migrate_until cs_0234 0234_citation_style_rulesets
+apply_in cs_0234 0234_citation_style_rulesets.sql   # up twice: idempotent
+CS_CR="c0000000-0000-4000-8000-000000000234"
+CS_RV="e0000000-0000-4000-8000-000000000234"
+sql_in cs_0234 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CS_CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('ruleset:xa-citation-style', NULL, 'ruleset', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', 'ruleset', NULL, 'user_author', '$CS_CR');
+INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', NULL, 'citation_style', '{XA}', '2026-01-01', 'citation_style.v1', '{"styles": []}');
+SQL
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-citation-style', NULL, 'terminology', '{XA}', '2026-01-01', 'citation_style.v1', '{}')" "knowledge_ruleset_revisions_citation_style_purpose" "a citation style under another purpose"
+apply_in cs_0234 0234_citation_style_rulesets.down.sql
+check_in cs_0234 "SELECT count(*) FROM knowledge_records WHERE id = 'ruleset:xa-citation-style'" "0" "0234 down drops the record that held a citation style"
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from) VALUES (gen_random_uuid(), 'ruleset:none', NULL, 'citation_style', '{XA}', '2026-01-01')" "knowledge_ruleset_revisions_purpose_known" "the citation_style purpose after the down"
+apply_in cs_0234 0234_citation_style_rulesets.sql
+check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
+echo "==> 0234 citation style and its down migration verified"

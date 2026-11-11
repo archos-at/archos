@@ -11,7 +11,7 @@
  */
 
 import 'server-only'
-import { gateNamesLaw, type ProjectLaw } from '../wire/project-law'
+import { gateNamesLaw, MAX_PROJECT_LAW_USES, type ProjectLaw } from '../wire/project-law'
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { selectRecord, type StoredRuleset } from '../rulesets/select'
 import { calendarDayIn } from '@/lib/format'
@@ -34,13 +34,13 @@ function factLabelsOf(context: KnowledgeContext, records: readonly StoredRuleset
   return Object.fromEntries(keys.map((key) => [key, labels.get(key) ?? key]))
 }
 
-/** The law a context names, with the names its uses carry, from the setup `records`; fact labels as of `labelsOn` (today). */
+/** The law a context names, its first `MAX_PROJECT_LAW_USES` uses with the names they carry, from the setup `records`; fact labels as of `labelsOn` (today). */
 export function lawOf(context: KnowledgeContext, records: readonly StoredRuleset[], labelsOn: string = calendarDayIn('UTC')): ProjectLaw {
   const gate = context.gate.state
   if (!gateNamesLaw(gate)) return { gate, uses: [], factLabels: {} }
   return {
     gate,
-    uses: context.uses.map((use) => ({
+    uses: context.uses.slice(0, MAX_PROJECT_LAW_USES).map((use) => ({
       workId: use.workId,
       editionId: use.editionId,
       role: use.role,

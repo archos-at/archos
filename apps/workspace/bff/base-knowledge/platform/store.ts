@@ -66,12 +66,17 @@ export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
 
 export type ChangeRequestRow = typeof knowledgeChangeRequests.$inferSelect
 
-export async function insertChangeRequest(input: { title: string; countryId: string; createdBy: string }): Promise<string> {
+type NewChangeRequest = { title: string; countryId: string; createdBy: string }
+
+export async function insertChangeRequest(input: NewChangeRequest): Promise<string> {
+  return platformTransaction((tx) => insertChangeRequestIn(tx, input))
+}
+
+/** A new draft inside the caller's transaction; its base is the newest release move. */
+export async function insertChangeRequestIn(tx: Tx, input: NewChangeRequest): Promise<string> {
   const id = randomUUID()
-  await platformTransaction(async (tx) => {
-    const [newest] = await tx.select({ seq: sql<string | null>`max(${knowledgeReleaseMoves.seq})` }).from(knowledgeReleaseMoves)
-    await tx.insert(knowledgeChangeRequests).values({ id, ...input, baseReleaseSeq: Number(newest?.seq ?? 0) })
-  })
+  const [newest] = await tx.select({ seq: sql<string | null>`max(${knowledgeReleaseMoves.seq})` }).from(knowledgeReleaseMoves)
+  await tx.insert(knowledgeChangeRequests).values({ id, ...input, baseReleaseSeq: Number(newest?.seq ?? 0) })
   return id
 }
 
@@ -198,11 +203,11 @@ export interface ProposedRevision {
  * A proposal as compared: its keys sorted at every level, because jsonb keeps
  * its own key order and the parsed record the schema's.
  */
-function proposalText(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(proposalText).join(',')}]`
+export function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
   if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null)
   const entries = Object.entries(value as Record<string, unknown>).filter(([, member]) => member !== undefined)
-  return `{${entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, member]) => `${JSON.stringify(name)}:${proposalText(member)}`).join(',')}}`
+  return `{${entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, member]) => `${JSON.stringify(name)}:${canonicalJson(member)}`).join(',')}}`
 }
 
 /**
@@ -224,6 +229,8 @@ export async function insertProposedRecords(
     text?: KnowledgeTextProvenance
     /** The sha256 of the corpus file each manifestation names, by record id, as the kit just checked it (`text-checks.ts`). */
     pins?: ReadonlyMap<string, string>
+    /** The release bundle these revisions were imported from (`./release-transfer.ts`). */
+    imported?: KnowledgeProvenance['imported']
   },
 ): Promise<ProposedRevision[]> {
   await tx
@@ -252,13 +259,16 @@ export async function insertProposedRecords(
         had.origin === context.text.origin &&
         had.sourceOrigin === context.text.sourceOrigin &&
         had.sourceRevisionId === context.text.sourceRevisionId)
-    if (current && sameBytes && proposalText(current.provenance.proposal) === proposalText(record)) {
+    if (current && sameBytes && canonicalJson(current.provenance.proposal) === canonicalJson(record)) {
       written.push({ key: proposalKey(record), recordId, revisionId: current.revisionId, status: 'unchanged' })
       continue
     }
     // A re-proposal that still names the attached file keeps where that file came from.
     const kept = current?.provenance.text
     const text = context.text ?? (record.type === 'manifestation' && kept && kept.fileName === record.corpusFile ? kept : undefined)
+    // A record imported from another deployment's release stays marked so when it is proposed again.
+    const pin = context.pins?.get(recordId)
+    const imported = context.imported ? { ...context.imported, ...(pin ? { sha256: pin } : {}) } : current?.provenance.imported
     const revisionId = await appendRevision(
       tx,
       {
@@ -272,6 +282,7 @@ export async function insertProposedRecords(
           proposal: record as unknown as Record<string, unknown>,
           ...(context.viaClient ? { viaClient: context.viaClient } : {}),
           ...(text ? { text } : {}),
+          ...(imported ? { imported } : {}),
         },
         changeRequestId: request.id,
       },

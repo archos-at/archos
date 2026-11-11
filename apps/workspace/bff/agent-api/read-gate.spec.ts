@@ -288,6 +288,7 @@ const SHELF_SCOPED =
   'a project only when its `projectId` names one, which the gate judges as any named project; else the office shelf, which belongs to no project'
 
 const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
+  'citation-style-get': "the office country's released citation style, a platform record that belongs to no project",
   'inbox-summary-get': 'a count of waiting items, no item',
   'feedback-report-list': "the person's own product feedback to the Piloti team, which belongs to no project",
   'feedback-office-report-list': "the office's product feedback to the Piloti team, which belongs to no project",

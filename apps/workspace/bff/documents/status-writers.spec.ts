@@ -19,9 +19,9 @@ const STATUS_WRITERS: Record<string, string> = {
   'bff/documents/repository/reconcile.ts#setDocumentReconciledStatus':
     "A job's outcome, mirrored from the backend. Not the lifecycle: a compare-and-set on the status the read saw and the ingest job id, which tells a late report from a true one; a list of states cannot.",
   'bff/documents/repository/ingest-state.ts#markDocumentIngestFailed':
-    "`failed`, on the BFF's own word. With an owner, not the lifecycle: `stillOwnedBy` (still `processing`, same bytes, same job), so work that lost the row fails nothing. Without one, the lifecycle: `statusAccepts('fail')`.",
+    "`failed`, on the BFF's own word. From local work, not the lifecycle: `stillOwnedBy` (still `processing`, same bytes, same job), so work that lost the row fails nothing. From a dispatch, the lifecycle and `unchangedSinceDispatch` (the ingest job and the bytes the dispatch read), so a request that failed late fails no newer read. From a caller that has just read the row, the lifecycle: `statusAccepts('fail')`.",
   'bff/documents/repository/mutations.ts#setDocumentIngestJob':
-    "`pending` with the new job id, on the backend's 202. The lifecycle: `statusAccepts('dispatch')`.",
+    "`pending` with the new job id, on the backend's 202. The lifecycle, `statusAccepts('dispatch')`, and `unchangedSinceDispatch` (the ingest job and the bytes the dispatch read), so a job the backend gave late does not replace a newer dispatch's.",
   'bff/documents/repository/mutations.ts#markDocumentProcessing':
     "`processing`, for work the BFF runs itself. The lifecycle: `statusAccepts('process')`.",
   'bff/documents/repository/mutations.ts#markDocumentNotIndexed':

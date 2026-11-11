@@ -1299,6 +1299,15 @@
    "describe": "{\"name\":\"answer-feedback-submit\",\"domain\":\"conversations\",\"summary\":\"Vote on an answer\",\"description\":\"Votes on one answer (messageId from conversation-message-list); voting again replaces the vote. A down-vote feeds ARCHOS’s failure learning: add the reason.\",\"annotations\":{\"title\":\"Vote on an answer\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"messageId\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"verdict\":{\"type\":\"string\",\"enum\":[\"up\",\"down\"]},\"reason\":{\"anyOf\":[{\"type\":\"string\",\"enum\":[\"inaccurate\",\"too_slow\",\"wrong_source\",\"other\"]},{\"type\":\"null\"}]},\"comment\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":2000},{\"type\":\"null\"}]},\"expectedAnswer\":{\"anyOf\":[{\"type\":\"string\",\"maxLength\":2000},{\"type\":\"null\"}]},\"conversationId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]}},\"required\":[\"messageId\",\"verdict\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
+   "name": "citation-style-get",
+   "domain": "conversations",
+   "summary": "Read how the office’s country writes a citation",
+   "description": "The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"citation-style-get\",\"domain\":\"conversations\",\"summary\":\"Read how the office’s country writes a citation\",\"description\":\"The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.\",\"annotations\":{\"title\":\"Read how the office’s country writes a citation\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+  },
+  {
    "name": "conversation-create",
    "domain": "conversations",
    "summary": "Start a new conversation",

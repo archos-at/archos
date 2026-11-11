@@ -37,6 +37,7 @@ vi.mock('./repository', () => ({
   markAskWorking: vi.fn(),
 }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfile: vi.fn(async () => null) }))
+vi.mock('@/lib/citations/style', () => ({ citationStylesFor: vi.fn(async () => null) }))
 vi.mock('@/lib/turns/headless-turn', () => ({
   runHeadlessTurn: vi.fn(),
   cancelHeadlessTurn: vi.fn(),

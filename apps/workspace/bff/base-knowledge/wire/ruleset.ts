@@ -12,6 +12,7 @@
 import { z } from 'zod'
 import { checkExpression, readFact } from '@/lib/base-knowledge/rulesets/expression'
 import { advicePolicySchema, terminologySchema } from './advice'
+import { citationStyleSchema } from './citation-style'
 import { factDefinitionsSchema, factSourcesSchema } from './setup-facts'
 import { DECISION_TABLE_PURPOSES, FACT_TYPES, RULESET_PURPOSES } from './vocab'
 
@@ -242,6 +243,13 @@ export const rulesetValuesSchema = z
           kind: z.literal('terminology'),
           payloadSchema: z.literal('terminology.v1'),
           payload: terminologySchema,
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('citation_style'),
+          payloadSchema: z.literal('citation_style.v1'),
+          payload: citationStyleSchema,
         })
         .strict(),
       z.object({ kind: z.literal('inherits'), inherits: z.literal('parent') }).strict(),

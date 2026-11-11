@@ -1,4 +1,4 @@
--- Reverse 0234. ORDER: roll the frontend back first; the newer build reads a
+-- Reverse 0235. ORDER: roll the frontend back first; the newer build reads a
 -- territory's zone for an open procedure's window.
 --
 -- Lossy: every territory's stated zone goes. A procedure still open then

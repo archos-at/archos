@@ -216,6 +216,10 @@
     "de": "Ein Dokument ist jetzt ein einziger Eintrag, egal wie viele Fassungen es hat. Der Eintrag zeigt, wie viele es sind, und beim Öffnen stehen alle Fassungen in einem Verlauf, die neueste zuerst, mit Angabe, wer sie wann eingestellt hat und was sich geändert hat."
   },
   {
+    "en": "A document no longer shows as failed, and stays that way, when it was read again or replaced while an earlier attempt to start reading it was still waiting.",
+    "de": "Ein Dokument wird nicht mehr als fehlgeschlagen angezeigt, wenn es erneut eingelesen oder ersetzt wird, während ein früherer Versuch, das Einlesen zu starten, noch aussteht."
+  },
+  {
     "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
     "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
   },
@@ -850,6 +854,10 @@
   {
     "en": "A single source that does not answer in time no longer ends a deep research; the run carries on without it.",
     "de": "Eine einzelne Quelle, die nicht rechtzeitig antwortet, beendet die Tiefenrecherche nicht mehr; der Lauf geht ohne sie weiter."
+  },
+  {
+    "en": "A site whose building law makes hundreds of technical standards binding now gets its law named in the answer, instead of being told the knowledge base could not be read.",
+    "de": "Bei einem Standort, an dem das Baurecht Hunderte technische Normen verbindlich macht, wird nun das betreffende Gesetz in der Antwort genannt, statt mitzuteilen, dass die Wissensdatenbank nicht gelesen werden kann."
   },
   {
     "en": "A skill your organization writes may now carry any name; if it shares a name with an offered skill, yours applies.",

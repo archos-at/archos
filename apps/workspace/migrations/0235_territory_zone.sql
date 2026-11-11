@@ -1,4 +1,4 @@
--- 0234: a territory states its time zone (country-as-data, step 3). "Today" in
+-- 0235: a territory states its time zone (country-as-data, step 3). "Today" in
 -- the node that legislates is read in its zone (design §3.6): an open permit
 -- procedure's window runs to that day. It was a table in code
 -- (`time/today.ts`), one entry per country; it is a claim on the territory's
