@@ -25,9 +25,10 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 
-/** How many chats the rail lists. The list scrolls between the sections and the office's doorways, so it can hold
- *  what a person goes back to this month; „Alle Chats“ ends it with the whole history. */
-export const RAIL_CHAT_LIMIT = 30
+/** How many chats the rail lists: the ten newest, then „Alle Chats“ opens the history sheet (owner decision
+ *  2026-11-11: the rail is no endless scroll of every chat; the sheet, with its search and days, is where the rest
+ *  is). The list still scrolls where ten rows do not fit between the sections and the office's doorways. */
+export const RAIL_CHAT_LIMIT = 10
 
 export interface RailChat {
   id: string
@@ -100,13 +101,13 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
             </Link>
           </li>
         ))}
-        <li className="shrink-0">
-          <Link href={chats.allHref} onClick={chats.onOpenAll} data-focus-inset data-testid="rail-all-chats" className={cn(ROW, 'text-muted-foreground hover:bg-selected hover:text-foreground active:bg-pressed')}>
-            <span className="truncate">{t('allChats')}</span>
-            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-          </Link>
-        </li>
       </ul>
+      {/* Under the list, not its last row: it stays whole while the rows above it scroll, where the list's fading foot
+          made a last-row „Alle Chats“ read as switched off. */}
+      <Link href={chats.allHref} onClick={chats.onOpenAll} data-focus-inset data-testid="rail-all-chats" className={cn(ROW, 'mt-0.5 shrink-0 text-muted-foreground hover:bg-selected hover:text-foreground active:bg-pressed')}>
+        <span className="truncate">{t('allChats')}</span>
+        <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+      </Link>
     </section>
   )
 }

@@ -2,7 +2,7 @@
  * SessionsPanel Component
  *
  * The history sheet: this project's chats AND its deep-research runs, newest
- * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ in the rail, it rises
+ * first, grouped by day. Opened from „Chats“ in the toolbar or „Alle Chats“ under the rail's „Letzte Chats“, it rises
  * as a page sheet over the chat — the History page it replaced is gone, and
  * this one surface is the whole record of the project's past.
  *

@@ -459,9 +459,13 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     renderWith(chats())
     const list = screen.getByRole('list', { name: 'Recent chats' })
     const links = within(list).getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
+    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss'])
     expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
-    expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
+    // „All chats“ stands under the list, outside its scroll, so it is always whole (2026-11-11).
+    const all = screen.getByRole('link', { name: 'All chats' })
+    expect(list).not.toContainElement(all)
+    expect(list.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(all).toHaveAttribute('href', '/app/projects/p1/chat')
     // A list of its own after the sections (2026-11-11), not rows nested under „Chat“.
     const sectionsNav = screen.getByLabelText('Project sections')
     expect(within(sectionsNav).queryByText('Rettungswege Bürogebäude GK4 Wien')).toBeNull()
