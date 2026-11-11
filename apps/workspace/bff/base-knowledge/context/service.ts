@@ -7,7 +7,7 @@
  * entitlements, the project's site facts, the packs' newest stable sequence,
  * the day); the graph and its resolution are not. So the cheap ones make a
  * digest, and the resolved context is cached under
- * `knowledge-context-v4:<org>:<project>:<digest>`: the organization and the
+ * `knowledge-context-v5:<org>:<project>:<digest>`: the organization and the
  * project are in the key, never only in the digest, so two offices whose
  * inputs hash alike never share an entry (the tenant cache-key rule).
  *
@@ -94,7 +94,7 @@ export function contextDigest(inputs: ContextDigestInputs): string {
 
 /** The cache key of a resolved context: the organization and the project before the digest, always. */
 export function contextCacheKey(organizationId: string, projectId: string | null, digest: string): string {
-  return `knowledge-context-v4:${organizationId}:${projectId ?? '-'}:${digest}`
+  return `knowledge-context-v5:${organizationId}:${projectId ?? '-'}:${digest}`
 }
 
 /**
