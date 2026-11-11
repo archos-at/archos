@@ -1739,6 +1739,16 @@
    },
    "reason": null
   },
+  "citation-style-get": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-create": {
    "kind": "catalog",
    "domain": "conversations",

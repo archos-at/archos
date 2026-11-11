@@ -15023,6 +15023,48 @@
         }
       }
     },
+    "/api/citations/style": {
+      "get": {
+        "operationId": "citation-style-get",
+        "summary": "Read how the office’s country writes a citation",
+        "description": "The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.",
+        "tags": [
+          "conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read how the office’s country writes a citation",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/conversations": {
       "post": {
         "operationId": "conversation-create",
@@ -31916,7 +31958,8 @@
                                     "fact_definitions",
                                     "fact_sources",
                                     "advice_policy",
-                                    "terminology"
+                                    "terminology",
+                                    "citation_style"
                                   ]
                                 },
                                 "territoryIds": {
@@ -32824,6 +32867,254 @@
                                           },
                                           "required": [
                                             "entries"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "payloadSchema",
+                                        "payload"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "citation_style"
+                                        },
+                                        "payloadSchema": {
+                                          "const": "citation_style.v1"
+                                        },
+                                        "payload": {
+                                          "type": "object",
+                                          "properties": {
+                                            "styles": {
+                                              "minItems": 1,
+                                              "maxItems": 10,
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "language": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\\d{3}))?$"
+                                                  },
+                                                  "kinds": {
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "match": {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "authorities": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "tints": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "lanePrefixes": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            },
+                                                            "origins": {
+                                                              "default": [],
+                                                              "maxItems": 20,
+                                                              "type": "array",
+                                                              "items": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "maxLength": 64
+                                                              }
+                                                            }
+                                                          },
+                                                          "additionalProperties": false
+                                                        },
+                                                        "type": {
+                                                          "type": "string",
+                                                          "enum": [
+                                                            "standard",
+                                                            "legislation"
+                                                          ]
+                                                        },
+                                                        "publisher": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "place": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        },
+                                                        "container": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "match",
+                                                        "type"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  },
+                                                  "edition": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "word": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 200
+                                                      },
+                                                      "label": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "months": {
+                                                        "type": "object",
+                                                        "propertyNames": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 20
+                                                        },
+                                                        "additionalProperties": {
+                                                          "type": "integer",
+                                                          "minimum": 1,
+                                                          "maximum": 12
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "word",
+                                                      "label",
+                                                      "months"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "date": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "bareLocus": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "page": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 200
+                                                  },
+                                                  "lines": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "standard": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "legislation": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "webpage": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      },
+                                                      "report": {
+                                                        "minItems": 1,
+                                                        "maxItems": 12,
+                                                        "type": "array",
+                                                        "items": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 200
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "standard",
+                                                      "legislation",
+                                                      "webpage",
+                                                      "report"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "quote": {
+                                                    "minItems": 1,
+                                                    "maxItems": 12,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "minLength": 1,
+                                                      "maxLength": 200
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "language",
+                                                  "kinds",
+                                                  "date",
+                                                  "bareLocus",
+                                                  "page",
+                                                  "lines",
+                                                  "quote"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "styles"
                                           ],
                                           "additionalProperties": false
                                         }

@@ -42,7 +42,7 @@ const message = (over: Partial<Message> = {}): Message => ({
 
 describe('taskOf', () => {
   it('puts the answer’s sources and confidence in one data part beside its text, and nothing when it has none', () => {
-    const sources = [{ documentId: 'c:Konzept.pdf', name: 'Konzept', page: 2, kind: 'project' as const, url: 'https://app.example/app/chat?session=s&cite=x' }]
+    const sources = [{ documentId: 'c:Konzept.pdf', name: 'Konzept', page: 2, kind: 'project' as const, url: 'https://app.example/app/chat?session=s&cite=x', citation: 'Konzept, S. 2.' }]
     const confidence = { level: 'high' as const, reason: 'Zitiert.' }
     const withEvidence = taskOf(view({ answer: { messageId: 'answer-1', text: 'Höchstens 40 m.', sources, confidence } }))
     const parts = withEvidence.artifacts[0]?.parts ?? []
