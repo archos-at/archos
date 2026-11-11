@@ -18,10 +18,16 @@ so the retrieval scope, the RIS tools and the round-0 prefetch ask
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from dataclasses import field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent.project_context import RequestContext
 
 
 @dataclass(frozen=True)
@@ -396,41 +402,95 @@ def turn_knowledge_context() -> KnowledgeContext:
 UNRELEASED_COUNTRY = "ZZ"
 
 
-def corpus_countries() -> frozenset[str] | None:
-    """The countries whose base-corpus chunks this read may see; None when nothing says.
+class _Unscoped:
+    """The marker type of :data:`UNSCOPED`; a class of its own so it can never be mistaken for a country set."""
 
-    Nothing says when there is no request at all (a script) or the signed base entry carries no ``countries``
-    field, which the BFF omits only for a request with no organization. An empty list is no country (fail
-    closed), not "unscoped".
+    def __repr__(self) -> str:
+        return "UNSCOPED"
 
-    The turn's own gate when its context is bound (the site's countries, ADR-0173); otherwise the
-    office's entitled countries the BFF signed onto the base corpus's entry of the collection scope,
-    which every door call carries too. ``vector_store.scope.scope_filter`` asks this on
-    every read, so no path to the base corpus goes around it.
+    def __bool__(self) -> bool:
+        return False
+
+
+#: "No country filter on the base corpus": the answer of :func:`corpus_countries` for a read that belongs to no
+#: request (a script, a sync loop, an internal service call), or that runs under :func:`unscoped_corpus_reads`.
+#: It is a marker, never an absence: an empty ``frozenset`` is the opposite, a request that may read no country.
+UNSCOPED = _Unscoped()
+
+_unscoped_reads: contextvars.ContextVar[bool] = contextvars.ContextVar("_unscoped_reads", default=False)
+
+
+@contextlib.contextmanager
+def unscoped_corpus_reads() -> Iterator[None]:
+    """Declare a block of code an operator or offline job that reads the whole base corpus, whatever countries.
+
+    For code that must run unfiltered while a request context happens to be bound (a platform path inside a
+    request). Never wrap code that answers a person: that code is bounded by its entitled countries.
+    """
+    token = _unscoped_reads.set(True)
+    try:
+        yield
+    finally:
+        _unscoped_reads.reset(token)
+
+
+def corpus_countries() -> frozenset[str] | _Unscoped:
+    """The countries whose base-corpus chunks this read may see, or :data:`UNSCOPED` for a read of no request.
+
+    Strict for a request, unscoped only for no request at all:
+
+    - the turn's own gate when its context is bound (the site's countries, ADR-0173);
+    - otherwise, for a request, the countries the BFF signed onto the base corpus's entry of the
+      collection scope. A request whose scope carries no such list (no base entry, a legacy bare
+      name, an entry without ``countries``) reads **no** country: an empty set, which
+      ``vector_store.scope.corpus_country_condition`` turns into the ``__none__`` filter. The BFF omits
+      ``countries`` only for a request with no organization, and signs an empty list there
+      (``collection-scope-request.ts``), so it reads none either;
+    - :data:`UNSCOPED` only for a read that belongs to no request: no organization, no user, no signed
+      envelope, no scope (a script, an offline job, the sync loop, an internal service call that signs
+      no context), or code that says so with :func:`unscoped_corpus_reads`.
+
+    ``vector_store.scope.scope_filter`` asks this on every read, so no path to the base corpus goes
+    around it.
     """
     context = _turn_knowledge_context.get()
     if context is not None:
         return context.retrieval_countries
+    if _unscoped_reads.get():
+        return UNSCOPED
     from agent.project_context import RequestContext
 
     try:
-        entries = RequestContext.from_context().collection_scope_entries or []
-    except Exception:  # noqa: BLE001 - no request context (a script, a test): nothing to filter by
-        return None
-    for entry in entries:
+        request = RequestContext.from_context()
+    except Exception:  # noqa: BLE001 - a context that cannot be read is a request we cannot vouch for
+        return frozenset()
+    if _belongs_to_no_request(request):
+        return UNSCOPED
+    for entry in request.collection_scope_entries or []:
         if isinstance(entry, dict) and entry.get("shelf") == "base" and isinstance(entry.get("countries"), list):
             return frozenset(country for country in entry["countries"] if isinstance(country, str))
-    return None
+    return frozenset()
+
+
+def _belongs_to_no_request(request: RequestContext) -> bool:
+    """Whether ``request`` is the empty context of a script or an unsigned internal call. Pure."""
+    return (
+        request.collection_scope_entries is None
+        and request.organization_id is None
+        and request.user_id is None
+        and request.envelope_header is None
+    )
 
 
 def base_corpus_readable() -> bool | None:
     """Whether this read may search the base corpus at all: some country is readable (:func:`corpus_countries`).
 
-    None only without any request (a script): nothing is known to filter by, and the vector store's own
-    filter (``corpus_country_condition``) says the same.
+    None only for a read of no request (a script, :data:`UNSCOPED`): nothing filters it, and the vector
+    store's own filter (``corpus_country_condition``) says the same. A request whose scope names no
+    countries is False, never None.
     """
     countries = corpus_countries()
-    return None if countries is None else bool(countries)
+    return None if countries is UNSCOPED else bool(countries)
 
 
 def law_tools_allowed(country: str) -> bool:

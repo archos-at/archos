@@ -47,8 +47,8 @@ def corpus(qdrant_store, monkeypatch):
 
 def _drop(monkeypatch, dropped: bool) -> None:
     if dropped:
-        # As if nothing said which countries the read may see: scope_filter then ANDs no country clause.
-        monkeypatch.setattr(knowledge_context, "corpus_countries", lambda: None)
+        # As a read of no request: scope_filter then ANDs no country clause.
+        monkeypatch.setattr(knowledge_context, "corpus_countries", lambda: knowledge_context.UNSCOPED)
 
 
 def _expect(files: set[str], dropped: bool) -> None:
@@ -125,3 +125,47 @@ def test_the_filter_every_path_builds_admits_only_the_gates_countries_on_qdrant(
         set_turn_knowledge_context(None)
     found = {int(point.id) for point in result.points}
     assert found == ({1, 2, 3, 4, 5} if dropped else {1, 5})
+
+
+def _scope_filter_over_points(monkeypatch, request_fields):
+    """The ids ``scope_filter`` admits from a corpus of marked and unmarked points, for one request's context."""
+    from knowledge_layer.vector_store import scope_filter
+    from qdrant_client import QdrantClient
+    from qdrant_client import models
+
+    from agent import project_context
+
+    set_turn_knowledge_context(None)
+    monkeypatch.setattr(
+        project_context.RequestContext, "from_context", classmethod(lambda cls: cls(**request_fields)), raising=True
+    )
+    client = QdrantClient(":memory:")
+    client.create_collection(
+        "t", vectors_config={"dense": models.VectorParams(size=2, distance=models.Distance.COSINE)}
+    )
+    payloads = {
+        1: {"scope": CORPUS, COUNTRY_FIELD: "QA"},
+        2: {"scope": CORPUS, COUNTRY_FIELD: "QB"},
+        3: {"scope": CORPUS, COUNTRY_FIELD: "ZZ"},
+        4: {"scope": CORPUS},
+    }
+    client.upsert("t", [models.PointStruct(id=i, vector={"dense": [1.0, 0.0]}, payload=p) for i, p in payloads.items()])
+    result = client.query_points("t", query=[1.0, 0.0], using="dense", query_filter=scope_filter([CORPUS]), limit=10)
+    return {int(point.id) for point in result.points}
+
+
+def test_a_request_whose_scope_names_no_countries_reads_no_base_chunk(monkeypatch):
+    entry = {"collection": CORPUS, "shelf": "base"}
+    fields = {"organization_id": "org_1", "collection_scope_entries": [entry]}
+    assert _scope_filter_over_points(monkeypatch, fields) == set()
+
+
+def test_a_script_with_no_request_still_reads_the_whole_corpus(monkeypatch):
+    """Explicitly unscoped: the sync loop and offline jobs belong to no request."""
+    assert _scope_filter_over_points(monkeypatch, {}) == {1, 2, 3, 4}
+
+
+def test_an_entitled_request_reads_only_its_countries(monkeypatch):
+    entry = {"collection": CORPUS, "shelf": "base", "countries": ["QA"]}
+    fields = {"organization_id": "org_1", "collection_scope_entries": [entry]}
+    assert _scope_filter_over_points(monkeypatch, fields) == {1}
