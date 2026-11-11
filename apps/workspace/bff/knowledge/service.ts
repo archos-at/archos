@@ -427,7 +427,7 @@ export interface KnowledgeReingestResult {
  * including VLM captioning) to rebuild three of them.
  *
  * Returns as soon as the work is QUEUED, like an upload: the backend ingests in the
- * background and the caller polls `/api/knowledge-base`, where each queued document reads
+ * background and the caller polls `/api/platform/knowledge/documents`, where each queued document reads
  * `pending` until its chunks exist again. Unknown names come back in `unknown` rather than
  * failing the call — one stale name must not discard a selection of twenty.
  */

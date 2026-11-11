@@ -38,7 +38,7 @@ async function backend(input: string): Promise<Response> {
   const url = new URL(input)
   const name = decodeURIComponent(url.pathname.split('/').pop() ?? '')
   const mark = MARKS[name]
-  if (!url.pathname.startsWith('/v1/oib/documents/') || !mark || !url.searchParams.getAll('country').includes(mark)) {
+  if (!url.pathname.startsWith('/v1/corpus/documents/') || !mark || !url.searchParams.getAll('country').includes(mark)) {
     return new Response(JSON.stringify({ detail: 'Source PDF not available' }), { status: 404 })
   }
   return new Response(new Blob([`%PDF ${name}`]), { status: 200 })

@@ -121,7 +121,7 @@ Run twice, the second cycle queues nothing: the job exists, waiting or running. 
 - A name the table does not list returns `None`, and any copy this process still holds is deleted: the table says what exists.
 - A listed file that cannot be fetched (the object is gone, the hash does not match) raises `CorpusStoreError`; a table that cannot be read raises too. Neither is "not in the corpus", and nothing is deleted on a guess.
 
-What calls it: ingestion, the two PDF reads (`GET /v1/oib/documents/{file_name}` for an office, which serves a file only to a reader of a country its release marked it with and answers 404 otherwise, and `GET /v1/admin/oib/documents/{file_name}` for the platform operator, which serves any listed file; both 404 for a name the table does not list and 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
+What calls it: ingestion, the two PDF reads (`GET /v1/corpus/documents/{file_name}` for an office, which serves a file only to a reader of a country its release marked it with and answers 404 otherwise, and `GET /v1/admin/corpus/documents/{file_name}` for the platform operator, which serves any listed file; both 404 for a name the table does not list and 503 for a listed one the store cannot serve), the corpus export (`GET /v1/admin/oib/corpus.tar.gz`, which fails rather than ship half a corpus) and the chat tool `look`.
 
 ---
 

@@ -41,7 +41,7 @@ describe('streamReleasedKnowledgeBaseDocument', () => {
     await streamReleasedKnowledgeBaseDocument('a text.pdf', ['QA', 'QB'])
 
     const { url, headers } = sent()
-    expect(url.pathname).toBe('/v1/oib/documents/a%20text.pdf')
+    expect(url.pathname).toBe('/v1/corpus/documents/a%20text.pdf')
     expect(url.searchParams.getAll('country')).toEqual(['QA', 'QB'])
     expect(headers).toEqual({ 'x-test-internal-token': 'internal' })
   })
@@ -76,6 +76,12 @@ describe('streamReleasedKnowledgeBaseDocument', () => {
     expect(res.headers.get('Content-Security-Policy')).toBe("frame-ancestors 'self'")
   })
 
+  it('lets no browser keep the PDF, so a withdrawn release stops opening at once', async () => {
+    const res = await streamReleasedKnowledgeBaseDocument('a.pdf', ['QA'])
+
+    expect(res.headers.get('Cache-Control')).toBe('no-store')
+  })
+
   it('reports a backend that cannot serve a listed file as an upstream failure, not as a missing file', async () => {
     fetchMock.mockImplementation(async () => new Response('store down', { status: 503 }))
 
@@ -88,7 +94,7 @@ describe('streamKnowledgeBaseDocumentAsPlatform', () => {
     const res = await streamKnowledgeBaseDocumentAsPlatform('draft.pdf')
 
     const { url, headers } = sent()
-    expect(url.pathname).toBe('/v1/admin/oib/documents/draft.pdf')
+    expect(url.pathname).toBe('/v1/admin/corpus/documents/draft.pdf')
     expect(url.search).toBe('')
     expect(headers).toEqual({ 'X-Admin-Token': 'admin' })
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN')

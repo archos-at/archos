@@ -877,7 +877,7 @@ async def test_a_document_this_replica_does_not_hold_is_fetched_and_served(app, 
     (cache_dir / "elsewhere.pdf").unlink()
 
     async with _client(app) as client:
-        res = await client.get("/v1/admin/oib/documents/elsewhere.pdf")
+        res = await client.get("/v1/admin/corpus/documents/elsewhere.pdf")
 
     assert res.status_code == 200
     assert res.content == b"%PDF elsewhere"
@@ -891,7 +891,7 @@ async def test_a_document_removed_elsewhere_is_not_served_from_a_stale_cache(app
     (cache_dir / "removed.pdf").write_bytes(b"%PDF stale")
 
     async with _client(app) as client:
-        res = await client.get("/v1/admin/oib/documents/removed.pdf")
+        res = await client.get("/v1/admin/corpus/documents/removed.pdf")
 
     assert res.status_code == 404
     assert not (cache_dir / "removed.pdf").exists()
@@ -904,7 +904,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
     bucket.objects.clear()
 
     async with _client(app) as client:
-        res = await client.get("/v1/admin/oib/documents/lost.pdf")
+        res = await client.get("/v1/admin/corpus/documents/lost.pdf")
 
     assert res.status_code == 503
 
@@ -912,7 +912,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
 @pytest.mark.asyncio
 async def test_the_pdf_route_refuses_what_is_not_a_plain_pdf_name(app):
     async with _client(app) as client:
-        res = await client.get("/v1/admin/oib/documents/notes.txt")
+        res = await client.get("/v1/admin/corpus/documents/notes.txt")
 
     assert res.status_code == 404
 
@@ -1028,7 +1028,7 @@ def corpus(app, bucket, monkeypatch):
 async def _read(app, name: str, countries: tuple[str, ...] = ("QA",), headers=None):
     async with _client(app) as client:
         return await client.get(
-            f"/v1/oib/documents/{name}",
+            f"/v1/corpus/documents/{name}",
             params=[("country", country) for country in countries],
             headers=_INTERNAL if headers is None else headers,
         )
@@ -1079,8 +1079,8 @@ async def test_the_office_read_takes_the_internal_token(corpus):
 @pytest.mark.parametrize("name", list(_FILE_CLASSES))
 async def test_the_platform_read_serves_every_file_the_corpus_lists(corpus, name):
     async with _client(corpus) as client:
-        res = await client.get(f"/v1/admin/oib/documents/{name}")
-        missing = await client.get("/v1/admin/oib/documents/no-such-file.pdf")
+        res = await client.get(f"/v1/admin/corpus/documents/{name}")
+        missing = await client.get("/v1/admin/corpus/documents/no-such-file.pdf")
 
     assert res.status_code == 200
     assert missing.status_code == 404

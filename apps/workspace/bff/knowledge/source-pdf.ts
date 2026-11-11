@@ -16,13 +16,19 @@ import { adminHeaders, KNOWLEDGE_STATUS_TIMEOUT_MS, requirePdfBasename } from '.
 /** One answer for every PDF this reader does not get: a name cannot tell whether the file exists. */
 const PDF_NOT_AVAILABLE = 'Source PDF not available'
 
+/**
+ * An office's read is never kept by the browser: a release can be rolled back or an entitlement withdrawn,
+ * and a cached copy would go on opening for as long as it lived.
+ */
+const OFFICE_CACHE = 'no-store'
+
 /** Fetch a corpus PDF from `url` and hand it on for the same-origin viewer; 404 as `PDF_NOT_AVAILABLE`. */
-async function streamCorpusPdf(name: string, url: string, headers: Record<string, string>): Promise<Response> {
+async function streamCorpusPdf(name: string, url: string, headers: Record<string, string>, cacheControl: string): Promise<Response> {
   let res: Response
   try {
     res = await fetch(url, {
       headers,
-      // Corpus source PDFs are small and cached (5 min); bound the call so an
+      // Corpus source PDFs are small; bound the call so an
       // unreachable backend rejects promptly instead of hanging the viewer.
       signal: AbortSignal.timeout(KNOWLEDGE_STATUS_TIMEOUT_MS),
     })
@@ -42,7 +48,7 @@ async function streamCorpusPdf(name: string, url: string, headers: Record<string
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="${asciiName}"`,
-      'Cache-Control': 'private, max-age=300',
+      'Cache-Control': cacheControl,
       // The in-app viewer renders this stream in a same-origin iframe. The
       // global next.config rule sets X-Frame-Options: DENY on every route;
       // override it here (with a matching CSP frame-ancestors directive for
@@ -68,7 +74,7 @@ export async function streamReleasedKnowledgeBaseDocument(fileName: string, coun
   if (countries.length === 0) throw new NotFoundError(PDF_NOT_AVAILABLE)
   const backendUrl = getBackendUrl()
   const query = new URLSearchParams(countries.map((country) => ['country', country]))
-  return streamCorpusPdf(name, `${backendUrl}/v1/oib/documents/${encodeURIComponent(name)}?${query}`, internalServiceHeaders(backendUrl))
+  return streamCorpusPdf(name, `${backendUrl}/v1/corpus/documents/${encodeURIComponent(name)}?${query}`, internalServiceHeaders(backendUrl), OFFICE_CACHE)
 }
 
 /**
@@ -77,5 +83,5 @@ export async function streamReleasedKnowledgeBaseDocument(fileName: string, coun
  */
 export async function streamKnowledgeBaseDocumentAsPlatform(fileName: string): Promise<Response> {
   const name = requirePdfBasename(fileName)
-  return streamCorpusPdf(name, `${getBackendUrl()}/v1/admin/oib/documents/${encodeURIComponent(name)}`, adminHeaders())
+  return streamCorpusPdf(name, `${getBackendUrl()}/v1/admin/corpus/documents/${encodeURIComponent(name)}`, adminHeaders(), 'private, max-age=300')
 }

@@ -252,7 +252,7 @@ def _released_to(file_name: str, countries: list[str]) -> bool:
     return corpus_store.released_to(file_name, countries)
 
 
-async def get_oib_document(
+async def get_corpus_document(
     file_name: str,
     country: list[str] = Query(default_factory=list),
     _: None = Depends(_require_internal_token),
@@ -270,7 +270,7 @@ async def get_oib_document(
     return await _serve_corpus_pdf(file_name)
 
 
-async def get_oib_document_as_platform(
+async def get_corpus_document_as_platform(
     file_name: str,
     _: None = Depends(_require_admin_token),
 ) -> FileResponse:
@@ -571,15 +571,15 @@ def add_oib_routes(router: APIRouter) -> None:
         summary="Report exactly which OIB documents the knowledge base has indexed",
     )(get_oib_status)
     router.get(
-        "/v1/oib/documents/{file_name}",
-        tags=["oib"],
+        "/v1/corpus/documents/{file_name}",
+        tags=["corpus"],
         summary="Stream a source PDF of the base corpus to a reader of the countries it is released in",
-    )(get_oib_document)
+    )(get_corpus_document)
     router.get(
-        "/v1/admin/oib/documents/{file_name}",
-        tags=["oib"],
+        "/v1/admin/corpus/documents/{file_name}",
+        tags=["corpus"],
         summary="Stream any source PDF of the base corpus, released or not",
-    )(get_oib_document_as_platform)
+    )(get_corpus_document_as_platform)
     router.post(
         "/v1/admin/oib/documents",
         response_model=OibDocumentUploadResponse,
