@@ -23,8 +23,9 @@ import type { DbExecutor } from '@/lib/db/executor'
 import type { ResourceRole, ResourceVisibility, ShareableResourceType } from '@/lib/db/schema/resource-shares'
 import type { AudienceWidening } from '@/lib/conversations/restricted-use'
 import { publishToUsers } from '@/lib/events/bus'
-import { resolveResourceAccess, requireResourceAccess, requireResourceWriteAccess } from './access'
+import { requireResourceAccess, requireResourceWriteAccess } from './access'
 import { loadOrganizationDirectory, unknownPerson } from './directory'
+import { notifyOwnersOfTakeover, resolveOwners } from './ownership-notice'
 import { describeResource, roleSatisfies, type ShareableDescriptor } from './registry'
 import { consumeLimit, memberSubject, SHARE_LIMIT } from '@/lib/limits'
 import {
@@ -552,6 +553,13 @@ async function assertNotLastOwner(
  * project admins silently owned every private thread in the project, `private`
  * would be a lie. This gives them the operational capability without the
  * dishonesty, and leaves a trail distinguishable from a normal grant.
+ *
+ * Only on a resource the admin can ALREADY read (ADR-0032 decision 5, amended
+ * 2026-11-11). A private chat they are not party to answers 404 like every
+ * other denial here: otherwise the takeover is a way to read a colleague's
+ * private conversation. The role is required here, not only through
+ * `canEscalate`, so the rule holds whatever `canEscalate` one day says. The
+ * resource's other owners are told in their inbox (`resource.ownership_taken`).
  */
 export async function escalateToOwner(
   session: AuthorizedSession,
@@ -559,10 +567,14 @@ export async function escalateToOwner(
   resourceId: string,
   request?: Request,
 ): Promise<ResourceSharingState> {
-  const access = await resolveResourceAccess(session, resourceType, resourceId)
+  // `allowLocked`: a reader locked out of a restricted folder is refused below
+  // by `assertMayWiden` with its own reason, as before.
+  const access = await requireResourceAccess(session, resourceType, resourceId, 'viewer', { allowLocked: true })
   if (!access.canEscalate) {
     throw new NotFoundError()
   }
+  // Read before the grant lands, so the admin is not told about themselves.
+  const owners = await resolveOwners(session.organizationId, resourceType, resourceId)
   await requireResourceWriteAccess(session, resourceType, resourceId)
   // A project admin is not necessarily cleared for the folders the conversation drew on.
   const widening: AudienceWidening = { kind: 'person', userId: session.userId, self: true }
@@ -589,8 +601,8 @@ export async function escalateToOwner(
     targetType: resourceType,
     targetId: resourceId,
     // The distinguishing marker: this was a project admin taking ownership of
-    // something they were not previously party to.
-    metadata: { previousRole: access.role ?? 'none', via: 'project-admin' },
+    // something they could read but did not own.
+    metadata: { previousRole: access.role, via: 'project-admin' },
     request,
   })
 
@@ -612,6 +624,13 @@ export async function escalateToOwner(
   } catch (error) {
     console.warn('[sharing] escalation fan-out failed (non-fatal):', error)
   }
+  await notifyOwnersOfTakeover({
+    organizationId: session.organizationId,
+    resourceType,
+    resourceId,
+    actorUserId: session.userId,
+    owners,
+  })
 
   return getSharingState(session, resourceType, resourceId)
 }

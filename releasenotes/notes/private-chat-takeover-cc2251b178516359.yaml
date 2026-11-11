@@ -1,0 +1,12 @@
+---
+# area: collaboration
+improvements:
+  - >
+    When a project admin takes ownership of a chat or file you own, you now get
+    a notice in your inbox that names who took it; you remain an owner.
+security:
+  - >
+    A project admin could take ownership of a colleague's private chat they had
+    no access to, and so read it, by asking the server directly. Taking
+    ownership now works only on something the admin can already open; anything
+    else is answered as not found, and nothing is recorded or granted.
