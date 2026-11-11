@@ -9,8 +9,7 @@
  * authority, a std-asi listing and claims half reviewed; with `?request=alone`,
  * a published one its author approved alone, its second review due (ADR-0176);
  * with `?request=draft`, a draft with an edition whose text is attached and one
- * that still waits for its text (ADR-0165, "Texts are attached in the request");
- * with `?country=AT&section=works&add=1`, "Add a document" opened with a URL typed in.
+ * that still waits for its text (ADR-0165, "Texts are attached in the request").
  *
  * A module-scope fetch shim (browser + dev only) serves the overview and the
  * change request. Not linked from anywhere; 404s outside development.
@@ -234,14 +233,6 @@ const SOURCES = {
   builtInUnavailable: null,
 }
 
-const WORKS = {
-  works: [
-    { workKey: 'at-oib-rl-1', title: 'Mechanische Festigkeit und Standsicherheit', designation: 'OIB-RL 1', kind: 'model_code', editions: [{ editionKey: 'at-oib-rl-1-2023', label: 'April 2023' }] },
-    { workKey: 'at-oib-rl-2', title: 'Brandschutz', designation: 'OIB-RL 2', kind: 'model_code', editions: [{ editionKey: 'at-oib-rl-2-2023', label: 'April 2023' }] },
-  ],
-}
-const ADDED = { changeRequestId: DRAFT_ID, changeRequestTitle: DRAFT.title, opened: false, workKey: 'at-oib-rl-1', editionKey: 'at-oib-rl-1-2019', manifestationKey: 'at-oib-rl-1-2019-text', sha256: 'c'.repeat(64) }
-
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __platformCountriesShim?: boolean }
   if (!w.__platformCountriesShim) {
@@ -256,8 +247,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.startsWith('/api/platform/knowledge/change-requests?countryId=')) {
         return Response.json(empty ? { changeRequests: [], nextCursor: null } : { changeRequests: [...OVERVIEW.queue.filter((one) => one.countryId === 'AT'), DRAFTS.changeRequests[0]], nextCursor: null })
       }
-      if (url.endsWith('/works')) return Response.json(WORKS)
-      if (url.includes('/countries/') && init?.method === 'POST') return Response.json(ADDED, { status: 201 })
       if (url.startsWith('/api/platform/knowledge/texts')) return Response.json(empty ? { texts: [], nextCursor: null } : TEXTS)
       if (url === '/api/platform/knowledge/sources') return Response.json(empty ? { sources: [], builtInUnavailable: null } : SOURCES)
       if (url.startsWith('/api/platform/knowledge/change-requests/')) {
@@ -280,25 +269,6 @@ function Preview(): JSX.Element {
   const [country, setCountry] = useState<string | null>(null)
   useEffect(() => setCountry(new URLSearchParams(window.location.search).get('country')), [])
   // `?request=1` opens the first request in the queue, `?request=alone` the one approved alone, through the real button.
-  // `&add=1` opens "Add a document" through the real button and types a publisher's URL into it.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('add') !== '1') return
-    const open = (): void => {
-      const button = document.querySelector<HTMLButtonElement>('[data-testid="country-add-document"]')
-      if (!button) return void window.setTimeout(open, 100)
-      button.click()
-      window.setTimeout(() => {
-        const input = document.querySelector<HTMLInputElement>('#add-document-url')
-        if (!input) return
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf')
-        input.dispatchEvent(new Event('input', { bubbles: true }))
-        input.focus()
-        input.blur()
-      }, 300)
-    }
-    const handle = window.setTimeout(open, 300)
-    return () => window.clearTimeout(handle)
-  }, [])
   useEffect(() => {
     const which = new URLSearchParams(window.location.search).get('request')
     if (which !== '1' && which !== 'alone') return

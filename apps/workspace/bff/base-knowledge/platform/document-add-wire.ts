@@ -22,7 +22,9 @@ export const documentWorkSchema = z.union([
   z.object({
     title: z.string().trim().min(1).max(300).describe('The work’s title as the document prints it.'),
     designation: z.string().trim().min(1).max(120).nullable().default(null).describe('Its short designation as printed, e.g. a guideline’s number.'),
-    kind: z.enum(KNOWLEDGE_WORK_KINDS).describe('What the work is: a statute, an ordinance, a model code, a guideline, a commentary (explanatory notes) and so on.'),
+    kind: z
+      .enum(KNOWLEDGE_WORK_KINDS)
+      .describe('What the work is: a statute, an ordinance, a model code, a guideline, a commentary (explanatory notes) and so on.'),
   }),
 ])
 
@@ -34,37 +36,50 @@ const documentFields = {
 }
 
 export const addDocumentBodySchema = z.object({
-  url: z.url().max(2000).describe('The PDF at its publisher, on a host of one of this country’s sources: the platform fetches it itself, so its origin is proven.'),
+  url: z
+    .url()
+    .max(2000)
+    .describe('The PDF at its publisher, on a host of one of this country’s sources: the platform fetches it itself, so its origin is proven.'),
   ...documentFields,
 })
 export type AddDocumentBody = z.infer<typeof addDocumentBodySchema>
 
-/** The upload's text fields; `work` travels as JSON in a form field. */
+function parsedJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+/** The upload's text fields as form parts: `work` travels as JSON, and an empty `inForceFrom` is none. */
 export const uploadDocumentFields = {
-  work: z.string().min(2).max(2000).describe('The work as JSON: {"workKey"} or {"title","designation","kind"}.'),
+  work: z
+    .string()
+    .max(2000)
+    .transform((value, ctx) => {
+      const work = documentWorkSchema.safeParse(parsedJson(value))
+      if (work.success) return work.data
+      ctx.addIssue({ code: 'custom', message: 'work is JSON: {"workKey"} or {"title","designation","kind"}' })
+      return z.NEVER
+    })
+    .describe('The work as JSON: {"workKey"} or {"title","designation","kind"}.'),
   label: documentFields.label,
-  inForceFrom: z.string().optional().describe('The day this edition applies from, YYYY-MM-DD.'),
+  inForceFrom: isoDate
+    .or(z.literal(''))
+    .optional()
+    .transform((value) => value || null)
+    .describe('The day this edition applies from, YYYY-MM-DD.'),
   publishedAt: z.url().max(2000).describe('Where the publisher publishes the document, for the reviewer to check the file against.'),
   titleText: z
     .string()
     .min(15)
     .max(20000)
-    .describe('The document’s title lines copied from the PDF, naming the work and the edition: what the records quote, checked by the reviewer.'),
+    .describe(
+      'The document’s title lines copied from the PDF, naming the work and the edition: what the records quote, checked by the reviewer against the file.'
+    ),
 }
-export const uploadDocumentFieldsSchema = z.object({
-  work: z.string().transform((value, ctx) => {
-    try {
-      return documentWorkSchema.parse(JSON.parse(value))
-    } catch {
-      ctx.addIssue({ code: 'custom', message: 'work is {"workKey"} or {"title","designation","kind"}' })
-      return z.NEVER
-    }
-  }),
-  label: documentFields.label,
-  inForceFrom: z.preprocess((value) => (value === '' ? null : value), isoDate.nullable().default(null)),
-  publishedAt: uploadDocumentFields.publishedAt,
-  titleText: uploadDocumentFields.titleText,
-})
+export const uploadDocumentFieldsSchema = z.object(uploadDocumentFields)
 export type UploadDocumentFields = z.infer<typeof uploadDocumentFieldsSchema>
 
 export const listWorksQuerySchema = z.object({
@@ -107,35 +122,27 @@ export function keyPart(text: string, max = 60): string {
     .replace(/[-.]+$/g, '')
 }
 
+/** Whether `text` prints `needle` as whole words: "2019" is not in "12019". Both normalized for the quote check. */
+function printsWords(text: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(text)
+}
+
 /**
  * The fewest words of `text` around where it prints `label`, long enough to be a quote (KC-6): what a record
- * cites to say the document names it. Null when the text does not print it.
+ * cites to say the document names it. Null when the text does not print it as whole words.
  */
 export function quoteNaming(text: string, label: string): string | null {
   const needle = normalizeForQuote(label)
-  if (!needle || !normalizeForQuote(text).includes(needle)) return null
+  if (!needle || !printsWords(normalizeForQuote(text), needle)) return null
   const words = text.split(/\s+/).filter(Boolean)
   const span = needle.split(' ').length
   for (let start = 0; start < words.length; start += 1) {
-    const window = words.slice(start, start + span + 1).join(' ')
-    if (!normalizeForQuote(window).includes(needle)) continue
+    if (!printsWords(normalizeForQuote(words.slice(start, start + span + 1).join(' ')), needle)) continue
     for (let pad = 0; pad <= 3; pad += 1) {
       const quote = words.slice(Math.max(0, start - pad), start + span + 1 + pad).join(' ')
-      if (normalizeForQuote(quote).includes(needle) && quoteFound(quote, text)) return quote
+      if (quoteFound(quote, text)) return quote
     }
   }
   return null
-}
-
-/** What the platform can tell from a file name or URL before anything is read: the work it names and the edition's year or date. */
-export function guessFromName(name: string, works: readonly CountryWorkView[]): { workKey: string | null; label: string | null; title: string } {
-  const stem = decodeURIComponent(name.split(/[?#]/)[0].split('/').pop() ?? '').replace(/\.pdf$/i, '')
-  const slug = keyPart(stem, 200)
-  const date = /(\d{4}-\d{2}-\d{2})/.exec(stem)?.[1] ?? null
-  const year = /(?:^|\D)((?:19|20)\d{2})(?:\D|$)/.exec(stem)?.[1] ?? null
-  const named = works
-    .map((work) => ({ work, part: keyPart(work.designation ?? work.title, 200) }))
-    .filter(({ part }) => part.length > 0 && slug.includes(part))
-    .sort((a, b) => b.part.length - a.part.length)[0]
-  return { workKey: named?.work.workKey ?? null, label: date ?? year, title: stem.replace(/[_-]+/g, ' ').trim() }
 }

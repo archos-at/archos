@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { AddDocumentDialog } from './add-document-dialog'
+import { AddDocumentDialog, guessFromName } from './add-document-dialog'
 
 /**
  * "Add a document" (Platform → a country → Works and editions): the URL and the
@@ -15,9 +15,9 @@ const ADDED = { changeRequestId: 'cr-9', changeRequestTitle: 'RL 1 2019', opened
 
 const fetchMock = vi.fn()
 
-function serve(answer: () => Response = () => Response.json(ADDED, { status: 201 })) {
+function serve(answer: () => Response = () => Response.json(ADDED, { status: 201 }), works = WORKS) {
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (url === '/api/platform/knowledge/countries/XX/works') return Response.json(WORKS)
+    if (url === '/api/platform/knowledge/countries/XX/works') return Response.json(works)
     if (init?.method === 'POST') return answer()
     return new Response('{}', { status: 404 })
   })
@@ -58,13 +58,20 @@ describe('AddDocumentDialog', () => {
     expect(onReview).toHaveBeenCalledWith('cr-9')
   })
 
-  test('an upload of a new work sends the file, the work as JSON and the title lines', async () => {
-    serve(() => Response.json({ ...ADDED, opened: false, changeRequestTitle: 'Open draft' }, { status: 201 }))
+  test('the name of a file or URL prefills the work it names (the longest match) and its date or year', () => {
+    const works = [WORKS.works[0], { ...WORKS.works[0], workKey: 'xx-rl-10', designation: 'RL 10', editions: [] }] as Parameters<typeof guessFromName>[1]
+    expect(guessFromName('https://publisher.example/files/rl-10-2023-04-01.pdf?x=1', works)).toMatchObject({ workKey: 'xx-rl-10', label: '2023-04-01' })
+    expect(guessFromName('rl-1-2019.pdf', works)).toMatchObject({ workKey: 'xx-rl-1', label: '2019' })
+    expect(guessFromName('fire_guide.pdf', works)).toEqual({ workKey: null, label: null, title: 'fire guide' })
+  })
+
+  test('an upload of a new work (the country has none yet) sends the file, the work as JSON and the title lines', async () => {
+    serve(() => Response.json({ ...ADDED, opened: false, changeRequestTitle: 'Open draft' }, { status: 201 }), { works: [] })
     const user = userEvent.setup()
     renderDialog()
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     await user.click(screen.getByRole('radio', { name: 'Upload a file' }))
-    await user.click(screen.getByRole('radio', { name: 'A new work' }))
+    expect(screen.getByText(/a reviewer checks these lines against the PDF/)).toBeInTheDocument()
     await user.upload(screen.getByLabelText('PDF file'), new File(['%PDF-1.7'], 'guide-2024.pdf', { type: 'application/pdf' }))
     await user.type(screen.getByLabelText('Where the publisher publishes it'), 'https://publisher.example/guides')
     await user.type(screen.getByLabelText('Title lines as the document prints them'), 'Fire safety guide, edition 2024')

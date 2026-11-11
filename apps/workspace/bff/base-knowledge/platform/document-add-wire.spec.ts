@@ -1,14 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { guessFromName, keyPart, quoteNaming, uploadDocumentFieldsSchema, type CountryWorkView } from './document-add-wire'
+import { keyPart, quoteNaming, uploadDocumentFieldsSchema } from './document-add-wire'
 import { citationProblems } from './validate'
 import { proposedRecordSchema } from './wire'
 
-/** What "Add a document" composes before it calls the services: keys, the quotes KC-6 checks, and the prefill. */
-
-const WORKS: CountryWorkView[] = [
-  { workKey: 'xx-rl-1', title: 'Mechanical resistance', designation: 'RL 1', kind: 'model_code', editions: [] },
-  { workKey: 'xx-rl-10', title: 'Something else', designation: 'RL 10', kind: 'model_code', editions: [] },
-]
+/** What "Add a document" composes before it calls the services: keys, the quotes KC-6 checks, and the upload's form fields. */
 
 describe('document-add wire', () => {
   test('a key part is lower case, unaccented and dashed', () => {
@@ -25,10 +20,9 @@ describe('document-add wire', () => {
     expect(quoteNaming(text, 'May 2020')).toBeNull()
   })
 
-  test('the name of a file or URL prefills the work it names (the longest match) and its date or year', () => {
-    expect(guessFromName('https://publisher.example/files/rl-10-2023-04-01.pdf?x=1', WORKS)).toMatchObject({ workKey: 'xx-rl-10', label: '2023-04-01' })
-    expect(guessFromName('rl-1-2019.pdf', WORKS)).toMatchObject({ workKey: 'xx-rl-1', label: '2019' })
-    expect(guessFromName('fire_guide.pdf', WORKS)).toEqual({ workKey: null, label: null, title: 'fire guide' })
+  test('a label is printed only as whole words: 2019 is not in 12019', () => {
+    expect(quoteNaming('Order number 12019 of the ministry for building', '2019')).toBeNull()
+    expect(quoteNaming('Order number 12019, edition 2019 of the ministry', '2019')).toContain('edition 2019')
   })
 
   test('an upload carries its work as JSON, and a broken one is refused', () => {

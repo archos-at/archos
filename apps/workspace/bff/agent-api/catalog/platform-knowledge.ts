@@ -61,7 +61,9 @@ const ADDED_DOCUMENT =
   'the work (when new), the edition and its manifestation, each quoting where the document prints the work’s designation ' +
   'or title and the edition’s label, then attaches the PDF. Returns `changeRequestId`, `opened` (a new request), the keys ' +
   'and the text’s `sha256`. Refused with EDITION_EXISTS when the work has that edition, NOT_PRINTED when the document does ' +
-  'not print the designation or label as given. Then platform-knowledge-validate and -change-request-submit.'
+  'not print the designation or label as given. A text step that fails leaves the records in the draft and its refusal ' +
+  'carries `changeRequestId`: the same call again reuses the capture and the records and attaches only the text. Then ' +
+  'platform-knowledge-validate and -change-request-submit.'
 const organizationParams = z.object({
   organizationId: z.string().describe('The organization id, from platform-overview-get.'),
 })
@@ -272,7 +274,8 @@ export const platformKnowledgeOperations = [
       'The whole flow for one document: `url` is the PDF on a host of one of the country’s sources (refused with ' +
       'HOST_NOT_ON_SOURCE otherwise, and NOT_A_PDF when it answers no PDF). The platform fetches it, so its origin is proven. ' +
       '`work` is `{workKey}` from platform-knowledge-work-list or a new `{title, designation, kind}`. ' +
-      ADDED_DOCUMENT,
+      ADDED_DOCUMENT +
+      ' TEXT_CHANGED when the text fetched is other bytes than the capture the records quote.',
     method: 'POST',
     path: '/api/platform/knowledge/countries/[countryId]/documents',
     params: countryParams,
@@ -294,7 +297,7 @@ export const platformKnowledgeOperations = [
       'When no source of the country serves the PDF; otherwise use platform-knowledge-document-add. Send `body.files[0]` ' +
       `(one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) and \`body.fields\`: \`work\` as JSON, \`label\`, \`inForceFrom\`, ` +
       '`publishedAt` (where the publisher publishes it) and `titleText` (the title lines copied from the PDF, which the records ' +
-      'quote). Nobody fetched it, so another person checks it against its source before anyone approves. ' +
+      'quote; the platform does not read the PDF). Nobody fetched it, so the reviewer checks both against the file before anyone approves. ' +
       ADDED_DOCUMENT,
     method: 'POST',
     path: '/api/platform/knowledge/countries/[countryId]/documents/upload',
