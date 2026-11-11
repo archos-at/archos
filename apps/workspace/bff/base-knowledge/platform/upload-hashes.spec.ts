@@ -21,7 +21,7 @@ const zip = (members: Record<string, string>) =>
  * second member is zipped under a stand-in name of the same length, renamed in the bytes (its local header and its
  * central-directory entry).
  */
-function duplicatedMember(path: string, first: string, second: string): Uint8Array {
+function duplicatedMember(path: string, first: string, second: string) {
   const standIn = `${path.slice(0, -1)}~`
   const bytes = zipSync({ [path]: strToU8(first), [standIn]: strToU8(second) }, { level: 0 })
   const needle = strToU8(standIn)
