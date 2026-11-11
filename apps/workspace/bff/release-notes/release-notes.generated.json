@@ -49,6 +49,14 @@
         },
         {
           "section": "features",
+          "area": "agents",
+          "text": {
+            "en": "When your own agent asks a question in the workspace, each source of the answer now comes with its reference line, written the way your country cites it, so your agent can paste it as you would.",
+            "de": "Wenn Ihr eigener Agent im Workspace eine Frage stellt, wird nun jede Antwortquelle mit einer Quellenangabe im landesüblichen Zitierstil versehen, sodass Ihr Agent sie genauso einfügen kann wie Sie."
+          }
+        },
+        {
+          "section": "features",
           "area": "documents",
           "text": {
             "en": "Files has places of its own along the top: All files, the e-mail inbox with the number of mails waiting, Open points and the Bin. The inbox shows the project's address at the top for copying, and a new project's empty inbox leads with it.",
