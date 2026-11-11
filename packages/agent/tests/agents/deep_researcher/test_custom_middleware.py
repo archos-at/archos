@@ -411,8 +411,8 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_url_source_captured(self, middleware):
-        """URLs in tool output are extracted and registered."""
-        content = "Found result at https://arxiv.org/abs/2401.00001"
+        """A web search's result record is registered (``citations/web_results.py``)."""
+        content = '<Document href="https://arxiv.org/abs/2401.00001">\n<title>\nA paper\n</title>\nFound.\n</Document>'
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -424,8 +424,11 @@ class TestSourceRegistryMiddleware:
 
     @pytest.mark.asyncio
     async def test_multiple_urls_captured(self, middleware):
-        """Multiple URLs from a single tool call are all captured."""
-        content = "Result from https://a.com/page and also https://b.com/page"
+        """Every result record of a single web search is captured."""
+        content = "\n\n---\n\n".join(
+            f'<Document href="https://{host}/page">\n<title>\nA page\n</title>\nText.\n</Document>'
+            for host in ("a.com", "b.com")
+        )
         handler = AsyncMock(return_value=self._make_tool_result(content))
         request = self._make_request("advanced_web_search_tool")
 
@@ -574,7 +577,8 @@ class TestSourceRegistryMiddleware:
     @pytest.mark.asyncio
     async def test_mixed_source_tools(self, middleware):
         """Multiple tool calls — only allowlisted tools contribute sources."""
-        h1 = AsyncMock(return_value=self._make_tool_result("See https://a.com"))
+        record = '<Document href="https://a.com">\n<title>\nA page\n</title>\nText.\n</Document>'
+        h1 = AsyncMock(return_value=self._make_tool_result(record))
         h2 = AsyncMock(return_value=self._make_tool_result("See https://b.com"))
 
         await middleware.awrap_tool_call(self._make_request("advanced_web_search_tool"), h1)

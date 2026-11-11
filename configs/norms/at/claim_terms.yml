@@ -1,0 +1,71 @@
+# The words that make a sentence a statement of law, per language (locale data, not code).
+#
+# `agent.common.binding_claims` reads this file beside every country's registry.yml and matches the
+# words as whole tokens in the final answer. A sentence that says something binds or is required and
+# names law is recorded and caps the answer's confidence while the turn's gate may not bind
+# (`binding-claim-without-records`); a sentence that also carries a negation word with a binding word
+# is the honest "which edition binds is not recorded" and is left alone. `edition` words let a sentence
+# name law without naming a work ("die Ausgabe 2025").
+#
+# A word or a short phrase per entry; case and punctuation do not matter. Add a language as a new
+# block under `locales`. Keep it short: every word here can flag a sentence, so a common word that
+# does not state law does not belong.
+locales:
+  de:
+    binding:
+      - verbindlich
+      - rechtsverbindlich
+      - bindend
+      - gilt
+      - gelten
+      - in Kraft
+      - anzuwenden
+      - maßgeblich
+    requirement:
+      - muss
+      - müssen
+      - darf
+      - dürfen
+      - mindestens
+      - höchstens
+      - erforderlich
+      - vorgeschrieben
+      - verpflichtend
+      - Anforderung
+      - einzuhalten
+    edition:
+      - Ausgabe
+      - Fassung
+      - idF
+      - Novelle
+    negation:
+      - nicht
+      - kein
+      - keine
+      - keinen
+      - keiner
+      - unklar
+      - offen
+      - ungeklärt
+  en:
+    binding:
+      - binding
+      - applies
+      - in force
+      - mandatory
+    requirement:
+      - must
+      - shall
+      - required
+      - requirement
+      - at least
+      - at most
+    edition:
+      - edition
+      - version
+    negation:
+      - not
+      - "no"
+      - unclear
+      - cannot
+      - unknown
