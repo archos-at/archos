@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { graphFromProposals } from '@/lib/base-knowledge/chain/from-proposals'
 import { resolveKnowledgeContext } from '@/lib/base-knowledge/context/resolve'
 import { proposedRecordSchema } from '@/lib/base-knowledge/platform/wire'
-import { ruleBasis } from './rule-basis'
+import { ruleBasis, type RuleBasis } from './rule-basis'
 import { BIM_RULES } from './rules'
 
 const read = (name: string) =>
@@ -47,26 +47,32 @@ describe('the rule catalogue against the Austria pack', () => {
     }
   })
 
+  const contextIn = (land: string) =>
+    resolveKnowledgeContext({
+      homeCountry: 'AT',
+      entitled: new Set(['AT']),
+      sites: [{ territoryId: land, certainty: 'verified' }],
+      graph: GRAPH,
+      truncated: false,
+      date: '2026-11-11',
+      now: new Date('2026-11-11T12:00:00Z'),
+      procedures: [],
+      packSeqs: { AT: 1, EU: 1 },
+    })
+  const KIND: Record<RuleBasis['kind'], string> = { verdict: 'V', hint: 'H' }
+
   it('gives a verdict where the edition binds in the Land and a hint where another does', () => {
+    const contexts = LANDS.map(contextIn)
     const matrix = Object.fromEntries(
-      BIM_RULES.map((rule) => [
-        rule.id,
-        LANDS.map((land) => {
-          const context = resolveKnowledgeContext({
-            homeCountry: 'AT',
-            entitled: new Set(['AT']),
-            sites: [{ territoryId: land, certainty: 'verified' }],
-            graph: GRAPH,
-            truncated: false,
-            date: '2026-11-11',
-            now: new Date('2026-11-11T12:00:00Z'),
-            procedures: [],
-            packSeqs: { AT: 1, EU: 1 },
-          })
-          return ruleBasis(rule, context).kind === 'verdict' ? 'V' : 'H'
-        }).join(' '),
-      ]),
+      BIM_RULES.map((rule) => [rule.id, contexts.map((context) => KIND[ruleBasis(rule, context).kind]).join(' ')]),
     )
     expect(matrix).toEqual(EXPECTED)
+  })
+
+  it('names the edition that binds instead, where Ausgabe April 2019 does', () => {
+    const stairs = BIM_RULES.find((rule) => rule.id === 'oib4-stair-rise-run-ratio')!
+    for (const land of ['AT-1', 'AT-6', 'AT-8']) {
+      expect(ruleBasis(stairs, contextIn(land)), land).toMatchObject({ kind: 'hint', reason: expect.stringContaining('am Standort gilt Ausgabe April 2019') })
+    }
   })
 })

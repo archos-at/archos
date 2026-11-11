@@ -212,6 +212,15 @@ describe('IfcCompliancePanel', () => {
     expect(screen.getByText(/Gebäudeklasse in den Projektangaben nicht gesetzt/)).toBeInTheDocument()
   })
 
+  it('says a hint as the records word it, offers no signature and keeps it out of the export count', () => {
+    const hint = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
+    panel({ rules: [FAILING, { ...UNDECIDABLE, hint }], onConfirm: vi.fn() })
+    expect(screen.getByText(hint)).toBeInTheDocument()
+    // One confirm button, the failing rule's; the hint's would outlive it.
+    expect(screen.getAllByRole('button', { name: 'Confirm manually' })).toHaveLength(1)
+    expect(screen.getByRole('link', { name: /One open item as BCF/ })).toBeInTheDocument()
+  })
+
   it('names the project data the brief is missing and offers to fix it', () => {
     panel({ missingFacts: ['buildingClass'] })
     expect(screen.getByText(/project data this brief does not carry: Gebäudeklasse/)).toBeInTheDocument()

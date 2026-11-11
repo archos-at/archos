@@ -3,14 +3,17 @@
  * the knowledge context the turn reads (country-as-data §5, "Rules evaluated
  * per binding edition" and "Hint instead of verdict"). A rule's thresholds
  * come from one edition of one work, named as the records name them. A pass
- * or a fail holds only where that edition binds at the site, the gate is
- * settled (`core`, `full`) and the edition's scope does not wait on a fact
- * (`check`). Where the work has no use at the site at all, on a settled gate,
- * the rule does not apply. Everywhere else the rule is a hint: its readings
- * are shown, nothing is decided. Nothing here names a country. Pure.
+ * or a fail holds only where every binding use of that work at the site is
+ * that edition, the gate is settled (`core`, `full`) and the edition's scope
+ * does not wait on a fact (`check`). Everywhere else the rule is a hint: its
+ * readings are shown, nothing is decided. A work with no binding use is a
+ * hint too, never "not applicable": the context holds no positive sign that a
+ * work does not apply, and a renamed designation must not silence a rule.
+ * Nothing here names a country. Pure.
  */
 
 import type { ContextUse, KnowledgeContext } from '@/lib/base-knowledge/context/wire'
+import type { GateState } from '@/lib/base-knowledge/wire/vocab'
 
 /** A rule's source: the work's designation and the edition's label, as the records hold them. */
 export interface RuleEdition {
@@ -18,9 +21,21 @@ export interface RuleEdition {
   edition: string
 }
 
-export type RuleBasis = { kind: 'verdict' } | { kind: 'hint'; reason: string } | { kind: 'outside'; reason: string }
+export type RuleBasis = { kind: 'verdict' } | { kind: 'hint'; reason: string }
 
-const SETTLED = new Set(['core', 'full'])
+/**
+ * Why an unsettled gate gives no verdict, one reason per state, worded after
+ * the profile's law card (`intakeProfileStep.rules.gate`). A failed read says
+ * so and never that nothing is published.
+ */
+const UNSETTLED: Record<Exclude<GateState, 'core' | 'full'>, (designation: string) => string> = {
+  site_unknown: (designation) => `Standort des Projekts unbekannt — ob ${designation} dort gilt, ist offen`,
+  organization_unplaced: () => 'Ihr Büro hat noch kein Land, daher ist offen, welches Recht am Standort gilt',
+  not_entitled: () => 'das Recht am Standort ist für Ihr Büro nicht freigeschaltet',
+  knowledge_unavailable: () => 'das geltende Recht konnte gerade nicht gelesen werden',
+  none: () => 'für den Standort ist noch kein Recht erfasst',
+  open: () => 'für den Standort sind keine geprüften Grundlagen veröffentlicht',
+}
 
 const hint = (reason: string): RuleBasis => ({ kind: 'hint', reason: `Hinweis: ${reason}` })
 
@@ -30,23 +45,20 @@ const routeOf = (use: ContextUse) =>
 /** The basis of one rule in a context; no context is a site nobody placed. */
 export function ruleBasis(rule: RuleEdition, context: KnowledgeContext | null): RuleBasis {
   const source = `${rule.designation}, ${rule.edition}`
-  const gate = context?.gate.state ?? 'site_unknown'
-  if (!context || gate === 'site_unknown') return hint(`Standort des Projekts unbekannt — ob ${rule.designation} dort gilt, ist offen`)
-  if (!SETTLED.has(gate)) return hint(`für den Standort sind keine geprüften Grundlagen veröffentlicht — Schwellwerte aus ${source}`)
-  const uses = context.uses.filter((use) => use.designation === rule.designation)
-  const binding = uses.filter((use) => use.role === 'binding')
+  const unsettled = (gate: keyof typeof UNSETTLED) =>
+    hint(gate === 'site_unknown' ? UNSETTLED[gate](rule.designation) : `${UNSETTLED[gate](rule.designation)} — Schwellwerte aus ${source}`)
+  if (!context) return unsettled('site_unknown')
+  const gate = context.gate.state
+  if (gate !== 'core' && gate !== 'full') return unsettled(gate)
+  const binding = context.uses.filter((use) => use.designation === rule.designation && use.role === 'binding')
   if (binding.length === 0) {
-    if (uses.length === 0 && (context.undetermined ?? []).length === 0) {
-      return { kind: 'outside', reason: `${rule.designation} gilt am Standort des Projekts nicht` }
-    }
-    return hint(`am Standort ist keine Ausgabe von ${rule.designation} als verbindlich bestimmt — Schwellwerte aus ${source}`)
+    return hint(`${rule.designation} ist am Standort nicht als verbindlich ausgewiesen, daher kein Urteil — Schwellwerte aus ${source}`)
   }
-  const same = binding.find((use) => use.editionLabel === rule.edition)
-  if (!same) {
-    const other = binding[0]
+  const other = binding.find((use) => use.editionLabel !== rule.edition)
+  if (other) {
     return hint(`Schwellwerte aus ${rule.edition}; am Standort gilt ${other.editionLabel ?? 'eine andere Ausgabe'}${routeOf(other)}`)
   }
-  if (same.applicability?.verdict === 'check') return hint(`ob ${source} für die Gebäude des Projekts gilt, ist offen`)
+  if (binding.some((use) => use.applicability?.verdict === 'check')) return hint(`ob ${source} für die Gebäude des Projekts gilt, ist offen`)
   return { kind: 'verdict' }
 }
 

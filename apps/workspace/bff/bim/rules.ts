@@ -58,7 +58,7 @@ export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
 export interface BimRuleFacts {
   /**
    * Required: each rule's basis at the site, by rule id (`rule-basis.ts`): a
-   * verdict, a hint, or outside. A rule with none is a hint, never a verdict.
+   * verdict or a hint. A rule with none is a hint, never a verdict.
    */
   bases: Readonly<Record<string, RuleBasis>>
   /** `1` … `5`, as the intake vocabulary records it. */
@@ -1071,7 +1071,7 @@ export function runBimRules(
 ): BimRuleResult[] {
   return BIM_RULES.map((rule) => {
     const basis = facts.bases[rule.id] ?? { kind: 'hint', reason: 'Hinweis: Grundlage am Standort nicht bestimmt' }
-    const notApplicableReason = basis.kind === 'outside' ? basis.reason : (rule.notApplicable?.(facts) ?? null)
+    const notApplicableReason = rule.notApplicable?.(facts) ?? null
     // A hint reads every element and decides none: no verdict, nothing for the CAD to-do list.
     const judge: RuleDefinition['judge'] =
       basis.kind === 'hint' ? (element) => ({ status: 'undecidable', reading: `${rule.judge(element, facts).reading} — ${basis.reason}` }) : rule.judge
@@ -1314,33 +1314,37 @@ export function attachConfirmations(
 }
 
 /**
- * Rules that leave work behind — a failure or an unknown, in scope.
+ * Whether a rule leaves work behind: in scope, not a hint, and a failure or an
+ * unknown. A hint's threshold is not the one that binds at the site, so it
+ * goes to no export, no to-do and no confirmation: a signature given on a hint
+ * would still count once the rule judges (the API refuses one, too).
+ */
+export const hasOpenWork = (result: BimRuleResult): boolean =>
+  result.applicable && !result.hint && (result.failed > 0 || result.undecidable > 0)
+
+/**
+ * Rules that leave work behind.
  *
  * Distinct from {@link outstandingRules}, which asks the narrower question
  * "what still needs a HUMAN". This one ignores confirmations: a rule somebody
  * has signed off still describes something in the model that is wrong or
  * unstated, which is exactly what belongs in an export to the authoring tool.
- * A hint is not: its threshold is not the one that binds at the site.
  */
 export function rulesWithOpenWork<T extends BimRuleResult>(results: readonly T[]): T[] {
-  return results.filter((result) => result.applicable && !result.hint && (result.failed > 0 || result.undecidable > 0))
+  return results.filter(hasOpenWork)
 }
 
 /**
  * What still needs a human before the Prüfbuch can be signed.
  *
- * A rule counts as outstanding when the catalogue could not settle it (or
- * settled it as a failure) and no CURRENT confirmation covers it. A stale
- * confirmation does not count — that is the point of tracking staleness.
+ * A rule counts as outstanding when it has open work and no CURRENT
+ * confirmation covers it. A stale confirmation does not count — that is the
+ * point of tracking staleness. A hint does not block: it judges nothing.
  */
 export function outstandingRules(
   results: readonly BimRuleResultWithConfirmation[]
 ): BimRuleResultWithConfirmation[] {
-  return results.filter((result) => {
-    if (!result.applicable) return false
-    if (result.confirmation !== null && !result.confirmationStale) return false
-    return result.failed > 0 || result.undecidable > 0
-  })
+  return results.filter((result) => hasOpenWork(result) && (result.confirmation === null || result.confirmationStale))
 }
 
 // Regression across revisions: `compliance-diff.ts`, re-exported for the importers of this catalog.

@@ -1612,12 +1612,6 @@ describe('a rule judges only on its basis at the site', () => {
     expect(fire(on({ kind: 'verdict' }))?.richtlinie).toBe('OIB-Richtlinie 2, Ausgabe Mai 2023')
   })
 
-  it('does not apply where the work has no use at the site, and says why', () => {
-    const result = fire(on({ kind: 'outside', reason: 'OIB-Richtlinie 2 gilt am Standort des Projekts nicht' }))
-    expect(result).toMatchObject({ applicable: false, passed: 0, failed: 0 })
-    expect(result?.notApplicableReason).toBe('OIB-Richtlinie 2 gilt am Standort des Projekts nicht')
-  })
-
   it('reads every element as a hint: no pass, no fail, no to-do, the reason on the reading and the line', () => {
     const reason = 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV'
     for (const rating of ['REI 30', 'REI 90', '']) {
@@ -1626,6 +1620,8 @@ describe('a rule judges only on its basis at the site', () => {
       expect(result).toMatchObject({ applicable: true, passed: 0, failed: 0, undecidable: 1, missing: [], hint: reason })
       expect(result?.unknowns[0]?.reading).toContain(reason)
       expect(rulesWithOpenWork(results).map((rule) => rule.ruleId)).not.toContain(FIRE)
+      // Nothing to sign off either: a confirmation on a hint would outlive it.
+      expect(outstandingRules(attachConfirmations(results, [], 'rev-3')).map((rule) => rule.ruleId)).not.toContain(FIRE)
       expect(renderBimRules(results)).toContain(`OIB-Richtlinie 2, Ausgabe Mai 2023 3 — Tragende Bauteile — Feuerwiderstand: ${reason}`)
     }
   })
