@@ -3849,14 +3849,14 @@ apply_in tp_0219 0219_territory_parents.sql
 check_in tp_0219 "SELECT jsonb_array_length(parents) FROM knowledge_territory_revisions WHERE revision_id = '$RV'" "2" "0219 applies again after its down"
 echo "==> 0219 territory parents and its down migration verified"
 # ---------------------------------------------------------------------------
-# 0217: an edition's scope (ADR-0178) is a JSON object or absent; the down
-# drops the column, and 0217 applies again.
+# 0221: an edition's scope (ADR-0178) is a JSON object or absent; the down
+# drops the column, and 0221 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0217 edition scope and its down migration on aw_0217"
-migrate_until aw_0217 0217_edition_applies_when
-check_in aw_0217 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_edition_revisions_applies_when_object'" "CHECK (((applies_when IS NULL) OR (jsonb_typeof(applies_when) = 'object'::text)))" "0217: a scope is a JSON object or absent"
-apply_in aw_0217 0217_edition_applies_when.down.sql
-check_in aw_0217 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "0" "0217 down drops the column"
-apply_in aw_0217 0217_edition_applies_when.sql
-check_in aw_0217 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0217 applies again after its down"
-echo "==> 0217 edition scope and its down migration verified"
+echo "==> verifying 0221 edition scope and its down migration on aw_0221"
+migrate_until aw_0221 0221_edition_applies_when
+check_in aw_0221 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'knowledge_edition_revisions_applies_when_object'" "CHECK (((applies_when IS NULL) OR (jsonb_typeof(applies_when) = 'object'::text)))" "0221: a scope is a JSON object or absent"
+apply_in aw_0221 0221_edition_applies_when.down.sql
+check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "0" "0221 down drops the column"
+apply_in aw_0221 0221_edition_applies_when.sql
+check_in aw_0221 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'knowledge_edition_revisions' AND column_name = 'applies_when'" "1" "0221 applies again after its down"
+echo "==> 0221 edition scope and its down migration verified"

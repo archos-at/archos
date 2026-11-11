@@ -1,4 +1,4 @@
--- 0217: an edition's scope (ADR-0178, design §3.4): which buildings it is
+-- 0221: an edition's scope (ADR-0178, design §3.4): which buildings it is
 -- written for, as a `decision_table.v1` over the building facts with a
 -- boolean output, on the edition revision beside its `transition` (0206).
 -- The chain runs it per building, so OIB-RL 2.1 is named for a Betriebsbau

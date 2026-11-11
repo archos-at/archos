@@ -58,7 +58,7 @@ export interface GraphEdition {
   corpusFiles: readonly string[]
   /** The platform's newest check of it (0202 `knowledge_checks`), for freshness; absent when nobody read it. */
   lastCheck?: { checkedAt: string; result: string } | null
-  /** Its scope: which buildings it is written for (0217, ADR-0178); absent or null, every building. */
+  /** Its scope: which buildings it is written for (0221, ADR-0178); absent or null, every building. */
   appliesWhen?: AppliesWhenTable | null
   /** Where a person opens its text: the page its platform manifestation cites first; absent when none cites one. */
   sourceUrl?: string | null

@@ -169,7 +169,7 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_edition_revisions.in_force_from', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.in_force_to', consumer: TIME_READ, test: TIME_READ_TEST },
   { element: 'knowledge_edition_revisions.transition', consumer: TIME_READ, test: TIME_READ_TEST },
-  { element: 'knowledge_edition_revisions.applies_when', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads an edition’s scope and the page its text opens at (0217, ADR-0178)' } },
+  { element: 'knowledge_edition_revisions.applies_when', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads an edition’s scope and the page its text opens at (0221, ADR-0178)' } },
   { element: 'knowledge_edition_revisions.outline', awaits: 'S8: clause anchors from the masthead outline' },
   // knowledge_manifestation_revisions
   { element: 'knowledge_manifestation_revisions.revision_id', consumer: STORE, test: HEADS },
