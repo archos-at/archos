@@ -429,7 +429,7 @@ does not exist, so a moved file is caught; a missing row is not.
 | Citation persistence and export | `apps/workspace/bff/citations/service.ts` | same | ADR-0037 |
 | IFC tools for the agent | `packages/agent/src/agent/tools/bim/register.py` — `ifc_query` | [`docs/user-guides/bim-models.md`](../user-guides/bim-models.md) | ADR-0045 |
 | IFC models in the BFF | `apps/workspace/bff/bim/model-service.ts` | same | ADR-0045 |
-| The base corpus (objects in SeaweedFS, the `oib_corpus_files` table, a cache on disk) and its ingestion (one ingest-queue job per file, queued by the base-corpus housekeeping route and the admin upload and sync routes, run by the ingest workers) | `packages/agent/src/agent/corpus_store.py`, `packages/agent/src/agent/oib_sync.py`, `packages/agent/src/agent/oib_status.py`, `apps/agent-host/src/agent_host/routes/oib.py`, `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py` (`enqueue_only`), `scripts/upload_oib_corpus.py` | [`docs/technical-reference/oib-sync.md`](../technical-reference/oib-sync.md) | — |
+| The base corpus (objects in SeaweedFS, the `oib_corpus_files` table, a cache on disk) and its ingestion (one ingest-queue job per file, queued by the base-corpus housekeeping route and the admin upload and sync routes, run by the ingest workers) | `packages/agent/src/agent/corpus_store.py`, `packages/agent/src/agent/corpus_tables.py` (its two tables), `packages/agent/src/agent/oib_sync.py`, `packages/agent/src/agent/oib_status.py`, `apps/agent-host/src/agent_host/routes/oib.py`, `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py` (`enqueue_only`), `scripts/upload_oib_corpus.py` | [`docs/technical-reference/oib-sync.md`](../technical-reference/oib-sync.md) | — |
 
 ## Frontend plumbing and the database
 
