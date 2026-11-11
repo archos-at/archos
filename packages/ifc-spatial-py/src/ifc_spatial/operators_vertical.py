@@ -444,20 +444,7 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             elif space_global_id not in [e.GlobalId for e in tree.select((x, y, floor_z + 0.05))]:
                 continue
             tested += 1
-            # The NEAREST accepted hit: select_ray promises no order, and the first one handed back can be farther.
-            nearest: tuple[float, str] | None = None
-            for hit in tree.select_ray((x, y, floor_z), (0.0, 0.0, 1.0), length=modelled + 5.0):
-                element = model.file.by_id(hit.instance.id())
-                # Stairs and railings pass with their parts: an IFC4 export carries the
-                # landing as an IfcSlab and the stringer as an IfcMember under the IfcStair.
-                if element.is_a() in AIR_TYPES or _lets_a_clear_height_ray_through(element):
-                    continue
-                if element.GlobalId == space_global_id:
-                    continue
-                # The ray starts 10 mm up, clear of the slab; the run is measured from the floor.
-                run = float(hit.distance) + (floor_z - float(low[2]))
-                if run > 0.01 and (nearest is None or run < nearest[0]):
-                    nearest = (run, element.GlobalId)
+            nearest = _nearest_clear_height_hit(model, space_global_id, (x, y, floor_z), float(low[2]), modelled + 5.0)
             if nearest is None:
                 continue
             run, global_id = nearest
@@ -502,6 +489,26 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
         method=method,
         caveat=caveat,
     )
+
+
+def _nearest_clear_height_hit(
+    model: SpatialModel, space_global_id: str, origin: tuple[float, float, float], base_z: float, length: float
+) -> tuple[float, str] | None:
+    """The NEAREST accepted hit of an upward ray as ``(run, GlobalId)``: select_ray promises no order."""
+    nearest: tuple[float, str] | None = None
+    for hit in model.tree.select_ray(origin, (0.0, 0.0, 1.0), length=length):
+        element = model.file.by_id(hit.instance.id())
+        # Stairs and railings pass with their parts: an IFC4 export carries the
+        # landing as an IfcSlab and the stringer as an IfcMember under the IfcStair.
+        if element.is_a() in AIR_TYPES or _lets_a_clear_height_ray_through(element):
+            continue
+        if element.GlobalId == space_global_id:
+            continue
+        # The ray starts 10 mm up, clear of the slab; the run is measured from the floor.
+        run = float(hit.distance) + (origin[2] - base_z)
+        if run > 0.01 and (nearest is None or run < nearest[0]):
+            nearest = (run, element.GlobalId)
+    return nearest
 
 
 def _lets_a_clear_height_ray_through(element: Any) -> bool:

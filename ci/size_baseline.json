@@ -359,7 +359,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/operators_facade.py::ray": 89,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_measures.py::floor_area": 91,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::azimuth": 132,
-    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 129,
+    "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::clear_height": 116,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::distance": 78,
     "packages/ifc-spatial-py/src/ifc_spatial/operators_vertical.py::sill_and_head": 72,
     "packages/ifc-spatial-py/src/ifc_spatial/relations.py::connects": 69,
