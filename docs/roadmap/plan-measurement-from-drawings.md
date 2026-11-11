@@ -40,6 +40,40 @@ And one ordering, which the research confirmed at every turn:
 the room and the place to measure. The figure comes from the file's text or its
 geometry.
 
+## What makes a number reliable
+
+This is what the plan is for (product owner, 2026-11-11: what matters most is that
+these numbers can be relied upon). A wrong dimension is worse than none, because it
+looks like an answer and travels into a check or an email. Each way a number can go
+wrong is closed by the tool, never by asking the model to be careful.
+
+| How a number goes wrong | What stops it |
+|---|---|
+| The model guesses a length from a picture | The number only comes from the file's text or its linework. The model picks the place. |
+| The scale is wrong: a re-plotted sheet, a wrong title block | No number without a scale. A scale is `verified` only after a person confirmed it. Independent sources are compared and a disagreement is reported. |
+| One sheet has several scales | A scale belongs to a region. A measurement that crosses two regions is refused. |
+| The sheet is stretched or scanned | The two directions are compared. A scan is labelled as one and carries a wide interval. |
+| The measurement contradicts what is printed | Both values are returned with the contradiction. The tool does not pick one. |
+| A value near the limit is rounded into a pass | The tool computes the verdict from the interval, with *nicht entscheidbar* as an answer. |
+| The agent measured the wrong place | The measured spot is marked on the sheet, so a person sees what was measured. |
+| The file is an older Fassung | A calibration belongs to one version. A new Fassung starts from a proposal again. |
+| A measurement loses its provenance on the way to the answer | A measurement without provenance and interval cannot be constructed, and the answer renders the interval, never a bare number. |
+
+The proof, before an office relies on it:
+
+- **Ground truth we own.** Export a plan from our own IFC fixtures, measure it,
+  compare with the model.
+- **One release gate.** On the eval set, no answer states a number whose true value
+  lies outside its stated interval. One such answer blocks the release.
+- **Refusals are tested like answers.** An uncalibrated sheet yields no number; a
+  span at the threshold yields *nicht entscheidbar*.
+- **Counted in use.** The share of measuring answers that rest on a verified scale,
+  and how often a person corrects a proposed one.
+
+What the tools cannot settle: which wall face a width is measured to (structural or
+finished), and whether the drawing itself is right. The answer states the first and
+never claims the second.
+
 ## Where we are
 
 Checked in the code on 2026-11-11.
