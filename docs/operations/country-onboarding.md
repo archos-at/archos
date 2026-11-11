@@ -40,7 +40,12 @@ Two kinds of configured source:
 
 - **A platform record** (ADR-0174), proposed through the door as a `source`
   record with its fixtures inline. KC-7 checks it on the api tier (it parses,
-  its URLs are on its hosts, every fixture passes with no live call). While it
+  its URLs are on its hosts, every fixture passes with no live call). A source
+  of PDFs (`pdf_document`) pastes nothing: its fixture names a `fetched`
+  capture the platform took of the document through the draft's own hosts
+  (`{captureId}`; `null` in the first proposal, which opens the hosts, and the
+  capture's id in the second). The reviewer finds that capture, with its
+  sha256, size and time, among the request's captures. While it
   is a draft, its hosts are `testing`: usable by its own request's
   `source-test` and `citation-capture` for 24 hours, by nothing else. Once
   published they are `active`. A `site_keyed` source (it receives a site

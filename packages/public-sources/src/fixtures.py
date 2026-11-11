@@ -9,6 +9,12 @@ is on the source's hosts, and the engine reads the bytes as the record expects.
 
 A request to a URL the fixture did not record fails the run: a change to a
 record that moves a request is visible here before it reaches a publisher.
+
+A response may be a capture the platform took (:class:`CapturedResponse`): the
+access type's request is proven as for any other, and the engine reads the
+capture's text (``Engine.recorded_document``) in place of a body nobody kept.
+A fixture whose capture was not handed over awaits its recording: it is not
+run, and its result says which URLs it waits for.
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import httpx
 from public_sources.access import access_for
 from public_sources.egress import guarded_client
 from public_sources.engines import engine_for
+from public_sources.source import CapturedResponse
 from public_sources.source import Fixture
 from public_sources.source import InlineResponse
 from public_sources.source import Source
@@ -42,16 +49,21 @@ class FixtureResult:
     fixture: str
     failures: list[str] = field(default_factory=list)
     requested: list[str] = field(default_factory=list)
+    #: The URLs whose capture is not recorded yet; the fixture was not run.
+    awaiting: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return not self.failures
+        return not self.failures and not self.awaiting
 
 
 def recorded_transport(
-    directory: Path | None, responses: dict[str, str | InlineResponse], requested: list[str]
+    directory: Path | None, responses: dict[str, str | InlineResponse | CapturedResponse], requested: list[str]
 ) -> httpx.MockTransport:
-    """Serves each recorded URL from its file or its inline response; any other URL is a 404 the run reports."""
+    """Serves each recorded URL from its file, inline response or capture; any other URL is a 404 the run reports.
+
+    A capture kept no body: its URL answers its content type and nothing else, and the engine reads its text.
+    """
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -59,6 +71,8 @@ def recorded_transport(
         name = responses.get(url)
         if name is None:
             return httpx.Response(404, text=f"not recorded: {url}")
+        if isinstance(name, CapturedResponse):
+            return httpx.Response(200, headers={"content-type": name.content_type}, content=b"")
         if isinstance(name, InlineResponse):
             return httpx.Response(200, headers={"content-type": name.content_type}, content=name.content())
         if directory is None:
@@ -72,6 +86,10 @@ def recorded_transport(
 
 async def run_fixture(source: Source, fixture: Fixture) -> FixtureResult:
     result = FixtureResult(source_id=source.id, fixture=fixture.name)
+    captured = {url: r for url, r in fixture.responses.items() if isinstance(r, CapturedResponse)}
+    result.awaiting = [url for url, response in captured.items() if not response.recorded]
+    if result.awaiting:
+        return result
     transport = recorded_transport(source._directory, fixture.responses, result.requested)
     async with guarded_client(source, transport=transport) as client:
         try:
@@ -88,12 +106,23 @@ async def run_fixture(source: Source, fixture: Fixture) -> FixtureResult:
         if expect.get("kind") == "search":
             _check_search(engine.search(json.loads(fetched.body)), expect, result)  # type: ignore[attr-defined]
         else:
-            # Off the event loop: the api tier serves chat sockets too, and a PDF is read in a child process.
-            document = await asyncio.to_thread(engine.document, fetched.body, url=fetched.url)
+            document = await _document(engine, fixture, fetched)
             _check_document(document, fetched.version, expect, result)
     except Exception as exc:  # noqa: BLE001
         result.failures.append(f"engine failed: {exc}")
     return result
+
+
+async def _document(engine, fixture: Fixture, fetched):
+    """The engine's document: from the body, or from the capture that stands for the document the fetch ended on."""
+    recording = fixture.responses.get(fetched.url)
+    if isinstance(recording, CapturedResponse):
+        return engine.recorded_document(recording.text or "", url=fetched.url)
+    captured = sorted(url for url, r in fixture.responses.items() if isinstance(r, CapturedResponse))
+    if captured:
+        raise ValueError(f"a capture stands for the document itself, and the fetch ended on {fetched.url}: {captured}")
+    # Off the event loop: the api tier serves chat sockets too, and a PDF is read in a child process.
+    return await asyncio.to_thread(engine.document, fetched.body, url=fetched.url)
 
 
 def _check_search(search, expect: dict, result: FixtureResult) -> None:

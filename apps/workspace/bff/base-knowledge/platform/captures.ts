@@ -119,6 +119,41 @@ export async function capturesOf(tx: Tx, changeRequestId: string, ids: readonly 
   return new Map(rows.map((row) => [row.id, { text: row.text, basis: row.basis }]))
 }
 
+/** A capture as a source fixture's recording reads it (`source-checks.ts`): what it is of, how it was taken, and its text. */
+export interface RecordingCapture {
+  id: string
+  basis: 'fetched' | 'operator_supplied'
+  sourceId: string | null
+  url: string
+  contentType: string | null
+  text: string | null
+  note: string | null
+}
+
+/**
+ * The captures `ids` name, for a source's fixtures. `changeRequestId` holds them to that request (a proposal names
+ * captures of its own request); null reads them wherever they are, for a stored source whose request validated them.
+ */
+export async function recordingCapturesOf(tx: Tx, changeRequestId: string | null, ids: readonly string[]): Promise<Map<string, RecordingCapture>> {
+  const wanted = [...new Set(ids)].filter((id) => UUID.test(id))
+  if (wanted.length === 0) return new Map()
+  const rows = await tx
+    .select({
+      id: knowledgeCitationCaptures.id,
+      basis: knowledgeCitationCaptures.basis,
+      sourceId: knowledgeCitationCaptures.sourceId,
+      url: knowledgeCitationCaptures.url,
+      contentType: knowledgeCitationCaptures.contentType,
+      text: knowledgeCitationCaptures.text,
+      note: knowledgeCitationCaptures.note,
+    })
+    .from(knowledgeCitationCaptures)
+    .where(
+      and(inArray(knowledgeCitationCaptures.id, wanted), ...(changeRequestId ? [eq(knowledgeCitationCaptures.changeRequestId, changeRequestId)] : [])),
+    )
+  return new Map(rows.map((row) => [row.id.toLowerCase(), row]))
+}
+
 /** A request's captures as a reviewer reads them, without their text (only its length). */
 export async function captureViews(tx: Tx, changeRequestId: string): Promise<CaptureView[]> {
   const { text: _text, ...columns } = getTableColumns(knowledgeCitationCaptures)

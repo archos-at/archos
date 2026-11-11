@@ -23,6 +23,7 @@ from public_sources.engines.base import EngineError
 from public_sources.engines.base import ParsedDocument
 from public_sources.engines.base import Passage
 from public_sources.pdf import MAX_PDF_PAGES
+from public_sources.pdf import PAGE_BREAK
 from public_sources.pdf import PdfError
 from public_sources.pdf import PdfText
 from public_sources.pdf import read_pdf
@@ -47,6 +48,13 @@ class PdfDocument(Engine):
         except PdfError as exc:
             raise EngineError(f"{exc.code}: {exc}") from exc
         return self.document_from(read, url=url)
+
+    def recorded_document(self, text: str, *, url: str = "") -> ParsedDocument:
+        """The passages of a PDF a citation capture read: its text is the reader's, pages joined by a form feed."""
+        pages = tuple(text.split(PAGE_BREAK))
+        if len(pages) > self.config.max_pages:
+            raise EngineError(f"pdf_too_many_pages: the capture holds {len(pages)} pages, over {self.config.max_pages}")
+        return self.document_from(PdfText(pages=pages, page_count=len(pages)), url=url)
 
     def document_from(self, read: PdfText, *, url: str = "") -> ParsedDocument:
         """The passages of a PDF already read, so a caller that also needs its text reads it once."""
