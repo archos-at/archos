@@ -15,6 +15,7 @@ import {
   getReleasedKnowledgeBaseStatus,
   syncKnowledgeBase,
   uploadKnowledgeBaseDocument,
+  withdrawCorpusFile,
 } from './service'
 
 const fetchMock = vi.fn()
@@ -296,5 +297,39 @@ describe('getReleasedKnowledgeBaseStatus', () => {
 
   it('keeps the whole corpus for the platform’s own reader', async () => {
     expect((await getKnowledgeBaseStatus()).files).toHaveLength(5)
+  })
+})
+
+describe('withdrawCorpusFile', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    process.env.INTERNAL_API_TOKEN = 'test-token'
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.INTERNAL_API_TOKEN
+  })
+
+  it('marks the file unreleased and keeps its country', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ released: false, chunks: 3 }), { status: 200 }))
+
+    await withdrawCorpusFile('rolled-back.pdf')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/knowledge-mark')
+    expect(JSON.parse(String(init.body))).toEqual({ file_name: 'rolled-back.pdf', released: false })
+  })
+
+  it('throws, so the job retries, when the backend does not echo the withdrawal', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ chunks: 3 }), { status: 200 }))
+
+    await expect(withdrawCorpusFile('rolled-back.pdf')).rejects.toBeInstanceOf(UpstreamError)
+  })
+
+  it('takes a file with no chunks as nothing to withdraw', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 404 }))
+
+    await expect(withdrawCorpusFile('rolled-back.pdf')).resolves.toBeUndefined()
   })
 })

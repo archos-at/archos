@@ -59,7 +59,14 @@ class KnowledgeMarkUpdate(BaseModel):
     country_id: str | None = Field(
         None,
         pattern=r"^[A-Z]{2}$",
-        description="The country whose pack a base-corpus text belongs to (ADR-0173); ZZ for none; None clears it",
+        description="The country whose pack a base-corpus text belongs to (ADR-0173); None clears it",
+    )
+    released: bool | None = Field(
+        None,
+        description=(
+            "Whether a base-corpus text is released (ADR-0173): false withdraws it from every office and keeps its "
+            "country; None clears it"
+        ),
     )
 
 
@@ -70,6 +77,8 @@ class KnowledgeMarkResult(BaseModel):
     file_name: str
     licence_class: LicenceClass | None
     edition_id: str | None
+    #: The released flag the body set; None when it set none. A caller that withdraws a text checks it is echoed.
+    released: bool | None = None
     chunks: int
 
 
@@ -93,4 +102,5 @@ class OibReingestRequest(BaseModel):
         """The marks as the corpus stores them (``agent.corpus_store.FileMark``)."""
         from agent.corpus_store import FileMark
 
-        return {name: FileMark(**mark.model_dump()) for name, mark in self.marks.items()}
+        # A mark the platform sends with a re-index is a release's: the text is released.
+        return {name: FileMark(**mark.model_dump(), released=True) for name, mark in self.marks.items()}

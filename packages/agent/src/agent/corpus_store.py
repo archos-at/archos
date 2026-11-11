@@ -67,12 +67,12 @@ from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
-from sqlalchemy.schema import CreateTable
 
 from agent.common import seaweed_s3
 from agent.common.db_utils import ensure_schema
 from agent.corpus_tables import ADDED_FILE_COLUMNS as _ADDED_FILE_COLUMNS  # noqa: F401 - a test drops them
 from agent.corpus_tables import create_files as _create_files
+from agent.corpus_tables import create_marks as _create_marks
 from agent.corpus_tables import files as _files
 from agent.corpus_tables import marks as _marks
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
@@ -207,7 +207,7 @@ def _ensure_table(url: str) -> None:
         # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         ensure_schema(engine, _files.name, _create_files)
-        ensure_schema(engine, _marks.name, lambda conn: conn.execute(CreateTable(_marks, if_not_exists=True)))
+        ensure_schema(engine, _marks.name, _create_marks)
         _initialized.add(url)
 
 
@@ -267,15 +267,26 @@ def _delete_file_row(name: str) -> None:
 
 @dataclass(frozen=True)
 class FileMark:
-    """The country and the edition a corpus file is the text of; either may be unknown."""
+    """The country and the edition a corpus file is the text of, and whether it is released; any may be unknown.
+
+    ``released`` is None on a row from before the flag: such a row is read by its country alone.
+    """
 
     country_id: str | None = None
     edition_id: str | None = None
+    released: bool | None = None
 
-    def job_config(self) -> dict[str, str]:
+    @classmethod
+    def of(cls, record) -> FileMark:
+        return cls(country_id=record.country_id, edition_id=record.edition_id, released=record.released)
+
+    def job_config(self) -> dict[str, str | bool]:
         """The fields an ingest job carries (``vector_store.writes.licence_mark`` writes them on every chunk)."""
         fields = {"country_id": self.country_id, "knowledge_edition_id": self.edition_id}
-        return {key: value for key, value in fields.items() if value}
+        config: dict[str, str | bool] = {key: value for key, value in fields.items() if value}
+        if self.released is not None:
+            config["released"] = self.released
+        return config
 
 
 def set_mark(name: str, mark: FileMark) -> None:
@@ -285,7 +296,7 @@ def set_mark(name: str, mark: FileMark) -> None:
     it (:func:`begin_job`) no longer counts as the file's index (:func:`mark_ingested`).
     """
     _require_name(name)
-    values = {"country_id": mark.country_id, "edition_id": mark.edition_id}
+    values = {"country_id": mark.country_id, "edition_id": mark.edition_id, "released": mark.released}
     with _transaction() as conn:
         insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
         conn.execute(
@@ -309,7 +320,7 @@ def begin_job(name: str) -> FileMark | None:
             update(_files).where(_files.c.file_name == name).values(job_mark_generation=_files.c.mark_generation)
         )
         record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
-    return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
+    return FileMark.of(record) if record is not None else None
 
 
 #: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
@@ -343,23 +354,23 @@ def record_legacy_backfill() -> None:
 def get_mark(name: str) -> FileMark | None:
     with _transaction() as conn:
         record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
-    return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
+    return FileMark.of(record) if record is not None else None
 
 
 def released_to(name: str, countries: Iterable[str]) -> bool:
-    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them; unmarked, nobody's."""
+    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them and does not withhold
+    it; unmarked, nobody's."""
     # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
     mark = get_mark(name)
-    return mark is not None and mark.country_id is not None and mark.country_id in set(countries)
+    if mark is None or mark.released is False:
+        return False
+    return mark.country_id is not None and mark.country_id in set(countries)
 
 
 def list_marks() -> dict[str, FileMark]:
     """Every file's mark, by file name: what the status reads to say which files a country reads."""
     with _transaction() as conn:
-        return {
-            record.file_name: FileMark(country_id=record.country_id, edition_id=record.edition_id)
-            for record in conn.execute(select(_marks))
-        }
+        return {record.file_name: FileMark.of(record) for record in conn.execute(select(_marks))}
 
 
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:

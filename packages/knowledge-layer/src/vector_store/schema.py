@@ -130,6 +130,10 @@ KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
 #: Payload field holding the country (ISO 3166-1) whose pack a base-corpus point belongs to (ADR-0173):
 #: a turn reads only the countries its office is entitled to. A point written before it lacks it and is Austrian.
 COUNTRY_FIELD = "country_id"
+#: Payload field holding whether a base-corpus point's text is released (a bool): a release writes true, a
+#: rollback and an ingest no release names write false, and a point marked false is read by nobody
+#: (``scope.corpus_country_condition``). A point written before it lacks it and is read by its country alone.
+RELEASED_FIELD = "released"
 #: Payload field holding whether the office stated its licence covers processing by the hosted AI services
 #: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
 AI_PROCESSING_FIELD = "ai_processing_attested"
@@ -343,7 +347,7 @@ ADDED_AT_FIELD = "added_at"
 #: ``DatetimeRange``, ``scope._range``). Not :data:`INDEXED_AT_FIELD`, which is integer seconds.
 DATETIME_FIELDS: tuple[str, ...] = (DOCUMENT_DATE_FIELD, ADDED_AT_FIELD)
 #: Fields stored and filtered as booleans.
-BOOL_FIELDS: tuple[str, ...] = ("superseded",)
+BOOL_FIELDS: tuple[str, ...] = ("superseded", RELEASED_FIELD)
 
 #: The full-text fields: never a filter-grammar field, only the text conditions the search builds.
 TEXT_FIELDS: tuple[str, ...] = (TEXT_FIELD, TEXT_STEM_FIELD)

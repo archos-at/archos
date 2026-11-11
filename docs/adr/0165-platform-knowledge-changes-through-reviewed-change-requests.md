@@ -147,7 +147,7 @@ of the first three, and a third review sharpened the fourth and the sixth (see
 
 - **Attach stores the file and names it in one step.** `text-import` and
   `text-upload` put the bytes in the base corpus (where they are ingested for
-  no country, `ZZ`, ADR-0173) and append a revision of the manifestation whose
+  no country, `released: false` since country-as-data row 7, `ZZ` before it, ADR-0173) and append a revision of the manifestation whose
   `corpusFile` is that file, with its `sha256`. Where the file came from
   (upload or URL, the source, who, when) is kept on that revision's
   `provenance.text`. The publish already marks and re-ingests the file under
