@@ -31803,6 +31803,19 @@
                                 "null"
                               ]
                             },
+                            "zone": {
+                              "default": null,
+                              "description": "The IANA time zone a day is read in here; null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).",
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z]+(?:\\/[A-Za-z0-9_+-]+){1,2}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "citations": {
                               "default": [],
                               "maxItems": 10,
@@ -32297,6 +32310,73 @@
                                         "payload": {
                                           "type": "object",
                                           "properties": {
+                                            "addressRegister": {
+                                              "type": "object",
+                                              "properties": {
+                                                "id": {
+                                                  "type": "string",
+                                                  "pattern": "^[a-z]{2}-[a-z0-9-]{1,40}$"
+                                                },
+                                                "publisher": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 200,
+                                                  "description": "Who publishes it, for a person reading where an address was confirmed."
+                                                },
+                                                "municipalityTerritory": {
+                                                  "type": "string",
+                                                  "pattern": "^[A-Z]{2}:[a-z][a-z0-9_]{0,15}:\\{code\\}$",
+                                                  "description": "The territory id of a municipality by its official code in a register row."
+                                                },
+                                                "postcodePattern": {
+                                                  "type": "string",
+                                                  "minLength": 3,
+                                                  "maxLength": 200,
+                                                  "description": "A postcode of this country’s shape: a filter on the register’s rows."
+                                                },
+                                                "crossBorderPostcodePattern": {
+                                                  "description": "A neighbour’s postcodes this country’s addresses are written with: not a filter, and not evidence of the neighbour.",
+                                                  "type": "string",
+                                                  "minLength": 3,
+                                                  "maxLength": 200
+                                                },
+                                                "stateFromCode": {
+                                                  "description": "The state (Land) a municipality lies in, from its code alone; absent when the code names none.",
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "pattern": {
+                                                      "type": "string",
+                                                      "minLength": 3,
+                                                      "maxLength": 200,
+                                                      "description": "Matched against the municipality code; the first group is {1}."
+                                                    },
+                                                    "territory": {
+                                                      "type": "string",
+                                                      "pattern": "^[A-Z]{2}-\\{1\\}$"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "pattern",
+                                                    "territory"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                "downloadUrl": {
+                                                  "type": "string",
+                                                  "maxLength": 500,
+                                                  "format": "uri",
+                                                  "description": "The bulk file the importer reads: an official download, never a query."
+                                                }
+                                              },
+                                              "required": [
+                                                "id",
+                                                "publisher",
+                                                "municipalityTerritory",
+                                                "postcodePattern",
+                                                "downloadUrl"
+                                              ],
+                                              "additionalProperties": false
+                                            },
                                             "subdivisions": {
                                               "type": "object",
                                               "properties": {

@@ -11,6 +11,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries } = vi.hoisted(() => ({
   findProjectProfileInOrg: vi.fn(),
   loadGraph: vi.fn(),
@@ -31,6 +35,7 @@ import { graphFromProposals } from '../chain/from-proposals'
 import { gateNamesLaw, MAX_PROJECT_LAW_USES, projectLawSchema } from '../wire/project-law'
 import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
+import { AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 import { knowledgeContextSchema } from './wire'
 
 /** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
@@ -120,7 +125,7 @@ describe('projectLawFor', () => {
     expect(hall.factLabels).toEqual({ uses: 'Nutzungen' })
     // A project filed before its country's fact definitions resolves on that day; the labels are still read today.
     const filed = await knowledgeContextForTurn('org_at', 'project_halle')
-    expect(lawOf({ ...filed, date: '2020-01-01' }).factLabels).toEqual({ uses: 'Nutzungen' })
+    expect(lawOf({ ...filed, date: '2020-01-01' }, AT_SETUP_RECORDS).factLabels).toEqual({ uses: 'Nutzungen' })
     const turn = await knowledgeContextForTurn('org_at', 'project_halle')
     expect(turn.uses.map((use) => use.workId)).toContain('work:oib-rl-2-1')
     expect(turn.text).toContain("applies to this project by its building's uses")
@@ -212,7 +217,7 @@ describe('lawOf', () => {
     (state) => {
       const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
-      expect(lawOf(context)).toEqual({ gate: state, uses: [], factLabels: {} })
+      expect(lawOf(context, AT_SETUP_RECORDS)).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
 
@@ -220,7 +225,7 @@ describe('lawOf', () => {
     const use = (index: number) => ({ workId: `work:std-${index}`, editionId: `edition:std-${index}`, role: 'binding' as const, qualifier: null, via: 'relation' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null })
     const uses = Array.from({ length: MAX_PROJECT_LAW_USES + 5 }, (_, index) => use(index))
     const context = { gate: { state: 'core' as const, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses, text: null, retrieval: { countries: [] } }
-    const law = projectLawSchema.parse(lawOf(context))
+    const law = projectLawSchema.parse(lawOf(context, AT_SETUP_RECORDS))
     expect(law.uses.map((entry) => entry.workId)).toEqual(uses.slice(0, MAX_PROJECT_LAW_USES).map((entry) => entry.workId))
   })
 

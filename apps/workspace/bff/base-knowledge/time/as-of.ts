@@ -194,12 +194,13 @@ function candidatesByEvent(
 /** Where the procedure's window ends: its decision, today in the node's zone while open, null when unknown. */
 function windowEnd(
   procedure: Procedure,
-  territoryId: string,
+  chain: readonly string[],
+  zones: Readonly<Record<string, string>>,
   now: Date
 ): string | null | 'zone_unknown' {
   if (isIsoDate(procedure.decidedOn)) return procedure.decidedOn
   if (procedure.decidedOn !== 'pending') return null
-  const zone = zoneOf(territoryId)
+  const zone = zoneOf(chain, zones)
   return zone ? dayIn(zone, now) : 'zone_unknown'
 }
 
@@ -238,6 +239,8 @@ export function editionForProcedure(input: {
   procedure: Procedure
   /** Dated facts a work-targeted rule reads, e.g. governing_plan_adopted_on. */
   facts?: Facts
+  /** The zone each territory of the chain states, from its released record; a chain that states none is `zone_unknown`. */
+  zones: Readonly<Record<string, string>>
   now: Date
 }): AsOfAnswer {
   const { work, procedure } = input
@@ -251,7 +254,7 @@ export function editionForProcedure(input: {
   const referenceDay = reference.referenceDate
   const filedOn = procedure.filedOn as string
   const start = filedOn < referenceDay.date ? filedOn : referenceDay.date
-  const end = windowEnd(procedure, input.chain[0] ?? '', input.now)
+  const end = windowEnd(procedure, input.chain, input.zones, input.now)
   if (end === 'zone_unknown') return { status: 'undetermined', reason: 'zone_unknown' }
   const last = end !== null && end < referenceDay.date ? referenceDay.date : end
   const first = editionInForce(work.editions, start, work.historyAvailableFrom)

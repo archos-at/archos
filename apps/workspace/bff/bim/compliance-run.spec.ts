@@ -15,6 +15,10 @@ const findProjectProfileInOrg = vi.fn<(projectId: string, organizationId: string
 const findProjectIntake = vi.fn<(organizationId: string, projectId: string) => Promise<ProjectIntakeRow | null>>()
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg }))
 vi.mock('@/lib/project-intake/repository', () => ({ findProjectIntake }))
 vi.mock('./repository', () => ({}))

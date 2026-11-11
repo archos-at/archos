@@ -9,9 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
-import factSourcesSeed from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-sources.json'
-import factDefinitionsSeed from '@/lib/base-knowledge/rulesets/seeds/at-setup-fact-definitions.json'
-import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
+import { AT_FACT_DEFINITIONS_VALUES, AT_FACT_SOURCES_VALUES, AT_SETUP_RECORDS } from './at-setup.fixtures'
 import { locationRegisterFor, type LocationRegisterInput } from './location-register'
 import { THREE_COUNTRIES } from './setup-countries.fixtures'
 import { computeNeeds } from './needs'
@@ -42,8 +40,8 @@ function register(
   options: { mode?: IntakeMode; location?: LocationRegisterInput['location'] } = {}
 ) {
   const mode = options.mode ?? 'active'
-  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [] })
-  const view = locationRegisterFor({ profile, location: options.location ?? null, mode, needs })
+  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records: AT_SETUP_RECORDS })
+  const view = locationRegisterFor({ profile, location: options.location ?? null, mode, needs, records: AT_SETUP_RECORDS })
   // Every answer is what the wire carries.
   expect(locationRegisterViewSchema.parse(view)).toEqual(view)
   return view
@@ -57,7 +55,7 @@ const AT_NEW_BUILD = { country: 'at', work_type: ['new_build'] }
 
 /** Austria's register: the determinant entries of its shipped `fact_sources` record. */
 const AT_SOURCES = (() => {
-  const values = rulesetValuesSchema.parse(factSourcesSeed)
+  const values = AT_FACT_SOURCES_VALUES
   if (values.body.kind !== 'fact_sources') throw new Error('a fact_sources record')
   return values.body.payload.entries
 })()
@@ -65,7 +63,7 @@ const LOCATION_ENTRIES = AT_SOURCES.filter((entry) => entry.determinant)
 
 /** The Länder Austria's fact definitions list, by territory. */
 const AT_LANDS = new Map(
-  (factDefinitionsSeed.body.payload.subdivisions?.options ?? []).map((option) => [option.territoryId, option.token])
+  ((AT_FACT_DEFINITIONS_VALUES.body.kind === 'fact_definitions' ? AT_FACT_DEFINITIONS_VALUES.body.payload.subdivisions?.options : undefined) ?? []).map((option) => [option.territoryId, option.token])
 )
 
 describe('the register as data', () => {
@@ -111,7 +109,7 @@ describe('locationRegisterFor', () => {
 
   it('lists only a German project’s own documents, with its Land’s variant', () => {
     const profile = profileWith({ country: 'de', federal_state: 'bavaria', work_type: ['new_build'] })
-    const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode: 'active', dismissed: [] })
+    const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode: 'active', dismissed: [], records: THREE_COUNTRIES })
     const view = locationRegisterFor({ profile, location: null, mode: 'active', needs, records: THREE_COUNTRIES })
     expect(locationRegisterViewSchema.parse(view)).toEqual(view)
     expect(view.federalState).toBe('bavaria')
