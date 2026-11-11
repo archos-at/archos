@@ -322,8 +322,13 @@ the answer names what is missing and leads to the calibration.
 ### Changes to tools that exist
 
 - `look` returns, with a crop of a vector page, the text that lies inside the crop
-  and the page's size and scale state. This alone makes reading printed figures
-  exact, and it is the cheapest change in the plan.
+  and the page's size and scale state. It is the cheapest change in the plan, and
+  it removes the resolution limit on reading printed figures. It is exact only once
+  the reading order of each figure is settled: rotated and mirrored text can leave
+  the text layer reversed („581“ for a printed 185). The reader orders a figure's
+  characters by their positions along its own baseline, never by the order in the
+  file, and where the direction stays open it returns both readings marked
+  ambiguous for the agent to check against the crop.
 - The annotation tools gain the shapes a measurement needs (a line, a path, a
   polygon) so the agent can leave what it measured on the sheet.
 - `ifc_measure` reports a suspicion of a wrong length unit, from typical dimensions
@@ -357,7 +362,8 @@ to what shapes an answer runs the answer suite before and after.
 1. **Slice 0 numbers**, before anything is built. They can change the order.
 2. **Round trip on our own models:** export a plan from an IFC fixture, measure it,
    compare with the model. A real accuracy figure for our pipeline.
-3. **Eval rows with ground truth:** a printed figure read exactly; a room-stamp sum;
+3. **Eval rows with ground truth:** a printed figure read exactly, including a
+   rotated one whose text layer is reversed („581“ for 185); a room-stamp sum;
    an undimensioned span measured within its stated interval; a refusal on an
    uncalibrated sheet; a contradiction between a printed and a measured value shown,
    not resolved; *nicht entscheidbar* on a span at the threshold.
