@@ -123,7 +123,7 @@ const workRecord = z.object({
     })
     .default({})
     .describe(
-      'The work’s identifiers at its source, {"<scheme>": "<value>"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. A passage finds the work when its address carries the value where the source record says (a query parameter); a scheme no source record declares is kept and finds nothing. At most ' + String(MAX_SOURCE_REFS) + ' schemes; `designation` is not one (it is the work’s own field). `eli` is the European Legislation Identifier, a URL ending with "/": checked for shape, read by no source record yet.',
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: a passage read live there finds this work when its address carries the value where the country’s source record declares the scheme (`identifiers`, e.g. a query parameter); an undeclared scheme finds nothing. Copy each value from the captured page. At most ' + String(MAX_SOURCE_REFS) + '; `designation` is the work’s own field, not a scheme. `eli` (European Legislation Identifier) is a URL ending with "/", checked for shape only.',
     ),
   ...common,
 })
