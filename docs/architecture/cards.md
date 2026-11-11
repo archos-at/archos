@@ -202,7 +202,8 @@ binding). The before-validator `FormulaCard._site_binding_is_the_servers`
 in `cards/formula_card.py` replaces whatever the model wrote, on every path
 (envelope, `emit_card`, a surface's leaf, the batch generator); outside a turn the
 stamp is absent. The field is in `SERVER_SET_CARD_FIELDS`, so no shape the model
-reads names it. The browser compares each check's `reference` (document and
+reads names it. The answer export skips it too (`SKIPPED_FIELDS` in
+`bff/answer-export/cards.ts`): the check's own text already says verdict or hint, and why. The browser compares each check's `reference` (document and
 edition) with the stamp (`editionHold` in `formulas.ts`) and shows a check as a
 hint, the value against the bound with the reason and no ✓ or ✗, unless that
 edition binds, its scope is settled and so is the coverage. `formulas.pack.spec.ts`
@@ -988,7 +989,13 @@ without re-plumbing generation or transport.
    carry an interaction, geometry to scale, a computed number, a live model
    binding or tabs; anything else is a table, a list, a fence or a directive
    block in the prose.
-9. For an **envelope** field (native answer anatomy, never a tool call): add
+9. **Every field a card carries reaches the answer export** (`bff/answer-export/cards.ts`):
+   give a new field and every new enum member a word in `answerExport.fields` /
+   `answerExport.values` (en and de), or skip it in `SKIPPED_FIELDS` with the reason.
+   `label-coverage.spec.ts` fails otherwise, and a directory-scoped run over
+   `ui/features/cards` never reaches it: run the whole workspace suite. #1658 missed
+   this and left develop red.
+10. For an **envelope** field (native answer anatomy, never a tool call): add
    a model, a registry entry and a gate in `common/answer_envelope.py` (the
    taught schema renders itself from the models), an earned-when line in the
    prompt's `<answer_envelope>` section, a sanitizer clause in
