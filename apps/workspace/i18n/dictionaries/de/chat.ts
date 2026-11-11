@@ -558,6 +558,16 @@ export const chat: typeof en.chat = {
       // Beurteilung mit Größe, Wert, Grenzwert und Ergebnis.
       recomputed: 'Neu berechnet. {checks}',
       checkSpoken: '{name}: {value}, Grenzwert {bound}, {verdict}.',
+      // Statt einer Beurteilung, wo die Ausgabe, aus der die Grenzwerte stammen,
+      // am Standort nicht gilt oder niemand geprüft hat, welche gilt.
+      hold: {
+        label: 'Hinweis',
+        otherEdition: 'Werte aus {edition}; am Standort gilt {binding}. Darum keine Beurteilung.',
+        notBinding: 'Werte aus {edition}; am Standort ist dieses Regelwerk nicht verbindlich. Darum keine Beurteilung.',
+        unsettled:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, ist noch nicht geprüft. Darum keine Beurteilung.',
+        siteUnknown: 'Werte aus {edition}; welche Ausgabe am Standort gilt, ist nicht bekannt. Darum keine Beurteilung.',
+      },
       component: {
         external_wall: 'Außenwand gegen Außenluft',
         roof_or_ceiling_to_outside_air: 'Decke oder Dachschräge gegen Außenluft',

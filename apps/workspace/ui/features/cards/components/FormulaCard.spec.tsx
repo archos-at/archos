@@ -15,6 +15,9 @@
  *   5. Nothing leaves the browser: no fetch, no send.
  *   6. Through the real A2UI renderer, the inputs live in the surface's data
  *      model: a variant's what-if survives switching tabs.
+ *   7. A verdict only where the edition the bounds come from binds at the
+ *      site and the gate is settled (the server's `site_binding` stamp);
+ *      elsewhere a hint with the reason, and no ✓ or ✗.
  */
 
 import { render as rtlRender, screen, waitFor, within } from '@testing-library/react'
@@ -52,9 +55,23 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
+/** The editions that bind at a site, as the server stamps them from the turn's knowledge context. */
+const siteWhere = (settled: boolean, editions: Record<string, string>) => ({
+  settled,
+  editions: Object.entries(editions).map(([designation, edition_label]) => ({ designation, edition_label })),
+})
+const GUIDELINES = ['2', '3', '4', '6'].map((number) => `OIB-Richtlinie ${number}`)
+/** Where the card's own editions bind, with a settled gate: the shape of a core site where 2023 binds throughout. */
+const BINDS_2023 = siteWhere(true, Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])))
+/** As at a core site where RL 6 binds in its 2025 edition. */
+const BINDS_RL6_2025 = siteWhere(true, {
+  ...Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])),
+  'OIB-Richtlinie 6': 'Ausgabe September 2025',
+})
+
 const fixtureCard = (id: string, patch?: (card: Record<string, unknown>) => void): FormulaCardData => {
   const entry = (cases.cases as Array<{ id: string; card?: unknown }>).find((item) => item.id === id)
-  const card = structuredClone(entry?.card) as Record<string, unknown>
+  const card = { site_binding: BINDS_2023, ...(structuredClone(entry?.card) as Record<string, unknown>) }
   patch?.(card)
   return answerCardSchema.parse(card) as FormulaCardData
 }
@@ -65,7 +82,7 @@ const stair = (going: number | null = 29) =>
   })
 
 const mount = (card: FormulaCardData) =>
-  render(<FormulaCard title={card.title} formula={card.formula} note={card.note} />)
+  render(<FormulaCard title={card.title} formula={card.formula} note={card.note} site_binding={card.site_binding} />)
 
 const riserField = () => screen.getByRole('spinbutton', { name: 'Stufenhöhe s' })
 const checks = () => within(screen.getByRole('region', { name: 'Beurteilung' }))
@@ -293,6 +310,50 @@ describe('FormulaCard', () => {
     await user.click(resetButton())
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(chatSendFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('the binding edition at the site', () => {
+  const uValue = (site: unknown) =>
+    fixtureCard('u-value-external-wall', (card) => {
+      card.site_binding = site
+    })
+  const hint = () => checks().getByText('Hinweis')
+
+  it('judges a U-value where the card’s edition binds and the gate is settled', () => {
+    mount(uValue(BINDS_2023))
+    expect(checks().getByText('erfüllt')).toBeInTheDocument()
+    expect(checks().queryByText('Hinweis')).toBeNull()
+  })
+
+  it('shows a hint, not a verdict, where a later edition binds, and says which', () => {
+    mount(uValue(BINDS_RL6_2025))
+    expect(hint()).toBeInTheDocument()
+    expect(checks().queryByText('erfüllt')).toBeNull()
+    expect(checks().queryByText('nicht erfüllt')).toBeNull()
+    expect(
+      checks().getByText('Werte aus Ausgabe Mai 2023; am Standort gilt Ausgabe September 2025. Darum keine Beurteilung.')
+    ).toBeInTheDocument()
+    // The value against the bound stays, and the header carries no verdict.
+    expect(checks().getByText('≤ 0,35 W/(m²K)')).toBeInTheDocument()
+    expect(screen.queryAllByText('erfüllt')).toHaveLength(0)
+  })
+
+  it('shows a hint where the gate is not settled, or no site was known', () => {
+    const { unmount } = mount(uValue(siteWhere(false, { 'OIB-Richtlinie 6': 'Ausgabe Mai 2023' })))
+    expect(hint()).toBeInTheDocument()
+    expect(checks().getByText(/ist noch nicht geprüft\. Darum keine Beurteilung\./)).toBeInTheDocument()
+    unmount()
+    mount(uValue(undefined))
+    expect(hint()).toBeInTheDocument()
+    expect(checks().getByText(/ist nicht bekannt\. Darum keine Beurteilung\./)).toBeInTheDocument()
+  })
+
+  it('holds back only the checks whose work’s edition differs', () => {
+    mount(fixtureCard('stair-main-within', (card) => {
+      card.site_binding = BINDS_RL6_2025
+    }))
+    expect(checks().getAllByText('erfüllt')).toHaveLength(3)
   })
 })
 

@@ -1,0 +1,9 @@
+---
+# area: building-law
+fixes:
+  - >
+    The what-if card for a U-value, a stair, an escape route or daylight now
+    names the edition its limits come from, and judges a value only where that
+    edition applies at your project's site. Elsewhere it shows the value
+    against the limit as a hint with the reason, such as "am Standort gilt
+    Ausgabe September 2025", and no pass or fail.

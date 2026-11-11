@@ -559,6 +559,15 @@ export const chat = {
       // its quantity, value, limit and outcome.
       recomputed: 'Recomputed. {checks}',
       checkSpoken: '{name}: {value}, limit {bound}, {verdict}.',
+      // In place of a verdict, where the edition the limits come from does not
+      // apply at the site, or nobody has reviewed which one does.
+      hold: {
+        label: 'Hint',
+        otherEdition: 'Values from {edition}; at the site, {binding} applies. So no verdict.',
+        notBinding: 'Values from {edition}; this rule set does not bind at the site. So no verdict.',
+        unsettled: 'Values from {edition}; which edition applies at the site has not been reviewed yet. So no verdict.',
+        siteUnknown: 'Values from {edition}; which edition applies at the site is not known. So no verdict.',
+      },
       component: {
         external_wall: 'External wall against outside air',
         roof_or_ceiling_to_outside_air: 'Ceiling or roof slope against outside air',

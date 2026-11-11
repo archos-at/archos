@@ -605,6 +605,39 @@ export function compileFormula(formula: FormulaSpec, values: FormulaValues, word
 
 /* ── judging ──────────────────────────────────────────────────────────────── */
 
+/** Which editions bind at the turn's site, as the server stamped the card; absent where no site was known. */
+export type SiteBinding = NonNullable<FormulaCardData['site_binding']>
+
+/**
+ * Why a check shows a hint rather than a verdict: no site was known, the site's coverage is not settled,
+ * the work does not bind there, or another edition does.
+ */
+export type HoldReason = 'siteUnknown' | 'unsettled' | 'notBinding' | 'otherEdition'
+
+export interface EditionHold {
+  reason: HoldReason
+  /** The edition the bound is transcribed from. */
+  edition: string
+  /** The edition that binds at the site, for `otherEdition`. */
+  binding: string | null
+}
+
+/**
+ * Whether the card may judge against a bound written in `reference` at the turn's site: only where the
+ * edition the bound is transcribed from is the one that binds there, and the gate is settled. Null then;
+ * otherwise why not. A work that binds with no edition named is as unknown as no site. Pure.
+ */
+export function editionHold(reference: NormReferenceData, site: SiteBinding | null | undefined): EditionHold | null {
+  const edition = reference.edition ?? ''
+  const hold = (reason: HoldReason, binding: string | null = null): EditionHold => ({ reason, edition, binding })
+  if (!site) return hold('siteUnknown')
+  if (!site.settled) return hold('unsettled')
+  const binds = site.editions?.find((entry) => entry.designation === reference.document)
+  if (!binds) return hold('notBinding')
+  if (!binds.edition_label) return hold('siteUnknown')
+  return binds.edition_label === edition ? null : hold('otherEdition', binds.edition_label)
+}
+
 /** One bound, judged against the quantity it names. */
 export interface LimitCheck {
   spec: CheckSpec
@@ -614,6 +647,8 @@ export interface LimitCheck {
   status: DimStatus
   /** Decimals the quantity is printed to, so the printed number and the verdict cannot disagree. */
   decimals: number
+  /** Set when the bound's edition does not bind at the site, or nobody settled which does: a hint, no verdict. */
+  hold: EditionHold | null
 }
 
 export interface JudgedFormula {
@@ -634,10 +669,16 @@ const inputResult = (value: number | null, unit: string): StepResult => ({
  * Evaluate the compiled steps with `calculation`'s own `evaluate` and judge
  * every bound with its `verdictFor`. A bound that cannot be derived (the
  * required share with an unknown depth) is `needs_input`, never the base 12 %.
+ * A check whose bound's edition does not bind at `site` carries its {@link editionHold}.
  */
-export function judgeFormula(compiled: CompiledFormula, values: FormulaValues): JudgedFormula {
+export function judgeFormula(
+  compiled: CompiledFormula,
+  values: FormulaValues,
+  site: SiteBinding | null | undefined
+): JudgedFormula {
   const results = evaluate(compiled.steps)
   const checks = compiled.checks.map((spec): LimitCheck => {
+    const hold = editionHold(spec.reference, site)
     const quantity =
       spec.quantity.kind === 'step' ? results[spec.quantity.index] : inputResult(at(values, spec.quantity.key), spec.unit)
     const derived = spec.boundStep == null ? undefined : results[spec.boundStep]
@@ -648,8 +689,9 @@ export function judgeFormula(compiled: CompiledFormula, values: FormulaValues): 
         : derived.value == null
           ? null
           : { ...spec.limit, value: derived.value }
-    if (limit == null) return { spec, quantity, limit, status: 'needs_input', decimals: 2 }
-    return { spec, quantity, limit, status: verdictFor(quantity, limit) ?? 'needs_input', decimals: resultDecimals(quantity, limit) }
+    if (limit == null) return { spec, quantity, limit, status: 'needs_input', decimals: 2, hold }
+    const status = verdictFor(quantity, limit) ?? 'needs_input'
+    return { spec, quantity, limit, status, decimals: resultDecimals(quantity, limit), hold }
   })
   const display = compiled.display.map((entry, index) => {
     const needed = checks

@@ -64,7 +64,7 @@ const cardOf = (entry: FormulaCase): FormulaCardData =>
 const run = (card: FormulaCardData, overrides: FormulaValues = {}) => {
   const values = { ...sourceValues(card.formula), ...overrides }
   const compiled = compileFormula(card.formula, values, words)
-  return { values, compiled, judged: judgeFormula(compiled, values) }
+  return { values, compiled, judged: judgeFormula(compiled, values, card.site_binding) }
 }
 
 const STEP_OF: Record<string, string> = {
