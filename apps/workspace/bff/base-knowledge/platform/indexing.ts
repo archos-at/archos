@@ -24,7 +24,7 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { knowledgeIndexRuns } from '@/lib/db/schema/knowledge-platform'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
-import { getKnowledgeBaseStatus, markCorpusFileCountry, reingestKnowledgeBaseDocuments, type CorpusFileMark } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatus, reingestKnowledgeBaseDocuments, withdrawCorpusFile, type CorpusFileMark } from '@/lib/knowledge/service'
 import type { IndexStatusView } from './wire'
 
 const REASON = 'platform base knowledge: indexing runs'
@@ -150,17 +150,13 @@ export async function readIndexStatus(changeRequestId: string): Promise<IndexSta
   }
 }
 
-/** A base-corpus file a rollback left unreleased (ADR-0173): its chunks are marked so no office reads them. */
+/**
+ * A base-corpus file a rollback left unreleased (ADR-0173): its chunks and corpus row are marked
+ * `released: false`, which every base-corpus read filters out (`vector_store.scope.corpus_country_condition`);
+ * only a re-release, whose indexing job marks it released, reads it again.
+ */
 export const platformTextDeindexPayloadSchema = z.object({ corpusFile: z.string().min(1).max(260) })
 export type PlatformTextDeindexPayload = z.infer<typeof platformTextDeindexPayloadSchema>
-
-/**
- * The country no office is entitled to (ISO 3166-1 user-assigned `ZZ`): a chunk
- * marked with it is filtered out of every base-corpus read (`vector_store.scope.scope_filter`).
- * The mark also lands on the file's corpus row, so a re-ingest stamps it again; only a
- * re-release, whose indexing job sends the country, reads it again.
- */
-export const UNRELEASED_COUNTRY = 'ZZ'
 
 /** Enqueue the de-index of each file a rollback left unreleased; a failure is logged, the rollback stands. */
 export async function enqueueDeindex(platformOrganizationId: string | null, corpusFiles: readonly string[]): Promise<number> {
@@ -177,7 +173,7 @@ export async function enqueueDeindex(platformOrganizationId: string | null, corp
   return failed
 }
 
-/** The job's step: unless a release names the file again, mark its chunks for no country. Throws to be retried. */
+/** The job's step: unless a release names the file again, withdraw it. Throws to be retried. */
 export async function runPlatformTextDeindex(_organizationId: string, payload: PlatformTextDeindexPayload): Promise<void> {
   const [still] = await withPlatformAccess(REASON, () =>
     getDb().execute<{ n: number }>(sql`
@@ -185,5 +181,5 @@ export async function runPlatformTextDeindex(_organizationId: string, payload: P
       WHERE r.organization_id IS NULL AND h.corpus_file = ${payload.corpusFile} LIMIT 1`),
   )
   if (still) return
-  await markCorpusFileCountry(payload.corpusFile, UNRELEASED_COUNTRY)
+  await withdrawCorpusFile(payload.corpusFile)
 }

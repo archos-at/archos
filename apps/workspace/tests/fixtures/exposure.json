@@ -4474,7 +4474,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "agent": "native:ris_lookup_tool",
+   "agent": "native:law_lookup",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"

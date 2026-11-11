@@ -50,10 +50,6 @@ READ_ENUMS: dict[str, tuple[str, ...]] = {
 
 #: Each enum the agent does not read yet, and why. Moving one to ``READ_ENUMS`` is the decision this file asks for.
 UNREAD_ENUMS: dict[str, str] = {
-    "/properties/uses/items/properties/sourceRefs/items/properties/scheme": (
-        "the agent knows no scheme: a source's producer states an identifier under the scheme its source "
-        "record names, and it is compared whole with the refs of the use (use_for_source_ref)"
-    ),
     "/properties/gate/properties/reason/anyOf/0": "the agent answers a site_unknown gate the same for either reason",
     "/properties/gate/properties/leaves/items/properties/certainty": (
         "the gate already says what an unverified site may claim"

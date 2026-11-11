@@ -107,8 +107,34 @@ def test_the_copy_hosts_are_read_from_a_source_record_s_file(tmp_path, monkeypat
         web_sources._sources_under.cache_clear()
 
 
+def test_a_released_record_the_turn_carries_names_its_copies(monkeypatch):
+    """A published source's ``copy_hosts`` screen the web as a repository file's did, with no file at all."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import LawSource
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    monkeypatch.setenv("PUBLIC_SOURCES_DIR", "/nonexistent/sources")
+    web_sources._sources_under.cache_clear()
+    config = {"title": "Lawbase of Ruritania", "hosts": ["law.example.org"], "copy_hosts": ["mirror.example.net"]}
+    released = LawSource(key="xr-lawbase", revision_id="r1", country="XR", config=config)
+    set_turn_knowledge_context(
+        KnowledgeContext(gate="core", site_country="XR", sources=(released,), retrieval_countries=frozenset({"XR"}))
+    )
+    try:
+        (source,) = web_sources.configured_sources()
+        assert (source.country, source.hosts, source.copy_hosts) == (
+            "XR",
+            ("law.example.org",),
+            ("mirror.example.net",),
+        )
+        assert assess("https://mirror.example.net/bo", "Bauordnung").withheld
+    finally:
+        set_turn_knowledge_context(None)
+        web_sources._sources_under.cache_clear()
+
+
 def test_an_unreadable_record_set_knows_no_copy_and_fails_no_search(monkeypatch):
-    """The source records move to the platform one day: until this reads them there, a missing set is no error."""
+    """An unreadable repository record set is no error: no host of it is known as a copy."""
     monkeypatch.setenv("PUBLIC_SOURCES_DIR", "/nonexistent/sources")
     web_sources._sources_under.cache_clear()
     try:
@@ -179,6 +205,22 @@ def test_the_host_an_edition_s_identity_names_is_its_own_source(invented_source)
     """The records name where an edition is read (its ELI): a hit there is the law's source, not a copy."""
     _reads("XR", uses=(STATUTE,), gate="core")
     assert assess("https://statutes.example.org/eli/2008/34", "Ruritanian Parking Act 2008") == web_sources.KEEP
+
+
+def test_only_an_eli_names_a_host_of_the_work_s_own(invented_source):
+    """An open scheme's value is no address by any rule: an https value under it trusts no host."""
+    planted = EditionUse(
+        work_id="xr:parking-act",
+        edition_id=None,
+        role="binding",
+        via="territory",
+        designation="Ruritanian Parking Act 2008",
+        source_refs=(SourceRef(scheme="xr_gazette_number", value="https://mirror.example.net/act"),),
+    )
+    _reads("XR", uses=(planted,), gate="core")
+    assert "mirror.example.net" not in web_sources.own_source_hosts()
+    _reads("XR", uses=(STATUTE,), gate="core")
+    assert "statutes.example.org" in web_sources.own_source_hosts()
 
 
 def test_a_work_nobody_holds_is_nobody_s_copy(invented_source):

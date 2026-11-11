@@ -225,10 +225,12 @@ export async function findIngestAnnouncementFacts(
 
 /**
  * Documents the backend took (`pending`, with a job id) and nobody has asked about
- * since `before`, oldest first, across every organization. Reconciliation is pull-only
- * (the backend pushes no result back), so a row whose office closed the tab, and which
- * no open upload batch names, stayed `pending` until somebody next read its shelf:
- * hours, or days. The caller reconciles each row inside its own organization.
+ * since `before`, oldest first, across every organization. The backend writes no
+ * result into Postgres; the worker's settle push (`../settle-push`) asks the reconcile
+ * to look when a job ends, and it is best effort. A row whose push was lost, whose
+ * office closed the tab and which no open upload batch names would stay `pending`
+ * until somebody next read its shelf: hours, or days, before this sweep.
+ * The caller reconciles each row inside its own organization.
  */
 export async function listStalePendingDocuments(before: Date, limit: number): Promise<Document[]> {
   const db = getDb()
