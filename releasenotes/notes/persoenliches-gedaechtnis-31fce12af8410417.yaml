@@ -7,3 +7,7 @@ features:
     own that only you can read. It no longer lands in the project's memory in
     front of the team, even when you say it in a project chat, and it follows
     you into every project.
+  - >
+    The assistant draws on what it keeps about you personally only in chats
+    that you alone read. In a chat you share with colleagues it leaves those
+    notes out, because others read the answers there.

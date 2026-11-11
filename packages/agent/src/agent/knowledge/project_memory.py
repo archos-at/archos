@@ -180,10 +180,10 @@ def fetch_memory_digest(
 ) -> str | None:
     """Fetch the CURRENT core-memory digest via the internal BFF endpoint.
 
-    The digest normally rides the ``x-grid-project-memory`` header set on the WS
-    upgrade, but that header is frozen for the connection's life — memory written
-    mid-session never reaches the agent until a reconnect. Calling this at the
-    start of a turn re-serves the up-to-date digest.
+    A signed-in chat turn reads its digest from the turn context (ADR-0077) and
+    calls this only when its signed scope holds restricted collections. The job
+    worker calls it too, and a turn where nobody signs in: its digest rides the
+    ``x-grid-project-memory`` handshake header, frozen for the connection's life.
 
     The channel carries three blocks, not one: ``PROJECT_MEMORY``,
     ``PROPOSAL_DECISIONS`` and — when this turn belongs to a conversation —

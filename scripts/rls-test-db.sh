@@ -3966,3 +3966,50 @@ check_in tf_0224 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_sour
 apply_in tf_0224 0224_knowledge_text_four_eyes.sql
 check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_text_counts_as_fetched%')::text" "true" "0224 applies again after its down"
 echo "==> 0224 text four eyes and its down migration verified"
+# ---------------------------------------------------------------------------
+# Migration 0225: personal memory (ADR-0180). The table comes up under
+# row-level security with a policy that names the person, for reads and for
+# writes; a kind or provenance outside the vocabulary, a blank note and a second
+# note of one person with the same normalized text are refused, while a
+# colleague may hold the same sentence. Who reads whose row is proven as the
+# runtime role in personal-memory.integration.spec.ts above. The down drops the
+# table with every note in it, and 0225 applies again, twice, empty.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0225 personal memory table and its down migration on pm_0225"
+migrate_until pm_0225 0225_personal_memory
+check_in pm_0225 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'personal_memory'" "true" "0225 brings the table up under row-level security"
+check_in pm_0225 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%' AND pg_get_expr(polwithcheck, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0225: the policy names the person, for reads and for writes"
+sql_in pm_0225 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0225', 'user_a', 'preference', 'Answers in short paragraphs.')"
+PM225="INSERT INTO personal_memory (organization_id, user_id, kind, content, provenance_type) VALUES ('org_0225', 'user_a'"
+refused_in pm_0225 "$PM225, 'decision', 'A project kind', 'agent')" "personal_memory_kind_known" "a project kind was accepted"
+refused_in pm_0225 "$PM225, 'profile', 'Leads the reviews', 'profile_graduation')" "personal_memory_provenance_known" "an unknown provenance was accepted"
+refused_in pm_0225 "$PM225, 'profile', '   ', 'agent')" "personal_memory_content_bounded" "a blank note was accepted"
+refused_in pm_0225 "$PM225, 'preference', 'answers in SHORT paragraphs', 'agent')" "uniq_personal_memory_owner_content" "the same sentence was kept twice for one person"
+sql_in pm_0225 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0225', 'user_b', 'preference', 'Answers in short paragraphs.')"
+check_in pm_0225 "SELECT count(*) FROM personal_memory" "2" "0225: a colleague holds the same sentence in a row of their own"
+apply_in pm_0225 0225_personal_memory.down.sql
+check_in pm_0225 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'personal_memory'" "0" "0225 down drops the table"
+apply_in pm_0225 0225_personal_memory.sql
+apply_in pm_0225 0225_personal_memory.sql   # up twice: idempotent
+check_in pm_0225 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM personal_memory) FROM pg_class WHERE relname = 'personal_memory'" "true:0" "0225 applies again after its down, twice, secured and empty"
+echo "==> 0225 personal memory table and its down migration verified"
+# ---------------------------------------------------------------------------
+# Migration 0226: a conversation can be temporary (ADR-0180 rule 2). Every
+# conversation that existed keeps memory as before, and the flag is never
+# null. The down drops the column and leaves the conversations; which ones
+# were temporary is forgotten, so after 0226 applies again none is.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0226 temporary flag and its down migration on tc_0226"
+migrate_before tc_0226 0226_conversation_temporary
+sql_in tc_0226 <<<"INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0226', 'org_0226', 'user_1')"
+apply_in tc_0226 0226_conversation_temporary.sql
+apply_in tc_0226 0226_conversation_temporary.sql   # up twice: idempotent
+check_in tc_0226 "SELECT temporary::text FROM conversations WHERE id = 's_0226'" "false" "0226: a conversation that existed keeps memory as before"
+refused_in tc_0226 "UPDATE conversations SET temporary = NULL WHERE id = 's_0226'" "not-null constraint" "a flag that is neither on nor off"
+sql_in tc_0226 <<<"UPDATE conversations SET temporary = true WHERE id = 's_0226'"
+apply_in tc_0226 0226_conversation_temporary.down.sql
+check_in tc_0226 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'temporary'" "0" "0226 down drops the column"
+check_in tc_0226 "SELECT count(*) FROM conversations WHERE id = 's_0226'" "1" "0226 down leaves the conversation"
+apply_in tc_0226 0226_conversation_temporary.sql
+check_in tc_0226 "SELECT temporary::text FROM conversations WHERE id = 's_0226'" "false" "0226 applies again after its down, and no conversation is temporary"
+echo "==> 0226 temporary flag and its down migration verified"

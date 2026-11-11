@@ -36,7 +36,9 @@ person, a way to keep nothing, and a statement of who reads what.
   (digest, feedback, permits, cross-project decisions, project experience).
   A new scope in that table is safe only if all twelve learn to exclude it.
 * The promise to the person has to be one sentence they can check.
-* Per-person erasure (ADR-0011, ADR-0091) must reach the new notes.
+* One statement must be able to remove everything kept about one person, for
+  the day the product erases an account. It has no such path today (see
+  Consequences).
 
 ## Considered Options
 
@@ -70,7 +72,7 @@ promised hosting in Vienna and no tenant content in a third party's database
 (ADR-0150's driver, ADR-0161). What these services add over our store is
 recall quality, which is not what the offices asked for.
 
-Three rules complete the decision:
+Four rules complete the decision:
 
 1. **A note has one home, and the home says who reads it.** Mine: only the
    person. Project: the project's members. Office: everyone in it. The agent
@@ -85,6 +87,15 @@ Three rules complete the decision:
    characters reach a turn, pinned first, then newest, and the block says so.
    It has no embeddings, no reinforcement and no status column until a person
    holds more notes than fit.
+4. **The personal block reaches a turn only when the asker alone reads the
+   answer.** An answer in a shared conversation is read by other people, so a
+   personal note in the prompt could surface in front of them. The turn context
+   delivers the block when the turn has no conversation, or when the
+   conversation is the asker's alone: private, created by them and granted to
+   nobody else, or not created yet. In any other conversation it is null, and
+   it is null when the audience could not be read. Writing is not narrowed the
+   same way. A note about the person is still kept from a shared conversation,
+   because the store it goes to is read by them alone.
 
 ### Consequences
 
@@ -93,7 +104,8 @@ Three rules complete the decision:
 * Good, because a person can now be told one checkable sentence: "Nur du
   siehst das. Auch Administrator:innen nicht."
 * Good, because the writer's refusal for a temporary conversation covers every
-  present and future agent-side writer.
+  present and future agent-side writer that names its conversation. The two
+  cases it does not cover are listed under Confirmation.
 * Bad, because dedup, digest formatting and CRUD exist twice, in a small form.
   The shared pieces (`normalizeContent`, `formatBoundedDigestWithKept`) are
   reused; the rest is about 300 lines.
@@ -106,20 +118,94 @@ Three rules complete the decision:
 * Bad, because a platform operator with database access can still read the
   rows. The sentence shown to the person names colleagues and administrators
   of the office, not the operator; the data-processing agreement covers that.
+* Bad, because in a shared conversation the agent answers without what it
+  knows about the asker. It can still save a note there and cannot use one
+  until the person asks in a conversation of their own.
+* Bad, because nothing erases a person's notes when the person leaves the
+  office or asks for erasure. The product has no account-erasure and no
+  member-removal path at all: the deletion queue's entity types include
+  `user`, but nothing enqueues one and the purger has no handler for it
+  (ADR-0011 lists it as a follow-up), and `user_preferences` has no delete
+  either. `deleteAllPersonalMemory` (`bff/personal-memory/repository.ts`)
+  removes every note of one person in one statement and is tested under
+  row-level security, but no production path calls it. Until one does, a
+  person's notes outlive their membership, readable by nobody the application
+  serves and still in the database.
 
 ### Confirmation
 
-* `rls-coverage.spec.ts` fails a table without `secure_table`.
-* `personal-memory.integration.spec.ts` (in `task db:test:rls`) writes a note
-  as one person and reads as another, in the same organization, and gets
-  nothing.
-* `app/api/internal/memory/route.spec.ts` and
-  `app/api/internal/personal-memory/route.spec.ts` refuse a write from a
-  temporary conversation.
+Paths are relative to `apps/workspace` unless they start with `packages/`.
+
+What holds the store and its promise:
+
+* `bff/db/rls-coverage.spec.ts` fails a table without `secure_table`.
+* `bff/personal-memory/personal-memory.integration.spec.ts` (in
+  `task db:test:rls`, as the runtime role) writes a note as one person and
+  reads, updates and deletes as another in the same organization, with
+  statements that name no user, and reaches nothing. It also refuses a row
+  written for somebody else, and a memory write from a temporary conversation.
+* `scripts/rls-test-db.sh` checks migrations 0225 and 0226 one at a time: the
+  policy names the person, the CHECKs and the unique index refuse, and each
+  down migration reverses and applies again.
+* `bff/personal-memory/service.spec.ts` holds the bounds of the block (20
+  notes, 1,500 characters, the footer that counts what was left out) and the
+  dedup. `app/api/user/memory/route.spec.ts` and
+  `app/api/user/memory/[itemId]/route.spec.ts` hold that the owner is the
+  session's person and never a body field.
+* `app/api/internal/personal-memory/route.spec.ts` holds that the agent's
+  write takes its owner from the signed envelope, and that a missing envelope
+  is a 401.
+
+What holds rule 2, a temporary conversation keeps nothing:
+
+* `bff/conversations/temporary.spec.ts`, `app/api/internal/memory/route.spec.ts`
+  and `app/api/internal/personal-memory/route.spec.ts` refuse the write with
+  403 `TEMPORARY_CONVERSATION`. `app/api/conversations/[id]/temporary.route.spec.ts`
+  holds that only an owner switches the flag.
 * `packages/agent/tests/memory/test_register.py` and
-  `tests/stages/test_memory_reflection_stage.py` hold the agent-side skips.
-* Nothing checks the model's choice between Mine and Project yet; review and
-  the person's own eye are the gate. An eval case belongs in the answer suite.
+  `packages/agent/tests/stages/test_memory_reflection_stage.py` hold the
+  agent-side skips. `packages/agent/tests/knowledge/test_personal_memory.py`
+  maps the refusal to the named error.
+
+What holds rule 4, the block only where the asker alone reads the answer:
+
+* `app/api/internal/turn-context/route.spec.ts` delivers the block in a solo
+  conversation and on a turn without one, and answers null in a shared
+  conversation and when the audience cannot be read.
+* `test_personal_memory_prompt.py`, among the chat agent's tests under
+  `packages/agent/tests/agents/`, holds that the block is rendered into the
+  chat prompt only, and
+  `test_memory_reflection_stage.py` that a personal note never rides the
+  stage's frame, which is stored on a message other people read.
+
+What holds rule 1 on the agent side:
+`packages/agent/tests/memory/test_reflection.py` drops a person finding that
+has no envelope instead of moving it to the project, and drops a `preference`
+with no usable `about`.
+
+Nothing enforces these yet:
+
+* **The model's choice between personal and project.** The tool description
+  and the reflection prompt say which is which; no eval case checks what the
+  model does with them. Review and the person's own eye are the gate. An eval
+  case belongs in the answer suite.
+* **The deep-research worker's reflection.** `_reflect` in
+  `apps/agent-host/src/agent_host/jobs/runner.py` calls the reflection pass
+  with no envelope and without the turn's `temporary` flag. A finding about
+  the person is therefore dropped on a research run, and the run's project
+  findings from a temporary conversation are stopped only by the BFF's
+  refusal, after the model call was paid for.
+* **A memory card a person confirms in a temporary conversation.** Accepting
+  a `memory` proposal writes through the person's own session
+  (`bff/proposals/appliers.ts`), which does not ask whether the origin
+  conversation is temporary. The `remember` tool offers no card in a
+  conversation it knows is temporary, so this needs a card shown before the
+  switch.
+* **`POST /api/internal/memory` without `sourceConversationId`.** The route
+  judges the flag on the conversation the body names. A project or
+  organization write that names none is kept. The personal route does not
+  have this gap: it also judges the envelope's conversation.
+* **Erasure of a person's notes**, as said under Consequences.
 
 ## More Information
 
@@ -127,3 +213,9 @@ The north star this serves, and the slices still open, are in
 [`project-memory-design.md`](../architecture/project-memory-design.md#north-star-three-shelves).
 The customer evidence is in the office protocols of 30 October, 6 November,
 9 November and 10 November 2026, and in backlog ticket 81.
+
+Open gap: erasing a person. When the product gets an account-erasure or
+member-removal path (the `user` purger ADR-0011 leaves open), that path must
+call `deleteAllPersonalMemory` for the person in each organization, and
+`user_preferences` needs the same. Until then this record's driver about
+erasure is met by the store's shape and by nothing that runs.

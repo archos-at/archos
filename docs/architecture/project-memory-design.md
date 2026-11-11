@@ -3,8 +3,93 @@
 > A durable, evolving, agent-authored **and** user-curated knowledge layer scoped
 > to a single project, so Piloti gets measurably smarter about *that* project over
 > time. This is the "AGENTS.md for a project" idea, designed as a real system.
-> Status: DESIGN (not yet built). Depends on the core project-context injection
-> being runtime-verified first (see `backend-deep-dive.md` §4).
+> Status: built and in use. The table, the `remember` tool, the digest, the
+> reflection stage, restricted memory and the panel all run; each section says
+> what exists and what is still open. Sections 5, 8 and 10 are the original
+> sketch, kept for the reasoning and marked where the build went another way.
+> Personal memory and temporary conversations (ADR-0180) are in the first
+> section below.
+
+## North star: three shelves
+
+The star. A person tells the agent something once and never wonders who will read
+it. Every note sits on one of three shelves, and the shelf says who reads it:
+
+| Shelf | Who reads it | How a note gets there |
+|---|---|---|
+| Mine | Only the person. No colleague, no administrator of the office | The agent keeps it, or the person writes it |
+| Project | The project's members | The agent keeps it, or a member writes it |
+| Office | Everyone in the office | A person adds it. The agent proposes it as a card and does not write it alone (`ALLOW_AGENT_ORG_MEMORY` unset, the default) |
+
+Four things hold on every shelf:
+
+- A note's home is chosen by what the note is about, never by where the chat
+  happened. "I want short answers" said in a project chat is about the person
+  and goes to Mine.
+- A temporary conversation keeps nothing, on any shelf. It still reads what is
+  already known.
+- Every save is visible on the answer that caused it, with the shelf and who
+  reads that shelf.
+- Every save can be taken back from where it is shown.
+
+The decision record is
+[ADR-0180](../adr/0180-personal-memory-is-its-own-table-keyed-to-the-person.md).
+The code names are in the glossary: personal memory (Mine), project memory,
+organization memory (Office).
+
+### The slices
+
+**Built, server and agent (no screen yet).**
+
+- The personal store. `personal_memory` is a table of its own with row-level
+  security on the person (migration 0225), so a colleague's or an
+  administrator's query matches no row. Two kinds, `preference` and `profile`.
+  The person's routes are `/api/user/memory` and `/api/user/memory/[itemId]`,
+  with the operations `personal-memory-*`. Code: `apps/workspace/bff/personal-memory/`.
+- Sorting in the agent. `remember` takes scope `personal`, and the reflection
+  stage says for each finding whether it is about the person or the project
+  (`packages/agent/src/agent/memory/`). A finding about the person goes to
+  personal memory through `POST /api/internal/personal-memory`, where the BFF
+  takes the owner from the turn's signed envelope. Without an envelope the
+  finding is dropped. It is never moved to the project.
+- What a turn is given. The turn context carries the asker's block
+  (`PERSONAL_MEMORY v1`, at most 20 notes and 1,500 characters, pinned first,
+  then newest) only when the asker alone reads the answer: a turn without a
+  conversation, or a conversation that is private, theirs and granted to
+  nobody else. In a shared conversation it is null, because other people read
+  the answer. The block is rendered into the chat prompt only, never into the
+  context the clarifier and deep research receive.
+- The temporary refusal. `conversations.temporary` (migration 0226) is set by
+  the conversation's owner on create or with `PATCH /api/conversations/{id}`.
+  Both internal memory routes refuse a write that names a temporary
+  conversation with 403 `TEMPORARY_CONVERSATION`. The turn context reports the
+  flag, and the agent then skips `remember` and the reflection stage.
+
+**Next.**
+
+- The screens: the person's own list of notes, and the switch that makes a
+  conversation temporary. Neither has a control in the UI today.
+- Every save on the answer, with undo. Project saves show under the answer
+  today (`MemoryNotedChip`); a personal save shows nowhere.
+- A per-person channel for background saves to personal memory. The
+  reflection stage's frame is stored on the answer's message, which everyone
+  in the conversation reads, so a personal note never rides it
+  (`stages/memory_reflection.py`). Until a channel reaches only the asker, a
+  note the stage kept after the answer is invisible to them.
+- The gaps ADR-0180 lists under Confirmation: the deep-research worker's
+  reflection, a memory card confirmed in a temporary conversation, a project
+  write that names no conversation, and erasing a person's notes when they
+  leave.
+
+**Later.**
+
+- Topics. Notes grouped into named topics, with an index that is always in
+  the prompt and topics opened on demand, the way Claude Code's auto memory
+  and the Claude apps do it. This replaces "the newest 20" once a person holds
+  more than fit.
+- Indexing project and office notes into the existing Qdrant stack, only if a
+  topic outgrows what a turn can carry. Recall runs today inside the digest
+  query over the row's own vector (§3.6).
 
 ## 0. The one-sentence goal
 
@@ -143,12 +228,21 @@ carries the restriction since 0112, so an open and a restricted note with the
 same text can both be live.
 
 ### 3.3 Serve — how it reaches the agent (two channels)
-- **Always-on "core memory" digest**: pinned + top-salience items, compacted to a
-  small budget, delivered as a header `x-grid-project-memory` (sibling to
-  `x-grid-project-context`). This is the "Piloti always knows the essentials" layer.
-- **Per-query recall (RAG)**: findings are embedded into a dedicated vector
-  namespace and retrieved per query via the **existing** `X-Grid-Collection-Scope`
-  mechanism (add a `mem_<project>` scope). This scales past the header budget.
+- **Always-on "core memory" digest**: pinned items plus the ones recalled for
+  the turn's question, compacted to a small budget. This is the "Piloti always
+  knows the essentials" layer. It was designed as a handshake header,
+  `x-grid-project-memory`, and ADR-0077 moved it: a signed-in chat turn calls
+  `POST /api/internal/turn-context` at turn setup and reads the digest from
+  `projectMemory` in the response
+  (`packages/agent/src/agent/turn/context_client.py`). A turn whose signed
+  scope holds restricted-folder collections also calls
+  `GET /api/internal/memory/digest` and takes that digest (§3.6). The header
+  is left in two places: the handshake of a deployment where nobody signs in,
+  and the job worker, which fetches the digest over HTTP and writes it into
+  its own request state.
+- **Per-query recall (RAG)**: designed as a dedicated vector namespace
+  (`mem_<project>`) reached through `X-Grid-Collection-Scope`. Not built.
+  Recall runs inside the digest query over the row's own vector (§3.6).
 
 Injection format tags each item so the model treats it correctly, e.g.:
 `[decision · user-confirmed] Client chose the Fluchttunnel option (conv #3).`
@@ -175,10 +269,10 @@ back next turn. Since ADR-0105 such a card carries a `proposal_id` and its
 decision is a row of `proposed_changes`
 ([`proposed-changes.md`](proposed-changes.md)): the server applies a note or a
 patch in the deciding person's session and records who decided and when, and the
-browser saves nothing. `lib/projects/proposal-decisions.ts` renders the most
+browser saves nothing. `apps/workspace/bff/projects/proposal-decisions.ts` renders the most
 recent verdicts as a bounded `PROPOSAL_DECISIONS v1` block (≤10 lines / ≤900
-chars, newest first) that is appended to the digest on the handshake and on the
-live per-turn fetch. It has two sources: the server rows
+chars, newest first) that is appended to the digest wherever it is built: the
+turn context and the live digest route. It has two sources: the server rows
 (`proposal-decision-rows.ts`), described from what was applied and never from a
 card's preview, and, for a card without a `proposal_id` (an answer older than
 server proposals, or one the agent could not store), the browser's recorded
@@ -198,13 +292,15 @@ means not raised again without new evidence.
 ### 3.5 Async post-answer reflection (the post-processing phase)
 The in-turn `remember` tool depends on the answering agent pausing mid-flow to
 record a finding — which a busy answer often skips. The **reflection stage** is
-the safety net. It runs in the chat entrypoint's *post-processing phase*,
-**scheduled after the answer is already returned** (`schedule_memory_reflection`
-in `memory/reflection.py`), so it never adds latency to the reply.
+the safety net. It is a post-answer stage
+(`packages/agent/src/agent/stages/memory_reflection.py`, which declares when it
+runs; the pass itself is `run_memory_reflection` in `memory/reflection.py`) and
+runs **after the answer is already returned**, so it never adds latency to the
+reply.
 
 Flow (fire-and-forget background task on the event loop):
 1. The entrypoint captures the turn (query + answer), the project/organization
-   ids, and the existing `x-grid-project-memory` digest **while the request
+   ids, and the memory digest the turn was shown **while the request
    context is live**, then schedules the task and returns the response.
 2. The task prompts a small reflection LLM (`memory_reflection_llm`) with the
    exchange **and the existing memory digest**, asking for any NEW durable
@@ -345,7 +441,7 @@ refused (see "Auditing the judge" below):
 (`restrictionJudge` on `POST /api/internal/memory`: `drawn`, `none` or
 `failed`, the collections the judge was shown and the ones it named). The BFF
 records it as `project.memory.restriction_judged`, acted by
-`system:memory_judge` (`lib/projects/memory-judge-audit.ts`): the note by id,
+`system:memory_judge` (`apps/workspace/bff/projects/memory-judge-audit.ts`): the note by id,
 its folders, never its text, `outcome: stored`. A "none" is what leaves a note
 open, so it is the verdict the trail exists for. That includes a `remember`
 with scope organization that the deployment refuses
@@ -387,7 +483,7 @@ an open write by the user's own session.
 
 **Writing** — `POST /api/internal/memory` takes `restrictedCollections`;
 `createProjectMemoryItemForProject` maps each to the folder whose collection it
-is (`sourceFoldersOfCollections` in `lib/authz/folder-access.ts`) and refuses
+is (`sourceFoldersOfCollections` in `apps/workspace/bff/authz/folder-access.ts`) and refuses
 (400) a name no folder of the project answers to, rather than store a note
 nobody could be served.
 
@@ -440,6 +536,12 @@ liability, so trust is a first-class field, not an afterthought:
 - The user can always see, edit, correct, or delete (§7) — human override is the backstop.
 
 ## 5. Architecture & data flow
+
+This is the original sketch. Three things were built differently. The agent
+writes through `POST /api/internal/memory` on the BFF, not a backend
+`/v1/projects/{id}/memory` route. The digest reaches a signed-in turn through
+`POST /api/internal/turn-context`, not a handshake header (§3.3, ADR-0077).
+The `mem_<project>` namespace and `common/agent_base.py` do not exist.
 
 ```
  Agent turn
@@ -530,6 +632,10 @@ approval loop, while never letting silent memory harden into unchallenged fact.
 | Agent records noise | tight prompt policy + consolidation dedup + user pruning |
 
 ## 10. Interfaces (sketch)
+
+As sketched before the build. The routes that exist are in
+[`docs/api/bff-routes.md`](../api/bff-routes.md); §5 says where the build
+differs.
 
 - **DB**: `project_memory` table (§2) + a Drizzle migration; embed index namespace `mem_<project>`.
 - **Tool schema**: `remember(kind: enum, content: string, confidence: enum) -> {id}`.

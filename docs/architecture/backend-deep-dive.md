@@ -2000,11 +2000,28 @@ The agent can now persist curated findings across turns. Full design:
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
   (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
-  project items (active only; pinned first, then most recently updated,
-  bounded), tags each line with scope/kind/confidence/verification, and the
-  digest rides the WS upgrade as the `x-grid-project-memory` header
-  (`server.js` → `packages/agent/src/agent/project_context.py`), injected into prompts
-  alongside `x-grid-project-context`.
+  project items (active only; the pinned ones, then the ones recalled for
+  this turn's question, bounded) and tags each line with
+  scope/kind/confidence/verification. A signed-in chat turn does not get the
+  digest in a handshake header (ADR-0077): the agent calls
+  `POST /api/internal/turn-context` at turn setup and reads it from
+  `projectMemory` in the response
+  (`packages/agent/src/agent/turn/context_client.py`). A turn whose signed
+  scope holds restricted-folder collections also calls
+  `GET /api/internal/memory/digest` and takes that digest, which may carry
+  restricted notes. The `x-grid-project-memory` header is left in two places:
+  the handshake of a deployment where nobody signs in
+  (`apps/workspace/bff/turns/turn-headers.js`), and the job worker, which
+  fetches the digest from `GET /api/internal/memory/digest` and writes it into
+  its own request state (`apps/agent-host/src/agent_host/jobs/agent_job_setup.py`).
+  `packages/agent/src/agent/project_context.py` reads the header in both.
+- **Personal memory (ADR-0180)**: a third home, in a table of its own
+  (`personal_memory`, row-level security on the person). The same turn-context
+  response carries the asker's block as `personalMemory`, only when the asker
+  alone reads the answer, and `temporary`, which tells the agent to skip its
+  memory writers. The agent writes through `POST /api/internal/personal-memory`
+  (`packages/agent/src/agent/knowledge/personal_memory.py`). The design is in
+  `project-memory-design.md`, first section.
 
 ## 8b. Runtime model overrides & usage metering (2026-07-07)
 

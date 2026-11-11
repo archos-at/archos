@@ -13,12 +13,14 @@ import { buildFolderDescriptionsBlock } from '@/lib/filing/folder-descriptions-b
 import { admitSourceFolders } from '@/lib/conversations/restricted-use'
 
 /**
- * INTERNAL service endpoint — the per-turn READ path for the agent's core
- * memory digest. The digest is normally injected as the `x-grid-project-memory`
- * header on the WebSocket upgrade, but that header is frozen for the life of the
- * connection: memory written mid-session (the `remember` tool and the async
- * reflection stage) would not reach the agent until a reconnect. The backend
- * calls this route at the start of each turn to serve the CURRENT digest.
+ * INTERNAL service endpoint — a per-turn READ path for the agent's core
+ * memory digest. A signed-in chat turn reads its digest from
+ * `POST /api/internal/turn-context` (ADR-0077), not from a handshake header.
+ * This route serves the callers that path does not: a chat turn whose signed
+ * scope holds restricted-folder collections (it takes this digest, which may
+ * carry restricted notes), the job worker, and a turn of a deployment where
+ * nobody signs in, whose `x-grid-project-memory` handshake header is frozen
+ * for the life of the connection.
  *
  * Server-authoritative (the client never supplies memory text) and token-guarded
  * exactly like `POST /api/internal/memory`. Tenancy is derived the same way as
