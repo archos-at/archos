@@ -8,7 +8,8 @@ improvements:
   - >
     Your ten most recent chats now stand under „Letzte Chats“ below the
     project's sections, while the sections above and the office's places below
-    stay where they are; „Alle Chats“ opens the whole chat history.
+    stay where they are; „Alle Chats“ at the end of the list opens the whole
+    chat history, and a click on „Letzte Chats“ folds the list away.
   - >
     The project list that opens from the project's name is as wide as the
     sidebar's button instead of running past its edge.

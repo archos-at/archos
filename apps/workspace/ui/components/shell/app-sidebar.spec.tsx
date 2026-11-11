@@ -6,7 +6,7 @@ import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
-import { RailChatsSource, type RailChats } from './rail-chats'
+import { RECENT_CHATS_COLLAPSED_STORAGE_KEY, RailChatsSource, type RailChats } from './rail-chats'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -459,18 +459,33 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     renderWith(chats())
     const list = screen.getByRole('list', { name: 'Recent chats' })
     const links = within(list).getAllByRole('link')
-    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss'])
+    // „All chats“ ends the scroll, after the last chat (2026-11-11).
+    expect(links.map((link) => link.textContent)).toEqual(['Rettungswege Bürogebäude GK4 Wien', 'Fluchtweglänge im Erdgeschoss', 'All chats'])
     expect(links[0]).toHaveAttribute('href', '/app/projects/p1/chat?session=c1')
-    // „All chats“ stands under the list, outside its scroll, so it is always whole (2026-11-11).
-    const all = screen.getByRole('link', { name: 'All chats' })
-    expect(list).not.toContainElement(all)
-    expect(list.compareDocumentPosition(all) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(all).toHaveAttribute('href', '/app/projects/p1/chat')
+    expect(links[2]).toHaveAttribute('href', '/app/projects/p1/chat')
     // A list of its own after the sections (2026-11-11), not rows nested under „Chat“.
     const sectionsNav = screen.getByLabelText('Project sections')
     expect(within(sectionsNav).queryByText('Rettungswege Bürogebäude GK4 Wien')).toBeNull()
     expect(sectionsNav.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Recent chats' })).toBeInTheDocument()
+  })
+
+  test('the heading folds the list away and back, and the browser remembers it', async () => {
+    window.localStorage.removeItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)
+    const user = userEvent.setup()
+    const { unmount } = renderWith(chats())
+    const toggle = screen.getByRole('button', { name: 'Recent chats' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toBeNull()
+    expect(window.localStorage.getItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)).toBe('1')
+    unmount()
+    renderWith(chats())
+    expect(await screen.findByRole('button', { name: 'Recent chats', expanded: false })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Recent chats' }))
+    expect(screen.getByRole('link', { name: 'Fluchtweglänge im Erdgeschoss' })).toBeInTheDocument()
+    window.localStorage.removeItem(RECENT_CHATS_COLLAPSED_STORAGE_KEY)
   })
 
   test('a title stays on one line, whole in its tooltip', () => {

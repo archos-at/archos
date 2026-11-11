@@ -168,8 +168,11 @@ describe('the app rail’s material', () => {
     const limit = Number(chats.match(/export const RAIL_CHAT_LIMIT = (\d+)/)?.[1])
     expect(limit).toBeGreaterThan(0)
     expect(limit).toBeLessThanOrEqual(12)
-    // „Alle Chats“ stands after the scrolling list, never inside it, where the list's fading foot greyed it out.
-    expect(chats).toMatch(/<\/ul>\s*(\{\}\s*)?<Link [^>]*data-testid="rail-all-chats"[\s\S]*?\{t\('allChats'\)\}/)
+    // „Alle Chats“ ends the scroll: the list's last row, after the chats, in the heading's quiet face, not a row's.
+    expect(chats).toMatch(/<li className="shrink-0">\s*<Link [^>]*data-testid="rail-all-chats" className=\{cn\(QUIET,[\s\S]*?\{t\('allChats'\)\}\s*<\/Link>\s*<\/li>\s*<\/ul>/)
+    expect(chats).toMatch(/const QUIET = '[^']*\btext-meta\b[^']*\bfont-medium\b/)
+    // The heading folds the list (2026-11-11).
+    expect(chats).toMatch(/<button[^>]*aria-expanded=\{!collapsed\}[^>]*aria-controls=\{listId\}/)
     // The box round the sections does not scroll, so the office's doorways at the foot stay put.
     expect(rail).toMatch(/'mt-3 min-h-0 flex-1 gap-0 overflow-hidden'/)
   })
