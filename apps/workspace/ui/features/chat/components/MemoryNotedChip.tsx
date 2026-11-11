@@ -2,21 +2,7 @@
 
 import { useId, useState, type FC, type JSX } from 'react'
 import Link from 'next/link'
-import {
-  Brain,
-  BrainCog,
-  Building2,
-  CircleHelp,
-  FileText,
-  FolderLock,
-  Gavel,
-  Lock,
-  Sparkles,
-  Star,
-  User,
-  Users,
-  type LucideIcon,
-} from 'lucide-react'
+import { Brain, BrainCog, Building2, FileText, Lock, Sparkles, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Chip, ChipCount } from '@/components/ui/chip'
 import {
@@ -29,14 +15,17 @@ import {
   NoteRow,
 } from '@/components/ui/note-list'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '../store'
 import {
+  loadOfficeShelf,
   loadProjectShelf,
   noteAddress,
   removeNote,
+  useOfficeShelf,
   useProjectShelf,
   useTurnNotes,
   type NoteRemoval,
@@ -71,6 +60,8 @@ export interface MemoryNotedChipViewProps {
   projectId?: string | null
   /** What the project's memory said to this reader; undefined until it was asked. */
   shelf?: ProjectShelfAccess
+  /** The office's active notes written from this conversation; undefined until asked, null past one page. */
+  officeIds?: readonly string[] | null
   /** Where taking each note back stands, by note id. */
   removals?: Readonly<Record<string, NoteRemoval>>
   onRemove?: (item: TurnMemoryItem) => void
@@ -78,21 +69,17 @@ export interface MemoryNotedChipViewProps {
   onOpenChange?: (open: boolean) => void
 }
 
-/** Who reads a note, by the shelf it went onto (ADR-0180 rule 1). The glyphs are the access chip's. */
+/**
+ * Who reads a note, by the shelf it went onto (ADR-0180 rule 1): the row's
+ * leading glyph, so a padlock means only this reader. The glyphs are the access
+ * chip's (`AccessChip`): lock private, people the project's team, building the
+ * office. A folder's readers are a part of the team, told apart by the word.
+ */
 const AUDIENCE_META: Record<TurnMemoryAudience, { icon: LucideIcon; labelKey: string }> = {
-  personal: { icon: User, labelKey: 'memory.audience.personal' },
+  personal: { icon: Lock, labelKey: 'memory.audience.personal' },
   project: { icon: Users, labelKey: 'memory.audience.project' },
-  restricted: { icon: FolderLock, labelKey: 'memory.audience.restricted' },
+  restricted: { icon: Users, labelKey: 'memory.audience.restricted' },
   organization: { icon: Building2, labelKey: 'memory.audience.organization' },
-}
-
-const KIND_META: Record<string, { icon: LucideIcon; labelKey: string }> = {
-  decision: { icon: Gavel, labelKey: 'memory.kinds.decision' },
-  constraint: { icon: Lock, labelKey: 'memory.kinds.constraint' },
-  open_question: { icon: CircleHelp, labelKey: 'memory.kinds.open_question' },
-  derived_fact: { icon: FileText, labelKey: 'memory.kinds.derived_fact' },
-  preference: { icon: Star, labelKey: 'memory.kinds.preference' },
-  profile: { icon: User, labelKey: 'memory.kinds.profile' },
 }
 
 /** The memory a note is in, as the panel's title names it; `restricted` is the project's. */
@@ -115,23 +102,46 @@ function memoryPage(shelf: Shelf | undefined, projectId: string | null | undefin
   return shelf && projectId ? `/app/projects/${encodeURIComponent(projectId)}/settings/memory` : null
 }
 
+/** The ids the server listed as this conversation's active notes on the item's shelf; undefined when not asked or unknown. */
+function serverListed(
+  item: TurnMemoryItem,
+  shelf: ProjectShelfAccess | undefined,
+  officeIds: readonly string[] | null | undefined
+): readonly string[] | null | undefined {
+  if (item.audience === 'project' || item.audience === 'restricted') return shelf?.activeIds
+  return item.audience === 'organization' ? officeIds : undefined
+}
+
 /**
  * Whether this reader may take the note back here. Never a note that replaced
  * an earlier one: removing it would not bring the old note back. A personal
- * note is its owner's, and only the owner is shown one; the office's memory is
- * open to its members (the item route says so); a project note needs
- * `project:memory:write`, which the project's memory list reports.
+ * note is its owner's, and only the owner is shown one (it comes from their
+ * own list, never off the message). A project or office note's id comes off
+ * the message's stage frame, which a browser stored, so it is offered only
+ * when the shelf's own list of this conversation's notes names it; a project
+ * note also needs `project:memory:write`, which that list reports.
  */
-function mayRemove(item: TurnMemoryItem, projectId: string | null | undefined, shelf: ProjectShelfAccess | undefined): boolean {
-  if (item.supersedes || !noteAddress(item, projectId)) return false
-  if (item.audience === 'project' || item.audience === 'restricted') return shelf?.canWrite === true
-  return true
+function mayRemove(
+  item: TurnMemoryItem,
+  projectId: string | null | undefined,
+  shelf: ProjectShelfAccess | undefined,
+  officeIds: readonly string[] | null | undefined
+): boolean {
+  if (item.supersedes || !item.noteId || !noteAddress(item, projectId)) return false
+  if (item.audience === 'personal') return true
+  if ((item.audience === 'project' || item.audience === 'restricted') && shelf?.canWrite !== true) return false
+  return serverListed(item, shelf, officeIds)?.includes(item.noteId) === true
 }
 
-/** A project note the project's memory no longer lists as active: removed, dismissed or replaced elsewhere. */
-const noLongerHeld = (item: TurnMemoryItem, shelf: ProjectShelfAccess | undefined): boolean =>
-  (item.audience === 'project' || item.audience === 'restricted') &&
-  Boolean(item.noteId && shelf?.activeIds && !shelf.activeIds.includes(item.noteId))
+/** A shared note its shelf no longer lists among this conversation's active notes: removed, dismissed or replaced elsewhere. */
+const noLongerHeld = (
+  item: TurnMemoryItem,
+  shelf: ProjectShelfAccess | undefined,
+  officeIds: readonly string[] | null | undefined
+): boolean => {
+  const listed = serverListed(item, shelf, officeIds)
+  return Boolean(item.noteId && listed && !listed.includes(item.noteId))
+}
 
 const LINK_CLASS = 'text-foreground touch-target font-medium underline underline-offset-2'
 
@@ -140,12 +150,14 @@ function NoteOutcome({
   item,
   projectId,
   shelf,
+  officeIds,
   removal,
   onRemove,
 }: {
   item: TurnMemoryItem
   projectId: string | null | undefined
   shelf: ProjectShelfAccess | undefined
+  officeIds: readonly string[] | null | undefined
   removal: NoteRemoval | undefined
   onRemove?: (item: TurnMemoryItem) => void
 }): JSX.Element | null {
@@ -157,7 +169,7 @@ function NoteOutcome({
       </p>
     )
   }
-  if (removal === 'gone' || noLongerHeld(item, shelf)) {
+  if (removal === 'gone' || noLongerHeld(item, shelf, officeIds)) {
     return (
       <p className="mt-1" role="status" data-testid="memory-item-gone">
         {t('memory.gone')}
@@ -178,7 +190,7 @@ function NoteOutcome({
       </p>
     )
   }
-  if (!onRemove || !mayRemove(item, projectId, shelf)) return null
+  if (!onRemove || !mayRemove(item, projectId, shelf, officeIds)) return null
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-1.5">
       {removal === 'failed' ? <span role="alert">{t('memory.removeFailed')}</span> : null}
@@ -230,11 +242,13 @@ export const MemoryNotedChipView: FC<MemoryNotedChipViewProps> = ({
   items,
   projectId,
   shelf,
+  officeIds,
   removals,
   onRemove,
   onOpenChange,
 }) => {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   const titleId = useId()
   const hintId = useId()
   // The reflection stage lands seconds after the answer settled. A chip that
@@ -288,7 +302,9 @@ export const MemoryNotedChipView: FC<MemoryNotedChipViewProps> = ({
       <PopoverContent
         align="start"
         collisionPadding={12}
-        className="w-80 max-w-[calc(100vw-24px)] p-0"
+        // Bounded by the room on screen: the title and the links stay put and the
+        // notes between them scroll, so the last row is never cut off below the fold.
+        className="flex max-h-[min(32rem,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-24px)] flex-col p-0"
         aria-labelledby={titleId}
         aria-describedby={hintId}
       >
@@ -296,16 +312,15 @@ export const MemoryNotedChipView: FC<MemoryNotedChipViewProps> = ({
           {/* A personal note is never a correction, so `updated` has no personal title. */}
           {updated && where !== 'personal' ? t(`memory.updatedIn.${where}`) : t(`memory.addedTo.${where}`)}
         </NotePanelTitle>
-        <NoteList>
+        <NoteList className="max-h-none min-h-0 flex-1">
           {ordered.map((item) => {
-            const meta = KIND_META[item.kind]
-            const label = meta ? t(meta.labelKey) : item.kind
+            const label = kindLabels.kind(item.kind)
             const audience = item.audience ? AUDIENCE_META[item.audience] : null
             const removal = item.noteId ? removals?.[item.noteId] : undefined
             return (
               <NoteRow
                 key={item.id}
-                icon={meta?.icon ?? FileText}
+                icon={audience?.icon ?? FileText}
                 data-testid="memory-item"
                 data-removal={removal}
                 meta={
@@ -320,8 +335,7 @@ export const MemoryNotedChipView: FC<MemoryNotedChipViewProps> = ({
                         </>,
                         ...(audience
                           ? [
-                              <span key="audience" className="inline-flex items-center gap-1" data-testid="memory-item-audience">
-                                <audience.icon className="size-3" aria-hidden="true" />
+                              <span key="audience" data-testid="memory-item-audience">
                                 {t(audience.labelKey)}
                               </span>,
                             ]
@@ -333,7 +347,14 @@ export const MemoryNotedChipView: FC<MemoryNotedChipViewProps> = ({
                         {item.supersedes}
                       </NoteReplaced>
                     ) : null}
-                    <NoteOutcome item={item} projectId={projectId} shelf={shelf} removal={removal} onRemove={onRemove} />
+                    <NoteOutcome
+                      item={item}
+                      projectId={projectId}
+                      shelf={shelf}
+                      officeIds={officeIds}
+                      removal={removal}
+                      onRemove={onRemove}
+                    />
                   </>
                 }
               >
@@ -373,20 +394,24 @@ export const MemoryNotedChip: FC<MemoryNotedChipProps> = ({ items, projectId, co
   const memoryProjectId = projectId === undefined ? openProjectId : projectId
   const memoryConversationId = conversationId === undefined ? openConversationId : conversationId
   const shelf = useProjectShelf(memoryProjectId, memoryConversationId)
+  const officeIds = useOfficeShelf(memoryConversationId)
   const removals = useTurnNotes((state) => state.removals)
   const hasProjectNote = items.some((item) => item.audience === 'project' || item.audience === 'restricted')
+  const hasOfficeNote = items.some((item) => item.audience === 'organization')
 
   return (
     <MemoryNotedChipView
       items={items}
       projectId={memoryProjectId}
       shelf={shelf}
+      officeIds={officeIds}
       removals={removals}
       onRemove={(item) => void removeNote(item, memoryProjectId)}
       onOpenChange={(open) => {
         if (open && hasProjectNote && memoryProjectId && memoryConversationId) {
           void loadProjectShelf(memoryProjectId, memoryConversationId)
         }
+        if (open && hasOfficeNote && memoryConversationId) void loadOfficeShelf(memoryConversationId)
       }}
     />
   )

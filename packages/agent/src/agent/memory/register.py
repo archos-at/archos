@@ -486,6 +486,8 @@ _TOOL_DESCRIPTION = (
     "Do NOT record general building-code knowledge, transient conversation details, restatements "
     "of the person's message, facts already in the project profile, or secrets (passwords, keys, "
     "account or identity numbers).\n"
+    "A personal finding is written without the person's name, as the preference or role itself "
+    "('Maße immer in Zentimetern.'), in the language the person wrote in.\n"
     "When a project finding CORRECTS an entry of the PROJECT_MEMORY shown in your context (the "
     "person changed a project fact, or an earlier note turned out to be wrong), pass the outdated "
     "entry's text VERBATIM as 'supersedes'. That retires the stale entry instead of leaving two "
@@ -503,7 +505,10 @@ _KIND_DESCRIPTION = (
     "said in confidence)."
 )
 _CONTENT_DESCRIPTION = (
-    "The finding as ONE concise, self-contained sentence that can be understood without this conversation."
+    "The finding as ONE concise, self-contained sentence that can be understood without this conversation, "
+    "in the language the person wrote in. With scope 'personal', never the person's name and never the "
+    "third person: only that person reads it, so state the preference or role itself, e.g. "
+    "'Maße immer in Zentimetern.' or 'Im Büro für Brandschutz zuständig.'"
 )
 _CONFIDENCE_DESCRIPTION = "How certain the finding is: 'low', 'medium' or 'high'. Not used with scope 'personal'."
 _SCOPE_DESCRIPTION = (

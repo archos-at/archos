@@ -24,10 +24,15 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import { THREAD_COLUMN_INNER, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { useThreadSharing } from '@/shared/collaboration/thread-sharing'
-import { useConversationTemporary } from '../../lib/temporary-conversation'
+import { useTemporarySwitch } from '../../lib/temporary-conversation'
+import type { TemporarySwitchView } from '../../lib/temporary-switch-machine'
+
+/** The temporary line: what holds, what is being switched, or nothing. */
+export type TemporaryStatement = TemporarySwitchView['statement']
 
 export interface ConversationPrivacyLineViewProps {
-  temporary: boolean
+  /** What the server holds, or that a switch to it is on its way (`temporary-switch-machine.ts`). */
+  temporary: boolean | TemporaryStatement
   /** Only the reader can open the conversation, and they can share it. */
   privateToReader: boolean
   className?: string
@@ -40,13 +45,14 @@ export function ConversationPrivacyLineView({
   className,
 }: ConversationPrivacyLineViewProps): JSX.Element | null {
   const t = useTranslations(chatCopy)
-  if (!temporary && !privateToReader) return null
+  const statement = temporary === true ? 'temporary' : temporary || null
+  if (!statement && !privateToReader) return null
   return (
     <div className={cn(THREAD_GUTTER, className)} data-testid="conversation-privacy-line">
       <div className={cn(THREAD_COLUMN_INNER, 'flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2')}>
-        {temporary && (
+        {statement && (
           <FactLine icon={MessageCircleDashed} tone="default" role="status" testId="conversation-temporary-line">
-            {t('temporary.statement')}
+            {t(statement === 'temporary' ? 'temporary.statement' : `temporary.${statement}`)}
           </FactLine>
         )}
         {privateToReader && (
@@ -71,7 +77,7 @@ export function ConversationPrivacyLine({
   canCollaborate,
   className,
 }: ConversationPrivacyLineProps): JSX.Element | null {
-  const temporary = useConversationTemporary(conversationId)
+  const temporary = useTemporarySwitch(conversationId).statement
   const sharing = useThreadSharing(canCollaborate ? conversationId : null)
   return (
     <ConversationPrivacyLineView

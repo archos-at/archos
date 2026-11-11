@@ -12,10 +12,6 @@ export const personalMemory: typeof en.personalMemory = {
   save: 'Speichern',
   cancel: 'Abbrechen',
   kindLabel: 'Art der Notiz',
-  kinds: {
-    preference: 'Arbeitsweise',
-    profile: 'Rolle und Themen',
-  },
   contentLabel: 'Notiz',
   addPlaceholder: 'Ein Satz über Sie, zum Beispiel: Antworten bitte knapp und mit Fundstelle.',
   editLabel: 'Notiz bearbeiten',
@@ -42,7 +38,10 @@ export const personalMemory: typeof en.personalMemory = {
   emptyDescription:
     '{productName} merkt sich hier, wie Sie arbeiten möchten und wofür Sie im Büro zuständig sind. Sie können auch selbst eine Notiz hinzufügen.',
   added: 'Notiz hinzugefügt.',
+  alreadyKept: 'Diese Notiz gibt es schon. Sie steht jetzt wieder oben.',
   updated: 'Notiz gespeichert.',
+  pinnedNote: 'Notiz angeheftet: Sie steht in jedem Chat an erster Stelle.',
+  unpinnedNote: 'Notiz gelöst.',
   removed: 'Notiz entfernt.',
   removedAll: '{count, plural, one {# Notiz} other {# Notizen}} entfernt.',
   errors: {

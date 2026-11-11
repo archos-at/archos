@@ -1,12 +1,12 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from '@/lib/personal-memory/vocabulary'
 
 /**
- * Personal memory (ADR-0180, migrations 0225 and 0227): what the agent keeps about one
+ * Personal memory (ADR-0180, migrations 0225, 0227 and 0228): what the agent keeps about one
  * person. Row-level security names the person
  * (`organization_id = current_org() AND user_id = current_user_id()`), so a
- * colleague's or an administrator's query matches no row. The unique index on
- * the normalized content lives in the migration; drizzle cannot express it.
+ * colleague's or an administrator's query matches no row. A note is unique per
+ * person by `content_key`, which `personalContentKey` computes and nothing else.
  */
 export const personalMemory = pgTable(
   'personal_memory',
@@ -16,6 +16,8 @@ export const personalMemory = pgTable(
     userId: text('user_id').notNull(),
     kind: text('kind').$type<PersonalMemoryKind>().notNull(),
     content: text('content').notNull(),
+    /** What makes two notes one (migration 0228): `personalContentKey(content)`, written with every content. */
+    contentKey: text('content_key').notNull(),
     provenanceType: text('provenance_type').$type<PersonalMemoryProvenance>().notNull().default('agent'),
     sourceConversationId: text('source_conversation_id'),
     /** The answer the note was saved under (migration 0227): the answer message's id; null for a note that belongs to none. */
@@ -30,6 +32,11 @@ export const personalMemory = pgTable(
       table.userId,
       table.pinned,
       table.updatedAt
+    ),
+    ownerContentKeyUnique: uniqueIndex('uniq_personal_memory_owner_content_key').on(
+      table.organizationId,
+      table.userId,
+      table.contentKey
     ),
   })
 )

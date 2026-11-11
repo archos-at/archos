@@ -363,6 +363,17 @@ class TestReflectionSystemPrompt:
         assert "no longer holds" in prompt
         assert "Never skip a correction because its topic already appears in memory" in prompt
 
+    def test_a_personal_note_names_nobody(self):
+        """„Mein Gedächtnis“ read „Anna Erste wünscht Maße immer in Zentimetern.“: the
+        only reader is the person, so the note is the preference itself."""
+        prompt = R.REFLECTION_SYSTEM_PROMPT
+        assert "WITHOUT their name" in prompt
+        assert "Maße immer in Zentimetern." in prompt
+
+    def test_a_state_of_the_workspace_is_never_a_finding(self):
+        """A real run stored „Für dieses Projekt ist kein Bundesland gesetzt …“ as a constraint."""
+        assert "NOT a state of the workspace or of this conversation" in R.REFLECTION_SYSTEM_PROMPT
+
     def test_instructs_to_retire_the_entry_it_corrects(self):
         prompt = R.REFLECTION_SYSTEM_PROMPT
         assert "RETIRE WHAT YOU CORRECT" in prompt

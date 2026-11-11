@@ -189,7 +189,7 @@ describe('MemoryNotedChip', () => {
     await user.click(screen.getByTestId('memory-chip'))
 
     expect(screen.queryByTestId('memory-manage-link')).not.toBeInTheDocument()
-    expect(screen.getByText('You can manage and delete these entries in a project’s memory.')).toBeInTheDocument()
+    expect(screen.getByText('You can manage and delete these notes in the project memory.')).toBeInTheDocument()
   })
 
   describe('the panel names the memory the notes went into', () => {
@@ -229,8 +229,11 @@ describe('MemoryNotedChip', () => {
     }
     const rowOf = (content: string): HTMLElement =>
       screen.getAllByTestId('memory-item').find((row) => row.textContent?.includes(content)) as HTMLElement
-    const WRITER = { canWrite: true, activeIds: null }
-    const VIEWER = { canWrite: false, activeIds: null }
+    /** The project's list of this conversation's active notes names the turn's project note. */
+    const WRITER = { canWrite: true, activeIds: [afterwards.id, inTurn.id] }
+    const VIEWER = { canWrite: false, activeIds: [afterwards.id, inTurn.id] }
+    /** The office's list of this conversation's active notes names the turn's office note. */
+    const OFFICE = [inTurn.id]
 
     test('a personal row reads „only you“, links to the reader’s own memory and is theirs to remove', async () => {
       const onRemove = vi.fn()
@@ -264,7 +267,9 @@ describe('MemoryNotedChip', () => {
     test('an office note is removable by any member, a project note without a project by nobody', async () => {
       const office = saved(inTurn, 'organization')
       const project = saved(afterwards, 'project')
-      await open(<MemoryNotedChipView items={[office, project]} projectId={null} shelf={WRITER} onRemove={vi.fn()} />)
+      await open(
+        <MemoryNotedChipView items={[office, project]} projectId={null} shelf={WRITER} officeIds={OFFICE} onRemove={vi.fn()} />
+      )
 
       expect(within(rowOf(office.content)).getByTestId('memory-item-remove')).toBeInTheDocument()
       expect(within(rowOf(project.content)).queryByTestId('memory-item-remove')).not.toBeInTheDocument()
@@ -326,11 +331,47 @@ describe('MemoryNotedChip', () => {
       const note = saved(afterwards, 'project')
       const office = saved(inTurn, 'organization')
       await open(
-        <MemoryNotedChipView items={[note, office]} projectId="p-1" shelf={{ canWrite: true, activeIds: [] }} onRemove={vi.fn()} />
+        <MemoryNotedChipView
+          items={[note, office]}
+          projectId="p-1"
+          shelf={{ canWrite: true, activeIds: [] }}
+          officeIds={OFFICE}
+          onRemove={vi.fn()}
+        />
       )
       expect(within(rowOf(note.content)).getByTestId('memory-item-gone')).toBeInTheDocument()
       // The project's list says nothing about the office's notes.
       expect(within(rowOf(office.content)).getByTestId('memory-item-remove')).toBeInTheDocument()
+    })
+
+    /**
+     * A shared note's id comes off the stage frame, which a browser stored on
+     * the message: a participant can forge one naming any note of the office.
+     * Only the shelf's own list of this conversation's notes vouches for it.
+     */
+    test('a project note id the project does not list for this conversation is not offered for removal', async () => {
+      const forged = { ...saved(afterwards, 'project'), noteId: 'note-of-another-conversation' }
+      await open(<MemoryNotedChipView items={[forged]} projectId="p-1" shelf={WRITER} onRemove={vi.fn()} />)
+      expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
+      cleanup()
+
+      // A list longer than one page vouches for nothing.
+      const note = saved(afterwards, 'project')
+      await open(
+        <MemoryNotedChipView items={[note]} projectId="p-1" shelf={{ canWrite: true, activeIds: null }} onRemove={vi.fn()} />
+      )
+      expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
+    })
+
+    test('an office note id the office does not list for this conversation is not offered for removal', async () => {
+      const forged = { ...saved(inTurn, 'organization'), noteId: 'note-of-another-conversation' }
+      await open(<MemoryNotedChipView items={[forged]} projectId="p-1" officeIds={OFFICE} onRemove={vi.fn()} />)
+      expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
+      cleanup()
+
+      // Before the office answered, or when it could not, nothing is offered either.
+      await open(<MemoryNotedChipView items={[saved(inTurn, 'organization')]} projectId="p-1" onRemove={vi.fn()} />)
+      expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
     })
 
     test('speaks German: audience, action and result', async () => {
@@ -341,6 +382,7 @@ describe('MemoryNotedChip', () => {
             items={[mine, note, saved(inTurn, 'organization')]}
             projectId="p-1"
             shelf={WRITER}
+            officeIds={OFFICE}
             removals={{ [note.id]: 'removed' }}
             onRemove={vi.fn()}
           />
@@ -363,13 +405,17 @@ describe('MemoryNotedChip', () => {
     const CONVERSATION = 's-1'
     const note = saved(afterwards, 'project')
     const calls: { method: string; url: string }[] = []
+    const office = saved(inTurn, 'organization')
     let canWrite = true
     let deleteStatus = 204
+    /** What the office's list of this conversation's notes names. */
+    let officeListed = [office.id]
 
     beforeEach(() => {
       calls.length = 0
       canWrite = true
       deleteStatus = 204
+      officeListed = [office.id]
       resetTurnNotes()
       vi.stubGlobal(
         'fetch',
@@ -378,6 +424,9 @@ describe('MemoryNotedChip', () => {
           const method = init?.method ?? 'GET'
           calls.push({ method, url })
           if (method === 'DELETE') return new Response(null, { status: deleteStatus })
+          if (url.startsWith('/api/organization/memory')) {
+            return Response.json({ items: officeListed.map((id) => ({ id })), nextCursor: null })
+          }
           return Response.json({ items: [{ id: note.id }], nextCursor: null, canWrite })
         })
       )
@@ -412,17 +461,28 @@ describe('MemoryNotedChip', () => {
     })
 
     test('a turn with no project note asks the project nothing, and removes on the shelf’s own route', async () => {
-      const office = saved(inTurn, 'organization')
       const user = await openChip([mine, office])
 
-      await user.click(within(screen.getAllByTestId('memory-item')[0]).getByTestId('memory-item-remove'))
-      await user.click(within(screen.getAllByTestId('memory-item')[1]).getByTestId('memory-item-remove'))
+      // The office's row offers removal once the office's list named its note.
+      await user.click(await within(screen.getAllByTestId('memory-item')[0]).findByTestId('memory-item-remove'))
+      await user.click(await within(screen.getAllByTestId('memory-item')[1]).findByTestId('memory-item-remove'))
 
       await waitFor(() => expect(screen.getAllByTestId('memory-item-removed')).toHaveLength(2))
       expect(calls).toEqual([
+        { method: 'GET', url: `/api/organization/memory?conversationId=${CONVERSATION}&limit=200` },
         { method: 'DELETE', url: `/api/user/memory/${mine.id}` },
         { method: 'DELETE', url: `/api/organization/memory/${office.id}` },
       ])
+    })
+
+    test('a forged id on either shared shelf is never offered, so a colleague’s click cannot delete it', async () => {
+      const forgedProject = { ...note, id: 'row-forged', noteId: 'project-note-of-another-conversation' }
+      const forgedOffice = { ...office, id: 'office-forged', noteId: 'office-note-of-another-conversation' }
+      await openChip([forgedProject, forgedOffice])
+
+      await waitFor(() => expect(calls.map((call) => call.method)).toEqual(['GET', 'GET']))
+      expect(screen.queryByTestId('memory-item-remove')).not.toBeInTheDocument()
+      expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
     })
 
     test('a note that was already removed elsewhere says so; a refusal can be tried again', async () => {

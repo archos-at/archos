@@ -46,6 +46,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { collectPages } from '@/lib/api/offset-page'
 import {
   PERSONAL_MEMORY_KINDS,
@@ -64,6 +65,7 @@ const isConflict = (error: unknown): boolean => error instanceof ApiRequestError
 
 export function PersonalMemoryPanel(): JSX.Element {
   const t = useTranslations(personalMemoryCopy)
+  const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [notes, setNotes] = useState<PersonalMemoryNote[] | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -116,10 +118,11 @@ export function PersonalMemoryPanel(): JSX.Element {
     if (!content) return
     setAddBusy(true)
     try {
-      const { item } = await addPersonalMemoryNote({ kind: addKind, content })
+      const { item, created } = await addPersonalMemoryNote({ kind: addKind, content })
       keep(item)
       closeAdd()
-      toast.success(t('added'))
+      // A text one of the person's notes already says is that note, marked current: nothing was added.
+      toast.success(t(created ? 'added' : 'alreadyKept'))
     } catch {
       toast.error(t('errors.saveFailed'))
     } finally {
@@ -132,6 +135,7 @@ export function PersonalMemoryPanel(): JSX.Element {
     try {
       const { item } = await updatePersonalMemoryNote(note.id, { pinned: !note.pinned })
       keep(item)
+      toast.success(t(item.pinned ? 'pinnedNote' : 'unpinnedNote'))
     } catch {
       toast.error(t('errors.saveFailed'))
     } finally {
@@ -225,7 +229,7 @@ export function PersonalMemoryPanel(): JSX.Element {
                 <SelectContent>
                   {PERSONAL_MEMORY_KINDS.map((kind) => (
                     <SelectItem key={kind} value={kind}>
-                      {t(`kinds.${kind}`)}
+                      {kindLabels.kind(kind)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -308,7 +312,7 @@ export function PersonalMemoryPanel(): JSX.Element {
                       <div className="text-muted-foreground mt-1 text-xs">
                         <NoteMeta
                           parts={[
-                            t(`kinds.${note.kind}`),
+                            kindLabels.kind(note.kind),
                             t(`provenance.${note.provenanceType}`),
                             <TimeAgo key="when" date={note.updatedAt} locale={locale} short />,
                           ]}

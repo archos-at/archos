@@ -10,10 +10,6 @@ export const personalMemory = {
   save: 'Save',
   cancel: 'Cancel',
   kindLabel: 'Kind of note',
-  kinds: {
-    preference: 'Way of working',
-    profile: 'Role and topics',
-  },
   contentLabel: 'Note',
   addPlaceholder: 'One sentence about you, for example: keep answers short and name the source.',
   editLabel: 'Edit note',
@@ -40,7 +36,10 @@ export const personalMemory = {
   emptyDescription:
     '{productName} keeps here how you want to work and what you are responsible for at the office. You can also add a note yourself.',
   added: 'Note added.',
+  alreadyKept: 'You already have this note. It is back at the top.',
   updated: 'Note saved.',
+  pinnedNote: 'Note pinned: it comes first in every chat.',
+  unpinnedNote: 'Note unpinned.',
   removed: 'Note removed.',
   removedAll: '{count, plural, one {# note} other {# notes}} removed.',
   errors: {

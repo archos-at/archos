@@ -47,6 +47,7 @@ import { FolderAccessMark } from '@/features/documents/components/folder-access-
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 
 /**
  * Project Memory panel — "What Piloti knows about this project".
@@ -148,6 +149,7 @@ export function ProjectMemoryPanel({
   readOnly = false,
 }: ProjectMemoryPanelProps): JSX.Element {
   const t = useTranslations(projectsCopy)
+  const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [items, setItems] = useState<MemoryItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -375,7 +377,7 @@ export function ProjectMemoryPanel({
                   <SelectContent>
                     {PROJECT_MEMORY_KINDS.map((kind) => (
                       <SelectItem key={kind} value={kind}>
-                        {t(`memory.kindSingular.${kind}`)}
+                        {kindLabels.kind(kind)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -465,7 +467,7 @@ export function ProjectMemoryPanel({
           {groups.map((group) => (
             <Fragment key={group.kind}>
               <div className="bg-muted px-5 py-2">
-                <SectionLabel as="h3">{t(`memory.kinds.${group.kind}`)}</SectionLabel>
+                <SectionLabel as="h3">{kindLabels.group(group.kind)}</SectionLabel>
               </div>
               {group.items.map((item) => {
                 const busy = busyId === item.id

@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { personalMemory, type NewPersonalMemoryItem, type PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 
@@ -27,9 +27,6 @@ function ownedBy(owner: PersonalMemoryOwner) {
   return and(eq(personalMemory.organizationId, owner.organizationId), eq(personalMemory.userId, owner.userId))
 }
 
-/** `normalizeContent` in SQL: the expression of the unique index in migration 0225. */
-const normalizedContent = sql`btrim(regexp_replace(lower(${personalMemory.content}), '[^a-z0-9]+', ' ', 'g'))`
-
 /**
  * Pinned first, then newest: the order of the panel and of the turn's block.
  * The id closes the order, so two notes written in one instant keep their
@@ -52,14 +49,15 @@ export async function selectPersonalMemory(
     .offset(offset)
 }
 
-export async function findPersonalMemoryByNormalizedContent(
+/** The person's note with this `content_key` (`personalContentKey`), the column of the unique index (0228). */
+export async function findPersonalMemoryByContentKey(
   owner: PersonalMemoryOwner,
-  normalized: string
+  contentKey: string
 ): Promise<PersonalMemoryItem | null> {
   const [row] = await getDb()
     .select()
     .from(personalMemory)
-    .where(and(ownedBy(owner), sql`${normalizedContent} = ${normalized}`))
+    .where(and(ownedBy(owner), eq(personalMemory.contentKey, contentKey)))
     .limit(1)
   return row ?? null
 }
@@ -82,7 +80,7 @@ export async function touchPersonalMemory(owner: PersonalMemoryOwner, id: string
 export async function updatePersonalMemory(
   owner: PersonalMemoryOwner,
   id: string,
-  patch: Partial<Pick<PersonalMemoryItem, 'kind' | 'content' | 'pinned'>>
+  patch: Partial<Pick<PersonalMemoryItem, 'kind' | 'content' | 'contentKey' | 'pinned'>>
 ): Promise<PersonalMemoryItem | null> {
   const [row] = await getDb()
     .update(personalMemory)

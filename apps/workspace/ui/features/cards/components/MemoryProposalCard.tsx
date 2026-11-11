@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
+import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/features/chat/store'
 import { useCardDecision } from '../hooks/use-card-decision'
@@ -83,6 +84,7 @@ function BrowserWrittenMemoryCard({
   decisionsMustPersist,
 }: Omit<MemoryProposalCardProps, 'proposalId' | 'supersedes'>) {
   const t = useTranslations(chatCopy)
+  const kindLabels = useMemoryKindLabels()
   // Same source as ProjectProfilePatchCard's projectId: the active chat store.
   const projectId = useChatStore((s) => s.projectId)
   // A temporary chat keeps nothing (ADR-0180 rule 2). The routes this card
@@ -161,7 +163,7 @@ function BrowserWrittenMemoryCard({
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <Chip variant="muted" size="sm">
-          {t(`memoryProposal.kind.${kind}`)}
+          {kindLabels.kind(kind)}
         </Chip>
       </div>
 

@@ -64,13 +64,16 @@ export const listPersonalMemory = async (
 }
 
 /**
- * Keep a note the person wrote. Answers the note: a text an existing note
- * already says answers THAT note, marked current again, not a second copy.
+ * Keep a note the person wrote. Answers the note and whether it is new: a
+ * text an existing note already says answers THAT note, marked current again,
+ * with `created: false`, not a second copy.
  */
-export const addPersonalMemoryNote = async (input: PersonalMemoryCreate): Promise<{ item: PersonalMemoryNote }> => {
+export const addPersonalMemoryNote = async (
+  input: PersonalMemoryCreate,
+): Promise<{ item: PersonalMemoryNote; created: boolean }> => {
   const response = await fetch(MEMORY_PATH, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) })
   if (!response.ok) throw new ApiRequestError(`Failed to add personal memory: ${response.status}`, response.status)
-  return (await response.json()) as { item: PersonalMemoryNote }
+  return (await response.json()) as { item: PersonalMemoryNote; created: boolean }
 }
 
 /** Change a note. 409 when another note already says the new text. */

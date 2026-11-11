@@ -142,7 +142,8 @@ function Composer({ state }: { state: PreviewState }): JSX.Element {
         </RaisedCardBody>
       </RaisedCard>
       <ConversationPrivacyLineView
-        temporary={pressed}
+        // While switching, the line says so and never claims what the server has not confirmed.
+        temporary={state === 'switching' ? (pressed ? 'turningOff' : 'turningOn') : pressed}
         privateToReader={state === 'private' || state === 'temporary' || state === 'switching'}
       />
     </div>

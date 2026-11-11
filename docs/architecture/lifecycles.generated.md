@@ -515,3 +515,27 @@ Born as `pending`, `extracting`. Final: none.
 | `extracting` | `fail` | `failed` |
 | `ready` | `start` | `extracting` |
 | `failed` | `start` | `extracting` |
+
+## project-memory
+
+A note of a project’s or the office’s memory: active until a newer note supersedes it or a person dismisses it, and back to active when a person restores it.
+
+Stored in `project_memory.status`. Declared in [`bff/projects/memory-vocabulary.ts`](../../apps/workspace/bff/projects/memory-vocabulary.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> active
+  active --> superseded: supersede
+  active --> dismissed: dismiss
+  superseded --> active: restore
+  dismissed --> active: restore
+```
+
+Born as `active`. Final: none.
+
+| From | Move | To |
+|---|---|---|
+| `active` | `supersede` | `superseded` |
+| `active` | `dismiss` | `dismissed` |
+| `superseded` | `restore` | `active` |
+| `dismissed` | `restore` | `active` |

@@ -125,7 +125,7 @@ export default function PersonalMemoryDevPage(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 md:px-8" data-testid="personal-memory-preview">
       <PreviewStatePicker label="State" states={STATES} value={state} onChange={setState} />
-      <PageHeader title={t('title')} subtitle={t('subtitle')} />
+      <PageHeader title={t('title')} subtitle={t('subtitle')} subtitleOnPhone />
       {/* Keyed by the state: each one is a fresh mount and a fresh load. */}
       <PersonalMemoryPanel key={state} />
     </main>

@@ -34,3 +34,14 @@ features:
     Every note the assistant saves while answering now appears under that
     answer, with who can read it and "Entfernen" to take it back on the spot.
     Notes on your own shelf are shown there to you alone.
+  - >
+    A note that corrects an earlier one, such as a changed dimension, date or
+    quantity, now replaces it. Before, the old value could stay and look
+    freshly confirmed.
+  - >
+    Memory refuses passwords, access keys, bank account numbers and
+    social-insurance numbers wherever a note comes from, and says what kind of
+    thing it found.
+  - >
+    The words for memory are the same everywhere now: "Projektgedächtnis" for
+    a project's notes, and one name for each kind of note.

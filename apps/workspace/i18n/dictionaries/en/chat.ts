@@ -1209,13 +1209,6 @@ export const chat = {
     error: 'Could not save the finding',
     temporaryConversation:
       'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
-    kind: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Derived fact',
-      preference: 'Preference',
-    },
   },
   thinking: {
     // One row per document Piloti looked at (ADR-0128); its thumbnails open the place.
@@ -2051,7 +2044,7 @@ export const chat = {
     },
     correctedLabel: 'Corrected',
     replaced: 'Replaces:',
-    manageHint: 'You can manage and delete these entries in a project’s memory.',
+    manageHint: 'You can manage and delete these notes in the project memory.',
     // The hint as a door: leads to the project's memory (Settings → Memory).
     manageLink: 'Manage in project memory',
     // The same door for the reader's own notes („My memory“).
@@ -2076,15 +2069,6 @@ export const chat = {
       restricted: 'Read by those who may read the folder',
       organization: 'Read by everyone in the office',
     },
-    kinds: {
-      decision: 'Decision',
-      constraint: 'Constraint',
-      open_question: 'Open question',
-      derived_fact: 'Fact',
-      preference: 'Preference',
-      // A personal note about who the reader is at work (ADR-0180).
-      profile: 'Role and topics',
-    },
     provenance: {
       distillation: 'added after the response',
       inTurn: 'noted during the response',
@@ -2099,6 +2083,9 @@ export const chat = {
     switchOffTitle:
       'Turn off temporary chat: from now on {productName} can keep things again. What was said so far stays out.',
     statement: 'Temporary chat. {productName} keeps nothing from this chat.',
+    // Until the server has confirmed the switch: never „keeps nothing“ before it holds.
+    turningOn: 'Turning on temporary chat …',
+    turningOff: 'Turning off temporary chat …',
     ownerOnly: 'Only the owner of the chat can change this.',
     switchFailed: 'The setting was not saved. Try again.',
   },

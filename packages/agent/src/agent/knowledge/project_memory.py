@@ -12,7 +12,6 @@ See docs/architecture/project-memory-design.md.
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import Mapping
 from collections.abc import Sequence
 from contextvars import ContextVar
@@ -21,6 +20,7 @@ from dataclasses import dataclass
 from dataclasses import field
 
 from agent.common import bff_http
+from agent.knowledge.memory_content_guard import note_refusal
 from agent.knowledge.restricted_use import current_restricted_use
 
 logger = logging.getLogger(__name__)
@@ -370,54 +370,27 @@ def fetch_memory_digest(
 # later prompt, so a finding that carries a person's contact details or a
 # secret must not be written by EITHER writer. This guard used to live only in
 # the reflection stage; the in-turn ``remember`` tool wrote whatever the model
-# handed it. It sits here now, on the one path both writers share.
-#
-# Shapes, not meanings: an email address, a run of digits long enough to be a
-# number to call, an IBAN, an SSN-shaped triple, and the handful of secret
-# words a leaked credential travels with. And one carve-out that the phone
-# pattern needs: a date is a run of digits with separators too, and a permit
-# deadline written 12/03/2027 was being dropped as a phone number — precisely
-# the class of fact a project memory exists to carry.
-_DATE_SHAPE_RE = re.compile(r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})(?!\d)")
-#: Contact details: what makes a note about a person a note that can reach them.
-_CONTACT_PATTERNS = (
-    re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),  # email address
-    re.compile(r"(?<!\d)(?:\+?\d[\d ()/-]{7,}\d)(?!\d)"),  # phone/fax-shaped digit run
-)
-#: Secrets: an account or identity number, and the words a credential travels
-#: with. Kept out of every memory, the person's own included (ADR-0180): a
-#: note is read into every later prompt.
-_SECRET_PATTERNS = (
-    re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b"),  # IBAN
-    re.compile(r"\b\d{3}-?\d{2}-?\d{4}\b"),  # SSN-shaped
-    re.compile(
-        r"\b(?:password|passwort|api[_ -]?key|secret|token|bearer|"
-        r"sozialversicherungsnummer|steuernummer|personalausweis)\b",
-        re.IGNORECASE,
-    ),
-)
-_PERSONAL_DATA_PATTERNS = (*_CONTACT_PATTERNS, *_SECRET_PATTERNS)
+# handed it. It sits here now, on the one path both writers share. The rules
+# are :mod:`agent.knowledge.memory_content_guard`, the twin of the refusal the
+# BFF makes at its one writer; the agent's copy saves the round trip.
 
 
 def looks_like_personal_data(content: str) -> bool:
-    """Whether a memory finding matches a coarse personal-data or secret shape.
+    """Whether a memory finding holds a secret or a way to reach a person.
 
-    A denylist of shapes, not a privacy guarantee (audit S4). Dates are blanked
-    before the digit-run pattern looks, so a deadline survives. Guards project
+    A denylist of shapes, not a privacy guarantee (audit S4). Guards project
     and organization memory, which other people read.
     """
-    scrubbed = _DATE_SHAPE_RE.sub(" ", content or "")
-    return any(pattern.search(scrubbed) for pattern in _PERSONAL_DATA_PATTERNS)
+    return note_refusal(content, shared=True) is not None
 
 
 def looks_like_secret(content: str) -> bool:
-    """Whether a note matches a secret shape: the part of the denylist that guards personal memory too.
+    """Whether a note holds a secret: the part of the denylist that guards personal memory too.
 
     A note about the person is what personal memory is for, so their contact
     details pass; an account number, an identity number or a credential does not.
     """
-    scrubbed = _DATE_SHAPE_RE.sub(" ", content or "")
-    return any(pattern.search(scrubbed) for pattern in _SECRET_PATTERNS)
+    return note_refusal(content, shared=False) is not None
 
 
 def insert_memory_item(

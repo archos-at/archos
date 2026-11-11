@@ -93,13 +93,22 @@ describe('POST /api/user/memory', () => {
     const response = await post({ kind: 'preference', content: '  Answers in short paragraphs.  ', pinned: true })
 
     expect(response.status).toBe(201)
-    expect(await response.json()).toEqual({ item: NOTE })
+    expect(await response.json()).toEqual({ item: NOTE, created: true })
     expect(createPersonalMemoryItem).toHaveBeenCalledWith(OWNER, {
       kind: 'preference',
       content: 'Answers in short paragraphs.',
       pinned: true,
       provenanceType: 'user',
     })
+  })
+
+  it('answers 200 with created: false when the caller already holds the note, never 201', async () => {
+    vi.mocked(createPersonalMemoryItem).mockResolvedValue({ item: NOTE, created: false } as never)
+
+    const response = await post({ kind: 'preference', content: 'answers in SHORT paragraphs' })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ item: NOTE, created: false })
   })
 
   it('ignores an owner or a provenance the body tries to name', async () => {

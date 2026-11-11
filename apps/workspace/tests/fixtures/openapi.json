@@ -2034,7 +2034,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"
@@ -17978,7 +17977,7 @@
       "post": {
         "operationId": "personal-memory-create",
         "summary": "Add a personal memory note",
-        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item }` with its id.",
+        "description": "Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. 400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.",
         "tags": [
           "collaboration"
         ],
@@ -25769,6 +25768,18 @@
             "description": "\"true\" also returns archived items."
           },
           {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes written from this conversation.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes written from this conversation."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -25921,7 +25932,6 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "proposed",
                       "active",
                       "superseded",
                       "dismissed"

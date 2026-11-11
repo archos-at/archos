@@ -1211,13 +1211,6 @@ export const chat: typeof en.chat = {
     error: 'Erkenntnis konnte nicht gespeichert werden',
     temporaryConversation:
       'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
-    kind: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Abgeleiteter Fakt',
-      preference: 'Präferenz',
-    },
   },
   thinking: {
     // Eine Zeile je Dokument, das Piloti angesehen hat (ADR-0128); die
@@ -2076,7 +2069,7 @@ export const chat: typeof en.chat = {
     },
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
-    manageHint: 'Diese Einträge können Sie im Gedächtnis eines Projekts verwalten und löschen.',
+    manageHint: 'Diese Notizen können Sie im Projektgedächtnis verwalten und löschen.',
     // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
     manageLink: 'Im Projektgedächtnis verwalten',
     // Dieselbe Tür für die eigenen Notizen („Mein Gedächtnis“).
@@ -2101,15 +2094,6 @@ export const chat: typeof en.chat = {
       restricted: 'Liest, wer den Ordner lesen darf',
       organization: 'Lesen alle im Büro',
     },
-    kinds: {
-      decision: 'Entscheidung',
-      constraint: 'Vorgabe',
-      open_question: 'Offene Frage',
-      derived_fact: 'Fakt',
-      preference: 'Präferenz',
-      // Eine persönliche Notiz darüber, wer die lesende Person im Büro ist (ADR-0180).
-      profile: 'Rolle und Themen',
-    },
     provenance: {
       distillation: 'nach der Antwort ergänzt',
       inTurn: 'während der Antwort notiert',
@@ -2124,6 +2108,9 @@ export const chat: typeof en.chat = {
     switchOffTitle:
       'Temporären Chat ausschalten: Ab jetzt kann {productName} sich wieder etwas merken. Was bisher gesagt wurde, bleibt außen vor.',
     statement: 'Temporärer Chat. {productName} merkt sich aus diesem Chat nichts.',
+    // Solange der Server die Umstellung noch nicht bestätigt hat: nie „merkt sich nichts“, bevor es stimmt.
+    turningOn: 'Temporärer Chat wird eingeschaltet …',
+    turningOff: 'Temporärer Chat wird ausgeschaltet …',
     ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
     switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
   },

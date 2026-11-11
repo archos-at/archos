@@ -7,6 +7,9 @@ export const nav: typeof en.nav = {
   /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
   recentChats: 'Letzte Chats',
   allChats: 'Alle Chats',
+  // Ein temporärer Chat in der Liste der Leiste: das Zeichen, in Worten für Screenreader und Zeiger.
+  temporaryChat: '(temporärer Chat)',
+  temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
   expandSidebar: 'Seitenleiste ausklappen',
@@ -38,6 +41,8 @@ export const nav: typeof en.nav = {
     setup: 'Einrichtung',
   },
   sectionGroups: {
+    // Alles, was in einem Projekt geschieht; die Leiste zeigt es ohne Überschrift.
+    work: 'Dieses Projekt',
     org: 'Organisation',
   },
   sectionSubtitles: {

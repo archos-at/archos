@@ -21,6 +21,8 @@ export const GET = apiRoute(
     const page = offsetPageOf(query)
     const fetched = await listOrganizationMemory(session.organizationId, {
       includeArchived: query.includeArchived === 'true',
+      // The office's notes written from one conversation: the ids an answer's „noted“ chip may offer to take back.
+      sourceConversationId: query.conversationId,
       page,
     })
     return {

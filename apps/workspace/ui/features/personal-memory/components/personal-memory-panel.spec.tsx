@@ -101,7 +101,7 @@ describe('PersonalMemoryPanel', () => {
 
   test('adds a note with its kind and puts it into the list', async () => {
     const created = note('n-new', 'Ist für Brandschutz zuständig.', { kind: 'profile', provenanceType: 'user', updatedAt: '2026-11-11T09:00:00Z' })
-    serve([OLDER], () => Response.json({ item: created }, { status: 201 }))
+    serve([OLDER], () => Response.json({ item: created, created: true }, { status: 201 }))
     render(<PersonalMemoryPanel />)
     await screen.findByText('Flächen in Quadratmetern.')
 
@@ -116,10 +116,11 @@ describe('PersonalMemoryPanel', () => {
       body: JSON.stringify({ kind: 'preference', content: 'Ist für Brandschutz zuständig.' }),
     })
     expect(rows()[0]).toContain('Ist für Brandschutz zuständig.')
+    expect(toast.success).toHaveBeenCalledWith('Note added.')
   })
 
   test('a text an existing note already says answers that note: the list holds it once', async () => {
-    serve([OLDER], () => Response.json({ item: { ...OLDER, updatedAt: '2026-11-11T09:00:00Z' } }, { status: 201 }))
+    serve([OLDER], () => Response.json({ item: { ...OLDER, updatedAt: '2026-11-11T09:00:00Z' }, created: false }))
     render(<PersonalMemoryPanel />)
     await screen.findByText('Flächen in Quadratmetern.')
 
@@ -129,6 +130,9 @@ describe('PersonalMemoryPanel', () => {
 
     await waitFor(() => expect(screen.queryByLabelText('Note')).not.toBeInTheDocument())
     expect(rows()).toHaveLength(1)
+    // Nothing was added, and the panel does not claim it was.
+    expect(toast.success).toHaveBeenCalledWith('You already have this note. It is back at the top.')
+    expect(toast.success).not.toHaveBeenCalledWith('Note added.')
   })
 
   test('pinning moves the note to the front', async () => {

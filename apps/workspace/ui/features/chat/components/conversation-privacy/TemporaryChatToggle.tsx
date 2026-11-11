@@ -12,7 +12,7 @@
  * the composer (`ConversationPrivacyLine`) still tells them what holds.
  */
 
-import { useState, type JSX } from 'react'
+import { useEffect, type JSX } from 'react'
 import { MessageCircleDashed } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '@/components/ui/toggle'
@@ -21,7 +21,7 @@ import { chatCopy } from '@/i18n/namespaces/chat'
 import { cn } from '@/lib/utils'
 import { useThreadRole } from '@/shared/collaboration/thread-sharing'
 import { useChatStore } from '../../store'
-import { setConversationTemporary, useConversationTemporary } from '../../lib/temporary-conversation'
+import { onTemporaryRefused, setConversationTemporary, useTemporarySwitch } from '../../lib/temporary-conversation'
 
 export interface TemporaryChatToggleViewProps {
   pressed: boolean
@@ -77,36 +77,37 @@ export function TemporaryChatToggle({
   className,
 }: TemporaryChatToggleProps): JSX.Element | null {
   const t = useTranslations(chatCopy)
-  const temporary = useConversationTemporary(conversationId)
+  // What the server holds, or that a switch is on its way (`temporary-switch-machine.ts`).
+  const view = useTemporarySwitch(conversationId)
   // Published by the shared-thread seam. Null in a private thread, where the
   // reader is its only member and so its owner.
   const role = useThreadRole(conversationId)
-  const [pending, setPending] = useState(false)
+
+  // A switch the server refused: the toggle already shows what holds; this says why.
+  useEffect(
+    () =>
+      onTemporaryRefused((error) => {
+        const status = (error as { status?: unknown } | null)?.status
+        toast.error(status === 403 || status === 404 ? t('temporary.ownerOnly') : t('temporary.switchFailed'))
+      }),
+    [t]
+  )
 
   if (role !== null && role !== 'owner') return null
 
-  const handleChange = async (next: boolean): Promise<void> => {
+  const handleChange = (next: boolean): void => {
     // The start screen has no conversation until the first keystroke: mint it
     // now, so the choice has something to be kept on.
     const id = conversationId ?? useChatStore.getState().ensureSession()
-    if (!id) return
-    setPending(true)
-    try {
-      await setConversationTemporary(id, next)
-    } catch (error) {
-      const status = (error as { status?: unknown } | null)?.status
-      toast.error(status === 403 || status === 404 ? t('temporary.ownerOnly') : t('temporary.switchFailed'))
-    } finally {
-      setPending(false)
-    }
+    if (id) setConversationTemporary(id, next)
   }
 
   return (
     <TemporaryChatToggleView
-      pressed={temporary}
-      pending={pending}
+      pressed={view.pressed}
+      pending={view.pending}
       disabled={disabled}
-      onPressedChange={(next) => void handleChange(next)}
+      onPressedChange={handleChange}
       className={className}
     />
   )

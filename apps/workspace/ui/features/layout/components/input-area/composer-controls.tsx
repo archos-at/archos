@@ -117,14 +117,14 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
             )}
 
             {/* Whether anything from this chat is kept (ADR-0180), beside the
-                        other per-chat setting. Not for a HITL response: that
-                        answers a prompt, it does not set up a chat. */}
-            {!controller.isResponseMode && (
-              <TemporaryChatToggle
-                conversationId={controller.currentConversationId}
-                disabled={controller.cannotContribute}
-              />
-            )}
+                        other per-chat setting. Also while the agent waits for an
+                        answer to its own question: the chat is the same, and a
+                        person who decides then that nothing should be kept must
+                        find the switch where it always is. */}
+            <TemporaryChatToggle
+              conversationId={controller.currentConversationId}
+              disabled={controller.cannotContribute}
+            />
 
             {/* How hard Piloti thinks, for this chat. A HITL response is
                         not a question, so the dial has nothing to say there. It is

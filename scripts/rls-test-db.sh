@@ -4036,3 +4036,35 @@ check_in pm_0227 "SELECT count(*) FROM personal_memory WHERE organization_id = '
 apply_in pm_0227 0227_personal_memory_source_message.sql
 check_in pm_0227 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0227' AND source_message_id IS NULL" "2" "0227 applies again after its down, and no note belongs to an answer"
 echo "==> 0227 source message column and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0228: a personal note is unique per person by a stored key that
+# the service computes (`personalContentKey`), not by 0225's `[^a-z0-9]+`
+# expression, which folded every note with no ASCII letter to ''. A note that
+# existed gets a key; the key is never blank; two notes with no ASCII letter
+# are two rows. The down is lossy: of the notes 0225's index folds together,
+# the newest per person stays.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0228 content key and its down migration on pm_0228"
+migrate_before pm_0228 0228_personal_memory_content_key
+PM228="INSERT INTO personal_memory (organization_id, user_id, kind, content, content_key) VALUES ('org_0228', 'user_a', 'preference'"
+sql_in pm_0228 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0228', 'user_a', 'preference', 'Answers in short paragraphs.')"
+sql_in pm_0228 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0228', 'user_a', 'preference', 'Привет')"
+apply_in pm_0228 0228_personal_memory_content_key.sql
+apply_in pm_0228 0228_personal_memory_content_key.sql   # up twice: idempotent
+check_in pm_0228 "SELECT content_key FROM personal_memory WHERE content = 'Answers in short paragraphs.'" "answers in short paragraphs" "0228: an existing note is keyed as the service keys it"
+check_in pm_0228 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0228' AND btrim(content_key) <> ''" "2" "0228: every existing note has a key"
+check_in pm_0228 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_memory' AND indexname = 'uniq_personal_memory_owner_content'" "0" "0228 drops the expression index"
+sql_in pm_0228 <<<"$PM228, 'Здравствуйте, отвечайте кратко', 'здравствуйте отвечайте кратко')"
+refused_in pm_0228 "$PM228, 'answers in short paragraphs', 'answers in short paragraphs')" "uniq_personal_memory_owner_content_key" "the same key was kept twice for one person"
+refused_in pm_0228 "$PM228, '!!!', ' ')" "personal_memory_content_key_present" "a blank key was accepted"
+refused_in pm_0228 "INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0228', 'user_a', 'profile', 'Leads the reviews.')" "not-null constraint" "a note without a key was accepted"
+check_in pm_0228 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0228'" "3" "0228: two notes with no ASCII letter are two rows"
+check_in pm_0228 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0228: the policy still names the person"
+apply_in pm_0228 0228_personal_memory_content_key.down.sql
+check_in pm_0228 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'personal_memory' AND column_name = 'content_key'" "0" "0228 down drops the column"
+check_in pm_0228 "SELECT string_agg(content, ' | ' ORDER BY content) FROM personal_memory WHERE organization_id = 'org_0228'" "Answers in short paragraphs. | Здравствуйте, отвечайте кратко" "0228 down keeps the newest of the notes 0225's index folds together"
+check_in pm_0228 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_memory' AND indexname = 'uniq_personal_memory_owner_content'" "1" "0228 down restores the expression index"
+apply_in pm_0228 0228_personal_memory_content_key.sql
+check_in pm_0228 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0228' AND content_key IS NOT NULL" "2" "0228 applies again after its down, and every note has a key"
+echo "==> 0228 content key and its down migration verified"

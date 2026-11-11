@@ -46,6 +46,14 @@ describe('ConversationPrivacyLineView', () => {
     expect(screen.queryByTestId('conversation-private-line')).not.toBeInTheDocument()
   })
 
+  test('while the server has not confirmed a switch, the line says it is being switched, never that nothing is kept', () => {
+    const { rerender } = render(<ConversationPrivacyLineView temporary="turningOn" privateToReader={false} />)
+    expect(screen.getByTestId('conversation-temporary-line')).toHaveTextContent('Turning on temporary chat …')
+    expect(screen.getByTestId('conversation-temporary-line')).not.toHaveTextContent('keeps nothing')
+    rerender(<ConversationPrivacyLineView temporary="turningOff" privateToReader={false} />)
+    expect(screen.getByTestId('conversation-temporary-line')).toHaveTextContent('Turning off temporary chat …')
+  })
+
   test('a private chat says only the reader sees it until they share it', () => {
     render(<ConversationPrivacyLineView temporary={false} privateToReader />)
     expect(screen.getByTestId('conversation-private-line')).toHaveTextContent('Private chat. You have not shared it with anyone.')

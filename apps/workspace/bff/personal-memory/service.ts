@@ -15,13 +15,13 @@ import { ConflictError } from '@/lib/api/errors'
 import { DEFAULT_PAGE_LIMIT, nextOffsetCursor, type OffsetPage, type PageOf } from '@/lib/api/offset-page'
 import { isUniqueViolation } from '@/lib/db/errors'
 import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
-import { normalizeContent } from '@/lib/knowledge/consolidation'
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
+import { assertStorableNote } from '@/lib/knowledge/note-content-guard'
 import { maskChatText } from '@/lib/upload-screening/service'
 import {
   deleteAllPersonalMemory,
   deletePersonalMemory,
-  findPersonalMemoryByNormalizedContent,
+  findPersonalMemoryByContentKey,
   insertPersonalMemory,
   selectPersonalMemory,
   touchPersonalMemory,
@@ -29,6 +29,7 @@ import {
   type PersonalMemoryFilter,
   type PersonalMemoryOwner,
 } from './repository'
+import { requirePersonalContentKey } from './content-key'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from './vocabulary'
 
 export type { PersonalMemoryOwner }
@@ -50,9 +51,16 @@ export interface NewPersonalNote {
   sourceMessageId?: string | null
 }
 
-/** A note's text as it may be stored and served: the office's screening applied (ADR-0086). */
-async function masked(organizationId: string, content: string): Promise<string> {
-  return (await maskChatText(organizationId, content)).text
+/**
+ * A note's text as it may be stored and served, with its key: the office's
+ * screening applied (ADR-0086), then refused (400) when what is left holds a
+ * secret (`note-content-guard.ts`; a person's own contact details may stay on
+ * their own shelf) or no letter and no digit (`content-key.ts`).
+ */
+async function storable(organizationId: string, content: string): Promise<{ content: string; contentKey: string }> {
+  const text = (await maskChatText(organizationId, content)).text
+  assertStorableNote(text, { refuseContact: false })
+  return { content: text, contentKey: requirePersonalContentKey(text) }
 }
 
 /**
@@ -71,17 +79,17 @@ export async function listPersonalMemory(
 }
 
 /**
- * Keep one note. A note that says what an existing one says (same text once
- * case and punctuation are folded) is that note, marked current again: the
- * agent restating a preference must not grow the list.
+ * Keep one note. A note that says what an existing one says (the same
+ * `content_key`: case and punctuation folded, letters of every script kept) is
+ * that note, marked current again, and answers `created: false`: the agent
+ * restating a preference must not grow the list.
  */
 export async function createPersonalMemoryItem(
   owner: PersonalMemoryOwner,
   note: NewPersonalNote
 ): Promise<{ item: PersonalMemoryItem; created: boolean }> {
-  const content = await masked(owner.organizationId, note.content)
-  const normalized = normalizeContent(content)
-  const existing = await findPersonalMemoryByNormalizedContent(owner, normalized)
+  const { content, contentKey } = await storable(owner.organizationId, note.content)
+  const existing = await findPersonalMemoryByContentKey(owner, contentKey)
   if (existing) return { item: (await touchPersonalMemory(owner, existing.id)) ?? existing, created: false }
   try {
     const item = await insertPersonalMemory({
@@ -89,6 +97,7 @@ export async function createPersonalMemoryItem(
       userId: owner.userId,
       kind: note.kind,
       content,
+      contentKey,
       provenanceType: note.provenanceType,
       pinned: note.pinned ?? false,
       sourceConversationId: note.sourceConversationId ?? null,
@@ -98,7 +107,7 @@ export async function createPersonalMemoryItem(
   } catch (error) {
     // Two turns kept the same sentence at once: the unique index let one in.
     if (!isUniqueViolation(error)) throw error
-    const winner = await findPersonalMemoryByNormalizedContent(owner, normalized)
+    const winner = await findPersonalMemoryByContentKey(owner, contentKey)
     if (!winner) throw error
     return { item: winner, created: false }
   }
@@ -110,7 +119,7 @@ export async function editPersonalMemoryItem(
   id: string,
   patch: { kind?: PersonalMemoryKind; content?: string; pinned?: boolean }
 ): Promise<PersonalMemoryItem | null> {
-  const next = patch.content === undefined ? patch : { ...patch, content: await masked(owner.organizationId, patch.content) }
+  const next = patch.content === undefined ? patch : { ...patch, ...(await storable(owner.organizationId, patch.content)) }
   try {
     return await updatePersonalMemory(owner, id, next)
   } catch (error) {

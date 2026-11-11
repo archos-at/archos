@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./repository', () => ({
   PERSONAL_MEMORY_LIST_LIMIT: 200,
   selectPersonalMemory: vi.fn(),
-  findPersonalMemoryByNormalizedContent: vi.fn(),
+  findPersonalMemoryByContentKey: vi.fn(),
   insertPersonalMemory: vi.fn(),
   touchPersonalMemory: vi.fn(),
   updatePersonalMemory: vi.fn(),
@@ -18,14 +18,14 @@ vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_org: string, text: string) => ({ text: text.replace(/AT\d{18}/g, '[IBAN]') })),
 }))
 
-import { ConflictError } from '@/lib/api/errors'
+import { BadRequestError, ConflictError } from '@/lib/api/errors'
 import { UNIQUE_VIOLATION } from '@/lib/db/errors'
 import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 import { maskChatText } from '@/lib/upload-screening/service'
 import {
   deleteAllPersonalMemory,
   deletePersonalMemory,
-  findPersonalMemoryByNormalizedContent,
+  findPersonalMemoryByContentKey,
   insertPersonalMemory,
   selectPersonalMemory,
   touchPersonalMemory,
@@ -52,6 +52,7 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
     userId: 'user_1',
     kind: 'preference',
     content: 'Answers in short paragraphs.',
+    contentKey: 'answers in short paragraphs',
     provenanceType: 'agent',
     sourceConversationId: null,
     sourceMessageId: null,
@@ -69,7 +70,7 @@ function uniqueViolation(): Error {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValue(null)
+  vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(null)
 })
 
 describe('createPersonalMemoryItem', () => {
@@ -89,6 +90,7 @@ describe('createPersonalMemoryItem', () => {
       userId: 'user_1',
       kind: 'profile',
       content: 'Leads the fire-safety reviews.',
+      contentKey: 'leads the fire safety reviews',
       provenanceType: 'distillation',
       pinned: false,
       sourceConversationId: 's_1',
@@ -114,7 +116,7 @@ describe('createPersonalMemoryItem', () => {
 
   it('leaves a restated note under the answer it was first saved under', async () => {
     const first = note({ sourceMessageId: '11111111-2222-5333-8444-555555555555' })
-    vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValue(first)
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(first)
     vi.mocked(touchPersonalMemory).mockResolvedValue(first)
 
     const again = await createPersonalMemoryItem(OWNER, {
@@ -131,7 +133,7 @@ describe('createPersonalMemoryItem', () => {
   it('refreshes the existing note when the text says the same once case and punctuation are folded', async () => {
     const existing = note()
     const touched = note({ updatedAt: new Date('2026-11-11T09:00:00Z') })
-    vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValue(existing)
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(existing)
     vi.mocked(touchPersonalMemory).mockResolvedValue(touched)
 
     const result = await createPersonalMemoryItem(OWNER, {
@@ -140,7 +142,7 @@ describe('createPersonalMemoryItem', () => {
       provenanceType: 'agent',
     })
 
-    expect(findPersonalMemoryByNormalizedContent).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'answers in short paragraphs')
     expect(touchPersonalMemory).toHaveBeenCalledWith(OWNER, existing.id)
     expect(result).toEqual({ item: touched, created: false })
     expect(insertPersonalMemory).not.toHaveBeenCalled()
@@ -148,7 +150,7 @@ describe('createPersonalMemoryItem', () => {
 
   it('answers the existing note unchanged when it vanished between the lookup and the refresh', async () => {
     const existing = note()
-    vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValue(existing)
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValue(existing)
     vi.mocked(touchPersonalMemory).mockResolvedValue(null)
 
     const result = await createPersonalMemoryItem(OWNER, { kind: 'preference', content: existing.content, provenanceType: 'agent' })
@@ -158,13 +160,13 @@ describe('createPersonalMemoryItem', () => {
 
   it('returns the winner when two turns kept the same sentence at once and the unique index let one in', async () => {
     const winner = note({ id: '22222222-2222-4222-8222-222222222222' })
-    vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValueOnce(null).mockResolvedValueOnce(winner)
+    vi.mocked(findPersonalMemoryByContentKey).mockResolvedValueOnce(null).mockResolvedValueOnce(winner)
     vi.mocked(insertPersonalMemory).mockRejectedValue(uniqueViolation())
 
     const result = await createPersonalMemoryItem(OWNER, { kind: 'preference', content: winner.content, provenanceType: 'agent' })
 
     expect(result).toEqual({ item: winner, created: false })
-    expect(findPersonalMemoryByNormalizedContent).toHaveBeenCalledTimes(2)
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledTimes(2)
   })
 
   it('rethrows a unique violation whose winner cannot be found, and any other failure', async () => {
@@ -194,7 +196,65 @@ describe('createPersonalMemoryItem', () => {
     expect(maskChatText).toHaveBeenCalledWith('org_1', 'Pays invoices from AT611904300234573201.')
     expect(item.content).toBe('Pays invoices from [IBAN].')
     expect(item.pinned).toBe(true)
-    expect(findPersonalMemoryByNormalizedContent).toHaveBeenCalledWith(OWNER, 'pays invoices from iban')
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, 'pays invoices from iban')
+  })
+})
+
+describe('a personal note is told apart by its letters in any script', () => {
+  it.each([
+    ['Привет', 'привет'],
+    ['Здравствуйте, отвечайте кратко', 'здравствуйте отвечайте кратко'],
+    ['ÄÖÜ', 'äöü'],
+    ['Ｆｌｕｃｈｔｗｅｇ ２', 'fluchtweg 2'],
+  ])('looks up and stores %s under its own key', async (content, key) => {
+    vi.mocked(insertPersonalMemory).mockImplementation(async (values) => note(values as Partial<PersonalMemoryItem>))
+
+    const result = await createPersonalMemoryItem(OWNER, { kind: 'preference', content, provenanceType: 'user' })
+
+    expect(findPersonalMemoryByContentKey).toHaveBeenCalledWith(OWNER, key)
+    expect(insertPersonalMemory).toHaveBeenCalledWith(expect.objectContaining({ content, contentKey: key }))
+    expect(result.created).toBe(true)
+  })
+
+  it('refuses a note with no letter and no digit (400) before anything is read or written', async () => {
+    const refused = createPersonalMemoryItem(OWNER, { kind: 'preference', content: '!!! — ???', provenanceType: 'user' })
+
+    await expect(refused).rejects.toBeInstanceOf(BadRequestError)
+    await expect(refused).rejects.toThrow('A personal note needs at least one letter or digit.')
+    expect(findPersonalMemoryByContentKey).not.toHaveBeenCalled()
+    expect(insertPersonalMemory).not.toHaveBeenCalled()
+  })
+
+  it('refuses such a text in an edit too', async () => {
+    await expect(editPersonalMemoryItem(OWNER, 'note-1', { content: '…' })).rejects.toBeInstanceOf(BadRequestError)
+    expect(updatePersonalMemory).not.toHaveBeenCalled()
+  })
+})
+
+describe('a personal note never holds a secret', () => {
+  it.each([
+    ['a password with no trigger word', 'Projektserver-Zugang: Tulpe#4471!', 'a password or access code'],
+    ['an API key', 'My key is sk-live-9f3a7c21d8e44b0aa1', 'an API key or access token'],
+    ['an IBAN in groups the screening left', 'Konto AT61 1904 3002 3457 3201', 'a bank account number (IBAN)'],
+  ])('refuses %s, on create and on edit, without repeating it', async (_what, content, named) => {
+    const create = createPersonalMemoryItem(OWNER, { kind: 'profile', content, provenanceType: 'user' })
+    await expect(create).rejects.toBeInstanceOf(BadRequestError)
+    await expect(create).rejects.toThrow(`A memory note cannot hold ${named}.`)
+    await expect(editPersonalMemoryItem(OWNER, 'note-1', { content })).rejects.toThrow(named)
+    expect(insertPersonalMemory).not.toHaveBeenCalled()
+    expect(updatePersonalMemory).not.toHaveBeenCalled()
+  })
+
+  it('keeps the person’s own phone number: personal data is what this shelf is for', async () => {
+    vi.mocked(insertPersonalMemory).mockImplementation(async (values) => note(values as Partial<PersonalMemoryItem>))
+
+    const { created } = await createPersonalMemoryItem(OWNER, {
+      kind: 'profile',
+      content: 'Reachable on +43 664 1234567 before noon.',
+      provenanceType: 'user',
+    })
+
+    expect(created).toBe(true)
   })
 })
 
@@ -203,7 +263,11 @@ describe('editPersonalMemoryItem', () => {
     vi.mocked(updatePersonalMemory).mockImplementation(async (_owner, _id, patch) => note(patch))
 
     const edited = await editPersonalMemoryItem(OWNER, 'note-1', { content: 'IBAN AT611904300234573201', pinned: true })
-    expect(updatePersonalMemory).toHaveBeenCalledWith(OWNER, 'note-1', { content: 'IBAN [IBAN]', pinned: true })
+    expect(updatePersonalMemory).toHaveBeenCalledWith(OWNER, 'note-1', {
+      content: 'IBAN [IBAN]',
+      contentKey: 'iban iban',
+      pinned: true,
+    })
     expect(edited?.content).toBe('IBAN [IBAN]')
 
     vi.mocked(maskChatText).mockClear()

@@ -12,7 +12,7 @@
  * colleague's query with the filter forgotten) and reads nothing, updates
  * nothing and deletes nothing; so does anyone in another organization. The
  * note is still A's afterwards. The same cluster shows the unique index on the
- * normalized text, and that a temporary conversation (migration 0226) refuses
+ * content key (0228), and that a temporary conversation (migration 0226) refuses
  * a memory write while one that is not, or not created yet, does not.
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -40,6 +40,7 @@ const OTHER_ORG = `org_personal_other_${STAMP}`
 const PERSON_A = `user_a_${STAMP}`
 const PERSON_B = `user_b_${STAMP}`
 const OUTSIDER = `user_outsider_${STAMP}`
+const PERSON_C = `user_c_${STAMP}`
 
 const A = { organizationId: ORG, userId: PERSON_A }
 const B = { organizationId: ORG, userId: PERSON_B }
@@ -226,7 +227,12 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
 
     // The index itself, past the service's lookup: the race two turns can run.
     const raced = await as(A, () =>
-      repository.insertPersonalMemory({ ...A, kind: 'preference', content: 'wants ANSWERS in short paragraphs' })
+      repository.insertPersonalMemory({
+        ...A,
+        kind: 'preference',
+        content: 'wants ANSWERS in short paragraphs',
+        contentKey: 'wants answers in short paragraphs',
+      })
     ).then(
       () => null,
       (error: unknown) => error
@@ -305,5 +311,28 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     await expect(as(A, () => temporary.requireConversationKeepsMemory(`s_missing_${STAMP}`, ORG))).resolves.toBeUndefined()
     // Another organization cannot be refused on, or learn of, this one's conversation.
     expect(await as(ELSEWHERE, () => temporary.isTemporaryConversation(TEMPORARY, OTHER_ORG))).toBe(false)
+  })
+
+  it('keeps notes with no ASCII letter as notes of their own (migration 0228)', async () => {
+    // Under 0225's `[^a-z0-9]+` index all three folded to '' and answered the first one's id.
+    const C = { organizationId: ORG, userId: PERSON_C }
+    const keep = (content: string) =>
+      as(C, () => service.createPersonalMemoryItem(C, { kind: 'preference', content, provenanceType: 'user' }))
+
+    const written = [await keep('Привет'), await keep('Здравствуйте, отвечайте кратко'), await keep('ÄÖÜ')]
+
+    expect(written.map((result) => result.created)).toEqual([true, true, true])
+    expect(new Set(written.map((result) => result.item.id)).size).toBe(3)
+    expect((await visibleTo(C)).sort()).toEqual(['Здравствуйте, отвечайте кратко', 'Привет', 'ÄÖÜ'].sort())
+    // The same text in other case and punctuation is still the same note.
+    expect((await keep('  привет! ')).created).toBe(false)
+    // And the database refuses a key with nothing in it, whoever writes it.
+    const blank = await as(C, () =>
+      repository.insertPersonalMemory({ ...C, kind: 'profile', content: '!!!', contentKey: ' ' })
+    ).then(
+      () => null,
+      (error: unknown) => rootCause(error).message
+    )
+    expect(blank).toContain('personal_memory_content_key_present')
   })
 })

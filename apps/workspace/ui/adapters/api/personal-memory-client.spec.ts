@@ -67,9 +67,9 @@ describe('listPersonalMemory', () => {
 
 describe('addPersonalMemoryNote', () => {
   it('posts the kind and the text, and answers the note', async () => {
-    fetchMock.mockResolvedValueOnce(Response.json({ item: NOTE }, { status: 201 }))
+    fetchMock.mockResolvedValueOnce(Response.json({ item: NOTE, created: true }, { status: 201 }))
 
-    const { item } = await addPersonalMemoryNote({ kind: 'preference', content: 'Antworten bitte knapp.' })
+    const { item, created } = await addPersonalMemoryNote({ kind: 'preference', content: 'Antworten bitte knapp.' })
 
     expect(fetchMock).toHaveBeenCalledWith('/api/user/memory', {
       method: 'POST',
@@ -77,6 +77,16 @@ describe('addPersonalMemoryNote', () => {
       body: JSON.stringify({ kind: 'preference', content: 'Antworten bitte knapp.' }),
     })
     expect(item).toEqual(NOTE)
+    expect(created).toBe(true)
+  })
+
+  it('says when the note was already held', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ item: NOTE, created: false }, { status: 200 }))
+
+    expect(await addPersonalMemoryNote({ kind: 'preference', content: 'antworten bitte knapp' })).toEqual({
+      item: NOTE,
+      created: false,
+    })
   })
 
   it('throws the typed error with the status when the write is refused', async () => {

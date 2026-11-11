@@ -232,8 +232,23 @@ detectors, both in `createProjectMemoryItem`:
    score 0.91 Jaccard), so it landed in the *merge* branch — and a merge keeps the
    OLD content, refreshing only confidence and timestamps. Corrections were being
    silently discarded while the stale row came back looking freshly confirmed.
-   Matches are now compared on negation parity plus boolean literals: same
-   polarity → merge, opposed → supersede.
+   Matches are now classified by `assertionRelation`
+   (`bff/knowledge/consolidation.ts`), because polarity alone let "Die Attika ist
+   1,10 m hoch" → "1,20 m hoch" merge: a near-duplicate whose numbers (as an
+   ordered sequence, German decimal comma read as a value), comparison marks
+   (`≤ ≥ < > ≠ ±`), negation or boolean words differ, or which swaps a word of
+   a lexically near sentence ("in Lärche" → "in Eiche"), is `corrected` and
+   supersedes; one that adds nothing the held note does not say is `same` and
+   merges; a rewording only the vector matched, or one that only adds words, is
+   `restated` and merges too. Not covered: the same words and numbers in
+   another order ("A vor B" / "B vor A"), a correction that only adds a word
+   with no number ("Bauteil B" → "Bauteil B und C"), and a correction that
+   shares too few tokens to be matched at all (that is the explicit target
+   below). An exact
+   normalized duplicate that is a correction (`≤ 40 m` vs `≥ 40 m` fold alike
+   in the 0010 index) takes the new text in place on an agent's note; on a
+   human-curated one the correction cannot be inserted beside it (the index)
+   and is dropped.
 2. **An explicit target.** The writer may quote the entry it overturns verbatim
    (`supersedesContent`); the quote is resolved against active items in scope
    (exact normalized match, else ≥ 0.7 Jaccard) and ignored when nothing matches
@@ -247,6 +262,28 @@ the correction is still recorded, both stay active, and the user resolves it in
 the panel. Still outstanding from this section: embedding-based similarity (so
 semantically-distant contradictions are caught without a quote) and LLM
 adjudication of genuine two-sided conflicts.
+
+**An edited note is matched by what it says now.** `updateProjectMemoryItem`
+drops the vector in the statement that changes the text or kind and embeds the
+new text right after (`bff/projects/memory-embedding.ts`); a vector is only ever
+stored while the row still holds the text it was computed from (`content` in the
+UPDATE's WHERE), so the digest's backfill cannot write an old text's vector over
+an edit. An edit whose text another active note of the shelf already says is a
+409, not an unhandled unique violation.
+
+**A note holds no secret, whichever door it came through.** The single writer of
+each store (`createProjectMemoryItem` / `updateProjectMemoryItem`, and the
+personal service) refuses, after the office's mask, a password, access code, API
+key, account or identity number (400, naming the kind, never the value), and on
+the shared shelves also an agent's e-mail address or phone number
+(`bff/knowledge/note-content-guard.ts`). The agent's twin
+(`agent.knowledge.memory_content_guard`) refuses the same before its round trip;
+both are held to `tests/fixtures/memory_note_guard_cases.json`.
+
+**Status moves are declared** (ADR-0179): `PROJECT_MEMORY_LIFECYCLE` in
+`bff/projects/memory-vocabulary.ts` (`active` → `superseded` | `dismissed`, both
+→ `active` by restore), and every writer's WHERE reads it
+(`bff/projects/memory-status.ts`); any other move is a 409 `invalid-transition`.
 
 **Consolidation never crosses a restriction** (§3.6). Every pass — exact
 duplicate, semantic and lexical paraphrase, the named supersede target — only

@@ -2,7 +2,7 @@
 
 The two agent-side writers of durable findings, a project's and a person's: the in-turn
 `remember` tool (`register.py`) and the body of the post-answer reflection pass
-(`reflection.py`), plus the one decision both make about restricted folders
+(`reflection.py`, its system prompt in `reflection_prompt.py`), plus the one decision both make about restricted folders
 (`restriction.py`). Not an agent — one agent tool and one stage handler.
 
 Do not confuse it with `agent/knowledge/project_memory.py` and
@@ -98,3 +98,4 @@ drops the quote and keeps the finding.
 | Add a writer of project or organization memory | Write through `insert_memory_item` under a bound memory log, so `_record_write` enters the note | The note is stored and shows under no answer |
 | Change the reflection prompt, the `remember` tool's description or schema, or the personal-data filter | Run `task be:eval:memory-shelves` before and after ([what it measures](../../../../../docs/contributing/testing-and-verification.md#the-memory-shelves-eval)) | Nothing in CI: it needs a provider key. Review |
 | Change the reflection prompt or schema | Run `packages/agent/tests/memory/test_reflection.py`; the prompt and `_ReflectionFinding` must name the same fields | The pass parses nothing and silently records zero findings |
+| Word what a note says (the `remember` tool's `content`, the reflection prompt) | A personal note carries no name and no third person: its only reader is the person, so it states the preference or role itself („Maße immer in Zentimetern.“), in the person's language. A state of the workspace or the conversation (no federal state set, a source unavailable) is never a finding | `test_reflection.py` (`TestReflectionSystemPrompt`); review for the tool text |

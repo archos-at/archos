@@ -473,7 +473,9 @@ export const collaborationOperations = [
     summary: 'Add a personal memory note',
     description:
       'Keeps one note about the person themself: `kind` and `content`, optional `pinned`. A note about a project belongs in ' +
-      'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers `{ item }` with its id.',
+      'project-memory-create, never here. A note that says what an existing one says is that note, returned again. Answers ' +
+      '`{ item, created }`: 201 with `created: true` for a new note, 200 with `created: false` for the note already held. ' +
+      '400 when the content holds a secret (a password, an API key, an account or identity number) or no letter or digit.',
     method: 'POST',
     path: '/api/user/memory',
     body: createPersonalMemorySchema,

@@ -25,6 +25,16 @@
  * panel is given by its page), and names the notes of this conversation that
  * are still active, so a row whose note was removed elsewhere says so instead
  * of offering to remove it again. Asked when the chip is opened.
+ *
+ * **Only an id the server lists is offered for removal.** The project's and
+ * the office's notes of a turn are read off the message's stage frame, which
+ * the BROWSER persists onto the message (`PATCH …/messages`, through
+ * `sanitizeStages`): any participant of a shared conversation could store a
+ * frame naming any note of the office, and a colleague's click on „Entfernen“
+ * would delete it. So a row offers removal only when the shelf's own list,
+ * filtered to this conversation (`?conversationId=`, the notes WRITTEN from it,
+ * `source_conversation_id`), names its id. Fail-closed: no answer, or a list
+ * longer than one page, offers nothing.
  */
 
 import { useEffect, useMemo, useRef } from 'react'
@@ -57,11 +67,13 @@ interface TurnNotesState {
   personal: Record<string, readonly ConversationPersonalNote[]>
   /** By `shelfKey(projectId, conversationId)`. */
   shelves: Record<string, ProjectShelfAccess>
+  /** The office's active notes written from each conversation, by conversation; null when they did not fit one page. */
+  offices: Record<string, readonly string[] | null>
   /** By note id. */
   removals: Record<string, NoteRemoval>
 }
 
-export const useTurnNotes = create<TurnNotesState>()(() => ({ personal: {}, shelves: {}, removals: {} }))
+export const useTurnNotes = create<TurnNotesState>()(() => ({ personal: {}, shelves: {}, offices: {}, removals: {} }))
 
 const NO_NOTES: readonly ConversationPersonalNote[] = []
 /** One page; a person holds a few dozen notes in all (ADR-0180 rule 3). */
@@ -85,6 +97,14 @@ function personalNoteOf(raw: unknown): ConversationPersonalNote | null {
 /** Reads in flight, so every answer of a thread asking at once costs one request. */
 const loadingPersonal = new Map<string, Promise<void>>()
 const loadingShelves = new Map<string, Promise<void>>()
+const loadingOffices = new Map<string, Promise<void>>()
+
+/** The ids of one page of a memory list, or null when the list says another page follows. */
+function listedIds(body: Record<string, unknown>): readonly string[] | null {
+  if (body.nextCursor !== null && body.nextCursor !== undefined) return null
+  const rows = Array.isArray(body.items) ? body.items : []
+  return rows.flatMap((row) => (isRecord(row) && typeof row.id === 'string' ? [row.id] : []))
+}
 /** Conversations whose notes were asked for again during a read: read once more after it. */
 const stalePersonal = new Set<string>()
 
@@ -133,12 +153,7 @@ export function loadProjectShelf(projectId: string, conversationId: string): Pro
       if (!response.ok) return
       const body: unknown = await response.json()
       if (!isRecord(body)) return
-      const rows = Array.isArray(body.items) ? body.items : []
-      const ids = rows.flatMap((row) => (isRecord(row) && typeof row.id === 'string' ? [row.id] : []))
-      const access: ProjectShelfAccess = {
-        canWrite: body.canWrite === true,
-        activeIds: body.nextCursor === null || body.nextCursor === undefined ? ids : null,
-      }
+      const access: ProjectShelfAccess = { canWrite: body.canWrite === true, activeIds: listedIds(body) }
       useTurnNotes.setState((state) => ({ shelves: { ...state.shelves, [key]: access } }))
     } catch {
       // No answer: the chip offers no remove action for project notes.
@@ -147,6 +162,34 @@ export function loadProjectShelf(projectId: string, conversationId: string): Pro
     }
   })()
   loadingShelves.set(key, load)
+  return load
+}
+
+/**
+ * Ask the office's memory which of its active notes were written from this
+ * conversation. Any member may remove an office note (the item route says
+ * so); this list is what vouches that a row's id is one of THIS turn's.
+ * Fail-soft: no answer, no action.
+ */
+export function loadOfficeShelf(conversationId: string): Promise<void> {
+  const running = loadingOffices.get(conversationId)
+  if (running) return running
+  const load = (async () => {
+    try {
+      const query = new URLSearchParams({ conversationId, limit: String(PAGE) })
+      const response = await fetch(`/api/organization/memory?${query.toString()}`)
+      if (!response.ok) return
+      const body: unknown = await response.json()
+      if (!isRecord(body)) return
+      const ids = listedIds(body)
+      useTurnNotes.setState((state) => ({ offices: { ...state.offices, [conversationId]: ids } }))
+    } catch {
+      // No answer: the chip offers no remove action for office notes.
+    } finally {
+      loadingOffices.delete(conversationId)
+    }
+  })()
+  loadingOffices.set(conversationId, load)
   return load
 }
 
@@ -234,10 +277,16 @@ export function useProjectShelf(
   )
 }
 
+/** The office's active notes written from the conversation; undefined until asked, null when they did not fit a page. */
+export function useOfficeShelf(conversationId: string | null | undefined): readonly string[] | null | undefined {
+  return useTurnNotes((state) => (conversationId ? state.offices[conversationId] : undefined))
+}
+
 /** Specs only: forget everything read and removed. */
 export function resetTurnNotes(): void {
   loadingPersonal.clear()
   loadingShelves.clear()
+  loadingOffices.clear()
   stalePersonal.clear()
-  useTurnNotes.setState({ personal: {}, shelves: {}, removals: {} })
+  useTurnNotes.setState({ personal: {}, shelves: {}, offices: {}, removals: {} })
 }

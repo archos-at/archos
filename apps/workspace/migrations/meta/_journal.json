@@ -1597,6 +1597,13 @@
       "when": 1793930000000,
       "tag": "0227_personal_memory_source_message",
       "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1793940000000,
+      "tag": "0228_personal_memory_content_key",
+      "breakpoints": true
     }
   ]
 }

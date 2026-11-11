@@ -4,6 +4,7 @@
  * `@/lib/personal-memory/service`.
  */
 
+import { NextResponse } from 'next/server'
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { offsetPageOf } from '@/lib/api/offset-page'
 import { clearPersonalMemory, createPersonalMemoryItem, listPersonalMemory } from '@/lib/personal-memory/service'
@@ -24,16 +25,21 @@ export const GET = apiRoute(
   { authz: { sessionOnly: true, why: WHY } }
 )
 
+/**
+ * Keep a note. 201 `{ item, created: true }` for a new one; a note that says
+ * what one of the caller's notes already says is that note, 200
+ * `{ item, created: false }`, so the panel can say so instead of „added“.
+ */
 export const POST = apiRoute(
   async ({ session, request }) => {
     const input = await parseJsonBody(request, createPersonalMemorySchema)
-    const { item } = await createPersonalMemoryItem(
+    const { item, created } = await createPersonalMemoryItem(
       { organizationId: session.organizationId, userId: session.userId },
       { ...input, provenanceType: 'user' }
     )
-    return { item }
+    return NextResponse.json({ item, created }, { status: created ? 201 : 200 })
   },
-  { status: 201, authz: { sessionOnly: true, why: WHY } }
+  { authz: { sessionOnly: true, why: WHY } }
 )
 
 /** Remove every note of the caller, for good. Answers how many went; none is a 200 with 0, not an error. */

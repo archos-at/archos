@@ -17,9 +17,10 @@ export default async function PersonalMemoryPage(): Promise<JSX.Element> {
   return withPageSession(async () => {
     const t = await getTranslations(personalMemoryCopy)
     return (
-      <ShellContent>
+      // Room under the last control: on a phone „Alle Notizen entfernen“ stood flush on the tab bar.
+      <ShellContent className="pb-16 md:pb-10">
         <BackLink className="touch-target mb-6" fallbackHref="/app/projects" fallbackLabel={t('backToApp')} />
-        <PageHeader className="mb-8" title={t('title')} subtitle={t('subtitle')} />
+        <PageHeader className="mb-8" title={t('title')} subtitle={t('subtitle')} subtitleOnPhone />
         <PersonalMemoryPanel />
       </ShellContent>
     )
