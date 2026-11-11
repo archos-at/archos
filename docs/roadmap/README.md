@@ -24,6 +24,7 @@ Status is read from each doc's header. A **dated review** is a record of what wa
 | [agent-writes-artifacts-and-approval.md](agent-writes-artifacts-and-approval.md) | live, design of record 2026-09-10 | How Piloti writes documents: the working directory, the document lifecycle, and the publish step with approval. |
 | [piloti-writes-perspective-review.md](piloti-writes-perspective-review.md) | dated review 2026-09-10 | A product review of what the Piloti writes branch delivers, and what it leaves open. |
 | [plan-measurement-from-drawings.md](plan-measurement-from-drawings.md) | live, plan 2026-11-11 (replaces the note of 2026-08-19) | Making drawings measurable: what offices need, what plan files carry, scale per region with a person's confirmation, and the `drawing_measure` tool the agent ends up with. Nothing built. |
+| [drawing-measurement-build-spec.md](drawing-measurement-build-spec.md) | live, build specification 2026-11-11 | How measuring from drawings is built: what was measured on real files, the decisions, the engine, the `drawing_measure` operations, and seven slices with what done means for each. Nothing built. |
 | [spatial-review-findings.md](spatial-review-findings.md) | dated review 2026-08-12 | An adversarial review of `ifc_measure` and `ifc-spatial-py`: defects reachable through the tool surface that no test catches. |
 
 `agent-spatial-reasoning-architecture.excalidraw` is the diagram that goes with [agent-spatial-reasoning.md](agent-spatial-reasoning.md).

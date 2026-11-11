@@ -10,6 +10,9 @@ machen“ and 34 „Im Plan und im IFC-Modell messen“.*
 **This is a plan. Nothing in it is built.** What exists today is listed under
 [Where we are](#where-we-are).
 
+How it is built, in which order and what done means for each slice:
+[drawing-measurement-build-spec.md](./drawing-measurement-build-spec.md).
+
 ## The star
 
 An architect opens a plot PDF of a floor plan and asks „Ist dieser Gang breit
