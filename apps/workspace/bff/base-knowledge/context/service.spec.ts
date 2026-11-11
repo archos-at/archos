@@ -1,3 +1,4 @@
+// @disk-inputs: ../../configs/knowledge-packs/at.json, ../../configs/knowledge-packs/eu.json, ../../configs/knowledge-packs/at-golden-cases.json
 /**
  * @vitest-environment node
  *
@@ -7,6 +8,8 @@
  * built from nothing.
  */
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -41,7 +44,9 @@ const { rememberTurnContext, lastAnswerPackSeqs } = vi.hoisted(() => ({ remember
 vi.mock('./turn-snapshot', () => ({ rememberTurnContext }))
 vi.mock('./last-answer', async (original) => ({ ...(await original<typeof import('./last-answer')>()), lastAnswerPackSeqs }))
 
-import { contextCacheKey, contextDigest, knowledgeContextForTurn } from './service'
+import { graphFromProposals } from '../chain/from-proposals'
+import { proposedRecordSchema } from '../platform/wire'
+import { contextCacheKey, contextDigest, knowledgeContextForStatedSite, knowledgeContextForTurn, referenceDateOf } from './service'
 
 const AUSTRIA = {
   territories: new Map([['AT', { id: 'AT', kind: 'country', name: 'AT', parents: [], validFrom: null, validTo: null, coverageLevel: 'core' }]]),
@@ -130,5 +135,73 @@ describe('contextDigest', () => {
     expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).toBe(contextDigest({ ...inputs, buildings: { buildings: [{ ...house }] } }))
     expect(contextDigest({ ...inputs, buildings: { buildings: [house] } })).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [withGarage] } }))
     expect(contextDigest(inputs)).not.toBe(contextDigest({ ...inputs, buildings: { buildings: [house] } }))
+  })
+})
+
+const packs = join(process.cwd(), '..', '..', 'configs', 'knowledge-packs')
+const records = (name: string) => (JSON.parse(readFileSync(join(packs, name), 'utf8')) as { records: Record<string, unknown>[] }).records
+const AUSTRIA_PACKS = graphFromProposals(proposedRecordSchema.array().parse([...records('eu.json'), ...records('at.json')]))
+/** Golden case A8: the edition of OIB-RL 2 binding in Wien for a filing on 2023-06-01. */
+const A8 = records('at-golden-cases.json').find((record) => record.key === 'at-a8-edition-on-filing-day-with-interval') as {
+  context: { territoryId: string; referenceDate: string }
+  expected: { edition: { editionKey: string; role: string }; citations: { alsoKnownAs: string[] }[] }
+}
+const FILING_NOTE = 'the filing day taken as the reference date (an assumption; transitional law not checked: say so)'
+
+describe('referenceDateOf', () => {
+  it('takes a filing day that has come, today included, and leaves one still to come undetermined', () => {
+    expect(referenceDateOf('2023-06-01', '2026-11-11')).toEqual({ date: '2023-06-01', basis: 'filed_on' })
+    expect(referenceDateOf('2026-11-11', '2026-11-11')).toEqual({ date: '2026-11-11', basis: 'filed_on' })
+    expect(referenceDateOf('2026-11-12', '2026-11-11')).toEqual({ date: null, basis: 'undetermined' })
+    expect(referenceDateOf(null, '2026-11-11')).toEqual({ date: null, basis: 'undetermined' })
+  })
+})
+
+describe('a filed project’s context resolves on its filing day (country-as-data §3.6)', () => {
+  const vienna = { country: { value: 'at' }, federal_state: { value: 'vienna' } }
+  const profileWith = (facts: Record<string, { value: string }>) => ({ profile: { facts: { ...vienna, ...facts }, assumptions: {}, goals: {}, unknowns: [] } })
+  const oibRl2 = (context: Awaited<ReturnType<typeof knowledgeContextForTurn>>) =>
+    Object.fromEntries(context.uses.filter((use) => use.workId === 'work:oib-rl-2').map((use) => [use.editionId, use]))
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    cache.clear()
+    officeTimeZone.mockResolvedValue('Europe/Vienna')
+    readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
+    loadGraph.mockResolvedValue({ graph: AUSTRIA_PACKS, truncated: false })
+  })
+
+  it('binds OIB-RL 2 2019 through the WBTV in Wien on the filing day, not the 2023 edition, and says the day is assumed', async () => {
+    findProjectProfileInOrg.mockResolvedValue(profileWith({ 'filed_on@p1': { value: '2023-06-01' } }))
+    const context = await knowledgeContextForTurn('org_a', 'project_1')
+    expect(context.date).toBe('2023-06-01')
+    expect(context.procedures[0]?.referenceDates['AT-9']).toEqual({ date: '2023-06-01', basis: 'filed_on' })
+    const editions = oibRl2(context)
+    expect(editions['edition:oib-rl-2-2019']).toMatchObject({ role: 'binding', roleSince: '2020-02-01', route: { designation: 'WBTV' } })
+    expect(editions['edition:oib-rl-2-2023']?.role).not.toBe('binding')
+    expect(context.text).toContain(`on 2023-06-01, ${FILING_NOTE}`)
+  })
+
+  it('answers golden case A8 the same way through the stated site a golden run reads', async () => {
+    const context = await knowledgeContextForStatedSite('org_a', { territoryId: A8.context.territoryId, filedOn: A8.context.referenceDate })
+    expect(context.date).toBe(A8.context.referenceDate)
+    // The expectation is the golden case's own, so the spec follows the record if a reviewer rewrites it.
+    const { edition, citations } = A8.expected
+    const use = context.uses.find((candidate) => candidate.editionId === `edition:${edition.editionKey}`)
+    expect(use).toMatchObject({ role: edition.role })
+    expect(citations[0]?.alsoKnownAs).toContain(use?.route?.designation)
+    expect(context.text).toContain(FILING_NOTE)
+  })
+
+  it.each([
+    ['a filing day still to come', { 'filed_on@p1': { value: '2999-01-01' } }],
+    ['no filing day', {}],
+  ])('resolves on today with %s, and says nothing of a filing day', async (_case, facts) => {
+    findProjectProfileInOrg.mockResolvedValue(profileWith(facts))
+    const context = await knowledgeContextForTurn('org_a', 'project_1')
+    expect(context.date).not.toBe('2023-06-01')
+    expect(context.date >= '2026-11-11').toBe(true)
+    expect(oibRl2(context)['edition:oib-rl-2-2023']?.role).toBe('binding')
+    expect(context.text).not.toContain('filing day')
   })
 })
