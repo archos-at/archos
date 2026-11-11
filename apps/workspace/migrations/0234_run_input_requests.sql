@@ -57,5 +57,5 @@ CREATE INDEX IF NOT EXISTS "idx_run_input_requests_organization_id"
 --> statement-breakpoint
 -- Keyed by its organization AND the run's: a row cannot be planted on another
 -- tenant's run, nor on a run of another project.
-SELECT grid_secure_table('run_input_requests',
-  'organization_id = grid_current_org() AND EXISTS (SELECT 1 FROM task_runs r WHERE r.id = run_id AND r.organization_id = grid_current_org() AND r.project_id = run_input_requests.project_id)');
+SELECT secure_table('run_input_requests',
+  'organization_id = current_org() AND EXISTS (SELECT 1 FROM task_runs r WHERE r.id = run_id AND r.organization_id = current_org() AND r.project_id = run_input_requests.project_id)');
