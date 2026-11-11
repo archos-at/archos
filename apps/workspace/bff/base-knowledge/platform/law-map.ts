@@ -106,6 +106,9 @@ type Body = Record<string, unknown>
 
 const bodyOfRevision = (revision: RevisionView): Body => Object.fromEntries(revision.claims.map((claim) => [claim.path, claim.value]))
 
+/** The work kinds that are a region's own acts, published in its legal database. */
+const LEGAL_ACT_KINDS: ReadonlySet<string> = new Set(['statute', 'ordinance', 'administrative_regulation'])
+
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null)
 
 function reviewOf(revisions: readonly RevisionView[]): ReviewState {
@@ -176,7 +179,11 @@ interface Indexed {
   editionRevisions: Map<string, RevisionView>
 }
 
-function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
+/** A citation's page: its own URL, else the URL of the capture it quotes. */
+const citedUrl = (citation: RevisionView['citations'][number], captures: ReadonlyMap<string, CaptureView>): string | null =>
+  citation.url ?? (citation.captureId ? captures.get(citation.captureId)?.url : undefined) ?? null
+
+function indexWorksAndEditions(revisions: readonly RevisionView[], captures: ReadonlyMap<string, CaptureView>): Indexed {
   const works = new Map<string, { revision: RevisionView; body: Body }>()
   const editions = new Map<string, LawMapEdition>()
   const editionRevisions = new Map<string, RevisionView>()
@@ -188,14 +195,21 @@ function indexWorksAndEditions(revisions: readonly RevisionView[]): Indexed {
       editionRevisions.set(revision.recordId, revision)
     }
   }
-  for (const revision of revisions.filter((one) => one.type === 'manifestation')) {
-    const body = bodyOfRevision(revision)
-    const edition = editions.get(text(body.editionId) ?? '')
-    if (!edition) continue
-    const url = revision.citations.find((citation) => citation.url)?.url ?? null
-    edition.text = { file: text(body.corpusFile), url }
-    const own = editionRevisions.get(edition.id)
-    edition.review = reviewOf(own ? [own, revision] : [revision])
+  // Every manifestation of an edition counts toward its review; the text shown is the first by record id, whatever the order.
+  const manifestations = revisions.filter((one) => one.type === 'manifestation').sort((a, b) => a.recordId.localeCompare(b.recordId))
+  const byEdition = new Map<string, RevisionView[]>()
+  for (const revision of manifestations) {
+    const editionId = text(bodyOfRevision(revision).editionId) ?? ''
+    if (editions.has(editionId)) byEdition.set(editionId, [...(byEdition.get(editionId) ?? []), revision])
+  }
+  for (const [editionId, texts] of byEdition) {
+    const edition = editions.get(editionId)
+    const first = texts[0]
+    if (!edition || !first) continue
+    const url = first.citations.map((citation) => citedUrl(citation, captures)).find((one) => one !== null) ?? null
+    edition.text = { file: text(bodyOfRevision(first).corpusFile), url }
+    const own = editionRevisions.get(editionId)
+    edition.review = reviewOf(own ? [own, ...texts] : texts)
   }
   return { works, editions, editionRevisions }
 }
@@ -207,7 +221,7 @@ const designationOf = (body: Body, fallback: string): string => {
 
 function sourcesOf(revision: RevisionView, captures: ReadonlyMap<string, CaptureView>): LawMapSource[] {
   return revision.citations.flatMap((citation) => {
-    const url = citation.url ?? (citation.captureId ? captures.get(citation.captureId)?.url : undefined) ?? null
+    const url = citedUrl(citation, captures)
     return url ? [{ url, quote: citation.quote ?? null, note: citation.note ?? null }] : []
   })
 }
@@ -216,6 +230,8 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
   const relations = revisions.filter((revision) => revision.type === 'relation').map((revision) => ({ revision, body: bodyOfRevision(revision) }))
   const primaryHosts = new Map<string, Set<string>>()
   for (const { body } of indexed.works.values()) {
+    // A region's legal database is where its acts are published; a guideline's or a standard's publisher is not it.
+    if (!LEGAL_ACT_KINDS.has(text(body.kind) ?? '')) continue
     const hosts = identifierUrls(body).map(hostOf).filter((host): host is string => host !== null)
     for (const territoryId of (body.territoryIds as string[] | undefined) ?? []) {
       const known = primaryHosts.get(territoryId) ?? new Set<string>()
@@ -226,12 +242,15 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
   const groups = new Map<string, { territoryId: string; actWorkId: string; validFrom: string | null; members: typeof relations }>()
   for (const relation of relations.filter(({ body }) => body.relationType === 'makes_binding' && body.toType === 'edition')) {
     const actWorkId = text(relation.body.fromId) ?? ''
-    const territoryId = ((indexed.works.get(actWorkId)?.body.territoryIds as string[] | undefined) ?? [])[0] ?? ''
+    const territoryIds = (indexed.works.get(actWorkId)?.body.territoryIds as string[] | undefined) ?? []
     const validFrom = text(relation.body.validFrom)
-    const key = `${actWorkId}|${validFrom ?? ''}`
-    const group = groups.get(key) ?? { territoryId, actWorkId, validFrom, members: [] }
-    group.members.push(relation)
-    groups.set(key, group)
+    // An act for several regions makes the edition binding in each: one statement per region, keyed apart.
+    for (const territoryId of territoryIds.length > 0 ? territoryIds : ['']) {
+      const key = territoryIds.length > 1 ? `${actWorkId}|${validFrom ?? ''}|${territoryId}` : `${actWorkId}|${validFrom ?? ''}`
+      const group = groups.get(key) ?? { territoryId, actWorkId, validFrom, members: [] }
+      group.members.push(relation)
+      groups.set(key, group)
+    }
   }
   const deviations = relations.filter(({ body }) => body.relationType === 'deviates_from')
   return [...groups.entries()].map(([key, group]) => {
@@ -274,8 +293,8 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
 /** The law map of the records a change request holds, for one country. */
 export function lawMapOf(countryId: string, revisions: readonly RevisionView[], captures: readonly CaptureView[]): LawMap {
   const territories = territoriesOf(revisions)
-  const indexed = indexWorksAndEditions(revisions)
   const captureById = new Map(captures.map((capture) => [capture.captureId, capture]))
+  const indexed = indexWorksAndEditions(revisions, captureById)
   const statements = statementsOf(revisions, indexed, captureById).sort(
     (a, b) => (territories.get(a.territoryId)?.name ?? a.territoryId).localeCompare(territories.get(b.territoryId)?.name ?? b.territoryId) || (a.validFrom ?? '').localeCompare(b.validFrom ?? ''),
   )
@@ -307,7 +326,8 @@ export function lawMapOf(countryId: string, revisions: readonly RevisionView[], 
 export function bindingOn(map: LawMap, territoryId: string, topicWorkId: string, date: string): { cell: LawMapCell; statement: LawMapStatement } | null {
   let found: { cell: LawMapCell; statement: LawMapStatement } | null = null
   for (const statement of map.statements) {
-    if (statement.territoryId !== territoryId) continue
+    // A statement a reviewer marked wrong stays on the map for review, but binds nothing.
+    if (statement.territoryId !== territoryId || statement.review === 'rejected') continue
     for (const cell of statement.cells) {
       if (cell.topicWorkId !== topicWorkId) continue
       if ((cell.validFrom ?? '') > date || (cell.validTo !== null && date >= cell.validTo)) continue
@@ -357,5 +377,5 @@ export function summaryOf<T extends { edition: LawMapEdition }>(bound: readonly 
 
 /** The next statement in a region that starts after a day: what is coming. */
 export function nextChange(map: LawMap, territoryId: string, date: string): LawMapStatement | null {
-  return map.statements.filter((statement) => statement.territoryId === territoryId && (statement.validFrom ?? '') > date).sort((a, b) => (a.validFrom ?? '').localeCompare(b.validFrom ?? ''))[0] ?? null
+  return map.statements.filter((statement) => statement.territoryId === territoryId && statement.review !== 'rejected' && (statement.validFrom ?? '') > date).sort((a, b) => (a.validFrom ?? '').localeCompare(b.validFrom ?? ''))[0] ?? null
 }

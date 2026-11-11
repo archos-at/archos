@@ -9,7 +9,7 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
+import { bindingOn, editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
@@ -60,9 +60,11 @@ function StatementBody({ map, statement, t }: { map: LawMap; statement: LawMapSt
   )
 }
 
-function EditionBody({ map, edition, t }: { map: LawMap; edition: LawMapEdition; t: Translator }): JSX.Element {
+function EditionBody({ map, edition, today, t }: { map: LawMap; edition: LawMapEdition; today: string; t: Translator }): JSX.Element {
   const date = useDate()
-  const lands = [...new Set(map.statements.filter((statement) => statement.cells.some((cell) => cell.editionId === edition.id)).map((statement) => map.territories.get(statement.territoryId)?.name ?? statement.territoryId))]
+  // Where it binds on the map's day, not everywhere it ever did.
+  const territoryIds = [...new Set(map.statements.map((statement) => statement.territoryId))]
+  const lands = territoryIds.filter((id) => bindingOn(map, id, edition.workId, today)?.cell.editionId === edition.id).map((id) => map.territories.get(id)?.name ?? id)
   return (
     <Unfold>
       <p>
@@ -141,7 +143,8 @@ export function LawMapOutline({ map, today, rootName }: { map: LawMap; today: st
   const toggle = (id: string) => setExpanded((now) => (now.has(id) ? new Set([...now].filter((one) => one !== id)) : new Set([...now, id])))
   const flip = (id: string) => setOpen((now) => (now === id ? null : id))
 
-  const rootId = map.rootIds[0] ?? ''
+  // The country is the root when the request holds it; else every topmost region is a region of its own.
+  const rootId = map.countryId
   const root = map.territories.get(rootId)
   const regions = root ? root.children : map.rootIds
   const worksShown = map.topics
@@ -215,7 +218,7 @@ export function LawMapOutline({ map, today, rootName }: { map: LawMap; today: st
                           {editions.map((edition) => (
                             <div key={edition.id}>
                               <OutlineRow size="sm" name={edition.label} meta={edition.text?.file ?? undefined} attention={edition.review === 'open'} confirmed={edition.review === 'accepted'} expanded={open === edition.id} onClick={() => flip(edition.id)} />
-                              {open === edition.id ? <EditionBody map={map} edition={edition} t={t} /> : null}
+                              {open === edition.id ? <EditionBody map={map} edition={edition} today={today} t={t} /> : null}
                             </div>
                           ))}
                         </Branch>
