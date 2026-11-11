@@ -558,6 +558,8 @@ export const chat: typeof en.chat = {
       // Beurteilung mit Größe, Wert, Grenzwert und Ergebnis.
       recomputed: 'Neu berechnet. {checks}',
       checkSpoken: '{name}: {value}, Grenzwert {bound}, {verdict}.',
+      // Wie checkSpoken, wo statt einer Beurteilung ein Hinweis steht; {reason} endet mit Punkt.
+      checkHeldSpoken: '{name}: {value}, Grenzwert {bound}, Hinweis: {reason}',
       // Statt einer Beurteilung, wo die Ausgabe, aus der die Grenzwerte stammen,
       // am Standort nicht gilt oder niemand geprüft hat, welche gilt.
       hold: {
@@ -567,6 +569,8 @@ export const chat: typeof en.chat = {
         unsettled:
           'Werte aus {edition}; welche Ausgabe am Standort gilt, ist noch nicht geprüft. Darum keine Beurteilung.',
         siteUnknown: 'Werte aus {edition}; welche Ausgabe am Standort gilt, ist nicht bekannt. Darum keine Beurteilung.',
+        unavailable:
+          'Werte aus {edition}; welche Ausgabe am Standort gilt, konnte gerade nicht gelesen werden. Darum keine Beurteilung.',
       },
       component: {
         external_wall: 'Außenwand gegen Außenluft',

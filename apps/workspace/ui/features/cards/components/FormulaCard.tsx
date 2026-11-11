@@ -59,6 +59,7 @@ import {
   judgeFormula,
   sourceValues,
   type CompiledFormula,
+  type EditionHold,
   type FormulaCardData,
   type FormulaWords,
   type InputLabel,
@@ -356,9 +357,17 @@ const undecidedText = (
   return t('cards.formula.cannotJudge')
 }
 
-/** The verdict as said: a hint where the bound's edition does not bind at the site, else the status. */
-const verdictText = (check: LimitCheck, t: Translator): string =>
-  check.hold ? t('cards.formula.hold.label') : statusLabel(check.status, t)
+/** Why a held check gives no verdict, with the edition its bound is from and the one that binds. */
+const holdText = (hold: EditionHold, t: Translator): string =>
+  t(HOLD_KEYS[hold.reason], { edition: hold.edition, binding: hold.binding ?? '' })
+
+/** One check as the live region says it: the verdict, or the hint with its reason. */
+const spokenCheck = (check: LimitCheck, judged: JudgedFormula, t: Translator): string => {
+  const said = { name: t(CHECK_KEYS[check.spec.id]), value: quantityText(check, judged, t), bound: boundText(check, t) }
+  return check.hold
+    ? t('cards.formula.checkHeldSpoken', { ...said, reason: holdText(check.hold, t) })
+    : t('cards.formula.checkSpoken', { ...said, verdict: statusLabel(check.status, t) })
+}
 
 const CheckRow: FC<{
   check: LimitCheck
@@ -376,7 +385,7 @@ const CheckRow: FC<{
           // No ✓ and no ✗: the bound is from an edition that does not bind here, or nobody settled which does.
           <Chip variant="info" size="sm">
             <Info aria-hidden="true" />
-            {verdictText(check, t)}
+            {t('cards.formula.hold.label')}
           </Chip>
         ) : (
           <StatusBadge status={check.status} />
@@ -391,7 +400,7 @@ const CheckRow: FC<{
       </span>
       {check.hold && (
         <p className="card-caption max-w-prose text-muted-foreground">
-          {t(HOLD_KEYS[check.hold.reason], { edition: check.hold.edition, binding: check.hold.binding ?? '' })}
+          {holdText(check.hold, t)}
         </p>
       )}
       {check.status === 'needs_input' && (
@@ -449,16 +458,7 @@ export const FormulaCard: FC<FormulaCardProps> = ({ title, formula, note, site_b
     setInteracted(true)
   }
 
-  const spoken = judged.checks
-    .map((check) =>
-      t('cards.formula.checkSpoken', {
-        name: t(CHECK_KEYS[check.spec.id]),
-        value: quantityText(check, judged, t),
-        bound: boundText(check, t),
-        verdict: verdictText(check, t),
-      })
-    )
-    .join(' ')
+  const spoken = judged.checks.map((check) => spokenCheck(check, judged, t)).join(' ')
 
   return (
     <SchematicCard

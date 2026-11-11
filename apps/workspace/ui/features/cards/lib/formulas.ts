@@ -609,10 +609,18 @@ export function compileFormula(formula: FormulaSpec, values: FormulaValues, word
 export type SiteBinding = NonNullable<FormulaCardData['site_binding']>
 
 /**
- * Why a check shows a hint rather than a verdict: no site was known, the site's coverage is not settled,
- * the work does not bind there, or another edition does.
+ * Why a check shows a hint rather than a verdict: no site was known (or no edition is named), the site's
+ * coverage or the edition's scope is not settled, the knowledge could not be read, the work does not bind
+ * there, or another edition does.
  */
-export type HoldReason = 'siteUnknown' | 'unsettled' | 'notBinding' | 'otherEdition'
+export type HoldReason = 'siteUnknown' | 'unsettled' | 'unavailable' | 'notBinding' | 'otherEdition'
+
+/** The reason each coverage short of `settled` gives. */
+const COVERAGE_HOLD = {
+  unsettled: 'unsettled',
+  site_unknown: 'siteUnknown',
+  unavailable: 'unavailable',
+} as const satisfies Record<Exclude<SiteBinding['coverage'], 'settled'>, HoldReason>
 
 export interface EditionHold {
   reason: HoldReason
@@ -624,16 +632,18 @@ export interface EditionHold {
 
 /**
  * Whether the card may judge against a bound written in `reference` at the turn's site: only where the
- * edition the bound is transcribed from is the one that binds there, and the gate is settled. Null then;
- * otherwise why not. A work that binds with no edition named is as unknown as no site. Pure.
+ * edition the bound is transcribed from is the one that binds there, its scope is settled, and so is the
+ * site's coverage. Null then; otherwise why not. A work that binds with no edition, or with two, is as
+ * unknown as no site, and so is a work missing from a stamp that was cut. Pure.
  */
 export function editionHold(reference: NormReferenceData, site: SiteBinding | null | undefined): EditionHold | null {
   const edition = reference.edition ?? ''
   const hold = (reason: HoldReason, binding: string | null = null): EditionHold => ({ reason, edition, binding })
   if (!site) return hold('siteUnknown')
-  if (!site.settled) return hold('unsettled')
+  if (site.coverage !== 'settled') return hold(COVERAGE_HOLD[site.coverage])
   const binds = site.editions?.find((entry) => entry.designation === reference.document)
-  if (!binds) return hold('notBinding')
+  if (!binds) return hold(site.truncated ? 'siteUnknown' : 'notBinding')
+  if (binds.scope_unsettled) return hold('unsettled')
   if (!binds.edition_label) return hold('siteUnknown')
   return binds.edition_label === edition ? null : hold('otherEdition', binds.edition_label)
 }

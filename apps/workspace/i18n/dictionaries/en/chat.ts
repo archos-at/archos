@@ -559,6 +559,8 @@ export const chat = {
       // its quantity, value, limit and outcome.
       recomputed: 'Recomputed. {checks}',
       checkSpoken: '{name}: {value}, limit {bound}, {verdict}.',
+      // As checkSpoken, where a hint stands in for the verdict; {reason} ends in a full stop.
+      checkHeldSpoken: '{name}: {value}, limit {bound}, hint: {reason}',
       // In place of a verdict, where the edition the limits come from does not
       // apply at the site, or nobody has reviewed which one does.
       hold: {
@@ -567,6 +569,7 @@ export const chat = {
         notBinding: 'Values from {edition}; this rule set does not bind at the site. So no verdict.',
         unsettled: 'Values from {edition}; which edition applies at the site has not been reviewed yet. So no verdict.',
         siteUnknown: 'Values from {edition}; which edition applies at the site is not known. So no verdict.',
+        unavailable: 'Values from {edition}; which edition applies at the site could not be read just now. So no verdict.',
       },
       component: {
         external_wall: 'External wall against outside air',

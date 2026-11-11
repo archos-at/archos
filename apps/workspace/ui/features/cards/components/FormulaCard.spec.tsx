@@ -56,15 +56,16 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 /** The editions that bind at a site, as the server stamps them from the turn's knowledge context. */
-const siteWhere = (settled: boolean, editions: Record<string, string>) => ({
-  settled,
+type Coverage = 'settled' | 'unsettled' | 'site_unknown' | 'unavailable'
+const siteWhere = (coverage: Coverage, editions: Record<string, string>) => ({
+  coverage,
   editions: Object.entries(editions).map(([designation, edition_label]) => ({ designation, edition_label })),
 })
 const GUIDELINES = ['2', '3', '4', '6'].map((number) => `OIB-Richtlinie ${number}`)
 /** Where the card's own editions bind, with a settled gate: the shape of a core site where 2023 binds throughout. */
-const BINDS_2023 = siteWhere(true, Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])))
+const BINDS_2023 = siteWhere('settled', Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])))
 /** As at a core site where RL 6 binds in its 2025 edition. */
-const BINDS_RL6_2025 = siteWhere(true, {
+const BINDS_RL6_2025 = siteWhere('settled', {
   ...Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])),
   'OIB-Richtlinie 6': 'Ausgabe September 2025',
 })
@@ -339,14 +340,71 @@ describe('the binding edition at the site', () => {
     expect(screen.queryAllByText('erfüllt')).toHaveLength(0)
   })
 
-  it('shows a hint where the gate is not settled, or no site was known', () => {
-    const { unmount } = mount(uValue(siteWhere(false, { 'OIB-Richtlinie 6': 'Ausgabe Mai 2023' })))
+  it.each([
+    ['unsettled', /ist noch nicht geprüft\. Darum keine Beurteilung\./],
+    ['site_unknown', /ist nicht bekannt\. Darum keine Beurteilung\./],
+    ['unavailable', /konnte gerade nicht gelesen werden\. Darum keine Beurteilung\./],
+  ] as const)('shows a hint where the site’s coverage is %s, and says why', (coverage, reason) => {
+    mount(uValue(siteWhere(coverage, { 'OIB-Richtlinie 6': 'Ausgabe Mai 2023' })))
     expect(hint()).toBeInTheDocument()
-    expect(checks().getByText(/ist noch nicht geprüft\. Darum keine Beurteilung\./)).toBeInTheDocument()
-    unmount()
+    expect(checks().getByText(reason)).toBeInTheDocument()
+  })
+
+  it('shows a hint where no site was known', () => {
     mount(uValue(undefined))
     expect(hint()).toBeInTheDocument()
     expect(checks().getByText(/ist nicht bekannt\. Darum keine Beurteilung\./)).toBeInTheDocument()
+  })
+
+  it('says the rule set does not bind where the site names no edition of its work', () => {
+    mount(uValue(siteWhere('settled', { 'OIB-Richtlinie 2': 'Ausgabe Mai 2023' })))
+    expect(
+      checks().getByText(
+        'Werte aus Ausgabe Mai 2023; am Standort ist dieses Regelwerk nicht verbindlich. Darum keine Beurteilung.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('says not known, not “does not bind”, where the work is missing from a stamp that was cut', () => {
+    mount(uValue({ ...siteWhere('settled', { 'OIB-Richtlinie 2': 'Ausgabe Mai 2023' }), truncated: true }))
+    expect(checks().getByText(/ist nicht bekannt\. Darum keine Beurteilung\./)).toBeInTheDocument()
+  })
+
+  it('shows a binding edition whose own scope is open as not yet reviewed, not as not binding', () => {
+    const site = siteWhere('settled', { 'OIB-Richtlinie 6': 'Ausgabe Mai 2023' })
+    mount(uValue({ ...site, editions: site.editions.map((entry) => ({ ...entry, scope_unsettled: true })) }))
+    expect(checks().getByText(/ist noch nicht geprüft\. Darum keine Beurteilung\./)).toBeInTheDocument()
+    expect(checks().queryByText(/nicht verbindlich/)).toBeNull()
+  })
+
+  it('holds where two editions of the work bind, so no edition is named', () => {
+    mount(uValue({ coverage: 'settled', editions: [{ designation: 'OIB-Richtlinie 6', edition_label: null }] }))
+    expect(hint()).toBeInTheDocument()
+    expect(checks().queryByText('erfüllt')).toBeNull()
+  })
+
+  it('tints the Rechenweg’s result by its verdict, and not where the check is held', () => {
+    // The last step's result, the figure the tint colours.
+    const rechenwegResult = () => screen.getByRole('region', { name: 'Rechenweg' }).querySelector('.card-figure-24')
+    const { unmount } = mount(uValue(BINDS_2023))
+    expect(rechenwegResult()).toHaveAttribute('style')
+    unmount()
+    mount(uValue(BINDS_RL6_2025))
+    expect(rechenwegResult()).not.toHaveAttribute('style')
+  })
+
+  it('tells a screen reader the hint with its reason, not only that there is one', async () => {
+    const user = userEvent.setup()
+    const { container } = mount(
+      fixtureCard('stair-main-within', (card) => {
+        card.site_binding = siteWhere('unsettled', {})
+      })
+    )
+    const live = container.querySelector('[aria-live="polite"].sr-only') as HTMLElement
+    await enter(user, riserField(), '19')
+    expect(live).toHaveTextContent(
+      'Stufenhöhe: 19 cm, Grenzwert ≤ 18 cm, Hinweis: Werte aus Ausgabe Mai 2023; welche Ausgabe am Standort gilt, ist noch nicht geprüft. Darum keine Beurteilung.'
+    )
   })
 
   it('holds back only the checks whose work’s edition differs', () => {
@@ -396,6 +454,33 @@ describe('reader inputs in the A2UI data model', () => {
     await user.click(screen.getByRole('tab', { name: 'Variante A' }))
     await waitFor(() => expect(screen.getByRole('spinbutton', { name: 'Stufenhöhe s' })).toHaveValue('19'))
     expect(derived('67')).toBeInTheDocument()
+  })
+  it('carries the site’s stamp through a surface to the leaf: a hint where another edition binds, else the verdict', async () => {
+    const wall = (site: unknown) =>
+      fixtureCard('u-value-external-wall', (card) => {
+        card.site_binding = site
+      })
+    const surface = {
+      type: 'surface',
+      components: [
+        { id: 'root', component: 'Tabs', tabs: [{ title: 'Neu', child: 'a' }, { title: 'Bestand', child: 'b' }] },
+        asLeaf('a', wall(BINDS_RL6_2025)),
+        asLeaf('b', wall(BINDS_2023)),
+      ],
+    } as unknown as AnswerCard
+    const user = userEvent.setup()
+    render(
+      <A2uiCard
+        card={surface}
+        surfaceKey="m1:wall"
+        render={(leaf, leafId) => <AnswerCardView card={leaf} index={0} messageId="m1" leafId={leafId} />}
+      />
+    )
+    expect(await screen.findByText(/am Standort gilt Ausgabe September 2025\./)).toBeInTheDocument()
+    expect(checks().queryByText('erfüllt')).toBeNull()
+    await user.click(screen.getByRole('tab', { name: 'Bestand' }))
+    await waitFor(() => expect(checks().getByText('erfüllt')).toBeInTheDocument())
+    expect(checks().queryByText('Hinweis')).toBeNull()
   })
 })
 

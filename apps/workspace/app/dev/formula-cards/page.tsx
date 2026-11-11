@@ -32,7 +32,7 @@ type Card = Record<string, unknown> & { type: string }
 
 const GUIDELINES = ['2', '3', '4', '6'].map((number) => `OIB-Richtlinie ${number}`)
 const siteWhere = (editions: Record<string, string>) => ({
-  settled: true,
+  coverage: 'settled',
   editions: Object.entries(editions).map(([designation, edition_label]) => ({ designation, edition_label })),
 })
 /** A settled site where the 2023 editions bind, as the server stamps it. */

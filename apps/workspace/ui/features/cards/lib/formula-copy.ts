@@ -118,6 +118,7 @@ export const STAIR_TYPE_KEYS = {
 export const HOLD_KEYS = {
   siteUnknown: 'cards.formula.hold.siteUnknown',
   unsettled: 'cards.formula.hold.unsettled',
+  unavailable: 'cards.formula.hold.unavailable',
   notBinding: 'cards.formula.hold.notBinding',
   otherEdition: 'cards.formula.hold.otherEdition',
 } as const satisfies Record<HoldReason, string>
