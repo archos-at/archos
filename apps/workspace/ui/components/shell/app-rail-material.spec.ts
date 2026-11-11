@@ -161,6 +161,9 @@ describe('the app rail’s material', () => {
     expect(rail).toMatch(/<SidebarMenu className="gap-0\.5">\{projectItems\.map\(railItem\)\}<\/SidebarMenu>[\s\S]*?<RailChatList /)
     expect(chats).toMatch(/\{t\('recentChats'\)\}/)
     expect(chats).toMatch(/<ul [^>]*className="[^"]*\boverflow-y-auto\b/)
+    // A scroll box clips on every side, and the current row's edge is a 1px ring outside it: the list keeps 1px of its
+    // own all round (`p-px`, given back by `-mx-px`), or the sheet loses its edge at the left and right (2026-11-11).
+    expect(chats).toMatch(/<ul [^>]*className="(?=[^"]*(?<![\w-])-mx-px\b)(?=[^"]*(?<![\w-])p-px\b)[^"]*\boverflow-y-auto\b/)
     // The box round the sections does not scroll, so the office's doorways at the foot stay put.
     expect(rail).toMatch(/'mt-3 min-h-0 flex-1 gap-0 overflow-hidden'/)
   })

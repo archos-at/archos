@@ -76,8 +76,9 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
       <h2 id="rail-chats-heading" className="text-muted-foreground text-meta shrink-0 px-3 pb-1.5 font-medium">
         {t('recentChats')}
       </h2>
-      {/* `py-px`, so the current row's 1px edge is not cut at the scroll box's ends; the foot fades while more lies below. */}
-      <ul aria-labelledby="rail-chats-heading" className="scroll-fade-bottom flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain py-px" data-testid="rail-chats">
+      {/* `p-px` (and `-mx-px`, so the rows keep their edge), because a scroll box clips on every side: with `py-px`
+          alone the current row's 1px edge was cut at its left and right. The foot fades while more lies below. */}
+      <ul aria-labelledby="rail-chats-heading" className="scroll-fade-bottom -mx-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-px" data-testid="rail-chats">
         {chats.items.map((chat) => (
           <li key={chat.id} className="relative shrink-0">
             <Link
