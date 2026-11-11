@@ -42,6 +42,20 @@ export const personalMemory = {
   unpinnedNote: 'Note unpinned.',
   removed: 'Note removed.',
   removedAll: '{count, plural, one {# note} other {# notes}} removed.',
+  // Why the server refused a note (`details.kind`, `bff/knowledge/note-refusal.ts`). Never the value found.
+  refused: {
+    iban: 'Not saved: a note may not hold a bank account number (IBAN). Leave it out and save again.',
+    at_svnr: 'Not saved: a note may not hold a social-insurance number. Leave it out and save again.',
+    credit_card: 'Not saved: a note may not hold a payment card number. Leave it out and save again.',
+    de_svnr: 'Not saved: a note may not hold a pension-insurance number. Leave it out and save again.',
+    de_tax_id: 'Not saved: a note may not hold a tax identification number. Leave it out and save again.',
+    private_key: 'Not saved: a note may not hold a private key. Leave it out and save again.',
+    api_key: 'Not saved: a note may not hold an API key or access token. Leave it out and save again.',
+    credential: 'Not saved: a note may not hold a password or access code. Leave it out and save again.',
+    identity_number: 'Not saved: a note may not hold an identity or tax number. Leave it out and save again.',
+    email: 'Not saved: a note others read may not hold an e-mail address. Leave it out and save again.',
+    phone: 'Not saved: a note others read may not hold a phone number. Leave it out and save again.',
+  },
   errors: {
     loadTitle: 'The notes could not be loaded',
     loadDescription: 'Try again.',

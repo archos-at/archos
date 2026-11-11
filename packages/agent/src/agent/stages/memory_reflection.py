@@ -27,6 +27,9 @@ changed is how it is wired and bounded:
   gets its frame even where the reflection pass itself is declined. A personal
   note never rides the frame (ADR-0180): it is stored with the answer's id and
   only its owner's browser asks for it.
+- the frame is also stored on the answer by this tier (``durable_frame.py``),
+  not only by the browser that receives it, so a note saved after the person
+  left the chat is still shown under its answer.
 
 See docs/architecture/post-answer-stages.md and
 docs/architecture/project-memory-design.md.
@@ -47,6 +50,7 @@ from agent.knowledge.project_memory import begin_turn_memory_log
 from agent.knowledge.project_memory import end_turn_memory_log
 from agent.knowledge.project_memory import turn_memory_notes
 from agent.knowledge.project_memory import turn_refreshed_memory_ids
+from agent.stages.durable_frame import schedule_durable_frame
 from agent.stages.registry import register_stage
 from agent.stages.spec import GateDecision
 from agent.stages.spec import StageContext
@@ -97,6 +101,9 @@ _SKIP_ROUTES = {"meta", "error"}
 #: slow provider and still frees the concurrency slot long before a stall could
 #: disable the stage for the replica.
 REFLECTION_TIMEOUT_S = 45.0
+
+#: The stage's wire id, also what the BFF's internal stage route accepts.
+MEMORY_REFLECTION_STAGE_ID = "memory_reflection"
 
 #: The most in-turn notes one frame lists. The tool is not bounded per turn;
 #: the frame is stored on a message, and the BFF caps the list again.
@@ -281,7 +288,12 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
         reflected, empty_reason = await _reflected_items(ctx)
     items = [*noted, *reflected]
     if items:
-        return {"items": items}
+        payload = {"items": items}
+        # The frame reaches the answer through the browser only while one is
+        # attached to the conversation; this write holds when none is. Detached:
+        # it neither delays the frame nor can fail the stage (`durable_frame.py`).
+        schedule_durable_frame(facts, MEMORY_REFLECTION_STAGE_ID, payload)
+        return payload
     # `None` is `empty` — a first-class success rather than a failure to invent
     # output. A pass that kept only personal or restated notes names itself.
     return StageEmpty(empty_reason) if empty_reason else None
@@ -289,7 +301,7 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
 
 MEMORY_REFLECTION = register_stage(
     StageSpec(
-        id="memory_reflection",
+        id=MEMORY_REFLECTION_STAGE_ID,
         agent_group=AgentGroup.MEMORY_REFLECTION,
         # Unchanged from the pre-stage wiring: this migration is not a
         # user-visible change, so the flag that governed it still does.

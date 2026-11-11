@@ -832,6 +832,14 @@ transfer of authority. `app` stays single-writer.
 > `disabled` before the handler (§7.8; `_pre_run_outcome`, `_schedule_one`). The tool's writes are not
 > behind that flag, so a note it wrote in such a turn is stored and shows on
 > no answer. ADR-0180 lists this as open.
+>
+> **The frame is stored by the server too (2026-11-11).** It used to reach the
+> message only through a browser attached to the conversation's socket. In a
+> real run the stage took 45 s, the person opened another chat 3 s before it
+> ended, and the note was saved and never shown, also after a reload. The
+> handler now also writes the frame itself, for reflection's items and for a
+> turn with in-turn notes alone (`stages/durable_frame.py`, §11 risk 3). The
+> frame is still a notice of the write and never the record of it.
 
 ### 5.2 `follow_ups` — the new one
 
@@ -1697,6 +1705,29 @@ Then the specific risks:
    `msg_${Date.now()}_${counter}` with a real turn id. Worth doing; **not worth
    blocking this on**, and it would also give reflection the per-message identity
    it has never had (§1.6).
+
+   > **[as built, 2026-11-11]** The id half of this is settled: the answer's
+   > message id is derived on both sides (`answer_message_id`, a uuid5 over the
+   > conversation and the turn; `answerMessageId` in the BFF). The memory frame
+   > is no longer lost on a disconnected turn. Its handler also hands the frame
+   > to `PATCH /api/internal/conversations/{id}/messages/{answerId}/stages`
+   > (`stages/durable_frame.py`), signed with the turn's envelope; the BFF runs
+   > the same `sanitizeStages` and the same per-stage merge as the browser's
+   > PATCH (`bff/conversations/agent-stage-frame.ts`), so the two writes land one
+   > write's content in either order (`service.spec.ts`, "the memory frame
+   > written by the browser and by the agent tier converges"). The write is
+   > detached from the stage: it never delays the frame and never fails it. The
+   > agent host persists the answer row in the background, so a 404 is retried
+   > after 1, 2, 4 and 8 seconds and then given up with a named reason
+   > (`answer_not_found`, `unreachable`, `refused_<status>`, `not_configured`) in
+   > the log and on a profiler span `stage:memory_reflection:durable`.
+   >
+   > Still lost: `follow_ups` on a disconnected turn (a suggestion, accepted
+   > as before); the memory frame when the answer row never appears (a turn
+   > fenced off by a newer one, ADR-0080) or the turn has no envelope; and every
+   > in-turn note of an office with the `memory-reflection` flag off or no model
+   > for the stage, because the runner ends the stage as `disabled` before the
+   > handler builds a frame (§5.1).
 4. **Two tabs.** Both receive the frame (the socket is per-conversation, and the
    bus relays to whichever replica holds it), both PATCH. `mergeMessageMetadata`
    makes that safe, and the payload is identical, so the outcome is one write's

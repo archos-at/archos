@@ -173,6 +173,8 @@ import {
   updateMessageDetail,
 } from './service'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { recordAgentStageFrame } from './agent-stage-frame'
+import { mergeMetadataEntries } from './metadata-merge'
 
 const CONVERSATION_ID = 'conv_1'
 const PROJECT_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -1526,6 +1528,83 @@ describe('a stage writes its output onto the message row (post-answer-stages §4
       stages: { aStageFromTheFuture: { items: [] } },
     })
 
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The memory frame has two writers (post-answer-stages §11 risk 3): the
+ * browser's PATCH when the frame reaches an attached tab, and the agent tier's
+ * internal write, which holds when no tab is attached. Both must end in one
+ * write's content, in either order and any number of times, and neither may
+ * touch another key or another stage's output. The row here is held in memory
+ * and merged by the repository's own merge (`mergeMetadataEntries`).
+ */
+describe('the memory frame written by the browser and by the agent tier converges', () => {
+  const MESSAGE_ID = '9c2a4c5e-7a1f-4a25-b0a2-2f3f7d0d5b21'
+  const frame = {
+    items: [
+      { id: 'mem-1', kind: 'decision', content: 'Fassade in Lärche.', provenance: 'agent' },
+      { id: 'mem-2', kind: 'constraint', content: 'Traufhöhe max. 9 m.' },
+    ],
+  }
+  let row: { id: string; role: string; metadata: Record<string, unknown> }
+
+  beforeEach(() => {
+    stubConversation({ createdBy: 'user_me' })
+    row = {
+      id: MESSAGE_ID,
+      role: 'assistant',
+      metadata: { provenance: { confidence: 'high' }, stages: { followUps: { items: [{ question: 'Und die Dachform?' }] } } },
+    }
+    vi.mocked(findMessageInConversation).mockImplementation(async () => row as never)
+    vi.mocked(mergeMessageMetadata).mockImplementation(async (_conversation, _message, patch, deepMergeKeys) => {
+      const entries = typeof patch === 'function' ? patch(row.metadata) : patch
+      if (entries) row = { ...row, metadata: mergeMetadataEntries(row.metadata, entries, deepMergeKeys) }
+      return row as never
+    })
+  })
+
+  const viaBrowser = () => updateMessageDetail(session, CONVERSATION_ID, MESSAGE_ID, { stages: { memoryReflection: frame } })
+  const viaAgent = () =>
+    recordAgentStageFrame('org_1', CONVERSATION_ID, MESSAGE_ID, { stage: 'memory_reflection', payload: frame })
+
+  it('stores the same metadata whichever writer lands first, and a repeat changes nothing', async () => {
+    await viaAgent()
+    await viaBrowser()
+    await viaAgent()
+    const agentFirst = row.metadata
+
+    row = { ...row, metadata: { provenance: { confidence: 'high' }, stages: { followUps: { items: [{ question: 'Und die Dachform?' }] } } } }
+    await viaBrowser()
+    await viaAgent()
+
+    expect(row.metadata).toEqual(agentFirst)
+    const stages = row.metadata.stages as { memoryReflection: { items: { id: string }[] }; followUps: unknown }
+    expect(stages.memoryReflection.items.map((item) => item.id)).toEqual(['mem-1', 'mem-2'])
+    expect(stages.followUps).toEqual({ items: [{ question: 'Und die Dachform?' }] })
+    expect(row.metadata.provenance).toEqual({ confidence: 'high' })
+  })
+
+  it('refuses a conversation outside the organization, a missing answer and a message that is no answer', async () => {
+    vi.mocked(findConversationInOrg).mockResolvedValueOnce(null)
+    await expect(viaAgent()).rejects.toThrow(NotFoundError)
+
+    vi.mocked(findMessageInConversation).mockResolvedValueOnce(null)
+    await expect(viaAgent()).rejects.toThrow(NotFoundError)
+
+    vi.mocked(findMessageInConversation).mockResolvedValueOnce({ ...row, role: 'user' } as never)
+    await expect(viaAgent()).rejects.toThrow(NotFoundError)
+    expect(mergeMessageMetadata).not.toHaveBeenCalled()
+  })
+
+  it('stores nothing from a payload the sanitiser empties', async () => {
+    await expect(
+      recordAgentStageFrame('org_1', CONVERSATION_ID, MESSAGE_ID, {
+        stage: 'memory_reflection',
+        payload: { items: [{ id: 'x', kind: 'not-a-kind', content: 'y' }] },
+      })
+    ).rejects.toThrow('Nothing in the stage payload can be stored')
     expect(mergeMessageMetadata).not.toHaveBeenCalled()
   })
 })

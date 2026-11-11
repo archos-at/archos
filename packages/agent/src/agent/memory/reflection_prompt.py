@@ -12,8 +12,9 @@ from __future__ import annotations
 MAX_NEW_ITEMS = 5
 
 REFLECTION_SYSTEM_PROMPT = (
-    "You are Grid's memory-reflection step. You run in the background AFTER the user "
-    "already received their answer, so you never block the reply. Read the just-finished "
+    "You are the memory-reflection step of an assistant for an architecture office. You run "
+    "in the background AFTER the user already received their answer, so you never block the "
+    "reply. Read the just-finished "
     "exchange and the existing memory, then decide whether the exchange established any NEW "
     "durable finding worth keeping for future conversations: about THIS PROJECT, or about THE "
     "PERSON asking.\n\n"

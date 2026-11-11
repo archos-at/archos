@@ -7,9 +7,10 @@
  * `bff/personal-memory/vocabulary.ts`, which imports no schema, so nothing of
  * the database reaches the browser bundle.
  *
- * A non-OK answer throws {@link ApiRequestError} carrying the HTTP status. The
- * one status a caller reads is 409 on an edit: another note of the person
- * already says the same.
+ * A non-OK answer throws {@link ApiRequestError} carrying the HTTP status and
+ * the refusal's `details`. A caller reads two: 409 on an edit (another note of
+ * the person already says the same), and a 400 whose `details.kind` names
+ * what a note may not hold (`noteRefusalKind`, `bff/knowledge/note-refusal.ts`).
  */
 
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from '@/lib/personal-memory/vocabulary'
@@ -50,6 +51,15 @@ const MEMORY_PATH = '/api/user/memory'
 const jsonHeaders: HeadersInit = { 'Content-Type': 'application/json' }
 const notePath = (itemId: string): string => `${MEMORY_PATH}/${encodeURIComponent(itemId)}`
 
+/** The refusal as an error: its status, `details.reason` and `details` (a refused note's `kind`). */
+async function refusal(response: Response, what: string): Promise<ApiRequestError> {
+  const body: unknown = await response.json().catch(() => null)
+  const details = (body as { details?: unknown } | null)?.details
+  const record = details && typeof details === 'object' && !Array.isArray(details) ? (details as Record<string, unknown>) : null
+  const reason = typeof record?.reason === 'string' ? record.reason : null
+  return new ApiRequestError(`Failed to ${what} personal memory: ${response.status}`, response.status, reason, record)
+}
+
 /** One page of the notes, `limit` at a time, from `cursor` on. */
 export const listPersonalMemory = async (
   options: { limit?: number; cursor?: string | null } = {},
@@ -72,7 +82,7 @@ export const addPersonalMemoryNote = async (
   input: PersonalMemoryCreate,
 ): Promise<{ item: PersonalMemoryNote; created: boolean }> => {
   const response = await fetch(MEMORY_PATH, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) })
-  if (!response.ok) throw new ApiRequestError(`Failed to add personal memory: ${response.status}`, response.status)
+  if (!response.ok) throw await refusal(response, 'add')
   return (await response.json()) as { item: PersonalMemoryNote; created: boolean }
 }
 
@@ -82,7 +92,7 @@ export const updatePersonalMemoryNote = async (
   update: PersonalMemoryUpdate,
 ): Promise<{ item: PersonalMemoryNote }> => {
   const response = await fetch(notePath(itemId), { method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(update) })
-  if (!response.ok) throw new ApiRequestError(`Failed to update personal memory: ${response.status}`, response.status)
+  if (!response.ok) throw await refusal(response, 'update')
   return (await response.json()) as { item: PersonalMemoryNote }
 }
 

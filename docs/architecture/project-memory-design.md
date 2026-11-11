@@ -274,7 +274,9 @@ an edit. An edit whose text another active note of the shelf already says is a
 **A note holds no secret, whichever door it came through.** The single writer of
 each store (`createProjectMemoryItem` / `updateProjectMemoryItem`, and the
 personal service) refuses, after the office's mask, a password, access code, API
-key, account or identity number (400, naming the kind, never the value), and on
+key, account or identity number (400, naming the kind, never the value, and
+`details: { reason: 'note_refused', kind }` so both memory panels say why in the
+person's language, `bff/knowledge/note-refusal.ts`), and on
 the shared shelves also an agent's e-mail address or phone number
 (`bff/knowledge/note-content-guard.ts`). The agent's twin
 (`agent.knowledge.memory_content_guard`) refuses the same before its round trip;

@@ -44,6 +44,20 @@ export const personalMemory: typeof en.personalMemory = {
   unpinnedNote: 'Notiz gelöst.',
   removed: 'Notiz entfernt.',
   removedAll: '{count, plural, one {# Notiz} other {# Notizen}} entfernt.',
+  // Warum der Server eine Notiz abgelehnt hat (`details.kind`, `bff/knowledge/note-refusal.ts`). Nie der gefundene Wert.
+  refused: {
+    iban: 'Nicht gespeichert: Eine Notiz darf keine Kontonummer (IBAN) enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    at_svnr: 'Nicht gespeichert: Eine Notiz darf keine Sozialversicherungsnummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    credit_card: 'Nicht gespeichert: Eine Notiz darf keine Kartennummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    de_svnr: 'Nicht gespeichert: Eine Notiz darf keine Rentenversicherungsnummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    de_tax_id: 'Nicht gespeichert: Eine Notiz darf keine Steuer-Identifikationsnummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    private_key: 'Nicht gespeichert: Eine Notiz darf keinen privaten Schlüssel enthalten. Lassen Sie ihn weg und speichern Sie erneut.',
+    api_key: 'Nicht gespeichert: Eine Notiz darf keinen API-Schlüssel und kein Zugangstoken enthalten. Lassen Sie ihn weg und speichern Sie erneut.',
+    credential: 'Nicht gespeichert: Eine Notiz darf kein Passwort und keinen Zugangscode enthalten. Lassen Sie ihn weg und speichern Sie erneut.',
+    identity_number: 'Nicht gespeichert: Eine Notiz darf keine Ausweis- oder Steuernummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    email: 'Nicht gespeichert: Eine Notiz, die andere lesen, darf keine E-Mail-Adresse enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+    phone: 'Nicht gespeichert: Eine Notiz, die andere lesen, darf keine Telefonnummer enthalten. Lassen Sie sie weg und speichern Sie erneut.',
+  },
   errors: {
     loadTitle: 'Die Notizen konnten nicht geladen werden',
     loadDescription: 'Versuchen Sie es noch einmal.',

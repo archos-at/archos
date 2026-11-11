@@ -48,6 +48,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 import { collectPages } from '@/lib/api/offset-page'
+import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import {
   PERSONAL_MEMORY_KINDS,
   PERSONAL_MEMORY_MAX_CONTENT_CHARS,
@@ -62,6 +63,10 @@ function inServerOrder(notes: PersonalMemoryNote[]): PersonalMemoryNote[] {
 }
 
 const isConflict = (error: unknown): boolean => error instanceof ApiRequestError && error.status === 409
+
+/** What a note held that the server refused it for (`details.kind`), or null for any other failure. */
+const refusedKind = (error: unknown): NoteRefusalKind | null =>
+  error instanceof ApiRequestError && error.status === 400 ? noteRefusalKind(error.details) : null
 
 export function PersonalMemoryPanel(): JSX.Element {
   const t = useTranslations(personalMemoryCopy)
@@ -104,6 +109,12 @@ export function PersonalMemoryPanel(): JSX.Element {
   }, [load])
 
   /** Put a note the server answered into the list, in the list's order; a note already there is replaced. */
+  /** Why a save failed, in the person's language: the refused kind when the server named one, else the generic text. */
+  const saveFailure = (error: unknown): string => {
+    const kind = refusedKind(error)
+    return kind ? t(`refused.${kind}`) : t('errors.saveFailed')
+  }
+
   const keep = (note: PersonalMemoryNote): void => {
     setNotes((previous) => inServerOrder([note, ...(previous ?? []).filter((existing) => existing.id !== note.id)]))
   }
@@ -123,8 +134,8 @@ export function PersonalMemoryPanel(): JSX.Element {
       closeAdd()
       // A text one of the person's notes already says is that note, marked current: nothing was added.
       toast.success(t(created ? 'added' : 'alreadyKept'))
-    } catch {
-      toast.error(t('errors.saveFailed'))
+    } catch (error) {
+      toast.error(saveFailure(error))
     } finally {
       setAddBusy(false)
     }
@@ -161,7 +172,7 @@ export function PersonalMemoryPanel(): JSX.Element {
       toast.success(t('updated'))
     } catch (error) {
       // The editor stays open with what was typed: the person decides what to do with it.
-      setEditError(isConflict(error) ? t('errors.conflict') : t('errors.saveFailed'))
+      setEditError(isConflict(error) ? t('errors.conflict') : saveFailure(error))
     } finally {
       setBusyId(null)
     }

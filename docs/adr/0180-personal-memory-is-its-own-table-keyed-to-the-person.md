@@ -226,6 +226,17 @@ take it back:
   whose id it carries, the remove action on a project note only when
   `GET /api/projects/{id}/memory` answered `canWrite`, and no remove action on
   a note that replaced an older one.
+* The frame is stored on its answer by the server too, so a save made after
+  the person left the chat still shows under its answer.
+  `app/api/internal/conversations/[id]/messages/[messageId]/stages/route.spec.ts`
+  holds that the write takes its organization from the signed envelope, must
+  name the envelope's conversation and accepts only `memory_reflection`;
+  `bff/conversations/service.spec.ts` ("the memory frame written by the
+  browser and by the agent tier converges") that the browser's PATCH and this
+  write store the same metadata in either order, without duplicating an item
+  or touching another key; `packages/agent/tests/stages/test_durable_frame.py`
+  that the stage sends it with the turn's envelope, waits for the answer row,
+  gives up with a named reason, and never fails the stage.
 
 Nothing enforces these yet:
 
@@ -243,16 +254,22 @@ Nothing enforces these yet:
   `memory-reflection` flag off, or no model resolved for the stage, the stage
   ends as `disabled` before its handler (`_pre_run_outcome` and
   `_schedule_one` in `packages/agent/src/agent/stages/runner.py`). A note the
-  `remember` tool wrote in that turn is stored and shows on no answer. The same
-  holds for a turn whose socket was closed when the frame was sent. The note
-  is in the project's memory panel either way.
-* **The frame on the message is written by the browser.** The agent host
-  stores the turn's result; the stage's frame is stored by the browser that
-  received it (`PATCH /api/conversations/{id}/messages/{messageId}`), bounded
-  by `sanitizeStages` and not checked against `project_memory`. A collaborator
-  of a conversation can therefore put a note's words on an answer that the
-  turn never wrote. It changes nothing in memory, and removing such a
-  row is decided by the note's own route.
+  `remember` tool wrote in that turn is stored and shows on no answer. A turn
+  whose socket was closed when the frame was sent is covered since
+  2026-11-11: the stage stores the frame itself
+  (`PATCH /api/internal/conversations/{id}/messages/{answerId}/stages`). It
+  still shows on no answer when that answer's row never appears within about
+  fifteen seconds (a turn fenced off by a newer one) or the turn carried no
+  envelope; the stage then logs and traces the reason
+  (`stage:memory_reflection:durable`). The note is in the project's memory
+  panel either way.
+* **The frame on the message is not checked against `project_memory`.** Both
+  of its writers, the browser that received it
+  (`PATCH /api/conversations/{id}/messages/{messageId}`) and the stage, are
+  bounded by `sanitizeStages` and nothing more. A collaborator of a
+  conversation can therefore put a note's words on an answer that the turn
+  never wrote. It changes nothing in memory, and removing such a row is
+  decided by the note's own route.
 * **The answer a personal note is shown under.** The agent names it
   (`sourceMessageId`), and the signed envelope carries the conversation and no
   turn, so the BFF cannot check it. The id only chooses under which of the

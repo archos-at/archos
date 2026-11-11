@@ -47,6 +47,8 @@ import { FolderAccessMark } from '@/features/documents/components/folder-access-
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
+import { personalMemoryCopy } from '@/i18n/namespaces/personal-memory'
+import { noteRefusalKind, type NoteRefusalKind } from '@/lib/knowledge/note-refusal'
 import { useMemoryKindLabels } from '@/components/memory/memory-kinds'
 
 /**
@@ -128,12 +130,25 @@ function formatWhen(isoDate: string, t: Translator, locale: string): string {
   }).format(date)
 }
 
-async function requestJson<T>(url: string, init?: RequestInit, t?: Translator): Promise<T> {
+/**
+ * `refused` says why a note was refused when the server named its kind
+ * (`details.kind`, `bff/knowledge/note-refusal.ts`); any other failure keeps
+ * the generic text.
+ */
+async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+  t?: Translator,
+  refused?: (kind: NoteRefusalKind) => string
+): Promise<T> {
   const res = await fetch(url, {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
   })
   if (!res.ok) {
+    const body: unknown = res.status === 400 && refused ? await res.json().catch(() => null) : null
+    const kind = noteRefusalKind((body as { details?: unknown } | null)?.details)
+    if (kind && refused) throw new Error(refused(kind))
     throw new Error(
       t
         ? t('memory.errors.requestFailed', { status: res.status })
@@ -149,6 +164,8 @@ export function ProjectMemoryPanel({
   readOnly = false,
 }: ProjectMemoryPanelProps): JSX.Element {
   const t = useTranslations(projectsCopy)
+  const tNote = useTranslations(personalMemoryCopy)
+  const refused = (kind: NoteRefusalKind): string => tNote(`refused.${kind}`)
   const kindLabels = useMemoryKindLabels()
   const { locale } = useLocale()
   const [items, setItems] = useState<MemoryItem[] | null>(null)
@@ -249,7 +266,8 @@ export function ProjectMemoryPanel({
           method: 'PATCH',
           body: JSON.stringify(body),
         },
-        t
+        t,
+        refused
       )
       replaceItem(item)
     } catch (err) {
@@ -284,7 +302,8 @@ export function ProjectMemoryPanel({
           method: 'POST',
           body: JSON.stringify({ kind: addKind, content }),
         },
-        t
+        t,
+        refused
       )
       setItems((prev) => (prev ? [item, ...prev] : [item]))
       setAddContent('')

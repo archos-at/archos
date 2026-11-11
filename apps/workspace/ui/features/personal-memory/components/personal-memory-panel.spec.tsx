@@ -195,6 +195,32 @@ describe('PersonalMemoryPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('The note was not saved. Try again.')
   })
 
+  test('a note refused as a secret says what it held, in the person\'s language; an unknown kind keeps the generic text', async () => {
+    const refusal = (kind: string) => () =>
+      Response.json(
+        { error: 'A memory note cannot hold a password or access code.', code: 'BAD_REQUEST', details: { reason: 'note_refused', kind } },
+        { status: 400 }
+      )
+    serve([OLDER], refusal('credential'))
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Flächen in Quadratmetern.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Note'), 'WLAN-Passwort: Sommer2026!')
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Not saved: a note may not hold a password or access code. Leave it out and save again.'
+      )
+    )
+
+    serve([OLDER], refusal('a_kind_from_the_future'))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.type(screen.getByLabelText('Edit note'), ' Neu.')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The note was not saved. Try again.')
+  })
+
   test('removes a note only after the confirmation', async () => {
     serve([NEWER, OLDER])
     render(<PersonalMemoryPanel />)

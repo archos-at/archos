@@ -300,15 +300,17 @@ export const conversationsClient = {
    * Record what a POST-ANSWER STAGE computed for this turn
    * (`docs/architecture/post-answer-stages.md` §4.3).
    *
-   * The browser is what persists it, and that is not an implementation detail:
-   * the agent tier holds the WS turn id and the browser holds the message row
-   * id, and there is no id that is both (§1.6). The half that owns the row does
-   * the writing.
+   * Both sides know the answer's row id: it is derived from the conversation
+   * and the turn (`answerMessageId`, the agent's `answer_message_id`). For the
+   * memory reflection stage the agent tier also stores the frame itself
+   * (`PATCH /api/internal/conversations/{id}/messages/{messageId}/stages`), so
+   * a note saved after the reader left is still under its answer; this write
+   * then lands the same content through the same merge and changes nothing.
+   * For follow-ups the browser is the only writer.
    *
    * Best-effort, like every other mirror on this route — the chips are already
-   * rendered from the store, so losing this costs a colleague's view and the
-   * cross-device replay, not the turn. The server whitelists and bounds the
-   * payload (`sanitizeStages`).
+   * rendered from the store. The server whitelists and bounds the payload
+   * (`sanitizeStages`).
    */
   async updateMessageStages(
     conversationId: string,

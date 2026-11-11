@@ -13,6 +13,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BadRequestError } from '@/lib/api/errors'
 import { assertStorableNote, CONTACT_KINDS, noteRefusal, SECRET_KINDS } from './note-content-guard'
+import { noteRefusalKind } from './note-refusal'
 
 interface GuardCase {
   name: string
@@ -52,6 +53,19 @@ describe('assertStorableNote', () => {
     expect(refuse).toThrow(BadRequestError)
     expect(refuse).toThrow('A memory note cannot hold a password or access code.')
     expect(refuse).not.toThrow(/Tulpe/)
+  })
+
+  it('names the kind in `details`, so a panel can say why in the person\'s language', () => {
+    let refused: unknown
+    try {
+      assertStorableNote('Projektserver-Zugang: Tulpe#4471!', { refuseContact: false })
+    } catch (error) {
+      refused = error
+    }
+    expect((refused as BadRequestError).details).toEqual({ reason: 'note_refused', kind: 'credential' })
+    expect(noteRefusalKind((refused as BadRequestError).details)).toBe('credential')
+    expect(noteRefusalKind({ reason: 'note_refused', kind: 'not_a_kind' })).toBeNull()
+    expect(noteRefusalKind({ reason: 'other', kind: 'iban' })).toBeNull()
   })
 
   it('refuses a contact detail only where the shelf is shared', () => {

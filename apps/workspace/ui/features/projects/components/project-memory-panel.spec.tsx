@@ -5,6 +5,7 @@
  * language model helped decide who reads the note, the mark says so (AI Act).
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { render, screen } from '@/test-utils'
 import { makeMemoryItem } from '@/test-utils/db-fixtures'
 import { ProjectMemoryPanel } from './project-memory-panel'
@@ -110,5 +111,28 @@ describe('ProjectMemoryPanel', () => {
     const mark = judged[0].closest('[data-testid="memory-restricted"]')
     expect(mark?.textContent).toContain('decided with AI')
     expect(mark?.querySelector('[data-names]')?.getAttribute('data-names')).toBe('Personal')
+  })
+
+  test('a note refused for a phone number says so in the person\'s language, not as a status code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'POST'
+          ? Response.json(
+              { error: 'A note in shared memory cannot hold a phone number.', code: 'BAD_REQUEST', details: { reason: 'note_refused', kind: 'phone' } },
+              { status: 400 }
+            )
+          : Response.json({ items: [] })
+      )
+    )
+    render(<ProjectMemoryPanel projectId="proj-1" />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await userEvent.type(screen.getByLabelText('Add note'), 'Bauherr: 0664 1234567')
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    expect(
+      await screen.findByText('Not saved: a note others read may not hold a phone number. Leave it out and save again.')
+    ).toBeInTheDocument()
   })
 })

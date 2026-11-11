@@ -28,23 +28,16 @@
 import { BadRequestError } from '@/lib/api/errors'
 import { buildContentRules, findSpans, type ContentScreenRules } from '@/lib/upload-screening/content-screen'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
+import {
+  NOTE_REFUSED_REASON,
+  SECRET_KINDS,
+  type ContactKind,
+  type NoteRefusalKind,
+  type SecretKind,
+} from './note-refusal'
 
-/** The kinds a refusal names, in the order they are looked for. The first five are the content screen's detectors. */
-export const SECRET_KINDS = [
-  'iban',
-  'at_svnr',
-  'credit_card',
-  'de_svnr',
-  'de_tax_id',
-  'private_key',
-  'api_key',
-  'credential',
-  'identity_number',
-] as const
-export const CONTACT_KINDS = ['email', 'phone'] as const
-export type SecretKind = (typeof SECRET_KINDS)[number]
-export type ContactKind = (typeof CONTACT_KINDS)[number]
-export type NoteRefusalKind = SecretKind | ContactKind
+export { CONTACT_KINDS, NOTE_REFUSED_REASON, SECRET_KINDS } from './note-refusal'
+export type { ContactKind, NoteRefusalKind, SecretKind } from './note-refusal'
 
 /** What a refusal calls each kind. English: an agent reads it too. Never the value found. */
 const KIND_NAMES: Record<NoteRefusalKind, string> = {
@@ -257,13 +250,14 @@ export function noteRefusal(content: string, shared: boolean): NoteRefusalKind |
  * Refuse a note that may not be stored (400). `refuseContact` is the shared
  * shelves' extra rule (ADR-0180): a way to reach a person is not written into
  * memory other people read. The message names the kind of thing found and
- * never repeats it.
+ * never repeats it; `details` carries `{ reason: 'note_refused', kind }`.
  */
 export function assertStorableNote(content: string, options: { refuseContact: boolean }): void {
   const kind = noteRefusal(content, options.refuseContact)
   if (!kind) return
   const where = SECRET_KINDS.includes(kind as SecretKind) ? 'A memory note' : 'A note in shared memory'
   throw new BadRequestError(
-    `${where} cannot hold ${KIND_NAMES[kind]}. Nothing was saved: leave it out and save the note again.`
+    `${where} cannot hold ${KIND_NAMES[kind]}. Nothing was saved: leave it out and save the note again.`,
+    { reason: NOTE_REFUSED_REASON, kind }
   )
 }

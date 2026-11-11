@@ -41,9 +41,14 @@ for its default, so build an item with `TurnMemoryNote.frame_item`. A note the
 BFF only refreshed (`created: false`) is left off, because the chip's remove
 action would delete a note this turn did not write. The stage's gate proceeds
 for a turn with in-turn notes even where reflection is declined, and the handler
-then reports them without a model call. The frame reaches the message through
-the browser (`sanitizeStages` in `apps/workspace/bff/conversations/message-stages.ts`
-bounds it), so it is a notice of the write and never the record of it.
+then reports them without a model call. The frame reaches the message two
+ways that converge: through the browser that receives it, and through the
+stage itself (`stages/durable_frame.py`, `PATCH /api/internal/conversations/{id}/messages/{answerId}/stages`,
+signed with the turn's envelope), so a note saved after the reader left still
+shows under its answer. `sanitizeStages` in
+`apps/workspace/bff/conversations/message-stages.ts` bounds both. It is a
+notice of the write and never the record of it: the durable write may give up
+(the answer row never appears), and the note is stored regardless.
 
 **The turn's memory log is where a write becomes a note of the turn.**
 `_record_write` in `knowledge/project_memory.py` reads the BFF's answer:
