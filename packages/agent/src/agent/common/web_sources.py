@@ -161,12 +161,21 @@ def configured_sources() -> tuple[SourceHosts, ...]:
         return ()
 
 
+def _registry_hosts() -> set[str]:
+    """The hosts the norm registry points at for a law's text: a legal database's, an authority's own site."""
+    from agent.common.norm_registry import load_registry
+
+    registry = load_registry()
+    entries = registry.entries if registry is not None else ()
+    return {host_of(url) for entry in entries for url in (entry.citation_url, entry.full_law_url, entry.source_url)}
+
+
 def own_source_hosts() -> frozenset[str]:
-    """The hosts a work's own text is read from: every configured source's, and the hosts the turn's records
-    name for an edition (an identity that is an address, such as an ELI)."""
+    """The hosts a work's own text is read from: every configured source's, the hosts the norm registry points
+    at, and the hosts the turn's records name for an edition (an identity that is an address, such as an ELI)."""
     from agent.common.knowledge_context import turn_knowledge_context
 
-    hosts = {host for source in configured_sources() for host in source.hosts}
+    hosts = {host for source in configured_sources() for host in source.hosts} | _registry_hosts()
     for use in turn_knowledge_context().uses:
         hosts.update(host_of(ref.value) for ref in use.source_refs if ref.value.lower().startswith("https://"))
     return frozenset(host for host in hosts if host)

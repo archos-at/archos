@@ -250,6 +250,13 @@ def test_the_legal_database_s_own_host_is_not_a_copy():
     assert assess(url, "Wiener Garagengesetz 2008") == web_sources.KEEP
 
 
+def test_the_site_the_norm_registry_points_at_for_a_law_is_not_labelled_a_copy():
+    """The city's own gazette page was among the hits of that turn: it is where the registry reads such law."""
+    _reads("AT")
+    url = "https://www.wien.gv.at/recht/landesrecht-wien/landesgesetzblatt/jahrgang/2010/html/lg2010046.html"
+    assert assess(url, "LGBl 46/2010 - Wiener Garagengesetz 2008 – WGarG 2008; Änderung") == web_sources.KEEP
+
+
 # -- the product's own site, and what the agent reads -------------------------
 
 
