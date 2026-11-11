@@ -1,0 +1,7 @@
+---
+# area: bim
+fixes:
+  - >
+    The U-value and sound insulation checks no longer treat a wall or slab
+    without a readable IsExternal value as internal. The Prüfbuch now shows it
+    as not decidable, and Was dem Modell fehlt lists the missing value.

@@ -183,6 +183,7 @@ class TestMeasurementDetectionRejectsFailures:
 
     @staticmethod
     def _error_texts():
+        from agent.tools.bim.failures import unreadable_text
         from agent.tools.bim.measure_register import ENGINE_UNAVAILABLE_TEXT
         from agent.tools.bim.measure_register import UNAVAILABLE_TEXT
         from agent.tools.bim.measure_register import _rejected_text
@@ -197,6 +198,7 @@ class TestMeasurementDetectionRejectsFailures:
             _rejected_text("unbekannte Operation 'measure_room'"),
             _unrunnable_text("GlobalId 3xY nicht gefunden"),
             _too_large_text(900 * 1024 * 1024, 512 * 1024 * 1024),
+            unreadable_text("Diese Datei ist leer (0 Bytes) — der Upload ist fehlgeschlagen."),
         ]
 
     def test_no_failure_text_counts_as_a_measurement(self):

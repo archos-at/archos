@@ -113,6 +113,21 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
   }
 
+  // `documents.organization_id` is a plain column with no foreign key to
+  // `organizations` (WorkOS owns org identity), so a document row is all the
+  // fixture needs — and it is written through the platform role because a
+  // tenant-scoped insert cannot seed two tenants.
+  const seedDocument = async (organizationId: string, filename: string): Promise<string> => {
+    const rows = await withPlatformAccess('seed a BIM fixture document', () =>
+      db.execute<{ id: string }>(sql`
+        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status)
+        VALUES (${organizationId}, 'seed', ${filename}, ${`seed/${filename}`}, 'seed', 'completed')
+        RETURNING id
+      `)
+    )
+    return Array.from(rows)[0].id
+  }
+
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
     const { getDb, closeDb: close } = await import('@/lib/db')
@@ -132,21 +147,6 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
 
     db = getDb()
-    // `documents.organization_id` is a plain column with no foreign key to
-    // `organizations` (WorkOS owns org identity), so a document row is all the
-    // fixture needs — and it is written through the platform role because a
-    // tenant-scoped insert cannot seed two tenants.
-    const seedDocument = async (organizationId: string, filename: string): Promise<string> => {
-      const rows = await withPlatformAccess('seed a BIM fixture document', () =>
-        db.execute<{ id: string }>(sql`
-          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status)
-          VALUES (${organizationId}, 'seed', ${filename}, ${`seed/${filename}`}, 'seed', 'completed')
-          RETURNING id
-        `)
-      )
-      return Array.from(rows)[0].id
-    }
-
     const { elements: extracted, ...summary } = index
     // A null-valued property, which the two `search_keys` writers used to
     // disagree about: SQL emitted `[null]`, TypeScript omitted the key, and a
@@ -1076,6 +1076,52 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     )
     expect(result.complianceChanges).toEqual([])
     expect(result.summary).toContain('Keine Anforderung')
+  })
+
+  it('judges the corrected file after a same-name re-upload, not the memoised one', async () => {
+    // `startBimModel` upserts on the document, so the re-extraction keeps the
+    // model id and only `completeBimModel` tells the two files apart.
+    const extraction = await import('./extraction-repository')
+    const { elements, ...summary } = index
+    const documentId = await seedDocument(ORG, 'wiederhochgeladen.ifc')
+    const extract = async (fireRating: string): Promise<string> => {
+      const run = await extraction.startBimModel({ organizationId: ORG, projectId: PLACED_PROJECT, documentId })
+      const id = run.modelId
+      await extraction.completeBimModel({
+        run,
+        organizationId: ORG,
+        summary,
+        elements: elements.map((element) =>
+          element.name === 'Aussenwand Nord'
+            ? {
+                ...element,
+                properties: {
+                  ...element.properties,
+                  Pset_WallCommon: { ...element.properties.Pset_WallCommon, FireRating: fireRating },
+                },
+              }
+            : element
+        ),
+        indexStorageKey: null,
+        indexStorageBucket: null,
+      })
+      return id
+    }
+    const failedWalls = async (id: string): Promise<number> => {
+      const result = await runBimQuery(bimQuerySchema.parse({ op: 'compliance', buildingClass: 5 }), {
+        modelId: id,
+        organizationId: ORG,
+      })
+      const fire = result.compliance?.find((rule) => rule.ruleId === 'oib2-fire-resistance-load-bearing')
+      return fire?.failed ?? 0
+    }
+
+    const first = await extract('REI 90')
+    const before = await failedWalls(first)
+    const second = await extract('REI 30')
+
+    expect(second).toBe(first)
+    expect(await failedWalls(second)).toBeGreaterThan(before)
   })
 
   it('refuses a compliance diff against another tenant’s revision', async () => {
