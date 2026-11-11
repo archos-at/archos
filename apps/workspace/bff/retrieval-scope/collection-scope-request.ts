@@ -320,16 +320,18 @@ export async function buildCollectionScopeFromRequest(
   } satisfies ScopeContext)
 
   // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // an office entitled to nothing reads none of it (ADR-0175).
+  // an office entitled to nothing reads none of it (ADR-0175). A request with no organization (an
+  // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry
+  // without `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
   const corpusCountries =
     scope.includes(baseCollection) && session?.organizationId && !anonymous
       ? await corpusCountriesFor(session.organizationId)
-      : undefined
+      : []
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
     const entry: ScopedCollection = shelf ? { collection, shelf } : { collection }
-    if (collection === baseCollection && corpusCountries) entry.countries = corpusCountries
+    if (collection === baseCollection) entry.countries = corpusCountries
     return entry
   })
 
