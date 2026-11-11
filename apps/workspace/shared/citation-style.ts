@@ -80,12 +80,16 @@ const cslDate = (year: number, month?: number): CslDate => ({ 'date-parts': [mon
 /** The edition the title or file name states, in the style's phrase, and its date; a bare year dates it only. */
 function parseEdition(text: string, style: CitationStyle): { edition?: string; issued?: CslDate } {
   const phrase = style.edition
-  const escaped = phrase?.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = phrase && new RegExp(`${escaped}:?\\s*(\\p{L}+)?\\s*(\\d{4})`, 'iu').exec(text)
-  if (match) {
-    const [, word, year] = match
-    const month = word && `${word[0].toUpperCase()}${word.slice(1).toLowerCase()}`
-    return { edition: fillTemplate(phrase.label, { month, year }), issued: cslDate(Number(year), phrase.months[word?.toLowerCase() ?? '']) }
+  // The record's word is found as text, never compiled: a regex from data is a ReDoS door.
+  const [lower, word] = [text.toLowerCase(), phrase?.word.toLowerCase() ?? '']
+  let match: RegExpExecArray | null = null
+  for (let at = word ? lower.indexOf(word) : -1; phrase && at !== -1 && !match; at = lower.indexOf(word, at + 1)) {
+    match = /^:?\s*(\p{L}+)?\s*(\d{4})/u.exec(text.slice(at + word.length))
+  }
+  if (phrase && match) {
+    const [, named, year] = match
+    const month = named && `${named[0].toUpperCase()}${named.slice(1).toLowerCase()}`
+    return { edition: fillTemplate(phrase.label, { month, year }), issued: cslDate(Number(year), phrase.months[named?.toLowerCase() ?? '']) }
   }
   const year = /\b(19|20)\d{2}\b/.exec(text)
   return year ? { issued: cslDate(Number(year[0])) } : {}
