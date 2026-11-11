@@ -256,6 +256,7 @@ CONTEXT.md), `room` (Liveblocks' word), `intake`, `inbox`, `skill`, `proposal`,
 |---|---|---|
 | No brand in an identifier | `scripts/check_brand_names.py` (`brand-names` hook) | |
 | No retired name in text, no typed-out current name | `scripts/check_brand_prose.py` (`brand-prose` hook) | |
+| No country's source, body, host, territory or law in a name or a literal | `scripts/check_country_in_code.py` (`country-in-code` hook), source code and prompts under `apps/` and `packages/` | `configs/` |
 | The name has one source | `tests/test_product_name_parity.py`; `sync.mjs --check` | |
 | No German stems in identifiers | `tests/test_english_names.py`, `english-names.spec.ts` | File names, routes and string tokens are review only |
 | English on the agent surface | `bff/agent-api/english-only.spec.ts` | |
