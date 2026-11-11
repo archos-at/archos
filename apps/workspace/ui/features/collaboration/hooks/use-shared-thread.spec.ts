@@ -890,6 +890,72 @@ describe('useSharedThread — read state', () => {
       vi.useRealTimers()
     }
   })
+
+  /** The read receipt's POST, held open so a spec decides when and how it ends. */
+  const holdReadReceipts = () => {
+    routes.messages = [row('m1', { createdAt: at(2) }), row('m2', { authorUserId: ANNA, createdAt: at(3) })]
+    const held: Array<(error: Error) => void> = []
+    const answer = fetchMock.getMockImplementation() as (input: RequestInfo | URL) => Promise<Response>
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input) !== `/api/conversations/${CONVERSATION_ID}/read`) return answer(input)
+      return new Promise<Response>((_resolve, reject) => held.push(reject))
+    })
+    const posted = () =>
+      fetchMock.mock.calls.filter((call) => String(call[0]) === `/api/conversations/${CONVERSATION_ID}/read`).length
+    // Two steps, as above: the history lands, then the debounce runs out.
+    const openAndRead = async () => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50)
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_000)
+      })
+    }
+    return { held, posted, openAndRead }
+  }
+
+  test('tries a failed read receipt again while the thread is still open', async () => {
+    vi.useFakeTimers()
+    try {
+      const { held, posted, openAndRead } = holdReadReceipts()
+      renderHook(() => useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME }))
+      await openAndRead()
+      expect(posted()).toBe(1)
+
+      await act(async () => {
+        held[0](new Error('offline'))
+        await vi.advanceTimersByTimeAsync(9_000)
+      })
+
+      expect(posted()).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // The POST's failure lands after the reader left: the retry it armed was one
+  // no cleanup could clear, and it posted the thread they had left as read.
+  test('a read receipt that fails after the reader left the thread is not tried again', async () => {
+    vi.useFakeTimers()
+    try {
+      const { held, posted, openAndRead } = holdReadReceipts()
+      const { unmount } = renderHook(() =>
+        useSharedThread({ conversationId: CONVERSATION_ID, enabled: true, currentUserId: ME })
+      )
+      await openAndRead()
+      expect(posted()).toBe(1)
+
+      unmount()
+      await act(async () => {
+        held[0](new Error('offline'))
+        await vi.advanceTimersByTimeAsync(30_000)
+      })
+
+      expect(posted()).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 /**

@@ -202,6 +202,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/project-profile/profile-bindings.integration.spec.ts \
     bff/compliance/legal-hold.integration.spec.ts \
     bff/conversations/erasure-queue.integration.spec.ts \
+    bff/scheduling/conversation-trace-erasure.integration.spec.ts \
     bff/conversations/restricted-use.integration.spec.ts \
     bff/feedback/restricted-feedback.integration.spec.ts \
     bff/tasks/subject-access.integration.spec.ts \
