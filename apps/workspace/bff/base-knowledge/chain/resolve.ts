@@ -32,6 +32,7 @@
  * either and is listed as `undetermined`.
  */
 
+import { applicabilityOf, type BuildingScope } from '../rulesets/applicability'
 import type { DatedEdition } from '../wire/time'
 import type { EditionRole, KnowledgeWorkKind } from '../wire/vocab'
 import { editionInForce, newestInForce, type EditionOnDay } from '../time/editions'
@@ -279,7 +280,7 @@ function editionUse(
   displaced: readonly Displacement[] = [],
   relatedEditionId: string | null = null,
 ): EditionUse {
-  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId }
+  return { workId, editionId, role, qualifier: qualifierOf(route), route, displaced, relatedEditionId, applicability: null }
 }
 
 /** Whether a work that nothing makes binding concerns this site. */
@@ -357,14 +358,32 @@ function unroutedUses(
 const roleRank = (role: EditionRole) => ROLE_ORDER.indexOf(role)
 
 /**
- * Resolve a site on a date: the chain, and what each edition is to it.
- * `editionFor` says which edition of a work applies; by default the one in
- * force at `date`, and a reference date per procedure and work plugs in here.
+ * Each use with whether its edition applies to the project's buildings, by the
+ * edition's own scope (`appliesWhen`, ADR-0178). A use whose edition no
+ * building needs is dropped; one whose edition states no scope is kept as it is.
+ */
+function narrowed(graph: KnowledgeGraph, uses: readonly EditionUse[], scope: BuildingScope): EditionUse[] {
+  return uses.flatMap((use) => {
+    const table = use.editionId ? graph.editions.get(use.editionId)?.appliesWhen : null
+    if (!table) return [use]
+    const applicability = applicabilityOf(table, scope)
+    return applicability.verdict === 'not_applicable' ? [] : [{ ...use, applicability }]
+  })
+}
+
+/**
+ * Resolve a site on a date: the chain, and what each edition is to it. With
+ * the project's buildings, an edition whose scope excludes every building is
+ * not named, and each other scoped use says whether it applies (ADR-0178);
+ * without them, nothing is narrowed. `editionFor` says which edition of a work
+ * applies; by default the one in force at `date`, and a reference date per
+ * procedure and work plugs in here.
  */
 export function resolveChain(
   graph: KnowledgeGraph,
   leafId: string,
   date: string,
+  building: BuildingScope | null = null,
   editionFor: EditionFor = editionsInForceAt(graph, date),
 ): ResolvedChain {
   const chain = chainAt(leafId, date, graph)
@@ -386,12 +405,13 @@ export function resolveChain(
     uses.push(...unroutedUses(graph, work, { chain, date, editionFor, relations, boundEditions, boundWorks: [...boundWorks] }))
   }
   const titles = new Map([...graph.works.values()].map((work) => [work.id, work.title]))
-  uses.sort(
+  const named = building ? narrowed(graph, uses, building) : uses
+  named.sort(
     (a, b) =>
       roleRank(a.role) - roleRank(b.role) ||
       a.route.length - b.route.length ||
       (titles.get(a.workId) ?? '').localeCompare(titles.get(b.workId) ?? '', 'de') ||
       (a.editionId ?? '').localeCompare(b.editionId ?? ''),
   )
-  return { date, chain, uses: uses.slice(0, MAX_USES), truncated: uses.length > MAX_USES, undetermined }
+  return { date, chain, uses: named.slice(0, MAX_USES), truncated: named.length > MAX_USES, undetermined }
 }

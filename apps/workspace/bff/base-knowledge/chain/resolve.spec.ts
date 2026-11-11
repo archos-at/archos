@@ -240,8 +240,8 @@ describe('law and routes', () => {
     const onFiling = editionsInForceAt(dated, '2023-06-01')
     const today = editionsInForceAt(dated, '2026-11-10')
     const editionFor = (workId: string) => (workId === 'work:bo-wien' ? onFiling(workId) : today(workId))
-    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
-    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
+    expect(usesOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'work:bo-wien')).toMatchObject([{ editionId: 'edition:bo-wien-2018' }])
+    expect(roleOf(resolveChain(dated, 'AT-9', '2026-11-10', null, editionFor), 'edition:oib-rl-6-2025')).toBe('binding')
   })
 })
 

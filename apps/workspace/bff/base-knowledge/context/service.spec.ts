@@ -52,7 +52,7 @@ describe('knowledgeContextForTurn', () => {
     cache.clear()
     officeTimeZone.mockResolvedValue('Europe/Vienna')
     readOrganizationCountries.mockResolvedValue({ homeCountry: 'AT', entitled: [{ countryId: 'AT', source: 'home', entitledAt: null }] })
-    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {} } })
+    findProjectProfileInOrg.mockResolvedValue({ profile: { facts: { country: { value: 'at' }, federal_state: { value: 'vienna' } }, assumptions: {}, goals: {}, unknowns: [] } })
     loadGraph.mockResolvedValue({ graph: AUSTRIA, truncated: false })
   })
 

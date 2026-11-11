@@ -15,6 +15,7 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
+import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
 import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
 import { PLATFORM_FRESHNESS_DAYS } from '../platform/freshness'
@@ -54,6 +55,8 @@ export interface ContextInputs {
   procedures: readonly ProcedureContext[]
   /** The newest stable release sequence per pack. */
   packSeqs: Readonly<Record<string, number>>
+  /** The project's buildings, read by each edition's scope (ADR-0178); null or absent narrows nothing. */
+  building?: BuildingScope | null
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -171,6 +174,8 @@ function contextUse(
     designation: work.designation ? nameOf(work.designation) : null,
     editionLabel: edition?.label ? nameOf(edition.label) : null,
     sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
+    sourceUrl: edition?.sourceUrl ?? null,
+    applicability: use.applicability,
   }
 }
 
@@ -238,7 +243,7 @@ export function resolveKnowledgeContext(inputs: ContextInputs): KnowledgeContext
   }
   // `none` holds territories only: "Für <Land> sind keine Grundlagen hinterlegt".
   if (coverage === 'none') return base
-  const resolved = resolveChain(graph, first.territoryId, inputs.date)
+  const resolved = resolveChain(graph, first.territoryId, inputs.date, inputs.building ?? null)
   if (resolved.truncated) return refusal('knowledge_unavailable', inputs, [leaf], [])
   const uses = resolved.uses
     .map((use) => contextUse(graph, use, coverage, inputs))

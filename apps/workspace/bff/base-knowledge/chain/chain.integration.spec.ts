@@ -142,6 +142,31 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     ])
   })
 
+  it('reads an edition’s scope and the page its text opens at (0221, ADR-0178)', async () => {
+    const scope = {
+      inputs: [{ key: 'uses', type: 'codes' }],
+      output: { type: 'boolean' },
+      rows: [{ id: 'production', when: { in: ['production', { var: 'uses' }] }, then: true }],
+      otherwise: { then: false },
+    }
+    await published('AT', 'A scoped guideline', [
+      { type: 'work', key: `scoped-${RUN}`, kind: 'guideline', title: 'Scoped guideline', territoryIds: ['AT'], citations: [{ url: 'https://www.oib.or.at/', note: 'fixture' }] },
+      { type: 'edition', key: `scoped-${RUN}-2023`, workKey: `scoped-${RUN}`, label: '2023', issuedOn: '2023-05-25', appliesWhen: scope, citations: [{ url: 'https://www.oib.or.at/', note: 'fixture' }] },
+      {
+        type: 'manifestation',
+        key: `scoped-${RUN}-text`,
+        editionKey: `scoped-${RUN}-2023`,
+        form: 'text',
+        licenceClass: 'public_open',
+        citations: [{ url: `https://example.test/scoped/${RUN}.pdf`, note: 'fixture' }],
+      },
+    ])
+    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
+    const edition = graph.editions.get(`edition:scoped-${RUN}-2023`)
+    expect(edition?.appliesWhen?.output).toEqual({ type: 'boolean' })
+    expect(edition?.sourceUrl).toBe(`https://example.test/scoped/${RUN}.pdf`)
+  })
+
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {
     expect(await bindingOf(AUSTRIAN, 'AT-9', 'work:eu-cpr')).toEqual([['edition:eu-cpr-305-2011', 'binding']])
     // Positive control above; the same reads for an office not entitled to Austria.
