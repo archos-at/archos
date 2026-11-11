@@ -601,43 +601,6 @@ export async function expireStaleCandidates(
   })
 }
 
-/**
- * Retire the least-recently-reported active lessons beyond `maxActive`
- * (capacity eviction, each with its own event). Returns the ids retired.
- */
-export async function evictActiveOverCapacity(maxActive: number, actor: string): Promise<string[]> {
-  const db = getDb()
-  return db.transaction(async (tx) => {
-    const active = await tx
-      .select({ id: platformLessons.id })
-      .from(platformLessons)
-      .where(eq(platformLessons.status, 'active'))
-      .orderBy(desc(platformLessons.lastReportedAt), desc(platformLessons.reportCount))
-    const excess = active.slice(maxActive).map((row) => row.id)
-    if (excess.length === 0) return []
-    const now = new Date()
-    await tx
-      .update(platformLessons)
-      .set({
-        status: 'retired',
-        retiredAt: now,
-        retiredBy: actor,
-        retiredReason: 'evicted_capacity',
-        updatedAt: now,
-      })
-      .where(inArray(platformLessons.id, excess))
-    await tx.insert(platformLessonEvents).values(
-      excess.map((id) => ({
-        lessonId: id,
-        action: 'retired' as const,
-        actor,
-        detail: { reason: 'evicted_capacity' },
-      }))
-    )
-    return excess
-  })
-}
-
 /** Counts for the dashboard header (candidates awaiting review, active, retired). */
 export async function countLessonsByStatus(): Promise<Record<string, number>> {
   const db = getDb()

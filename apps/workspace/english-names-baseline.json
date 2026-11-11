@@ -75,7 +75,7 @@
   "ui/features/chat/lib/citations/persistence.ts": 1,
   "ui/features/chat/lib/wire-citation.spec.ts": 1,
   "ui/features/chat/lib/wire-citation.ts": 1,
-  "ui/features/chat/types.ts": 1,
+  "ui/features/chat/wire-citation-source.ts": 1,
   "ui/features/documents/components/document-actions/action-entries.spec.ts": 2,
   "ui/features/documents/document-kind.ts": 1,
   "ui/features/documents/lib/documents-by-name.spec.ts": 4

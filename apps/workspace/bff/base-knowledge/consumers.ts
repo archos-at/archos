@@ -182,8 +182,9 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_manifestation_revisions.organization_id', consumer: STORE, test: ISOLATION },
   { element: 'knowledge_manifestation_revisions.edition_id', consumer: STORE, test: CROSS_OWNER },
   { element: 'knowledge_manifestation_revisions.form', awaits: 'S7: link and dataset manifestations of platform sources' },
-  { element: 'knowledge_manifestation_revisions.language', awaits: 'S2: the multilingual quoting rule' },
-  { element: 'knowledge_manifestation_revisions.text_status', awaits: 'S7: official non-prevailing texts (South Tyrol)' },
+  // Which text a citation read (the citations design, slice 1): the use carries both to the citation's line.
+  { element: 'knowledge_manifestation_revisions.language', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads which text an edition holds: the language and the status of its manifestation' } },
+  { element: 'knowledge_manifestation_revisions.text_status', consumer: CHAIN_LOAD, test: { file: CHAIN_SPEC, name: 'reads which text an edition holds: the language and the status of its manifestation' } },
   { element: 'knowledge_manifestation_revisions.licence_class', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'keeps a licensed copy metadata-only until the office states its licence covers AI processing' } },
   { element: 'knowledge_manifestation_revisions.terms', consumer: 'apps/workspace/bff/base-knowledge/office/text-use.ts', test: { file: TEXT_USE_SPEC, name: 'records who stated what and when, keeps what was not restated, and lets the AI statement be withdrawn' } },
   { element: 'knowledge_manifestation_revisions.sha256', awaits: 'S7: captured platform sources, compared on re-fetch' },
@@ -381,8 +382,6 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
 export const AWAITING_BASELINE: readonly string[] = [
   'knowledge_edition_revisions.outline',
   'knowledge_manifestation_revisions.form',
-  'knowledge_manifestation_revisions.language',
-  'knowledge_manifestation_revisions.text_status',
   'knowledge_manifestation_revisions.sha256',
   // Migration 0205's own, at its landing: the territory and authority fields the slices after S7 read.
   'knowledge_territory_revisions.kind',

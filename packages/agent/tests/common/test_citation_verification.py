@@ -445,7 +445,7 @@ class TestGenericUrlExtractor:
 
     def test_config_tool_names_work(self):
         """Tools named 'web_search_tool' or 'advanced_web_search_tool' work."""
-        content = '<Document href="https://example.com">\nContent\n</Document>'
+        content = '<Document href="https://example.com">\n<title>\nA page\n</title>\nContent\n</Document>'
         for name in ["web_search_tool", "advanced_web_search_tool", "my_custom_search"]:
             entries = extract_sources_from_tool_result(name, content)
             assert len(entries) == 1, f"Failed for tool name: {name}"
@@ -554,7 +554,7 @@ class TestGenericUrlExtractor:
             "ERROR: request timed out\n\n"
             "---\n\n"
             "## Query: working query\n"
-            "Found result at https://example.com/real-source"
+            '<Document href="https://example.com/real-source">\n<title>\nA page\n</title>\nFound.\n</Document>'
         )
         entries = extract_sources_from_tool_result("web_search_tool", content)
         assert [entry.url for entry in entries] == ["https://example.com/real-source"]
@@ -597,7 +597,7 @@ class TestGenericUrlExtractor:
     def test_title_extraction_prefers_preceding_title(self):
         """Title that appears before the URL is preferred over one after."""
         content = "<title>Correct Title</title>\nhttps://example.com/page\n<title>Wrong Title</title>"
-        entries = extract_sources_from_tool_result("web_search", content)
+        entries = extract_sources_from_tool_result("paper_search", content)  # a tool the generic extractor reads
         assert len(entries) == 1
         assert entries[0].title == "Correct Title"
 
@@ -717,8 +717,8 @@ class TestParserDispatcher:
             assert extract_sources_from_tool_result(tool_name, content, source_id="knowledge_layer") == []
 
     def test_a_tool_with_no_parser_still_gives_up_its_urls(self):
-        """The generic extractor is what a web search is read with; it stays."""
-        entries = extract_sources_from_tool_result("advanced_web_search_tool", "Treffer: https://www.oib.or.at/rl2")
+        """The generic extractor stays for a tool with no parser; a web search is read by its records."""
+        entries = extract_sources_from_tool_result("scholar_search_tool", "Treffer: https://www.oib.or.at/rl2")
 
         assert [entry.url for entry in entries] == ["https://www.oib.or.at/rl2"]
 
@@ -2427,14 +2427,14 @@ class TestSanitizeReportExposesRenumberMap:
     """Callers that put verify_citations' [N] on the wire must be able to remap."""
 
     def test_gap_closing_is_reported(self):
-        report = "A [1] and C [3].\n\n## Sources\n- [1] https://a.example/x\n- [3] https://c.example/z\n"
+        report = "A [1] and C [3].\n\n## Sources\n- [1] https://a.example.org/x\n- [3] https://c.example.org/z\n"
         result = sanitize_report(report)
         assert result.renumber_map == {1: 1, 3: 2}
         # …and the prose the reader sees uses the NEW numbers.
         assert "C [2]" in result.sanitized_report
 
     def test_sequential_report_maps_every_number_to_itself(self):
-        report = "A [1] and B [2].\n\n## Sources\n- [1] https://a.example/x\n- [2] https://b.example/y\n"
+        report = "A [1] and B [2].\n\n## Sources\n- [1] https://a.example.org/x\n- [2] https://b.example.org/y\n"
         assert sanitize_report(report).renumber_map == {1: 1, 2: 2}
 
     def test_report_without_a_source_section_has_an_empty_map(self):

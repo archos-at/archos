@@ -30,6 +30,17 @@ export type ProposalOfKind<K extends ProposedChangeKind> = Extract<ProposedChang
  */
 export type ProposalProblem = 'load' | 'apply' | 'dismiss'
 
+/**
+ * The card's read of the object, as one fact. `failed` holds no proposal, so a
+ * card can never say „could not be loaded“ beside an object it goes on to draw
+ * and decide; `conflict` marks the failed re-read after a 409, whose later
+ * success is that colleague's decision and is told as one.
+ */
+type ProposalRead<K extends ProposedChangeKind> =
+  | { status: 'loading' }
+  | { status: 'loaded'; proposal: ProposalOfKind<K> }
+  | { status: 'failed'; conflict: boolean }
+
 /** What a press is doing. `withBody` marks the secondary apply (memory: only in the project). */
 export interface ProposalBusy {
   action: 'apply' | 'dismiss'
@@ -37,8 +48,9 @@ export interface ProposalBusy {
 }
 
 export interface ServerProposal<K extends ProposedChangeKind> {
-  /** The object, once read; null before. A card draws its own copy of the payload until then. */
+  /** The object, once read; null before, and while a read has failed. A card draws its own copy of the payload until then. */
   proposal: ProposalOfKind<K> | null
+  /** `load` only ever with `proposal: null`: the two come from one state. */
   problem: ProposalProblem | null
   /** The server's own code for a refused click (`TEMPORARY_CONVERSATION`), so the card can say why. Null when it named none. */
   refusalCode: string | null
@@ -67,8 +79,13 @@ export function useServerProposal<K extends ProposedChangeKind>(
   /** Told every time the card takes a new decided state: its own click, a 409's re-read, a colleague's hint. */
   onSettled?: (proposal: ProposalOfKind<K>) => void
 ): ServerProposal<K> {
-  const [proposal, setProposal] = useState<ProposalOfKind<K> | null>(null)
-  const [problem, setProblem] = useState<ProposalProblem | null>(null)
+  const [read, setRead] = useState<ProposalRead<K>>({ status: 'loading' })
+  /** A click the server refused, for a reason other than a colleague deciding first. */
+  const [refused, setRefused] = useState<'apply' | 'dismiss' | null>(null)
+  const proposal = read.status === 'loaded' ? read.proposal : null
+  const failed = read.status === 'failed'
+  const problem: ProposalProblem | null = failed ? 'load' : refused
+  /** The server's code for that refusal, when it sent one (a temporary conversation keeps nothing). */
   const [refusalCode, setRefusalCode] = useState<string | null>(null)
   const [busy, setBusy] = useState<ProposalBusy | null>(null)
   const [overtaken, setOvertaken] = useState(false)
@@ -96,12 +113,11 @@ export function useServerProposal<K extends ProposedChangeKind>(
     transport.get(proposalId).then(
       (response) => {
         if (!current) return
-        const read = accept(response.proposal)
-        if (read) setProposal(read)
-        else setProblem('load')
+        const proposal = accept(response.proposal)
+        setRead(proposal ? { status: 'loaded', proposal } : { status: 'failed', conflict: false })
       },
       () => {
-        if (current) setProblem('load')
+        if (current) setRead({ status: 'failed', conflict: false })
       }
     )
     return () => {
@@ -110,7 +126,7 @@ export function useServerProposal<K extends ProposedChangeKind>(
   }, [proposalId, accept, transport])
 
   const settle = useCallback((next: ProposalOfKind<K>): void => {
-    setProposal(next)
+    setRead({ status: 'loaded', proposal: next })
     onSettledRef.current?.(next)
   }, [])
 
@@ -121,21 +137,45 @@ export function useServerProposal<K extends ProposedChangeKind>(
   // truth and the hint is never trusted as data. Nothing is applied while this
   // tab is deciding itself: its own response settles it, and a second settle
   // would tell the Files list twice.
+  //
+  // A FAILED READ IS NOT FINAL. It used to be: the channel and every re-read
+  // needed an open proposal, which a failed first read never had, so one 502
+  // during a deploy left the card saying „could not be loaded“ until it was
+  // mounted again. A card whose read failed listens too, and the same two
+  // events ask again; so does the reader coming back to the tab, which is the
+  // only one of the three there is without a channel. What such a read brings
+  // is the object as it is, open or decided.
   const open = proposal?.status === 'proposed'
-  const live = useRef({ open, busy })
-  live.current = { open, busy }
+  const live = useRef({ open, busy, read })
+  live.current = { open, busy, read }
   const reread = useCallback(() => {
     void transport.get(proposalId).then(
       (response) => {
-        if (!live.current.open || live.current.busy) return
-        const read = accept(response.proposal)
-        if (read && read.status !== 'proposed') settle(read)
+        const { open: wasOpen, busy: deciding, read: was } = live.current
+        const next = accept(response.proposal)
+        if (deciding || !next) return
+        if (was.status === 'failed') {
+          if (was.conflict && next.status !== 'proposed') settle(next)
+          else setRead({ status: 'loaded', proposal: next })
+        } else if (wasOpen && next.status !== 'proposed') settle(next)
       },
       () => undefined
     )
   }, [proposalId, accept, settle, transport])
+  useEffect(() => {
+    if (!failed) return
+    const onReturn = () => {
+      if (document.visibilityState !== 'hidden') reread()
+    }
+    document.addEventListener('visibilitychange', onReturn)
+    window.addEventListener('focus', onReturn)
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn)
+      window.removeEventListener('focus', onReturn)
+    }
+  }, [failed, reread])
   const channel = useChannel<ProposalEvent>(proposalChannelKey(proposalId), {
-    enabled: open && transport.live,
+    enabled: (open || failed) && transport.live,
     parse: (event) => {
       const parsed = proposalEventSchema.safeParse(event)
       return parsed.success && parsed.data.proposalId === proposalId ? parsed.data : null
@@ -161,28 +201,28 @@ export function useServerProposal<K extends ProposedChangeKind>(
     async (action: 'apply' | 'dismiss', body?: ApplyProposalRequest): Promise<void> => {
       if (inFlight.current || live.current.busy) return
       inFlight.current = true
-      setProblem(null)
+      setRefused(null)
       setRefusalCode(null)
       setBusy({ action, withBody: body !== undefined })
       try {
         const response = await (action === 'dismiss' ? transport.dismiss(proposalId) : transport.apply(proposalId, body))
-        const read = accept(response.proposal)
-        if (read) settle(read)
-        else setProblem(action)
+        const decided = accept(response.proposal)
+        if (decided) settle(decided)
+        else setRefused(action)
       } catch (failure) {
         if (!isConflict(failure)) {
           setRefusalCode(refusalCodeOf(failure))
-          setProblem(action)
+          setRefused(action)
           return
         }
         setOvertaken(true)
         await transport.get(proposalId).then(
           (response) => {
-            const read = accept(response.proposal)
-            if (read) settle(read)
-            else setProblem('load')
+            const decided = accept(response.proposal)
+            if (decided) settle(decided)
+            else setRead({ status: 'failed', conflict: true })
           },
-          () => setProblem('load')
+          () => setRead({ status: 'failed', conflict: true })
         )
       } finally {
         inFlight.current = false
