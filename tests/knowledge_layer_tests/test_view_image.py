@@ -628,18 +628,62 @@ async def test_per_turn_cap_stops_the_tool_before_any_work(monkeypatch, tmp_path
 # =============================================================================
 
 
-def test_find_pdf_fetches_a_base_corpus_file_that_is_not_local(monkeypatch, tmp_path) -> None:
+@pytest.fixture
+def _readable_in_xa():
+    """A turn whose office may read the invented country ``XA``."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(KnowledgeContext(gate="core", retrieval_countries=frozenset({"XA"})))
+    yield
+    set_turn_knowledge_context(None)
+
+
+def test_find_pdf_fetches_a_released_base_corpus_file_that_is_not_local(monkeypatch, tmp_path, _readable_in_xa) -> None:
     from agent import corpus_store
     from tests.object_corpus_fakes import install
 
     install(monkeypatch, tmp_path)
     corpus_store.put("OIB-3.pdf", b"%PDF from the object store")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
     (tmp_path / "cache" / "OIB-3.pdf").unlink()  # another replica uploaded it
 
     found = _find_pdf("OIB-3.pdf")
 
     assert found == str(tmp_path / "cache" / "OIB-3.pdf")
     assert (tmp_path / "cache" / "OIB-3.pdf").read_bytes() == b"%PDF from the object store"
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        None,  # a draft upload: no release wrote a mark
+        "ZZ",  # unreleased: the country no office is entitled to
+        "XB",  # released, but to another country
+    ],
+    ids=["draft", "unreleased", "other-country"],
+)
+def test_find_pdf_refuses_a_file_not_released_to_the_turn(monkeypatch, tmp_path, _readable_in_xa, mark) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF held back")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    assert _find_pdf("OIB-3.pdf") is None
+
+
+def test_find_pdf_reads_nothing_without_a_request(monkeypatch, tmp_path) -> None:
+    from agent import corpus_store
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id="XA"))
+
+    assert _find_pdf("OIB-3.pdf") is None
 
 
 def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_path) -> None:
@@ -650,12 +694,48 @@ def test_find_pdf_for_a_file_the_corpus_does_not_list_is_none(monkeypatch, tmp_p
     assert _find_pdf("unknown.pdf") is None
 
 
-def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch) -> None:
+def test_find_pdf_is_fail_open_when_the_corpus_lookup_breaks(monkeypatch, _readable_in_xa) -> None:
     from agent import corpus_store
 
     def broken(_name):
         raise RuntimeError("database down")
 
     monkeypatch.setattr(corpus_store, "ensure_local", broken)
+    monkeypatch.setattr(corpus_store, "released_to", lambda _name, _countries: True)
 
     assert _find_pdf("OIB-3.pdf") is None
+
+
+# =============================================================================
+# look: a name that is a base-corpus file resolves only where it is released
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("mark", "readable"),
+    [("XA", True), (None, False), ("ZZ", False), ("XB", False)],
+    ids=["released", "draft", "unreleased", "other-country"],
+)
+async def test_look_resolves_a_base_corpus_name_only_when_released(
+    monkeypatch, tmp_path, _readable_in_xa, mark, readable
+) -> None:
+    from agent import corpus_store
+    from agent.tools.look import resolve
+    from tests.object_corpus_fakes import install
+
+    install(monkeypatch, tmp_path)
+    corpus_store.put("OIB-3.pdf", b"%PDF")
+    if mark is not None:
+        corpus_store.set_mark("OIB-3.pdf", corpus_store.FileMark(country_id=mark))
+
+    async def not_in_any_collection(_name):
+        return ""
+
+    monkeypatch.setattr(resolve, "_probe", not_in_any_collection)
+
+    resolved = await resolve.resolve_document("OIB-3.pdf")
+
+    if readable:
+        assert resolved == resolve.Resolved("OIB-3.pdf")
+    else:
+        assert resolved == resolve.NOT_FOUND.format(name="OIB-3.pdf")
