@@ -6,6 +6,12 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { CountryKnowledge } from './country-knowledge'
 import { CountryPage } from './countries/country-page'
 
+const push = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', async (original) => ({
+  ...(await original<typeof import('next/navigation')>()),
+  useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
+}))
+
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))
@@ -97,6 +103,21 @@ describe('CountryKnowledge', () => {
     expect(within(row).getByRole('link', { name: 'Austria' })).toHaveAttribute('href', '/app/platform/countries/AT')
     expect(within(row).getByText('Published')).toBeInTheDocument()
     expect(within(row).getByText('Review 1 request')).toBeInTheDocument()
+  })
+
+  test('a tap anywhere on a row opens that row’s country, not the last row’s (no link stretched over a table row)', async () => {
+    serve()
+    push.mockClear()
+    const user = userEvent.setup()
+    render(
+      <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.settingsView]}>
+        <CountryKnowledge />
+      </PlatformAccessProvider>,
+    )
+    const row = await screen.findByTestId('country-row-AT')
+    expect(within(row).getByRole('link', { name: 'Austria' }).className).not.toMatch(/after:absolute/)
+    await user.click(within(row).getByText('Published'))
+    expect(push).toHaveBeenCalledWith('/app/platform/countries/AT')
   })
 
   test('opens the request a link names on the list', async () => {
