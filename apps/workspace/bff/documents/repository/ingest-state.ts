@@ -1,10 +1,11 @@
 /** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, isNull, like, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
+import { INTERRUPTED_REASON_PREFIX } from '../lost-job'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
@@ -13,15 +14,17 @@ import { statusAccepts } from './mutations'
 import { BACKGROUND_JOB_METADATA_FIELD, type LocalWorkOwnership } from '../local-work-ownership'
 
 /**
- * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
+ * The documents the ingest jobs `jobIds` can still settle, in every
  * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
- * not documents or tenants. Discovery only, under platform access; the caller
- * reconciles each row inside its own organization. A job id no row carries
- * finds nothing, and a row that already came to rest is not in flight, so a
- * second push for the same job finds nothing either. Bounded by the ids: one
- * dispatch records one job id on one row (`setDocumentIngestJob`).
+ * not documents or tenants. In flight, or `failed` as `interrupted:` (a verdict
+ * about a job whose owner went silent, which the job's own end overrules,
+ * `lost-job.ts`). Discovery only, under platform access; the caller reconciles
+ * each row inside its own organization. A job id no row carries finds nothing,
+ * and a row that came to rest any other way is not found, so a second push for
+ * the same job changes nothing. Bounded by the ids: one dispatch records one
+ * job id on one row (`setDocumentIngestJob`).
  */
-export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+export async function listSettleableDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
   if (jobIds.length === 0) return []
   const db = getDb()
   return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
@@ -30,7 +33,10 @@ export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string
       .from(documents)
       .where(
         and(
-          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          or(
+            inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+            and(eq(documents.status, 'failed'), like(documents.errorMessage, `${INTERRUPTED_REASON_PREFIX}%`)),
+          ),
           inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
         ),
       )

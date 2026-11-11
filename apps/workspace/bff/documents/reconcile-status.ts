@@ -908,7 +908,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
     (row) => IN_FLIGHT_STATUSES.has(row.status) && row.status !== LOCALLY_OWNED_STATUS
   )
   const now = Date.now()
-  const interrupted = rows.filter((row) => isRecheckableInterruption(row, now))
+  const interrupted = rows.filter((row) => isRecheckableInterruption(row, now, settledBy === 'push'))
   const cancelled = rows.filter((row) => isRecheckableCancellation(row, now))
   if (inFlight.length > 0 || interrupted.length > 0 || cancelled.length > 0) {
     // One batch call for every job id asked about (previously one GET per row).

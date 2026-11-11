@@ -15,3 +15,6 @@ fixes:
   - >
     The reminder for marks whose deadline is near is sent at 06:45 Vienna time
     all year, also across the change to and from summer time.
+  - >
+    A document whose reading was interrupted and then finished after all is
+    now shown as read, instead of staying marked as failed with a retry offered.

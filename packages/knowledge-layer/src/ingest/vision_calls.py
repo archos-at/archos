@@ -105,7 +105,12 @@ VISION_GENERATION_NAME = "ingest-vision"
 
 
 def _vlm_slot():
-    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call may last.
+    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call lasts.
+
+    The call under the slot is not bounded by ``VLM_REQUEST_TIMEOUT_SECONDS``: that is
+    httpx's timeout per phase of one attempt, the SDK makes two attempts with a backoff
+    between, and each first waits for a provider slot. ``hold`` renews the lease while
+    the call runs, so the lease is only how long a dead worker's slot stays taken.
 
     Shared fairly between organisations (``lease_slots.FAIR_ACQUIRE_LUA``): an
     office's 300-sheet upload takes every slot while it is alone, and gives one

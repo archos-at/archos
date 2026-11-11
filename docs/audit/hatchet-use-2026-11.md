@@ -114,13 +114,16 @@ Examined and left, with the reason written where the code is: the job row's
 moves the time and keeps the old input, so our fire would refuse itself;
 ADR-0150), the backend housekeeping clocks (below).
 
-### Worth doing, in this order
+### Costed and not done
 
-| # | What | Why | Removes |
-|---|---|---|---|
-| 1 | A research run's cancel is pushed, not polled (`CancellationMonitor` reads the database every second) | Hatchet cancels a run through the API and the task can read it | the poll, and a class of missed cancels |
-| 2 | A job that waits re-triggers itself with `notBefore` (`document_check`, the agent wake behind another turn, the revision notice's delay) | a durable sleep or wait for an event is the engine's shape for this | the re-trigger bookkeeping per kind |
-| 3 | `bff-job` gets an on-failure task that writes the owning record's failed state | three of the four background-work sweeps exist because a dead job leaves its record at `processing`/`queued` | most of `stuck-processing`, `filing-sweep` and the mail-import stale sweep, kept only as ratchets |
+Three further moves were costed from the code against one bar: less
+production code and fewer mechanisms, with no behaviour lost. None clears it.
+
+| Move | Why not |
+|---|---|
+| Push a research run's cancel instead of polling for it | It is already pushed: the cancel route writes the status and calls `research_workflow.cancel`, and the SDK cancels the task. `CancellationMonitor` stays because it also reads the reader's steering events (write now, a document added), which a running Hatchet task cannot receive, and because its status read covers the ghost-job reaper's verdict, a failed cancel call and a cancel that lands before the run id is stored. Net about zero lines |
+| A durable sleep or wait for an event where a job re-triggers itself with `notBefore` | `notBefore` already is a Hatchet scheduled run with the row as its record. About 25 lines could go; a durable task would add a second declaration and slot pool, hold a per-office slot and the row for the whole wait, and `document_check` has no event to wait for, so it would still poll. Net 15 to 45 lines more, and two mechanisms where there is one |
+| An on-failure task that writes the owning record's failed state | Only each sweep's "dead job" branch could go (about 29 lines); the "no job at all" case stays in every sweep and no failure handler sees it. A job goes `dead` in our own `failJob`, so no engine feature is needed either. The one real gain is latency (a dead job's document reads `processing` for fifteen minutes): a small feature of its own, not a reduction |
 
 ### Deliberately staying
 
@@ -189,9 +192,83 @@ Read and not a defect:
 - `/api/internal/upload-batches/sweep` has no scheduled caller because the
   `upload-sweep` cron calls the function directly; the route stays for the
   operator's catch-up (the stuck-documents runbook).
+- A duplicate research run gives up after 360 s and its Hatchet run ends as
+  done (`run_ownership.take_ownership`, `research_workflow.run_task`); if the
+  live copy then dies, nothing retries and the ghost reaper fails the job.
+  True, and left: failing the duplicate instead would spend the job's retries
+  while the live run works, and the on-failure task
+  (`worker.record_exhausted_verdict`) would then write FAILURE over a run that
+  is alive. The job ends visibly failed, never silently. The reason is now in
+  the module's docstring.
+- `orchestrator_client` runs REST calls on four threads and a timed-out call
+  keeps its thread. True, and no later call is delayed by it: the 15 s bound
+  is on the caller's wait for the result (`within_rest_timeout`), queue time
+  included, so with four threads hung a fifth caller gets `TimeoutError` after
+  15 s, as it would from an engine that does not answer. Both callers have a
+  fallback (the ingest runs in the accepting process, the cancel answers
+  "unavailable"). The pool is what bounds the leaked threads. One side effect:
+  a call that timed out while still queued runs once a thread frees, so a
+  cancel reported as unavailable can still land two minutes later; the run was
+  marked stopped by the person first, so it reads as their cancel.
+- The writes after a chat turn's terminal (`after_terminal_writes.py`: the
+  answer row, the answer into an Anmerkung's thread, a headless caller's
+  outcome notice) are tasks in the process and a kill loses them. Deliberate,
+  per the module's docstring: a drain waits 30 s for them, and the rest is
+  bounded elsewhere. The browser writes the same answer row under the same
+  deterministic id (`chat_socket.py`, header), and an ask whose notice never
+  came is ended `failed` when next read, after the turn's deadline plus the
+  notice's grace (`DEFAULT_ASK_MAX_SECONDS`, `ask-wire.ts`). Not derived again
+  by anything: the thread's answer, and the answer row of a headless turn. Not
+  read: whether a wake on a mark has a bound like the ask's.
+- The social hand-off (`apps/cms`, `social:handoff`) is never scheduled. A
+  recorded open decision, not an omission: it needs a Buffer account, its key
+  and a schedule from the owner (`apps/cms/README.md`, "Social posts";
+  ADR-0155).
 
-Read, and open:
+Read and real, closed in the change that read them (each with a test that
+failed first):
 
+- The vision slot lease (210 s) was outlived by its call. The 180 s is httpx's
+  timeout per phase of one attempt, the SDK makes two attempts with a backoff
+  between, and each first queues for a provider slot inside our transport,
+  under no timeout. When the lease aged out mid-call the pool counted one
+  holder fewer and admitted one more; the late release removed nothing. The
+  provider limiter (renewed leases, ceiling 32) still bounded what the provider
+  saw, so the breach showed only with `VLM_FLEET_CONCURRENCY` set below it, and
+  in the fair share between organisations. `lease_slots.hold` now renews its
+  lease while the body runs.
+- The ghost reaper and the research takeover used one window by comment and
+  read different signs of life. The reaper read events only; a retry that took
+  a dead run over touches `job_info.updated_at` and emits nothing until its
+  workflow is built, so the next two-minute reaper cycle could fail the run
+  just rescued. The reaper now reads both signs, as `run_ownership` does, and
+  its window is `run_ownership.STALE_SECONDS` by import; a test holds the wait
+  above the window.
+- The ingest hold was one write that failed open. Lost, the row read
+  `interrupted` two minutes after the job was accepted, the document showed as
+  failed while its job waited, and a retry after a lost worker refused itself
+  (`_settled_before`). The hold is now tried three times within a second. A
+  database away for longer still loses it, and the dispatch is not failed for
+  that: the run has started by then.
+- A document failed as `interrupted:` whose job finished later than the
+  30-minute re-check window (`lost-job.ts`) stayed failed although it was read:
+  the settle push looked for in-flight rows only. The push now finds such a row
+  too and re-reads its job with no window. A push that is lost leaves the old
+  behaviour; „Erneut lesen" finds the job done.
+
+Read, real, and open:
+
+- `onDocumentsSettled` (`upload-batches/settle.ts`) runs
+  `announceSettledVersions` detached after the once-only settle. A process that
+  ends in those seconds (a deploy as much as a crash) loses, for good, the "new
+  Fassung" inbox items and the document check of that upload; the claim in
+  `document_revision_announcements` only stops a second telling. The pattern
+  that closed the revision notice (the job row in the claim's transaction)
+  applies one level up: a job row written in the transaction of the guarded
+  status write (`setDocumentReconciledStatus`), whose run announces. That is a
+  new `bff-job` kind with its payload schema, handler and registry entries,
+  and a change to the one write every reconcile path shares, so it was not
+  folded into a reading pass.
 - `deploy/compose/docker-compose.coolify.yaml` does not mention Hatchet, while
   its `bff-jobs` service and the ingest path run on Hatchet since ADR-0150
   (`docs/deployment/coolify.md` describes `bff-jobs` that way). A Coolify
@@ -199,15 +276,6 @@ Read, and open:
   Coolify is still a supported target is the owner's call: either the file gains
   the engine or the target is retired.
 
-Reported, not yet read (leads):
-
-- The vision slot lease (210 s) can be outlived by a retried call (180 s
-  timeout, one retry).
-- A duplicate research run gives up after 360 s and reports success; if the
-  live copy then dies, nothing retries it.
-- The ingest hold is written once and fails open.
-- `orchestrator_client` runs REST calls on four threads and a timed-out call
-  keeps its thread.
-- A settle announcement (`announceSettledVersions`) runs detached after a
-  once-only settle, so a crash loses the notice.
-- The social hand-off (`apps/cms`, `social:handoff`) is never scheduled.
+Reported, not yet read (leads): none. The six leads listed here, and two more
+from the same readers (the writes after a chat turn's terminal, the 30-minute
+re-check of an interrupted read), were read on 2026-11-11 and sorted above.
