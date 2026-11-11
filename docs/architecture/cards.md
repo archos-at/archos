@@ -125,6 +125,13 @@ call to make first. It exists because "zeig mir das Modell" was being answered
 with a prose bullet list of file names for the user to retype — the tiles open
 the viewer on click instead.
 
+All six survive the short-answer floor (`FLOOR_EXEMPT_CARD_TYPES` in
+`cards/envelope.py`), on their own or as leaves of a `surface`. That floor clears
+a card under 400 characters of prose, which suits a trailer, but here the card
+is the answer and the prose under a "zeig mir" is short by nature. Clearing one
+left "im Modell markiert" with nothing on screen, or "Wählen Sie das Modell aus"
+with no tiles to choose from.
+
 | `type` | Shows | Key fields |
 |---|---|---|
 | `ifc_viewer` | the project's IFC model in 3D with findings highlighted on the real geometry (ADR-0045) | `title`, `model_file`, `highlights[]` (`global_ids` **XOR** `match`, plus `label`, `status`), `storey`, `note` |

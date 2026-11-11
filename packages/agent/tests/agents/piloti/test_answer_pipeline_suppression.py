@@ -18,6 +18,8 @@ unearned ``emit_card`` cards on a short, non-ruling answer without a verdict:
    member and vetoes the suppression: ``memory_proposal``, ``task_created``,
    ``document_draft`` via write/edit and via the ``file_draft`` re-push (plus
    ``document_grid`` and ``file_operation_proposal`` for the full set).
+5. **The model card is the answer** — a card that shows the model vetoes too:
+   the answer to "zeig mir" is the card, and its prose is short by nature.
 """
 
 import json
@@ -30,6 +32,7 @@ from agent.agents.piloti.answer_pipeline import _gated_meta
 from agent.agents.piloti.answer_pipeline import _should_suppress_meta_cards
 from agent.agents.piloti.answer_pipeline import _suppress_cards
 from agent.agents.piloti.answer_pipeline import finalize_answer
+from agent.cards.envelope import FLOOR_EXEMPT_CARD_TYPES
 from agent.cards.registry import CardRegistry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
@@ -118,7 +121,7 @@ class TestTheProofLivesInTheProse:
 
     def test_a_quote_line_survives_while_the_card_goes(self, card_registry):
         meta = _gated({"kind": "direct", "callout": _CALLOUT}, prose_chars=300)
-        card_registry.add({"type": "ifc_model_picker", "title": "Modell"})
+        card_registry.add({"type": "calculation", "title": "Fläche"})
         quote = "> „Brandabschnitte dürfen höchstens 1.200 m² umfassen.“ [1]"
         content = SHORT_PROSE + "\n\n" + quote + "\n\n[[card:1]]\n"
 
@@ -395,3 +398,89 @@ class TestTrailerCaptures:
         meta = _gated_meta(extracted, "x" * 700, SourceRegistry(), turn_sources=[repair])
 
         assert meta is not None and meta["verdict"]["value"] == "100 cm"
+
+
+def _surface(leaf: str, **fields: str) -> dict:
+    return {
+        "type": "surface",
+        "title": "Zwei Häuser",
+        "components": [
+            {"id": "root", "component": "Tabs", "tabs": [{"title": "A", "child": "a"}, {"title": "B", "child": "b"}]},
+            {"id": "a", "component": leaf, "title": "Haus A", **fields},
+            {"id": "b", "component": leaf, "title": "Haus B", **fields},
+        ],
+    }
+
+
+class TestTheModelCardIsTheAnswer:
+    """A card that shows the model is the answer to "zeig mir", and that answer is short by nature."""
+
+    @pytest.mark.parametrize("card_type", sorted(FLOOR_EXEMPT_CARD_TYPES))
+    def test_it_vetoes_the_floor(self, card_registry, card_type):
+        card_registry.add({"type": card_type, "title": "Dachgeschoß"})
+        meta = _gated({"kind": "walkthrough", "topic": "Dachgeschoß"}, prose_chars=51)
+        content = "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]"
+
+        kept_content, kept_meta, suppressed = _suppress_cards(content, meta)
+
+        assert suppressed is False
+        assert kept_content == content
+        assert kept_meta == meta
+        assert len(card_registry) == 1
+
+    def test_a_trailer_card_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add({"type": "calculation", "title": "Fläche"})
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    def test_a_surface_of_trailer_cards_on_a_short_answer_still_goes(self, card_registry):
+        card_registry.add(_surface("calculation"))
+        meta = _gated({"kind": "walkthrough", "topic": "Fläche"}, prose_chars=51)
+
+        _, _, suppressed = _suppress_cards("Die Fläche beträgt 21,41 m².\n\n[[card:1]]", meta)
+
+        assert suppressed is True
+        assert len(card_registry) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("answer", "kind", "card"),
+        [
+            pytest.param(
+                "Wählen Sie das Modell aus, das Sie öffnen möchten.",
+                "direct",
+                {"type": "ifc_model_picker", "title": "Welches Modell möchten Sie öffnen?"},
+                id="zeig-mir-das-modell",
+            ),
+            pytest.param(
+                "Das Dachgeschoß ist im Modell isoliert dargestellt.\n\n[[card:1]]",
+                "walkthrough",
+                {
+                    "type": "ifc_viewer",
+                    "title": "Dachgeschoß",
+                    "model_file": "AC20-FZK-Haus.ifc",
+                    "storey": "Dachgeschoss",
+                },
+                id="zeig-mir-das-dachgeschoss",
+            ),
+            pytest.param(
+                "Beide Häuser sind im Modell zu sehen.\n\n[[card:1]]",
+                "direct",
+                _surface("ifc_viewer", model_file="AC20-FZK-Haus.ifc"),
+                id="zeig-mir-beide-haeuser",
+            ),
+        ],
+    )
+    async def test_an_answer_keeps_its_model_card_through_finalize(self, card_registry, answer, kind, card):
+        envelope = {"answer": answer, "kind": kind, "topic": "Modell", "cards": [card]}
+        message = AIMessage(content="```answer_json\n" + json.dumps(envelope, ensure_ascii=False) + "\n```")
+
+        final = await finalize_answer([message], registry=SourceRegistry(), tools=[], repair=None)
+
+        assert [kept["type"] for kept in card_registry.snapshot()] == [card["type"]]
+        assert final.answer_meta is not None
+        assert final.answer_meta.get("kind") == kind
