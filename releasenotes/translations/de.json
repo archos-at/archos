@@ -1996,6 +1996,10 @@
     "de": "Dateien eines abgeschlossenen Projekts sind überall, wo sie erscheinen, als solche gekennzeichnet, und die Projektliste kann aktive, abgeschlossene oder alle Projekte zeigen."
   },
   {
+    "en": "Files that had been read in full but showed as failed after a large upload show as read again the next time their folder is opened.",
+    "de": "Dateien, die vollständig gelesen wurden, nach einem großen Upload jedoch als fehlgeschlagen angezeigt wurden, werden beim nächsten Öffnen ihres Ordners wieder als gelesen angezeigt."
+  },
+  {
     "en": "Files the name check stops are now called \"Not uploaded\" everywhere. \"Held back\" means only a file the content check holds in quarantine.",
     "de": "Dateien, deren Upload durch die Namensprüfung gestoppt wird, werden jetzt überall als „Nicht hochgeladen“ bezeichnet. „Zurückgehalten“ bezeichnet nur Dateien, die von der Inhaltsprüfung unter Quarantäne gestellt werden."
   },
