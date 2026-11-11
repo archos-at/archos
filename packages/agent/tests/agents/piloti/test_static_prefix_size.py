@@ -22,6 +22,11 @@ Measured 2026-11-11 after the tool descriptions lost what they said twice
 before), the three model tools 8,628 of them, and 10,736 in a project without
 a model; the system prompt 8,052.
 
+Measured 2026-11-11 with ``drawing_measure`` (ADR-0182): 1,357 tokens, its description 529 of them. The
+tools 21,242 with it; 10,777 in a project without a model or a PDF, where it is not bound; 12,134 in a
+project that holds a PDF and no model, in an organization with the ``drawing-measure`` entitlement. With
+the kind "a PDF" that is nearly every project of such an organization, so that case has its own ceiling.
+
 The ceilings are a ratchet: a change that grows the prefix past one fails here
 and has to say why in the same change; one that shrinks it lowers them. A
 tool ceiling sits roughly 450 to 500 tokens above its measurement,
@@ -44,9 +49,11 @@ from agent.agents.piloti import turn_tools
 from agent.common.prompt_store import PromptStore
 
 SYSTEM_CEILING = 8_300
-TOOLS_CEILING = 20_300
-#: Inside a project that holds neither an IFC nor a DXF.
+TOOLS_CEILING = 21_700
+#: Inside a project that holds neither an IFC nor a DXF, nor a PDF the organization may have measured.
 TOOLS_WITHOUT_A_MODEL_CEILING = 11_200
+#: Inside a project that holds a PDF and no model, in an organization with the `drawing-measure` entitlement.
+TOOLS_WITH_A_PDF_CEILING = 12_600
 
 _ENCODING = tiktoken.get_encoding("o200k_base")
 
@@ -97,3 +104,16 @@ def test_a_project_without_a_model_is_not_sent_the_measuring_tools(chat_tools, m
     total = sum(chat_tools[name] for name in kept if name in chat_tools)
     print(f"chat tools in a project without a model: {len(kept)}, {total} tokens (o200k)")
     assert total <= TOOLS_WITHOUT_A_MODEL_CEILING
+
+
+def test_a_project_with_a_pdf_adds_only_the_drawing_tool(chat_tools, monkeypatch):
+    monkeypatch.setattr(turn_tools, "get_project_id_from_context", lambda: "p-1")
+    turn_tools.set_project_models(frozenset({"pdf"}))
+    try:
+        kept = [tool.name for tool in turn_tools.tools_in_scope([SimpleNamespace(name=n) for n in chat_tools])]
+    finally:
+        turn_tools.set_project_models(None)
+    total = sum(chat_tools[name] for name in kept if name in chat_tools)
+    print(f"chat tools in a project with a PDF and no model: {len(kept)}, {total} tokens (o200k)")
+    assert "drawing_measure" in kept and "dxf_measure" not in kept
+    assert total <= TOOLS_WITH_A_PDF_CEILING

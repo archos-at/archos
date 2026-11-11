@@ -59,6 +59,8 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   ifc_measure: 'measure',
   // A DXF drawing measured as a site (ADR-0153): a measurement like the model's.
   dxf_measure: 'measure',
+  // A page of a PDF drawing read and measured from the file (ADR-0182).
+  drawing_measure: 'measure',
   // Retired for `look` (ADR-0128); a read-side alias, because stored turns carry it.
   view_knowledge_image: 'drawing',
   surface_documents: 'documents',

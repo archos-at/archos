@@ -1653,6 +1653,13 @@
       "when": 1795000000000,
       "tag": "0235_territory_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1795100000000,
+      "tag": "0236_drawing_calibrations",
+      "breakpoints": true
     }
   ]
 }

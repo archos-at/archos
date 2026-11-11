@@ -59,7 +59,7 @@ class ContextBlocks:
     #: shape reads as ``knowledge_unavailable`` (ADR-0175), the default too.
     knowledge_context: KnowledgeContext = UNAVAILABLE
     #: Which kinds of model file the project holds and this turn may read
-    #: (``"ifc"``, ``"dxf"``), so the tools that measure one are bound only
+    #: (``"ifc"``, ``"dxf"``, ``"pdf"``), so the tools that measure one are bound only
     #: where there is one (the chat agent's ``turn_tools``). None from an older
     #: BFF or outside a project: unknown, and the tools stay as they were.
     project_models: frozenset[str] | None = None
@@ -230,10 +230,14 @@ def _parse_blocks(body: object) -> ContextBlocks:
 
 
 def _model_kinds(value: object) -> frozenset[str] | None:
-    """``{"ifc": true, "dxf": false}`` as the kinds present; anything else is unknown (None). Pure."""
+    """``{"ifc": true, "dxf": false, "pdf": true}`` as the kinds present; anything else is unknown (None). Pure.
+
+    ``pdf`` is a PDF in a project of an organization that holds ``drawing-measure`` (the BFF ANDs the two);
+    an older BFF sends no such key, which reads as absent.
+    """
     if not isinstance(value, dict):
         return None
-    return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
+    return frozenset(kind for kind in ("ifc", "dxf", "pdf") if value.get(kind) is True)
 
 
 def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:

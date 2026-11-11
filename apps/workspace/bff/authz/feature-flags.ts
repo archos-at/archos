@@ -199,6 +199,13 @@ export const FEATURE_FLAGS = {
    */
   agentActs: 'piloti-acts',
   /**
+   * Measuring on PDF drawings (ADR-0182): the agent's `drawing_measure` tool, and later a person's
+   * calibration of a sheet's scale. An entitlement while the tolerances are measured on pilot offices'
+   * own plots: the turn context states a project's PDFs to the agent only where the organization holds
+   * it (`turn-context/service.ts`), and the tool is bound nowhere else.
+   */
+  drawingMeasure: 'drawing-measure',
+  /**
    * Piloti notices a new Fassung (ADR-0130): when a document is linked as the
    * newer Fassung of another, a job compares the changed pages of the two and
    * leaves what moved as proposed marks on the new Fassung, in the name of the
@@ -350,6 +357,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'mail-import': 'entitlement',
   'piloti-wakes': 'entitlement',
   'piloti-acts': 'entitlement',
+  'drawing-measure': 'entitlement',
   'piloti-notices': 'entitlement',
   'agent-mcp': 'entitlement',
   'agent-mcp-access': 'entitlement',
@@ -443,6 +451,11 @@ export function isAgentNoticesEnabled(session: Pick<UserSession, 'featureFlags'>
 /** Whether Piloti may apply a change to Anmerkungen when the asker asks, or only propose (ADR-0105). */
 export function isAgentActsEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
   return isFeatureEnabled(session, FEATURE_FLAGS.agentActs)
+}
+
+/** Whether the organization may have PDF drawings read and measured by the agent (ADR-0182). */
+export function isDrawingMeasureEnabled(session: Pick<UserSession, 'featureFlags'>): boolean {
+  return isFeatureEnabled(session, FEATURE_FLAGS.drawingMeasure)
 }
 
 /** Collaboration (ADR-0032…0035). */

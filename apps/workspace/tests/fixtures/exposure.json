@@ -1636,6 +1636,36 @@
    "withheld": null,
    "reason": null
   },
+  "drawing-calibration-list": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-set": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-withdraw": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
   "project-annotation-list": {
    "kind": "catalog",
    "domain": "review",
@@ -4498,6 +4528,16 @@
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
+  },
+  "drawing-measure": {
+   "kind": "backend",
+   "domain": "documents",
+   "sensitivity": null,
+   "external": false,
+   "agent": "native:drawing_measure",
+   "platform": false,
+   "withheld": null,
+   "reason": "reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet"
   },
   "dxf-measure": {
    "kind": "backend",

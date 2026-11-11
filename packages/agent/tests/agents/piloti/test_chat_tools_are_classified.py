@@ -47,6 +47,10 @@ NOT_SOURCES = {
     "ifc_query": "answers from the building model through cards, not passages",
     "ifc_measure": "measures in the building model; its numbers arrive through cards",
     "dxf_measure": "measures a DXF drawing's geometry; its answers are records the answer check reads, not passages",
+    "drawing_measure": (
+        "reads and measures a page of a PDF drawing from the file; its answers are records the answer check "
+        "reads, not passages"
+    ),
     "look": "shows a page, a region of it or an image of a document already searchable; an image is no passage",
     "show_in_viewer": "proposes to open a place in the asker's viewer (ADR-0144); its confirmation is not evidence",
 }

@@ -60,7 +60,10 @@ gh --version
 ## Capture
 
 Start the dev server, then drive it. The preview routes render real components
-from fixtures, so nothing else needs to be running.
+from fixtures, so nothing else needs to be running. The server itself needs the
+four WorkOS variables and `REQUIRE_AUTH=false` in its environment (placeholders
+do), or every `/dev/*` route answers 500:
+[gotchas](../contributing/gotchas.md), „Every `/dev/*` preview route answers 500“.
 A page behind a session (anything under `/app`) needs the whole app and a
 signed-in user: [`task local:up`](../contributing/local-stack.md) runs it
 locally with a minted session cookie, no WorkOS account needed.

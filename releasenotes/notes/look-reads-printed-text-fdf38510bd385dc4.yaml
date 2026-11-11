@@ -1,0 +1,7 @@
+---
+# area: answers
+improvements:
+  - >
+    When the assistant looks at a drawing exported from CAD as a PDF, it now
+    reads the printed dimensions and labels from the file itself instead of
+    from the picture, so small figures are quoted exactly as printed.
