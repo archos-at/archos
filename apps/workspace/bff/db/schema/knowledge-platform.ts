@@ -66,6 +66,8 @@ export const knowledgeTerritoryRevisions = pgTable('knowledge_territory_revision
   coverageLevel: text('coverage_level').$type<CoverageLevel>(),
   /** Whether the node's own municipal law is held (0213). */
   municipalLaw: boolean('municipal_law'),
+  /** The IANA zone a day is read in at this node (0228); NULL inherits from the nearest parent that states one. */
+  zone: text('zone'),
 })
 
 /** How one instrument bears on another (migration 0211, design §3.5). Append-only like every body. */

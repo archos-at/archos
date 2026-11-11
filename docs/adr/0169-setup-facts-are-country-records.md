@@ -76,13 +76,29 @@ reading writes none and takes back a derived one, and `project-profile-get`
 shows none an earlier derivation wrote. A class a document stated or a person
 confirmed stays (`withoutDerivedClasses`, `project-intake/law-withheld.spec.ts`).
 
-**Where the records live today.** Austria's three records ship as seeds
-(`bff/base-knowledge/rulesets/seeds/`, listed in `rulesets/shipped.ts`) and are
-parsed by the same wire at boot. Migration 0207 makes them storable, but the
-setup does not read the database yet: an office's or the platform's ruleset in
-force at `AT` would make two records for one node, which the selection refuses
-as ambiguous. Moving Austria into published platform records with the
-precedence merge is S8's.
+**Where the records live.** In the database, released like any platform
+record, and read through the one knowledge read path and its entitlement
+predicate (`project-intake/setup-records.ts`, `readSetupRecords`: the released
+`fact_definitions`, `fact_sources` and `classification` rulesets of the
+countries the office is entitled to, and its own). The build ships none
+(country-as-data step 3; until then Austria's three records were seeds compiled
+into it, `rulesets/shipped.ts`). Austria's are the change request
+`configs/knowledge-packs/at-setup.json`, proposed through the platform door like
+`at.json`; the file holds the records, an operator's agent adds the captures.
+Every reader (the intake, the classification, the location register, the turn's
+site leaf, the BIM rules, the Steckbrief's labels) takes the records it selects
+from as an argument, so a country whose records are not published is read as
+such: no subdivision, class or request, and `classification-evaluate` answers
+`not_published`, never another country's value. An office's or the platform's
+second record in force for one node and purpose stays ambiguous and gives
+nothing.
+
+`fact_definitions.v1` also carries the country's `addressRegister`: who
+publishes it, how a row names a municipality's territory and its state, its
+postcode shape, the bulk file's address (ADR-0172). The resolver searches no
+register a published record does not describe. A territory record states its
+`zone` (migration 0228): the day a procedure still open is read in is the
+nearest zone on the chain, and none is `zone_unknown`.
 
 ### Rejected options and the premise each rests on
 
@@ -107,8 +123,12 @@ precedence merge is S8's.
   profile saying `country=at` with the Land „außerhalb Österreichs" is read as
   in no named country by the derivation too, not only by the register. A BIM
   model in no project, or in an unplaced one, is no longer judged as Austrian.
-- Bad: until S8, the setup reads shipped seeds, not the database; a record an
-  office stores in a setup purpose is valid and kept but read by nothing.
+- Bad: until Austria's records are published, a project in Austria is derived,
+  asked and requested nothing country-specific (`not_published`); publishing
+  `at-setup.json` on every environment is a deploy prerequisite. The site
+  picker's Länder (`SITE_SUBDIVISIONS`) are still one table in code, held to the
+  published record by a spec; a picker that reads them from the record is the
+  deferred part.
 
 ### Confirmation
 

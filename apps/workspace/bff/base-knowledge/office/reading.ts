@@ -14,7 +14,6 @@
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import type { Addressee, EntryValues } from '../wire'
-import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
 
 export interface DocumentReading {
   fileName: string
@@ -25,10 +24,8 @@ export interface DocumentReading {
   federalState?: string | null
 }
 
-/** The intake's `federal_state` tokens as ISO 3166-2 codes, from the country's `fact_definitions` record (`SITE_SUBDIVISIONS`). */
-export const FEDERAL_STATE_TERRITORIES: Readonly<Record<string, string>> = Object.fromEntries(
-  SITE_SUBDIVISIONS.options.map((option) => [option.token, option.territoryId]),
-)
+/** The territory each intake `federal_state` token names (`styria` is `AT-6`), from the released setup records (`subdivisionTerritories`). */
+export type SubdivisionTerritories = Readonly<Record<string, string>>
 
 /** Authorities a directive names, with the territory they decide for (the interim path, design §8.1). */
 const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = [
@@ -112,10 +109,10 @@ function readAddressees(text: string): Addressee[] {
   return KNOWN_AUTHORITIES.filter(({ pattern }) => pattern.test(text)).map(({ addressee }) => addressee)
 }
 
-function readTerritories(kind: OfficeWorkKind, reading: DocumentReading, addressees: Addressee[]): string[] {
+function readTerritories(kind: OfficeWorkKind, reading: DocumentReading, addressees: Addressee[], subdivisions: SubdivisionTerritories): string[] {
   if (kind === 'technical_standard' || kind === 'commentary') return []
   const fromAuthorities = addressees.map((addressee) => addressee.territoryId)
-  const fromReading = reading.federalState ? FEDERAL_STATE_TERRITORIES[reading.federalState] : undefined
+  const fromReading = reading.federalState ? subdivisions[reading.federalState] : undefined
   return [...new Set([...fromAuthorities, ...(fromReading ? [fromReading] : [])])]
 }
 
@@ -125,7 +122,7 @@ function issuerOf(designation: Designation | null, addressees: Addressee[]): str
 }
 
 /** Every value the reading can propose; the caller's own values replace these one by one. */
-export function proposeFromReading(reading: DocumentReading): EntryValues {
+export function proposeFromReading(reading: DocumentReading, subdivisions: SubdivisionTerritories): EntryValues {
   const text = haystack(reading)
   const designation = readDesignation(text)
   const kind = readKind(text, designation)
@@ -138,7 +135,7 @@ export function proposeFromReading(reading: DocumentReading): EntryValues {
     designation: designation?.designation ?? null,
     editionLabel: edition.label ?? 'unbekannt',
     issuedOn: edition.issuedOn,
-    territoryIds: readTerritories(kind, reading, addressees),
+    territoryIds: readTerritories(kind, reading, addressees, subdivisions),
     issuer: issuerOf(designation, addressees),
     addressees,
     licenceClass: defaultLicence(kind),

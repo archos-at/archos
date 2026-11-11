@@ -75,6 +75,22 @@ its scope. Austria's are `configs/knowledge-packs/at-scopes.json`: the editions
 again with their scope, proposed as a change request of their own after the
 pack.
 
+## Setup, classification and site placement
+
+What a project's setup asks, its building classification, the documents a site
+needs, the Länder a site is placed in and the register that places an address
+are records too, read by every project of the country and by nothing else
+(ADR-0169): three `ruleset` records (`fact_definitions`, `fact_sources`,
+`classification`), the first carrying the `addressRegister`, and the country's
+territory record stating its `zone` (an IANA time zone). The build ships none.
+Until a country's are published its projects are asked nothing country-specific
+(`classification-evaluate` answers `not_published`) and its addresses stay
+`unverified`; an open procedure's day is `zone_unknown`. Austria's are
+`configs/knowledge-packs/at-setup.json` (the three rulesets) and the `AT`
+territory of `at.json` (with its zone): propose both after the pack, validate,
+review, publish. A second record for one node and purpose makes the selection
+ambiguous and gives nothing.
+
 ## Keeping a country current
 
 The `source-monitor` sweep (every 15 minutes) checks each published source

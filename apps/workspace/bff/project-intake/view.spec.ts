@@ -14,6 +14,7 @@ import type { ProjectProfile } from '@/lib/project-profile/types'
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import type { Need } from './types'
 import { buildIntakeView, readingDocumentProgress, readingSite } from './view'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const NOW = '2026-10-14T09:00:00.000Z'
 const PROJECT = '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
@@ -84,6 +85,7 @@ const input = () => ({
   unreadDocuments: 3,
   canDecide: true,
   canComplete: false,
+  records: AT_SETUP_RECORDS,
 })
 
 const view = () => buildIntakeView(input())

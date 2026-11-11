@@ -130,8 +130,8 @@ export interface RecordContext {
   /** The reading's job id: a suggestion it creates carries it, and only it may withdraw that suggestion. */
   readingId: string
   needs: ComputeNeedsOptions
-  /** The setup records to classify by; the shipped pack by default. */
-  records?: readonly StoredRuleset[]
+  /** The released setup records to classify by. */
+  records: readonly StoredRuleset[]
   /** The project's knowledge context withholds law at its site: no class is derived, and a derived one goes. */
   lawWithheld?: boolean
 }
@@ -194,7 +194,7 @@ function withClassesDerived(
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
   now: string,
-  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'> = {}
+  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>
 ): ProjectProfile {
   let current = profile
   // Read before the loop: a class written below moves no input, and the site is the batch's.

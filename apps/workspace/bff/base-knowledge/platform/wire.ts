@@ -34,6 +34,7 @@ import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import { sourceRecordFields } from '@/lib/base-knowledge/wire/source'
 import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
+import { zoneSchema } from '@/lib/base-knowledge/wire/zone'
 
 /** ISO 3166-1 alpha-2: what an office is entitled to and a platform record belongs to. */
 export const countryIdSchema = z
@@ -191,6 +192,10 @@ const territoryRecord = z.object({
     .default(null)
     .describe('How far the records go here (none, open, core, full); null inherits from the parent. Only a publish changes it.'),
   municipalLaw: z.boolean().nullable().default(null).describe('Whether this node’s own municipal law is held.'),
+  zone: zoneSchema
+    .nullable()
+    .default(null)
+    .describe('The IANA time zone a day is read in here (Europe/Vienna); null inherits the nearest parent that states one. Without any, an open procedure’s window is undetermined (zone_unknown).'),
   ...common,
 })
   // `parentIds` and `datedParents` became `parents` (0219): a proposal still naming them is refused, never stripped.

@@ -14,6 +14,7 @@ import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definiti
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
 import { FIXTURE_LOCATION, INTAKE_CLOSING, INTAKE_READING, INTAKE_READY, OPEN_PHASE } from './project-intake'
+import { AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 
 const AT = '2026-10-20T08:00:00.000Z'
 
@@ -38,8 +39,8 @@ function registerOf(
   location: LocationRegisterInput['location'],
   mode: IntakeMode = 'active'
 ): LocationRegisterView {
-  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [] })
-  return locationRegisterFor({ profile, location, mode, needs })
+  const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records: AT_SETUP_RECORDS })
+  return locationRegisterFor({ profile, location, mode, needs, records: AT_SETUP_RECORDS })
 }
 
 /** The Aufstockung in Wien: a Bestand with Wohnungen, Zubau and Umbau; the reading found the Widmung. */

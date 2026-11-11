@@ -1,16 +1,21 @@
 /**
- * The address registers this cell hosts, and how a register row places a site
- * in the territory tree (ADR-0172). Pure and client-safe.
+ * The address registers a cell hosts, and how a register row places a site in
+ * the territory tree (ADR-0172). Pure and client-safe.
  *
  * A register is a country's official address list, imported into the cell's
  * own database (`address_register_entries`); a lookup never leaves the cell.
- * Austria's is the BEV Adressregister. Germany's (design E31) is a second
- * entry here and an importer beside `bev.ts`: the resolver, the routes and the
- * tables take it unchanged.
+ * What describes it (who publishes it, how its rows name a municipality and a
+ * state, which postcodes it covers, where its bulk file is) is data of the
+ * country: the `addressRegister` block of its released `fact_definitions`
+ * record (`wire/setup-facts.ts`), read here into a {@link SiteReference}. A
+ * second country's register is a record and an importer for its file format,
+ * never an entry in this module; one whose record is not published is no
+ * register, so its addresses stay `unverified` (`no_register`).
  */
 
-import { FEDERAL_STATE_TERRITORIES } from '@/lib/base-knowledge/office/reading'
-import { SITE_SUBDIVISIONS } from '@/lib/project-profile/intake-stages/project-basis'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+import type { AddressRegisterRecord } from '@/lib/base-knowledge/wire/setup-facts'
+import { addressRegistersOf, subdivisionLabels, subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 
 export interface AddressRegister {
   /** `<country>-<publisher>`, the `register` column of `address_register_releases`. */
@@ -29,52 +34,55 @@ export interface AddressRegister {
    * E30): not a filter, and not evidence of the neighbour. Any other postcode of
    * another shape is such evidence, and the register is not searched.
    */
-  crossBorderPostcodes: RegExp
+  crossBorderPostcodes: RegExp | null
   /** The state (Land) a municipality lies in, from its code alone; null when the code names none. */
   stateOf: (code: string) => string | null
   /** The bulk file the importer reads: an official download, never a query. */
   downloadUrl: (referenceDate: string) => string
 }
 
-/** The first digit of a Gemeindekennziffer is its Land, numbered as ISO 3166-2:AT numbers them. */
-function austrianStateOf(code: string): string | null {
-  return /^[1-9]\d{4}$/.test(code) ? `AT-${code[0]}` : null
+/** A register record as the functions the resolver and the importer call. */
+export function registerFromRecord(country: string, record: AddressRegisterRecord): AddressRegister {
+  const stateOfCode = record.stateFromCode
+  const statePattern = stateOfCode ? new RegExp(stateOfCode.pattern) : null
+  return {
+    id: record.id,
+    country,
+    publisher: record.publisher,
+    municipalityTerritory: (code) => record.municipalityTerritory.replace('{code}', code),
+    postcodeShape: new RegExp(record.postcodePattern),
+    crossBorderPostcodes: record.crossBorderPostcodePattern ? new RegExp(record.crossBorderPostcodePattern) : null,
+    stateOf: (code) => {
+      const match = statePattern?.exec(code)
+      return match && stateOfCode ? stateOfCode.territory.replace('{1}', match[1] ?? '') : null
+    },
+    downloadUrl: (referenceDate) => record.downloadUrl.replace('{yyyymmdd}', referenceDate.replace(/-/g, '')),
+  }
 }
 
-export const BEV_ADDRESS_REGISTER: AddressRegister = {
-  id: 'at-bev',
-  country: 'AT',
-  publisher: 'BEV – Bundesamt für Eich- und Vermessungswesen (Österreichisches Adressregister)',
-  municipalityTerritory: (code) => `AT:gkz:${code}`,
-  postcodeShape: /^\d{4}$/,
-  // Mittelberg (Kleinwalsertal) 87567–87569, Jungholz 87491.
-  crossBorderPostcodes: /^(8756[7-9]|87491)$/,
-  stateOf: austrianStateOf,
-  // The relational tables as of a reference date ("Stichtagsdaten"), published twice a year (CC BY 4.0).
-  downloadUrl: (referenceDate) =>
-    `https://data.bev.gv.at/download/Adressregister/Archiv_Adressregister/Adresse_Relationale_Tabellen_Stichtagsdaten_${referenceDate.replace(/-/g, '')}.zip`,
+/** What the resolver reads of the released records: the registers, and the Länder as a person and the intake read them. */
+export interface SiteReference {
+  registers: Readonly<Record<string, AddressRegister>>
+  /** The Länder as a person reads them, by ISO 3166-2 code. */
+  stateNames: Readonly<Record<string, string>>
+  /** The intake's `federal_state` token of a Land (`AT-6` is `styria`), or null. */
+  federalStateToken: (stateTerritory: string) => string | null
 }
 
-/** Every register a cell can host, by id. */
-export const ADDRESS_REGISTERS: Readonly<Record<string, AddressRegister>> = {
-  [BEV_ADDRESS_REGISTER.id]: BEV_ADDRESS_REGISTER,
+/** The site reference of the setup records in force: empty without any (fail closed: no register, no Land). */
+export function siteReferenceOf(records: readonly StoredRuleset[], on?: string): SiteReference {
+  const registers = Object.fromEntries(
+    addressRegistersOf(records, on).map(({ country, register }) => [register.id, registerFromRecord(country, register)])
+  )
+  const tokenByTerritory = new Map(Object.entries(subdivisionTerritories(records, on)).map(([token, territory]) => [territory, token]))
+  return {
+    registers,
+    stateNames: subdivisionLabels(records, on),
+    federalStateToken: (stateTerritory) => tokenByTerritory.get(stateTerritory) ?? null,
+  }
 }
 
-/** The register for a country, or null when no register is defined for it (Germany until E31). */
-export function registerFor(country: string): AddressRegister | null {
-  return Object.values(ADDRESS_REGISTERS).find((register) => register.country === country) ?? null
+/** The register for a country, or null when no published record describes one for it. */
+export function registerFor(reference: SiteReference, country: string): AddressRegister | null {
+  return Object.values(reference.registers).find((register) => register.country === country) ?? null
 }
-
-const FEDERAL_STATE_TOKEN_BY_TERRITORY: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(FEDERAL_STATE_TERRITORIES).map(([token, territory]) => [territory, token])
-)
-
-/** The intake's `federal_state` token of an Austrian Land (`AT-6` → `styria`), or null. */
-export function federalStateToken(stateTerritory: string): string | null {
-  return FEDERAL_STATE_TOKEN_BY_TERRITORY[stateTerritory] ?? null
-}
-
-/** The Länder as a person reads them, by ISO 3166-2 code, from the country's `fact_definitions` record (`SITE_SUBDIVISIONS`). */
-export const STATE_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
-  SITE_SUBDIVISIONS.options.map((option) => [option.territoryId, option.label]),
-)

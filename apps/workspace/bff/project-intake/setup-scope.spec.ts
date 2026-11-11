@@ -9,8 +9,16 @@ import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { deriveAll, withDerivedClass } from './derivation-view'
 import { planRecord } from './record'
-import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf, siteOfProfile } from './setup-scope'
-import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
+import {
+  buildingClassificationOf,
+  factDefinitionsOf,
+  factSourcesOf,
+  hasSetupRecords,
+  setupScopeOf,
+  siteOfProfile,
+  subdivisionTerritories,
+} from './setup-scope'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 import { GERMAN_RECORDS, SWISS_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
 
 const scope = (facts: Parameters<typeof placedProfile>[0], records = THREE_COUNTRIES) =>
@@ -53,7 +61,7 @@ describe('setupScopeOf', () => {
         values: { ...record.values, body: { ...body, payload: { ...body.payload, subdivisions: { ...subdivisions, options } } } },
       }
     })
-    const records = [...SHIPPED_SETUP_RECORDS, ...GERMAN_RECORDS, ...swissBavaria]
+    const records = [...AT_SETUP_RECORDS, ...GERMAN_RECORDS, ...swissBavaria]
     const geocoded = (federalState: string) =>
       setupScopeOf(placedProfile({}), { records, on: '2026-11-10', location: { federalState } }).chain
     expect(geocoded('bavaria')).toEqual([])
@@ -119,20 +127,22 @@ describe('only its own country’s options', () => {
 })
 
 describe('siteOfProfile, for the BIM rules', () => {
+  const records = THREE_COUNTRIES
+
   it('places, leaves unplaced, and reads a contradiction as unknown rather than as abroad', () => {
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }))).toEqual({ chain: ['AT-9', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'other' }))).toEqual({ chain: [] })
-    expect(siteOfProfile(placedProfile({}))).toBeNull()
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }))).toBeNull()
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { records })).toEqual({ chain: ['AT-9', 'AT'] })
+    expect(siteOfProfile(placedProfile({ country: 'other' }), { records })).toEqual({ chain: [] })
+    expect(siteOfProfile(placedProfile({}), { records })).toBeNull()
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'outside_austria' }), { records })).toBeNull()
   })
 
   it('reads the geocoded Land the intake reads, where the profile states none', () => {
     // An Austrian project placed only by geocoding: without its Land every OIB rule stays open.
-    expect(siteOfProfile(placedProfile({ country: 'at' }), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({}), { federalState: 'styria' })).toEqual({ chain: ['AT-6', 'AT'] })
-    expect(siteOfProfile(placedProfile({ country: 'at' }))).toEqual({ chain: ['AT'] })
+    expect(siteOfProfile(placedProfile({ country: 'at' }), { records, location: { federalState: 'styria' } })).toEqual({ chain: ['AT-6', 'AT'] })
+    expect(siteOfProfile(placedProfile({}), { records, location: { federalState: 'styria' } })).toEqual({ chain: ['AT-6', 'AT'] })
+    expect(siteOfProfile(placedProfile({ country: 'at' }), { records })).toEqual({ chain: ['AT'] })
     // A stated Land outranks the geocoder's.
-    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { federalState: 'styria' })).toEqual({
+    expect(siteOfProfile(placedProfile({ country: 'at', federal_state: 'vienna' }), { records, location: { federalState: 'styria' } })).toEqual({
       chain: ['AT-9', 'AT'],
     })
   })
@@ -144,7 +154,8 @@ describe('a site written by a reading', () => {
     planRecord(profile, projectIntakeDefinitionV1, [{ key, screened: { key, value, evidence, reason: 'gelesen' }, refusal: null }], {
       now: '2026-11-10T00:00:00Z',
       readingId: 'job-1',
-      needs: { mode: 'active', dismissed: [] },
+      needs: { mode: 'active', dismissed: [], records: THREE_COUNTRIES },
+      records: THREE_COUNTRIES,
     })
 
   it('leaves a building’s class alone when the Land moves within Austria', () => {
@@ -176,5 +187,22 @@ describe('a site written by a reading', () => {
     const plan = record(placedProfile(building), 'country', 'at')
     expect(plan.profile.assumptions['building_class@bldg1']?.value).toBe(1)
     expect(plan.changedKeys).toContain('building_class@bldg1')
+  })
+})
+
+describe('a country whose records are not published', () => {
+  it('is placed in its country and nothing more: no subdivision, class or request stands in', () => {
+    const none = (facts: Parameters<typeof placedProfile>[0]) => setupScopeOf(placedProfile(facts), { records: [], on: '2026-11-10' })
+    expect(none({ country: 'at', federal_state: 'vienna' }).chain).toEqual(['AT'])
+    expect(factDefinitionsOf(none({ country: 'at' }))).toBeNull()
+    expect(factSourcesOf(none({ country: 'at' }))).toBeNull()
+    expect(buildingClassificationOf(none({ country: 'at', federal_state: 'vienna' }))).toBeNull()
+  })
+
+  it('answers the one subdivision a record lists for a token, and none for a token without a record', () => {
+    expect(subdivisionTerritories(THREE_COUNTRIES, '2026-11-10')).toMatchObject({ vienna: 'AT-9', bavaria: 'DE-BY', zurich: 'CH-ZH' })
+    expect(subdivisionTerritories([], '2026-11-10')).toEqual({})
+    expect(hasSetupRecords(THREE_COUNTRIES, 'DE', '2026-11-10')).toBe(true)
+    expect(hasSetupRecords(AT_SETUP_RECORDS, 'DE', '2026-11-10')).toBe(false)
   })
 })

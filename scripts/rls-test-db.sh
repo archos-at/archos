@@ -216,6 +216,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/agent-api/operation-proposals.integration.spec.ts \
     bff/agent-api/read-gate.integration.spec.ts \
     bff/project-intake/repository.integration.spec.ts \
+    bff/project-intake/setup-records.integration.spec.ts \
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BaseKnowledgeEntry } from '../wire'
 import { projectTerritory } from './authority'
 import { BASE_KNOWLEDGE_HEADER, MAX_TURN_ENTRIES, renderBaseKnowledgeBlock } from './turn-block'
+import { AT_SUBDIVISIONS } from '@/lib/project-intake/at-setup.fixtures'
 
 function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Partial<BaseKnowledgeEntry> = {}): BaseKnowledgeEntry {
   return {
@@ -38,9 +39,9 @@ function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Part
   }
 }
 
-const VIENNA = projectTerritory({ federalState: 'vienna' })
-const GRAZ = projectTerritory({ federalState: 'styria' })
-const UNKNOWN = projectTerritory({})
+const VIENNA = projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS)
+const GRAZ = projectTerritory({ federalState: 'styria' }, AT_SUBDIVISIONS)
+const UNKNOWN = projectTerritory({}, AT_SUBDIVISIONS)
 
 describe('the base knowledge a turn carries', () => {
   it('names the standard, its edition, its file and its last check', () => {

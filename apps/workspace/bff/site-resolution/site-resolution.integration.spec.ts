@@ -26,6 +26,8 @@ import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { AT_FACT_DEFINITIONS_VALUES, BEV_ADDRESS_REGISTER } from '@/lib/project-intake/at-setup.fixtures'
+
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
 // Project access is WorkOS FGA; the tenant boundary under it is what this spec reads through.
@@ -46,7 +48,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   let service: typeof import('./service')
   let importer: typeof import('./import')
   let bev: typeof import('./bev')
-  let registers: typeof import('./registers')
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let raw: import('postgres').Sql
@@ -69,7 +70,7 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
 
   const importFixture = (referenceDate: string, keep?: number, extra: import('./bev').RegisterEntry[] = []) =>
     importer.importRelease(withPlatform, {
-      register: registers.BEV_ADDRESS_REGISTER,
+      register: BEV_ADDRESS_REGISTER,
       referenceDate,
       attribution: bev.bevAttribution(referenceDate),
       sourceUrl: null,
@@ -177,7 +178,6 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     service = await import('./service')
     importer = await import('./import')
     bev = await import('./bev')
-    registers = await import('./registers')
     const postgres = (await import('postgres')).default
     raw = postgres(url!, { max: 2 })
     const scope = (await import('../../workers/platform-scope.js')).default
@@ -200,6 +200,9 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
       ),
     )
     projectId = String(created.id)
+    // The register's rules are Austria's released record, read as the office reads it (country-as-data, step 3).
+    const { insertOfficeRuleset } = await import('@/lib/base-knowledge/store/rulesets')
+    await insertOfficeRuleset(ORG, AT_FACT_DEFINITIONS_VALUES, { createdBy: USER, provenance: { proposedBy: 'person' }, inForce: true })
   })
 
   afterAll(async () => {
@@ -210,6 +213,14 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
   it('resolves every typed address as unverified while no register is imported (fail closed)', async () => {
     const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
     expect(resolution).toMatchObject({ status: 'unverified', reason: 'no_register', candidates: [] })
+  })
+
+  it('searches no register a published record does not describe, though a release is active (fail closed)', async () => {
+    await importFixture('2025-10-01')
+    // An office with no published setup records: the release is the cell's, the register's rules are the country's records.
+    const unpublished = { organizationId: `${ORG}_unpublished`, userId: USER } as import('@/lib/auth/types').AuthorizedSession
+    expect(await service.resolveSite(unpublished, 'Herrengasse 16, 8010 Graz', now)).toMatchObject({ status: 'unverified', reason: 'no_register' })
+    await withPlatform((tx) => tx`DELETE FROM address_register_releases WHERE register = 'at-bev'`.then(() => undefined))
   })
 
   it('imports the fixture as the active release', async () => {
@@ -349,7 +360,7 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     await expect(importFixture('2026-10-01', 5)).rejects.toThrow(importer.ReleaseRefusedError)
     await expect(importFixture('2025-10-01')).rejects.toThrow(/not after the active release/)
     await expect(importer.importRelease(withPlatform, {
-      register: registers.BEV_ADDRESS_REGISTER, referenceDate: '2026-10-01', attribution: 'x', sourceUrl: null, entries: fixtureEntries(), maxShrink: Number.NaN,
+      register: BEV_ADDRESS_REGISTER, referenceDate: '2026-10-01', attribution: 'x', sourceUrl: null, entries: fixtureEntries(), maxShrink: Number.NaN,
     })).rejects.toThrow(/maxShrink/)
     const resolution = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
     expect(resolution.status === 'verified' && resolution.site.register.referenceDate).toBe('2026-04-01')

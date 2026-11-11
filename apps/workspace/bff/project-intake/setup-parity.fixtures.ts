@@ -16,6 +16,7 @@ import { deriveAll, withDerivedClass } from './derivation-view'
 import { locationRegisterFor } from './location-register'
 import { computeNeeds } from './needs'
 import type { IntakeMode } from './types'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const AT = '2026-11-10T00:00:00.000Z'
 
@@ -110,12 +111,12 @@ export function parityCases(): ParityCase[] {
 export function setupReadings(parityCase: ParityCase) {
   const { profile, location, mode } = parityCase
   const definition = projectIntakeDefinitionV1
-  const needs = computeNeeds(profile, definition, { mode, dismissed: [] })
+  const needs = computeNeeds(profile, definition, { mode, dismissed: [], records: AT_SETUP_RECORDS })
   return {
     needs,
-    derivations: deriveAll(profile, definition),
-    register: locationRegisterFor({ profile, location, mode, needs }),
-    derived: withDerivedClass(profile, definition, 'bldg1', AT),
+    derivations: deriveAll(profile, definition, { records: AT_SETUP_RECORDS }),
+    register: locationRegisterFor({ profile, location, mode, needs, records: AT_SETUP_RECORDS }),
+    derived: withDerivedClass(profile, definition, 'bldg1', AT, { records: AT_SETUP_RECORDS }),
   }
 }
 

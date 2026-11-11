@@ -29,6 +29,8 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
+import { readSetupRecords } from '@/lib/project-intake/setup-records'
+import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectBuildings } from '../chain/building'
 import type { BuildingScope } from '../rulesets/applicability'
 import { loadGraph } from '../chain/load'
@@ -193,14 +195,15 @@ export function unavailableContext(date: string): KnowledgeContext {
 
 /** The inputs that decide a turn's context, read as the office. */
 export async function readContextInputs(organizationId: string, projectId: string | null): Promise<ContextDigestInputs> {
-  const [countries, profile, zone, stamp] = await Promise.all([
+  const [countries, profile, zone, stamp, setupRecords] = await Promise.all([
     readOrganizationCountries(organizationId),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
     officeTimeZone(organizationId),
     recordsStamp(organizationId),
+    readSetupRecords(organizationId),
   ])
   const entitled = countries.entitled.map((entry) => entry.countryId)
-  const sites = siteLeaves(profile?.profile)
+  const sites = siteLeaves(profile?.profile, subdivisionTerritories(setupRecords))
   const facts = profile?.profile?.facts ?? {}
   const date = calendarDayIn(zone)
   return {
@@ -212,7 +215,7 @@ export async function readContextInputs(organizationId: string, projectId: strin
     packSeqs: await packSequences([...entitled, 'EU']),
     procedures: proceduresOf(facts, sites),
     recordsStamp: stamp,
-    buildings: projectBuildings(profile?.profile, date),
+    buildings: projectBuildings(profile?.profile, date, setupRecords),
   }
 }
 
