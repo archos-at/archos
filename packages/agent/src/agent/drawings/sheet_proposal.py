@@ -7,7 +7,9 @@ printed value. This module picks that reference; the tool hands it to the
 model as the exact call to propose, and a person accepts or dismisses the card.
 
 Nothing here writes, and nothing here is believed: the proposal is a question.
-It is offered only where the sheet's own figures corroborate the hint. Where
+It is offered only for a region the file itself stores, and only where the
+sheet's own figures corroborate the hint. Under a printed scale note alone no
+region has an edge, so none is proposed. Where
 they do not, the unit the figures are printed in is not settled, and a
 reference taken from one of them could be wrong by a factor of ten behind a
 card that looks the same. That region is calibrated by hand, in the review
@@ -23,7 +25,6 @@ from dataclasses import dataclass
 from agent.drawings.sheet_scale import FigureCheck
 from agent.drawings.sheet_scale import Hint
 from agent.drawings.sheet_scale import ScaleReading
-from agent.drawings.sheet_scale import agreeing_extent
 from agent.drawings.sheet_scale import contains
 from agent.drawings.sheet_scale import corroborate
 from agent.drawings.sheet_types import Box
@@ -80,11 +81,15 @@ def proposal_for(sheet: Sheet, scale: ScaleReading | None, page: int) -> Calibra
     """
     if scale is None or scale.state != "estimated" or scale.metres_per_point is None:
         return None
+    # Only a region the FILE stores has an edge of its own. Under a printed scale note the scale covers the
+    # page, and any box drawn here around the agreeing dimensions could take in a neighbouring view at another
+    # scale, which the calibration would then make `verified`. There the person draws the frame themselves.
+    if scale.source != "stored_region":
+        return None
     found = corroborate(sheet, Hint(scale.source, scale.metres_per_point, scale.box, 0.0, scale.label))
     if not found.corroborated:
         return None
-    # A stored region is the file's own; a scale note covers the page, and a calibration never does.
-    box = scale.box if scale.source == "stored_region" else _on_page(sheet, agreeing_extent(found))
+    box = _on_page(sheet, scale.box)
     usable = [check for check in found.checks if check.agrees and _well_inside(box, check)]
     if not usable:
         return None

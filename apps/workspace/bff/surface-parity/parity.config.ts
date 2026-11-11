@@ -214,13 +214,8 @@ export const SURFACE_CAPABILITIES = {
     operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
     // The calibrate tool: the layer takes the points and the region, the panel shows the ratio before saving and the page's active calibrations.
     canvas: { component: `${REVIEW}/calibration-panel.tsx` },
-    chat: {
-      gap: {
-        slice: 'drawing-measure slice 6',
-        reason:
-          'The chat has no card that asks a person to confirm a scale yet: a calibration is set and withdrawn in the review view only, and an answer that needs one cannot ask for it.',
-      },
-    },
+    // The agent's set call is an `operation` proposal; its receipt draws the page clip with the reference span.
+    chat: { card: 'operation_proposal', component: 'features/cards/components/CalibrationProposalPreview.tsx' },
   },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 

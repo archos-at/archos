@@ -626,7 +626,10 @@ otherwise to state as „not verified because“ in the closing checklist.
   the model makes the call: the tool files nothing itself, so the card exists
   when the model follows the line, not by construction. The same sheet and
   region give the same call, so a repeat opens no second card. A proposal is
-  offered only on a CORROBORATED estimate. Where the figures do not corroborate
+  offered only for a region the FILE stores: under a printed scale note alone
+  no region has an edge, and a box drawn around the agreeing dimensions could
+  take in a neighbouring view at another scale, which the calibration would
+  then make `verified`. And it is offered only on a CORROBORATED estimate. Where the figures do not corroborate
   the hint, the unit they are printed in is not settled, and a reference taken
   from one could be wrong by ten behind a card that looks the same: that
   region gets no card and is calibrated by hand in the review view. A region

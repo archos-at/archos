@@ -62,15 +62,13 @@ def test_the_same_sheet_proposes_the_same_call_every_time() -> None:
     assert "workspace__call operation 'drawing-calibration-set'" in first[0] and '"id":"doc-1"' in first[0]
 
 
-def test_a_scale_note_alone_never_proposes_the_page_as_its_region() -> None:
+def test_a_scale_note_alone_proposes_nothing_because_no_region_there_has_an_edge() -> None:
+    """A box around the agreeing dimensions could take in a neighbouring view at another scale."""
     drawn, sheet = floor(stored_region=False)
     reading = _reading(sheet, drawn)
 
-    proposal = proposal_for(sheet, reading, 1)
-
-    assert reading.state == "estimated" and reading.source == "scale_note" and proposal is not None
-    _, _, w, h = proposal.region
-    assert w < 0.999 or h < 0.999
+    assert reading.state == "estimated" and reading.source == "scale_note"
+    assert proposal_for(sheet, reading, 1) is None
 
 
 def test_nothing_is_proposed_where_the_scale_is_not_a_corroborated_estimate() -> None:
