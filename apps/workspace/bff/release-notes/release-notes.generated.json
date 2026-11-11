@@ -881,6 +881,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+            "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",

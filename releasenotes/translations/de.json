@@ -1236,6 +1236,10 @@
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
   },
   {
+    "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+    "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
+  },
+  {
     "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
     "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
   },
