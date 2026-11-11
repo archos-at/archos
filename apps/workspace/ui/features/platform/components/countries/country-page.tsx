@@ -115,7 +115,15 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
           <OverviewSection coverage={coverage} step={step} onGo={go} />
         </TabsContent>
         <TabsContent value="works">
-          <WorksSection texts={texts.load} drafts={drafts} onRetry={texts.reload} onOpen={open} />
+          <WorksSection
+            countryId={countryId}
+            texts={texts.load}
+            drafts={drafts}
+            onRetry={texts.reload}
+            onOpen={open}
+            onAdded={reloadAll}
+            onReview={(id) => (go('review'), open(id))}
+          />
         </TabsContent>
         <TabsContent value="sources">
           <SourcesSection sources={sources} onRetry={allSources.reload} />

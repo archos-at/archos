@@ -130,7 +130,7 @@ export const procedureContextSchema = z
     procedureType: z.string().nullable(),
     filedOn: z.string().nullable(),
     decidedOn: z.string().nullable(),
-    /** The reference day per legislating node; `undetermined` until a reviewed rule names it (design §5.4, "nicht bestimmt" until `full`). */
+    /** The reference day per legislating node: the filing day once it has come (`filed_on`, an assumption), else `undetermined` until a reviewed rule names it (design §5.4). */
     referenceDates: z.record(
       z.string(),
       z.object({ date: z.iso.date().nullable(), basis: z.enum(['undetermined', 'filed_on']) }).strict(),
