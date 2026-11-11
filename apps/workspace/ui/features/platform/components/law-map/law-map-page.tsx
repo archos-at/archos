@@ -13,7 +13,7 @@
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Map as MapIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -27,6 +27,7 @@ import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import { lawMapOf } from '@/lib/base-knowledge/platform/law-map'
 import { reviewUnitsOf } from '@/lib/base-knowledge/platform/law-map-review'
 import type { ChangeRequestSummary, ChangeRequestView } from '@/lib/base-knowledge/platform/wire'
+import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
 import { countryName } from '../change-request-format'
 import { usePlatformJson } from '../countries/use-platform-json'
 import { branchesOf, LawMapOutline } from './law-map-outline'
@@ -46,7 +47,10 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   // Only a request id goes into the path; anything else reads as no request named.
   const asked = params.get('request')
   const named = asked && /^[0-9a-f-]{36}$/i.test(asked) ? asked : null
-  const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(named ? null : `${BASE}?countryId=${countryId}&limit=200`)
+  const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(`${BASE}?countryId=${countryId}&limit=200`)
+  const canWrite = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
+  const sources = usePlatformJson<{ sources: SourceStatusView[] }>(canWrite ? '/api/platform/knowledge/sources' : null)
+  const router = useRouter()
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
   const map = useMemo(() => (request.load.state === 'ready' ? lawMapOf(countryId, request.load.value.revisions, request.load.value.captures) : null), [request.load, countryId])
@@ -108,6 +112,9 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="law-map">
       {header(t('request', { title: view.title }))}
+      {list.load.state === 'ready' ? (
+        <OtherRequests requests={list.load.value.changeRequests.filter((one) => one.id !== view.id && ['draft', 'submitted', 'approved'].includes(one.status))} href={(id) => `${countryHref}/map?request=${id}`} label={(title) => t('otherRequest', { title })} />
+      ) : null}
       {reviewable && canReview ? (
         <div className="flex flex-wrap items-center gap-3 text-sm">
           {waiting.length > 0 ? (
@@ -127,11 +134,33 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
       {units.length === 0 ? (
         <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
       ) : (
-        <LawMapOutline map={map} units={new Map(units.map((unit) => [unit.key, unit]))} confirm={confirm} today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
+        <LawMapOutline
+          map={map}
+          units={new Map(units.map((unit) => [unit.key, unit]))}
+          confirm={confirm}
+          add={
+            canWrite && sources.load.state === 'ready'
+              ? { countryId, sources: sources.load.value.sources.filter((source) => source.countryId === countryId), onAdded: (id) => router.push(`${countryHref}/map?request=${id}`) }
+              : null
+          } today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
       )}
       <Link href={`${countryHref}?section=review&request=${view.id}`} className="text-muted-foreground text-sm underline underline-offset-2">
         {t('openRequest')}
       </Link>
     </div>
+  )
+}
+
+/** The country's other open requests, one link each: a draft "+ Add" wrote into, or the one under review. */
+function OtherRequests({ requests, href, label }: { requests: readonly ChangeRequestSummary[]; href: (id: string) => string; label: (title: string) => string }): JSX.Element | null {
+  if (requests.length === 0) return null
+  return (
+    <p className="text-muted-foreground flex flex-wrap gap-x-4 text-sm">
+      {requests.map((one) => (
+        <Link key={one.id} href={href(one.id)} className="underline underline-offset-2">
+          {label(one.title)}
+        </Link>
+      ))}
+    </p>
   )
 }

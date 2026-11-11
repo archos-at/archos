@@ -16,6 +16,8 @@ import { lawMapCopy } from '@/i18n/namespaces/law-map'
 import type { ReviewUnit } from '@/lib/base-knowledge/platform/law-map-review'
 import { Branch, OutlineRow, SourceQuote, Unfold } from './law-map-atoms'
 import { ConfirmBar, type ConfirmContext } from './law-map-confirm'
+import { AddActForm, AddEditionForm } from './law-map-add-forms'
+import type { SourceStatusView } from '@/lib/base-knowledge/platform/source-service'
 
 function useDate(): (iso: string | null) => string {
   const { locale } = useLocale()
@@ -214,8 +216,27 @@ export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
   return []
 }
 
-export function LawMapOutline({ map, units, confirm, today, rootName, expanded, toggle, open, setOpen }: {
+/** What "+ Add" needs: the country, its sources (a page on their hosts is fetched), and where to go once added. */
+export interface AddContext {
+  countryId: string
+  sources: readonly SourceStatusView[]
+  onAdded: (requestId: string) => void
+}
+
+/** A quiet row that opens its form in place. */
+function AddRow({ o, id, label, children }: { o: Outline; id: string; label: string; children: (close: () => void) => ReactNode }): JSX.Element {
+  return o.open === id ? (
+    <>{children(() => o.flip(id))}</>
+  ) : (
+    <button type="button" onClick={() => o.flip(id)} className="text-muted-foreground hover:text-foreground w-full border-b py-2.5 text-left text-sm" data-testid={id}>
+      + {label}
+    </button>
+  )
+}
+
+export function LawMapOutline({ map, units, confirm, add, today, rootName, expanded, toggle, open, setOpen }: {
   map: LawMap
+  add: AddContext | null
   units: ReadonlyMap<string, ReviewUnit>
   confirm: ConfirmContext
   today: string
@@ -274,6 +295,11 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
                 <Branch>
                   {statements.length === 0 ? <p className="text-muted-foreground py-2.5 text-sm">{t('noActs')}</p> : null}
                   <OwnLaw o={o} statutes={statutesOn(map, id)} statements={statements} />
+                  {add ? (
+                    <AddRow o={o} id={`add-act-${id}`} label={t('addActTo', { region: territory?.name ?? id })}>
+                      {(close) => <AddActForm map={map} territoryId={id} countryId={add.countryId} sources={add.sources} onAdded={add.onAdded} onCancel={close} />}
+                    </AddRow>
+                  ) : null}
                   <BelowRegion o={o} territoryId={id} />
                 </Branch>
               ) : null}
@@ -316,6 +342,11 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
                               <EditionBody o={o} edition={edition} />
                             </Openable>
                           ))}
+                          {add ? (
+                            <AddRow o={o} id={`add-edition-${topic.workId}`} label={t('addEditionOf', { designation: topic.designation })}>
+                              {(close) => <AddEditionForm workId={topic.workId} designation={topic.designation} countryId={add.countryId} onAdded={add.onAdded} onCancel={close} />}
+                            </AddRow>
+                          ) : null}
                         </Branch>
                       ) : null}
                     </div>
