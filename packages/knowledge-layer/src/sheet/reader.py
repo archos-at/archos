@@ -43,6 +43,10 @@ from knowledge_layer.ingest import pdfium_guard
 
 #: A page with more line segments than this is refused, with the count: it is the bound of one page in memory.
 MAX_SEGMENTS_PER_PAGE = 2_000_000
+#: The most characters one page's text layer may hold. Each is copied out under the process-wide PDFium lock,
+#: so a text layer without bound would hold every other render of the process up; a page past it is refused
+#: whole, never read in part (a dense A0 sheet measured holds some tens of thousands).
+MAX_CHARACTERS_PER_PAGE = 400_000
 
 MM_PER_POINT = 25.4 / 72
 
@@ -71,6 +75,14 @@ class SheetTooLarge(Exception):
     def __init__(self, segments: int) -> None:
         super().__init__(f"the page holds more than {segments:,} line segments")
         self.segments = segments
+
+
+class TextTooLarge(ValueError):
+    """The page's text layer holds more characters than one page may (:data:`MAX_CHARACTERS_PER_PAGE`)."""
+
+    def __init__(self, characters: int) -> None:
+        super().__init__(f"the page's text layer holds more than {characters:,} characters")
+        self.characters = characters
 
 
 def to_shown(x: float, y: float, width_u: float, height_u: float, rotate: int) -> tuple[float, float]:
@@ -230,6 +242,8 @@ def _raw_character(raw: Any, text_page: Any, index: int) -> tuple | None:
 def _raw_characters(raw: Any, text_page: Any) -> list[tuple]:
     """Every printed character, in file order. Called under the lock."""
     count = raw.FPDFText_CountChars(text_page)
+    if count > MAX_CHARACTERS_PER_PAGE:
+        raise TextTooLarge(MAX_CHARACTERS_PER_PAGE)
     return [char for index in range(count) if (char := _raw_character(raw, text_page, index)) is not None]
 
 

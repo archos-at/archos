@@ -432,7 +432,9 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Build, either way:** the answer on an `estimated` or `uncalibrated` region
   carries the card; the receipt shows the crop (`PageRegionThumbnail`), the
   proposed ratio, its source and how many figures agreed; the person confirms,
-  dismisses, or opens the sheet with the calibrate tool pre-filled; the decision
+  dismisses, or opens the sheet with the calibrate tool pre-filled. A region
+  with no hint at all has no ratio to propose: its card shows the crop and
+  offers the calibrate tool only. The decision
   reaches the next turn (`proposal-decisions.ts`: `describePayload` returns `null`
   for a kind it does not know). The card is `live` in `CARD_INTERACTIVITY`, with
   its case in the live-card ratchet.
