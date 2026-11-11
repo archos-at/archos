@@ -291,6 +291,15 @@ def test_a_job_a_dead_process_left_processing_reads_interrupted(tmp_path, monkey
         ingest_status_store._initialized.discard(url)
 
 
+def test_a_job_nothing_knows_any_more_is_unknown_not_failed(tmp_path, monkeypatch, held_ingestor):
+    url = f"sqlite:///{tmp_path / 'jobs.db'}"
+    monkeypatch.setenv("SUMMARY_DB", url)
+    try:
+        assert held_ingestor.get_job_status("pruned-long-ago") is None
+    finally:
+        ingest_status_store._initialized.discard(url)
+
+
 def test_startup_settles_and_each_beat_vouches_for_live_jobs_only(monkeypatch, held_ingestor):
     calls: list[object] = []
     monkeypatch.setattr(ingest_status_store, "fail_interrupted", lambda: calls.append("sweep") or 0)

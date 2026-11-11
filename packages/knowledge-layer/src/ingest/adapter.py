@@ -2921,8 +2921,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             # `ingest_status_store.prune_expired` removes it on its own clock.
             logger.debug("Pruned %d completed job(s) from tracking", len(stale))
 
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
-        """Get current status of an ingestion job."""
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
+        """Get current status of an ingestion job, or None when no process and no shared record knows it."""
         self._prune_completed_jobs()
         with self._lock:
             local = self._jobs.get(job_id)
@@ -2932,20 +2932,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         # Fall back to the shared store so status polls resolve from anywhere.
         # A live row whose owning process is gone (a restart) comes back failed
         # with the retryable reason `interrupted`, not in progress forever.
-        shared = ingest_status_store.get(job_id)
-        if shared is not None:
-            return shared
-        return IngestionJobStatus(
-            job_id=job_id,
-            status=JobState.FAILED,
-            submitted_at=datetime.utcnow(),
-            total_files=0,
-            processed_files=0,
-            collection_name="unknown",
-            backend=self.backend_name,
-            error_message="Job ID not found",
-            completed_at=datetime.utcnow().isoformat(),
-        )
+        # A job past the store's retention is unknown, not failed: the BFF then
+        # settles the row from the collection listing.
+        return ingest_status_store.get(job_id)
 
     # =========================================================================
     # Collection Management Implementation
