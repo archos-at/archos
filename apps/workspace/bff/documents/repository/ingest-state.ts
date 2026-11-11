@@ -10,7 +10,7 @@ import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
-import { statusAccepts } from './mutations'
+import { statusAccepts, unchangedSinceDispatch, type DispatchStart } from './mutations'
 import { BACKGROUND_JOB_METADATA_FIELD, type LocalWorkOwnership } from '../local-work-ownership'
 
 /**
@@ -129,6 +129,13 @@ export function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
   )
 }
 
+/** The rows a failure may land on, by who reports it: local work, a dispatch, or a caller that has just read the row. */
+function failureLandsOn(from: LocalWorkOwnership | DispatchStart | undefined): SQL | undefined {
+  if (!from) return statusAccepts('fail')
+  if ('ingestJobId' in from) return and(statusAccepts('fail'), unchangedSinceDispatch(from))
+  return stillOwnedBy(from)
+}
+
 /**
  * Persist an ingestion failure so status reads tell the truth. Without this a
  * document whose ingest dispatch never started would sit at 'uploaded' — which
@@ -149,13 +156,22 @@ export function stillOwnedBy(owned: LocalWorkOwnership): SQL | undefined {
  * its last attempt failed a row a person had archived or re-read meanwhile:
  * the document read `failed` although its bytes were indexed, or the job for
  * its new bytes found the row no longer `processing` and left without reading
- * them. Returns whether the row took the failure.
+ * them.
+ *
+ * A dispatch reports late too: the backend may take twenty seconds to not
+ * answer, and by then a second dispatch may have put the row in flight under
+ * its own job, or a re-upload replaced the bytes. It passes what it read of
+ * the row before it asked ({@link DispatchStart}), and its failure lands only
+ * on the row as it found it. Without that the row read `failed` beside a live
+ * job, and nothing asked about it again: the settle push and the sweeps select
+ * rows in flight. A row with nothing newer on it takes the failure as before,
+ * whatever its state. Returns whether the row took the failure.
  */
 export async function markDocumentIngestFailed(
   documentId: string,
   organizationId: string,
   errorMessage: string,
-  owned?: LocalWorkOwnership,
+  from?: LocalWorkOwnership | DispatchStart,
 ): Promise<boolean> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -166,7 +182,7 @@ export async function markDocumentIngestFailed(
         and(
           eq(documents.id, documentId),
           eq(documents.organizationId, organizationId),
-          owned ? stillOwnedBy(owned) : statusAccepts('fail'),
+          failureLandsOn(from),
         ),
       )
       .returning({ projectId: documents.projectId, scope: documents.scope }),

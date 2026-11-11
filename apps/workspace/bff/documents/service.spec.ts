@@ -632,7 +632,7 @@ describe('uploadDocument ingest dispatch', () => {
 
     expect(result.status).toBe('pending')
     expect(result.jobId).toBe('job-42')
-    expect(setDocumentIngestJob).toHaveBeenCalledWith(result.documentId, 'org-1', 'job-42', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith(result.documentId, 'org-1', 'job-42', null, expect.objectContaining({ ingestJobId: null }))
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
     // Document is first inserted as 'uploaded' before the job id lands.
     expect(admitOrDiscard).toHaveBeenCalledWith(
@@ -652,7 +652,8 @@ describe('uploadDocument ingest dispatch', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       result.documentId,
       'org-1',
-      INGEST_DISPATCH_FAILED_MESSAGE
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      expect.objectContaining({ ingestJobId: null })
     )
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
@@ -671,7 +672,8 @@ describe('uploadDocument ingest dispatch', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       result.documentId,
       'org-1',
-      INGEST_DISPATCH_FAILED_MESSAGE
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      expect.objectContaining({ ingestJobId: null })
     )
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
@@ -694,7 +696,8 @@ describe('uploadDocument ingest dispatch', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       result.documentId,
       'org-1',
-      INGEST_DISPATCH_FAILED_MESSAGE
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      expect.objectContaining({ ingestJobId: null })
     )
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
@@ -843,7 +846,8 @@ describe('uploadDocument ingest dispatch — backend fetch is time-bounded', () 
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       result.documentId,
       'org-1',
-      INGEST_DISPATCH_FAILED_MESSAGE
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      expect.objectContaining({ ingestJobId: null })
     )
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
@@ -1286,7 +1290,7 @@ describe('reingestDocument', () => {
     const result = await reingestDocument(session, 'doc-99')
 
     expect(result).toEqual({ id: 'doc-99', status: 'pending' as const, jobId: 'job-77' })
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-99', 'org-1', 'job-77', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-99', 'org-1', 'job-77', null, expect.objectContaining({ ingestJobId: null }))
     expect(markDocumentIngestFailed).not.toHaveBeenCalled()
   })
 
@@ -1388,7 +1392,7 @@ describe('reingestDocument', () => {
     const result = await reingestDocument(session, 'doc-99')
 
     expect(result).toEqual({ id: 'doc-99', status: 'pending' as const, jobId: 'job-78' })
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-99', 'org-1', 'job-78', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-99', 'org-1', 'job-78', null, expect.objectContaining({ ingestJobId: null }))
   })
 
   it('refuses while the backend is genuinely still working (409, no double dispatch)', async () => {
@@ -1543,7 +1547,8 @@ describe('reingestDocument', () => {
     expect(markDocumentIngestFailed).toHaveBeenCalledWith(
       'doc-99',
       'org-1',
-      INGEST_DISPATCH_FAILED_MESSAGE
+      INGEST_DISPATCH_FAILED_MESSAGE,
+      expect.objectContaining({ ingestJobId: null })
     )
     expect(setDocumentIngestJob).not.toHaveBeenCalled()
   })
@@ -2591,7 +2596,7 @@ describe('runReindexSlice', () => {
     expect(mockFetch.mock.calls.map(([url]) => String(url))).toEqual([
       expect.stringContaining('/v1/ingest'),
     ])
-    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null)
+    expect(setDocumentIngestJob).toHaveBeenCalledWith('doc-1', 'org-1', 'job-1', null, expect.objectContaining({ ingestJobId: null }))
   })
 
   it('dispatches every document with bulk priority, so a person’s upload goes first', async () => {
