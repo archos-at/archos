@@ -1,4 +1,4 @@
-// @disk-inputs: ui/features/chat/components/ViewerActionRow.tsx, ui/features/chat/components/reasoning/LookStepRow.tsx, ui/features/chat/lib/canvas-bridge.ts, ui/features/documents/components/document-revisions.tsx, ui/features/documents/components/file-preview-pane.tsx, ui/features/documents/components/review/composer.tsx, ui/features/documents/components/review/cursor-chat.tsx, ui/features/documents/components/review/document-review.tsx, ui/features/documents/components/review/mark-row.tsx, ui/features/documents/components/review/review-export-menu.tsx, ui/features/documents/components/review/review-page-layer.tsx, ui/features/documents/components/review/review-panel.tsx, ui/features/documents/components/review/thread-card.tsx, ui/features/documents/hooks/use-canvas-ask.ts, ui/features/documents/lib/review-focus.ts, ui/features/cards/components/CanvasActivityCard.tsx, ui/features/cards/components/RevisionCompareCard.tsx, ui/features/knowledge/components/page-place-button.tsx, ui/features/search/components/composer-search-picker.tsx, tests/fixtures/surface-parity.json
+// @disk-inputs: ui/features/chat/components/ViewerActionRow.tsx, ui/features/chat/components/reasoning/LookStepRow.tsx, ui/features/chat/lib/canvas-bridge.ts, ui/features/documents/components/document-revisions.tsx, ui/features/documents/components/file-preview-pane.tsx, ui/features/documents/components/review/composer.tsx, ui/features/documents/components/review/cursor-chat.tsx, ui/features/documents/components/review/document-review.tsx, ui/features/documents/components/review/mark-row.tsx, ui/features/documents/components/review/measure/measure-layer.tsx, ui/features/documents/components/review/review-export-menu.tsx, ui/features/documents/components/review/review-page-layer.tsx, ui/features/documents/components/review/review-panel.tsx, ui/features/documents/components/review/thread-card.tsx, ui/features/documents/hooks/use-canvas-ask.ts, ui/features/documents/lib/review-focus.ts, ui/features/cards/components/CanvasActivityCard.tsx, ui/features/cards/components/RevisionCompareCard.tsx, ui/features/knowledge/components/page-place-button.tsx, ui/features/search/components/composer-search-picker.tsx, tests/fixtures/surface-parity.json
 /**
  * @vitest-environment node
  */
@@ -92,7 +92,8 @@ describe('the surface parity registry', () => {
       const label = `${name}.${side}`
       if ('exempt' in form) expect(form.exempt.length, label).toBeGreaterThan(30)
       else if ('gap' in form) {
-        expect(form.gap.slice, label).toMatch(/^V\d+/)
+        // A slice of the ADR-0128 plan, or of another build spec, named with its plan.
+        expect(form.gap.slice, label).toMatch(/^(V\d+|[a-z][a-z-]* slice \d+$)/)
         expect(form.gap.reason.length, label).toBeGreaterThan(30)
       } else expect(Object.values(form).filter(Boolean).length, `${label} names no component, card or step`).toBeGreaterThan(0)
     }

@@ -15,6 +15,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+const featureHeld = vi.hoisted(() => vi.fn(() => true))
+vi.mock('@/lib/authz/feature-flags', async (original) => ({
+  ...(await original<typeof import('@/lib/authz/feature-flags')>()),
+  isFeatureEnabled: featureHeld,
+}))
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
@@ -294,6 +299,17 @@ describe('proposeOperation', () => {
     await expect(propose(sensitive)).rejects.toMatchObject({ status: 403 })
     await expect(propose({ ...sensitive, sensitivity: 'secret' as const })).rejects.toBeInstanceOf(ForbiddenError)
     expect(insertProposedChange).not.toHaveBeenCalled()
+  })
+
+  it('files nothing for an operation behind a feature the organization does not hold', async () => {
+    const gated = { ...FOLDER_RENAME, feature: 'drawing-measure' as const }
+    featureHeld.mockReturnValue(false)
+    await expect(propose(gated)).rejects.toMatchObject({ status: 403, code: 'feature_disabled' })
+    expect(insertProposedChange).not.toHaveBeenCalled()
+
+    featureHeld.mockReturnValue(true)
+    await expect(propose(gated)).resolves.toMatchObject({ proposalId: expect.any(String) })
+    expect(featureHeld).toHaveBeenLastCalledWith(ASKER, 'drawing-measure')
   })
 
   it('files the same call once while the first proposal is open, and again once it is decided', async () => {

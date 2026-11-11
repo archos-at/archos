@@ -14,6 +14,7 @@ import { installLayoutObservers } from '@/test-utils/layout-observers'
 import type { RoomPeer } from '@/lib/annotations/room-types'
 import type { AnnotationView } from '@/lib/annotations/types'
 import type { DocumentReview } from '../../hooks/use-document-review'
+import { IDLE_TAPE } from '../../hooks/use-sheet-tape'
 import type { RoomPeerState } from '../../hooks/use-document-room'
 import { LiveCursor } from '@/components/ui/live-cursor'
 import { CURSOR_CHAT_LINGER_MS, CursorChat, placeChat } from './cursor-chat'
@@ -85,6 +86,7 @@ function reviewWith(peers: RoomPeerState[], annotations: AnnotationView[] = []):
     hoveredId: null,
     filter: 'open',
     room: room as DocumentReview['room'],
+    tape: IDLE_TAPE,
     piloti: piloti as DocumentReview['piloti'],
     select: () => {},
     setDraft: () => {},

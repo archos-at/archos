@@ -33,6 +33,7 @@ const READ_ONLY_WRITE_METHODS: Readonly<Record<string, string>> = {
   'platform-norm-verify': 'verifyNormPointer asks RIS whether a norm pointer resolves; the registry is not written.',
   'project-cleanup-propose': 'proposeCleanup returns a list of candidates (rules and a model call); deletes and stores nothing.',
   'project-consistency-check': 'checkProjectConsistency asks the model about the fields sent; the profile is not saved.',
+  'document-measure': 'measureOnDocument asks the engine about points on a page of the stored file; the POST carries the points. It stores nothing.',
   'document-revision-compare': 'compareRevisionVisually compares two Fassungen in the backend; stores no result.',
   'document-revision-candidates': 'probeProjectRevisionCandidates / probeOfficeShelfRevisionCandidates list earlier revisions by name.',
   'skill-review': 'reviewSkill asks the model to review a draft in the body; the skill is not saved.',

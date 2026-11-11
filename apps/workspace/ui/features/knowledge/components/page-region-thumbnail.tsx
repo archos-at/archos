@@ -13,7 +13,7 @@
  * tile saying so and nothing of the page.
  */
 
-import { useEffect, useRef, useState, type CSSProperties, type FC } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FC, type ReactNode } from 'react'
 import { FileX2, Lock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSeenOnce } from '@/hooks/use-seen-once'
@@ -21,7 +21,7 @@ import { useTranslations } from '@/i18n'
 import { knowledgeCopy } from '@/i18n/namespaces/knowledge'
 import { cn } from '@/lib/utils'
 import { drawPlace, type DrawnPlace, type ImageClip } from '../lib/place-drawing'
-import type { PagePlace } from '../lib/page-place'
+import { drawnPoint, placeBox, type PagePlace } from '../lib/page-place'
 import { PageSheet } from './pdf-viewer-atoms'
 import { RegionMarks } from './region-marks'
 import type { PageRegion } from '../lib/page-region'
@@ -49,16 +49,29 @@ export interface PageRegionThumbnailProps {
   label?: string
   /** `none`: render nothing when the page cannot be shown, instead of a tile saying so. */
   fallback?: 'tile' | 'none'
-  /** Told once the place is drawn: an image upload's signed picture, so a viewer can open it. */
-  onDrawn?: (drawn: { image?: ImageClip }) => void
+  /**
+   * Told once the place is drawn: an image upload's signed picture, so a viewer
+   * can open it, or a PDF page's size as shown, in points, so a caller can say
+   * what a distance on it is on paper.
+   */
+  onDrawn?: (drawn: { image?: ImageClip; pagePt?: { width: number; height: number } }) => void
   /** Told when the reader may not open the document. */
   onDenied?: () => void
+  /** Told when the page cannot be shown for another reason (no such page, the file did not load). */
+  onUnavailable?: () => void
   /**
    * The boxes to mark, in the page's frame, instead of the place's own: a
    * citation with several depictions on one page. Only with `clip={false}`,
    * where the drawn part is the page.
    */
   marks?: readonly PageRegion[]
+  /**
+   * Drawn over the picture once it is there, inside the drawn frame: a line
+   * between two points of the page, say. `toDrawn` answers where a point of the
+   * PAGE (shares, origin top left) lies in that frame, whatever part of the
+   * page the clip turned out to be (a small box is widened, `placeClip`).
+   */
+  overlay?: (toDrawn: (point: readonly [number, number]) => [number, number]) => ReactNode
   className?: string
   /** Marker attributes for the outer element, e.g. `data-citation-thumbnail`. */
   [data: `data-${string}`]: string | undefined
@@ -84,7 +97,9 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   fallback = 'tile',
   onDrawn,
   onDenied,
+  onUnavailable,
   marks,
+  overlay,
   className,
   ...data
 }) => {
@@ -95,8 +110,8 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
   const [state, setState] = useState<State>({ status: 'waiting' })
   const near = !lazy || seen
   // The callbacks are read when the drawing ends, not a reason to draw again.
-  const told = useRef({ onDrawn, onDenied })
-  told.current = { onDrawn, onDenied }
+  const told = useRef({ onDrawn, onDenied, onUnavailable })
+  told.current = { onDrawn, onDenied, onUnavailable }
   const regionKey = `${place.region?.join(',') ?? ''}|${place.point?.join(',') ?? ''}`
 
   useEffect(() => {
@@ -113,8 +128,11 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
     }).then((drawn) => {
       if (controller.signal.aborted) return
       setState(drawn)
-      if (drawn.status === 'drawn') told.current.onDrawn?.({ image: drawn.image })
+      if (drawn.status === 'drawn') {
+        told.current.onDrawn?.({ image: drawn.image, ...(drawn.pagePt ? { pagePt: drawn.pagePt } : {}) })
+      }
       if (drawn.status === 'denied') told.current.onDenied?.()
+      if (drawn.status === 'unavailable') told.current.onUnavailable?.()
     })
     return () => controller.abort()
     // `place` is keyed by its address below; a new object for the same place draws nothing new.
@@ -197,6 +215,7 @@ export const PageRegionThumbnail: FC<PageRegionThumbnailProps> = ({
           <Skeleton role="status" className="absolute inset-0 rounded-none" aria-label={t('placeThumbnail.loading')} />
         )}
         {shown.length > 0 && <RegionMarks regions={shown} color={color} />}
+        {drawn && overlay?.((point) => drawnPoint(placeBox(place), drawn.mark, point))}
       </PageSheet>
     </div>
   )

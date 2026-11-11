@@ -1,0 +1,9 @@
+---
+# area: documents
+features:
+  - >
+    In the review view of a drawing exported as a PDF, you can now measure a
+    length, a path or an area by clicking corners of the drawing, and keep the
+    measurement on the sheet as a note. Each value is shown with its tolerance
+    and says whether the scale is confirmed or only estimated, for offices with
+    drawing measurement switched on.

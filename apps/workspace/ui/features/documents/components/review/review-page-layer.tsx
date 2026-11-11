@@ -25,6 +25,8 @@ import { presenceCopy } from '@/i18n/namespaces/presence'
 import { isGhostMark, isLive, type AnnotationView } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { askRegionOf, type CanvasAsk } from '../../hooks/use-canvas-ask'
+import { MeasureLayer } from './measure/measure-layer'
+import { onPage, pointIn } from './page-point'
 import type { DocumentReview, ReviewDraft, ReviewTool } from '../../hooks/use-document-review'
 import { sameItems, useStoreSelector } from '@/features/realtime/use-channel'
 import {
@@ -52,7 +54,7 @@ const box = (x: number, y: number, w: number, h: number): CSSProperties => ({
 })
 
 /** What the room is told the pointer is doing: asking Piloti is dragging out a region too. */
-const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool)
+const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool === 'calibrate' ? 'select' : tool)
 
 /** Whether a peer is Piloti at work on the document. */
 export const isAgentPeer = (state: RoomPeerState): boolean => state.peer.kind === 'piloti'
@@ -304,19 +306,6 @@ function PeerSelection({
 export function markInk(annotation: Pick<AnnotationView, 'authorKind' | 'createdBy'>): string {
   // Paper ink: a mark is drawn on the page, which stays white in dark mode.
   return annotation.authorKind === 'piloti' ? 'var(--paper-ink)' : identityInk(annotation.createdBy)
-}
-
-/**
- * A share of the page, kept on it, to four decimals: a tenth of a millimetre
- * on an A1 sheet, and no 0.30000000000000004 in a stored mark.
- */
-const onPage = (value: number) => Math.round(Math.min(1, Math.max(0, value)) * 10_000) / 10_000
-
-/** The point on a page an event hit, as shares of the page, clamped onto it. */
-function pointIn(element: HTMLElement, event: { clientX: number; clientY: number }) {
-  const rect = element.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return null
-  return { x: onPage((event.clientX - rect.left) / rect.width), y: onPage((event.clientY - rect.top) / rect.height) }
 }
 
 /**
@@ -1006,7 +995,7 @@ export function ReviewPageLayer({
     <div ref={layerRef} className="pointer-events-none absolute inset-0" data-testid={`review-layer-${page}`}>
       {/* The surface a tool works on. Over the text layer, so the click that
           sets a mark never starts a selection. */}
-      {focused && tool !== 'select' && (
+      {focused && tool !== 'select' && tool !== 'calibrate' && (
         <div
           data-testid="review-capture"
           aria-hidden
@@ -1150,7 +1139,9 @@ export function ReviewPageLayer({
         agentThinking={agentThinking}
       />
 
-      {focused && aim && tool !== 'select' && !draft && (
+      <MeasureLayer review={review} page={page} focused={focused} />
+
+      {focused && aim && tool !== 'select' && tool !== 'calibrate' && !draft && (
         <KeyboardAim key={aim.key} page={page} tool={tool} startY={aim.y} onSet={place} />
       )}
 

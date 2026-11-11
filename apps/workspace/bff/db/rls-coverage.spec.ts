@@ -259,6 +259,10 @@ const BOUNDARY_MIGRATIONS = [
   // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
   // is: `organization_id = current_org() AND user_id = current_user_id()`.
   '0229_personal_memory.sql',
+  // Adds drawing_calibrations (ADR-0183), the scale a person set for a region
+  // of a page of one version of a drawing. Keyed directly by its organization;
+  // who may read a row is its document's rule (`documentVisibleTo`).
+  '0236_drawing_calibrations.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

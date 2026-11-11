@@ -37,7 +37,10 @@ export interface Exempt {
   readonly exempt: string
 }
 
-/** The mirror is not built. `slice` closes it (ADR-0128 plan); `card`/`step` name what it will use. */
+/**
+ * The mirror is not built. `slice` closes it: `V<n>` of the ADR-0128 plan, or `<plan> slice <n>` for a slice of
+ * another build spec (`drawing-measure slice 6`). `card`/`step` name what it will use.
+ */
 export interface Gap {
   readonly gap: {
     readonly slice: string
@@ -163,6 +166,15 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: `${REVIEW}/review-page-layer.tsx` },
     chat: { exempt: 'The turn harness’s own clean-up, not a capability of the person or of ' + PRODUCT_NAME },
   },
+  measureOnSheet: {
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, tied to its linework, and keep it on the sheet',
+    tool: 'drawing_measure',
+    operations: ['document-measure', 'drawing-measure'],
+    // The tape: three tools beside the pin and the box; the engine's reading beside the shape; a kept measurement on the page.
+    canvas: { component: `${REVIEW}/measure/measure-layer.tsx` },
+    // The tool's answer is text the answer quotes with its interval and provenance; its call is an action row of the Herleitung (verb `model`).
+    chat: { step: 'action' },
+  },
   compareRevisions: {
     summary: 'Compare two Fassungen of a document: what changed on a page, boxed',
     operations: ['document-revision-compare', 'document-revision-candidates', 'document-revision-link-set'],
@@ -205,6 +217,14 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/components/file-preview-pane.tsx' },
     // The row under the answer: what moved, „Zurück“, or „Anzeigen“ when it did not.
     chat: { component: 'features/chat/components/ViewerActionRow.tsx' },
+  },
+  calibrateScale: {
+    summary: 'Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for',
+    operations: ['drawing-calibration-list', 'drawing-calibration-set', 'drawing-calibration-withdraw'],
+    // The calibrate tool: the layer takes the points and the region, the panel shows the ratio before saving and the page's active calibrations.
+    canvas: { component: `${REVIEW}/calibration-panel.tsx` },
+    // The agent's set call is an `operation` proposal; its receipt draws the page clip with the reference span.
+    chat: { card: 'operation_proposal', component: 'features/cards/components/CalibrationProposalPreview.tsx' },
   },
 } as const satisfies Readonly<Record<string, SurfaceCapability>>
 

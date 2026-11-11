@@ -563,7 +563,7 @@ const operationProposal = (patch: Partial<OperationProposal> = {}): OperationPro
   kind: 'operation',
   payload: {
     operation: 'organization-instructions-set',
-    input: { body: { instructions: LONG_INSTRUCTIONS, tone: 'formal', limits: { words: 200, sources: ['norm', 'office'] } } },
+    input: { body: { instructions: LONG_INSTRUCTIONS, tone: 'formal', limits: { words: 200, sources: ['norm', 'office', 'project', 'web', 'measurement', 'correspondence', 'minutes'] } } },
     summary: 'Set the office instructions (instructions: Antworte immer…, tone: formal, limits: 2 fields)',
   },
   targets: [{ type: 'project', id: '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'Neubau Musterstraße' }],
@@ -706,6 +706,45 @@ describe('operation proposal with a proposal_id', () => {
     expect(values.documentIds?.[0]).not.toContain(documents[0])
     expect(values.note).toEqual(['kurz', null])
     expect(screen.getByTestId('operation-targets')).toHaveTextContent('Person Anna Berger')
+  })
+
+  it('hands a proposed calibration to its own body: the question instead of the action, its targets and its inputs', async () => {
+    const documentId = '3c2b1a0f-9e8d-4c7b-a6f5-4e3d2c1b0a9f'
+    serve(
+      operationProposal({
+        payload: {
+          operation: 'drawing-calibration-set',
+          input: {
+            params: { id: documentId },
+            body: { page: 2, region: { x: 0.2, y: 0.3, w: 0.4, h: 0.2 }, from: { x: 0.25, y: 0.35 }, to: { x: 0.55, y: 0.45 }, lengthM: 4.25 },
+          },
+          summary: 'Set the scale of the drawing',
+        },
+        targets: [{ type: 'document', id: documentId, name: 'Grundriss EG.pdf' }],
+      })
+    )
+    render(<OperationReceipt proposalId={PROPOSAL_ID} title="Set the scale" operation="drawing-calibration-set" input={{}} />)
+
+    // Drawn clip, „Confirm“, the decided headlines and the fallback to the rows: `CalibrationProposalPreview.spec.tsx`.
+    expect(await screen.findByTestId('calibration-question')).toHaveTextContent(/^Is the marked length 4\.25\sm\?$/)
+    expect(screen.getByText('Confirm the scale')).toBeInTheDocument()
+    expect(screen.queryByTestId('operation-name')).toBeNull()
+    expect(screen.queryByTestId('operation-targets')).toBeNull()
+    expect(screen.queryByTestId('operation-input')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  })
+
+  it('keeps the generic receipt for a calibration whose input the route would refuse', async () => {
+    serve(
+      operationProposal({
+        payload: { operation: 'drawing-calibration-set', input: { params: { id: 'not-a-uuid' }, body: { page: 1, lengthM: 4 } }, summary: 'Set the scale' },
+      })
+    )
+    render(<OperationReceipt proposalId={PROPOSAL_ID} title="Set the scale" operation="drawing-calibration-set" input={{}} />)
+
+    expect(await screen.findByRole('button', { name: 'Apply' })).toBeInTheDocument()
+    expect(screen.getByTestId('operation-input')).toHaveTextContent('Length (m)4')
+    expect(screen.queryByTestId('calibration-preview')).toBeNull()
   })
 
   it('offers „Apply“ at once when every value is short enough to be shown whole', async () => {

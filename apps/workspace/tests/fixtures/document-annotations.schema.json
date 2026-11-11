@@ -601,7 +601,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "box": {
@@ -764,7 +767,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "x": {
@@ -845,7 +851,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "x": {

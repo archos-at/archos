@@ -241,6 +241,10 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
     makes: ['internal:reloaded'],
     why: 'The model of a document this request just loaded through `findDocumentForSession`.',
   },
+  'lib/drawing-calibrations/page-read.ts#activeCalibrationsOfPage': {
+    makes: ['internal:reloaded'],
+    why: "The measuring tool's read of a page's active calibrations: `GET /api/internal/document-file` resolved the document under the turn's signed scope a moment ago and passes its id and version.",
+  },
   'lib/bim/query.ts#runBimQuery': {
     makes: ['internal:reloaded'],
     why: 'Models (and a comparison base) whose caller resolved them through a reader a moment ago.',
@@ -382,6 +386,8 @@ const GUARDED_TABLES: Record<string, string> = {
   documentAnnotationReplies: 'document_annotation_replies',
   // What Piloti changed on a document's Anmerkungen, and the turn that did (migration 0142, ADR-0109): a document fact.
   pilotiChanges: 'agent_changes',
+  // The scale a person set for a region of a page of one version (migration 0236): a document fact.
+  drawingCalibrations: 'drawing_calibrations',
 }
 
 /** The relational-API names that reach `documents` from another table (`one(documents)`, `many(documents)`). */

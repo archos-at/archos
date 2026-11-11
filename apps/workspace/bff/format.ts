@@ -44,6 +44,19 @@ export const formatUsd = (
   return format.format(value)
 }
 
+/**
+ * A length in metres, "4,25 m" in German and "4.25 m" in English: two decimals
+ * at least, so a length reads as a measure, and at most three (a millimetre).
+ */
+export const formatMetres = (value: number, locale?: string): string =>
+  new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'meter',
+    unitDisplay: 'short',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 3,
+  }).format(value)
+
 /** A plain count ("1,720" / "1.720"), grouped for the locale, never compacted. */
 export const formatCount = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(

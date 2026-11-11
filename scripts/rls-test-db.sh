@@ -191,7 +191,7 @@ release_databases
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
-echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, drawing calibrations, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
@@ -230,6 +230,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/permits/repository.integration.spec.ts \
     bff/annotations/repository.integration.spec.ts \
     bff/annotations/project-repository.integration.spec.ts \
+    bff/drawing-calibrations/repository.integration.spec.ts \
     bff/proposals/repository.integration.spec.ts \
     bff/agent-api/operation-proposals.integration.spec.ts \
     bff/agent-api/read-gate.integration.spec.ts \
@@ -4324,3 +4325,51 @@ refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record
 apply_in cs_0234 0234_citation_style_rulesets.sql
 check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
 echo "==> 0234 citation style and its down migration verified"
+# ---------------------------------------------------------------------------
+# Migration 0236: drawing calibrations (ADR-0183), the scale a person set for a
+# region of a page of one version of a drawing. The table comes up under
+# row-level security. The CHECKs refuse a region off the page, a point outside
+# its region, two points at one place, a length that is not positive, an
+# unknown status and a withdrawal nobody stamped; the partial unique index
+# refuses a second active calibration of one region and lets a superseded one
+# stand beside the active one. Deleting the version takes its calibrations
+# with it. Who reads whose row is proven as the runtime role in
+# drawing-calibrations/repository.integration.spec.ts above. The down drops the
+# table with every calibration in it, and 0236 applies again, twice, empty.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0236 drawing calibrations table and its down migration on dc_0236"
+migrate_until dc_0236 0236_drawing_calibrations
+check_in dc_0236 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'drawing_calibrations'" "true" "0236 brings the table up under row-level security"
+sql_in dc_0236 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000236', 'org_0236', 'Kalibrierung 0236', 'user_1', 'proj_0236');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000236', 'org_0236', 'user_1', 'a.pdf', 'k/0236/a', 'proj_0236', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000236');
+INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, content_hash, created_by, approved_by, approved_at)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000236', 'org_0236', 'd1d1d1d1-0000-4000-8000-000000000236', 'aaaaaaaa-0000-4000-8000-000000000236', 1, 'published', 'k/0236/a1', 'sha256:a1', 'user_1', 'user_1', now());
+SQL
+DC236="INSERT INTO drawing_calibrations (organization_id, document_id, version_id, page, region_x, region_y, region_w, region_h, point_a_x, point_a_y, point_b_x, point_b_y, reference_length_m, created_by"
+DC236_ROW="VALUES ('org_0236', 'd1d1d1d1-0000-4000-8000-000000000236', 'e1e1e1e1-0000-4000-8000-000000000236'"
+sql_in dc_0236 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5.4, 'user_1')"
+refused_in dc_0236 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')" "uniq_drawing_calibrations_active_region" "a second active calibration of one region was accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 1, 0.8, 0.1, 0.5, 0.4, 0.9, 0.2, 1, 0.2, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region off the page was accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0, 0.4, 0.1, 0.2, 0.1, 0.3, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region without width was accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.7, 0.2, 5, 'user_1')" "drawing_calibrations_points_in_region" "a point outside its region was accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.2, 0.2, 5, 'user_1')" "drawing_calibrations_points_apart" "two points at one place were accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 0, 'user_1')" "drawing_calibrations_length_positive" "a length of zero was accepted"
+refused_in dc_0236 "$DC236) $DC236_ROW, 0, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1')" "drawing_calibrations_page_positive" "page zero was accepted"
+refused_in dc_0236 "$DC236, status) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1', 'deleted')" "drawing_calibrations_status_known" "an unknown status was accepted"
+refused_in dc_0236 "UPDATE drawing_calibrations SET status = 'withdrawn'" "drawing_calibrations_withdrawal_stamped" "a withdrawal nobody stamped was accepted"
+refused_in dc_0236 "UPDATE drawing_calibrations SET withdrawn_at = now(), withdrawn_by = 'user_1'" "drawing_calibrations_withdrawal_stamped" "an active calibration was stamped withdrawn"
+sql_in dc_0236 <<<"UPDATE drawing_calibrations SET status = 'superseded'"
+sql_in dc_0236 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')"
+sql_in dc_0236 <<<"UPDATE drawing_calibrations SET status = 'withdrawn', withdrawn_at = now(), withdrawn_by = 'user_2' WHERE status = 'active'"
+check_in dc_0236 "SELECT string_agg(status, ',' ORDER BY created_at, status) FROM drawing_calibrations" "superseded,withdrawn" "0236: a region's history stands beside it, and a withdrawal revives nothing"
+sql_in dc_0236 <<<"DELETE FROM document_versions WHERE id = 'e1e1e1e1-0000-4000-8000-000000000236'"
+check_in dc_0236 "SELECT count(*) FROM drawing_calibrations" "0" "0236: a version takes its calibrations with it"
+apply_in dc_0236 0236_drawing_calibrations.down.sql
+check_in dc_0236 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'drawing_calibrations'" "0" "0236 down drops the table"
+apply_in dc_0236 0236_drawing_calibrations.sql
+apply_in dc_0236 0236_drawing_calibrations.sql   # up twice: idempotent
+check_in dc_0236 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM drawing_calibrations) FROM pg_class WHERE relname = 'drawing_calibrations'" "true:0" "0236 applies again after its down, twice, secured and empty"
+echo "==> 0236 drawing calibrations table and its down migration verified"

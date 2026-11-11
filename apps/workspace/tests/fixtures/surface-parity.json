@@ -245,6 +245,27 @@
     "reason": "The turn harness’s own clean-up, not a capability of the person or of ARCHOS"
    }
   },
+  "measureOnSheet": {
+   "summary": "Measure a distance, a path or an area on a page of a PDF drawing, tied to its linework, and keep it on the sheet",
+   "tool": "drawing_measure",
+   "annotationOp": null,
+   "operations": [
+    "document-measure",
+    "drawing-measure"
+   ],
+   "canvas": {
+    "kind": "rendering",
+    "component": "features/documents/components/review/measure/measure-layer.tsx",
+    "card": null,
+    "step": null
+   },
+   "chat": {
+    "kind": "rendering",
+    "component": null,
+    "card": null,
+    "step": "action"
+   }
+  },
   "compareRevisions": {
    "summary": "Compare two Fassungen of a document: what changed on a page, boxed",
    "tool": null,
@@ -356,6 +377,28 @@
     "kind": "rendering",
     "component": "features/chat/components/ViewerActionRow.tsx",
     "card": null,
+    "step": null
+   }
+  },
+  "calibrateScale": {
+   "summary": "Calibrate a drawing’s scale: two points on a page, their true length and the region the scale holds for",
+   "tool": null,
+   "annotationOp": null,
+   "operations": [
+    "drawing-calibration-list",
+    "drawing-calibration-set",
+    "drawing-calibration-withdraw"
+   ],
+   "canvas": {
+    "kind": "rendering",
+    "component": "features/documents/components/review/calibration-panel.tsx",
+    "card": null,
+    "step": null
+   },
+   "chat": {
+    "kind": "rendering",
+    "component": "features/cards/components/CalibrationProposalPreview.tsx",
+    "card": "operation_proposal",
     "step": null
    }
   }

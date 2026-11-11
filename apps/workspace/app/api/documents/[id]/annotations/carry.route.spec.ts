@@ -146,6 +146,8 @@ const MARK: AnnotationRecord = {
   y: 0.3,
   w: 0.1,
   h: 0.05,
+  points: null,
+  measurement: null,
   kind: 'defect',
   body: 'Brüstung unter 1,00 m',
   mentions: [],
@@ -232,6 +234,21 @@ describe('carrying a mark to the current Fassung of its own document', () => {
       organizationId: 'org_1',
       properties: { document_id: 'doc_a', way: 'in_place', by: 'person' },
     })
+  })
+
+  it('does not carry a measurement: it was measured on that Fassung’s linework', async () => {
+    vi.mocked(findDocumentAnnotation).mockResolvedValue({
+      ...MARK,
+      shape: 'line',
+      w: null,
+      h: null,
+      points: [[0.2, 0.3], [0.5, 0.3]],
+      measurement: { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' },
+    })
+
+    await expect(carry('doc_a', 'ann_1')).rejects.toMatchObject({ status: 422, reason: 'measurement' })
+    expect(updateDocumentAnnotation).not.toHaveBeenCalled()
+    expect(carryAnnotationToDocument).not.toHaveBeenCalled()
   })
 
   it('changes nothing for a mark already on the current Fassung', async () => {

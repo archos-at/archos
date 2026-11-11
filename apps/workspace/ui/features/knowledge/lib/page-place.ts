@@ -75,6 +75,24 @@ export function placeBox(place: PagePlace): [number, number, number, number] | n
   return corners(place.region) ?? pointBox(place.point)
 }
 
+/**
+ * Where a point of the PAGE lies in the part a thumbnail drew, both as shares
+ * with the origin top left. `box` is the place's box on the page
+ * ({@link placeBox}) and `mark` the same box in the drawn part (`DrawnPlace.mark`):
+ * the clip is a rectangle of the page, so the two boxes fix the map. Without
+ * either, the drawn part is the whole page and the point is where it was.
+ */
+export function drawnPoint(
+  box: readonly [number, number, number, number] | null,
+  mark: readonly [number, number, number, number] | null,
+  point: readonly [number, number]
+): [number, number] {
+  if (!box || !mark) return [point[0], point[1]]
+  const along = (value: number, from: number, to: number, drawnFrom: number, drawnTo: number): number =>
+    drawnFrom + ((value - from) / (to - from)) * (drawnTo - drawnFrom)
+  return [along(point[0], box[0], box[2], mark[0], mark[2]), along(point[1], box[1], box[3], mark[1], mark[3])]
+}
+
 /** The boxes the viewer marks on the page for this place: none for a whole page. */
 export function placeRegions(place: PagePlace): PageRegion[] {
   const box = placeBox(place)

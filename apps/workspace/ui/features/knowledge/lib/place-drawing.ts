@@ -41,6 +41,12 @@ export type DrawnPlace =
       mark: PageRegion['box'] | null
       /** Set for an image upload: the caller shows it as an `<img>` instead of the canvas. */
       image?: ImageClip
+      /**
+       * The page as shown, in points (1/72 inch), for a PDF: what a share of the
+       * page is in real paper. Absent for an image upload, whose pixels are no
+       * paper size.
+       */
+      pagePt?: { width: number; height: number }
     }
   | { status: 'denied' }
   | { status: 'unavailable' }
@@ -176,7 +182,7 @@ export async function drawPlace(options: {
     const render = page.render({ canvas, viewport })
     signal.addEventListener('abort', () => render.cancel(), { once: true })
     await render.promise
-    return signal.aborted ? UNAVAILABLE : { status: 'drawn', width, aspect, mark }
+    return signal.aborted ? UNAVAILABLE : { status: 'drawn', width, aspect, mark, pagePt: { width: base.width, height: base.height } }
   } catch {
     return UNAVAILABLE
   } finally {

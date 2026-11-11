@@ -20,8 +20,32 @@
 # coverage: a generous crop that holds the figure looked in the right place, and IoU says how tightly.
 # Facts, read off `drawings.json`: EG Index B has 5 doors and Index A 4 (door-5 is new); the Wohnen
 # dimension is 5,24 in Index B and 5,04 in Index A; the OG has 3 doors. Only each page's caption is indexed.
+# EP-03 (Dachgeschoss) is the one VECTOR sheet: its figures are characters in the file, drawn true to 1:50.
+# EP-04 (Kellergeschoss) is a sheet of the measuring engine's ground-truth set (`note_only`: a floor at 1:50
+# under a printed scale note, drawn at known dimensions). Its rows carry `expect.measure`, read by
+# `scripts/turn_census/measure_answers.py`: the true value, how near a stated number must be, and whether
+# „no number, confirm the scale“ is the other acceptable answer. `mentions` cannot say either.
 
 questions:
+  # --- a vector sheet: the figures are characters in the file, which `look` returns with its crop ---
+  - id: pv-vec-dim-atelier
+    category: dimension
+    question: Wie breit ist das Atelier im Dachgeschoss laut Grundriss EP-03?
+    box: found
+    gold: {document: EP-03_Grundriss_DG.pdf, page: 1, element: dim-atelier}
+    expect:
+      tools: {must: [look]}
+      mentions: [["6,12", "6.12"]]
+
+  - id: pv-vec-scale
+    category: plankopf
+    question: In welchem Maßstab ist der Grundriss Dachgeschoss EP-03 gezeichnet?
+    box: found
+    gold: {document: EP-03_Grundriss_DG.pdf, page: 1, element: title-scale}
+    expect:
+      tools: {must: [look]}
+      mentions: [["1:50"]]
+
   # --- dimensions: a printed string, small against the sheet ------------------
   - id: pv-dim-wohnen
     category: dimension
@@ -196,6 +220,55 @@ questions:
     expect:
       tools: {must: [look]}
       mentions: [["dazu", "neu", "zusätzlich", "hinzu", "ergänzt"]]
+
+  # --- measuring: a length or an area that is drawn and printed nowhere ---------
+  - id: pv-measure-room-width
+    category: measure
+    question: Wie breit ist der linke Raum im Grundriss Kellergeschoss EP-04 im Lichten, von der Außenwand bis zur Trennwand?
+    expect:
+      tools: {must: [drawing_measure]}
+      measure:
+        probe: note_only/view1/room_a_width
+        truth: 4.0
+        unit: m
+        within: 0.02
+        or_no_number: ["Maßstab", "kalibr"]
+
+  - id: pv-measure-door
+    category: measure
+    question: Wie breit ist die Türöffnung in der Trennwand im Grundriss Kellergeschoss EP-04?
+    expect:
+      tools: {must: [drawing_measure]}
+      measure:
+        probe: note_only/view1/door_opening
+        truth: 0.9
+        unit: m
+        within: 0.01
+        or_no_number: ["Maßstab", "kalibr"]
+
+  - id: pv-measure-table-area
+    category: measure
+    question: Welche Fläche hat der Tisch im rechten Raum des Grundrisses Kellergeschoss EP-04?
+    expect:
+      tools: {must: [drawing_measure]}
+      measure:
+        probe: note_only/view1/table_area
+        truth: 1.28
+        unit: m2
+        within: 0.03
+        or_no_number: ["Maßstab", "kalibr"]
+
+  - id: pv-measure-room-area
+    category: measure
+    question: Wie groß ist die Fläche des linken Raums im Grundriss Kellergeschoss EP-04, zwischen den Wandinnenkanten gemessen?
+    expect:
+      tools: {must: [drawing_measure]}
+      measure:
+        probe: note_only/view1/room_a_area
+        truth: 22.4
+        unit: m2
+        within: 0.25
+        or_no_number: ["Maßstab", "kalibr"]
 
   # --- skip controls: an exact hit already holds the answer, so a look is waste -
   - id: pv-skip-author
