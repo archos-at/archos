@@ -363,15 +363,22 @@ class TestTheRoute:
                 {
                     "op": "record",
                     "jobId": JOB_ID,
-                    "values": [{"key": "building_type@bldg1", "value": "building", "evidence": evidence}],
+                    # A Land places the project in Austria, where the class inputs are decisive (ADR-0158).
+                    "values": [
+                        {"key": "federal_state", "value": "vienna", "evidence": evidence},
+                        {"key": "building_type@bldg1", "value": "building", "evidence": evidence},
+                    ],
                 }
             )
-            withdrawn = bff.withdraw({"op": "withdraw", "jobId": JOB_ID, "keys": ["building_type@bldg1", "country"]})
+            withdrawn = bff.withdraw(
+                {"op": "withdraw", "jobId": JOB_ID, "keys": ["building_type@bldg1", "federal_state", "country"]}
+            )
             needs = {need["key"] for need in bff.needs({"jobId": JOB_ID})["needs"]}
         finally:
             gate.close()
         assert {"key": "storeys_above_ground@bldg1", "decisive": True} in recorded["opened"]
         assert [(r["outcome"], r.get("reason")) for r in withdrawn["results"]] == [
+            ("withdrawn", None),
             ("withdrawn", None),
             ("refused", "nothing-suggested"),
         ]

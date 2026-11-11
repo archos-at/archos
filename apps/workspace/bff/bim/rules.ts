@@ -45,8 +45,21 @@ import type { BimElement } from './types'
 
 export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
 
+/**
+ * Where the project is: its territory chain, leaf first (`AT-9`, `AT`), from
+ * its profile (`project-intake/setup-scope.ts`). An empty chain is a site in no
+ * country the records name; `null` is a project nothing places.
+ */
+export type BimSite = { chain: readonly string[] } | null
+
 /** The project facts a rule's applicability may depend on. */
 export interface BimRuleFacts {
+  /**
+   * Required: every rule binds in a territory, and a run that does not say
+   * where the building is cannot say whether a rule binds there (ADR-0169).
+   * Unknown is `null`, which judges every element undecidable, never passed.
+   */
+  site: BimSite
   /** `1` … `5`, as the intake vocabulary records it. */
   buildingClass?: number | null
   /** Intake main-use token: `residential`, `office`, `lodging`, … */
@@ -443,6 +456,8 @@ export function classifyStorey(
 
 interface RuleDefinition {
   id: string
+  /** The territory the rule's Richtlinie binds in: every OIB-Richtlinie binds in Austria. */
+  appliesIn: string
   richtlinie: string
   clause: string
   titleDe: string
@@ -692,6 +707,7 @@ export const canonicalBimRuleId = (ruleId: string): string => LEGACY_BIM_RULE_ID
 export const BIM_RULES: RuleDefinition[] = [
   {
     id: 'oib4-stair-rise-run-ratio',
+    appliesIn: 'AT',
     richtlinie: 'OIB 4',
     clause: '2.2',
     titleDe: 'Treppen — Steigungsverhältnis',
@@ -731,6 +747,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib4-door-clear-width',
+    appliesIn: 'AT',
     richtlinie: 'OIB 4',
     clause: '3',
     titleDe: 'Türen — lichte Durchgangsbreite',
@@ -786,6 +803,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib3-room-height',
+    appliesIn: 'AT',
     richtlinie: 'OIB 3',
     clause: '2',
     titleDe: 'Aufenthaltsräume — lichte Raumhöhe',
@@ -844,6 +862,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib2-fire-resistance-load-bearing',
+    appliesIn: 'AT',
     richtlinie: 'OIB 2',
     clause: '3',
     titleDe: 'Tragende Bauteile — Feuerwiderstand',
@@ -936,6 +955,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-external-wall',
+    appliesIn: 'AT',
     richtlinie: 'OIB 6',
     clause: '4.1',
     titleDe: 'Außenwände — Wärmedurchgangskoeffizient',
@@ -973,6 +993,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib6-u-value-window',
+    appliesIn: 'AT',
     richtlinie: 'OIB 6',
     clause: '4.1',
     titleDe: 'Fenster — Wärmedurchgangskoeffizient',
@@ -1006,6 +1027,7 @@ export const BIM_RULES: RuleDefinition[] = [
   },
   {
     id: 'oib5-sound-insulation-declared',
+    appliesIn: 'AT',
     richtlinie: 'OIB 5',
     clause: '3',
     titleDe: 'Trennbauteile — Schalldämmung deklariert',
@@ -1106,6 +1128,23 @@ export function ifcTypeVariants(ifcType: string): string[] {
 const matchesType = (element: BimElement, types: readonly string[]): boolean =>
   types.some((type) => normaliseType(type) === normaliseType(element.ifcType))
 
+/** Whether a rule binds where the project is: its territory is on the site's chain, or the site is unknown. */
+function whereRuleBinds(rule: RuleDefinition, site: BimSite): 'binds' | 'outside' | 'unknown' {
+  if (site === null) return 'unknown'
+  return site.chain.includes(rule.appliesIn) ? 'binds' : 'outside'
+}
+
+const OUTSIDE_REASON = (rule: RuleDefinition) =>
+  `${rule.richtlinie} gilt in ${rule.appliesIn === 'AT' ? 'Österreich' : rule.appliesIn}; der Standort des Projekts liegt außerhalb`
+
+function judgeUnplaced(): { status: BimCheckStatus; reading: string; missing: string } {
+  return {
+    status: 'undecidable',
+    reading: 'Standort des Projekts unbekannt — ob diese Richtlinie dort gilt, ist offen',
+    missing: 'Projektangabe: Standort (Land)',
+  }
+}
+
 /**
  * Evaluate every rule over the element set.
  *
@@ -1115,10 +1154,14 @@ const matchesType = (element: BimElement, types: readonly string[]): boolean =>
  */
 export function runBimRules(
   elements: readonly BimElement[],
-  facts: BimRuleFacts = {}
+  facts: BimRuleFacts
 ): BimRuleResult[] {
   return BIM_RULES.map((rule) => {
-    const notApplicableReason = rule.notApplicable?.(facts) ?? null
+    const where = whereRuleBinds(rule, facts.site)
+    const notApplicableReason =
+      where === 'outside' ? OUTSIDE_REASON(rule) : (rule.notApplicable?.(facts) ?? null)
+    // Unknown is not „nicht einschlägig“: the rule may bind, so each element is open, the site on the shopping list.
+    const judge = where === 'unknown' ? judgeUnplaced : rule.judge
     const base = {
       ruleId: rule.id,
       richtlinie: rule.richtlinie,
@@ -1150,7 +1193,7 @@ export function runBimRules(
     let truncated = false
 
     for (const element of scoped) {
-      const { status, reading, missing: missingPath } = rule.judge(element, facts)
+      const { status, reading, missing: missingPath } = judge(element, facts)
       const verdict: BimElementVerdict = {
         globalId: element.globalId,
         name: element.name,
@@ -1385,150 +1428,8 @@ export function outstandingRules(
   })
 }
 
-// ---------------------------------------------------------------------------
-// Regression across revisions
-// ---------------------------------------------------------------------------
-
-/** How a rule's standing moved between two revisions. */
-export type BimComplianceTrend =
-  /** Was failing (or undecidable), now passes. */
-  | 'resolved'
-  /** Was passing, now fails — the answer nobody gets today. */
-  | 'broken'
-  /** Became decidable: the model gained the property. */
-  | 'decidable'
-  /** Stopped being decidable: the model LOST the property. */
-  | 'undecidable'
-  /** Still failing, but a different number of elements. */
-  | 'moved'
-
-export interface BimComplianceChange {
-  ruleId: string
-  titleDe: string
-  richtlinie: string
-  trend: BimComplianceTrend
-  before: { passed: number; failed: number; undecidable: number }
-  after: { passed: number; failed: number; undecidable: number }
-}
-
-/** The verdict a rule's counts amount to, for trend purposes. */
-function standing(result: BimRuleResult): 'pass' | 'fail' | 'unknown' | 'empty' {
-  if (!result.applicable) return 'empty'
-  if (result.failed > 0) return 'fail'
-  if (result.passed === 0 && result.undecidable === 0) return 'empty'
-  // ANY undecidable element leaves the rule unsettled, not passing. The
-  // alternative reads a revision that dropped `FireRating` from half its walls
-  // as "no change" — the rule stood at `pass` with 40 passed, and it still
-  // stands at `pass` with 20 passed and 20 undecidable. That regression is
-  // precisely what a diff is for, and it is the same unearned tick
-  // `summarizeBimRules` refuses to show on the page.
-  if (result.undecidable > 0) return 'unknown'
-  return 'pass'
-}
-
-/**
- * What a new revision changed about the building's standing.
- *
- * This is the payoff of having verdicts at all. "188 Bauteile, +17" says a
- * revision happened; **"Treppe Ost erfüllt das Steigungsverhältnis nicht
- * mehr"** says what it did — and that is the sentence an architect cannot get
- * from any tool at a price a small office would pay.
- *
- * `undecidable` as a trend is deliberately reported and not swallowed: a
- * revision that DROPS a property (a re-export with a different mapping, a
- * Pset that stopped being written) silently un-checks a requirement that was
- * green yesterday. Reporting only pass↔fail would let that pass unnoticed,
- * which is the same silence the whole subsystem exists to break.
- *
- * Rules whose standing did not change are omitted — a change list that
- * restates everything is a list nobody reads.
- */
-export function diffBimCompliance(
-  before: readonly BimRuleResult[],
-  after: readonly BimRuleResult[]
-): BimComplianceChange[] {
-  const previous = new Map(before.map((result) => [result.ruleId, result]))
-  const changes: BimComplianceChange[] = []
-
-  for (const now of after) {
-    const then = previous.get(now.ruleId)
-    if (!then) continue
-    const from = standing(then)
-    const to = standing(now)
-
-    let trend: BimComplianceTrend | null = null
-    if (from !== to) {
-      if (to === 'pass') trend = from === 'unknown' ? 'decidable' : 'resolved'
-      else if (to === 'fail') trend = 'broken'
-      else if (to === 'unknown') trend = 'undecidable'
-    } else if (to === 'fail' && then.failed !== now.failed) {
-      // Same verdict, different scale. Worth surfacing: nine failing doors
-      // becoming two is progress, and becoming ninety is a regression, and
-      // neither shows up in a pass/fail comparison.
-      trend = 'moved'
-    }
-    if (!trend) continue
-
-    changes.push({
-      ruleId: now.ruleId,
-      titleDe: now.titleDe,
-      richtlinie: now.richtlinie,
-      trend,
-      before: { passed: then.passed, failed: then.failed, undecidable: then.undecidable },
-      after: { passed: now.passed, failed: now.failed, undecidable: now.undecidable },
-    })
-  }
-
-  // Regressions first: what a revision BROKE is the reason to read this list.
-  const order: Record<BimComplianceTrend, number> = {
-    broken: 0,
-    undecidable: 1,
-    moved: 2,
-    decidable: 3,
-    resolved: 4,
-  }
-  return changes.sort(
-    (a, b) => order[a.trend] - order[b.trend] || a.ruleId.localeCompare(b.ruleId)
-  )
-}
-
-/**
- * The agent's wording for a status change.
- *
- * A second copy of `complianceDiff.trend.*` in the dictionaries, and it had
- * already drifted: this one says "nicht mehr entscheidbar (Wert im Modell
- * entfallen)" where the badge says only "nicht mehr entscheidbar", so the
- * chip and the sentence beside it described the same change differently.
- *
- * It stays a copy rather than reading the dictionary, because this module is
- * server-side and locale-free — it renders one German string for the agent,
- * which has no `useTranslations` and no locale to read. The parenthetical is
- * the better wording and has been carried into the dictionary; if either side
- * changes, change both.
- */
-const TREND_DE: Record<BimComplianceTrend, string> = {
-  broken: 'neu nicht erfüllt',
-  undecidable: 'nicht mehr entscheidbar (Wert im Modell entfallen)',
-  moved: 'weiterhin nicht erfüllt, andere Anzahl',
-  decidable: 'jetzt entscheidbar und erfüllt',
-  resolved: 'jetzt erfüllt',
-}
-
-/** German lines for the agent, regressions first. */
-export function renderBimComplianceDiff(changes: readonly BimComplianceChange[]): string {
-  if (changes.length === 0) {
-    return 'Keine Anforderung hat ihren Status zwischen diesen beiden Ständen geändert.'
-  }
-  return changes
-    .map(
-      (change) =>
-        `${change.richtlinie} — ${change.titleDe}: ${TREND_DE[change.trend]} ` +
-        `(${change.before.passed}/${change.before.failed}/${change.before.undecidable} → ` +
-        `${change.after.passed}/${change.after.failed}/${change.after.undecidable} ` +
-        'erfüllt/nicht erfüllt/nicht entscheidbar)'
-    )
-    .join('\n')
-}
+// Regression across revisions: `compliance-diff.ts`, re-exported for the importers of this catalog.
+export { diffBimCompliance, renderBimComplianceDiff, type BimComplianceChange, type BimComplianceTrend } from './compliance-diff'
 
 /** German one-liner per rule, for the agent to quote without doing arithmetic. */
 export function renderBimRules(results: readonly BimRuleResult[]): string {

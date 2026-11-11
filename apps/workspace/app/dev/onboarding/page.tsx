@@ -26,7 +26,7 @@ function Preview(): JSX.Element {
       selfServeDisabled={state === 'invite-only'}
       createdName={createdName}
       error={state === 'error' ? 'Failed to create organization.' : null}
-      onCreate={async (name) => {
+      onCreate={async ({ name }) => {
         await new Promise((resolve) => setTimeout(resolve, 600))
         setCreatedName(name)
       }}

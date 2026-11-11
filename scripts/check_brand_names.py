@@ -45,6 +45,12 @@ What is not a hit
 - The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
   (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
   them in its three operator-applied deploys.
+- The module path on a Python ``from``/``import`` line into the chat agent's
+  package (``IMPORT_PATH``). The package's directory is the identifier, kept on
+  purpose because the checkpointer restores a graph by it, and is counted once
+  under its ``dir/`` key; every import of it is a consequence of that one name.
+  Counted per import, each new test of the package was a new hit only a
+  ``--rebaseline`` could admit. The path anywhere else still counts.
 - History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
   the i18n dictionaries and the site's content, published assets, lockfiles,
   and Markdown, whose paths and names follow the code they describe.
@@ -183,12 +189,34 @@ def branded_tokens(text: str) -> list[str]:
     return tokens
 
 
+#: The module path of a Python import into the chat agent's package (see "What is not a hit").
+IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
+
+
+def _without_exempt_names(text: str) -> str:
+    """``text`` with URLs, the repository's own name and the pending infra names blanked.
+
+    Each substitution runs only where a plain substring says it can match: the
+    three regexes over every file were half of this check (2.7s of 5.3,
+    2026-11-10), REPOSITORY alone 1.8s, and most files hold none of them.
+    """
+    if "://" in text or "git@" in text:
+        text = URL.sub(" ", text)
+    lowered = text.lower()
+    if "grid-" in lowered or "archos-at" in lowered:
+        text = REPOSITORY.sub(" ", text)
+    if "aiq-a" in text:
+        text = PENDING_INFRA_NAMES.sub(" ", text)
+    if "agent.agents." in text:
+        text = IMPORT_PATH.sub(r"\1", text)
+    return text
+
+
 def count_text(text: str) -> int:
     """The brand hits in ``text``, URLs and the repository's own name left out."""
     if not BRAND.search(text):
         return 0
-    text = PENDING_INFRA_NAMES.sub(" ", REPOSITORY.sub(" ", URL.sub(" ", text)))
-    return sum(len(brand_words(token)) for token in branded_tokens(text))
+    return sum(len(brand_words(token)) for token in branded_tokens(_without_exempt_names(text)))
 
 
 def is_content(path: str) -> bool:

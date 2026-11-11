@@ -119,7 +119,8 @@ def test_empty_search_message_steers_and_forbids_invented_citations() -> None:
     assert "fehlend.pdf" in text
     assert "inventory" in text
     assert "do not invent" in text.lower()
-    assert "surface_documents" in text
+    # QC: the hint named a tool the agent door does not offer; it names none, and says how to open a document.
+    assert "surface_documents" not in text and "open a document by the name" in text
 
 
 def test_knowledge_search_description_is_a_contract_for_the_evidence_tool() -> None:

@@ -1,7 +1,7 @@
 /**
  * Step 5, Steckbrief, from its fixtures, inside the setup's footer as the page
- * draws it: the Gebäudeklasse as a result with its working folded, the Ampel
- * as chips with their reasons in words, one table of what Piloti found (the
+ * draws it: the Gebäudeklasse as a result with its working folded, the law at
+ * the site from the records as chips with their role (or why none is named), one table of what Piloti found (the
  * decisive rows up front, the rest by topic, each source peeking its page),
  * the line to the Rückfragen while a contradiction is open, and the one way
  * on, „Einrichtung abschließen", with the exact decisions each control sends.
@@ -13,8 +13,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   PROFILE_CONFIRMED,
   PROFILE_HIGH_RISE,
+  PROFILE_NOT_ENTITLED,
   PROFILE_READONLY,
   PROFILE_REVIEW,
+  PROFILE_SITE_UNKNOWN,
+  PROFILE_UNCURATED,
 } from '@/app/dev/_fixtures/project-setup-profile'
 import { INTAKE_CLOSING, INTAKE_READING } from '@/app/dev/_fixtures/project-intake'
 import type { IntakeView } from '@/lib/project-intake/types'
@@ -112,28 +115,71 @@ describe('ProfileStep', () => {
       setup(PROFILE_HIGH_RISE)
       expect(screen.getByTestId('profile-class-title')).toHaveTextContent('High-rise')
       expect(screen.getByTestId('profile-class-reason')).toHaveTextContent('OIB-RL 2.3 applies')
-      expect(screen.getByTestId('profile-rule-OIB 2.3')).toHaveAttribute('data-status', 'required')
     })
   })
 
   describe('what applies', () => {
-    it('shows each Richtlinie as a chip, its verdict in the dot, and what it was worked out from', () => {
+    it('shows each edition the records name at the site as a chip, binding first, its role in the dot', () => {
       setup(PROFILE_REVIEW)
-      expect(screen.getByRole('button', { name: 'OIB 2 Fire safety, applies' })).toHaveAttribute('data-status', 'required')
-      expect(screen.getByRole('button', { name: 'OIB 5 Sound, probably' })).toHaveAttribute('data-status', 'likely')
-      expect(screen.getByTestId('profile-rules-basis')).toHaveTextContent('Worked out from 2 confirmed values.')
+      const chips = within(screen.getByTestId('profile-rules')).getAllByRole('button')
+      expect(chips.map((chip) => chip.getAttribute('data-role'))).toEqual(['binding', 'binding', 'binding', 'binding', 'binding', 'guidance', 'interpretation'])
+      expect(screen.getByRole('button', { name: 'BO für Wien LGBl. Nr. 37/2023, binding' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'ÖNORM B 1600 2017, guideline, not binding' })).toHaveAttribute('data-role', 'guidance')
+      expect(screen.getByTestId('profile-rules-basis')).toHaveTextContent('Filled = binding · Ring = guideline · Dashed = interpretation or information.')
       expect(screen.getByTestId('profile-rules-basis')).toHaveTextContent('Not legal advice.')
     })
 
-    it('peeks why a Richtlinie applies in the reader’s words, with the Richtlinie and a question to Piloti', async () => {
+    it('peeks an edition’s role, with a question to the agent about it', async () => {
       setup(PROFILE_REVIEW)
-      screen.getByRole('button', { name: 'OIB 5 Sound, probably' }).focus()
-      expect(await screen.findByText('Sound protection usually applies.')).toBeInTheDocument()
-      expect(screen.queryByText('Sound protection typically applies.')).toBeNull()
-      expect(screen.getByRole('link', { name: new RegExp(String.raw`Ask ${PRODUCT_NAME}`) })).toHaveAttribute(
+      screen.getByRole('button', { name: 'ÖNORM B 1600 2017, guideline, not binding' }).focus()
+      expect(await screen.findByRole('link', { name: new RegExp(String.raw`Ask ${PRODUCT_NAME}`) })).toHaveAttribute(
         'href',
-        expect.stringContaining(`/app/projects/${PROFILE_REVIEW.projectId}/chat?ask=`)
+        expect.stringContaining(`/app/projects/${PROFILE_REVIEW.projectId}/chat?ask=${encodeURIComponent('What does ÖNORM B 1600 2017 require for this project?')}`)
       )
+    })
+
+    it('marks an edition whose scope waits for a building fact as to check, and says which fact (ADR-0178)', async () => {
+      setup(PROFILE_REVIEW)
+      const chip = screen.getByRole('button', { name: 'OIB-RL 2.3 2023, binding, to check' })
+      expect(chip).toHaveAttribute('data-applicability', 'check')
+      expect(chip).toHaveTextContent('OIB-RL 2.3 2023, binding, to check')
+      chip.focus()
+      expect(await screen.findByTestId('profile-rule-applicability')).toHaveTextContent(
+        'Whether it applies to this project depends on: Fluchtniveau. Once that is known, it shows here.',
+      )
+    })
+
+    it('says why an edition applies to this project, the provision it rests on, and opens its text', async () => {
+      setup(PROFILE_REVIEW)
+      const chip = screen.getByRole('button', { name: 'OIB-RL 2.2 2023, binding' })
+      expect(chip).toHaveAttribute('data-applicability', 'applies')
+      chip.focus()
+      const note = await screen.findByTestId('profile-rule-applicability')
+      expect(note).toHaveTextContent('Applies to this project because of: Nutzungen.')
+      expect(note).toHaveTextContent('Basis: OIB-Richtlinie 2.2 (Ausgabe Mai 2023): Anwendungsbereich')
+      expect(screen.getByRole('link', { name: 'Open the text' })).toHaveAttribute('href', 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/')
+    })
+
+    it('names no law where the gate refuses, and says why: never a list for every site', () => {
+      setup(PROFILE_SITE_UNKNOWN)
+      expect(screen.getByTestId('profile-rules')).toHaveAttribute('data-gate', 'site_unknown')
+      expect(screen.getByTestId('profile-rules-gate')).toHaveTextContent('The site is still missing.')
+      expect(within(screen.getByTestId('profile-rules')).queryAllByRole('button')).toEqual([])
+      // Nothing named, so no legend and no basis line under it.
+      expect(screen.queryByTestId('profile-rules-basis')).toBeNull()
+    })
+
+    it('names binding law from records nobody curated as not curated, as the turn reads it', () => {
+      setup(PROFILE_UNCURATED)
+      const chip = screen.getByRole('button', { name: 'BO für Wien, binding, not curated' })
+      expect(chip).toHaveAttribute('data-qualifier', 'uncurated')
+      expect(chip).toHaveTextContent('BO für Wien, binding, not curated')
+      expect(screen.getByTestId('profile-rule-work:oib-rl-2-edition:oib-rl-2-2023')).toHaveAttribute('data-role', 'information')
+    })
+
+    it('tells an office its country is not enabled, and that its own documents still apply', () => {
+      setup(PROFILE_NOT_ENTITLED)
+      expect(screen.getByTestId('profile-rules-gate')).toHaveTextContent('not enabled for your office')
     })
   })
 

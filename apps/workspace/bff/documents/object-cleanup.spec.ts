@@ -210,7 +210,7 @@ describe('eraseDocumentObjectsOrKeepRow', () => {
       return {}
     })
 
-    await expect(eraseDocumentObjectsOrKeepRow(live, 'org-1')).resolves.toBeUndefined()
+    await expect(eraseDocumentObjectsOrKeepRow(live, 'org-1')).resolves.toEqual({ versionsLeft: 1 })
 
     expect(listDocumentVersionObjects).toHaveBeenCalledWith('doc-1', 'org-1')
     expect(deletedKeys()).toContain(v2Key)

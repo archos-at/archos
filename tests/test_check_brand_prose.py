@@ -69,6 +69,16 @@ def test_retired_names_are_words_not_css(checker, text: str, hits: int) -> None:
     assert checker.count_retired(text) == hits
 
 
+def test_an_import_path_into_the_chat_package_is_an_identifier_not_copy(checker) -> None:
+    # The package path is a wire name the checkpointer restores by; check_brand_names ratchets it.
+    assert (
+        checker.count_retired("from agent.agents.piloti.history import trim\nimport agent.agents.piloti as chat\n") == 0
+    )
+    # What is imported, and the path anywhere but an import line, still count.
+    assert checker.count_retired("from agent.agents.piloti.cards import piloti\n") == 1
+    assert checker.count_retired("see agent.agents.piloti.history\n") == 1
+
+
 def test_a_marked_line_may_quote_an_old_name_in_backticks(checker) -> None:
     assert checker.count_retired("`piloti://guide` became `workspace://guide` <!-- brand-history -->") == 0
     assert checker.count_retired("`piloti://guide` became `workspace://guide`") == 1

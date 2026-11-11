@@ -341,3 +341,15 @@ did. What stands: an unresolvable `[N]` is labelled where it stood
 (`DROPPED_CITATION_MARKER`), a lookup that found nothing ships its answer with
 the banner, and workspace records travel their own channel, never the
 `SourceRegistry`.
+
+## Amendment, 2026-11-10: no verification marker in the prose
+
+The decision above labelled a citation that did not resolve, „[Beleg nicht verifiziert]" where the `[N]` stood, and put „[nicht wörtlich in der Quelle belegt]" after a quotation no passage held, so such a claim would not read like a backed one. Live QC of the country build on staging found the labels in answers as raw text, and in the English an agent reads them in („(citation not verified)", „(quote not found verbatim in the source)"). The dev acceptance (`docs/design/international/dev-acceptance.md`) fails any answer that shows one.
+
+From this amendment the verifier writes no marker into an answer:
+
+- A citation that does not resolve, or whose § or Punkt the cited passage does not hold, is **removed** with the space before it (`report_layout.drop_inline_citations_not_in`, `drop_locus_mismatches`). `verify_citations(drop_unresolved=True)` keeps the chat's handling of an empty registry and of a source list emptied of every line. The record stays structured: `removed_citations`, and the `citations-dropped-labelled` score now counts the removals (its name predates this amendment).
+- A quotation no passage holds stays as written. The quote gate caps the confidence (`markers._quote_cap`, ADR-0139), and deep research marks the report degraded (`unverified_quotes`).
+- What made a label worth having, a claim without a backed pointer, is what the answer check reads in the final text since ADR-0139: the judge sees the claim without its `[N]` and grades it against the evidence.
+
+`UNVERIFIED_QUOTE_MARKER` and `DROPPED_CITATION_MARKER` stay named for stored answers that carry them (the BFF still translates those for an agent). `test_answer_check_pipeline.py::test_no_verification_marker_reaches_the_answer` fails any of the four spellings in a finalised answer.

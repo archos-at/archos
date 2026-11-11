@@ -1,0 +1,14 @@
+---
+# area: general
+features:
+  - >
+    Your recent chats in a project are now listed in the sidebar under Chat,
+    with the open one highlighted, and „Alle Chats“ below them opens the whole
+    chat history.
+improvements:
+  - >
+    The button that opens the chat history at the top of a chat is now
+    labelled „Chats“ on every screen, on a phone too, instead of an icon alone.
+  - >
+    Chats that a scheduled task created for each of its runs no longer fill
+    your chat history.

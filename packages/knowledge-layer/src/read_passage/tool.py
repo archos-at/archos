@@ -233,14 +233,14 @@ class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
 async def read_passage(config: ReadPassageConfig, _builder: Builder):
     """Open a named passage of a named document, or its outline. Deterministic; no LLM."""
     from knowledge_layer.search import resolve_base_collection
-    from knowledge_layer.search import resolve_scoped_collections
     from knowledge_layer.search import restrict_scope_to_turn
+    from knowledge_layer.search import scoped_collections_for_site
 
     search_config = _builder.get_function_config(config.knowledge_search)
 
     def _entries() -> list[Any]:
         return restrict_scope_to_turn(
-            resolve_scoped_collections(search_config, _session_collection(), resolve_base_collection(search_config))
+            scoped_collections_for_site(search_config, _session_collection(), resolve_base_collection(search_config))
         )
 
     async def _unknown(document: str) -> str:

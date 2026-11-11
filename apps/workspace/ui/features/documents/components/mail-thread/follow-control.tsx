@@ -140,17 +140,17 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
         canFollow || own.kind === 'following' ? (
           <>
           {canFollow && (
-            <BusyButton type="button" size="sm" variant="outline" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
               {t('follow.start')}
             </BusyButton>
           )}
           {own.kind === 'following' && own.renewable && (
-            <BusyButton type="button" size="sm" variant="outline" busy={pending === 'renew'} busyLabel={t('follow.renew')} onClick={() => void renew()} data-testid="mail-thread-follow-renew">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'renew'} busyLabel={t('follow.renew')} onClick={() => void renew()} data-testid="mail-thread-follow-renew">
               {t('follow.renew')}
             </BusyButton>
           )}
           {own.kind === 'following' && (
-            <BusyButton type="button" size="sm" variant="ghost" busy={pending === 'unfollow'} busyLabel={t('follow.unfollow')} onClick={() => void unfollow()} data-testid="mail-thread-follow-stop">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'unfollow'} busyLabel={t('follow.unfollow')} onClick={() => void unfollow()} data-testid="mail-thread-follow-stop">
               {t('follow.unfollow')}
             </BusyButton>
           )}
@@ -182,8 +182,8 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
                     <BusyButton
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-7 shrink-0 px-2 text-xs"
+                      variant="secondary"
+                      className="shrink-0"
                       busy={pending === `end:${follow.userId}`}
                       busyLabel={t('follow.end')}
                       aria-label={t('follow.endLabel', { name })}

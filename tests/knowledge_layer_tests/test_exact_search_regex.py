@@ -96,7 +96,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {chunk.chunk_id: chunk for chunk in self.points}
@@ -323,7 +325,7 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly):
-            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True, office_id="org_test")
 
     def test_a_pattern_cheap_per_chunk_but_costly_over_many_is_stopped_at_the_scan_deadline(self, monkeypatch):
         """The review's pattern: it names a common word, so the gate passes, and it never matches.
@@ -341,7 +343,7 @@ class TestCostlyPatterns:
 
         started = time.monotonic()
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"\bbrandschutz\b(.*a){3}Z", None, 5, user_regex=True, office_id="org_test")
         assert time.monotonic() - started < 1.5
         assert stopped.value.scan is True
 
@@ -351,7 +353,7 @@ class TestCostlyPatterns:
         fake = SimpleNamespace(scroll=lambda *a, **k: iter(records), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         with pytest.raises(PatternTooCostly) as stopped:
-            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True)
+            retrieval.find_text("proj_1", r"T90", None, 5, user_regex=True, office_id="org_test")
         assert stopped.value.scan is True
 
     async def test_a_scan_that_ran_out_of_time_is_said_to_be_no_result(self, search_with, monkeypatch):
@@ -371,7 +373,7 @@ class TestCostlyPatterns:
         record = SimpleNamespace(id="1", payload={"text": "Tür T30-2", "chunk_id": "1"})
         fake = SimpleNamespace(scroll=lambda *a, **k: iter([record]), text_index_sound=lambda scope: False)
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True)) == 1
+        assert len(retrieval.find_text("proj_1", r"T30-\d", None, 5, user_regex=True, office_id="org_test")) == 1
 
     def test_the_scan_is_narrowed_by_the_words_when_the_index_is_sound(self, monkeypatch):
         seen = []
@@ -379,9 +381,11 @@ class TestCostlyPatterns:
             scroll=lambda scope, flt, *extra: seen.extend(extra) or iter([]), text_index_sound=lambda scope: True
         )
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
-        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True)
-        assert len(seen) == 1
+        retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True, office_id="org_test")
+        # The words' narrowing, then the office the read is made as (``scope.office_condition``).
+        assert len(seen) == 2
         assert seen[0].should[0].match.text == "fluchtweg"
+        assert seen[1].should[1].match.value == "org_test"
 
 
 class TestCappedCounts:

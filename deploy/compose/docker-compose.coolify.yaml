@@ -56,6 +56,8 @@ services:
       # The chat role: the chat WebSocket and the answers running on it
       # (ADR-0082). The services below extend this one and set their own role.
       - PROCESS_ROLE=chat
+      # Public sources are read, and their PDFs parsed, only by public-source-fetcher (ADR-0162).
+      - PUBLIC_SOURCE_FETCHER_URL=${PUBLIC_SOURCE_FETCHER_URL:-http://public-source-fetcher:8095}
       - APP_ENV=${APP_ENV:-production}
       # One ingest worker, the standard pool: no file goes to `ingest-document-heavy`.
       - INGEST_HEAVY_FILE_BYTES=${INGEST_HEAVY_FILE_BYTES:-0}
@@ -202,12 +204,43 @@ services:
       # (fail-open in both tiers) and must never block the stack.
       dragonfly:
         condition: service_started
+      public-source-fetcher:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 40s
+    restart: unless-stopped
+
+  # ── The public-source fetcher (ADR-0162), the mirror of
+  #    deploy/pulumi/src/app/public-source-fetcher.ts ──
+  # The one process that reads public sources (RIS, Fedlex, a configured
+  # source) and parses their PDFs (`POST /v1/extract`): the backend roles reach
+  # them only through it (PUBLIC_SOURCE_FETCHER_URL), never from their own
+  # process. It holds no secret: no env_file, only its port and the records.
+  # Compose cannot give it Kubernetes' NetworkPolicy, and Coolify puts every
+  # service on its one managed network (see the note at the end), so here it
+  # shares a network with the stores; its own guard (public_sources/egress.py:
+  # the hosts at every hop, public addresses only) is what holds.
+  public-source-fetcher:
+    build:
+      context: .
+      dockerfile: apps/agent-host/Dockerfile
+      target: ${BUILD_TARGET:-release}
+    command: ["/app/.venv/bin/python", "-m", "public_sources.fetcher"]
+    expose:
+      - "8095"
+    environment:
+      - PORT=8095
+      - PUBLIC_SOURCES_DIR=/app/configs/sources
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8095/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   # ── Qdrant (ADR-0115), the single-node mirror of the Kubernetes StatefulSet
@@ -279,6 +312,8 @@ services:
         condition: service_healthy
       dragonfly:
         condition: service_started
+      public-source-fetcher:
+        condition: service_started
     # The web healthcheck inherited from chat would never pass (no HTTP
     # server here). Mirror the K8s liveness marker instead: worker.py touches
     # /tmp/research-worker.alive each claim-loop tick; fail if it is missing or
@@ -321,6 +356,8 @@ services:
       qdrant:
         condition: service_healthy
       dragonfly:
+        condition: service_started
+      public-source-fetcher:
         condition: service_started
     restart: unless-stopped
 
@@ -630,9 +667,9 @@ services:
       # dev file's `-`, because Coolify's parser may not honour the colon-less
       # form; an empty value here falls back to the default too.
       - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
-      # Address search in the project dialog (ADR-0151): komoot's public Photon,
-      # no account. `-` here, so an empty value switches it off.
-      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
+      # Address search in the project dialog (ADR-0151): off unless set (ADR-0159).
+      # komoot's public Photon is https://photon.komoot.io; it receives every keystroke.
+      - GEOCODER_URL=${GEOCODER_URL-}
       # Internal (server-side uploads) vs public (browser presigned URLs).
       - SEAWEED_ENDPOINT=http://seaweedfs:8333
       - SEAWEED_PUBLIC_ENDPOINT=https://${SERVICE_FQDN_SEAWEEDFS}
@@ -767,7 +804,7 @@ services:
   # One-shot WorkOS authorization rollout, the compose half of the Kubernetes
   # Jobs in deploy/pulumi/src/app/workos-authz-jobs.ts. First the catalog: every
   # permission and role the code checks is created in WorkOS (`provision:authz
-  # --apply`, which only adds). Then the folder-grants carry-over (ADR-0097),
+  # --apply`, which adds, and deletes only a retired permission). Then the folder-grants carry-over (ADR-0097),
   # which is a no-op once it has run. After the frontend is healthy, because
   # the carry-over must not run while the old dialog can still narrow a list.
   # No key, no WorkOS, exit 0, as for audit-schemas. Bundled by the image

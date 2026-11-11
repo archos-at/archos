@@ -13,7 +13,7 @@
  */
 
 import type { JSX } from 'react'
-import { Info, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { Clock, Info, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { Toggletip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
 import type { InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -148,7 +148,7 @@ export function SenderTrustLine({
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
             aria-label={explain}
           >
             <Info className="size-3.5" aria-hidden />
@@ -180,22 +180,25 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
  * `replay`, `automatic`) say only whom it waits for and why, because
  * `ClaimedMailBar` right below already says „Sie können sie verwerfen.“ and a
  * second time would only repeat it (`design-language.md`, principle 9).
- * Nothing once nothing of it waits, or under an impersonation's warning,
- * which already says why and what to do.
+ * Nothing once nothing of it waits (every part filed or on its way), or under
+ * an impersonation's warning, which already says why and what to do.
  */
 export function SenderWaitLine({
   view,
 }: {
-  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender'>>
+  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender' | 'parts'>>
 }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation') return null
+  // Every part decided and on its way: the detail says „Wird abgelegt …“, and why it waited is past.
+  if (view.parts && !view.parts.some((part) => part.state === 'waiting')) return null
   const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
   const name = view.sender ? senderDisplayName(view.sender) : ''
   return (
-    <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
-      <Info className="mt-px size-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
+    // What the mail asks of the reader: attention, so ochre on the glyph and the words in ink (colour never alone).
+    <p className="text-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
+      <Clock className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 max-w-[64ch] [overflow-wrap:anywhere]" /* a measure: across a 750px reader it ran two lines of 120 characters */>{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
     </p>
   )
 }

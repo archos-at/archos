@@ -230,7 +230,7 @@ export function DossierReferences({
           {group.kind === 'norm' || group.kind === 'law' ? (
             <div className="flex flex-wrap gap-1">
               {group.items.map(({ reference }) => (
-                <Chip key={reference.key} variant="outline" size="sm" className="font-normal" title={pagesLabel(t, reference.pages) ?? undefined}>
+                <Chip key={reference.key} variant="secondary" size="sm" className="font-normal" title={pagesLabel(t, reference.pages) ?? undefined}>
                   {reference.label}
                 </Chip>
               ))}

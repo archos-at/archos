@@ -19,11 +19,13 @@ import type { JSX } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  type LucideIcon,
   Bandage,
   BookOpenCheck,
   Building2,
   Cpu,
   DatabaseZap,
+  Globe2,
   HardDrive,
   LayoutGrid,
   MessageSquarePlus,
@@ -32,7 +34,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  type LucideIcon,
 } from 'lucide-react'
 import { SectionStrip, type SectionNavItem } from '@/components/shell/section-nav'
 import { cn } from '@/lib/utils'
@@ -72,6 +73,8 @@ export const PLATFORM_SECTION_GROUPS = [
     sections: [
       { key: 'knowledge', href: '/app/platform/knowledge', icon: BookOpenCheck },
       { key: 'norms', href: '/app/platform/norms', icon: Scale },
+      // Country knowledge as reviewed data releases (ADR-0165).
+      { key: 'countries', href: '/app/platform/countries', icon: Globe2 },
       { key: 'cards', href: '/app/platform/cards', icon: LayoutGrid },
     ],
   },

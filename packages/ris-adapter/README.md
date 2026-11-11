@@ -91,9 +91,11 @@ behavior with a warning):
    verified pointers directly — no HTTP call, no planner LLM.
 2. **`ris_catalog_lookup`**: explicit topic search in the catalog for the agent.
 3. **Prompt block**: `agent.common.norm_registry.render_block_for_prompt`
-   renders the catalog — Bundesrecht lane, the project's own Bundesland lane
-   (other states' law dropped), curated binding notes, and an OIB-corpus
-   citation note — into Piloti's and the deep researcher's prompts.
+   renders the catalog as addresses only — Bundesrecht lane, then the Land of
+   the site's knowledge context (other states' law dropped; with no site, every
+   Land's lane) — into the deep researcher's prompts, and only where the run's
+   knowledge context lets RIS run. It names no edition as binding: the chain
+   text does (ADR-0175). The chat prompt carries no catalog.
 
 **Jurisdiction-aware matching.** Building law is state law, and the nine state
 codes all match generic topics like "bauordnung", so both tool consumers
@@ -113,8 +115,7 @@ back (never clobbering curated fields; fails loudly on unverifiable seeds). New
 seeds go into `configs/norms/<country>/seeds_ris.yml`:
 
 ```bash
-uv run --no-project --with httpx --with pydantic --with beautifulsoup4 \
-    --with pyyaml --with ruamel.yaml python scripts/build_ris_catalog.py
+.venv/bin/python scripts/build_ris_catalog.py   # needs the workspace venv: it imports ris_adapter and public_sources
 ```
 
 ### On-demand documents as knowledge sources
@@ -162,6 +163,28 @@ Platform integration: per call, the planner model passes through
 use — so per-org runtime model overrides (ADR-0014) and BYOK credentials
 (ADR-0022) apply consistently. Outside the Piloti agent the wrappers degrade to
 no-ops.
+
+## The source record: RIS is configuration (ADR-0162)
+
+Every Austrian value this adapter uses is read from
+[`configs/sources/at/ris/source.yml`](../../configs/sources/at/ris/source.yml),
+one `rest` + `ris_xml` record of [`public-sources`](../public-sources/README.md):
+the API and document hosts, the application -> controller map, the page sizes,
+the document path segments and prefixes, the nine Bundesland parameters, which
+date parameter each application takes, and the OGD host rewrite. `client.py`
+derives its constants from it and builds searches through the record's
+`search` operation; the RIS search and page parsing is the `ris_xml` engine,
+re-exported from `ris_adapter.client`. The norm admin route and
+`scripts/build_ris_catalog.py` read the Bundesland table from the same record
+(`federal_state_param`). `tests/test_source_record_parity.py` freezes the code
+the record replaced, so an edit that moves an Austrian request fails there.
+
+**Through the fetcher, always.** `RisClient` makes its requests through
+`public_sources.routing.source_transport("at-ris")`, which sends them to the
+sandboxed `public-source-fetcher` (`PUBLIC_SOURCE_FETCHER_URL`). Without a
+fetcher a RIS request is a `RisError`; there is no in-process path (ADR-0162
+amendment). For the answer suite, run the fetcher (`python -m
+public_sources.fetcher`) and point the variable at it.
 
 ## Configuration
 

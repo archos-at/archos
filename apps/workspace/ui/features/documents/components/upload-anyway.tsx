@@ -31,7 +31,7 @@ export function UploadAnywayButton({ className }: { className?: string }): JSX.E
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
       className={cn('mt-2 h-7 px-2 text-xs', className)}
       title={t('errors.uploadAnywayHint')}

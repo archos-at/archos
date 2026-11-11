@@ -2,7 +2,14 @@
 
 The chat talks to the agent over a WebSocket, for real-time interaction with full HITL (human-in-the-loop) support.
 
-On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and a project pill with search sits above the thread header.
+On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and the thread header is the first thing on the screen. To see which project you are in, or to switch, open **Mehr** in the tab bar: its first entry shows the project, and **Projekt wechseln** opens the list. **Suche** is in **Mehr** too.
+
+## Finding past chats
+
+Every chat you had in a project is kept, and there are two ways back to one:
+
+- **In the sidebar, under Chat**, your five most recent chats in this project are listed by title, newest activity first; the one you have open is highlighted. **Alle Chats** below them opens the chat-history panel with every chat, the search and the research runs. A project with no chats yet shows nothing there. In the collapsed (icon) sidebar the list is hidden; **Chat** still opens the chat.
+- **In the thread header**, the **Chats** button at its left opens the same panel. It is labelled on every screen size; on a phone the word sits under its icon, beside the chat's title.
 
 ## Starting a conversation
 
@@ -14,7 +21,7 @@ While ARCHOS answers, the composer stays open, so you can write the next questio
 
 The header is two floating pills, split by what they are for.
 
-**Left — where you are.** The chat-history toggle (the door to past chats) and the session title. Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project is not repeated here, because the navigation rail already names it; on a phone, where there is no rail, the project pill above the header names it, and the title may take two lines.
+**Left — where you are.** **Chats** (the door to past chats, a button with its word), a hairline, then the session title. Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project is not repeated here, because the navigation rail already names it; on a phone, where there is no rail, **Mehr** in the tab bar names it, and the title may take two lines.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 
@@ -130,7 +137,7 @@ When collaboration is enabled (ADR-0032…0036), a chat can have a named audienc
 
 ## Chat history panel
 
-The history panel opens from the chat-history toggle as a sheet that rises over the chat (the same sheet as the inbox, with a sliver of the chat left visible above it), and is this project's whole record of past chats and research runs. Close it with its **✕** or Escape; focus returns to the control that opened it.
+The history panel opens from **Chats** in the thread header, or from **Alle Chats** under Chat in the sidebar, as a sheet that rises over the chat (the same sheet as the inbox, with a sliver of the chat left visible above it), and is this project's whole record of past chats and research runs. Close it with its **✕** or Escape; focus returns to the control that opened it.
 
 Its heading names the panel and its size (**Chat history · 12 chats**). Below that, the controls stay pinned while the list scrolls:
 

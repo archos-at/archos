@@ -24,12 +24,16 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
+import { CountPill } from '@/components/ui/count-pill'
 
 export interface SectionNavItem {
   key: string
   href: string
   icon: LucideIcon
   label: string
+  /** A quiet count after the label (mail waiting); none at zero. `countLabel` is what a screen reader hears. */
+  count?: number | null
+  countLabel?: string
 }
 
 export interface SectionNavProps {
@@ -56,6 +60,19 @@ export interface SectionNavProps {
    * nothing.
    */
   railTopClassName?: string
+  /** The path to mark the current section by, for a `/dev` preview that renders a page at its own URL. */
+  pathname?: string
+  /**
+   * The strip on a track of the one grey, the open section a white thumb on it, as every choice in Dateien
+   * (`ToggleGroup segmented`). Where tonal presses stand beside the tabs (Dateien's tools), an open tab filled with
+   * the same grey read as one more press, and the presses as a second group of tabs (2026-11-10 review).
+   */
+  track?: boolean
+  /**
+   * On a phone an unchosen tab of the track is its glyph alone (its name stays its accessible name), and the open
+   * one names the place: four German labels ran 470px wide on a 358px line and the last was cut („Of“).
+   */
+  compactOnPhone?: boolean
   'data-testid'?: string
 }
 
@@ -77,9 +94,13 @@ export function SectionNav({
   pillId,
   orientation = 'rail',
   railTopClassName = 'lg:top-24',
+  pathname: pathnameOverride,
+  track = false,
+  compactOnPhone = false,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
-  const pathname = usePathname()
+  const currentPathname = usePathname()
+  const pathname = pathnameOverride ?? currentPathname
 
   return (
     <nav aria-label={label} data-testid={testId}>
@@ -90,6 +111,8 @@ export function SectionNav({
         pillId={pillId}
         isActive={(href) => isSectionActive(pathname, href, rootHref)}
         className={cn(orientation === 'rail' && 'lg:hidden')}
+        track={track}
+        compactOnPhone={compactOnPhone}
       />
 
       {/* Desktop: a sticky rail beside the content. */}
@@ -125,12 +148,18 @@ export function SectionStrip({
   pillId,
   isActive,
   className,
+  track = false,
+  compactOnPhone = false,
 }: {
   label: string
   items: readonly SectionNavItem[]
   pillId: string
   isActive: (href: string) => boolean
   className?: string
+  /** See {@link SectionNavProps.track}. */
+  track?: boolean
+  /** See {@link SectionNavProps.compactOnPhone}. */
+  compactOnPhone?: boolean
 }): JSX.Element {
   const pathname = usePathname()
   const stripRef = useRef<HTMLDivElement>(null)
@@ -144,21 +173,26 @@ export function SectionStrip({
     const scroller = strip?.firstElementChild
     const current = strip?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!(scroller instanceof HTMLElement) || !current) return
-    const target = current.offsetLeft - (scroller.clientWidth - current.offsetWidth) / 2
-    scroller.scrollLeft = Math.max(0, target)
+    // The nearest scroll that shows the open tab whole, not the centre: centred, both ends showed fragments of
+    // their tabs („ı Dateien“); this way the row starts on its first tab unless the open one lies past the edge.
+    const right = current.offsetLeft + current.offsetWidth
+    if (right > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = right - scroller.clientWidth
+    else if (current.offsetLeft < scroller.scrollLeft) scroller.scrollLeft = current.offsetLeft
   }, [pathname])
 
   return (
     <div ref={stripRef} className={className}>
-      <HorizontalScroll aria-label={label} cue className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className="flex gap-1 pb-2">
+      {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
+      <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-desk p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink
                 item={item}
                 active={isActive(item.href)}
                 pillId={pillId}
-                variant="strip"
+                variant={track ? 'track' : 'strip'}
+                compactOnPhone={compactOnPhone}
               />
             </li>
           ))}
@@ -173,31 +207,38 @@ function SectionNavLink({
   active,
   pillId,
   variant,
+  compactOnPhone = false,
 }: {
   item: SectionNavItem
   active: boolean
   pillId: string
-  variant: 'strip' | 'rail'
+  compactOnPhone?: boolean
+  /** `track`: a strip entry on the grey track, 28px so the track is the row's 32px; the open one a white thumb. */
+  variant: 'strip' | 'track' | 'rail'
 }): JSX.Element {
   const Icon = item.icon
+  const onTrack = variant === 'track'
   return (
     <Link
       href={item.href}
       replace
       aria-current={active ? 'page' : undefined}
+      title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
         // `relative isolate` + pill `-z-10` is the app-sidebar rail pattern:
         // the active surface glides on `springGlide` below the ink.
         'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
         // The strip's entries sit 4px apart, so under a finger each grows to
         // 44px rather than borrowing a catchment from its neighbour.
-        variant === 'strip'
-          ? 'inline-flex gap-1.5 px-3 py-1.5 pointer-coarse:min-h-11 pointer-coarse:px-3.5'
-          : 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11',
+        variant === 'rail'
+          ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'
+          : cn('inline-flex gap-1.5 px-3 pointer-coarse:min-h-11 pointer-coarse:px-3.5', onTrack ? 'py-1 md:@max-[44rem]/section:px-2.5' : 'py-1.5'),
         active
           ? 'text-secondary-foreground font-medium'
           : cn(
-              'text-muted-foreground hover:bg-accent',
+              'text-muted-foreground',
+              // On the track an unchosen tab hovers to ink, not to a fill: grey on the track's grey.
+              onTrack ? 'hover:text-foreground' : 'hover:bg-accent',
               variant === 'rail' && 'hover:text-foreground'
             )
       )}
@@ -207,12 +248,28 @@ function SectionNavLink({
           layoutId={pillId}
           aria-hidden
           data-slot="section-nav-pill"
-          className="bg-secondary absolute inset-0 -z-10 rounded-[inherit]"
+          className={cn('absolute inset-0 -z-10 rounded-[inherit]', onTrack ? 'bg-sheet shadow-thumb' : 'bg-selected')}
           transition={springGlide}
         />
       )}
-      <Icon className="size-4 shrink-0" aria-hidden />
-      {item.label}
+      {/* Beside the rail in a narrow section (a tablet) the places keep their names and give up their glyphs: glyphs
+          alone were four boxes to guess, and a strip that scrolled cut „Papierkorb“ off (review of 2026-11-10, finding 2). */}
+      <Icon className={cn('size-4 shrink-0', onTrack && 'md:@max-[44rem]/section:hidden')} aria-hidden />
+      {/* A phone names only the open place. */}
+      <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
+      {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
+          when it lands. `undefined` is a tab without a count. */}
+      {item.count === null && (
+        // A pill of one digit's width and no text to read: white on a grey surface, grey on the white thumb.
+        <CountPill tone="muted" aria-hidden className={cn(onTrack ? !active && 'bg-background' : 'bg-background')}>
+          <span className="invisible before:content-['8']" />
+        </CountPill>
+      )}
+      {item.count != null && item.count > 0 && (
+        // White on a grey surface (the open tab's fill, or the track under an unchosen one), as everything on grey is:
+        // grey on grey hid the pill. On the white thumb it is the one grey.
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active !== onTrack && 'bg-background')} />
+      )}
     </Link>
   )
 }

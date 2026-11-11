@@ -3,7 +3,8 @@ import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { projects } from '@/lib/db/schema/projects'
 import type { ProjectOverviewData } from '@/features/projects/types'
-import { deriveProjectStandards } from '@/lib/oib/project-standards'
+import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
+import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import { outsideHiddenFolders } from '@/lib/documents/repository'
 import { documentVisibleTo, type ShelfReader } from '@/lib/documents/visibility'
 import { lifecycleViewOf } from './project-status'
@@ -125,9 +126,8 @@ export async function getProjectOverviewData(
     .orderBy(desc(documents.createdAt))
     .limit(5)
 
-  // Which OIB-Richtlinien apply, and whether the brief has enough facts to tailor
-  // them: the derivation the standards route answers too.
-  const { profile, applicableStandards, briefComplete } = deriveProjectStandards(project)
+  // Salvaged like `findProjectInOrg`'s: a project whose intake was never saved stored `{}` before migration 0133.
+  const profile = salvageProjectProfile(project.profile).profile ?? emptyProjectProfile()
 
   return {
     id: project.id,
@@ -143,8 +143,6 @@ export async function getProjectOverviewData(
         }
       : null,
     profile,
-    applicableStandards,
-    briefComplete,
     documentCount: stats?.count ?? 0,
     totalFileSize: Number(stats?.totalSize) || 0,
     recentDocuments: recentDocs.map((d) => ({

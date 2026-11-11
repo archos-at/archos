@@ -17,7 +17,8 @@ import { join } from 'node:path'
 import { inflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { MAX_DIAGRAM_SVG_DEPTH } from './diagram-sources'
-import { aiProvenanceMarking } from '@/lib/ai-provenance'
+import { IPTC_TRAINED_ALGORITHMIC_MEDIA, aiProvenanceMarking } from '@/lib/ai-provenance'
+import { readPdf } from '@/test-utils/read-pdf'
 import { acceptDiagram, type SvgElement } from './svg'
 import { renderDiagramPdf, textOrigin, tspanPositions } from './svg-to-pdf'
 
@@ -78,6 +79,12 @@ describe('a diagram becomes a PDF, without a browser', () => {
       '<rect x="10" y="10" width="80" height="40" fill="#eef" stroke="#333"/>'
     )
     expect(Buffer.from(pdf.subarray(0, 5)).toString('latin1')).toBe('%PDF-')
+  })
+
+  it('is marked trainedAlgorithmicMedia in XMP, beside the Info dictionary', async () => {
+    const pdf = await readPdf(await pdfFor('<rect x="10" y="10" width="80" height="40"/>'))
+    expect(pdf.xmp['iptc4xmpext:digitalsourcetype']).toBe(IPTC_TRAINED_ALGORITHMIC_MEDIA)
+    expect(pdf.info.Keywords).toBe(PROVENANCE)
   })
 
   it('draws the geometry as vector operators, not as a raster', async () => {

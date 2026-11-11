@@ -135,10 +135,20 @@ tasks:
       - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace verify:website verify:cms infra:types infra:test'
 
   verify:fast:
-    desc: Everything CI runs except the production builds (the slow step)
+    desc: 'The gate for what this change can break: the tiers and UI specs the diff against origin/develop reaches (-- --all for every tier, -- --dry-run for the plan)'
     cmds:
-      - 'SKIP={{.VERIFY_SKIP}} {{.TASK_EXE}} lint:repo'
-      - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace:fast verify:website:fast verify:cms infra:types infra:test'
+      # ci/verify_plan.py decides, from the two definitions CI's Plan job
+      # reads: .github/filters.yml for the tiers, ci/pr_selection.py for the
+      # tests. Measured 2026-11-10 on four cores: the UI suite alone is 13
+      # minutes (2,310 CPU seconds), the backend core suite under three, and
+      # every other tier together under two. Running all of it for a change to
+      # one tier is what made this task slow. No production build, and no
+      # coverage instrumentation (be:verify:fast): `task verify` keeps both.
+      #
+      # lint:repo runs in the same parallel group here, not first as in
+      # `verify`: a generator hook that rewrites a stale file fails the run
+      # either way, and the tiers need not wait for it.
+      - 'SKIP={{.VERIFY_SKIP}} "{{.PY}}" ci/verify_plan.py --task "{{.TASK_EXE}}" {{.CLI_ARGS}}'
 
   # The tiers as `verify` runs them, once lint:repo has checked the generated
   # card schemas (its card-schemas hook), so that check does not run twice.

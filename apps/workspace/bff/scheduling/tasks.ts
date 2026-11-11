@@ -121,6 +121,14 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.sweepConversationTraces,
   },
   {
+    name: 'source-monitor',
+    cron: '*/15 * * * *',
+    reason:
+      'reads the platform\'s published public sources whose monitor is due (ADR-0174); a changed source gets a draft ' +
+      'change request for a reviewer, never a publish. Off unless the platform has source-monitors on',
+    run: sweeps.sweepSourceMonitors,
+  },
+  {
     name: 'schedule-repair',
     cron: '*/5 * * * *',
     reason: 'finds the task definitions of every organization whose due time passed without a fire, or that have no scheduled run',

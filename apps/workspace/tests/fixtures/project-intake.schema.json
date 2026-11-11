@@ -766,12 +766,46 @@
           "type": "object",
           "properties": {
             "kind": {
+              "const": "register"
+            },
+            "addressId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "referenceDate": {
+              "type": "string",
+              "maxLength": 10
+            },
+            "resolvedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "kind",
+            "addressId",
+            "label",
+            "referenceDate",
+            "resolvedAt"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
               "const": "derivation"
             },
             "rule": {
               "type": "string",
               "enum": [
-                "building_class"
+                "building_class",
+                "postal_code"
               ]
             },
             "citation": {
@@ -1199,12 +1233,46 @@
                       "type": "object",
                       "properties": {
                         "kind": {
+                          "const": "register"
+                        },
+                        "addressId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "referenceDate": {
+                          "type": "string",
+                          "maxLength": 10
+                        },
+                        "resolvedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "addressId",
+                        "label",
+                        "referenceDate",
+                        "resolvedAt"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
                           "const": "derivation"
                         },
                         "rule": {
                           "type": "string",
                           "enum": [
-                            "building_class"
+                            "building_class",
+                            "postal_code"
                           ]
                         },
                         "citation": {
@@ -1390,12 +1458,46 @@
                             "type": "object",
                             "properties": {
                               "kind": {
+                                "const": "register"
+                              },
+                              "addressId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "referenceDate": {
+                                "type": "string",
+                                "maxLength": 10
+                              },
+                              "resolvedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "addressId",
+                              "label",
+                              "referenceDate",
+                              "resolvedAt"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
                                 "const": "derivation"
                               },
                               "rule": {
                                 "type": "string",
                                 "enum": [
-                                  "building_class"
+                                  "building_class",
+                                  "postal_code"
                                 ]
                               },
                               "citation": {
@@ -1884,12 +1986,46 @@
                             "type": "object",
                             "properties": {
                               "kind": {
+                                "const": "register"
+                              },
+                              "addressId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              },
+                              "referenceDate": {
+                                "type": "string",
+                                "maxLength": 10
+                              },
+                              "resolvedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "addressId",
+                              "label",
+                              "referenceDate",
+                              "resolvedAt"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
                                 "const": "derivation"
                               },
                               "rule": {
                                 "type": "string",
                                 "enum": [
-                                  "building_class"
+                                  "building_class",
+                                  "postal_code"
                                 ]
                               },
                               "citation": {
@@ -2075,12 +2211,46 @@
                                   "type": "object",
                                   "properties": {
                                     "kind": {
+                                      "const": "register"
+                                    },
+                                    "addressId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300
+                                    },
+                                    "referenceDate": {
+                                      "type": "string",
+                                      "maxLength": 10
+                                    },
+                                    "resolvedAt": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "addressId",
+                                    "label",
+                                    "referenceDate",
+                                    "resolvedAt"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
                                       "const": "derivation"
                                     },
                                     "rule": {
                                       "type": "string",
                                       "enum": [
-                                        "building_class"
+                                        "building_class",
+                                        "postal_code"
                                       ]
                                     },
                                     "citation": {
@@ -2219,7 +2389,8 @@
               "rule": {
                 "type": "string",
                 "enum": [
-                  "building_class"
+                  "building_class",
+                  "postal_code"
                 ]
               },
               "citation": {
@@ -2431,12 +2602,46 @@
                               "type": "object",
                               "properties": {
                                 "kind": {
+                                  "const": "register"
+                                },
+                                "addressId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                },
+                                "referenceDate": {
+                                  "type": "string",
+                                  "maxLength": 10
+                                },
+                                "resolvedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "addressId",
+                                "label",
+                                "referenceDate",
+                                "resolvedAt"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
                                   "const": "derivation"
                                 },
                                 "rule": {
                                   "type": "string",
                                   "enum": [
-                                    "building_class"
+                                    "building_class",
+                                    "postal_code"
                                   ]
                                 },
                                 "citation": {
@@ -2622,12 +2827,46 @@
                                     "type": "object",
                                     "properties": {
                                       "kind": {
+                                        "const": "register"
+                                      },
+                                      "addressId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 100
+                                      },
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "referenceDate": {
+                                        "type": "string",
+                                        "maxLength": 10
+                                      },
+                                      "resolvedAt": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "addressId",
+                                      "label",
+                                      "referenceDate",
+                                      "resolvedAt"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
                                         "const": "derivation"
                                       },
                                       "rule": {
                                         "type": "string",
                                         "enum": [
-                                          "building_class"
+                                          "building_class",
+                                          "postal_code"
                                         ]
                                       },
                                       "citation": {
@@ -2768,60 +3007,159 @@
         "canComplete": {
           "type": "boolean"
         },
-        "applicableStandards": {
-          "maxItems": 40,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 32
-              },
-              "titleEn": {
-                "type": "string",
-                "maxLength": 300
-              },
-              "titleDe": {
-                "type": "string",
-                "maxLength": 300
-              },
-              "scope": {
-                "type": "string",
-                "maxLength": 1000
-              },
-              "oibUrl": {
-                "type": "string",
-                "maxLength": 500
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "required",
-                  "likely",
-                  "check"
-                ]
-              },
-              "reason": {
-                "type": "string",
-                "maxLength": 1000
-              },
-              "decidingFact": {
-                "type": "string",
-                "maxLength": 100
+        "applicableLaw": {
+          "type": "object",
+          "properties": {
+            "gate": {
+              "type": "string",
+              "enum": [
+                "organization_unplaced",
+                "site_unknown",
+                "not_entitled",
+                "knowledge_unavailable",
+                "none",
+                "open",
+                "core",
+                "full"
+              ]
+            },
+            "uses": {
+              "maxItems": 40,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "workId": {
+                    "type": "string"
+                  },
+                  "editionId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "binding",
+                      "guidance",
+                      "interpretation",
+                      "authority_practice",
+                      "information"
+                    ]
+                  },
+                  "qualifier": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "uncurated",
+                          "office_maintained"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "designation": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "editionLabel": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "applicability": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "verdict": {
+                            "type": "string",
+                            "enum": [
+                              "applies",
+                              "check",
+                              "not_applicable"
+                            ]
+                          },
+                          "basis": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "open": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "provision": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "verdict",
+                          "basis",
+                          "open",
+                          "provision"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sourceUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workId",
+                  "editionId",
+                  "role",
+                  "qualifier",
+                  "designation",
+                  "editionLabel",
+                  "applicability",
+                  "sourceUrl"
+                ],
+                "additionalProperties": false
               }
             },
-            "required": [
-              "code",
-              "titleEn",
-              "titleDe",
-              "scope",
-              "oibUrl",
-              "status",
-              "reason"
-            ]
-          }
+            "factLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "gate",
+            "uses",
+            "factLabels"
+          ],
+          "additionalProperties": false
         },
         "locationRegister": {
           "type": "object",
@@ -3213,6 +3551,7 @@
                     {
                       "type": "string",
                       "enum": [
+                        "register",
                         "geocoder",
                         "document",
                         "person"

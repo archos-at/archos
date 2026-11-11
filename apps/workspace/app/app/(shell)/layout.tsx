@@ -36,6 +36,7 @@
 import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
+import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
 import { InboxDock } from '@/features/collaboration/components'
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
@@ -56,6 +57,8 @@ export default async function AppShellLayout({
   const chrome = await runWithTenantSlot(resolveShellChrome)
 
   return (
+    // The rail's last chats come from the chat's side, so the shell imports no feature (`rail-chats.tsx`).
+    <RailChatsProvider>
     <AppShellChrome
       projects={chrome.projects}
       user={chrome.user}
@@ -93,5 +96,6 @@ export default async function AppShellLayout({
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
       <WhatsNewNoticeInShell state={chrome.whatsNew} />
     </AppShellChrome>
+    </RailChatsProvider>
   )
 }

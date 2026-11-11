@@ -13,6 +13,7 @@
  *   - any other non-2xx / network failure → SubmitError → `error` run.
  */
 
+import type { KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import 'server-only'
 // The leaf, not `@/lib/backend-proxy`: that module pulls
 // `@workos-inc/authkit-nextjs`, which the session-less scheduler fire path (and
@@ -109,6 +110,12 @@ export interface JobSubmitPayload {
    * a person is waiting on, `bulk` for a scheduled fire. Absent is interactive.
    */
   priority?: JobPriority
+  /**
+   * The knowledge context of the run's project (ADR-0173, ADR-0175): the same
+   * JSON a chat turn's `knowledgeContext` carries, its chain text included.
+   * The worker binds it as a turn does; malformed reads as `knowledge_unavailable`.
+   */
+  knowledge_context: KnowledgeContext
 }
 
 /** The agents a background run may name instead of its output kind's (`agent_host/registry.py`). */

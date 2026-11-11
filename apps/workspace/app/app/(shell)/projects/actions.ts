@@ -88,7 +88,7 @@ export async function createProject(
   // layouts, so the new name reaches the switcher without a server action.)
   revalidatePath('/app', 'layout')
   // Land new projects directly in their setup: the brief is what makes Piloti's
-  // answers (and the applicable-standards panel) useful, so creating flows
+  // answers (and the Steckbrief's law at the site) useful, so creating flows
   // straight into it. „Piloti richtet ein" lands on the setup page, where the
   // documents are dropped and read (ADR-0111); „Selbst ausfüllen" on the wizard.
   // A project created closed the old way lands on its overview instead: intake
@@ -137,22 +137,24 @@ function closingFromForm(formData: FormData): ProjectClosing | FormRefusal | und
 /** The form's Einrichtung, „Worum geht es?", address (chosen or typed) and Bundesland, checked as the route checks its body. */
 function setupFromForm(
   formData: FormData
-): (Required<Pick<CreateProjectInput, 'setup'>> & Pick<CreateProjectInput, 'description' | 'location' | 'address' | 'federalState'>) | FormRefusal {
+): (Required<Pick<CreateProjectInput, 'setup'>> & Pick<CreateProjectInput, 'description' | 'location' | 'address' | 'federalState' | 'country'>) | FormRefusal {
   const location = formData.get('location')
-  const parsed = createProjectFieldsSchema.pick({ setup: true, description: true, location: true, address: true, federalState: true }).safeParse({
+  const parsed = createProjectFieldsSchema.pick({ setup: true, description: true, location: true, address: true, federalState: true, country: true }).safeParse({
     setup: formData.get('setup') ?? 'self',
     description: formData.get('description') ?? undefined,
     location: typeof location === 'string' && location !== '' ? safeJson(location) : undefined,
     address: formData.get('address') ?? undefined,
     federalState: formData.get('federal_state') || undefined,
+    country: formData.get('country') || undefined,
   })
   if (!parsed.success) return { error: 'The setup details are not valid.', reason: 'invalid-setup' }
-  const { setup, description, location: place, address, federalState } = parsed.data
+  const { setup, description, location: place, address, federalState, country } = parsed.data
   return {
     setup,
     ...(description ? { description } : {}),
     ...(place ? { location: place } : address ? { address } : {}),
     ...(federalState ? { federalState } : {}),
+    ...(country ? { country } : {}),
   }
 }
 

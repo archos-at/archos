@@ -29,6 +29,7 @@ const VALID_EVENT = {
   completionTokens: 331,
   totalTokens: 1535,
   cachedTokens: 512,
+  cacheWriteTokens: 384,
   reasoningTokens: 128,
   costUsd: 0.00214,
   costSource: 'usage_field',
@@ -85,6 +86,17 @@ describe('POST /api/internal/usage', () => {
       costUsd: '0.00214000',
       costSource: 'usage_field',
     })
+  })
+
+  it('books the cache writes, and none for an older agent that does not send them', async () => {
+    const { cacheWriteTokens: _omitted, ...olderAgentEvent } = VALID_EVENT
+    const res = await POST(request({ organizationId: 'org_1', events: [VALID_EVENT, olderAgentEvent] }))
+    expect(res.status).toBe(202)
+    const rows = vi.mocked(recordUsageEvents).mock.calls[0][0]
+    expect(rows.map((row) => [row.cachedTokens, row.cacheWriteTokens])).toEqual([
+      [512, 384],
+      [512, 0],
+    ])
   })
 
   it('stamps every row with the answer the batch paid for', async () => {

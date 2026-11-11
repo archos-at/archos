@@ -63,20 +63,26 @@ def end_turn_outcome(token: contextvars.Token[dict[str, Any] | None]) -> None:
 #: Where :func:`record_turn_facts` keeps its facts inside the box, apart from the
 #: terminal's attributes, which :func:`_fill` replaces wholesale.
 _FACTS = "__turn_facts__"
+#: Where :func:`record_turn_tag` keeps its tags, united with the terminal's on the root.
+_TAGS = "__turn_tags__"
 
 
 def current_turn_outcome() -> dict[str, Any] | None:
-    """The attributes recorded for this turn, or None when no turn bound a box or none finished.
+    """The attributes recorded for this turn, or None when no turn bound a box or nothing is in it yet.
 
     The facts the workflow recorded (:func:`record_turn_facts`) ride as trace
-    metadata beside the terminal's.
+    metadata beside the terminal's, and its tags (:func:`record_turn_tag`) beside the
+    terminal's tags: a box holding only tags answers them before the turn finished.
     """
     box = _TURN_OUTCOME.get()
     if not box:
         return None
-    attributes = {key: value for key, value in box.items() if key != _FACTS}
+    attributes = {key: value for key, value in box.items() if key not in (_FACTS, _TAGS)}
     facts = box.get(_FACTS) or {}
     attributes.update({f"{METADATA_PREFIX}{key}": value for key, value in facts.items()})
+    tags = [*(attributes.get(TAGS_ATTRIBUTE) or []), *(box.get(_TAGS) or [])]
+    if tags:
+        attributes[TAGS_ATTRIBUTE] = list(dict.fromkeys(tags))
     return attributes or None
 
 
@@ -84,11 +90,10 @@ def _fill(attributes: dict[str, Any]) -> None:
     box = _TURN_OUTCOME.get()
     if box is None:
         return
-    facts = box.get(_FACTS)
+    kept = {key: box[key] for key in (_FACTS, _TAGS) if box.get(key)}
     box.clear()
     box.update(attributes)
-    if facts:
-        box[_FACTS] = facts
+    box.update(kept)
 
 
 def record_turn_facts(**facts: Any) -> None:
@@ -108,6 +113,26 @@ def record_turn_facts(**facts: Any) -> None:
         box[_FACTS] = stored
     except Exception:
         logger.debug("Failed to record a turn fact for its trace", exc_info=True)
+
+
+def record_turn_tag(tag: str) -> None:
+    """A tag onto the turn's ROOT observation, from wherever in the workflow it is learnt. Never raises.
+
+    ``add_trace_tag`` writes a ContextVar, and a tool runs in a copy of the context that dies with its
+    node, so the root span never sees it. The box is shared by reference (:func:`record_turn_facts`).
+    """
+    try:
+        box = _TURN_OUTCOME.get()
+        if box is not None and tag not in (box.get(_TAGS) or []):
+            box[_TAGS] = [*(box.get(_TAGS) or []), tag]
+    except Exception:
+        logger.debug("Failed to record a turn tag for its trace", exc_info=True)
+
+
+def turn_tagged(tag: str) -> bool:
+    """Whether :func:`record_turn_tag` put ``tag`` on this turn, read in the context that bound the box."""
+    box = _TURN_OUTCOME.get()
+    return bool(box) and tag in (box.get(_TAGS) or [])
 
 
 def record_turn_finished(body: Any) -> None:

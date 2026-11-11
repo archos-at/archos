@@ -111,7 +111,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
 
     expect(await screen.findByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
     expect(screen.getAllByTestId('file-card')).toHaveLength(2)
-    expect(screen.getByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).toBeInTheDocument()
+    // A tile is the sheet, the name and one meta line, as a project's: its summary is the list's and the preview's.
+    expect(screen.queryByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).not.toBeInTheDocument()
     expect(screen.queryByText('From: Brandschutz · Gutachten')).not.toBeInTheDocument()
     expect(screen.queryByTestId('office-shelf-provenance')).not.toBeInTheDocument()
     expect(screen.queryByText('Document')).not.toBeInTheDocument()
@@ -871,7 +872,7 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /new folder/i }))
+    await user.click(screen.getByRole('button', { name: /create folder/i }))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))

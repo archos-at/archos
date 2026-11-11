@@ -1,8 +1,8 @@
 'use client'
 
 import type { JSX } from 'react'
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { ChevronRight, Folder, FolderPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react'
+import { ChevronRight, Folder } from 'lucide-react'
 
 import {
   Breadcrumb,
@@ -12,30 +12,26 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CountPill } from '@/components/ui/count-pill'
 import { Item } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileName } from './file-name'
 import { Spinner } from '@/components/ui/spinner'
 import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { BackControl } from '@/components/shell/back-link'
+import { ProjectSectionTabActions, useSectionPlaceSlot, useSectionTabActionsSlot, useSectionToolTier } from '@/components/shell/project-section-frame'
+import { NewFolderDialog } from './new-folder-dialog'
+import { FolderActionsMenu, NewFolderControl } from './folder-controls'
+
+export { FolderActionsMenu } from './folder-controls'
+import { FolderPlaceInHeader, folderPath } from './folder-trail'
+import { FolderName } from './file-name'
 import { useTranslations } from '@/i18n'
-import { useLocale } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { cn } from '@/lib/utils'
-import { TimeAgo } from '@/components/ui/time-ago'
-import { FileTileBody, FileTileFooter, FileTileMedia, GridTileShell } from './file-tile'
+import { FOLDER_SHEET, FOLDER_WELL, FolderCardFrame } from './folder-card-frame'
+import { FileTileBody, TileShell } from './file-tile'
 import { FolderAccessMark, FolderReadOnlyBadge, useFolderOwnAccessLabel } from './folder-access-mark'
 import { FolderReadState } from './folder-read-state'
 import type { KnowledgeTally } from '../lib/folder-knowledge'
@@ -51,19 +47,6 @@ import type { FolderItem } from './project-file-workspace'
  * and the breadcrumb up top names the path and walks back out. Same flat
  * `FolderItem[]` data, same server API — only the presentation changed.
  */
-
-/** The chain of ancestors from the root to `folderId`, oldest first. */
-export function folderPath(folders: FolderItem[], folderId: string | null): FolderItem[] {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]))
-  const path: FolderItem[] = []
-  let cursor = folderId === null ? undefined : byId.get(folderId)
-  // Defensive bound: a corrupt parent chain must not hang the render.
-  while (cursor && path.length <= folders.length) {
-    path.unshift(cursor)
-    cursor = cursor.parentId === null ? undefined : byId.get(cursor.parentId)
-  }
-  return path
-}
 
 export interface FolderNavProps {
   folders: FolderItem[]
@@ -91,10 +74,22 @@ export function FolderBreadcrumbRow({
   onDropFiles,
   onFileAim,
   mayWriteAt,
+  rootToolsElsewhere = false,
+  itemCount,
+  emptyLevel = false,
+  searching = false,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
+  /** A query filters the files: the path is not where the reader is then, but the level's tools stay in the tool row. */
+  searching?: boolean
+  /** What the open folder holds, beside its name in the header („240 Elemente“). */
+  itemCount?: number
+  /** The level shows its empty state: the tool row's Hochladen steps back to its own (`useSectionPrimaryYields`). */
+  emptyLevel?: boolean
   /** Absent for a read-only viewer: the path is still walkable, nothing can be created. */
   onCreateFolder?: FolderNavProps['onCreateFolder']
   children?: ReactNode
+  /** At the root the caller offers the tools itself (a phone's ⋯), so the row has nothing to hold. */
+  rootToolsElsewhere?: boolean
   /**
    * The reader may only read the level they stand in (ADR-0088): „Nur lesen"
    * takes the place of „Neuer Ordner".
@@ -117,7 +112,7 @@ export function FolderBreadcrumbRow({
   onFileAim?: (aim: FileDropAim | null) => void
   /** Whether the reader may write at a level (ADR-0088); a level they may not is no target. Defaults to yes. */
   mayWriteAt?: (folderId: string | null) => boolean
-}): JSX.Element {
+}): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const path = useMemo(() => folderPath(folders, currentFolderId), [folders, currentFolderId])
   /** Every way up is a drop target, offered while there is somewhere to come back FROM. */
@@ -144,14 +139,57 @@ export function FolderBreadcrumbRow({
    */
   const parent = currentFolderId === null ? undefined : path[path.length - 2]
   const parentLabel = parent ? parent.name : t('folders.allFiles')
+  const tabSlot = useSectionTabActionsSlot()
+  const placeSlot = useSectionPlaceSlot()
+  // Where the tool row has no room for „Ordner anlegen“, it is an entry of Hochladen's menu that opens this dialog.
+  const tier = useSectionToolTier()
+  const folderInMenu = tabSlot && tier !== null && tier !== 'wide' && !readOnly && onCreateFolder !== undefined
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const openNewFolder = useCallback(() => setNewFolderOpen(true), [])
+  const tools = (
+    <>
+      {children}
+      {readOnly ? (
+        <FolderReadOnlyBadge testId="folder-level-read-only" />
+      ) : (
+        onCreateFolder && !folderInMenu && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
+      )}
+    </>
+  )
+  const inRow = (
+    <>
+      <ProjectSectionTabActions newFolder={folderInMenu ? openNewFolder : undefined} emptyLevel={emptyLevel}>
+        {tools}
+      </ProjectSectionTabActions>
+      {folderInMenu && (
+        <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onCreate={(name) => onCreateFolder(name, currentFolderId ?? undefined)} />
+      )}
+    </>
+  )
+
+  // At the root the crumb is the project, so the row held only its tools: they go to the section's tool row on a
+  // desk, and to the ⋯ on a phone, and the brief rises by the row.
+  if ((currentFolderId === null || searching) && tabSlot) return inRow
+  if (searching || (currentFolderId === null && rootToolsElsewhere)) return null
+  // Inside a folder within the section's frame, the header names it (title, crumb, the phone's ←) and the level's
+  // tools join the tool row as at the root (a phone's go to its ⋯): the row would say the path a second time.
+  if (placeSlot && (tabSlot || rootToolsElsewhere)) {
+    return (
+      <>
+        <FolderPlaceInHeader path={path} onNavigate={onNavigate} itemCount={itemCount} wrapStep={(folderId, label, step) => crumb(folderId, label, step)} />
+        {tabSlot && inRow}
+      </>
+    )
+  }
 
   return (
     <div
       // The row PINS to the top of the list, on the page's base surface so no
       // card shows through. It is the list's first child and scrolled away with
-      // the cards, taking „Neuer Ordner" and the way up with it; on a phone it
+      // the cards, taking „Ordner anlegen" and the way up with it; on a phone it
       // was left half-hidden under the controls. Pinned, it is whole, never cut.
-      className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background px-4 py-2.5 phone:py-1.5"
+      // No hairline under it; at the root it holds only its controls (the crumb is the tab above), so it sits tighter.
+      className={cn('sticky top-0 z-10 flex listing-container shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2 md:px-8', currentFolderId === null && 'pb-0 pt-2')}
       data-testid="folder-breadcrumb-row"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -175,7 +213,7 @@ export function FolderBreadcrumbRow({
             <BackControl
               label={t('folders.backTo', { name: parentLabel })}
               onClick={() => onNavigate(parent?.id ?? null)}
-              className="shrink-0 pr-3"
+              className="shrink-0 whitespace-nowrap pr-3"
               testId="folder-back"
             />
           )}
@@ -183,7 +221,7 @@ export function FolderBreadcrumbRow({
         <BreadcrumbList className="flex-nowrap overflow-x-auto">
           <BreadcrumbItem>
             {currentFolderId === null ? (
-              <BreadcrumbPage className="whitespace-nowrap font-medium">{t('folders.allFiles')}</BreadcrumbPage>
+              <BreadcrumbPage className="sr-only" /* the tab above says it */>{t('folders.allFiles')}</BreadcrumbPage>
             ) : (
               crumb(
                 null,
@@ -192,7 +230,7 @@ export function FolderBreadcrumbRow({
                   <button data-attr="files-navigate"
                     type="button"
                     onClick={() => onNavigate(null)}
-                    className="hover:text-foreground transition-colors rounded px-1"
+                    className="hover:text-foreground transition-colors rounded-inline whitespace-nowrap px-1"
                   >
                     {t('folders.allFiles')}
                   </button>
@@ -221,7 +259,7 @@ export function FolderBreadcrumbRow({
                     transition={motionQuick}
                   >
                     {index === path.length - 1 ? (
-                      <BreadcrumbPage className="max-w-48 truncate font-medium">{folder.name}</BreadcrumbPage>
+                      <BreadcrumbPage className="block max-w-80 truncate text-sm font-medium" title={folder.name}>{folder.name}</BreadcrumbPage>
                     ) : (
                       crumb(
                         folder.id,
@@ -230,6 +268,7 @@ export function FolderBreadcrumbRow({
                           <button data-attr="files-navigate"
                             type="button"
                             className="max-w-48 truncate hover:text-foreground transition-colors px-1"
+                            title={folder.name}
                             onClick={() => onNavigate(folder.id)}
                           >
                             {folder.name}
@@ -245,85 +284,12 @@ export function FolderBreadcrumbRow({
         </BreadcrumbList>
       </Breadcrumb>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {children}
-        {readOnly ? (
-          <FolderReadOnlyBadge testId="folder-level-read-only" />
-        ) : (
-          onCreateFolder && (
-            <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
-          )
-        )}
-      </div>
+      {!rootToolsElsewhere /* a phone's are in its ⋯: here they were the same two a second time */ && <div className="flex shrink-0 items-center gap-3" /* tonal presses 12px apart */>{tools}</div>}
     </div>
   )
 }
 
-/**
- * "New folder" as a popover form: name it where you stand, Enter creates it in
- * the CURRENT level. Failure keeps the popover open with the typed name — the
- * workspace surfaces the error toast.
- */
-function NewFolderControl({
-  currentFolderId,
-  onCreateFolder,
-}: Pick<FolderNavProps, 'currentFolderId' | 'onCreateFolder'>): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
-
-  const commit = async (): Promise<void> => {
-    const trimmed = name.trim()
-    if (!trimmed || isCreating) return
-    setIsCreating(true)
-    const ok = await onCreateFolder(trimmed, currentFolderId ?? undefined)
-    setIsCreating(false)
-    if (ok) {
-      setName('')
-      setOpen(false)
-    }
-  }
-
-  return (
-    <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="gap-1.5">
-          <FolderPlus className="size-4" aria-hidden />
-          {/* A glyph on a phone: the path row has the width for where you are or for two words, and where you are wins. */}
-          <span className="phone:sr-only">{t('folders.newFolder')}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-2">
-        <InputGroup>
-          <InputGroupAddon align="start" className="left-2">
-            <Folder aria-hidden />
-          </InputGroupAddon>
-          <Input
-            autoFocus
-            value={name}
-            disabled={isCreating}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void commit()
-            }}
-            placeholder={t('folders.namePlaceholder')}
-            aria-label={t('folders.newFolderName')}
-            aria-busy={isCreating}
-            className="h-8 rounded-control pl-8 pr-8"
-          />
-          {isCreating && (
-            <InputGroupAddon align="end">
-              <Spinner size="sm" label={t('folders.creating')} />
-            </InputGroupAddon>
-          )}
-        </InputGroup>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-interface FolderTileProps {
+export interface FolderTileProps {
   folder: FolderItem
   /** Documents + subfolders directly inside, for the count line. */
   itemCount: number
@@ -374,7 +340,7 @@ export type DropFilesInFolder = (
 ) => void
 
 /** The ring a drop target wears: where it will land, or that it will not take it. */
-function dropRing(drop: { isOver: boolean; refuses: boolean }, inset = false): string | false {
+export function dropRing(drop: { isOver: boolean; refuses: boolean }, inset = false): string | false {
   if (drop.refuses) return cn('ring-destructive ring-2', inset && 'ring-inset')
   return drop.isOver && cn('bg-accent ring-ring ring-2', inset && 'ring-inset')
 }
@@ -442,7 +408,7 @@ function CrumbDropTarget({
  * its own access list (ADR-0088, `folder.ownAccess`): a restricted folder says
  * so in both. Null `lockLabel` draws no lock.
  */
-function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: string | null } {
+export function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: string | null } {
   const t = useTranslations(filesCopy)
   const ownAccessLabel = useFolderOwnAccessLabel()
   const lockLabel = folder.ownAccess ? ownAccessLabel(folder.ownAccess) : null
@@ -455,7 +421,7 @@ function useFolderLabels(folder: FolderItem): { openLabel: string; lockLabel: st
 }
 
 /** Shared inline rename field — same in-place contract the tree pane had. */
-function FolderNameEditor({
+export function FolderNameEditor({
   folder,
   onRenameFolder,
   onDone,
@@ -513,61 +479,15 @@ function FolderNameEditor({
   )
 }
 
-function FolderActionsMenu({
-  folder,
-  onStartRename,
-  onDeleteFolder,
-}: {
-  folder: FolderItem
-  onStartRename: () => void
-  onDeleteFolder: FolderNavProps['onDeleteFolder']
-}): JSX.Element {
-  const t = useTranslations(filesCopy)
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t('folders.actionsFor', { name: folder.name })}
-          title={t('folders.actions')}
-          className="hover:bg-accent focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-full transition-opacity duration-snap ease-out focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 pointer-coarse:size-11 pointer-coarse:opacity-100 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100"
-          data-testid={`folder-actions-${folder.id}`}
-        >
-          <MoreHorizontal className="size-3.5" aria-hidden />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onSelect={onStartRename}>
-          <Pencil className="size-4" aria-hidden />
-          {t('folders.rename')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          onSelect={() => void onDeleteFolder(folder.id)}
-          data-testid={`folder-delete-${folder.id}`}
-        >
-          <Trash2 className="size-4" aria-hidden />
-          {t('folders.delete')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /**
  * Put on the grid that holds folder tiles: below `phone` each one spans the
  * row, so folders read as a list ahead of the files. The CELL is whatever the
  * context menu wraps the tile in, which this file does not own, so the grid
  * finds it by the mark the tile carries.
  */
-export const FOLDER_ROWS_ON_PHONE = 'phone:[&>*:has([data-folder-tile])]:col-span-full'
 
-/**
- * The folder glyph's well: 124px of media on a card, a 44px square beside the
- * name on a phone, where the tile is a row (see {@link FolderCard}).
- */
-const FOLDER_WELL =
-  'flex h-[124px] items-center justify-center bg-muted/30 phone:size-10 phone:h-10 phone:shrink-0 phone:rounded-control phone:border-0'
+/** The folder glyph's slot: as tall as the name and its count, as wide as the glyph, so the glyph stands on the column's edge. */
+
 
 /**
  * A folder as a grid tile — visually DISTINCT from {@link FileCard}.
@@ -581,14 +501,14 @@ const FOLDER_WELL =
  * (see `file-tile.tsx` for the argument). What is left is the thing that was
  * doing the work.
  *
- * Hover lifts the tile — the shell's own `whileHover`, and the one motion this
- * gesture gets. The glyph used to open on hover as well; see the comment on the
- * well below for why a mouse-only flourish is not one this product keeps.
+ * Hover fills the tile (the shell's state fill), as a file tile and a list row
+ * do; the press is the one motion. The glyph used to open on hover as well; a
+ * mouse-only flourish is not one this product keeps.
  */
 export function FolderCard({
   folder,
   itemCount,
-  lastModified,
+  // The tile says how much it holds; when it last changed is the list view's column.
   knowledge,
   onOpen,
   onRenameFolder,
@@ -605,7 +525,6 @@ export function FolderCard({
 }: FolderTileProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const { openLabel, lockLabel } = useFolderLabels(folder)
-  const { locale } = useLocale()
   const [uncontrolledEditing, setUncontrolledEditing] = useState(false)
   const editing = editingProp ?? uncontrolledEditing
   const setEditing = onEditingChange ?? setUncontrolledEditing
@@ -622,14 +541,15 @@ export function FolderCard({
   })
 
   return (
-    <GridTileShell
+    <TileShell
       interactive
-      // On a phone a folder is a row across the grid, not a 166px tile: the
-      // first screen shows where the files are before it shows what holds them.
-      // The grid spans it (`FOLDER_ROWS_ON_PHONE`, found by this mark).
+      // A folder is a 56px sheet (glyph, name, what it holds, a chevron) inside the tile's 6px hover inset, its edge
+      // on the thumbnails' edge: apart from a document by its shape, a strip, not a page. On a phone it is a 48px
+      // sheet in the grid's two columns, glyph, name and count, its ⋯ a long press away (the object menu): three
+      // full-width sheets put the first thumbnail at y=475.
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group phone:bg-card phone:[contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group [contain-intrinsic-block-size:auto_64px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -637,8 +557,10 @@ export function FolderCard({
       {...(onDropFolder && !readOnly && !editing ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
       {...drop.dropProps}
     >
+      {/* Its ⋯ left of the chevron under the pointer; on a phone, which has no pointer and no chevron, always, at the
+          sheet's end (a 44px target): the long press alone hid every folder's menu (review of 2026-11-10, finding 19). */}
       <div
-        className="absolute right-1.5 top-1.5 z-[1] phone:top-1/2 phone:-translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+        className="absolute right-8 top-1/2 z-[1] -translate-y-1/2 phone:right-1.5 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -660,254 +582,47 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex-1 p-0 phone:flex phone:items-center phone:gap-3 phone:bg-transparent phone:p-2 phone:shadow-none">
-          <FileTileMedia className={FOLDER_WELL}>
-            {/*
-              ONE GLYPH, AND NO SECOND MOTION FOR ONE GESTURE.
-
-              This used to swap `Folder` for `FolderOpen` on hover, driven by
-              `useState` through `onMouseEnter`/`onMouseLeave` — a render per
-              pointer crossing on every tile in the grid, and a hard cut in the
-              middle of a scale, so what a person saw was a flicker rather than
-              a folder opening.
-
-              Rebuilding it as a CSS cross-fade fixed the flicker and the
-              renders and left the real problem: it was an affordance only a
-              MOUSE could reach. `mobile-affordances.spec.ts` says so by name —
-              an `opacity-0` revealed by `group-hover` alone, on a device that
-              generates no hover — and the escapes it offers do not apply,
-              because showing both stacked glyphs on a phone is not the answer.
-
-              So the swap is gone. What says "this opens" is what already said
-              it on every input: the tile lifts under the pointer (the shell's
-              own `whileHover`), the cursor changes, and the label reads as a
-              folder because a folder is drawn in the well.
-            */}
-            <Folder className="size-10 text-muted-foreground phone:size-5" strokeWidth={1.4} aria-hidden />
-          </FileTileMedia>
-          <div className="px-3.5 pb-3 pt-[11px] phone:min-w-0 phone:flex-1 phone:p-0">
+        {/* 56px at every width, radius 10, elevation 1, a chevron at its end (the ⋯ comes in left of it): a sheet that
+            opens, not a press. One line for the name, cut at its end with the whole name as its title: a name of three
+            lines made its row 138px beside rows of 82 (finding 6), and a folder's start is what tells it apart. */}
+        <FileTileBody className="flex h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-3 pr-3 phone:gap-2.5 phone:pr-10">
+          {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
+          <span className={FOLDER_WELL}>
+            <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
             {editing ? (
               <FolderNameEditor folder={folder} onRenameFolder={onRenameFolder} onDone={() => setEditing(false)} />
             ) : (
               <div className="flex min-w-0 items-center gap-1.5">
                 {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-                <p className="min-w-0 text-sm font-medium leading-tight text-foreground phone:text-[15px]">
-                  <FileName text={folder.name} />
-                </p>
+                <FolderName text={folder.name} className="text-name text-foreground" />
                 {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-                {/* The dot alone, after the name: what a folder holds at a
-                    glance, without a line of words on every tile. */}
-                <FolderReadState tally={knowledge} dotOnly className="ml-auto" />
               </div>
             )}
-            {/* What belongs in it, in the folder owner's words: one quiet line,
-                whole on hover. */}
-            {!editing && folder.description && (
-              <p
-                className="mt-1 truncate text-xs leading-tight text-muted-foreground"
-                title={folder.description}
-                data-testid={`folder-description-${folder.id}`}
-              >
-                {folder.description}
+            {/* What it holds, only what departs from „all read“ (the normal case is quiet), and what belongs in it in the
+                folder owner's words, cut on this line with the whole of it as its title: a line of its own grew the card. */}
+            {!editing && (
+              <p className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
+                <span className="shrink-0">{t('folders.items', { count: itemCount })}</span>
+                <FolderReadState tally={knowledge} exceptionsOnly className="min-w-0" />
+                {folder.description && (
+                  <span className="min-w-0 truncate" title={folder.description} data-testid={`folder-description-${folder.id}`}>
+                    · {folder.description}
+                  </span>
+                )}
               </p>
             )}
           </div>
+          {!editing && <ChevronRight className="text-muted-foreground ml-7 size-4 shrink-0 phone:hidden" aria-hidden data-slot="folder-opens" />}
         </FileTileBody>
-        {/* On a phone the count sits at the row's right, clear of the ⋯ (44px
-            on a coarse pointer), and the age stays in the detail view: the row
-            has the width for the name or for the date, and the name wins. */}
-        <FileTileFooter className="min-w-0 gap-1.5 px-3.5 pb-2.5 pt-[9px] text-xs text-muted-foreground phone:mt-0 phone:w-auto phone:shrink-0 phone:py-0 phone:pl-0 phone:pr-14">
-          <span className="min-w-0 truncate tabular-nums">
-            {t('folders.items', { count: itemCount })}
-            {lastModified && (
-              <span className="phone:hidden">
-                <span aria-hidden className="mx-1.5 text-muted-foreground/40">
-                  ·
-                </span>
-                <TimeAgo date={lastModified} locale={locale} className="tabular-nums" />
-              </span>
-            )}
-          </span>
-        </FileTileFooter>
       </FolderCardFrame>
-    </GridTileShell>
-  )
-}
-
-/** The tile's open button, or a plain box with the same layout while the name is being edited. */
-function FolderCardFrame({
-  editing,
-  onOpen,
-  openLabel,
-  children,
-}: {
-  editing: boolean
-  onOpen: () => void
-  openLabel: string
-  children: ReactNode
-}): JSX.Element {
-  if (editing) return <div className="flex h-full w-full flex-col text-left phone:flex-row phone:items-center">{children}</div>
-  return (
-    <button data-attr="files-open"
-      type="button"
-      onClick={onOpen}
-      aria-label={openLabel}
-      className="flex h-full w-full flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 phone:flex-row phone:items-center"
-    >
-      {children}
-    </button>
+    </TileShell>
   )
 }
 
 /**
- * A folder as a detail-view row — the list view's counterpart to
- * {@link FolderCard}, rendered as a block above the sortable file table (a
- * folder does not sort by size or status, so it does not sit inside it).
- */
-export function FolderRow({
-  folder,
-  itemCount,
-  lastModified,
-  knowledge,
-  onOpen,
-  onRenameFolder,
-  onDeleteFolder,
-  onDropDocument,
-  onDropFolder,
-  canAcceptFolder,
-  actions,
-  editing: editingProp,
-  onEditingChange,
-  readOnly = false,
-  onDropFiles,
-  onFileAim,
-}: FolderTileProps): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const { openLabel, lockLabel } = useFolderLabels(folder)
-  const { locale } = useLocale()
-  const [uncontrolledEditing, setUncontrolledEditing] = useState(false)
-  const editing = editingProp ?? uncontrolledEditing
-  const setEditing = onEditingChange ?? setUncontrolledEditing
-  const drop = useFolderDropTarget({
-    folderId: folder.id,
-    onDropDocument: onDropDocument ?? (() => {}),
-    onDropFolder,
-    canAcceptFolder,
-    disabled: !onDropDocument && !onDropFolder,
-    onDropFiles,
-    refusal: readOnly ? t('workspace.dropRefusedFolder', { name: folder.name }) : null,
-    onFileAim,
-    onSpringOpen: () => onOpen(folder.id),
-  })
-
-  if (editing) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2 px-2 py-1"
-      >
-        <FolderNameEditor
-          folder={folder}
-          onRenameFolder={onRenameFolder}
-          onDone={() => setEditing(false)}
-          className="max-w-96 flex-1"
-        />
-      </motion.div>
-    )
-  }
-
-  /*
-   * THE ROW THAT WAS YELLOW.
-   *
-   * It was `bg-amber-50/40` with an amber icon well, an amber count pill and an
-   * amber chevron — three tinted bands across the full width of a listing,
-   * stacked above a neutral table. Two things were wrong with it, and the
-   * second is the one that made it read as a warning:
-   *
-   *   1. Chroma in this product is the source-signal system and nothing else
-   *      (`design-language.md`). A folder is not a provenance.
-   *   2. That gold IS a signal, and it is in the same table: `--source-office`
-   *      is the tint on the `JPG` and `PNG` extension chips two rows below. One
-   *      hue, two unrelated meanings, one screen.
-   *
-   * So the row is built out of the neutral ramp, like every other list
-   * affordance, and what says "folder" is the glyph and the chevron — shape and
-   * contrast, which is what the design language reaches for instead of colour.
-   *
-   * It also no longer animates itself in. It is rendered inside the level's own
-   * keyed transition, so the row slid −6px while its container slid +16px: two
-   * motions for one navigation, compounding into a wobble. The level owns the
-   * entrance; a row inside it is just content.
-   */
-  // One row of the folder run, which `file-browser-pane` draws as an `ItemList`.
-  // The list clips the outer corners and draws the hairlines, so the row carries
-  // no radius, border or shadow of its own. A drop target is marked inside its
-  // box (`ring-inset`): an outer ring on the first or last row would be clipped.
-  return (
-    <Item
-      className={cn(
-        'group w-full gap-2 px-3 py-2 text-sm',
-        dropRing(drop, true),
-      )}
-      data-testid={`folder-row-${folder.id}`}
-      data-drop-over={drop.isOver ? '' : undefined}
-      {...(onDropFolder && !readOnly ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
-      {...drop.dropProps}
-    >
-      <button data-attr="files-open"
-        type="button"
-        onClick={() => onOpen(folder.id)}
-        aria-label={openLabel}
-        className="focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2.5 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 pointer-coarse:min-h-11"
-      >
-        {/* One glyph, for the reason the card's comment gives. The row's own
-            background change is the hover feedback, and a finger gets it too. */}
-        <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
-          <Folder className="text-muted-foreground size-3.5" aria-hidden />
-        </span>
-        <FileName text={folder.name} className="text-foreground shrink font-medium" />
-        {folder.description && (
-          <span
-            className="text-muted-foreground hidden min-w-0 truncate text-xs sm:inline"
-            title={folder.description}
-            data-testid={`folder-description-${folder.id}`}
-          >
-            {folder.description}
-          </span>
-        )}
-        {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-        {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-        {/* The kit's numeric pill, not a fourth hand-rolled one. */}
-        <CountPill count={itemCount} />
-        {lastModified && (
-          <>
-            <span aria-hidden className="text-muted-foreground/40 text-xs phone:hidden">
-              ·
-            </span>
-            <TimeAgo date={lastModified} locale={locale} className="shrink-0 text-xs tabular-nums text-muted-foreground phone:hidden" />
-          </>
-        )}
-        <span className="flex-1" />
-        <FolderReadState tally={knowledge} />
-      </button>
-      {actions ?? (
-        <FolderActionsMenu
-          folder={folder}
-          onStartRename={() => setEditing(true)}
-          onDeleteFolder={onDeleteFolder}
-        />
-      )}
-      <ChevronRight
-        className="text-muted-foreground/40 group-hover:text-muted-foreground size-3.5 shrink-0 transition-colors duration-quick ease-out motion-reduce:transition-none"
-        aria-hidden
-      />
-    </Item>
-  )
-}
-
-/**
- * The three folder placeholders, kept in this file on purpose.
+ * The folder placeholders, kept in this file on purpose.
  *
  * A skeleton is a promise about the layout that is one frame away, and the only
  * way it keeps that promise is by being edited in the same breath as the thing
@@ -924,59 +639,29 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <GridTileShell
-      interactive={false}
-      data-folder-tile=""
-      className="phone:flex-row phone:items-center phone:bg-card"
-      data-testid="folder-card-skeleton"
-    >
-      <FileTileBody className="flex-1 p-0 phone:flex phone:items-center phone:gap-3 phone:bg-transparent phone:p-2 phone:shadow-none">
-        <FileTileMedia className={FOLDER_WELL}>
-          <Folder className="size-10 text-muted-foreground/25 phone:size-5" strokeWidth={1.4} aria-hidden />
-        </FileTileMedia>
-        <div className="px-3.5 pb-3 pt-[11px] phone:p-0">
-          <Skeleton className="h-4 w-24" />
+    <TileShell interactive={false} data-folder-tile="" data-testid="folder-card-skeleton">
+      <FileTileBody className={cn(FOLDER_SHEET, 'flex flex-1 items-center gap-3 py-2 pl-3 pr-2.5')}>
+        <span className={FOLDER_WELL}>
+          <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
+        </span>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Skeleton className="h-3.5 w-24" />
+          <Skeleton className="h-3 w-12" />
         </div>
       </FileTileBody>
-      <FileTileFooter className="gap-1.5 px-3.5 pb-2.5 pt-[9px] phone:mt-0 phone:w-auto phone:py-0 phone:pl-0 phone:pr-4">
-        <Skeleton className="h-3 w-12" />
-      </FileTileFooter>
-    </GridTileShell>
+    </TileShell>
   )
 }
 
 /** A {@link FolderRow} before its name arrives. */
 export function FolderRowSkeleton(): JSX.Element {
   return (
-    <Item className="w-full gap-2 px-3 py-2" data-testid="folder-row-skeleton">
-      <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
-        <Folder className="text-muted-foreground/40 size-3.5" aria-hidden />
+    <Item className="w-full gap-2 px-2 py-1.5" data-testid="folder-row-skeleton">
+      <span className="flex w-8 shrink-0 items-center">
+        <Folder className="text-muted-foreground/40 size-4" aria-hidden />
       </span>
       <Skeleton className="h-3.5 w-40" />
       <Skeleton className="h-3.5 w-8 rounded-full" />
     </Item>
-  )
-}
-
-/**
- * The path row before the tree is known.
- *
- * The same chrome as {@link FolderBreadcrumbRow} — border, tint, height — so
- * the listing below it does not shift down by a row when the real one replaces
- * it. „Alle Dateien" is drawn rather than greyed out: it is the one segment
- * that is true before anything has loaded, at every level, and a reader who
- * lands mid-load should see where they are rather than a grey pill where the
- * word will be.
- */
-export function FolderBreadcrumbRowSkeleton(): JSX.Element {
-  const t = useTranslations(filesCopy)
-  return (
-    <div
-      className="flex shrink-0 items-center justify-between gap-2 border-b bg-card px-4 py-2.5"
-      data-testid="folder-breadcrumb-skeleton"
-    >
-      <span className="text-sm font-medium text-muted-foreground">{t('folders.allFiles')}</span>
-      <Skeleton className="h-8 w-28 rounded-surface" />
-    </div>
   )
 }

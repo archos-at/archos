@@ -180,3 +180,9 @@ retired, kept so older traces chart.
 * ADR-0125's confidence rule (rule 2) is superseded by this record; its
   provenance labels for dropped citations, the lookup banner and the record
   channel stand.
+
+## Amendment, 2026-11-10: a second structural gate, for law the records do not settle
+
+Staging QC of the country build (finding F6) found answers graded `high` that rested on building law whose binding edition no reviewed record settled: the site was unknown, the country's base not yet published, or its coverage open. The grader read the passage and found it backed, which it was; what it cannot see is that the passage's edition may not bind at the site.
+
+So a second gate sits beside the quote gate, structural like it and handed nothing new: when the turn's knowledge context is not `core` or `full` (ADR-0173, ADR-0175) and the answer cites a source whose kind is `building_law`, the surfaced level is at most `medium`, with the reason `law_unsettled` (`law_gate.law_unsettled`, `markers.surface_checked_confidence`). No word list reads the answer, and the grader's input is unchanged. The quote gate speaks first when both lower a level.

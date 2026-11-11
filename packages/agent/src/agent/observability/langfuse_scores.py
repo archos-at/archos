@@ -39,33 +39,19 @@ from dataclasses import dataclass
 from dataclasses import field
 from threading import Lock
 from typing import Any
-from typing import Literal
 
+from .base_knowledge_scores import BASE_KNOWLEDGE_SCORE_DEFINITIONS
 from .card_scores import card_validity_score  # noqa: F401  (re-exported)
 from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+from .residency_scores import RESIDENCY_SCORE_DEFINITIONS
+from .score_definition import DataType
+from .score_definition import ScoreDefinition
 
 logger = logging.getLogger(__name__)
-
-DataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 HOST_ENV = "LANGFUSE_HOST"
 PUBLIC_KEY_ENV = "LANGFUSE_PUBLIC_KEY"
 SECRET_KEY_ENV = "LANGFUSE_SECRET_KEY"  # pragma: allowlist secret
-
-
-@dataclass(frozen=True)
-class ScoreDefinition:
-    """One score name Grid writes, and the Langfuse score config that describes it."""
-
-    name: str
-    data_type: DataType
-    description: str
-    #: Who writes it: the agent at runtime, the BFF from a vote, a reviewer in
-    #: an annotation queue, or a Langfuse LLM-as-a-judge evaluator.
-    writer: Literal["agent", "bff", "annotation", "judge"] = "agent"
-    categories: tuple[str, ...] = ()
-    min_value: float | None = None
-    max_value: float | None = None
 
 
 #: Every score Grid writes. Adding a score means adding it here first.
@@ -181,12 +167,8 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "CATEGORICAL",
         "Which guard lowered the surfaced confidence, or none.",
         categories=(
-            "none",
-            "ungrounded",
-            "quote_unverified",
-            "normative_claim_uncited",
-            "measurement_only",
-            "citation_fallback",
+            *("none", "ungrounded", "quote_unverified", "law_unsettled"),
+            *("normative_claim_uncited", "measurement_only", "citation_fallback"),  # retired; stored turns carry them
         ),
     ),
     ScoreDefinition(
@@ -200,6 +182,12 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "quotes-patched",
         "NUMERIC",
         "Misremembered quotes the repair pass corrected in place (ADR-0067).",
+        min_value=0,
+    ),
+    ScoreDefinition(
+        "licensed-quote-capped",
+        "NUMERIC",
+        "Quotes of licensed text a reply had cut at the licence's cap (ADR-0164); only on turns that read some.",
         min_value=0,
     ),
     ScoreDefinition(
@@ -317,7 +305,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ScoreDefinition(
         "citations-dropped-labelled",
         "NUMERIC",
-        "Places the answer cited something that did not resolve, labelled in the text instead of removed.",
+        "Citations the answer wrote that did not resolve, removed from the text (named before ADR-0125's amendment).",
         min_value=0,
     ),
     ScoreDefinition(
@@ -326,6 +314,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "On a turn asked to answer in an Anmerkung's thread: true when the model replied there itself, false "
         "when the socket had to post the answer for it. Not written when the turn may not post there.",
     ),
+    *BASE_KNOWLEDGE_SCORE_DEFINITIONS,
 )
 
 #: Scores a person or a judge writes inside Langfuse. Grid never writes these;
@@ -369,7 +358,7 @@ REVIEW_AND_JUDGE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ),
 )
 
-SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS
+SCORE_DEFINITIONS = SCORE_DEFINITIONS + REVIEW_AND_JUDGE_DEFINITIONS + RESIDENCY_SCORE_DEFINITIONS
 
 _DEFINITIONS_BY_NAME = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
@@ -486,7 +475,7 @@ def answer_check_scores(level: str | None) -> list[RuntimeScore]:
 
 
 def dropped_citation_scores(dropped: int) -> list[RuntimeScore]:
-    """How many places the final text labels a citation that did not resolve; zero included."""
+    """How many citations the verifier removed because they did not resolve; zero included."""
     return [RuntimeScore("citations-dropped-labelled", float(max(0, dropped)))]
 
 
@@ -530,15 +519,6 @@ def file_tool_scores(tools: Iterable[str], literal_searches: int = 0) -> list[Ru
     if literal:
         named.add("knowledge_search (literal)")
     return [RuntimeScore("file-tools-used", value, comment=", ".join(sorted(named)) or None)]
-
-
-def steer_scores(inbox: Any) -> list[RuntimeScore]:
-    """A steered turn's count of notes (``common.steering.SteerInbox``): taken, and how many the turn read."""
-    received = int(getattr(inbox, "received", 0) or 0)
-    if received <= 0:
-        return []
-    applied = len(getattr(inbox, "applied", None) or [])
-    return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:

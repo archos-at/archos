@@ -2092,6 +2092,8 @@ export const chat: typeof en.chat = {
       ungrounded: 'Geringe Sicherheit: Antwort nicht durch Quellen belegt.',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+      lawUnsettled:
+        'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
       // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
       // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
       normativeClaimUncited:
@@ -2123,6 +2125,8 @@ export const chat: typeof en.chat = {
       noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
+      lawUnsettled:
+        'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
@@ -2142,6 +2146,8 @@ export const chat: typeof en.chat = {
         ungrounded: 'Begrenzt durch eine tragende Aussage, hinter der kein Beleg steht.',
         quoteUnverified:
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+        lawUnsettled:
+          'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
         // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
         // das Büro und das Gebäude, nie eine Aussage über das Recht.
         normativeClaimUncited:
@@ -2206,6 +2212,9 @@ export const chat: typeof en.chat = {
     iban: '{count, plural, one {eine IBAN} other {# IBANs}}',
     at_svnr:
       '{count, plural, one {eine Sozialversicherungsnummer} other {# Sozialversicherungsnummern}}',
+    de_svnr:
+      '{count, plural, one {eine Rentenversicherungsnummer} other {# Rentenversicherungsnummern}}',
+    de_tax_id: '{count, plural, one {eine Steuer-ID} other {# Steuer-IDs}}',
     credit_card: '{count, plural, one {eine Kartennummer} other {# Kartennummern}}',
     term: 'den Begriff „{term}“',
     withSample: '{item} {sample}',

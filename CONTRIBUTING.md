@@ -90,7 +90,8 @@ tasks, so there is no second copy to drift:
 - Infra: `task infra:types`.
 - Everything at once: `task verify` — this is the merge gate: repo lint plus the
   same per-tier groups CI runs (`be:verify` with its coverage gate, `workspace:verify`,
-  `infra:types`). `task verify:fast` omits only the production build.
+  `infra:types`). `task verify:fast` runs the part of it your change can break (the tiers and UI
+  specs the diff against `origin/develop` reaches), without the production builds.
 - Repo-wide hooks: `task lint:repo` (`pre-commit run --all-files`) — ruff,
   markdown-link-check and more, configured in
   [`.pre-commit-config.yaml`](.pre-commit-config.yaml).

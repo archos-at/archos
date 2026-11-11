@@ -3,7 +3,6 @@ import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { useLayoutStore } from '@/features/layout/store'
 import { PhoneTabBar } from './phone-tab-bar'
 import { useShellOverlays } from './shell-overlays'
 
@@ -43,7 +42,6 @@ afterEach(() => {
   pathname = '/app/projects/p1/files'
   mobile = true
   badge.mockClear()
-  useLayoutStore.setState({ isMobileNavOpen: false })
   useShellOverlays.setState({ moreSheetOpen: false })
 })
 

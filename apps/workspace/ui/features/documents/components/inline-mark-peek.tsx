@@ -112,7 +112,7 @@ export function InlineMarkPeek({
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="mt-3 h-8 w-full gap-1.5"
           data-testid="inline-mark-peek-open"

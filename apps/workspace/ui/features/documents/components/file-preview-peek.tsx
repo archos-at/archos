@@ -88,7 +88,7 @@ export function IndexedSummary({ summary }: { summary: string }) {
         lines={SUMMARY_CLAMP_LINES}
         moreLabel={t('preview.summaryMore')}
         lessLabel={t('preview.summaryLess')}
-        className="text-foreground text-sm leading-[1.55]"
+        className="text-foreground text-sm leading-5" /* the body step, 14/20/440: at 1.55 it out-sized the dialog title */
       >
         {summary}
       </ClampedText>

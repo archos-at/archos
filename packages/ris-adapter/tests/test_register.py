@@ -301,6 +301,7 @@ class _SequenceStructuredLLM:
         self.sequence = list(sequence)
         self.structured_kwargs = None
         self.invocations = []
+        self.one_shot = []
 
     def with_structured_output(self, schema, **kwargs):
         self.structured_kwargs = {"schema": schema, **kwargs}
@@ -308,7 +309,10 @@ class _SequenceStructuredLLM:
 
         class _Structured:
             async def ainvoke(self, messages):
+                from agent.common import prompt_caching
+
                 outer.invocations.append(messages)
+                outer.one_shot.append(prompt_caching._ONE_SHOT.get())
                 item = outer.sequence.pop(0)
                 if isinstance(item, Exception):
                     raise item
@@ -405,6 +409,8 @@ class TestRisSearchPlanner:
 
         # Retried exactly once, and the corrective instruction was appended.
         assert len(llm.invocations) == 2
+        # Both attempts write nothing to the provider's cache (``prompt_caching.one_shot_calls``).
+        assert llm.one_shot == [True, True]
         corrective_texts = [m["content"] for m in llm.invocations[1] if m["role"] == "user"]
         assert any("invalid JSON" in text for text in corrective_texts)
         # The successful second-attempt plan drove the search, not the caller args.

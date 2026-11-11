@@ -16,6 +16,7 @@ dispatches) reports that file.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -46,21 +47,35 @@ STAGE_SECONDS_KEY = "stage_seconds"
 COVERAGE_KEY = "coverage"
 
 
+@contextmanager
 def file_trace(file_name: str, config: dict[str, Any], job_id: str):
-    """The Langfuse trace one file's ingest runs under: ids and the file type, never its text."""
+    """The Langfuse trace one file's ingest runs under: ids and the file type, never its text.
+
+    A file the office marked licensed (``config["licence_class"]``) traces every model call it makes as
+    metadata only (``licensed_text.licensed_ingest``): its page reads are the licensed text itself. One whose
+    licence is not attested for AI processing (``config["ai_processing_attested"]``) may call no model at all.
+    """
+    from agent.common.licensed_text import licence_from_metadata
+    from agent.common.licensed_text import licensed_ingest
     from agent.observability.direct_trace import observed_span
 
-    return observed_span(
-        INGEST_TRACE_NAME,
-        metadata={
-            "job_id": job_id,
-            "organization_id": config.get("organization_id"),
-            "project_id": config.get("project_id"),
-            "document_id": config.get("document_id"),
-            "file_type": Path(file_name).suffix.lower().lstrip(".") or "none",
-            "priority": config.get("priority") or "interactive",
-        },
-    )
+    licence = licence_from_metadata(config)
+    with (
+        licensed_ingest(licence),
+        observed_span(
+            INGEST_TRACE_NAME,
+            metadata={
+                "job_id": job_id,
+                "organization_id": config.get("organization_id"),
+                "project_id": config.get("project_id"),
+                "document_id": config.get("document_id"),
+                "file_type": Path(file_name).suffix.lower().lstrip(".") or "none",
+                "priority": config.get("priority") or "interactive",
+                "licensed": licence is not None and licence.licensed,
+            },
+        ) as recorder,
+    ):
+        yield recorder
 
 
 def _count(value: Any) -> int:

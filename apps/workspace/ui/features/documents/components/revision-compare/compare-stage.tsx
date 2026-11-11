@@ -235,7 +235,7 @@ export function StageNotice({
           description={t('compare.notComparableDescription')}
           className="max-w-md"
           action={
-            <Button variant="outline" data-compare-notice-action="" onClick={onTextCompare}>
+            <Button variant="secondary" data-compare-notice-action="" onClick={onTextCompare}>
               {t(hasTextCompare ? 'compare.openTextCompare' : 'compare.backToHistory')}
             </Button>
           }
@@ -257,7 +257,7 @@ export function StageNotice({
           description={t('compare.failedDescription')}
           className="max-w-md"
           action={
-            <Button variant="outline" data-compare-notice-action="" data-testid="compare-retry" onClick={onRetry}>
+            <Button variant="secondary" data-compare-notice-action="" data-testid="compare-retry" onClick={onRetry}>
               <RotateCw aria-hidden />
               {t('compare.retry')}
             </Button>

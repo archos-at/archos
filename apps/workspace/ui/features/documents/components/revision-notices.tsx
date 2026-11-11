@@ -33,11 +33,11 @@ export function SuggestionNotice({
         {suggestion.reason ? ` ${suggestion.reason}` : ''}
       </p>
       {canManage ? (
-        <div className="flex flex-wrap gap-1.5">
-          <Button type="button" size="sm" className="h-7" disabled={busy} onClick={() => onDecide(suggestion.of.id, true)}>
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" size="sm" disabled={busy} onClick={() => onDecide(suggestion.of.id, true)}>
             {t('preview.revision.confirm')}
           </Button>
-          <Button type="button" size="sm" variant="ghost" className="h-7" disabled={busy} onClick={() => onDecide(suggestion.of.id, false)}>
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => onDecide(suggestion.of.id, false)}>
             {t('preview.revision.dismiss')}
           </Button>
         </div>

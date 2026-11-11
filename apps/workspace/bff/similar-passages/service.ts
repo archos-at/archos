@@ -139,12 +139,13 @@ interface BackendSimilarResponse {
  * A hit from a collection this call did not name is dropped rather than trusted.
  */
 async function fetchSimilarFromBackend(
+  organizationId: string,
   source: ResolvedSource,
   passage: SimilarPassagesRequest['passage'],
   collections: readonly string[]
 ): Promise<BackendSimilarResponse> {
   const scope = [...new Set([source.collection, ...collections])]
-  const headers = buildRequestContextWireHeaders({ collectionScope: scope }, process.env.INTERNAL_API_TOKEN)
+  const headers = buildRequestContextWireHeaders({ collectionScope: scope, organizationId }, process.env.INTERNAL_API_TOKEN)
   let res: Response
   try {
     res = await fetch(`${getBackendUrl()}/v1/collections/similar`, {
@@ -299,7 +300,7 @@ export async function findSimilarPassages(
   const officeShelf = officeShelfCollectionName(session.organizationId)
   const collections = [...new Set([...plans.flatMap((plan) => plan.collections).slice(0, projectCap), officeShelf])]
 
-  const backend = await fetchSimilarFromBackend(source, request.passage, collections)
+  const backend = await fetchSimilarFromBackend(session.organizationId, source, request.passage, collections)
   const hits = asSearchHits(backend.documents)
 
   const projectGroups = await mapBounded(plans, PLAN_CONCURRENCY, async (plan) => {

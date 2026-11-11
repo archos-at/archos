@@ -191,9 +191,8 @@ export function purgeChunksOf(doc: Document): Promise<boolean> {
 }
 
 /**
- * Withdraw a delete's `purge_binned_chunks` job once the request has done its
- * work. Best effort: a job left behind finds the entry says `chunksPurgedAt`
- * (or is no longer pending) and ends without touching anything.
+ * Withdraw a delete's `purge_binned_chunks` job once the request has done its work. Best effort: a job left behind
+ * finds the entry says `chunksPurgedAt` (or is no longer pending) and ends without touching anything.
  */
 async function withdrawPurgeJob(organizationId: string, jobId: string): Promise<void> {
   await withTenant({ organizationId }, () => deleteQueuedJob(jobId)).catch((error) => {
@@ -548,6 +547,7 @@ export interface FolderBinEntry {
   documents: number
   folders: number
   canRestore: boolean
+  restoreBlocked: 'folder_read_only' | 'project_closed' | 'no_write' | null // why not, for this reader (`folder-bin-wire.ts`)
   /** The document of an entry made for one document (document-bin); `null` for a deleted folder. */
   document: { id: string; name: string } | null
 }
@@ -571,9 +571,8 @@ async function mayManageProject(session: AuthorizedSession, projectId: string): 
 }
 
 /**
- * One page of the project's bin as the session may see it: the entries whose
- * folder it may read, newest first. A page can carry fewer than `limit` rows
- * when some were not the reader's to see; `nextCursor` says whether more follow.
+ * One page of the project's bin as the session may see it (entries whose folder it may read, newest first); a page
+ * can carry fewer than `limit` rows when some were not the reader's to see, and `nextCursor` says whether more follow.
  */
 export async function listFolderBin(
   session: AuthorizedSession,
@@ -605,6 +604,7 @@ export async function listFolderBin(
         ...row,
         deletedBy: { userId: row.deletedBy, name: person?.name ?? person?.email ?? null },
         canRestore: row.status === 'pending' && level === 'write' && projectWrite,
+        restoreBlocked: row.status !== 'pending' ? null : level !== 'write' ? 'folder_read_only' : projectWrite ? null : closed ? 'project_closed' : 'no_write',
       },
     ]
   })

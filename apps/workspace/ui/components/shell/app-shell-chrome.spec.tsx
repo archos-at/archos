@@ -33,9 +33,6 @@ vi.mock('./phone-tab-bar', () => ({
 vi.mock('./phone-more-sheet', () => ({
   PhoneMoreSheet: () => <div data-testid="more-sheet" />,
 }))
-vi.mock('./project-switcher-sheet', () => ({
-  ProjectSwitcherSheet: () => <div data-testid="switcher-sheet" />,
-}))
 let keyboardUp = false
 vi.mock('./use-keyboard-up', () => ({
   useKeyboardUp: () => keyboardUp,
@@ -134,14 +131,15 @@ describe('AppShellChrome — the phone tab bar', () => {
     // so nothing scrolls under it and no page reserves its height.
     const frame = container.querySelector('[data-tab-bar]')!
     expect(Array.from(frame.children).indexOf(bar)).toBeGreaterThan(0)
-    expect(screen.getByTestId('switcher-sheet')).toBeInTheDocument()
+    // „Mehr“ holds the project selector on a phone; there is no second sheet for it.
+    expect(screen.getByTestId('more-sheet')).toBeInTheDocument()
     unmount()
 
     pathname = '/app/projects'
     render(<AppShellChrome {...baseProps}>page</AppShellChrome>)
     expect(screen.getByTestId('tab-bar')).toHaveAttribute('data-project-id', 'org')
     // No project, nothing to switch between.
-    expect(screen.queryByTestId('switcher-sheet')).toBeNull()
+    expect(screen.queryByTestId('more-sheet')).toBeNull()
   })
 
   test('stands down while the keyboard is up, and zeroes the inset a composer pads for', () => {

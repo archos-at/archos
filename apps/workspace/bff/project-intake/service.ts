@@ -22,6 +22,8 @@
 
 import { normalizeProfileKey, normalizeProfileValue } from '@/lib/project-profile/legacy-names'
 import 'server-only'
+import { projectLawFor } from '@/lib/base-knowledge/context/project-law'
+import { lawWithheldAt } from './classification'
 import { ConflictError, ForbiddenError, NotFoundError, ServiceUnavailableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
@@ -206,23 +208,21 @@ const intakeCompleted = () =>
 
 async function viewOf(session: AuthorizedSession, row: ProjectIntakeRow): Promise<IntakeView> {
   const { organizationId } = session
-  const [profile, documents, canDecide, canManage] = await Promise.all([
+  const [profile, documents, canDecide, canManage, applicableLaw] = await Promise.all([
     loadProfile(organizationId, row.projectId),
     readableDocuments(organizationId, row.projectId),
     holds(session, row.projectId, PROFILE_WRITE),
     row.mode === 'closing' ? holds(session, row.projectId, 'project:manage') : Promise.resolve(false),
+    projectLawFor(organizationId, row.projectId),
   ])
-  const open = row.status !== 'completed'
   const unread = unreadDocuments(documents, row.documentsRead)
   return buildIntakeView({
-    row,
-    profile,
-    definition,
+    row, profile, definition, applicableLaw,
     needs: needsOf(profile, row),
     unreadDocuments: unread.length,
     readingDocuments: { readable: documents, unread },
     canDecide,
-    canComplete: open && (row.mode === 'closing' ? canManage : canDecide),
+    canComplete: row.status !== 'completed' && (row.mode === 'closing' ? canManage : canDecide),
   })
 }
 
@@ -531,15 +531,12 @@ export async function recordIntakeValues(
     value: normalizeProfileValue(value.key, value.value),
   }))
   const row = await requireCurrentReading(session, projectId, jobId)
-  const documents = await readableDocuments(organizationId, projectId)
+  const [documents, lawWithheld] = await Promise.all([readableDocuments(organizationId, projectId), lawWithheldAt(organizationId, projectId)])
   const readableFiles = new Set(documents.map((document) => document.fileName))
   const screened = await screenValues(organizationId, row, values, readableFiles)
   return writeProfile(session, projectId, (current) => {
-    const plan = planRecord(current, definition, screened, {
-      now: new Date().toISOString(),
-      readingId: jobId,
-      needs: { mode: row.mode, dismissed: row.dismissed },
-    })
+    const needs = { mode: row.mode, dismissed: row.dismissed }
+    const plan = planRecord(current, definition, screened, { now: new Date().toISOString(), readingId: jobId, needs, lawWithheld })
     const value = { results: plan.results, opened: plan.opened.slice(0, MAX_INTAKE_NEEDS) }
     return { value, before: current, after: plan.profile, keys: plan.changedKeys }
   })
@@ -558,8 +555,9 @@ export async function withdrawIntakeValues(
 ): Promise<InternalIntakeWithdrawResponse> {
   const keys = sentKeys.map(normalizeProfileKey)
   await requireCurrentReading(session, projectId, jobId)
+  const lawWithheld = await lawWithheldAt(session.organizationId, projectId)
   const results = await writeProfile(session, projectId, (current) => {
-    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId })
+    const plan = planWithdraw(current, definition, keys, { now: new Date().toISOString(), readingId: jobId, lawWithheld })
     return { value: plan.results, before: current, after: plan.profile, keys: plan.changedKeys }
   })
   return { results }

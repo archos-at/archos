@@ -7,14 +7,66 @@ definitions but schedules them differently, and two required checks sit outside
 
 ```bash
 task verify        # everything CI runs
-task verify:fast   # the same, minus the slow production build
+task verify:fast   # the tiers and UI specs your change reaches, no production build
 task setup         # first-time toolchain install
 ```
 
-Both run `lint:repo` first, then the tiers side by side (`task --parallel
---output=group`), so a tier's output arrives whole when it finishes. They skip
+`verify` runs `lint:repo` first, then the tiers side by side (`task --parallel
+--output=group`), so a tier's output arrives whole when it finishes;
+`verify:fast` runs `lint:repo` beside the tiers. They skip
 the hooks a tier repeats (ruff, the English-names test: `VERIFY_SKIP` in
 `Taskfile.yml`) and run the UI suite without coverage, as CI does.
+
+### What `verify:fast` runs
+
+`verify` runs every tier whole. On four cores that is about a quarter of an
+hour, and the tiers are far from equal (each task alone, 2026-11-10):
+
+| Task | Wall clock | CPU seconds |
+|---|---|---|
+| `workspace:test` (1,872 spec files; 13m 24s and 2,310 CPU seconds before the vm pool) | 5m 51s | 946 |
+| `be:test:ci` (138s as `be:test`, without coverage) | 2m 48s | 463 |
+| `infra:test` | 1m 05s | 191 |
+| `be:test:api` | 44s | 127 |
+| `lint:repo` (pre-commit 28s, `agents:audit` 9s; 79s on a cold cache) | 37s | |
+| `workspace:lint` | 25s | 30 |
+| everything else together | under 1m | |
+
+So `verify:fast` does not run every tier. [`ci/verify_plan.py`](../../ci/verify_plan.py)
+takes every path that differs from the merge base with `origin/develop`
+(committed or not, untracked files included) and decides as CI's Plan job does
+for a pull request, from the same two definitions:
+
+- a tier runs when [`.github/filters.yml`](../../.github/filters.yml) names a changed path;
+- the UI tier runs the specs `ci/pr_selection.py` selects (`vitest related`),
+  or the whole suite when the change reaches what every spec loads;
+- the backend tier runs whole, without coverage (`be:verify:fast`), until you
+  record this checkout's testmon databases once with `task be:test:testmon`.
+  With them, a change testmon can see runs only the tests it reaches
+  (`be:verify:affected`); a lockfile, a conftest or Python outside the tested
+  packages still runs the suites whole, by the rules of `decide_python`. An
+  old recording only widens the selection, since testmon compares each file
+  with what it recorded. The databases CI selects from live in CI's cache and
+  are not fetched;
+- the harness tests (`be:test:harness`) run when the backend tier does not, as
+  CI's Repo checks job runs them on every pull request.
+
+It prints the plan first, and names a gate outside `verify` (`db:test:rls`,
+`pkg:test`, `cms:test:db`) when the change touches what that gate guards. A
+one-file UI change is about a minute and a half. A change to
+`Taskfile.yml` or `.github/filters.yml` reaches every tier and costs the whole
+run.
+
+```bash
+task verify:fast -- --dry-run   # the plan, nothing run
+task verify:fast -- --all       # every tier whole, as before 2026-11
+task verify:fast -- --base origin/release   # another base
+```
+
+Without a merge base (no `origin/develop` fetched) it runs every tier. What it
+leaves to `verify` and to CI: the production builds, the 65% coverage gate, and
+any spec the selection cannot connect to the change, which the full run on the
+push to `develop` catches.
 
 `Taskfile.yml` and the per-tier files in `taskfiles/` (included flat, so task names
 are unchanged) are the source of truth for what each check actually runs, and
@@ -43,6 +95,26 @@ Reach for the narrow task rather than the whole gate:
 Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
+
+**The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
+process runs many spec files, each in a fresh vm context, instead of one
+process per file (`pool: 'vmForks'` in `apps/workspace/vitest.config.ts`; the
+whole suite went from 800s to 351s on four cores, 2026-11-10). A context is a
+realm of its own, so specs still do not share globals, modules or mocks. Three
+things follow from the realm:
+
+- An object from Node itself (a `Buffer` off a socket, a `URL`, a
+  `DOMException` raised by a built-in) is not an `instanceof` the context's own
+  class. Test by shape, or list the spec in `PROCESS_PER_FILE` in the config
+  with the reason; those specs keep a process each (the `process` project).
+- `process.env` is shared by every spec a worker runs.
+  `config/vitest/polyfills.ts` puts it back to the worker's starting
+  environment before each spec file, so a spec may set a variable without
+  restoring it. Anything else a spec changes on `process` (`chdir`, a listener)
+  it must undo itself.
+- A worker's heap grows with every context; `vmMemoryLimit` replaces a worker
+  past 1.2 GB. Without it the first full run lost eleven workers to the heap
+  limit.
 
 **`next build` does not typecheck the specs; `task workspace:types` does.** The build
 reads `apps/workspace/tsconfig.build.json` (`typescript.tsconfigPath` in
@@ -505,6 +577,14 @@ through the real agent, several runs each, timed call by call and checked
 against what the answer must say. The loop eval asks how the turn looked for
 its passage; this asks what the reader waited for and what they got.
 
+- **Public sources:** the agent reads RIS, and parses any public PDF, only
+  through the public-source fetcher (`PUBLIC_SOURCE_FETCHER_URL`, ADR-0162
+  amendment). With the variable unset, the first run starts one on a free
+  local port (`scripts/turn_census/local_fetcher.py`: this checkout's records,
+  none of your environment) and every run shares it until the suite exits; a
+  set variable is kept. It reaches the source hosts directly, as the
+  cluster's fetcher does, so a machine behind a proxy that blocks them sees
+  the same refusals the agent would. The census uses the same fetcher.
 - **Questions:** the loop eval's set, the ones tagged `suite: core` by
   default (`--all` for every question without a project; a question about an
   office's own files needs a project and is skipped, and the report says so;
@@ -538,6 +618,13 @@ its passage; this asks what the reader waited for and what they got.
   question (default 2), `--workers N` how many run at once (default 3). `--override KEY VALUE` sets a config value for every
   run, in the dot notation `nat run` takes, and repeats. `--all`, `--baseline`,
   `--report` and `--ingest` are described above and below.
+- **The site's law:** every run reads the knowledge context and chain an
+  entitled Austrian office's turn carries once the packs are published
+  (ADR-0175): the default set as a Vienna project, a fixture office's project
+  in its own Land. A fixture BFF serves them (`scripts/turn_census/fixture_law.py`)
+  from `tests/fixtures/base-knowledge/turn_law_austria.json`, which
+  `turn-law.fixture.spec.ts` writes from the packs with the production
+  resolvers (`UPDATE_FIXTURES=1`). A run without them would read no law at all.
 - **No stack needed:** `--ingest --corpus data/oib` takes the base corpus
   from that directory's PDFs instead of the object store, so the suite runs
   on a machine with no BFF and no SeaweedFS. The table, the ingest queue and
@@ -549,6 +636,32 @@ its passage; this asks what the reader waited for and what they got.
 task be:eval:answer-suite -- --out /tmp/suite/before         # on the base branch
 task be:eval:answer-suite -- --out /tmp/suite/after --baseline /tmp/suite/before/results.json
 ```
+
+**The edition set** (`-- --set editions`, `--only r1 r3` for groups) asks which
+OIB-RL edition binds in an Austrian Land on a given day: market requirements R1,
+R2, R3 and R5 (`docs/design/international/research/market-2026-11.md`, (d)). The
+134 rows are in `tests/fixtures/editions/at_edition_questions.yaml`: 54 Land × RL
+items, 24 changeover days, 20 abstentions and 36 false premises. Its checks
+(`scripts/turn_census/edition_eval.py`, which the suite dispatches to by the row's
+`set`; `suite.load_questions` marks each row of a norm set other than the loop one) are:
+
+- `binding`: which edition the answer says applies that day. That is a meaning, so
+  it fails without asking when the edition is never named, passes without asking
+  only when it is the one edition named and no sentence naming it negates it, names
+  another date than the asked and in-force days, or another Land; otherwise it asks
+  the judge to confirm a stated claim.
+- patterns: the LGBl, the in-force day, a link to `ris.bka.gv.at` or
+  `ogd.ris.bka.gv.at` (`ris_lgbl` also wants it to name that gazette), and
+  `no_substitute`, which bans citing a Richtlinie whose binding edition has no text
+  in the pack (no manifestation), and in r3 `no_held_edition` and
+  `no_remembered_requirement` (no edition named with a measure);
+- judge rubrics: `abstains`, `corrects_premise`, and `transition`, the quoted
+  transitional rule of the Verordnung across an r2 changeover.
+
+A judged check with no judge is a recorded failure (`judge_unavailable:<kind>`).
+Every expected value is read off the relation records in
+`configs/knowledge-packs/at.json`; `tests/test_edition_eval.py` holds every row to
+the pack, so a pack change fails CI until the set follows.
 
 **The precedent set** (`-- --set precedent`) asks whether the agent uses the
 office's other projects well (docs/roadmap/office-experience.md, step A). Each
@@ -821,6 +934,27 @@ presents the unconfirmed sender's claim as the Behörde's.
 The suite starts each run from the working tree: edit nothing under `packages/agent/src/`
 while it runs, or run it from an exported copy of the commit
 (`git archive <sha> | tar -x -C /tmp/copy`).
+
+## The licensed-seam eval
+
+`task be:eval:licensed` (`scripts/licensed_eval.py`) asks how well answers use
+text an office licensed, and whether any of it leaks (ADR-0164). The documents in
+`tests/fixtures/licensed_eval/norms.yaml` are norm-like pages with tables, written
+for the eval; some cells are unreadable on purpose (`1?5 cm`, `■■ m`), and a
+question about one expects the answer to name the page or the table and state no
+value. Each question runs as one turn through the real chat-request contract on
+OpenRouter, with the bundled static prompt and the grounding block as the tool
+result, in four arms: `public` (unmarked, the ceiling), `seam` (licensed, flag
+on), `off` (licensed, flag off: listed, no text; the floor) and `unattested` (a
+licensed copy whose office has not confirmed AI processing: listed, no text). The report counts
+values stated, unreadable values pointed to, guesses, the longest licensed stretch
+in an answer against the cap, and the longest a LangChain callback or the
+checkpointed messages held. It exits 1 when any run but a `public` one leaked past the
+cap, and 3 when a run errored (a model call that failed, a 402 among them), so a broken
+run never reads as a clean one. `--calls N` sends each turn N times, as an agent loop re-sends it, and reports
+the share of prompt tokens read from the provider's cache, the cost and the later
+calls' seconds; `--no-cache-marker` drops the `cache_control` breakpoint for the
+comparison (it matters for a model that caches only when asked, Claude). Needs only `OPENROUTER_API_KEY`: no Qdrant, no BFF.
 
 ## The socket-level streaming harness
 

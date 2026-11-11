@@ -31,7 +31,6 @@
 import type { JSX } from 'react'
 import { use, useState } from 'react'
 import { notFound } from 'next/navigation'
-import { PageHeader } from '@/components/ui/page-header'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
 import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
@@ -39,29 +38,27 @@ import { NO_FILE_FILTERS, type FileFilters } from '@/features/documents/lib/file
 import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-sort'
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
-import { I18nProvider, useTranslations } from '@/i18n'
-import { navCopy } from '@/i18n/namespaces/nav'
+import { I18nProvider } from '@/i18n'
+import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
+import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 
 function Header() {
-  const tNav = useTranslations(navCopy)
   const phone = usePhoneLayout()
   const [view, setView] = useState<FileView>('cards')
   const [filters, setFilters] = useState<FileFilters>(NO_FILE_FILTERS)
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
   const [query, setQuery] = useState('')
 
+  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
+  primeInboundMailWaiting('dev', { count: 3, more: false })
+  // The real section frame, as a project's Dateien heads itself: title, subtitle, the places as tabs, the toolbar.
   return (
-    <PageHeader
-      title={tNav('sections.files')}
-      subtitle={tNav('sectionSubtitles.files')}
-      action={
+    <ProjectSectionFrame projectId="dev" projectName="Dev" pathname="/app/projects/dev/files" inboundMail>
+      <ProjectSectionActions>
         <FilesHeaderControls
           phone={phone}
           view={view}
           onViewChange={setView}
-          binHref="/app/projects/dev/files/bin"
-          openPointsHref="/dev/open-points"
-          inboundMail={{ href: '/dev/inbound-mail?variant=many', waiting: 3 }}
           renderFilter={(compact) => (
             <FileFilterMenu
               canCollaborate
@@ -75,8 +72,8 @@ function Header() {
           search={{ value: query, onChange: setQuery, onSubmit: () => {}, onClear: () => setQuery('') }}
           upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />}
         />
-      }
-    />
+      </ProjectSectionActions>
+    </ProjectSectionFrame>
   )
 }
 
