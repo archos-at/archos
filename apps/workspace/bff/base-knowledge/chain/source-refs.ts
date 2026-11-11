@@ -8,13 +8,12 @@
  */
 
 import { z } from 'zod'
-import { identifierSchemeSchema } from '../wire/source'
+import { DESIGNATION_KEY, identifierSchemeSchema } from '../wire/source'
+
+export { DESIGNATION_KEY }
 
 /** The most identifiers a work carries, so the most refs a use does. */
 export const MAX_SOURCE_REFS = 8
-
-/** The key the work's own designation is stored under beside its identifiers: never a scheme. */
-export const DESIGNATION_KEY = 'designation'
 
 /** One identifier of a work at its source, by the scheme its source record names: how a passage read live finds its work. */
 export const sourceRefSchema = z.object({ scheme: identifierSchemeSchema, value: z.string().min(1).max(300) }).strict()
@@ -24,7 +23,7 @@ export function sourceRefsOf(identifiers: Readonly<Record<string, unknown>> | nu
   return Object.entries(identifiers ?? {})
     .filter(
       (entry): entry is [string, string] =>
-        entry[0] !== DESIGNATION_KEY && identifierSchemeSchema.safeParse(entry[0]).success && typeof entry[1] === 'string' && entry[1] !== '',
+        identifierSchemeSchema.safeParse(entry[0]).success && typeof entry[1] === 'string' && entry[1] !== '',
     )
     .map(([scheme, value]) => ({ scheme, value }))
     .sort((a, b) => a.scheme.localeCompare(b.scheme) || a.value.localeCompare(b.value))

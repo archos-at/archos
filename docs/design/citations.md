@@ -20,6 +20,11 @@ records, the source records and the turn's knowledge context. For citations that
   and a scheme means something exactly where a source record names it. Only `eli` is checked further (a URL
   ending with `/`), because ELI is a European standard, not a country's. A work may name a scheme before its
   source is onboarded: it finds nothing until one is (`platform/wire.ts`, `chain/source-refs.ts`).
+  `designation` is never a scheme (`wire/source.ts`): the work's own designation is stored beside its
+  identifiers. Only an `eli` value names a host the web screen trusts as the work's own
+  (`web_sources.own_source_hosts`). Known debt: a passage is matched by a value read from a query parameter
+  and compared whole, so no source record reads an ELI off a path yet, and a value's shape per scheme (a law
+  number's digits) is checked nowhere; both belong on the source record's `identifiers`, as data.
 - **The public address is display.** It is offered to a reader and printed in an exported document. It
   decides no role.
 - **The form of a citation is a style per country, work kind and language, held in records.** Section 3 is

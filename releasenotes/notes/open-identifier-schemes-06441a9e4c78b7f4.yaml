@@ -2,7 +2,7 @@
 operators:
   - >
     A work's identifiers at its source now take any scheme, not only the two
-    Austrian ones: name it as the country's source record declares it, for
+    fixed ones: name it as the country's source record declares it, for
     example a law number its links carry, and a passage read live there finds
     the work. An ELI must still be a URL ending with "/". A work may carry a
     scheme before its source is onboarded; it finds nothing until then.

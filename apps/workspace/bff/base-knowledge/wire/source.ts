@@ -25,6 +25,9 @@ import { z } from 'zod'
 import { SOURCE_FORMATS, SOURCE_PROTOCOLS } from '@/shared/vocabularies.generated'
 import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
 
+/** The key a work's own designation is stored under beside its identifiers (`records.ts`): never a scheme. */
+export const DESIGNATION_KEY = 'designation'
+
 /**
  * The name of an identifier scheme (`eli`, a law number in a source's links):
  * an open word, never a list in code. A source record declares how its
@@ -32,7 +35,10 @@ import { LICENCE_CLASSES, MONITOR_KINDS, SOURCE_DATA_FLOWS } from './vocab'
  * its value under the same word, so a scheme means something exactly where a
  * source record names it (ADR-0174, `docs/design/citations.md`).
  */
-export const identifierSchemeSchema = z.string().regex(/^[a-z][a-z0-9_]{0,39}$/)
+export const identifierSchemeSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,39}$/)
+  .refine((scheme) => scheme !== DESIGNATION_KEY, 'the designation is the work’s own field, not a scheme')
 
 /**
  * The access types and format engines a source record may name. Their one list is the Python

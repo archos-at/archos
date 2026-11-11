@@ -32,7 +32,7 @@ import {
 } from '@/lib/base-knowledge/wire/vocab'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import { identifierSchemeSchema, sourceRecordFields } from '@/lib/base-knowledge/wire/source'
-import { DESIGNATION_KEY, MAX_SOURCE_REFS } from '@/lib/base-knowledge/chain/source-refs'
+import { MAX_SOURCE_REFS } from '@/lib/base-knowledge/chain/source-refs'
 import { goldenCaseFields } from '@/lib/base-knowledge/wire/golden-case'
 import { appliesWhenTableSchema } from '@/lib/base-knowledge/wire/applies-when'
 import { transitionTableSchema } from '@/lib/base-knowledge/wire/time'
@@ -109,20 +109,20 @@ const workRecord = z.object({
     .describe('What the work attaches to: site, office_seat (HOAI), client (VgV). Anything but site never binds by the site alone.'),
   identifiers: z
     .record(
-      identifierSchemeSchema.refine((scheme) => scheme !== DESIGNATION_KEY, 'the designation is its own field, not a scheme'),
+      identifierSchemeSchema,
       z.string().trim().min(1).max(300),
     )
     .refine((identifiers) => Object.keys(identifiers).length <= MAX_SOURCE_REFS, `at most ${MAX_SOURCE_REFS} identifiers`)
     .superRefine((identifiers, ctx) => {
       // ELI is a European standard, not a country's: the one scheme whose value is checked here.
       const eli = identifiers.eli
-      if (eli !== undefined && !(eli.length <= 300 && z.url().safeParse(eli).success && eli.endsWith('/'))) {
-        ctx.addIssue({ code: 'custom', path: ['eli'], message: 'an ELI is a URL ending with "/": a passage is this work only below that whole path segment' })
+      if (eli !== undefined && !(z.url().safeParse(eli).success && eli.endsWith('/'))) {
+        ctx.addIssue({ code: 'custom', path: ['eli'], message: 'an ELI is a URL ending with "/"' })
       }
     })
     .default({})
     .describe(
-      'The work’s identifiers at its source, {"<scheme>": "<value>"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. `eli` is the European Legislation Identifier, a URL ending with "/"; a passage whose ELI path continues below it is this work (…/1930/11/ never matches …/1930/110/).',
+      'The work’s identifiers at its source, {"<scheme>": "<value>"}: how a passage the agent reads live at that source finds this work and its role. A scheme is the word the country’s source record declares under its `identifiers` (e.g. a law number its links carry as a query parameter); copy each value from the captured page. A passage finds the work when its address carries the value where the source record says (a query parameter); a scheme no source record declares is kept and finds nothing. At most ' + String(MAX_SOURCE_REFS) + ' schemes; `designation` is not one (it is the work’s own field). `eli` is the European Legislation Identifier, a URL ending with "/": checked for shape, read by no source record yet.',
     ),
   ...common,
 })

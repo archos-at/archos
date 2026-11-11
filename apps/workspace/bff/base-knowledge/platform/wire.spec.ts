@@ -11,6 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { identifierSchemeSchema } from '../wire/source'
 import { PROPOSED_RECORD_TYPES, proposedRecordSchema, reviewBodySchema } from './wire'
 
 const GUIDE = readFileSync(join(process.cwd(), 'bff/agent-api/door/platform/onboarding-guide.md'), 'utf8')
@@ -50,6 +51,11 @@ describe('a work’s identifiers at its source', () => {
     expect(work({ designation: 'BO für Wien' }).success).toBe(false)
     expect(work({ 'xa_gazette_number': ' ' }).success).toBe(false)
     expect(work(Object.fromEntries(Array.from({ length: 9 }, (_, n) => [`scheme_${n}`, String(n)]))).success).toBe(false)
+  })
+
+  it('is one scheme word everywhere: a source record cannot declare the designation as a scheme either', () => {
+    expect(identifierSchemeSchema.safeParse('xa_gazette_number').success).toBe(true)
+    expect(identifierSchemeSchema.safeParse('designation').success).toBe(false)
   })
 
   it('refuses an ELI that does not end with "/": …/1930/11 would also name …/1930/110', () => {

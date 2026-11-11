@@ -88,7 +88,7 @@ RIS becomes a source record with `rest` access and the `ris_xml` engine, which b
 
 **Today. V.** Section 2, rows "Citation role" and "Languages". Identifiers are done (2026-11-11): a work's `identifiers` are an open map `{<scheme>: <value>}`, and a source record declares how its addresses state a scheme (`identifiers: {<scheme>: {query: <param>}}`), so a CELEX number, an SR number or a BGBl. Fundstelle is a record, not a release. Kept from the plan below: a map rather than a list of pairs, because the work's record already stored its identifiers as one JSON object and a scheme appears once per work. `title` and `name` hold one language. A manifestation must be a PDF, so a statute in Akoma Ntoso or HTML cannot be a held text at all.
 
-**Better.** `identifiers: [{scheme, value}]` with the scheme list as data on the source record that issues it (the source says how its scheme maps to a URL). `title` and `name` become maps by BCP 47 tag with one required default. A manifestation names a media type the ingest reads (PDF, AKN XML, HTML through an engine), and carries `terms: {mayIndex, quoteMaxChars, attribution, validTo}` as design §3.4 already specified.
+**Better.** (Identifiers: done, see above; the map replaced the list of pairs.) `title` and `name` become maps by BCP 47 tag with one required default. A manifestation names a media type the ingest reads (PDF, AKN XML, HTML through an engine), and carries `terms: {mayIndex, quoteMaxChars, attribution, validTo}` as design §3.4 already specified.
 
 **Why.** Each is a small schema change now and a migration of every record later.
 
