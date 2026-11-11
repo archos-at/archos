@@ -19,7 +19,7 @@ import type { GeometryProcessor } from '@ifc-lite/geometry'
 import { useLocale, useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
 
-import { capturePosthog } from '@/lib/analytics/posthog'
+import { capturePosthog, capturePosthogException } from '@/lib/analytics/posthog'
 import type { BimViewerElement, Rgba } from '../lib/model-index'
 import { MeasureOverlay } from '../lib/measure-overlay'
 import { completeMeasurement, MEASURE_SNAP_OPTIONS, type MeasureAnchor, type MeasureSnapKind, type Measurement } from '../lib/viewer-measure'
@@ -451,10 +451,18 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
 
     const run = async () => {
       const startedAt = performance.now()
-      // The geometry kernel is freed on `run`'s way out, never by the cleanup:
-      // wasm-bindgen's `free()` throws on a handle that an in-flight call still
-      // borrows, and a call that failed inside the kernel can leave one behind.
+      // Freed here, never by the effect cleanup: a kernel call that failed leaves its
+      // handle borrowed, `free()` then throws, and a throw there takes the whole route down.
       let geometry: GeometryProcessor | null = null
+      const releaseGeometry = () => {
+        const kernel = geometry
+        geometry = null
+        try {
+          kernel?.dispose()
+        } catch (error) {
+          capturePosthogException(error, { source: 'ifc-viewer-dispose' })
+        }
+      }
       report({ phase: 'downloading', percent: 0, meshCount: 0 })
       try {
         // Aborted on unmount. Without a signal, leaving the page mid-download
@@ -490,13 +498,8 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         // renames a method lands here as a type error rather than as a
         // viewport that silently stops responding.
         const renderer: RendererLike = new Renderer(canvas)
-        // Stored BEFORE the awaits. It used to be assigned after them, so a
-        // rejection from either `init()` left the local `renderer`
-        // unreachable and the cleanup's `rendererRef.current?.destroy()` was a
-        // no-op — a `geometry.init()` failure in particular orphaned a fully
-        // initialised device, swap chain and pipelines. A retry loop over a
-        // bad model then walked through VRAM, which is the exact failure this
-        // component's lifecycle note says every path out of it prevents.
+        // Stored before the awaits, so a failing `init()` still leaves the cleanup a renderer
+        // to destroy; otherwise every retry over a bad model leaks a GPU device.
         rendererRef.current = renderer
         try {
           await Promise.all([geometry.init(), renderer.init()])
@@ -555,6 +558,8 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
           report({ phase: 'parsing', percent: null, meshCount })
           requestFrame()
         }
+        // The meshes are JS copies by now; nothing below calls the kernel.
+        releaseGeometry()
         if (cancelled) return
 
         streamingRef.current = false
@@ -612,10 +617,9 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         }
         requestFrame()
       } catch (error) {
-        // An aborted fetch is this component being unmounted, not a failure the
-        // reader needs to hear about — and reporting it would replace the next
-        // model's viewport with the previous one's error panel.
+        // Aborted means the reader left: not their failure, and not one to report.
         if (controller.signal.aborted) return
+        capturePosthogException(error, { source: 'ifc-viewer-load' })
         report({
           phase: 'error',
           percent: null,
@@ -623,9 +627,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
           message: error instanceof Error ? error.message : 'unknown error',
         })
       } finally {
-        try {
-          geometry?.dispose()
-        } catch {}
+        releaseGeometry()
       }
     }
 
@@ -638,9 +640,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
       frameRef.current = null
       if (cameraLoopRef.current !== null) cancelAnimationFrame(cameraLoopRef.current)
       cameraLoopRef.current = null
-      // Neither WebGPU resources nor the WASM heap are garbage-collected.
-      // Skipping either leaks a device, every vertex buffer, and the kernel's
-      // whole arena per mount; a handful of navigations exhausts VRAM.
+      // WebGPU resources are not garbage-collected: a skipped destroy leaks a device per mount.
       rendererRef.current?.destroy()
       rendererRef.current = null
       setReady(false)

@@ -18,6 +18,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { IfcViewerCanvas } from './ifc-viewer-canvas'
 import type { BimViewerElement } from '../lib/model-index'
 import type { Measurement } from '../lib/viewer-measure'
@@ -49,8 +50,15 @@ const BOUNDS = { min: { x: -10, y: -3, z: -10 }, max: { x: 10, y: 9, z: 10 } }
 
 const renders: RecordedRender[] = []
 const disposed = { renderer: 0, geometry: 0 }
-/** A stream in flight borrows the kernel; `hold` keeps it in flight. */
-const kernel: { streaming: boolean; hold: Promise<void> | null } = { streaming: false, hold: null }
+/**
+ * `hold` keeps the stream open. `failWith` makes it throw the way a trapped kernel call does, and
+ * like wasm-bindgen after a trap, the handle stays borrowed: every later `free()` throws.
+ */
+const kernel: { hold: Promise<void> | null; failWith: Error | null; wedged: boolean } = {
+  hold: null,
+  failWith: null,
+  wedged: false,
+}
 
 /**
  * The order the load path did things in.
@@ -162,21 +170,27 @@ vi.mock('@ifc-lite/renderer', () => ({
   },
 }))
 
+vi.mock('@/lib/analytics/posthog', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/analytics/posthog')>()),
+  capturePosthog: vi.fn(),
+  capturePosthogException: vi.fn(),
+}))
+
 vi.mock('@ifc-lite/geometry', () => ({
   GeometryProcessor: class {
     async init(): Promise<void> {}
     async *processAdaptive(): AsyncGenerator<{ type: string; meshes: unknown[] }> {
-      kernel.streaming = true
-      try {
-        if (kernel.hold) await kernel.hold
-        yield { type: 'batch', meshes: [{}, {}] }
-      } finally {
-        kernel.streaming = false
+      if (kernel.hold) await kernel.hold
+      if (kernel.failWith) {
+        kernel.wedged = true
+        throw kernel.failWith
       }
+      yield { type: 'batch', meshes: [{}, {}] }
     }
     dispose(): void {
-      // wasm-bindgen's `free()` refuses a handle that a call still borrows.
-      if (kernel.streaming) throw new Error('attempted to take ownership of Rust value while it was borrowed')
+      if (kernel.wedged) {
+        throw new Error('attempted to take ownership of Rust value while it was borrowed')
+      }
       disposed.geometry += 1
     }
   },
@@ -200,8 +214,9 @@ beforeEach(() => {
   capturedFrame = -1
   disposed.renderer = 0
   disposed.geometry = 0
-  kernel.streaming = false
   kernel.hold = null
+  kernel.failWith = null
+  kernel.wedged = false
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({
@@ -643,10 +658,12 @@ describe('capturing the view', () => {
 })
 
 describe('lifecycle', () => {
-  it('disposes the renderer AND the geometry kernel on unmount', async () => {
+  it('frees the geometry kernel once the model has streamed, and the renderer on unmount', async () => {
     // Neither is garbage-collected: a skipped dispose leaks a GPU device and
     // the WASM arena, and a handful of navigations exhausts VRAM.
     const { unmount } = await mountLoaded()
+    expect(disposed.geometry).toBe(1)
+    expect(disposed.renderer).toBe(0)
     unmount()
     expect(disposed.renderer).toBe(1)
     expect(disposed.geometry).toBe(1)
@@ -657,13 +674,41 @@ describe('lifecycle', () => {
     kernel.hold = new Promise((resolve) => {
       release = resolve
     })
-    const { unmount } = render(<IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />)
-    await waitFor(() => expect(kernel.streaming).toBe(true))
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('enableQuantizedBatches'))
 
-    expect(() => unmount()).not.toThrow()
+    unmount()
     expect(disposed.renderer).toBe(1)
     release()
     await waitFor(() => expect(disposed.geometry).toBe(1))
+  })
+
+  it('does not take the page down when the reader leaves a model whose kernel call failed', async () => {
+    // A trapped kernel call leaves its handle borrowed; `free()` then throws on every attempt.
+    // From an effect cleanup that throw reached the route error boundary.
+    const trap = new Error('unreachable')
+    kernel.failWith = trap
+    const onStatus = vi.fn()
+    const { unmount } = render(
+      <IfcViewerCanvas
+        sourceUrl="https://example.test/model.ifc"
+        elements={ELEMENTS}
+        onStatus={onStatus}
+      />
+    )
+    await waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({ phase: 'error' }))
+    )
+
+    expect(() => unmount()).not.toThrow()
+    expect(disposed.renderer).toBe(1)
+    expect(capturePosthogException).toHaveBeenCalledWith(trap, { source: 'ifc-viewer-load' })
+    expect(capturePosthogException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('while it was borrowed') }),
+      { source: 'ifc-viewer-dispose' }
+    )
   })
 
   it('reports a failed download as an error rather than an empty canvas', async () => {
