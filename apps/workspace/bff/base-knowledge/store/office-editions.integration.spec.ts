@@ -146,6 +146,17 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
     expect(marks).toEqual(new Map([[firstDocument, first.editionId], [a, one.editionId], [b, two.editionId]]))
   })
 
+  it('keeps an edit from a read made before a newer edition joined on the shared work', async () => {
+    const { stored: first } = await confirmedFirst()
+    // The edit's read is the stale one: the first edition still on its document's work.
+    const ids = await editions.insertEditionOfWork(await newDocument(), first, NEWER, context)
+    await repo.writeConfirmedValues(first, { ...first.values, title: 'Barrierefreies Bauen, korrigiert' }, context)
+
+    const series = (await repo.readOfficeEntries(ORG)).filter((entry) => entry.editionId === first.editionId || entry.editionId === ids.editionId)
+    expect(series.map((entry) => entry.workId)).toEqual([ids.workId, ids.workId])
+    expect(series.every((entry) => entry.values.title === 'Barrierefreies Bauen, korrigiert')).toBe(true)
+  })
+
   it('leaves no work behind once the last edition is gone', async () => {
     const { documentId: firstDocument, stored: first } = await confirmedFirst()
     const secondDocument = await newDocument()

@@ -452,7 +452,9 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   const stored = readable.filter((entry) =>
     entry.confirmed ? editionOnDay(works.get(entry.workId) ?? [entry], day) === entry : entry.values.licenceClass === 'licensed'
   )
-  const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
+  // Held is every confirmed copy the model may read, in force on the day or not: an office holding only a later
+  // edition still holds the standard, and the turn must not call the platform's listing of it „not held“.
+  const held = readable.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
   const [listed, setupRecords] = await Promise.all([
     platformKnowledge().listedNotHeld(organizationId, held),
     readSetupRecords(organizationId),

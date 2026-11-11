@@ -12,7 +12,7 @@
 
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { isUniqueViolation } from '@/lib/db/errors'
@@ -39,6 +39,7 @@ import {
 import { knowledgeSourceRevisions } from '@/lib/db/schema/knowledge-sources'
 import { knowledgeGoldenCaseRevisions } from '@/lib/db/schema/knowledge-golden'
 import type { EntryCheck, EntryValues } from '../wire'
+import { workDesignation } from '../office/work-editions'
 import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 
 const isOfficeWorkKind = (kind: string): kind is OfficeWorkKind => (OFFICE_WORK_KINDS as readonly string[]).includes(kind)
@@ -213,6 +214,20 @@ export async function insertProposedEntry(
  * every head moved to it, and, on a confirmation, the first check: confirming
  * an edition is checking it. One transaction.
  */
+/**
+ * Lock an edition's record and say which work its newest revision names. Every
+ * write to an office edition takes this lock first, so a write and a newer
+ * edition joining the work run one after the other, and neither acts on a
+ * work the other has just replaced (`store/office-editions.ts`).
+ */
+export async function lockEditionWork(tx: Tx, editionId: string): Promise<string | null> {
+  await tx.execute(sql`SELECT 1 FROM knowledge_records WHERE id = ${editionId} FOR UPDATE`)
+  const rows = await tx.execute<{ work_id: string }>(sql`
+    SELECT e.work_id FROM knowledge_edition_revisions e JOIN knowledge_revisions r ON r.revision_id = e.revision_id
+    WHERE e.record_id = ${editionId} ORDER BY r.created_at DESC LIMIT 1`)
+  return Array.from(rows)[0]?.work_id ?? null
+}
+
 export async function writeConfirmedValues(
   ids: EntryRecordIds,
   values: EntryValues,
@@ -220,8 +235,13 @@ export async function writeConfirmedValues(
 ): Promise<void> {
   await withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
-      const revisions = await appendEntryRevisions(tx, ids, values, context)
-      await moveHeads(tx, ids, revisions)
+      // The work as it is now: a newer edition may have joined since the caller read it.
+      const workId = (await lockEditionWork(tx, ids.editionId)) ?? ids.workId
+      const joined = workId !== ids.workId
+      const live = joined ? { ...ids, workId } : ids
+      const written = joined ? { ...values, designation: workDesignation(values.designation) } : values
+      const revisions = await appendEntryRevisions(tx, live, written, context)
+      await moveHeads(tx, live, revisions)
       if (context.firstCheck) {
         await tx.insert(knowledgeChecks).values({
           id: randomUUID(),
@@ -338,10 +358,9 @@ export async function readOfficeEntries(organizationId: string, documentIds?: re
         .where(
           and(
             eq(knowledgeRecords.organizationId, organizationId),
-            // An entry's records, and the works that stand alone: those two editions or more share.
-            documentIds
-              ? inArray(knowledgeRecords.documentId, [...documentIds])
-              : or(isNotNull(knowledgeRecords.documentId), eq(knowledgeRecords.type, 'work'))
+            // An entry's records; the works that stand alone come through the editions naming them below, so a
+            // work no edition names any more (its last document deleted from the Büroablage) is never read.
+            documentIds ? inArray(knowledgeRecords.documentId, [...documentIds]) : isNotNull(knowledgeRecords.documentId)
           )
         )
         .orderBy(desc(knowledgeRecords.createdAt))
@@ -349,7 +368,7 @@ export async function readOfficeEntries(organizationId: string, documentIds?: re
       const inForce = await revisionInForce(tx, records)
       const bodies = await readBodies(tx, [...inForce.values()])
       const groups = groupByDocument(records)
-      const sharedWorks = documentIds ? await standaloneWorksOf(tx, organizationId, bodies.editions, records) : []
+      const sharedWorks = await standaloneWorksOf(tx, organizationId, bodies.editions, records)
       const allRecords = [...records, ...sharedWorks.map((work) => work.record)]
       if (sharedWorks.length > 0) {
         const more = await readBodies(tx, sharedWorks.flatMap((work) => (work.revisionId ? [work.revisionId] : [])))

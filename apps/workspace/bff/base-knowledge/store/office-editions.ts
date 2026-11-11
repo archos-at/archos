@@ -16,15 +16,67 @@
  */
 
 import 'server-only'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { ConflictError } from '@/lib/api/errors'
-import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
+import { knowledgeEditionRevisions, knowledgeRecords, knowledgeRevisions, knowledgeWorkRevisions, type KnowledgeIdentifiers } from '@/lib/db/schema/knowledge-records'
 import type { EntryValues } from '../wire'
 import { workDesignation } from '../office/work-editions'
-import { appendRevision, bodiesOf, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
+import { appendRevision, bodiesOf, lockEditionWork, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
+
+type WorkRow = typeof knowledgeWorkRevisions.$inferSelect
+type EditionRow = typeof knowledgeEditionRevisions.$inferSelect
+
+/** A revision row as a body to append again: without the ids that name that revision. */
+function bodyOf<Row extends { revisionId: string; recordId: string; organizationId: string | null }>(
+  row: Row,
+): Omit<Row, 'revisionId' | 'recordId' | 'organizationId'> {
+  const { revisionId: _revision, recordId: _record, organizationId: _organization, ...body } = row
+  return body
+}
+
+/** The newest stored revision of a work: what the last write left, whatever the caller read before. */
+async function newestWork(tx: Tx, workId: string): Promise<WorkRow | null> {
+  const [row] = await tx
+    .select({ body: knowledgeWorkRevisions })
+    .from(knowledgeWorkRevisions)
+    .innerJoin(knowledgeRevisions, eq(knowledgeRevisions.revisionId, knowledgeWorkRevisions.revisionId))
+    .where(eq(knowledgeWorkRevisions.recordId, workId))
+    .orderBy(desc(knowledgeRevisions.createdAt))
+    .limit(1)
+  return row?.body ?? null
+}
+
+/** The newest stored revision of an edition. */
+async function newestEdition(tx: Tx, editionId: string): Promise<EditionRow | null> {
+  const [row] = await tx
+    .select({ body: knowledgeEditionRevisions })
+    .from(knowledgeEditionRevisions)
+    .innerJoin(knowledgeRevisions, eq(knowledgeRevisions.revisionId, knowledgeEditionRevisions.revisionId))
+    .where(eq(knowledgeEditionRevisions.recordId, editionId))
+    .orderBy(desc(knowledgeRevisions.createdAt))
+    .limit(1)
+  return row?.body ?? null
+}
+
+/** A work's identifiers with its designation cited without one edition's date. */
+function withWorkDesignation(identifiers: KnowledgeIdentifiers): KnowledgeIdentifiers {
+  const designation = workDesignation(typeof identifiers.designation === 'string' ? identifiers.designation : null)
+  const { designation: _dropped, ...rest } = identifiers
+  return designation ? { ...rest, designation } : rest
+}
+
+async function standsAlone(tx: Tx, workId: string): Promise<boolean> {
+  const [row] = await tx.select({ documentId: knowledgeRecords.documentId, type: knowledgeRecords.type }).from(knowledgeRecords).where(eq(knowledgeRecords.id, workId))
+  return row?.type === 'work' && row.documentId === null
+}
+
+async function hasHead(tx: Tx, recordId: string): Promise<boolean> {
+  const [row] = await tx.select({ head: knowledgeRecords.headRevisionId }).from(knowledgeRecords).where(eq(knowledgeRecords.id, recordId))
+  return Boolean(row?.head)
+}
 
 async function moveHead(tx: Tx, recordId: string, revisionId: string): Promise<void> {
   await tx.update(knowledgeRecords).set({ headRevisionId: revisionId }).where(eq(knowledgeRecords.id, recordId))
@@ -37,21 +89,22 @@ async function moveHead(tx: Tx, recordId: string, revisionId: string): Promise<v
  */
 async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContext): Promise<string> {
   if (earlier.workStandsAlone) return earlier.workId
-  // Two newer editions at once must end in one work: the first to lock the edition makes it, the second finds it.
-  await tx.execute(sql`SELECT 1 FROM knowledge_records WHERE id = ${earlier.editionId} FOR UPDATE`)
-  const made = await tx.execute<{ work_id: string }>(sql`
-    SELECT e.work_id FROM knowledge_edition_revisions e JOIN knowledge_records w ON w.id = e.work_id
-    WHERE e.record_id = ${earlier.editionId} AND w.type = 'work' AND w.document_id IS NULL LIMIT 1`)
-  const existing = Array.from(made)[0]?.work_id
-  if (existing) return existing
+  // Two newer editions at once must end in one work, and an edit must not land on a work just replaced: every
+  // write to the edition takes its lock (`lockEditionWork`), and what follows reads what is stored, not the caller's read.
+  const current = await lockEditionWork(tx, earlier.editionId)
+  if (current && current !== earlier.workId && (await standsAlone(tx, current))) return current
   const workId = newRecordId('work')
-  const ids = { workId, editionId: earlier.editionId, copyId: earlier.copyId }
-  const bodies = bodiesOf({ ...earlier.values, designation: workDesignation(earlier.values.designation) }, ids, earlier.terms)
+  const fallback = bodiesOf({ ...earlier.values, designation: workDesignation(earlier.values.designation) }, { workId, editionId: earlier.editionId, copyId: earlier.copyId }, earlier.terms)
+  const work = await newestWork(tx, earlier.workId)
+  const edition = await newestEdition(tx, earlier.editionId)
+  const workBody = work ? { ...bodyOf(work), identifiers: withWorkDesignation(work.identifiers) } : fallback.work
+  const editionBody = edition ? { ...bodyOf(edition), workId } : fallback.edition
   const common = { organizationId: context.organizationId, createdBy: context.createdBy, provenance: earlier.provenance }
   await tx.insert(knowledgeRecords).values({ id: workId, type: 'work', organizationId: context.organizationId, documentId: null, createdBy: context.createdBy })
-  const workRevision = await appendRevision(tx, { ...common, recordId: workId, type: 'work' }, bodies.work)
-  const editionRevision = await appendRevision(tx, { ...common, recordId: earlier.editionId, type: 'edition' }, bodies.edition)
-  if (earlier.confirmed) {
+  const workRevision = await appendRevision(tx, { ...common, recordId: workId, type: 'work' }, workBody)
+  const editionRevision = await appendRevision(tx, { ...common, recordId: earlier.editionId, type: 'edition' }, editionBody)
+  // Confirmed heads move with it; a proposal stays one.
+  if (await hasHead(tx, earlier.editionId)) {
     await moveHead(tx, workId, workRevision)
     await moveHead(tx, earlier.editionId, editionRevision)
   }
