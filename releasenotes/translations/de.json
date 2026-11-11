@@ -216,6 +216,10 @@
     "de": "Ein Dokument ist jetzt ein einziger Eintrag, egal wie viele Fassungen es hat. Der Eintrag zeigt, wie viele es sind, und beim Öffnen stehen alle Fassungen in einem Verlauf, die neueste zuerst, mit Angabe, wer sie wann eingestellt hat und was sich geändert hat."
   },
   {
+    "en": "A document no longer shows as failed, and stays that way, when it was read again or replaced while an earlier attempt to start reading it was still waiting.",
+    "de": "Ein Dokument wird nicht mehr als fehlgeschlagen angezeigt, wenn es erneut eingelesen oder ersetzt wird, während ein früherer Versuch, das Einlesen zu starten, noch aussteht."
+  },
+  {
     "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
     "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
   },
