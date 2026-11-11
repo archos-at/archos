@@ -593,6 +593,14 @@
         },
         {
           "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "When a project admin takes ownership of a chat or file you own, you now get a notice in your inbox that names who took it; you remain an owner.",
+            "de": "Wenn ein Projekt-Admin einen Chat oder eine Datei übernimmt, deren Eigentümer Sie sind, erhalten Sie jetzt eine Benachrichtigung in Ihrem Posteingang mit dem Namen der übernehmenden Person; Ihr Eigentümerstatus bleibt bestehen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "administration",
           "text": {
             "en": "The subprocessor page in the legal section now names everyone who receives your data, including address search, voice dictation and our team's Slack notices, with the legal basis for each transfer, and says plainly that the AI reads whole pages of a document when a question needs them.",

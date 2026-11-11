@@ -4712,6 +4712,10 @@
     "de": "Wenn eine Seite nicht gefunden werden kann, Ihnen der Zugriff darauf fehlt oder bei uns etwas schiefgeht, zeigt der Bildschirm das jetzt mit einer kleinen Illustration an und bietet Ihnen eine Möglichkeit, fortzufahren. Auf einem Fehlerbildschirm wird außerdem eine Referenz angezeigt, die Sie angeben können. Über „Fehler melden“ öffnen Sie eine E-Mail an uns, in der die Adresse und die Referenz bereits eingetragen sind."
   },
   {
+    "en": "When a project admin takes ownership of a chat or file you own, you now get a notice in your inbox that names who took it; you remain an owner.",
+    "de": "Wenn ein Projekt-Admin einen Chat oder eine Datei übernimmt, deren Eigentümer Sie sind, erhalten Sie jetzt eine Benachrichtigung in Ihrem Posteingang mit dem Namen der übernehmenden Person; Ihr Eigentümerstatus bleibt bestehen."
+  },
+  {
     "en": "When a project has more notes than fit in one answer, Piloti now says so instead of silently showing a partial list, and pinned notes can no longer push everything else out of view.",
     "de": "Wenn ein Projekt mehr Notizen enthält, als in eine Antwort passen, weist Piloti jetzt darauf hin, statt stillschweigend nur einen Teil der Liste anzuzeigen, und angeheftete Notizen können nicht mehr alles andere aus dem Blickfeld verdrängen."
   },
