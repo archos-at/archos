@@ -676,7 +676,7 @@ export function ShareDialog({
                           key={candidate.person.userId}
                           data-testid="share-candidate"
                           data-blocked={isBlocked(candidate) || undefined}
-                          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-snap ease-out hover:bg-accent motion-reduce:transition-none"
+                          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none"
                         >
                           <PersonAvatar person={candidate.person} size="md" />
                           {/* Identity is a COLUMN, and the right-hand slot is its

@@ -146,7 +146,7 @@ export function ModuleList({
               className={cn(
                 'duration-quick focus-visible:ring-ring/40 group flex w-full items-center gap-2.5 rounded-control px-2 py-2 text-left outline-none transition-colors ease-out focus-visible:ring-2 motion-reduce:transition-none',
                 touch && 'min-h-12 px-3',
-                state === 'current' ? 'bg-muted' : 'hover:bg-muted/50'
+                state === 'current' ? 'bg-muted' : 'hover:bg-hover'
               )}
             >
               <span

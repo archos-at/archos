@@ -351,7 +351,7 @@ export const FileCard = memo(function FileCard({
       className={cn(
         'group/card',
         // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
-        (isSelected || selection?.checked) && 'bg-accent',
+        (isSelected || selection?.checked) && 'bg-selected hover:bg-selected',
         isBusy && 'cursor-progress opacity-70',
         lit && HIGHLIGHT_OUTLINE
       )}
@@ -366,7 +366,7 @@ export const FileCard = memo(function FileCard({
           since it is a press of its own that opens the review. A line of its own under the summary left every other
           tile of its row a 50px hole. */}
       <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
-        <OpenMarksChip file={file} name={name} className="bg-background" />
+        <OpenMarksChip file={file} name={name} className="bg-background hover:bg-desk" />
       </div>
       {actions && !selection && (
         <div

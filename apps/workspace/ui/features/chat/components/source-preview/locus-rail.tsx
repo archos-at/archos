@@ -132,7 +132,7 @@ export const LocusRail: FC<{
                 className={cn(
                   'duration-snap w-full rounded-surface border px-2.5 py-2 text-left transition-colors ease-out',
                   'focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2',
-                  isActive ? 'border-transparent' : 'border-border bg-card hover:bg-accent'
+                  isActive ? 'border-transparent' : 'border-border bg-card hover:bg-desk'
                 )}
                 // The active entry wears the SOURCE's colour, the same tint the
                 // chip that opened this dialog wore — so "where am I" is

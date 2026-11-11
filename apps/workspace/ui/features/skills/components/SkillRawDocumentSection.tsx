@@ -90,7 +90,7 @@ export const SkillRawDocumentSection: FC<SkillRawDocumentSectionProps> = ({
     >
       <CollapsibleTrigger
         type="button"
-        className="hover:bg-muted focus-visible:ring-ring/50 flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2"
+        className="hover:bg-hover focus-visible:ring-ring/50 flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2"
       >
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="text-sm font-medium">{t('editor.raw.heading')}</span>

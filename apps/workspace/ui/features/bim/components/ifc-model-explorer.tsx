@@ -292,8 +292,8 @@ export function IfcSpatialTree({
               // "All storeys" sits at the head of the storey list and is the way
               // back out of a filtered model — the same stacked row as the ones
               // under it, so it takes the same growth.
-              'w-full rounded-md px-2 py-1 text-left font-medium transition-colors duration-quick ease-out hover:bg-muted pointer-coarse:py-3',
-              selectedStorey === null && 'bg-muted'
+              'w-full rounded-md px-2 py-1 text-left font-medium transition-colors duration-quick ease-out hover:bg-hover pointer-coarse:py-3',
+              selectedStorey === null && 'bg-selected hover:bg-selected'
             )}
           >
             {t('tree.allStoreys')}
@@ -315,9 +315,9 @@ export function IfcSpatialTree({
                   // below it.
                   'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left font-medium pointer-coarse:py-3',
                   selectable
-                    ? 'transition-colors duration-quick ease-out hover:bg-muted'
+                    ? 'transition-colors duration-quick ease-out hover:bg-hover'
                     : 'cursor-default text-muted-foreground',
-                  active && 'bg-muted'
+                  active && 'bg-selected hover:bg-selected'
                 )}
               >
                 <span className="truncate">
@@ -527,8 +527,8 @@ export function IfcElementTable({
               <tr
                 key={element.globalId}
                 className={cn(
-                  'cursor-pointer border-t transition-colors duration-quick ease-out hover:bg-muted motion-reduce:transition-none',
-                  element.globalId === selectedGlobalId && 'bg-muted'
+                  'cursor-pointer border-t transition-colors duration-quick ease-out hover:bg-hover motion-reduce:transition-none',
+                  element.globalId === selectedGlobalId && 'bg-selected hover:bg-selected'
                 )}
                 onClick={() => onSelect(element)}
               >

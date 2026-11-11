@@ -55,7 +55,7 @@ export function PageThumbnailButton({
       aria-current={current ? 'page' : undefined}
       className={cn(
         'group/thumb flex w-full shrink-0 flex-col items-center gap-1 rounded-md p-1.5 outline-none',
-        'hover:bg-accent/60 transition-colors duration-quick ease-out',
+        'hover:bg-hover transition-colors duration-quick ease-out',
         FOCUS_RING,
         className,
       )}

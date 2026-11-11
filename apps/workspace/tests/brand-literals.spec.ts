@@ -652,7 +652,7 @@ describe('press, thumb and sheet', () => {
   })
   it('in dark only a sheet or a thumb is lighter than its plane: a press is its plane’s fill with the 16% edge', () => {
     // Round 3: the dark press took the sheet's fill, so a press, a folder sheet and a chip were one filled box.
-    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-foreground\/\[0\.06\] dark:hover:shadow-press/)
+    expect(source('ui/components/ui/button.tsx')).toMatch(/secondary:\s*'[^']*dark:bg-transparent dark:hover:bg-hover dark:hover:shadow-press/)
   })
   it('a chip is never the press’s shape: a 28px pill of the desk, no edge; picked, the selected grey and a tick', () => {
     // Round 3 drew Offene Punkte's filter chips as the press: „Für Sie“ read as a command beside „Protokoll exportieren“.

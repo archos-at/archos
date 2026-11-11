@@ -238,7 +238,7 @@ function SectionNavLink({
           : cn(
               'text-muted-foreground',
               // On the track an unchosen tab hovers to ink, not to a fill: grey on the track's grey.
-              onTrack ? 'hover:text-foreground' : 'hover:bg-accent',
+              onTrack ? 'hover:text-foreground' : 'hover:bg-hover',
               variant === 'rail' && 'hover:text-foreground'
             )
       )}

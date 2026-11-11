@@ -645,7 +645,7 @@ export function NormEntryEditor({
                     htmlFor={itemId}
                     className={cn(
                       'duration-quick focus-within:ring-ring/60 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors ease-out focus-within:ring-2',
-                      selected ? 'border-primary bg-accent' : 'hover:bg-muted'
+                      selected ? 'border-primary bg-accent' : 'hover:bg-hover'
                     )}
                   >
                     <RadioGroupItem id={itemId} value={value} className="mt-0.5" />
@@ -722,7 +722,7 @@ export function NormEntryEditor({
                                 type="button"
                                 onClick={() => applyCandidate(candidate)}
                                 aria-label={t('norms.verify.candidate', { title: candidate.title })}
-                                className="duration-quick hover:bg-accent focus-visible:bg-accent flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors ease-out focus-visible:outline-none motion-reduce:transition-none"
+                                className="duration-quick hover:bg-hover focus-visible:bg-accent flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors ease-out focus-visible:outline-none motion-reduce:transition-none"
                               >
                                 <span className="text-sm">{candidate.title}</span>
                                 <span className="text-muted-foreground font-mono text-xs">

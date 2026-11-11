@@ -133,7 +133,7 @@ export function KnowledgeUploadPanel({
             'focus-visible:ring-ring/60 focus-visible:outline-none focus-visible:ring-2',
             isDragging && refusal && 'border-destructive bg-destructive/5',
             isDragging && !refusal && 'border-foreground/40 bg-accent',
-            !isDragging && 'bg-muted/25 hover:bg-accent/50',
+            !isDragging && 'bg-muted/25 hover:bg-desk',
             isBusy ? 'cursor-progress opacity-70' : 'cursor-pointer'
           )}
           data-testid="knowledge-dropzone"

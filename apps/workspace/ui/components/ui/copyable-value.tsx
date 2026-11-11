@@ -61,7 +61,7 @@ export function CopyableValue({ value, className, onCopied, children }: Copyable
         aria-label={t('copyableValue.copy', { value })}
         className={cn(
           // A copy press is a pressable like any other (`design-language.md`, „One press“): the kit's press and ring.
-          'hover:bg-muted rounded-control -mx-1 inline-flex max-w-full items-start gap-1.5 px-1 text-right text-xs outline-none',
+          'hover:bg-hover rounded-control -mx-1 inline-flex max-w-full items-start gap-1.5 px-1 text-right text-xs outline-none',
           PRESSABLE,
           FOCUS_RING,
           children === undefined ? 'break-all' : '[overflow-wrap:anywhere]',

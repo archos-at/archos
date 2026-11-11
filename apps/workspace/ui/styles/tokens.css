@@ -117,7 +117,7 @@
   --secondary-foreground: var(--ink);
   --muted: var(--ds-surface-sunken); /* #f2f1f0 */
   --muted-foreground: var(--ds-ink-muted); /* #5e5b57 — mid ink (ink-muted) */
-  --accent: color-mix(in oklch, var(--ds-surface-sunken), var(--ds-ink) 2%); /* #ececea — inset / hover fill */
+  --accent: color-mix(in oklch, var(--ds-surface-sunken), var(--ds-ink) 2%); /* #ececea — inset fill (the hover is --hover) */
   --accent-foreground: var(--ink);
   --destructive: var(--signal-error); /* #c14a38 */
   --destructive-foreground: var(--ds-surface); /* #fafaf9 */
@@ -259,7 +259,7 @@
   --secondary-foreground: oklch(0.967 0.003 84.6);
   --muted: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 10%);
   --muted-foreground: var(--ds-ink-muted); /* #a6a39e */
-  --accent: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 13%); /* hover / inset fill */
+  --accent: color-mix(in oklch, var(--ds-surface-raised), var(--ds-ink) 13%); /* inset fill (the hover is --hover) */
   --accent-foreground: oklch(0.967 0.003 84.6);
   --destructive: var(--signal-error);
   --destructive-foreground: oklch(0.175 0.005 80);
@@ -504,6 +504,7 @@
   --color-desk: var(--desk);
   --color-selected: var(--selected);
   --color-pressed: var(--pressed);
+  --color-hover: var(--hover);
   --color-hairline: var(--hairline);
   --color-edge: var(--edge);
   --color-field-border: var(--field-border);
@@ -682,6 +683,11 @@
   --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
   --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
   --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
+  /* The pointer's fill: one step down the ladder from whatever plane it lies on. The ladder's steps are each 5.5% ink
+     over the one above (sheet to desk, desk to selected, selected to pressed, each within 2 of 255), so one wash is the
+     desk on a sheet, the selected grey on the desk and the pressed grey on a picked row, and a control inside a
+     hovered row still shows its own step. `hover:bg-hover`; an element with a fill of its own names its next step. */
+  --hover: rgb(15 14 13 / 0.055);
   --hairline: rgb(15 14 13 / 0.08); /* between list rows */
   --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
   --field-border: #8a8784; /* a field's border: 3.4:1 on the paper, 3.2:1 on the desk, the 3:1 a control's boundary needs */
@@ -716,6 +722,7 @@
   --desk: #1f1e1c;
   --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
   --pressed: #3a3734;
+  --hover: rgb(245 244 242 / 0.06); /* dark: a white wash one step up under the pointer */
   --hairline: rgb(245 244 242 / 0.1);
   --edge: rgb(245 244 242 / 0.16);
   --field-border: #77736e; /* 3.5:1 on the dark paper, 3.2:1 on the desk */

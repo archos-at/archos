@@ -1,0 +1,8 @@
+---
+# area: general
+improvements:
+  - >
+    Rows, buttons and menu entries now darken by the same single step when you
+    point at them, everywhere in the app. The entry under the pointer no longer
+    looks like the one that is open, and the three-dot button of a file shows
+    when you point at it.

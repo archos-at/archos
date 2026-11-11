@@ -78,7 +78,7 @@ export function FolderRow({
       data-testid={`folder-row-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // The table's inset hairline (`TABLE_ROW_HAIRLINE`), from the name; the hover the desk, as a file row's.
-      className={cn('group group/row border-b-0 [--row-end:8px] [--row-lead:50px] hover:bg-desk', TABLE_ROW_HAIRLINE, dropRing(drop, true), rowProps.className)}
+      className={cn('group group/row border-b-0 [--row-end:8px] [--row-lead:50px] hover:bg-hover', TABLE_ROW_HAIRLINE, dropRing(drop, true), rowProps.className)}
       {...(onDropFolder && !readOnly && !editing ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
       {...drop.dropProps}
     >

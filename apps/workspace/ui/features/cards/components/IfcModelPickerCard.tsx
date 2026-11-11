@@ -93,7 +93,7 @@ export function IfcModelPickerCard({
               <Link
                 href={buildModelHref(projectId, { model: model.filename })}
                 aria-label={t('modelPicker.openAria', { name: label })}
-                className="group flex items-center gap-3 rounded-control border bg-background p-3 transition-colors hover:border-primary/60 hover:bg-accent"
+                className="group flex items-center gap-3 rounded-control border bg-background p-3 transition-colors hover:border-primary/60 hover:bg-desk"
               >
                 <Boxes className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="min-w-0 flex-1">

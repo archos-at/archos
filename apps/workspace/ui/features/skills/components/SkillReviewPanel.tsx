@@ -189,7 +189,7 @@ export const SkillReviewPanel: FC<SkillReviewPanelProps> = ({
                 disabled={!onGoToField}
                 className={cn(
                   'focus-visible:ring-ring/60 flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs focus-visible:outline-none focus-visible:ring-2',
-                  onGoToField && 'hover:bg-muted/50 transition-colors duration-quick ease-out',
+                  onGoToField && 'hover:bg-hover transition-colors duration-quick ease-out',
                 )}
                 data-testid={`skill-review-open-${field}`}
               >

@@ -53,8 +53,8 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
         'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        // The hover is the desk grey, as a list row's; the open or picked tile holds the selected grey (`bg-accent`).
-        interactive && 'hover:bg-desk',
+        // The hover is the pointer's fill, as a list row's; the open or picked tile holds the selected grey under it too.
+        interactive && 'hover:bg-hover',
         className,
       )}
       {...rest}

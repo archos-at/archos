@@ -94,8 +94,8 @@ export function RoundList({
                         onClick={() => onChoose(row.id)}
                         className={cn(
                           rowClass,
-                          'focus-visible:ring-ring/60 hover:bg-card/70 focus-visible:outline-none focus-visible:ring-2',
-                          current && 'bg-card ring-border ring-1 hover:bg-card'
+                          'focus-visible:ring-ring/60 hover:bg-hover focus-visible:outline-none focus-visible:ring-2',
+                          current && 'bg-sheet ring-border ring-1 hover:bg-sheet'
                         )}
                       >
                         {body}

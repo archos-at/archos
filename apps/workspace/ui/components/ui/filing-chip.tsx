@@ -82,7 +82,7 @@ export const FilingChip = forwardRef<HTMLButtonElement, FilingChipProps>(functio
       data-suggested={suggested || undefined}
       className={cn(
         'border-strong bg-card text-foreground -my-1 inline-flex h-6 min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-control border border-dashed pl-[3px] pr-2 text-[11px] font-medium leading-none',
-        'hover:bg-accent aria-expanded:bg-accent hover:border-solid aria-expanded:border-solid',
+        'hover:bg-desk aria-expanded:bg-accent hover:border-solid aria-expanded:border-solid',
         // Without the mark it is the target as words with a folder glyph, not a second pill beside the type's.
         !mark && 'border-transparent bg-transparent pl-1 hover:border-transparent aria-expanded:border-transparent',
         PRESSABLE,

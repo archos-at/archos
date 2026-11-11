@@ -448,7 +448,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
             // The WHOLE row is the highlight — 12px radius, full-bleed inside the
             // list padding — which is what makes selection legible at a glance.
             'items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
-            'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+            'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
             blocked && 'opacity-55',
           )}
         >

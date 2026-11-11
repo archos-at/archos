@@ -386,7 +386,7 @@ export function Segmented({
               size === 'sm'
                 ? 'min-h-8 px-2.5 text-[11px] font-medium pointer-coarse:min-h-11 pointer-coarse:px-3.5 pointer-coarse:text-xs'
                 : 'min-h-9 px-3.5 text-sm pointer-coarse:min-h-11 pointer-coarse:px-4',
-              !active && 'bg-card text-foreground hover:bg-muted',
+              !active && 'bg-card text-foreground hover:bg-desk',
               active && tone === 'default' && 'text-primary-foreground',
               active && tone === 'warning' && 'text-white',
               active && tone === 'muted' && 'text-background'
@@ -439,7 +439,7 @@ export function ChipMultiSelect({
               'inline-flex min-h-9 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:min-h-11 pointer-coarse:px-4',
               active
                 ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
+                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-desk'
             )}
           >
             {opt.label}

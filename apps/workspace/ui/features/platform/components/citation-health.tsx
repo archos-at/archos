@@ -397,7 +397,7 @@ function FindingRow({
       <li className="group/finding">
         <CollapsibleTrigger
           className={cn(
-            'duration-snap hover:bg-muted/40 flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
+            'duration-snap hover:bg-hover flex w-full items-start gap-3 px-6 py-3 text-left transition-colors motion-reduce:transition-none',
             'outline-none',
             FOCUS_RING_INSET
           )}
