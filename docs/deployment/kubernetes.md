@@ -6,8 +6,8 @@ cluster. The infrastructure is defined as code in
 explains the architecture, the storage/SeaweedFS decisions, how to deploy, and
 — importantly — **how the agent scales**, now and later.
 
-It is the k8s counterpart to [`coolify.md`](./coolify.md) (Docker Compose on
-Coolify remains the other supported target).
+It is the k8s counterpart to [`docker-compose.md`](./docker-compose.md) (Docker
+Compose, the other supported target).
 
 ---
 

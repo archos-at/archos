@@ -301,7 +301,7 @@ class TestSync:
         assert _sync().ingested_recorded == 1
 
     def test_an_empty_store_waiting_for_its_import_is_not_taken_for_a_reset(self, ingestor, monkeypatch):
-        """Compose and Coolify start the new release before the import: no re-embedding of the corpus meanwhile."""
+        """Compose starts the new release before the import: no re-embedding of the corpus meanwhile."""
         corpus_store.put("a.pdf", b"a")
         _sync()
         run_worker()

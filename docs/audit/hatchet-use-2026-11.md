@@ -123,7 +123,7 @@ production code and fewer mechanisms, with no behaviour lost. None clears it.
 |---|---|
 | Push a research run's cancel instead of polling for it | It is already pushed: the cancel route writes the status and calls `research_workflow.cancel`, and the SDK cancels the task. `CancellationMonitor` stays because it also reads the reader's steering events (write now, a document added), which a running Hatchet task cannot receive, and because its status read covers the ghost-job reaper's verdict, a failed cancel call and a cancel that lands before the run id is stored. Net about zero lines |
 | A durable sleep or wait for an event where a job re-triggers itself with `notBefore` | `notBefore` already is a Hatchet scheduled run with the row as its record. About 25 lines could go; a durable task would add a second declaration and slot pool, hold a per-office slot and the row for the whole wait, and `document_check` has no event to wait for, so it would still poll. Net 15 to 45 lines more, and two mechanisms where there is one |
-| An on-failure task that writes the owning record's failed state | Only each sweep's "dead job" branch could go (about 29 lines); the "no job at all" case stays in every sweep and no failure handler sees it. A job goes `dead` in our own `failJob`, so no engine feature is needed either. The one real gain is latency (a dead job's document reads `processing` for fifteen minutes): a small feature of its own, not a reduction |
+| An on-failure task that writes the owning record's failed state | Only each sweep's "dead job" branch could go (about 29 lines); the "no job at all" case stays in every sweep and no failure handler sees it. A job goes `dead` in our own `failJob`, so no engine feature is needed either. The one real gain is latency (a dead job's document reads `processing` for fifteen minutes): a small feature of its own, not a reduction. It was then built for documents: the run that makes a job dead fails the documents naming it at once (`failDocumentsOfDeadJob` in `apps/workspace/bff/documents/stuck-processing.ts`, called by `buried` in `bff/jobs-queue/task-run.ts`), and every sweep keeps its dead-job branch |
 
 ### Deliberately staying
 
@@ -137,7 +137,7 @@ production code and fewer mechanisms, with no behaviour lost. None clears it.
 | The purger | a separate process with the one role allowed to delete, and it must work when Hatchet does not |
 | Task definitions as one scheduled run each plus `schedule-repair` | a missed cron tick is dropped, a missed scheduled run still fires |
 | The proposal apply claim | a person's click, answered inline with a 409 |
-| The Kubernetes CronJobs for the backend's housekeeping and the Compose `housekeeping-clock.js` | examined and left. Compose starts Hatchet only with its `hatchet` profile and the Coolify file has no Hatchet at all, so the clock script, its routes and their token stay whatever Kubernetes does; only about fifteen lines of manifest would go. No Python worker can own a cron on dev: both pools scale to zero and count only their own workflow's backlog, and their one to three slots are held by real work for up to forty minutes. The ghost-job reaper must not depend on the engine it cleans up after: with Hatchet down, the engine's own reassignment and the `runs-reconcile` cron are down too |
+| The Kubernetes CronJobs for the backend's housekeeping and the Compose `housekeeping-clock.js` | examined and left. Compose starts Hatchet only with its `hatchet` profile, so the clock script, its routes and their token stay whatever Kubernetes does; only about fifteen lines of manifest would go. No Python worker can own a cron on dev: both pools scale to zero and count only their own workflow's backlog, and their one to three slots are held by real work for up to forty minutes. The ghost-job reaper must not depend on the engine it cleans up after: with Hatchet down, the engine's own reassignment and the `runs-reconcile` cron are down too |
 | The job row's `not_before` beside Hatchet's retry-after | one wait held twice, and the row's copy has three readers that cannot ask the engine (ADR-0150, "The row and the run after a failed attempt") |
 
 Also open: chat attachments, the project intake and the count of waiting
@@ -269,12 +269,10 @@ Read, real, and open:
   new `bff-job` kind with its payload schema, handler and registry entries,
   and a change to the one write every reconcile path shares, so it was not
   folded into a reading pass.
-- `deploy/compose/docker-compose.coolify.yaml` does not mention Hatchet, while
-  its `bff-jobs` service and the ingest path run on Hatchet since ADR-0150
-  (`docs/deployment/coolify.md` describes `bff-jobs` that way). A Coolify
-  deployment of the current tree has no engine for its background work. Whether
-  Coolify is still a supported target is the owner's call: either the file gains
-  the engine or the target is retired.
+- Closed: `deploy/compose/docker-compose.coolify.yaml` had no Hatchet engine
+  while `bff-jobs` and the ingest path run on Hatchet since ADR-0150. Coolify
+  was retired as a deployment target on the owner's decision (2026-11-11); the
+  file, its page and the specs that parsed it are deleted.
 
 Reported, not yet read (leads): none. The six leads listed here, and two more
 from the same readers (the writes after a chat turn's terminal, the 30-minute

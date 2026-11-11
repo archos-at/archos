@@ -38,13 +38,24 @@ import {
   takeJob,
 } from './repository'
 import { runHandler, UnknownJobKindError } from './run'
+import { failDocumentsOfDeadJob } from '@/lib/documents/stuck-processing'
 import type { BffJobRow } from '@/lib/db/schema/bff-job-queue'
 
 const LOG = '[bff-jobs]'
 
-const deadLine = (input: BffJobTaskInput, attempts: number, reason: unknown) =>
+/**
+ * The row says `dead`. Log it, then fail the documents the job left at
+ * `processing` (whatever its kind: the rows that name it), so they read failed
+ * now and not at the sweep's next pass over them. Never throws: the job's
+ * outcome is decided, and a write that fails here is the sweep's to make.
+ */
+async function buried(input: BffJobTaskInput, attempts: number, reason: unknown): Promise<void> {
   // The line the claim queue wrote for a dead job, which opens an issue. On the pod only: Hatchet gets the class.
   console.error(`${LOG} ${input.kind} ${input.job_id} is now dead after ${attempts} attempt(s):`, reason)
+  await failDocumentsOfDeadJob(input.job_id).catch((error: unknown) =>
+    console.warn(`${LOG} could not fail the documents of dead job ${input.job_id}; the sweep will:`, error)
+  )
+}
 
 /**
  * Who holds the row while this attempt runs. Not the run alone: Hatchet retries
@@ -151,7 +162,7 @@ async function runHeld(
   if (row.attempts > limit) {
     const reason = `worker lost on its last attempt (${limit} attempts)`
     await platform('mark a lost job dead', () => killJob(jobId, holder, reason))
-    deadLine(input, limit, reason)
+    await buried(input, limit, reason)
     return { job_id: jobId, outcome: 'skipped' }
   }
 
@@ -188,14 +199,14 @@ async function failed(input: BffJobTaskInput, holder: string, attempts: number, 
   const jobId = input.job_id
   if (error instanceof UnknownJobKindError) {
     await platform('mark a job of an unknown kind dead', () => killJob(jobId, holder, error.message))
-    deadLine(input, attempts, error)
+    await buried(input, attempts, error)
     throw new PermanentJobError('unknown-kind', error)
   }
   const limit = maxAttempts(env)
   const retryIn = retryDelaySeconds(attempts, env)
   const status = await platform('record a failed attempt', () => failJob(jobId, holder, error, { maxAttempts: limit, retryInSeconds: retryIn }))
   if (status === 'dead') {
-    deadLine(input, attempts, error)
+    await buried(input, attempts, error)
     throw new PermanentJobError('dead', error)
   }
   if (status === null) return { job_id: jobId, outcome: 'skipped' }

@@ -385,7 +385,12 @@ one wait, not two: both clocks start at the failure and end together.
   ceiling** (`BFF_JOBS_MAX_ATTEMPTS` plus the three looks). The row's count
   spans runs (a sweep's run, a takeover of a silent holder) and goes back to
   none when a slice makes progress; Hatchet's count does neither. A dead job
-  ends the run with a non-retryable error whatever `retries` has left.
+  ends the run with a non-retryable error whatever `retries` has left. Before
+  it does, the run fails the documents the job left at `processing`
+  (`buried` in `task-run.ts` calls `failDocumentsOfDeadJob`), after the row
+  says `dead` and never changing the run's answer; the sweep's dead-job branch
+  stays for a run that died in between
+  ([document ingestion](../technical-reference/document-ingestion.md)).
 
 Premise to re-check before removing either copy: Hatchet can neither be asked
 "is a retry of this job pending, and when" from SQL in the app's database, nor
@@ -464,6 +469,17 @@ release after the one that removes the claim loop is on production: the table
 is created by the agent tier at first use, so a drop would run in the first new
 pod of a rollout while old pods still claim through the column. Runbook:
 [`hatchet.md`](../deployment/hatchet.md), "Folder cards on the ingest worker".
+
+### Coolify retired as a deployment target (amendment, 2026-11-11)
+
+`deploy/compose/docker-compose.coolify.yaml` never gained the Hatchet engine,
+so a Coolify deployment of the tree this ADR describes could not run its
+background jobs or ingest documents. On the owner's decision the target is
+retired: the file, `docs/deployment/coolify.md`, `postgres.Dockerfile` (built
+only for it) and the specs that parsed it are deleted. Docker Compose
+(`deploy/compose/docker-compose.yaml`, engine behind the `hatchet` profile) and
+Kubernetes remain. Earlier ADRs that name Coolify are left as written; they
+describe the target as it was.
 
 ### AI-native check (2026-11-03)
 

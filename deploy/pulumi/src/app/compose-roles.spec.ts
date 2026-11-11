@@ -15,7 +15,7 @@ type Service = {
 };
 type Compose = { services: Record<string, Service> };
 
-const COMPOSE_FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"];
+const COMPOSE_FILES = ["docker-compose.yaml"];
 const compose = (file: string) => load(read("deploy", "compose", file)) as Compose;
 
 /** A service's environment as a map, whether the file wrote it as a list or as a map. */

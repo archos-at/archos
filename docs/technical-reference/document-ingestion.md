@@ -135,6 +135,19 @@ it. A row left at `processing` without a live job (from before the jobs, or one
 whose job died) is found by the `reconcile-background-work` Hatchet task, every minute: a row
 with no job gets a new one, a row whose job is dead is failed with its reason.
 
+A job that goes dead does not wait for that task: the run that buries it
+(`buried`, `apps/workspace/bff/jobs-queue/task-run.ts`) fails the rows that name
+it in the same run (`failDocumentsOfDeadJob`,
+`apps/workspace/bff/documents/stuck-processing.ts`), with the sweep's own listing
+and write, minus the quarter of an hour a row must otherwise have waited. That
+covers what step 4's last attempt cannot: a run whose pod was lost on its last
+attempt, a payload that no longer parses and a kind nobody knows never reach
+the handler, and a folder restore or a placement re-read has no last-attempt
+write of its own. Any kind is covered, because the rows are found by the job id
+they name (`metadata.bffJobId`), one batch of 50; the sweep keeps its dead-job
+branch for the rest, for a pod that died between the two writes and for a
+release that buried a job before this existed.
+
 **SeaweedFS config** (`apps/workspace/bff/s3.ts`):
 - Endpoint: `process.env.SEAWEED_ENDPOINT`
 - Bucket: `process.env.SEAWEED_BUCKET || 'grid-documents'`

@@ -18,3 +18,7 @@ fixes:
   - >
     A document whose reading was interrupted and then finished after all is
     now shown as read, instead of staying marked as failed with a retry offered.
+  - >
+    A document whose reading has failed for good now shows as failed right
+    away, with the option to read it again, instead of still looking as if it
+    were being read for about a quarter of an hour.

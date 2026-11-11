@@ -56,7 +56,7 @@ export interface StuckProcessingDocument {
 }
 
 /**
- * Documents at `processing` since before `before` whose job is gone or dead,
+ * Documents at `processing` since before `stranded` whose job is gone or dead,
  * oldest first. Platform scope by nature: the caller is a sweep over every
  * organization, and acts on each row inside its own.
  *
@@ -67,9 +67,13 @@ export interface StuckProcessingDocument {
  * job again; a job queued for it here would only parse or convert a document
  * nobody may see. Once restored, a row that job never reached (it died, or its
  * requester lost access) is found here like any other.
+ *
+ * `{ deadJobId }` in place of the date asks for one dead job's rows however
+ * briefly they have waited: what the job's own run fails the moment it gives
+ * up (`failDocumentsOfDeadJob`), the same rows the sweep would reach later.
  */
 export async function listStuckProcessingDocuments(
-  before: Date,
+  stranded: Date | { deadJobId: string },
   limit: number,
 ): Promise<StuckProcessingDocument[]> {
   const db = getDb()
@@ -90,7 +94,7 @@ export async function listStuckProcessingDocuments(
       .where(
         and(
           eq(documents.status, 'processing'),
-          lt(documents.updatedAt, before),
+          stranded instanceof Date ? lt(documents.updatedAt, stranded) : eq(bffJobQueue.jobId, stranded.deadJobId),
           or(isNull(bffJobQueue.jobId), eq(bffJobQueue.status, 'dead')),
           sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
         ),

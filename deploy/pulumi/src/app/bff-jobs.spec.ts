@@ -220,7 +220,7 @@ describe("the bff-jobs pool", () => {
   });
 
   it("matches the Compose services: same command, nothing published", () => {
-    for (const file of ["docker-compose.yaml", "docker-compose.coolify.yaml"]) {
+    for (const file of ["docker-compose.yaml"]) {
       const services = composeServices(file);
       const svc = services["bff-jobs"];
       expect(svc, file).toBeDefined();
@@ -228,12 +228,11 @@ describe("the bff-jobs pool", () => {
       // Internal only: a published port would put the pod's BFF on the host.
       expect(svc.ports, file).toBeUndefined();
     }
-    // The dev file shares the frontend's environment by alias, so the two
-    // cannot disagree; the Coolify one inherits it. Either way it is the
-    // frontend's, in full, because a job calls the same services a route does.
+    // The file shares the frontend's environment by alias, so the two cannot
+    // disagree: it is the frontend's, in full, because a job calls the same
+    // services a route does.
     const dev = composeServices("docker-compose.yaml");
     expect(dev["bff-jobs"].environment).toEqual(dev.frontend.environment);
-    expect(composeServices("docker-compose.coolify.yaml")["bff-jobs"].extends).toEqual({ service: "frontend" });
   });
 
   it("sets its knobs per stack: a floor of one in both, a pool in prod", () => {
