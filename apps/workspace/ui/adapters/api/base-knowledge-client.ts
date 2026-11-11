@@ -147,8 +147,13 @@ export const recordBaseKnowledgeCheck = async (entryId: string, body: RecordChec
     'record a check',
   )
 
-/** The receipt of a removal: `removed` is false when a store could not be cleared, and removing again finishes it. */
-export const removeBaseKnowledge = async (entryId: string): Promise<{ removed: boolean }> =>
+/** The receipt of a removal: the records are gone; `removed` is false when a store kept something, and `stores` says which. */
+export interface BaseKnowledgeRemovalReceipt {
+  removed: boolean
+  stores: { search: 'removed' | 'failed' | 'none'; objects: 'removed' | 'partial'; caches: 'removed' | 'failed' }
+}
+
+export const removeBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeRemovalReceipt> =>
   json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'DELETE' }), 'remove base knowledge')
 
 /** An office shelf document a person can record as base knowledge. */

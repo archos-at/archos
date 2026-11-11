@@ -152,7 +152,8 @@ export const baseKnowledge = {
     removeTitle: 'Remove this standard?',
     removeBody: 'The standard and its file are removed from Office filing. {productName} no longer quotes it. To add a newer edition, upload that instead.',
     removed: 'Standard removed.',
-    removeIncomplete: 'The standard is removed and no longer quoted. Something left behind (search index, file or cache) could not be cleared right away.',
+    removeIncomplete: 'The standard is removed and no longer quoted. Not cleared right away: {stores}.',
+    store: { search: 'search index', objects: 'file', caches: 'cache' },
     cancel: 'Cancel',
   },
   field: {

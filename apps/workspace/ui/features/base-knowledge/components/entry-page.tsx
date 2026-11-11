@@ -20,6 +20,7 @@ import {
   removeBaseKnowledge,
   setBaseKnowledgeLicence,
   updateBaseKnowledge,
+  type BaseKnowledgeRemovalReceipt,
   type BaseKnowledgeEntry,
   type BaseKnowledgeFolder,
 } from '@/adapters/api/base-knowledge-client'
@@ -56,7 +57,18 @@ interface EntryPageProps {
   onChanged: (entry: BaseKnowledgeEntry | null) => void
 }
 
-type Run = (action: () => Promise<BaseKnowledgeEntry | null>, done?: string) => Promise<void>
+/** `done` is the success message; `null` when the action says its own outcome. */
+type Run = (action: () => Promise<BaseKnowledgeEntry | null>, done?: string | null) => Promise<void>
+
+/** The stores a removal could not clear, from its receipt. */
+function leftBehind(receipt: BaseKnowledgeRemovalReceipt): ('search' | 'objects' | 'caches')[] {
+  const { search, objects, caches } = receipt.stores
+  return [
+    ...(search === 'failed' ? (['search'] as const) : []),
+    ...(objects !== 'removed' ? (['objects'] as const) : []),
+    ...(caches !== 'removed' ? (['caches'] as const) : []),
+  ]
+}
 
 function useRun(onChanged: EntryPageProps['onChanged']): { busy: boolean; run: Run } {
   const t = useTranslations(baseKnowledgeCopy)
@@ -65,7 +77,7 @@ function useRun(onChanged: EntryPageProps['onChanged']): { busy: boolean; run: R
     setBusy(true)
     try {
       onChanged(await action())
-      toast.success(done ?? t('saved'))
+      if (done !== null) toast.success(done ?? t('saved'))
     } catch (error) {
       toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
     } finally {
@@ -460,10 +472,13 @@ function SheetBody({
             cancelLabel={t('detail.cancel')}
             onConfirm={() =>
               run(async () => {
-                // The records are gone either way, so the page closes; a store that kept something is said, not hidden.
-                if (!(await removeBaseKnowledge(entry.id)).removed) toast.warning(t('detail.removeIncomplete'))
+                // The records are gone either way, so the page closes; a store that kept something is named, not hidden.
+                const receipt = await removeBaseKnowledge(entry.id)
+                const left = leftBehind(receipt)
+                if (left.length === 0) toast.success(t('detail.removed'))
+                else toast.warning(t('detail.removeIncomplete', { stores: left.map((store) => t(`detail.store.${store}`)).join(', ') }))
                 return null
-              }, t('detail.removed'))
+              }, null)
             }
           />
         </div>

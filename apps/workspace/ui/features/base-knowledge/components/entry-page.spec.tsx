@@ -4,7 +4,7 @@
  * confirmed copy records a check in one click.
  */
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
@@ -12,6 +12,9 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
 import { EntryPage } from './entry-page'
+
+const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
+vi.mock('sonner', () => ({ toast }))
 
 const PROPOSAL = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.id === 'oenorm-b-1300')!
 const CONFIRMED = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.id === 'oenorm-b-1600')!
@@ -27,7 +30,10 @@ function renderSheet(entry: BaseKnowledgeEntry, onChanged = vi.fn()) {
   return onChanged
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  for (const fn of Object.values(toast)) fn.mockReset()
+})
 
 describe('EntryPage', () => {
   it('confirms a licensed proposal only with the office’s licence statement', async () => {
@@ -82,5 +88,23 @@ describe('EntryPage', () => {
     rerender(page(BOUGHT))
     expect(await screen.findByRole('button', { name: 'Ist doch frei verfügbar' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Ist doch gekauft' })).toBeNull()
+  })
+
+  it.each([
+    ['complete', { removed: true, stores: { search: 'removed', objects: 'removed', caches: 'removed' } }, null],
+    ['partial', { removed: false, stores: { search: 'failed', objects: 'removed', caches: 'failed' } }, 'Suchindex, Zwischenspeicher'],
+  ])('closes after a %s removal and says only what is true of it', async (_, receipt, left) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(receipt)))
+    const onChanged = renderSheet(CONFIRMED)
+    await userEvent.click(await screen.findByRole('button', { name: 'Grundlage entfernen' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Grundlage entfernen' }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
+    if (left === null) {
+      expect(toast.success).toHaveBeenCalledWith('Grundlage entfernt.')
+      expect(toast.warning).not.toHaveBeenCalled()
+    } else {
+      expect(toast.success).not.toHaveBeenCalled()
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining(left))
+    }
   })
 })

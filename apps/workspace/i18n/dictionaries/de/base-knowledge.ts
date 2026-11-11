@@ -152,7 +152,8 @@ export const baseKnowledge = {
     removeTitle: 'Grundlage entfernen?',
     removeBody: 'Die Grundlage und ihre Datei werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Wollen Sie nur eine neuere Ausgabe hinterlegen, laden Sie diese stattdessen dazu.',
     removed: 'Grundlage entfernt.',
-    removeIncomplete: 'Die Grundlage ist entfernt und wird nicht mehr zitiert. Ein Rest (Suchindex, Datei oder Zwischenspeicher) ließ sich nicht sofort löschen.',
+    removeIncomplete: 'Die Grundlage ist entfernt und wird nicht mehr zitiert. Nicht sofort gelöscht: {stores}.',
+    store: { search: 'Suchindex', objects: 'Datei', caches: 'Zwischenspeicher' },
     cancel: 'Abbrechen',
   },
   field: {
