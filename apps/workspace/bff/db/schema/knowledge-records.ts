@@ -73,6 +73,33 @@ export interface KnowledgeProvenance {
   proposal?: Record<string, unknown>
   /** The OAuth client of the door call that proposed it; absent for a person in the app (ADR-0170). */
   viaClient?: string
+  /** Where a platform manifestation's base-corpus file came from: attached in its change request (ADR-0165). */
+  text?: KnowledgeTextProvenance
+}
+
+/**
+ * What a fetch went through, recorded at fetch time (migration 0224): a source the repository configures
+ * (`built_in`), a source record's released revision (`released`), or one proposed in the same change request and
+ * still under test (`draft`). Only the first two can count as fetched; `knowledge_source_reviewed` decides.
+ */
+export type FetchSourceOrigin = 'built_in' | 'released' | 'draft'
+
+/** A text attached to a manifestation in a change request: the bytes kept in the base corpus, and their origin. */
+export interface KnowledgeTextProvenance {
+  origin: 'upload' | 'url'
+  fileName: string
+  sha256: string
+  bytes: number
+  /** A fetched PDF's pages; null for an upload, which this tier does not read. */
+  pages: number | null
+  /** The configured source and the URL of a fetched text. */
+  sourceId?: string
+  /** What the fetch went through, and the source record's revision it used (absent for a built-in source). */
+  sourceOrigin?: FetchSourceOrigin
+  sourceRevisionId?: string
+  url?: string
+  attachedBy: string
+  attachedAt: string
 }
 
 export const knowledgeRecords = pgTable('knowledge_records', {

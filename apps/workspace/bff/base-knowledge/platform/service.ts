@@ -39,8 +39,9 @@ import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
 import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
 import { readOrganizationPlacements } from './organization-countries'
-import { requestSourceChecks, runKit, validateRequest } from './onboarding'
-import { sourceChecksOf } from './source-checks'
+import { requestSourceChecks, requestTextProblems, runKit, validateRequest } from './onboarding'
+import { checksOutsideKit } from './text-checks'
+import { pinnedTexts } from './text-store'
 import { requirePlatform } from './service-gate'
 import { proposalKey as keyOf, recordIdOf } from './records'
 import { DISPUTED_NOT_PUBLISHED, publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
@@ -130,8 +131,10 @@ export async function proposePlatformRecords(
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
-  const sourceChecks = await sourceChecksOf(body.records)
+  // KC-7 and the texts' files are answered by the api tier, before the request's lock is taken (ADR-0174).
+  // A text is held to the bytes its draft revision keeps; one named for the first time is pinned to the corpus's now.
+  const pinned = await platformTransaction((tx) => pinnedTexts(tx, requestId))
+  const { checks: sourceChecks, pins } = await checksOutsideKit(body.records, pinned, true)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')
@@ -147,7 +150,7 @@ export async function proposePlatformRecords(
       throw new UnprocessableError(`The proposal failed ${problems.length} check(s) on ${results.filter((r) => r.status === 'invalid').length} record(s); nothing was written.`, { results })
     }
     const viaClient = actingClientId()
-    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy, ...(viaClient ? { viaClient } : {}) })
+    const written = await insertProposedRecords(tx, request, body.records, { createdBy: person.userId, proposedBy, pins, ...(viaClient ? { viaClient } : {}) })
     return {
       dryRun: false,
       valid: true,
@@ -229,6 +232,13 @@ export async function decidePlatformChangeRequest(
   if (body.override) await requirePlatformPermission(person, PLATFORM_PERMISSIONS.knowledgeApproveAlone)
   const verb = body.override ? 'Approving a change request alone, without a second person' : `${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`
   const decisionSource = requirePersonDecision(verb)
+  if (body.decision === 'approve') {
+    // KC-1 once more: an approval is given for the bytes the revisions name, or not at all.
+    const problems = await requestTextProblems(requestId)
+    if (problems.length > 0) {
+      throw new ConflictError(`A text of this change request is not the one that was proposed (${problems.length} problem(s)); it is not approved.`, { problems })
+    }
+  }
   const outcome = await platformTransaction((tx) => decideInTransaction(tx, requestId, { ...body, role }, { by: person.userId, decisionSource }))
   await audit(person, auditOfDecision(requestId, body, role, decisionSource, outcome))
   return {

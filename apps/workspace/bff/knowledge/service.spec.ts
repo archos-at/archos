@@ -41,6 +41,7 @@ const backendPayload = {
       chunk_count: 42,
       ingested_sha256: 'abc',
       current_sha256: 'abc',
+      country_id: 'AT',
       ingested_at: '2026-06-30T12:00:00Z',
       summary: 'Brandschutz.',
       display_title: 'OIB-Richtlinie 1, Ausgabe Mai 2023',
@@ -95,6 +96,7 @@ describe('getKnowledgeBaseStatus', () => {
       chunkCount: 42,
       ingestedSha256: 'abc',
       currentSha256: 'abc',
+      countryId: 'AT',
       ingestedAt: '2026-06-30T12:00:00Z',
       summary: 'Brandschutz.',
       docClass: null,
@@ -208,6 +210,12 @@ describe('knowledge admin operations', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/v1/admin/oib/documents')
     expect((init?.headers as Record<string, string>)['X-Admin-Token']).toBe('admin-secret')
+  })
+
+  it('answers the api tier’s refusal to put other bytes under a name it keeps as a conflict, not as a broken backend', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: 'the base corpus keeps other bytes as norm.pdf' }), { status: 409 }))
+
+    await expect(uploadKnowledgeBaseDocument(new File([new Uint8Array([1])], 'norm.pdf'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
   })
 
   it('rejects non-PDF or path-carrying filenames before calling the backend', async () => {

@@ -11,7 +11,11 @@ turn. Conversation state lives in Postgres and reaches this process in headers
 it first on the path. Before that setting, a bare `pytest` in a worktree without
 its own venv validated whatever the venv installed, possibly the main checkout,
 while everything passed. `PYTHONPATH=packages/agent/src` is still what `nat run` and ad-hoc
-scripts need.
+scripts need. That setting covers `agent` and `agent_host` only: the other workspace
+packages (`public_sources`, `knowledge_layer`, …) are editable installs and come from
+the checkout the venv was built in, so a worktree gets its own venv
+(`UV_LINK_MODE=copy uv sync --group dev`) before its tests mean anything
+([gotchas](../../../../docs/contributing/gotchas.md)).
 
 ## Obligations
 

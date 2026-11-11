@@ -53,6 +53,8 @@ import os
 import tempfile
 import threading
 from dataclasses import dataclass
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO
 from urllib.parse import quote
@@ -130,6 +132,18 @@ class CorpusStoreError(RuntimeError):
 
     The message is safe to show an admin: it never carries a URL or credential.
     """
+
+
+class CorpusFileImmutable(CorpusStoreError):
+    """A name the corpus keeps was offered other bytes: a corpus file's bytes never change (ADR-0165).
+
+    Another text is another file. To put other bytes under a name, the file is
+    removed first, and the BFF refuses to remove one a platform record names.
+    """
+
+    def __init__(self, name: str):
+        super().__init__(f"the base corpus keeps other bytes as {name}; remove that file first, or use another name")
+        self.file_name = name
 
 
 @dataclass(frozen=True)
@@ -329,6 +343,25 @@ def get_mark(name: str) -> FileMark | None:
     with _transaction() as conn:
         record = conn.execute(select(_marks).where(_marks.c.file_name == name)).first()
     return FileMark(country_id=record.country_id, edition_id=record.edition_id) if record is not None else None
+
+
+def marked_at(name: str) -> datetime | None:
+    """When ``name`` was last marked, in UTC without a zone; None for a file no release has marked."""
+    with _transaction() as conn:
+        record = conn.execute(select(_marks.c.marked_at).where(_marks.c.file_name == name)).first()
+    if record is None or record.marked_at is None:
+        return None
+    at = record.marked_at
+    return at.astimezone(UTC).replace(tzinfo=None) if at.tzinfo is not None else at
+
+
+def list_marks() -> dict[str, FileMark]:
+    """Every file's mark, by file name: what the status reads to say which files a country reads."""
+    with _transaction() as conn:
+        return {
+            record.file_name: FileMark(country_id=record.country_id, edition_id=record.edition_id)
+            for record in conn.execute(select(_marks))
+        }
 
 
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:

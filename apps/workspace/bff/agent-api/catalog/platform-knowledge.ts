@@ -8,7 +8,8 @@
  *
  * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
  * schema-get; change-request-create; citation-capture for each page; then
- * records-propose (dryRun first) and validate; submit; a reviewer's
+ * records-propose (dryRun first), text-import or text-upload for each
+ * manifestation's text, and validate; submit; a reviewer's
  * change-request-review per claim; change-request-decide (the person's yes,
  * never by the author); publish to preview, then stable (the person's yes);
  * rollback (the person's yes). `personDecides` makes the door ask the person,
@@ -34,7 +35,9 @@ import {
   rollbackBodySchema,
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
+import { importTextBodySchema, listTextsQuerySchema, uploadTextFields } from '@/lib/base-knowledge/platform/text-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
+import { MAX_UPLOAD_BYTES, uploadBodySchemaWith } from '../upload-wire'
 
 /** Whether a review's verdicts vouch for a source (`sourceChecked`): the one verdict the person must give themselves. */
 function checksASource(body: unknown): boolean {
@@ -122,6 +125,8 @@ export const platformKnowledgeOperations = [
       'Into a draft change request. `basis: fetched` fetches the URL now through the public-source fetcher, on a host ' +
       'of the configured source `sourceId` (e.g. at-ris), and stores its sha256 and text; `basis: operator_supplied` ' +
       'stores the text you copied from a page that cannot be fetched, which the reviewer must check against its source. ' +
+      'The answer says `countsAsFetched`: true only through a built-in source or a released source another person approved. ' +
+      'A fetch through a source proposed in this draft works for testing, and is checked by the reviewer like a pasted page. ' +
       'Returns `captureId`: cite it with a quote copied exactly from the page; the kit checks every quote (KC-6).',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/captures',
@@ -134,6 +139,80 @@ export const platformKnowledgeOperations = [
       },
     ],
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/captures/route'),
+  },
+  {
+    name: 'platform-knowledge-text-import',
+    domain: 'platform',
+    summary: 'Attach a text to a manifestation from a URL',
+    description:
+      'Into a draft change request: the PDF at `url`, on a host of the configured source `sourceId`, becomes the text of ' +
+      'the manifestation `manifestationKey` (proposed before with platform-knowledge-records-propose, corpusFile null). ' +
+      'Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is ' +
+      'published as "<manifestationKey>-<12 hex of its sha256>.pdf", and set as the manifestation’s `corpusFile`. Returns the ' +
+      'text with its `sha256`; the same PDF again changes nothing, and another PDF is another file: nothing is replaced. A URL ' +
+      'that answers no PDF is refused with NOT_A_PDF and a PDF the fetcher cannot read with its PDF code. A text fetched ' +
+      'through a built-in source or a released source another person approved needs no source check (`countsAsFetched`); one ' +
+      'fetched through a source proposed in this draft is checked by another person like an upload. Then platform-knowledge-validate.',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts',
+    params: requestParams,
+    body: importTextBodySchema,
+    idempotent: true,
+    examples: [
+      {
+        params: { changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e' },
+        body: { manifestationKey: 'at-oib-rl-1-2019-text', sourceId: 'at-oib', url: 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf' },
+      },
+    ],
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/route'),
+  },
+  {
+    name: 'platform-knowledge-text-upload',
+    domain: 'platform',
+    summary: 'Attach an uploaded PDF to a manifestation as its text',
+    description:
+      'Into a draft change request, when no configured source serves the PDF; otherwise use platform-knowledge-text-import, ' +
+      `which sends no bytes through the tool call. Send \`body.files[0]\` as { name, mimeType, contentBase64 } (one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) ` +
+      'and `body.fields.manifestationKey`. The file is kept in the base corpus as "<manifestationKey>-<12 hex of its sha256>.pdf", ' +
+      'whatever the upload was called, where nobody reads it until the request is published, and set as the manifestation’s ' +
+      '`corpusFile`. Returns the text with its `sha256`; the same file again changes nothing, and another file is another ' +
+      'name: nothing is replaced. Nobody fetched an uploaded text, so another person checks it against its source ' +
+      '(`sourceChecked`) before anyone approves, alone or not.',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload',
+    params: requestParams,
+    body: uploadBodySchemaWith(uploadTextFields),
+    bodyEncoding: 'multipart',
+    idempotent: true,
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload/route'),
+  },
+  {
+    name: 'platform-knowledge-text-get',
+    domain: 'platform',
+    summary: 'Read the text of a manifestation of a change request',
+    description:
+      'The PDF a manifestation of the change request names as its text, returned as an attached resource up to 5 MiB: what ' +
+      'a reviewer compares with its source before `sourceChecked`. Served only while the base corpus keeps the bytes the ' +
+      'manifestation’s revision names (`sha256` on platform-knowledge-change-request-get); other bytes under the file ' +
+      'name are refused with TEXT_CHANGED and no text.',
+    method: 'GET',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]',
+    params: requestParams.extend({ manifestationKey: z.string().describe('The manifestation’s key, as it was proposed.') }),
+    binaryResponse: ['application/pdf'],
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]/route'),
+  },
+  {
+    name: 'platform-knowledge-text-list',
+    domain: 'platform',
+    summary: 'List where each base-corpus file belongs: its country, edition and change request',
+    description:
+      'One entry per base-corpus file a platform record names as its text: `countryId`, the manifestation (`recordId`), ' +
+      'its edition and work, the change request that named it and its status, and `released` (the country’s entitled ' +
+      'organizations read it). A file no record names is absent. Sorted by file name; `nextCursor` pages on.',
+    method: 'GET',
+    path: '/api/platform/knowledge/texts',
+    query: listTextsQuerySchema,
+    load: () => import('@/app/api/platform/knowledge/texts/route'),
   },
   {
     name: 'platform-knowledge-records-propose',
@@ -175,7 +254,7 @@ export const platformKnowledgeOperations = [
     summary: 'Run the validation kit on a whole change request',
     description:
       'The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with ' +
-      'its record, code (KC-1 references, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. ' +
+      'its record, code (KC-1 references and attached texts, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. ' +
       'Repair with platform-knowledge-records-propose, then submit once it is valid.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/validation',
@@ -215,8 +294,9 @@ export const platformKnowledgeOperations = [
     summary: 'Record verdicts on the claims of a change request under review',
     description:
       'One verdict per claim (`revisionId`, `claimPath` from platform-knowledge-change-request-get): accepted, edited or ' +
-      'rejected; `sourceChecked` when you checked the cited capture against its source, which an operator-supplied ' +
-      'capture needs before approval; a verdict that sets it is the person’s own and is asked of them. A verdict is ' +
+      'rejected; `sourceChecked` when you checked the cited capture, or the manifestation’s text, against its source, which ' +
+      'an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict ' +
+      'that sets it is the person’s own and is asked of them. A verdict is ' +
       'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
       'request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone ' +
       'stays reviewable until its second review is given.',

@@ -40,6 +40,7 @@ import { configuredSource } from './onboarding'
 import { lagDays, type ProbeAnswer, probeSource } from './source-service'
 import {
   activeSources,
+  fetchedThrough,
   MONITOR_REQUEST_OPEN_STATUSES,
   type MonitorState,
   monitorStates,
@@ -154,6 +155,8 @@ async function openRequest(
       changeRequestId: id,
       basis: 'fetched',
       sourceId: source.key,
+      // The monitor reads released sources only.
+      ...fetchedThrough(source),
       url: seen.url,
       finalUrl: seen.url,
       contentType: seen.contentType || null,

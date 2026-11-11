@@ -18,6 +18,7 @@ Internal-token guarded like every other service-to-service route: reached from
 the BFF, never from a browser.
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -72,10 +73,8 @@ def _configured(config: dict[str, Any]):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-async def capture_public_source_page(
-    body: CaptureRequest, _: None = Depends(_require_internal_token)
-) -> dict | JSONResponse:
-    """Return ``{url, finalUrl, contentType, sha256, bytes, text, pages, note, retrievedAt}`` for one page."""
+async def _captured(body: CaptureRequest):
+    """The page ``body`` names, fetched as its source allows; a refusal as the response the route answers."""
     from public_sources.capture import CaptureError
     from public_sources.capture import capture_page
     from public_sources.egress import EgressRefused
@@ -85,7 +84,7 @@ async def capture_public_source_page(
     if body.config is not None and body.config.get("id") != body.source:
         raise HTTPException(status_code=422, detail="the configuration is not of the named source")
     try:
-        page = await capture_page(source, body.url, credential=body.credential)
+        return await capture_page(source, body.url, credential=body.credential)
     except SourceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except EgressRefused as exc:
@@ -98,17 +97,99 @@ async def capture_public_source_page(
     except Exception as exc:
         logger.exception("public source capture failed for source %s", body.source)
         raise HTTPException(status_code=502, detail="the source is not reachable right now") from exc
+
+
+async def capture_public_source_page(
+    body: CaptureRequest, _: None = Depends(_require_internal_token)
+) -> dict | JSONResponse:
+    """Return ``{url, finalUrl, contentType, sha256, bytes, text, pages, note, retrievedAt}`` for one page."""
+    page = await _captured(body)
+    if isinstance(page, JSONResponse):
+        return page
+    return {**_page_facts(page), "text": page.text}
+
+
+def _page_facts(page) -> dict:
+    """What a capture says about its bytes, without its text."""
     return {
         "url": page.url,
         "finalUrl": page.final_url,
         "contentType": page.content_type,
         "sha256": page.sha256,
         "bytes": page.size,
-        "text": page.text,
         "pages": page.pages,
         "note": page.note or None,
         "retrievedAt": page.retrieved_at,
     }
+
+
+class CorpusTextRequest(CaptureRequest):
+    """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
+
+    #: What the file is named after: its manifestation's key. The name itself carries the bytes' hash.
+    fileStem: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]{0,99}$", description="The manifestation's key.")
+
+
+def corpus_text_name(stem: str, sha256: str) -> str:
+    """The name a text is kept under: its manifestation's key and the first twelve hex digits of its sha256.
+
+    Content-addressed, so the bytes under a name never change: other bytes are another name. The BFF names an
+    uploaded text the same way (``textFileName`` in ``text-wire.ts``).
+    """
+    return f"{stem}-{sha256[:12]}.pdf"
+
+
+def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
+    """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``.
+
+    Nothing is ever replaced: a name that holds other bytes (somebody put a file there by hand, or twelve hex
+    digits collided) is refused.
+    """
+    from agent import corpus_store
+    from agent import oib_sync
+    from agent.common.norm_registry import guess_doc_class
+
+    from ..jobs.ingest_dispatch import enqueue_only
+
+    row = corpus_store.get_file(name)
+    if row is not None:
+        return "unchanged" if row.sha256 == sha256 else "name_taken"
+    try:
+        oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
+    except corpus_store.CorpusFileImmutable:
+        # Somebody stored other bytes under the name between the read above and the store's lock.
+        return "name_taken"
+    return "stored"
+
+
+async def import_public_source_text(
+    body: CorpusTextRequest, _: None = Depends(_require_internal_token)
+) -> dict | JSONResponse:
+    """Fetch a public PDF and keep it as a base-corpus file: ``{fileName, stored, …the capture's facts}``.
+
+    The fetch and the parse are the capture's (:func:`public_sources.capture.capture_page`): the source's hosts at
+    every hop, and the PDF read by the fetcher, which refuses one it cannot open before anything is kept. This tier
+    never parses the bytes; it hands them to the corpus store, where they are ingested like an upload and read by
+    nobody until a release marks them with a country (ADR-0173).
+    """
+    from public_sources.pdf import is_pdf
+
+    page = await _captured(body)
+    if isinstance(page, JSONResponse):
+        return page
+    if page.pages is None or not is_pdf(page.content, page.content_type):
+        detail = "the URL answers no PDF; a text kept in the base corpus is a PDF"
+        return JSONResponse(status_code=422, content={"detail": detail, "code": "not_a_pdf"})
+    name = corpus_text_name(body.fileStem, page.sha256)
+    try:
+        outcome = await asyncio.to_thread(_keep_corpus_text, name, page.content, page.sha256)
+    except Exception as exc:
+        logger.exception("a fetched text could not be kept in the base corpus")
+        raise HTTPException(status_code=502, detail="the base corpus did not take the file") from exc
+    if outcome == "name_taken":
+        detail = f"the base corpus keeps a different file as {name}"
+        return JSONResponse(status_code=409, content={"detail": detail, "code": "name_taken"})
+    return {**_page_facts(page), "fileName": name, "stored": outcome == "stored"}
 
 
 async def check_public_source(body: SourceRequest, _: None = Depends(_require_internal_token)) -> dict:
@@ -221,7 +302,7 @@ async def probe_public_source(body: ProbeRequest, _: None = Depends(_require_int
 
 
 def add_public_source_capture_routes(router: APIRouter) -> None:
-    """The public-source routes the BFF calls: capture, check (KC-7), probe (a monitor check) and the built-in list."""
+    """The public-source routes the BFF calls: capture, corpus text, check (KC-7), probe and the built-in list."""
     router.post(
         "/v1/public-sources/capture",
         tags=["public-sources"],
@@ -229,6 +310,12 @@ def add_public_source_capture_routes(router: APIRouter) -> None:
         # A refusal with a problem code is a JSONResponse beside the dict, which no response model describes.
         response_model=None,
     )(capture_public_source_page)
+    router.post(
+        "/v1/public-sources/corpus-text",
+        tags=["public-sources"],
+        summary="Fetch a public PDF of a configured source and keep it as a base-corpus file (internal)",
+        response_model=None,
+    )(import_public_source_text)
     router.post(
         "/v1/public-sources/check",
         tags=["public-sources"],

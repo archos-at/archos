@@ -40,6 +40,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
+from datetime import UTC
 from enum import StrEnum
 from typing import Any
 
@@ -258,7 +259,12 @@ def settle(rows: dict[str, corpus_store.FileRow]) -> Settled:
         if not row.needs_ingestion(CHUNK_FORMAT_VERSION):
             continue
         state = progress_of(row)
-        if state == JobProgress.DONE:
+        if state == JobProgress.DONE and _prepared_before_its_mark(name, row):
+            # Its chunks carry no mark, or an older one: nobody of the file's country reads them. The job is
+            # forgotten and the file reads as waiting, so the next cycle queues one that carries the mark.
+            _drop_job(row)
+            state = JobProgress.NONE
+        elif state == JobProgress.DONE:
             if corpus_store.mark_ingested(name, row.sha256, CHUNK_FORMAT_VERSION):
                 settled[name] = replace(
                     row, ingested_sha256=row.sha256, chunk_format_version=CHUNK_FORMAT_VERSION, failed_job_id=None
@@ -271,6 +277,24 @@ def settle(rows: dict[str, corpus_store.FileRow]) -> Settled:
             settled[name] = replace(row, failed_job_id=job_id_for(row))
         progress[name] = state
     return Settled(settled, progress, recorded)
+
+
+def _prepared_before_its_mark(name: str, row: corpus_store.FileRow) -> bool:
+    """Whether the job for ``row`` was prepared before the file's mark was last set, so it wrote chunks without it.
+
+    A job reads the mark when it is prepared (``_request_locked``). A release that marks a file whose upload job is
+    still waiting or running leaves that job alone (:func:`mark_for_reingest`), and its chunks would be ``ZZ``
+    while the file read as indexed. Compared to the second: a mark set in the very second the job was prepared is
+    taken as carried.
+    """
+    marked = corpus_store.marked_at(name)
+    status = ingest_status_store.get(job_id_for(row))
+    if marked is None or status is None:
+        return False
+    submitted = status.submitted_at
+    if submitted.tzinfo is not None:
+        submitted = submitted.astimezone(UTC).replace(tzinfo=None)
+    return marked.replace(microsecond=0) > submitted.replace(microsecond=0)
 
 
 def _drop_job(row: corpus_store.FileRow) -> None:
@@ -340,14 +364,24 @@ def request_ingestion(name: str, doc_class: str | None = None, *, enqueue: Enque
 
 
 def store_and_request(name: str, data: bytes, doc_class: str | None = None, *, enqueue: EnqueueIngestJob) -> bool:
-    """An admin upload: store the file, then queue its job, with no cycle able to come between.
+    """An upload, a ZIP member or a fetched text: store the file, then queue its job, with no cycle in between.
+
+    **A corpus file is immutable here, the one place that writes one** (ADR-0165). A name the
+    corpus keeps takes the same bytes as a no-op and any others not at all
+    (``CorpusFileImmutable``): the bytes a reviewer read under a name are the bytes a publish
+    indexes, whatever a caller thought the upload was. The check and the store share the file's
+    lock, which holds across replicas, so two uploads of one name cannot both be first.
 
     Raises ``CorpusStoreError`` if the object store refuses the file (nothing is listed then), and
     ``QueueUnavailable`` if the file is stored but its job could not be queued (the next cycle
     queues it).
     """
     with _file_lock(name):
-        corpus_store.put(name, data)
+        held = corpus_store.get_file(name)
+        if held is None:
+            corpus_store.put(name, data)
+        elif held.sha256 != hashlib.sha256(data).hexdigest():
+            raise corpus_store.CorpusFileImmutable(name)
         return _request_locked(name, doc_class, enqueue)
 
 
@@ -392,6 +426,8 @@ def mark_for_reingest(name: str, mark: corpus_store.FileMark | None = None) -> b
     same id as before, so a finished or failed one is dropped first (its status and queue row);
     one still waiting or running is left alone, since it will do the work this asks for.
     A ``mark`` (the country and edition the platform recorded, ADR-0173) is stored for the job to carry.
+    A job left alone was prepared before this mark: when it finishes, :func:`settle` does not record it,
+    drops it, and the next cycle queues one that carries the mark.
     """
     if not corpus_store.is_valid_name(name):
         return False

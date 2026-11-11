@@ -11,7 +11,7 @@
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
-import { BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
+import { ApiError, BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 
 /** Lifecycle of a corpus file relative to what the RAG has indexed. */
 export type KnowledgeFileState = 'ingested' | 'stale' | 'pending' | 'failed' | 'removed' | 'inconsistent'
@@ -23,6 +23,8 @@ export interface KnowledgeFile {
   chunkCount: number
   ingestedSha256: string | null
   currentSha256: string | null
+  /** The country a release marked the file with (ADR-0173); null when none did, `ZZ` when a rollback left it unreleased. */
+  countryId: string | null
   ingestedAt: string | null
   summary: string | null
   docClass: string | null
@@ -63,6 +65,7 @@ interface BackendFileEntry {
   chunk_count?: unknown
   ingested_sha256?: unknown
   current_sha256?: unknown
+  country_id?: unknown
   ingested_at?: unknown
   summary?: unknown
   doc_class?: unknown
@@ -91,6 +94,7 @@ function mapFile(entry: BackendFileEntry): KnowledgeFile {
     chunkCount: asCount(entry.chunk_count),
     ingestedSha256: asString(entry.ingested_sha256),
     currentSha256: asString(entry.current_sha256),
+    countryId: asString(entry.country_id),
     ingestedAt: asString(entry.ingested_at),
     summary: asString(entry.summary),
     docClass: asString(entry.doc_class),
@@ -224,6 +228,12 @@ export async function uploadKnowledgeBaseDocument(
     })
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
+  }
+  if (res.status === 409) {
+    // The api tier keeps other bytes under this name, and a corpus file's bytes never change (ADR-0165).
+    throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps other bytes as ${name}; nothing is replaced.`, {
+      hint: 'Remove that file from the base corpus first if no record names it, or upload it under another name.',
+    })
   }
   if (!res.ok) {
     const detail = await res.text().catch(() => '')

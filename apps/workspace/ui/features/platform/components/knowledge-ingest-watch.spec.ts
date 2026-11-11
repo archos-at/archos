@@ -17,6 +17,7 @@ function file(fileName: string, state: KnowledgeFile['state']): KnowledgeFile {
     chunkCount: state === 'ingested' ? 3 : 0,
     ingestedSha256: null,
     currentSha256: null,
+    countryId: null,
     ingestedAt: null,
     summary: null,
     docClass: 'other',

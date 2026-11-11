@@ -88,6 +88,50 @@ describe('CountryKnowledge', () => {
     expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
   })
 
+  test('reads the next page of drafts on request, and says so when the drafts cannot be read', async () => {
+    serve()
+    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    const pages: Record<string, () => Response> = {
+      '/api/platform/knowledge/change-requests?status=draft': () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
+      '/api/platform/knowledge/change-requests?status=draft&cursor=50': () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null }),
+    }
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
+    const user = userEvent.setup()
+    const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    const list = await screen.findByTestId('country-knowledge-drafts')
+    expect(within(list).queryByText('OIB 2023')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
+    expect(await within(list).findByText('OIB 2023')).toBeInTheDocument()
+    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show more drafts' })).not.toBeInTheDocument()
+    first.unmount()
+
+    // A failed read is not "no drafts": the section says so and reads again on request.
+    pages['/api/platform/knowledge/change-requests?status=draft'] = () => new Response('no', { status: 500 })
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
+    pages['/api/platform/knowledge/change-requests?status=draft'] = () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: null })
+    await user.click(screen.getByRole('button', { name: /again/i }))
+    expect(await within(await screen.findByTestId('country-knowledge-drafts')).findByText('OIB 2019')).toBeInTheDocument()
+    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
+  })
+
+  test('lists the drafts, where texts are attached, and opens the one a link names', async () => {
+    serve()
+    const draft = { ...OVERVIEW.queue[0], id: 'cr-draft', title: 'OIB 2019', status: 'draft' }
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === '/api/platform/knowledge/change-requests?status=draft' ? Response.json({ changeRequests: [draft], nextCursor: null }) : routed(url, init),
+    )
+    window.history.replaceState(null, '', '?request=cr-1')
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    expect(within(await screen.findByTestId('country-knowledge-drafts')).getByText('OIB 2019')).toBeInTheDocument()
+    // The base corpus links a file to its request with ?request=: it opens without a click.
+    expect(await screen.findByTestId('change-request-panel')).toBeInTheDocument()
+    window.history.replaceState(null, '', window.location.pathname)
+  })
+
   test('says the caller has no access when the routes answer 403', async () => {
     serve(403)
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
@@ -152,7 +196,7 @@ describe('CountryKnowledge', () => {
   test('shows the quote taken from a pasted page, and accepting it records that the source was checked', async () => {
     const pasted = {
       ...REQUEST,
-      captures: [{ captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'operator_supplied', sourceId: null, url: 'https://www.wien.gv.at/ma37', finalUrl: null, contentType: 'text/plain', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }],
+      captures: [{ captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'operator_supplied', sourceId: null, sourceOrigin: null, countsAsFetched: false, url: 'https://www.wien.gv.at/ma37', finalUrl: null, contentType: 'text/plain', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }],
       revisions: [{ ...REQUEST.revisions[0], citations: [{ captureId: 'cap-1', quote: 'Magistratsabteilung 37' }] }],
     }
     serve(200, pasted as unknown as typeof REQUEST)
@@ -171,6 +215,68 @@ describe('CountryKnowledge', () => {
         }),
       ),
     )
+  })
+
+  test('a page fetched through a source nobody else reviewed is checked like a pasted one', async () => {
+    const capture = { captureId: 'cap-1', changeRequestId: 'cr-1', basis: 'fetched', sourceId: 'xa-own', sourceOrigin: 'draft', countsAsFetched: false, url: 'https://attacker.example/law', finalUrl: null, contentType: 'text/html', sha256: 'a'.repeat(64), bytes: 9, textChars: 9, retrievedAt: '2026-11-10T00:00:00Z' }
+    const fetched = { ...REQUEST, captures: [capture], revisions: [{ ...REQUEST.revisions[0], citations: [{ captureId: 'cap-1', quote: 'Magistratsabteilung 37' }] }] }
+    serve(200, fetched as unknown as typeof REQUEST)
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const record = await screen.findByTestId('change-request-record')
+    expect(within(record).getByText('fetched through an unreviewed source')).toBeInTheDocument()
+    await user.click(within(record).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/platform/knowledge/change-requests/cr-1/review',
+        expect.objectContaining({
+          body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'competenceTerritoryIds', decision: 'accepted', sourceChecked: true }] }),
+        }),
+      ),
+    )
+  })
+
+  test('accepting a manifestation whose text was uploaded, or fetched through an unreviewed source, records that the text was checked; a fetched one does not', async () => {
+    const text = { revisionId: 'r1', recordId: 'manifestation:oib-rl-1-2019-text', editionId: 'edition:oib-rl-1-2019', corpusFile: 'oib-rl-1-2019.pdf', sha256: 'a'.repeat(64), bytes: 9, pages: null, sourceId: null, url: null, attachedBy: 'u', attachedAt: '2026-11-10T00:00:00Z' }
+    const withText = (origin: 'upload' | 'url', countsAsFetched = origin === 'url') => ({
+      ...REQUEST,
+      revisions: [{ ...REQUEST.revisions[0], recordId: text.recordId, type: 'manifestation', claims: [{ path: 'corpusFile', value: text.corpusFile, decision: null }] }],
+      texts: [{ ...text, origin, countsAsFetched, sourceOrigin: origin === 'upload' ? null : countsAsFetched ? 'released' : 'draft', url: origin === 'url' ? 'https://www.oib.or.at/rl1.pdf' : null }],
+    })
+    const sent = (sourceChecked: boolean) =>
+      expect.objectContaining({ body: JSON.stringify({ decisions: [{ revisionId: 'r1', claimPath: 'corpusFile', decision: 'accepted', sourceChecked }] }) })
+    const user = userEvent.setup()
+
+    serve(200, withText('upload') as unknown as typeof REQUEST)
+    const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const uploaded = await screen.findByTestId('change-request-record')
+    expect(within(uploaded).getByText(/uploaded, or fetched through a source nobody else has reviewed/)).toBeInTheDocument()
+    await user.click(within(uploaded).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
+    first.unmount()
+
+    // A text fetched through a source its own request proposed is held the same way (migration 0224).
+    fetchMock.mockClear()
+    serve(200, withText('url', false) as unknown as typeof REQUEST)
+    const second = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const unreviewed = await screen.findByTestId('change-request-record')
+    expect(within(unreviewed).getByText('fetched through an unreviewed source')).toBeInTheDocument()
+    await user.click(within(unreviewed).getByRole('button', { name: 'Checked against the source, all correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
+    second.unmount()
+
+    // Positive control: a text the product fetched from a configured source asks for no such check.
+    fetchMock.mockClear()
+    serve(200, withText('url') as unknown as typeof REQUEST)
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const fetched = await screen.findByTestId('change-request-record')
+    expect(within(fetched).queryByText(/uploaded, not fetched from a source/)).not.toBeInTheDocument()
+    await user.click(within(fetched).getByRole('button', { name: 'All correct' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(false)))
   })
 
   test('offers the author an approval alone only with the permission, and asks for a reason first (ADR-0176)', async () => {
