@@ -15,6 +15,7 @@
  */
 
 import { chainAt, resolveChain } from '../chain/resolve'
+import { MAX_SOURCE_REFS } from '../chain/source-refs'
 import type { BuildingScope } from '../rulesets/applicability'
 import type { GraphEdition, KnowledgeGraph, ResolvedChain } from '../chain/graph'
 import { nameOf, renderChainText, keyOfUse, type UseNotes } from '../chain/text'
@@ -202,7 +203,7 @@ function contextUse(
     corpusFiles: [...(edition?.corpusFiles ?? [])],
     designation: work.designation ? nameOf(work.designation) : null,
     editionLabel: edition?.label ? nameOf(edition.label) : null,
-    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, 8),
+    sourceRefs: [...(work.sourceRefs ?? [])].slice(0, MAX_SOURCE_REFS),
     sourceUrl: edition?.sourceUrl ?? null,
     language: edition?.text?.language ?? null,
     textStatus: edition?.text?.status ?? null,

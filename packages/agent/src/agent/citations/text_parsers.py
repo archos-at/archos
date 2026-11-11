@@ -53,13 +53,15 @@ register_source_parser(lambda name: "knowledge" in name, parse_knowledge_layer)
 register_source_parser(is_web_search_tool, parse_web_results)
 
 
-# ``ris_lookup`` emits the SAME grounding grammar (``ris_adapter.lookup``), so
-# it gets the same parser rather than a second one: a RIS passage carries a
+# ``law_lookup`` emits the SAME grounding grammar (``agent.knowledge.law_lookup``),
+# so it gets the same parser rather than a second one: a law passage carries a
 # Citation key, a Punkt (``§63Abs1``) and ``Dokumentart: gesetz``, and every one
 # of those dies in the generic URL extractor — which is what the three older RIS
 # tools still fall through to, correctly, because their output is references and
 # a 40 000-character blob, not passages. One grammar, one parser, two producers.
-register_source_parser(lambda name: "ris_lookup" in name, parse_knowledge_layer)
+# ``ris_lookup`` is the name a turn stored before the rename carries: a replay
+# reads its text, so the old name keeps its parser.
+register_source_parser(lambda name: "law_lookup" in name or "ris_lookup" in name, parse_knowledge_layer)
 
 # The country-neutral lookup (``agent.knowledge.law_lookup``) renders that grammar too. Bound under its own
 # name (``law_lookup``, its default and the name the model tool takes in the country-as-data plan's step

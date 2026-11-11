@@ -10,7 +10,7 @@ const NAMES = {
   read_passage: 'passage-read',
   list_files: 'files-list',
   look: 'document-look',
-  ris_lookup_tool: 'law-lookup',
+  law_lookup: 'law-lookup',
 }
 
 describe('withOperationNames', () => {
@@ -24,7 +24,7 @@ describe('withOperationNames', () => {
     expect(withOperationNames('`list_files` shows it; knowledge_search finds it.', NAMES)).toBe(
       '`files-list` shows it; knowledge-search finds it.'
     )
-    expect(withOperationNames('Look at the page; `look` shows it. ris_lookup_tool', NAMES)).toBe(
+    expect(withOperationNames('Look at the page; `look` shows it. law_lookup', NAMES)).toBe(
       'Look at the page; `document-look` shows it. law-lookup'
     )
   })

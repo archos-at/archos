@@ -31,6 +31,7 @@ import { graphFromProposals } from '../chain/from-proposals'
 import { gateNamesLaw } from '../wire/project-law'
 import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
+import { knowledgeContextSchema } from './wire'
 
 /** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
 const PRODUCTION_ONLY = {
@@ -53,7 +54,7 @@ const graphAt = (coverageLevel: 'open' | 'core') => {
     [
       { type: 'territory', id: 'AT', kind: 'country', name: 'Österreich', coverageLevel },
       { type: 'territory', id: 'AT-9', kind: 'state', name: 'Wien', parents: [{ id: 'AT' }] },
-      { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', designation: 'BO für Wien', territoryIds: ['AT-9'], identifiers: { 'ris_gesetzesnummer': '20000006' } },
+      { type: 'work', key: 'bo-wien', kind: 'statute', title: 'Bauordnung für Wien', designation: 'BO für Wien', territoryIds: ['AT-9'], identifiers: { 'ris_gesetzesnummer': '20000006', 'xa_gazette_number': '42' } },
       { type: 'edition', key: 'bo-wien-2024', workKey: 'bo-wien', label: 'LGBl. 2024/1', issuedOn: '2024-01-01', inForceFrom: '2024-01-01' },
       { type: 'work', key: 'oib-rl-2', kind: 'model_code', title: 'Brandschutz', designation: 'OIB-RL 2', territoryIds: ['AT'] },
       { type: 'edition', key: 'oib-rl-2-2023', workKey: 'oib-rl-2', label: '2023', issuedOn: '2023-05-25' },
@@ -168,9 +169,18 @@ describe('the one payload a turn reads (ADR-0175)', () => {
     expect(context.uses.find((use) => use.workId === 'work:bo-wien')).toMatchObject({
       designation: 'BO für Wien',
       editionLabel: 'LGBl. 2024/1',
-      sourceRefs: [{ scheme: 'ris_gesetzesnummer', value: '20000006' }],
+      sourceRefs: [
+        { scheme: 'ris_gesetzesnummer', value: '20000006' },
+        { scheme: 'xa_gazette_number', value: '42' },
+      ],
     })
     expect(context.uses.find((use) => use.workId === 'work:oib-rl-2')).toMatchObject({ sourceRefs: [] })
+  })
+
+  it('carries a scheme no code names, as the record states it, through the turn’s wire', async () => {
+    loadGraph.mockResolvedValue({ graph: graphAt('core'), truncated: false })
+    const context = knowledgeContextSchema.parse(await knowledgeContextForTurn('org_at', 'project_wien'))
+    expect(context.uses.find((use) => use.workId === 'work:bo-wien')?.sourceRefs).toContainEqual({ scheme: 'xa_gazette_number', value: '42' })
   })
 
   it('writes the chain text in the roles its uses carry: guidance where curated, information where nobody curated it', async () => {

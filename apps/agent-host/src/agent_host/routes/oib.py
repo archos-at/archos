@@ -32,10 +32,10 @@ from ..corpus_upload import is_zip_upload
 from ..corpus_upload import sanitize_pdf_name
 from ..corpus_upload import squats_a_text_name
 from ..jobs.ingest_dispatch import enqueue_only
+from ..models.knowledge_mark import CorpusReingestResponse
 from ..models.knowledge_mark import OibReingestRequest
 from ..models.requests import OibDocumentDeleteResponse
 from ..models.requests import OibDocumentUploadResponse
-from ..models.requests import OibReingestResponse
 from ..models.requests import OibSyncResponse
 from ..models.requests import OibUploadedMember
 from .internal_auth import _require_internal_token
@@ -423,7 +423,7 @@ async def delete_oib_document(
 async def reingest_oib_documents(
     request: OibReingestRequest,
     _: None = Depends(_require_admin_token),
-) -> OibReingestResponse:
+) -> CorpusReingestResponse:
     """Force a rebuild of specific documents' chunks.
 
     `sync()` is incremental and gates on the sha256 of the PDF bytes, so it is a no-op
@@ -451,7 +451,7 @@ async def reingest_oib_documents(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
     if not queued:
-        return OibReingestResponse(
+        return CorpusReingestResponse(
             status="noop",
             queued=[],
             unknown=unknown,
@@ -460,7 +460,8 @@ async def reingest_oib_documents(
     message = f"Re-ingest queued for {len(queued)} document(s)"
     if unknown:
         message += f"; {len(unknown)} unknown name(s) skipped"
-    return OibReingestResponse(status="pending", queued=queued, unknown=unknown, message=message)
+    released = [name for name in queued if name in request.marks]
+    return CorpusReingestResponse(status="pending", queued=queued, unknown=unknown, released=released, message=message)
 
 
 class UpdateDocClassRequest(BaseModel):
@@ -594,7 +595,7 @@ def add_oib_routes(router: APIRouter) -> None:
     )(delete_oib_document)
     router.post(
         "/v1/admin/oib/reingest",
-        response_model=OibReingestResponse,
+        response_model=CorpusReingestResponse,
         tags=["oib"],
         summary="Re-index selected base-corpus documents without touching the rest",
     )(reingest_oib_documents)

@@ -403,6 +403,14 @@ records. What paid was a reader with one plain question about one area: what
 can go wrong here? The forty defects of that day came from that question, not
 from the label.
 
+A second case, the same day. The audit of implicit state machines planned
+three steps for a document's state, and each was costed before it was built.
+The first shrank from a guarded upsert with a new column, about 120 lines, to
+six lines, because a finished read must still overwrite a cancel. The second
+became a parity test and the third a ratchet, because the single way in
+already existed
+([`implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md#where-a-records-state-lives)).
+
 ## Dead here is not dead in production
 
 The same day a migration dropped `bff_job_lane_turns`. A scout had proven the

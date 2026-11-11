@@ -334,7 +334,11 @@ up. The answering half now reads records too.
   its own key, `at-ris-ogd`: a database record may not take a repository
   record's id while the file exists), and `tests/test_source_record_payload.py`
   keeps the two equal. Step 4b deletes the file once the record is published
-  on dev, and with it the built-in class above.
+  on dev, and with it the built-in class above. The record carries the sites
+  that republish the source (`copyHosts` on the wire, `copy_hosts` in its
+  configuration, at most 20, none of them one of its `hosts`), so the web
+  search screens copies of a released record's texts as it screened the
+  file's (`common/web_sources.py`).
 - Confirmation: `packages/public-sources/tests/test_lookup_block.py`, the
   parity rig (`packages/agent/tests/knowledge/test_law_lookup_parity.py`:
   the lookup returns, for 26 recorded calls, the requests and the text the RIS

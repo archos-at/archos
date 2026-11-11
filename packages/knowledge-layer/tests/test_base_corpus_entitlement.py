@@ -58,6 +58,14 @@ def _country(filter_: models.Filter) -> models.Filter | None:
     return next((part for part in filter_.must if isinstance(part, models.Filter) and part.should), None)
 
 
+def _reads(*countries: str) -> models.Filter:
+    """The country clause for ``countries``: one of them, and not marked unreleased."""
+    return models.Filter(
+        must=[models.FieldCondition(key="country_id", match=models.MatchAny(any=list(countries)))],
+        must_not=[models.FieldCondition(key="released", match=models.MatchValue(value=False))],
+    )
+
+
 def test_without_a_context_no_read_is_narrowed():
     assert _country(scope_filter(["oib_knowledge"])) is None
     assert base_collection_filters(_config(), None) == NO_PAGE_CHUNKS
@@ -66,9 +74,7 @@ def test_without_a_context_no_read_is_narrowed():
 def test_a_turn_reads_only_the_countries_its_gate_names_and_no_unmarked_chunk():
     _bind("AT", "EU")
     country = _country(scope_filter(["oib_knowledge"]))
-    assert country == models.Filter(
-        should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["AT", "EU"]))]
-    )
+    assert country == models.Filter(should=[_reads("AT", "EU")])
 
 
 def test_an_office_scope_beside_the_corpus_is_never_narrowed():
@@ -81,9 +87,7 @@ def test_an_office_scope_beside_the_corpus_is_never_narrowed():
 def test_a_gate_that_reads_no_country_reads_no_corpus_chunk():
     set_turn_knowledge_context(KnowledgeContext(gate="not_entitled"))
     country = _country(scope_filter(["oib_knowledge"]))
-    assert country == models.Filter(
-        should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["__none__"]))]
-    )
+    assert country == models.Filter(should=[_reads("__none__")])
 
 
 def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(monkeypatch):
@@ -94,7 +98,7 @@ def test_a_run_or_a_door_call_reads_the_countries_signed_onto_the_base_entry(mon
     )
     monkeypatch.setattr(RequestContext, "from_context", classmethod(lambda cls: signed))
     country = _country(scope_filter(["oib_knowledge"]))
-    assert country == models.Filter(should=[models.FieldCondition(key="country_id", match=models.MatchAny(any=["AT"]))])
+    assert country == models.Filter(should=[_reads("AT")])
 
 
 @pytest.mark.parametrize(("entry", "readable"), [({"countries": []}, False), ({}, False)])
@@ -133,6 +137,12 @@ def test_an_ingest_job_stamps_its_country_and_an_unmarked_corpus_text_is_nobodys
     stamped = enrichment("oib_knowledge", {"country_id": "DE", "knowledge_edition_id": "edition:baybo-2025"})
     assert stamped["country_id"] == "DE"
     assert stamped["knowledge_edition_id"] == "edition:baybo-2025"
-    assert enrichment("oib_knowledge", {"country_id": "Germany"})["country_id"] == "ZZ"
-    assert enrichment("oib_knowledge", {})["country_id"] == "ZZ"
-    assert "country_id" not in enrichment("proj_1", {"organization_id": "org_1"})
+    assert "released" not in stamped  # a job from before the flag: read by its country, as before
+    for unmarked in ({"country_id": "Germany"}, {}):
+        mark = enrichment("oib_knowledge", unmarked)
+        assert "country_id" not in mark and mark["released"] is False
+    assert enrichment("oib_knowledge", {"country_id": "DE", "released": True})["released"] is True
+    withdrawn = enrichment("oib_knowledge", {"country_id": "DE", "released": False})
+    assert withdrawn["country_id"] == "DE" and withdrawn["released"] is False
+    office = enrichment("proj_1", {"organization_id": "org_1"})
+    assert "country_id" not in office and "released" not in office

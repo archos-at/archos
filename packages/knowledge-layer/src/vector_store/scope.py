@@ -66,6 +66,7 @@ from .schema import LEGACY_CHUNKING
 from .schema import LEGACY_FIELDS
 from .schema import OFFICE_FIELD
 from .schema import PROJECT_FACTS_FIELD
+from .schema import RELEASED_FIELD
 from .schema import SCOPE_FIELD
 from .schema import TENANT_PREFIXES
 from .schema import TEXT_FIELDS
@@ -252,9 +253,12 @@ def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
 
     The one place every vector read passes (:func:`scope_filter`): a chat turn, a run, a door tool,
     ``read_passage``, the estate's file reads. A point passes when it is in one of the read's tenant
-    scopes, or its ``country_id`` is one the request may read. A point without ``country_id`` passes
-    nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field is
-    marked Austrian by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``).
+    scopes, or its ``country_id`` is one the request may read and it is not marked unreleased
+    (``released`` false: a rollback, or an ingest no release named). A point without ``country_id``
+    passes nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field
+    is marked by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``). A point without
+    ``released`` is read by its country alone, as every point was before the flag, so no point
+    written before it turns unreadable.
 
     Strict for a request, unscoped for none. ``corpus_countries`` answers a set for every request: the
     turn's gate, else the countries signed onto the base entry, else the empty set when the request's
@@ -272,7 +276,11 @@ def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
         return None
     # An empty set matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
     allowed = sorted(countries) or ["__none__"]
-    should: list[Any] = [models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))]
+    released = models.Filter(
+        must=[models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))],
+        must_not=[models.FieldCondition(key=RELEASED_FIELD, match=models.MatchValue(value=False))],
+    )
+    should: list[Any] = [released]
     tenant = [scope for scope in scopes if is_tenant_scope(scope)]
     if tenant:
         should.append(scope_condition(tenant))

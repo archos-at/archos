@@ -481,6 +481,14 @@
         },
         {
           "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "When a rule exists in more than one edition, the assistant now finds the passage of the edition that applies at your project's site first, so its answer cites that edition. An older or newer edition is still found when you ask about it.",
+            "de": "Wenn eine Regel in mehreren Ausgaben vorliegt, findet der Assistent jetzt zuerst die Passage aus jener Ausgabe, die am Standort Ihres Projekts gilt, und zitiert diese Ausgabe in seiner Antwort. Eine ältere oder neuere Ausgabe findet er weiterhin, wenn Sie danach fragen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "general",
           "text": {
             "en": "The button that opens the chat history at the top of a chat is now labelled „Chats“ on every screen, on a phone too, instead of an icon alone.",
@@ -925,6 +933,14 @@
           "text": {
             "en": "Files that had been read in full but showed as failed after a large upload show as read again the next time their folder is opened.",
             "de": "Dateien, die vollständig gelesen wurden, nach einem großen Upload jedoch als fehlgeschlagen angezeigt wurden, werden beim nächsten Öffnen ihres Ordners wieder als gelesen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A file whose reading you stopped no longer reappears as failed after you reload the page.",
+            "de": "Eine Datei, deren Einlesen Sie abgebrochen haben, wird nach dem Neuladen der Seite nicht mehr als fehlgeschlagen angezeigt."
           }
         },
         {

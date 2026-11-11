@@ -20,6 +20,9 @@ describe('stepNameLabel', () => {
     ['web_search_tool', 'thinking.stepName.webSearch'],
     ['advanced_web_search_tool', 'thinking.stepName.webSearch'],
     ['ris_catalog_lookup_tool', 'thinking.stepName.ris'],
+    ['law_lookup', 'thinking.stepName.ris'],
+    // The law lookup's name before the rename: a stored turn keeps its chip.
+    ['ris_lookup_tool', 'thinking.stepName.ris'],
     ['knowledge_search', 'thinking.stepName.corpus'],
     // ADR-0094: a settled Herleitung says the chat looked beyond its own project.
     ['project_lookup', 'thinking.stepName.otherProjects'],
