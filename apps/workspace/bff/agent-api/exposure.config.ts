@@ -49,6 +49,7 @@ import {
   ASK,
   CANVAS,
   DECISION,
+  DRAWING_CALIBRATION,
   MEMORY,
   PERSONAL_MEMORY,
   NATIVE_READ,
@@ -262,6 +263,12 @@ export const EXPOSURE = {
     reason:
       'the review view’s tape on a PDF drawing; the chat agent measures with its own drawing_measure, and the door stays shut for it until the drawing-measure entitlement is retired, as for the drawing-measure read tool',
   },
+  // Dark to outside agents behind the `drawing-measure` entitlement (ADR-0182), as the `drawing-measure` read is:
+  // the door has no per-operation flag yet. The in-product agent is offered them; the routes refuse where the
+  // organization does not hold the entitlement, and its set or withdraw is a proposal the person accepts.
+  'drawing-calibration-list': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-set': { external: false, agent: true, reason: DRAWING_CALIBRATION },
+  'drawing-calibration-withdraw': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,

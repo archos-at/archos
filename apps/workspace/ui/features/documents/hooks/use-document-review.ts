@@ -39,7 +39,7 @@ import type { PagePoint } from '@/lib/annotations/measure-shapes'
 import { useDocumentRoom, type RoomTransport } from './use-document-room'
 
 /** `ask`: drag a box and ask Piloti about it (P). */
-export type ReviewTool = 'select' | 'point' | 'region' | 'ask'
+export type ReviewTool = 'select' | 'point' | 'region' | 'ask' | 'calibrate'
 export type ReviewFilter = 'open' | 'closed'
 
 /** A burst of hints naming more marks than this reads the list once instead of each mark on its own. */

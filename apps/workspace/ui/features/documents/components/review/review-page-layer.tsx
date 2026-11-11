@@ -54,7 +54,7 @@ const box = (x: number, y: number, w: number, h: number): CSSProperties => ({
 })
 
 /** What the room is told the pointer is doing: asking Piloti is dragging out a region too. */
-const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool)
+const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool === 'calibrate' ? 'select' : tool)
 
 /** Whether a peer is Piloti at work on the document. */
 export const isAgentPeer = (state: RoomPeerState): boolean => state.peer.kind === 'piloti'
@@ -995,7 +995,7 @@ export function ReviewPageLayer({
     <div ref={layerRef} className="pointer-events-none absolute inset-0" data-testid={`review-layer-${page}`}>
       {/* The surface a tool works on. Over the text layer, so the click that
           sets a mark never starts a selection. */}
-      {focused && tool !== 'select' && (
+      {focused && tool !== 'select' && tool !== 'calibrate' && (
         <div
           data-testid="review-capture"
           aria-hidden
@@ -1141,7 +1141,7 @@ export function ReviewPageLayer({
 
       <MeasureLayer review={review} page={page} focused={focused} />
 
-      {focused && aim && tool !== 'select' && !draft && (
+      {focused && aim && tool !== 'select' && tool !== 'calibrate' && !draft && (
         <KeyboardAim key={aim.key} page={page} tool={tool} startY={aim.y} onSet={place} />
       )}
 

@@ -18,6 +18,8 @@ here:
   reader allows (it refuses a larger one with the count), and all cached sheets
   together at most :data:`CACHE_SEGMENTS` (a figure weighs
   :data:`FIGURE_WEIGHT` of them) and never more than :data:`CACHE_SHEETS`;
+* a person's calibrations are NOT cached: they come with the lookup on every
+  call, so one set or withdrawn a moment ago is what the next call measures by;
 * a file's bytes are kept once per file (:data:`BYTES_FILES`), so a second page
   does not fetch a 150 MB set again.
 
@@ -32,10 +34,13 @@ import asyncio
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import Any
 
 from agent import project_context
 from agent.common import bff_http
 from agent.common import seaweed_s3
+from agent.drawings.sheet_calibration import from_records
+from agent.drawings.sheet_scale import Calibration
 from agent.drawings.sheet_types import Sheet
 from agent.drawings.sheet_types import sheet_from_plain
 from agent.knowledge.restricted_use import note_collections_read
@@ -82,6 +87,10 @@ class LoadedSheet:
     collection: str
     document_id: str | None
     version_id: str | None
+    #: The active calibrations people set on this page of this version, read on every call and never cached.
+    calibrations: tuple[Calibration, ...] = ()
+    #: Stored calibrations that could not be read as one. Said in the answer, so none is dropped silently.
+    calibrations_unread: int = 0
 
 
 class SheetUnavailableError(Exception):
@@ -94,6 +103,7 @@ class _Located:
     key: str
     document_id: str | None
     version_id: str | None
+    calibrations: tuple[Any, ...] = ()
 
 
 async def load_sheet(document: str, page: int) -> LoadedSheet | str:
@@ -135,11 +145,21 @@ async def load_resolved_sheet(resolved: Resolved, page: int) -> LoadedSheet | st
     except TimeoutError:
         return f"Page {page} of '{resolved.file_name}' takes too long to read; try again shortly."
     note_collections_read([resolved.collection])
-    return LoadedSheet(resolved.file_name, page, sheet, resolved.collection, located.document_id, located.version_id)
+    calibrations, unread = from_records(sheet, located.calibrations)
+    return LoadedSheet(
+        resolved.file_name,
+        page,
+        sheet,
+        resolved.collection,
+        located.document_id,
+        located.version_id,
+        calibrations,
+        unread,
+    )
 
 
 def _sheet(collection: str, file_name: str, page: int, headers: dict[str, str]) -> tuple[_Located, Sheet]:
-    located = _locate(collection, file_name, headers)
+    located = _locate(collection, file_name, headers, page)
     key = (located.bucket, located.key, page)
     with _LOCK:
         reading = _READING.setdefault(key, threading.Lock())
@@ -217,11 +237,18 @@ def _bytes(located: _Located) -> bytes:
     return data
 
 
-def _locate(collection: str, file_name: str, headers: dict[str, str]) -> _Located:
-    """The bucket, key and ids of the document's bytes, from the BFF's scoped lookup."""
+def _locate(collection: str, file_name: str, headers: dict[str, str], page: int) -> _Located:
+    """The bucket, key and ids of the document's bytes, and the page's calibrations, from the BFF's scoped lookup.
+
+    One call answers both, so a calibration is read under the same scope check
+    as the file it belongs to, for the version whose bytes are read.
+    """
     try:
         body = bff_http.get_json(
-            DOCUMENT_FILE_PATH, timeout=10.0, query={"collection": collection, "filename": file_name}, headers=headers
+            DOCUMENT_FILE_PATH,
+            timeout=10.0,
+            query={"collection": collection, "filename": file_name, "calibrationsPage": page},
+            headers=headers,
         )
     except bff_http.BffRefusedError as exc:
         raise SheetUnavailableError(f"'{file_name}' is not a file this conversation may read.") from exc
@@ -236,7 +263,14 @@ def _locate(collection: str, file_name: str, headers: dict[str, str]) -> _Locate
         value = body.get(name)
         return value if isinstance(value, str) and value else None
 
-    return _Located(text("storageBucket") or seaweed_s3.default_bucket(), key, text("documentId"), text("versionId"))
+    stored = body.get("calibrations")
+    return _Located(
+        text("storageBucket") or seaweed_s3.default_bucket(),
+        key,
+        text("documentId"),
+        text("versionId"),
+        tuple(stored) if isinstance(stored, list) else (),
+    )
 
 
 _TOO_LARGE = "The PDF is larger than 150 MB; ask for the sheet in question as its own file."

@@ -1,4 +1,5 @@
-import { MessageSquarePlus, MousePointer2, Sparkles, Speech, SquareDashed, type LucideIcon } from 'lucide-react'
+import { MessageSquarePlus, MousePointer2, Ruler, Sparkles, Speech, SquareDashed, type LucideIcon } from 'lucide-react'
+import { CALIBRATE_KEY } from './calibration-panel'
 import type { ReviewTool } from '../../hooks/use-document-review'
 
 /** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
@@ -10,6 +11,7 @@ export const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> 
   { tool: 'point', key: 'C', icon: MessageSquarePlus },
   { tool: 'region', key: 'R', icon: SquareDashed },
   { tool: 'ask', key: 'P', icon: Sparkles },
+  { tool: 'calibrate', key: CALIBRATE_KEY, icon: Ruler },
   // A head speaking, not a bubble: the comment tool already is one, and this one keeps nothing.
   { tool: 'chat', key: '/', icon: Speech },
 ]
