@@ -7,6 +7,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 import { Button } from '@/components/ui/button'
+import { PAGE_TITLE_CLASS } from '@/components/ui/page-header'
 import { Progress } from '@/components/ui/progress'
 import { SectionLabel } from '@/components/ui/section-label'
 
@@ -65,7 +66,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
           <SectionLabel>
             {isEdit ? t('intake.eyebrowEdit') : t('intake.eyebrowCreate')}
           </SectionLabel>
-          <h1 className="mt-1 truncate text-xl font-medium">
+          <h1 className={cn('mt-1 truncate', PAGE_TITLE_CLASS)}>
             {projectName || t('intake.titleFallback')}
           </h1>
           <p className="text-muted-foreground mt-1 hidden max-w-prose text-sm sm:[@media(min-height:32rem)]:block">

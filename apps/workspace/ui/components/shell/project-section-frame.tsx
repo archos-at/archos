@@ -71,7 +71,7 @@ const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['memb
 
 /**
  * Pages inside a section: Dateien's places. The header names the open place
- * („E-Mail-Eingang“, 24/32/600) under a muted crumb of where it is („Projekt ›
+ * („E-Mail-Eingang“, 24/32/500) under a muted crumb of where it is („Projekt ›
  * Dateien“), and carries the places as tabs (Alle Dateien, E-Mail-Eingang,
  * Offene Punkte, Papierkorb), so a sub-page never draws a second title or its
  * own way back, and the E-Mail-Eingang is a place beside the files rather than a
