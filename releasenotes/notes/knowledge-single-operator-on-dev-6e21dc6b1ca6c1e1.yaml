@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    On a deployment set to one operator (KNOWLEDGE_SINGLE_OPERATOR=true, set only on dev), the author of a country knowledge change request can check its sources, approve it alone with a reason and publish it. Each such approval is still audited and marked as approved by one person; no second review falls due. Production is unchanged: four eyes still hold there.
