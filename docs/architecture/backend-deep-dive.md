@@ -1495,7 +1495,13 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
    law applies: the citation chip reads the same roles the gate does
    (`citations/roles.py`), so a citation never says binding where the gate says
-   information. The chain text is the turn context's
+   information. A cited passage finds its use by the id of the record it was
+   read as (`SourceEntry.edition_id`, `work_id`: a corpus point's
+   `knowledge_edition_id`, a legal-database passage's work by the identifier
+   its source record reads off the document), never by a URL, a host or a file
+   name's spelling, and the citation then carries the use's edition label,
+   route, dates, language and public address
+   ([`design/citations.md`](../design/citations.md), slice 1). The chain text is the turn context's
    `<building_law>` block (`law_gate.turn_building_law_block`), the only
    building-law text a turn reads, and a gate that withholds law shows the
    note instead. A cited base-corpus passage maps to its edition by its

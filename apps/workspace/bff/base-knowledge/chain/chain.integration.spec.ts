@@ -167,6 +167,19 @@ describe.skipIf(!url)('the Austria pack against Postgres', () => {
     expect(edition?.sourceUrl).toBe(`https://example.test/scoped/${RUN}.pdf`)
   })
 
+  it('reads which text an edition holds: the language and the status of its manifestation', async () => {
+    await published('AT', 'A guideline held in French', [
+      { type: 'work', key: `lang-${RUN}`, kind: 'guideline', title: 'A guideline', territoryIds: ['AT'], citations: [{ url: 'https://example.test/', note: 'fixture' }] },
+      { type: 'edition', key: `lang-${RUN}-2023`, workKey: `lang-${RUN}`, label: '2023', issuedOn: '2023-05-25', citations: [{ url: 'https://example.test/', note: 'fixture' }] },
+      { type: 'edition', key: `lang-${RUN}-2019`, workKey: `lang-${RUN}`, label: '2019', issuedOn: '2019-04-12', citations: [{ url: 'https://example.test/', note: 'fixture' }] },
+      { type: 'manifestation', key: `lang-${RUN}-text`, editionKey: `lang-${RUN}-2023`, form: 'text', language: 'fr-CH', licenceClass: 'public_open', citations: [{ url: 'https://example.test/', note: 'fixture' }] },
+    ])
+    const { graph } = await load.loadGraph(AUSTRIAN, 'AT-9')
+    expect(graph.editions.get(`edition:lang-${RUN}-2023`)?.text).toEqual({ language: 'fr-CH', status: 'authentic' })
+    // An edition no manifestation holds states no text: nothing is assumed about a language.
+    expect(graph.editions.get(`edition:lang-${RUN}-2019`)?.text).toBeNull()
+  })
+
   it('reads the EU pack through an entitled member, and a German office reads neither', async () => {
     expect(await bindingOf(AUSTRIAN, 'AT-9', 'work:eu-cpr')).toEqual([['edition:eu-cpr-305-2011', 'binding']])
     // Positive control above; the same reads for an office not entitled to Austria.

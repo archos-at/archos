@@ -32,7 +32,7 @@ gives it the built-in ones, with their fixtures' result).
 |---|---|
 | `configs/sources/<territory>/<name>/source.yml` | One record. `at/ris` (Austria, `rest` + `ris_xml`), `ch/fedlex` (Switzerland, `http_eli` + `akn`) |
 | `configs/sources/<territory>/<name>/fixtures/` | The recorded responses its fixtures replay |
-| `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused |
+| `src/source.py` | The record schema and loader. Unknown fields, URLs off the hosts and records without fixtures are refused. `identifiers` says how a work's identifier is read from an address on the source's hosts (`{<scheme>: {query: <parameter>}}`, `Source.identifier_at`): a live source's producer finds the knowledge record of the text it read by it, so a cited passage gets its role with no country in code |
 | `src/access/` | `rest`, `http_eli`, `web_document`, `ogc` (OGC API - Features, WFS 2.0), and the template language (`base.py`) |
 | `src/engines/` | `ris_xml`, `akn`, `html_statute`, `geojson` (a FeatureCollection, a passage per feature), `pdf_document` (a passage per page, `page_<n>`) |
 | `src/pdf.py` | A PDF's text for a capture and for `pdf_document`: ingestion's own text pass (`knowledge_layer.ingest.pdf_page_texts`), run in a child process (`src/pdf_reader.py`) with a deadline, a memory ceiling, a page and a text cap, a bare environment, and a problem code per refusal. One PDF pipeline, not a second reader |

@@ -25,6 +25,14 @@ punished exactly the decoupling that keeps a change's test selection small
 ([`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md)).
 A dynamic `import()` is an expression and counts.
 
+**Comments are not counted either**: a line that holds only a `//`, `/* … */`
+or `#` comment, and a Python docstring (a function's own docstring is also left
+out of its sixty lines). An explanation is not logic. While it counted, a file
+sitting at its baseline could take a new comment only by losing an old one, and
+on 2026-11-11 three doc blocks were squeezed to one line each to make room for
+a five-line fix: the ratchet was being satisfied by deleting explanation. It is
+a ratchet on code. A line of code with a trailing comment counts, as code.
+
 It is a ratchet. `ci/size_baseline.json` records every file and function that
 was over when the check arrived, at its size then:
 

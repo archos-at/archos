@@ -19,12 +19,15 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
   const relations: GraphRelation[] = []
   const corpusFiles = new Map<string, string[]>()
   const sourceUrls = new Map<string, string>()
+  // A proposed manifestation states its language; its text is authentic until a record says otherwise (the column's default).
+  const texts = new Map<string, { language: string; status: 'authentic' }>()
   for (const record of records) {
     if (record.type !== 'manifestation') continue
     const id = `edition:${record.editionKey}`
     if (record.corpusFile) corpusFiles.set(id, [...(corpusFiles.get(id) ?? []), record.corpusFile])
     const url = record.citations?.[0]?.url
     if (url && !sourceUrls.has(id)) sourceUrls.set(id, url)
+    if (!texts.has(id)) texts.set(id, { language: record.language, status: 'authentic' })
   }
   for (const record of records) {
     const id = recordIdOf(record)
@@ -66,6 +69,7 @@ export function graphFromProposals(records: readonly ProposedRecord[], owner: Gr
           inForceTo: record.inForceTo,
           corpusFiles: corpusFiles.get(id) ?? [],
           sourceUrl: sourceUrls.get(id) ?? null,
+          text: texts.get(id) ?? null,
           appliesWhen: record.appliesWhen,
         })
         break

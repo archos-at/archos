@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from dataclasses import field
@@ -83,6 +84,26 @@ ROUTE_VIAS: tuple[str, ...] = ("territory", "relation", "none")
 QUALIFIERS: tuple[str, ...] = ("uncurated", "office_maintained")
 
 
+#: How current an edition is by the platform's newest check (``FRESHNESS`` in the TypeScript wire).
+FRESHNESS: tuple[str, ...] = ("current", "check_due", "newer_known", "superseded")
+
+#: What an edition's held text is (``TEXT_STATUSES`` in the TypeScript wire).
+TEXT_STATUSES: tuple[str, ...] = ("authentic", "official_non_prevailing", "translation")
+
+#: The label tokens a use carries (``USE_LABELS`` in the TypeScript wire); a renderer words each.
+USE_LABELS: tuple[str, ...] = ("uncurated_source", "check_overdue", "unchecked_since", "depends_on_connecting_factor")
+
+
+@dataclass(frozen=True)
+class UseRoute:
+    """The instrument that declares an edition binding here: the last step of its route, as the records name it."""
+
+    work_id: str
+    designation: str | None = None
+    edition_label: str | None = None
+    provision: str | None = None
+
+
 @dataclass(frozen=True)
 class SourceRef:
     """One identity of an edition in a legal database, from its manifestation records: ``ris_gesetzesnummer``
@@ -111,6 +132,23 @@ class EditionUse:
     #: states no scope or its scope applies. The chain text then says neither binds nor does not bind, and so
     #: does the citation chip (``citations/roles.binding_status_for``).
     scope_unsettled: bool = False
+    #: The day the role holds on: the day the context was resolved for. A citation states its status as of it.
+    date: str | None = None
+    #: How current the edition is by the platform's newest check; None when the BFF sent no known token.
+    freshness: str | None = None
+    #: The platform's newest check, as a day; None when never checked or law read live.
+    last_checked_at: str | None = None
+    labels: tuple[str, ...] = ()
+    #: Where a person opens the edition's text in public, from its manifestation records.
+    source_url: str | None = None
+    #: The declaring instrument when the role came by a relation; None for law in its territory.
+    route: UseRoute | None = None
+    #: The first day a binding role holds from by the records; None for every other role.
+    role_since: str | None = None
+    #: The language of the edition's held text (BCP 47); None where no text is held.
+    language: str | None = None
+    #: What the held text is (``TEXT_STATUSES``); None where none is held.
+    text_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +215,41 @@ def _scope_unsettled(raw: object) -> bool:
     return raw.get("verdict") != "applies" or bool(_strings(raw.get("open")))
 
 
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _day(value: object) -> str | None:
+    """An ISO day as the BFF sends it; anything else is no date (never guessed). Pure."""
+    return value if isinstance(value, str) and _ISO_DAY.fullmatch(value) else None
+
+
+def _route(raw: object) -> UseRoute | None:
+    """A use's ``route``; None when absent, null or not the shape the BFF sends. Pure."""
+    if not isinstance(raw, dict):
+        return None
+    work_id = _text(raw.get("workId"))
+    if work_id is None:
+        return None
+    return UseRoute(
+        work_id=work_id,
+        designation=_text(raw.get("designation")),
+        edition_label=_text(raw.get("editionLabel")),
+        provision=_text(raw.get("provision")),
+    )
+
+
+def _language(value: object) -> str | None:
+    """A language tag as the records state it (BCP 47, bounded); anything else is none. Pure."""
+    text = _text(value)
+    return text.strip() if text and len(text.strip()) <= 35 else None
+
+
+def _public_url(value: object) -> str | None:
+    """A public address a person may open: https only, bounded; anything else is none. Pure."""
+    text = _text(value)
+    return text if text and text.startswith("https://") and len(text) <= 2000 else None
+
+
 def _use(raw: object) -> EditionUse | None:
     """One ``uses`` item; None when it is not the shape the BFF sends (dropped, never guessed). Pure."""
     if not isinstance(raw, dict):
@@ -196,6 +269,15 @@ def _use(raw: object) -> EditionUse | None:
         edition_label=_text(raw.get("editionLabel")),
         source_refs=_source_refs(raw.get("sourceRefs")),
         scope_unsettled=_scope_unsettled(raw.get("applicability")),
+        date=_day(raw.get("date")),
+        freshness=raw.get("freshness") if raw.get("freshness") in FRESHNESS else None,
+        last_checked_at=_day(raw.get("lastCheckedAt")),
+        labels=tuple(label for label in _strings(raw.get("labels")) if label in USE_LABELS),
+        source_url=_public_url(raw.get("sourceUrl")),
+        route=_route(raw.get("route")),
+        role_since=_day(raw.get("roleSince")),
+        language=_language(raw.get("language")),
+        text_status=raw.get("textStatus") if raw.get("textStatus") in TEXT_STATUSES else None,
     )
 
 
@@ -281,6 +363,18 @@ def trace_metadata(context: KnowledgeContext) -> dict[str, object]:
         "building_law_uses": len(context.uses),
         "undetermined_editions": ";".join(context.undetermined),
     }
+
+
+def use_for_source_ref(context: KnowledgeContext, scheme: str, value: str) -> EditionUse | None:
+    """The use whose work carries the identifier ``{scheme, value}`` at its source; None when no record does. Pure.
+
+    How a live source's producer finds the record of the text it read: the identifier is one the work's
+    record states (``sourceRefs``), compared whole and by its scheme. Law read live has one use (no edition
+    held); where the work's editions are held, the one a route binds comes first.
+    """
+    wanted = (scheme, value.strip())
+    named = [use for use in context.uses if any((ref.scheme, ref.value) == wanted for ref in use.source_refs)]
+    return next((use for use in named if use.edition_id is None), named[0] if named else None)
 
 
 _turn_knowledge_context: contextvars.ContextVar[KnowledgeContext | None] = contextvars.ContextVar(
