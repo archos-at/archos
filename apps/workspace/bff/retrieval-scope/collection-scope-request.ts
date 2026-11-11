@@ -11,12 +11,13 @@ import {
   computeCollectionScope,
   sessionCollectionName,
   type CollectionShelf,
+  resolveBaseCollectionName,
   type ScopeContext,
   type ScopedCollection,
 } from '@/lib/retrieval-scope/collection-scope'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
-import { corpusCountriesFor } from '@/lib/base-knowledge/context/corpus-countries'
+import { baseCorpusCountries } from './base-entry'
 
 export interface RequestContext {
   projectId?: string
@@ -50,9 +51,6 @@ export type { CollectionShelf, ScopedCollection } from '@/lib/retrieval-scope/co
  * literal mirrors `collection-scope.ts`'s fallback; passing it through means
  * only one of the two values is ever live at runtime.
  */
-function resolveBaseCollectionName(): string {
-  return process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
-}
 
 /**
  * `base64url(JSON.stringify(ScopedCollection[]))` — same header name, same
@@ -320,16 +318,16 @@ export async function buildCollectionScopeFromRequest(
   } satisfies ScopeContext)
 
   // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
-  // an office entitled to nothing reads none of it (ADR-0175).
+  // an office entitled to nothing reads none of it (ADR-0175). A request with no organization (an
+  // anonymous deployment) is signed an empty list, never no field: the agent tier reads a base entry
+  // without `countries` as "says nothing" and refuses it too, but the signature should say it out loud.
   const corpusCountries =
-    scope.includes(baseCollection) && session?.organizationId && !anonymous
-      ? await corpusCountriesFor(session.organizationId)
-      : undefined
+    scope.includes(baseCollection) && !anonymous ? await baseCorpusCountries(session?.organizationId) : []
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
     const entry: ScopedCollection = shelf ? { collection, shelf } : { collection }
-    if (collection === baseCollection && corpusCountries) entry.countries = corpusCountries
+    if (collection === baseCollection) entry.countries = corpusCountries
     return entry
   })
 

@@ -55,6 +55,7 @@ import { CITATIONS_PAYLOAD_VERSION } from '@/features/chat/lib/citations'
 import { modernizeLane } from '@/lib/source-kinds'
 import { LEGACY_BINDING_STATUS } from '@/features/chat/lib/wire-citation'
 import type { WireCitationSource } from '@/features/chat/types'
+import { citationLineOf, type CitationLineWire } from '@/shared/citation-line'
 import { sanitizeProvenance, type MessageProvenance } from './message-provenance'
 import { toProjectStatus, type ProjectStatus } from '@/lib/projects/project-status'
 import { sanitizeAnswerMeta } from './message-answer-meta'
@@ -205,7 +206,8 @@ export type StoredCitationSource = Partial<
     | 'score'
     | 'snippet'
   >
-> & {
+> &
+  CitationLineWire & {
   /** Whether the answer cited this source, as opposed to merely retrieving it. */
   is_cited?: boolean
   /** The other project a cross-project lookup found it in (ADR-0094). */
@@ -291,6 +293,10 @@ function normalizeSource(input: unknown): StoredCitationSource | null {
     // name and opens nothing, because the document is not in this chat's project.
     project: storedProject(input.project),
     ...(typeof input.is_cited === 'boolean' ? { is_cited: input.is_cited } : {}),
+    // What the citation's line states (edition, role, route, dates, public address), each field kept
+    // only when it is what the shared schema allows. Without this an answer whose client was gone
+    // mid-turn, and every research report, would be stored with a citation no surface can word.
+    ...citationLineOf(input),
   }
 
   const identifying =

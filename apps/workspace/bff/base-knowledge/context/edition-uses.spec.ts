@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
 }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: async (_scope: unknown, run: () => Promise<unknown>) => run() }))
 
-import { citedFiles, editionUsesOf, recordEditionUses } from './edition-uses'
+import { citedFiles, citedRecords, editionUsesOf, recordEditionUses } from './edition-uses'
 import { packsUpdatedSince } from './last-answer'
 import type { KnowledgeContext } from './wire'
 
@@ -36,6 +36,10 @@ const editionUse = (workId: string, editionId: string | null, corpusFiles: strin
   editionLabel: null,
   sourceRefs: [],
   sourceUrl: null,
+  route: null,
+  roleSince: null,
+  language: null,
+  textStatus: null,
   applicability: null,
 })
 
@@ -69,6 +73,35 @@ describe('the editions an answer used', () => {
       { workId: 'work:oib-rl-2', editionId: 'edition:oib-rl-2-2019', role: 'binding', qualifier: null, packSeqs: { AT: 41, EU: 7 } },
     ])
     expect(editionUsesOf(CONTEXT, new Set())).toEqual([])
+  })
+
+  it('finds the use by the id of the record a source was read as, whatever its file is called', () => {
+    const live = editionUse('work:building-act', null, [])
+    const context = { ...CONTEXT, uses: [...CONTEXT.uses, live] }
+    const records = citedRecords({
+      sources: [
+        { file_name: 'renamed.pdf', work_id: 'work:oib-rl-6', edition_id: 'edition:oib-rl-6-2025' },
+        // Law read live at its source: a work, no edition, no file.
+        { citation_key: 'Building Act, § 12', work_id: 'work:building-act' },
+        'junk',
+      ],
+    })
+    expect(records).toEqual({ editionIds: new Set(['edition:oib-rl-6-2025']), liveWorkIds: new Set(['work:building-act']) })
+    expect(editionUsesOf(context, new Set(), records).map((use) => [use.workId, use.editionId])).toEqual([
+      ['work:oib-rl-6', 'edition:oib-rl-6-2025'],
+      ['work:building-act', null],
+    ])
+    // A work cited WITH an edition is that edition only: it never drags in the work's live text.
+    expect(editionUsesOf(context, new Set(), { editionIds: new Set(), liveWorkIds: new Set(['work:oib-rl-6']) })).toEqual([])
+  })
+
+  it('records a law read live for an answer that cited no corpus file', async () => {
+    turnContextOf.mockResolvedValue({ ...CONTEXT, uses: [editionUse('work:building-act', null, [])] })
+    const written = await recordEditionUses('org_1', 'project_1', 'conv_1', [
+      { id: 'm1', role: 'assistant', metadata: { sources: [{ citation_key: 'Building Act, § 12', work_id: 'work:building-act' }] } },
+    ])
+    expect(written).toBe(1)
+    expect(insertValues).toHaveBeenCalledWith([expect.objectContaining({ messageId: 'm1', workId: 'work:building-act', editionId: null })])
   })
 
   it('writes one row per used edition of each answer, with the role the BFF resolved', async () => {

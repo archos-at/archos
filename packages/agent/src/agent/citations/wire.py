@@ -15,6 +15,7 @@ from agent.citations.roles import use_for_entry
 from agent.citations.source_identity import document_key
 from agent.citations.source_identity import source_lane
 from agent.citations.source_identity import source_origin_token
+from agent.common.knowledge_context import EditionUse
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import kind_for_lane
 
@@ -102,7 +103,7 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         # "we don't know" is a signal the UI needs, not an absence. ``rank`` and the
         # prose ``binding_note`` came from the norm registry and are no longer sent.
         "binding_status": classification.binding_status,
-        **role_fields(use),
+        **_line_fields(entry, use),
         "file_name": file_name,
         "page": page,
         # WHERE within the document, in the law's own numbering, and HOW NEARLY
@@ -138,6 +139,29 @@ def source_entry_to_wire(entry: SourceEntry, *, number: int | None = None) -> di
         "project": _wire_project(entry),
     }
     return {key: value for key, value in payload.items() if value is not None}
+
+
+def _line_fields(entry: SourceEntry, use: EditionUse | None) -> dict[str, Any]:
+    """What the citation's line states: its edition's role, route and dates from the records, and what the
+    passage's producer stated about the text itself (design §6.7; ``docs/design/citations.md``)."""
+    return {
+        **role_fields(use),
+        # WHERE A PERSON OPENS IT IN PUBLIC: the address the producer stated beside the passage, else the
+        # one the edition's records name. Never the registry identity (``url``) and never a link into a
+        # thread: what an exported document may print beside the designation.
+        "public_url": entry.public_url or (use.source_url if use else None),
+        # The day this turn read a source that was read live; "abgerufen am" says this day, not today's.
+        "retrieved_at": entry.retrieved_at,
+        # Which Fassung the text is, as its producer stated it: an office or project document's index
+        # and day, a consolidated law's in-force day.
+        "revision": _wire_revision(entry),
+    }
+
+
+def _wire_revision(entry: SourceEntry) -> dict[str, str] | None:
+    """``{index?, date?}`` of the Fassung an entry's text is, or None when its producer stated neither."""
+    revision = {"index": entry.revision_index, "date": entry.revision_date}
+    return {key: value for key, value in revision.items() if value} or None
 
 
 def _wire_project(entry: SourceEntry) -> dict[str, str] | None:

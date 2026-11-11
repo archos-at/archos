@@ -313,3 +313,59 @@ def test_an_unknown_gate_state_fails_closed():
     assert KnowledgeContext(gate="partial").withholds_law
     set_turn_knowledge_context(KnowledgeContext(gate="partial", retrieval_countries=frozenset({"AT"})))
     assert law_sources_withheld() == frozenset({"ris"})
+
+
+# --- the strict-versus-unscoped rule of corpus_countries (a request's silence is never "unscoped") ---
+
+
+def _request(monkeypatch, **fields):
+    from agent import project_context
+
+    monkeypatch.setattr(
+        project_context.RequestContext, "from_context", classmethod(lambda cls: cls(**fields)), raising=True
+    )
+
+
+def test_a_read_of_no_request_is_explicitly_unscoped(monkeypatch):
+    from agent.common.knowledge_context import UNSCOPED
+    from agent.common.knowledge_context import corpus_countries
+
+    _request(monkeypatch)
+    assert corpus_countries() is UNSCOPED
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"organization_id": "org_1", "collection_scope_entries": [{"collection": "base", "shelf": "base"}]},
+        {"organization_id": "org_1", "collection_scope_entries": ["base"]},
+        {"organization_id": "org_1", "collection_scope_entries": []},
+        {"organization_id": "org_1"},
+        {"user_id": "user_1"},
+        {"collection_scope_entries": [{"collection": "base", "shelf": "base", "countries": "QA"}]},
+    ],
+)
+def test_a_request_whose_scope_names_no_countries_reads_no_country(monkeypatch, fields):
+    from agent.common.knowledge_context import corpus_countries
+
+    _request(monkeypatch, **fields)
+    assert corpus_countries() == frozenset()
+
+
+def test_an_entitled_request_reads_only_its_countries(monkeypatch):
+    from agent.common.knowledge_context import corpus_countries
+
+    entry = {"collection": "base", "shelf": "base", "countries": ["QA", "QB", 7]}
+    _request(monkeypatch, organization_id="org_1", collection_scope_entries=[entry])
+    assert corpus_countries() == frozenset({"QA", "QB"})
+
+
+def test_unscoped_corpus_reads_is_the_explicit_marker_inside_a_request(monkeypatch):
+    from agent.common.knowledge_context import UNSCOPED
+    from agent.common.knowledge_context import corpus_countries
+    from agent.common.knowledge_context import unscoped_corpus_reads
+
+    _request(monkeypatch, organization_id="org_1", collection_scope_entries=[])
+    with unscoped_corpus_reads():
+        assert corpus_countries() is UNSCOPED
+    assert corpus_countries() == frozenset()

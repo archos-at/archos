@@ -548,6 +548,10 @@
     "de": "Eine einmalige Aufgabe trägt auf ihrer Karte jetzt dieselbe Farbe wie ihr Block im Stundenplan."
   },
   {
+    "en": "A paragraph of a law that an answer read in the legal database now shows whether it binds at your site, from the published records, and its source chip opens the law at its official address. Before, such a chip showed no status and opened nothing.",
+    "de": "Ein Gesetzesabsatz, den eine Antwort in der Rechtsdatenbank herangezogen hat, zeigt jetzt anhand der veröffentlichten Datensätze, ob er an Ihrem Standort gilt. Über den Quellen-Chip öffnen Sie das Gesetz an seiner offiziellen Adresse. Bisher zeigte ein solcher Chip keinen Status und öffnete nichts."
+  },
+  {
     "en": "A part of an Outlook archive that arrives cut short on its way to ARCHOS is now sent again by the browser, rather than stopping the import.",
     "de": "Ein Teil eines Outlook-Archivs, der auf dem Weg zu ARCHOS unvollständig ankommt, wird nun vom Browser erneut gesendet, statt den Import abzubrechen."
   },
@@ -1230,6 +1234,10 @@
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+    "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
   },
   {
     "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",

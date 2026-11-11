@@ -721,6 +721,14 @@
         },
         {
           "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A paragraph of a law that an answer read in the legal database now shows whether it binds at your site, from the published records, and its source chip opens the law at its official address. Before, such a chip showed no status and opened nothing.",
+            "de": "Ein Gesetzesabsatz, den eine Antwort in der Rechtsdatenbank herangezogen hat, zeigt jetzt anhand der veröffentlichten Datensätze, ob er an Ihrem Standort gilt. Über den Quellen-Chip öffnen Sie das Gesetz an seiner offiziellen Adresse. Bisher zeigte ein solcher Chip keinen Status und öffnete nichts."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
@@ -869,6 +877,14 @@
           "text": {
             "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
             "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+            "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
           }
         },
         {
