@@ -360,6 +360,8 @@ export const EXPOSURE = {
   'task-run-commission': { external: true, agent: 'native:create_task', reason: TASK },
   'task-run-document-add': OFFERED,
   'task-run-get': OFFERED,
+  'task-run-input-request-list': OFFERED,
+  'task-run-input-request-resolve': DECISION,
   'task-run-review': OFFERED,
   'task-run-start': OFFERED,
   'task-run-write-now': OFFERED,

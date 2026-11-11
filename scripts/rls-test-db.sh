@@ -208,6 +208,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/feedback/restricted-feedback.integration.spec.ts \
     bff/tasks/subject-access.integration.spec.ts \
     bff/tasks/active-runs.integration.spec.ts \
+    bff/runs/input-requests.integration.spec.ts \
     bff/conversations/cross-project-use.integration.spec.ts \
     bff/cross-project/decisions-repository.integration.spec.ts \
     bff/similar-passages/service.integration.spec.ts \
@@ -4275,3 +4276,22 @@ check_in so_0233 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single
 apply_in so_0233 0233_knowledge_single_operator.sql
 check_in so_0233 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
 echo "==> 0233 one operator alone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0234: a run's question to a person (ADR-0181). The table comes up
+# under row-level security with its lifecycle in CHECKs; the repository's moves
+# and the tenant boundary are proven as the runtime role in
+# input-requests.integration.spec.ts below. The down drops the table with every
+# question and answer in it, and 0234 applies again, twice, empty.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0234 run input requests and their down migration on ir_0234"
+migrate_until ir_0234 0234_run_input_requests
+check_in ir_0234 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'run_input_requests'" "true" "0234 brings the table up under row-level security"
+check_in ir_0234 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%task_runs%')::text FROM pg_policy WHERE polrelid = 'run_input_requests'::regclass" "true" "0234 ties a request to its run's tenant"
+check_in ir_0234 "SELECT count(*) FROM pg_constraint WHERE conrelid = 'run_input_requests'::regclass AND contype = 'c'" "8" "0234 carries the lifecycle in eight CHECKs"
+apply_in ir_0234 0234_run_input_requests.down.sql
+check_in ir_0234 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'run_input_requests'" "0" "0234 down drops the table"
+apply_in ir_0234 0234_run_input_requests.sql
+apply_in ir_0234 0234_run_input_requests.sql   # up twice: idempotent
+check_in ir_0234 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM run_input_requests) FROM pg_class WHERE relname = 'run_input_requests'" "true:0" "0234 applies again after its down, empty and secured"
+echo "==> 0234 run input requests and their down migration verified"

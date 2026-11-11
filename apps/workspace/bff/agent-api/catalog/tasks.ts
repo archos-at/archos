@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { createJobSchema, patchJobSchema } from '@/lib/jobs/types'
 import { commissionRunSchema } from '@/lib/runs/commission-wire'
+import { INPUT_REQUEST_PAGE_MAX_LIMIT, inputRequestListQuerySchema, inputRequestResolveSchema } from '@/lib/runs/input-request-types'
 import { planDocumentSchema } from '@/lib/runs/plan-documents'
 import {
   RUN_REPORT_MAX_CHARS,
@@ -204,5 +205,37 @@ export const tasksOperations = [
     path: '/api/projects/[id]/runs/[runId]/write-now',
     params: runParams,
     load: () => import('@/app/api/projects/[id]/runs/[runId]/write-now/route'),
+  },
+  {
+    name: 'task-run-input-request-list',
+    domain: 'tasks',
+    links: 'task-run',
+    summary: 'List what a task run has asked the person',
+    description:
+      'The input requests of a run, newest first: each a `message`, a flat `requestedSchema` of the values asked for, ' +
+      'and a `status` (open, answered, declined, cancelled, expired). A run with an open one is waiting. Answers ' +
+      `\`{ requests, nextCursor }\`, at most ${INPUT_REQUEST_PAGE_MAX_LIMIT} a page; pass \`nextCursor\` as \`cursor\` for the next.`,
+    method: 'GET',
+    path: '/api/projects/[id]/runs/[runId]/input-requests',
+    params: runParams,
+    query: inputRequestListQuerySchema,
+    load: () => import('@/app/api/projects/[id]/runs/[runId]/input-requests/route'),
+  },
+  {
+    name: 'task-run-input-request-resolve',
+    domain: 'tasks',
+    summary: 'Answer or decline what a task run asked',
+    description:
+      'Settle an open input request as the person: `action: accept` with `content` (one value per property of ' +
+      'its `requestedSchema`), or `action: decline`. 409 when it is no longer open. Answers the settled request; ' +
+      'the run goes on when none is open.',
+    method: 'POST',
+    path: '/api/projects/[id]/runs/[runId]/input-requests/[requestId]/resolve',
+    params: runParams.extend({
+      requestId: z.string().describe('The input request id, from task-run-input-request-list.'),
+    }),
+    body: inputRequestResolveSchema,
+    personDecides: true,
+    load: () => import('@/app/api/projects/[id]/runs/[runId]/input-requests/[requestId]/resolve/route'),
   },
 ] as const satisfies readonly AgentOperation[]

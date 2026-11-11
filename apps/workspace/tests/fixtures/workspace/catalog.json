@@ -1695,6 +1695,15 @@
    "describe": "{\"name\":\"task-run-get\",\"domain\":\"tasks\",\"summary\":\"Read one task run and what it produced\",\"description\":\"One task run: status, `taskId`, its message, ledger (phase, documents read) and `report`: `text` (first 20000 chars, `truncated` when cut; null while running or if its conversation is closed to you) and `filedDocumentId` (document-get).\",\"annotations\":{\"title\":\"Read one task run and what it produced\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"runId\":{\"type\":\"string\",\"description\":\"The task run id, from project-task-run-list.\"}},\"required\":[\"id\",\"runId\"]},\"query\":{\"type\":\"object\",\"properties\":{\"include\":{\"description\":\"Browser only.\",\"type\":\"string\",\"enum\":[\"stream\"]}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "task-run-input-request-list",
+   "domain": "tasks",
+   "summary": "List what a task run has asked the person",
+   "description": "The input requests of a run, newest first: each a `message`, a flat `requestedSchema` of the values asked for, and a `status` (open, answered, declined, cancelled, expired). A run with an open one is waiting. Answers `{ requests, nextCursor }`, at most 50 a page; pass `nextCursor` as `cursor` for the next.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"task-run-input-request-list\",\"domain\":\"tasks\",\"summary\":\"List what a task run has asked the person\",\"description\":\"The input requests of a run, newest first: each a `message`, a flat `requestedSchema` of the values asked for, and a `status` (open, answered, declined, cancelled, expired). A run with an open one is waiting. Answers `{ requests, nextCursor }`, at most 50 a page; pass `nextCursor` as `cursor` for the next.\",\"annotations\":{\"title\":\"List what a task run has asked the person\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"},\"runId\":{\"type\":\"string\",\"description\":\"The task run id, from project-task-run-list.\"}},\"required\":[\"id\",\"runId\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":20,\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":200}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
    "name": "task-run-review",
    "domain": "tasks",
    "summary": "Accept or reject a finished task run",
@@ -2339,10 +2348,10 @@
    "document-version-submit",
    "document-review-list",
    "document-version-reviewer-list",
-   "conversation-awaiting-get",
    "release-note-list",
-   "document-quarantine-get",
-   "base-knowledge-report"
+   "conversation-awaiting-get",
+   "task-run-input-request-list",
+   "document-quarantine-get"
   ],
   "Freigabe anfordern": [
    "document-version-approve",
