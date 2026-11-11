@@ -384,7 +384,7 @@ export function LawMapOutline({ map, units, confirm, texts, add, today, rootName
             {expanded.has('texts') ? (
               <Branch>
                 {map.looseTexts.map((loose) => (
-                  <Openable key={loose.recordId} o={o} id={`text:${loose.recordId}`} row={(isOpen, onClick) => <OutlineRow size="sm" name={loose.file ?? loose.recordId} meta={loose.editionId} {...marks(units.get(`text:${loose.recordId}`))} expanded={isOpen} onClick={onClick} />}>
+                  <Openable key={loose.recordId} o={o} id={`text:${loose.recordId}`} row={(isOpen, onClick) => <OutlineRow size="sm" name={loose.file ?? t('textOf', { edition: loose.editionId.replace(/^edition:/, '') })} {...marks(units.get(`text:${loose.recordId}`))} expanded={isOpen} onClick={onClick} />}>
                     <Unfold>
                       <ManifestationText requestId={o.texts.requestId} countryId={o.texts.countryId} recordId={loose.recordId} text={o.texts.byRecord.get(loose.recordId)} canAttach={o.texts.canAttach} onAttached={o.texts.onAttached} />
                       <Decide o={o} unitKey={`text:${loose.recordId}`} yes={t('yesText')} />

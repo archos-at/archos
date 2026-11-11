@@ -90,7 +90,7 @@ describe('LawMapPage', () => {
     page([...REVIEW, PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert])
     expect(await screen.findByText('From the change request "Xanadu" · Published')).toBeInTheDocument()
     expect(screen.getByTestId('law-map-progress')).toHaveTextContent('6 of 9 entries confirmed')
-    expect(screen.getByTestId('approval-state')).toHaveTextContent('Approved without a second review · Second review due · Second review due as: counsel')
+    expect(screen.getByTestId('approval-state')).toHaveTextContent('Approved without a second review · Second review due as: counsel')
     // A reviewer who holds no due role is told why there is nothing to give.
     expect(screen.getByTestId('release-bar')).toHaveTextContent('you hold none of these roles')
   })
@@ -100,12 +100,13 @@ describe('LawMapPage', () => {
     const user = userEvent.setup()
     page(REVIEW)
     await user.click(await screen.findByTestId('loose-texts'))
-    await user.click(screen.getByRole('button', { name: /mc-2-2015-text/ }))
+    await user.click(screen.getByRole('button', { name: /mc-2-2015/ }))
     await user.click(screen.getByTestId('entries-text:manifestation:mc-2-2015-text'))
     const entry = screen.getByTestId('entry-manifestation:mc-2-2015-text')
     expect(within(entry).getByText('Licence')).toBeInTheDocument()
     expect(within(entry).getByText('public_domain')).toBeInTheDocument()
-    expect(within(entry).getByText('the words on the page')).toBeInTheDocument()
+    // Its source, once for the unit.
+    expect(screen.getByText('the words on the page')).toBeInTheDocument()
   })
 
   test('in a draft, a text for an edition already released is attached in its own row', async () => {
@@ -113,7 +114,7 @@ describe('LawMapPage', () => {
     const user = userEvent.setup()
     page([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeWrite])
     await user.click(await screen.findByTestId('loose-texts'))
-    await user.click(screen.getByRole('button', { name: /mc-2-2015-text/ }))
+    await user.click(screen.getByRole('button', { name: /mc-2-2015/ }))
     expect(within(screen.getByTestId('manifestation-text')).getByRole('button', { name: /Upload/ })).toBeInTheDocument()
   })
 

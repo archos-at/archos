@@ -3,7 +3,7 @@
 /**
  * Dev preview for the law map: the REAL `LawMapPage` on Austria's pack served
  * as one submitted change request (`_fixtures/law-map-at.ts`); `?mode=alone`
- * serves it published by its author alone with a second review due as counsel
+ * serves it approved by its author alone with a second review due as counsel
  * (ADR-0176), `?mode=draft` as a draft holding a text for an edition already
  * released, to attach in place. A
  * module-scope fetch shim (browser + dev only) serves the request; 404s
@@ -20,7 +20,7 @@ const MODE = typeof window === 'undefined' ? null : new URLSearchParams(window.l
 const LOOSE_TEXT = { revisionId: 'r-loose', recordId: 'manifestation:released-guide-2019-text', type: 'manifestation', createdBy: 'user_a', createdAt: '2026-11-10T16:42:01Z', citations: [], claims: [{ path: 'editionId', value: 'edition:released-guide-2019', decision: null }, { path: 'corpusFile', value: null, decision: null }, { path: 'licenceClass', value: 'public_domain', decision: null }] }
 const STATE =
   MODE === 'alone'
-    ? { status: 'published', approval: 'single', secondReview: { state: 'due', by: null, at: null }, secondReviewRoles: [{ role: 'counsel', state: 'due', by: null, at: null }] }
+    ? { status: 'approved', approval: 'single', secondReview: { state: 'due', by: null, at: null }, secondReviewRoles: [{ role: 'counsel', state: 'due', by: null, at: null }] }
     : MODE === 'draft'
       ? { status: 'draft', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }
       : { status: 'submitted', approval: 'four_eyes', secondReview: null, secondReviewRoles: [] }

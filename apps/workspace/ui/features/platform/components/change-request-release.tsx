@@ -47,8 +47,8 @@ export function ApprovalState({ view }: { view: ChangeRequestView }): JSX.Elemen
   const due = (view.secondReviewRoles ?? []).filter((role) => role.state === 'due').map((role) => t(`countryKnowledge.roles.${role.role}`))
   const parts = [
     view.approval === 'single' ? t('countryKnowledge.approval.single') : null,
-    view.secondReview ? t(`countryKnowledge.secondReview.${view.secondReview.state}`) : null,
-    due.length > 0 ? t('countryKnowledge.secondReviewDueIn', { roles: due.join(', ') }) : null,
+    // A due review names its roles; any other state says itself.
+    due.length > 0 ? t('countryKnowledge.secondReviewDueIn', { roles: due.join(', ') }) : view.secondReview ? t(`countryKnowledge.secondReview.${view.secondReview.state}`) : null,
   ].filter((part): part is string => part !== null)
   if (parts.length === 0) return null
   return (
