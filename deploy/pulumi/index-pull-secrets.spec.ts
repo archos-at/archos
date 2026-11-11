@@ -73,4 +73,14 @@ describe("private images and the registry pull Secret", () => {
     const missing = privatePods.filter(({ pod }) => !(pod?.imagePullSecrets?.length ?? 0)).map(({ id }) => id);
     expect(missing).toEqual([]);
   });
+
+  it("names a pull Secret the program actually creates", () => {
+    const secrets = new Set(
+      RESOURCES.filter((r) => r.type === "kubernetes:core/v1:Secret").map((r) => String(r.inputs.metadata?.name ?? r.name)),
+    );
+    const dangling = RESOURCES.filter((r) => WORKLOADS.includes(r.type))
+      .flatMap((r) => ((podSpecOf(r.type, r.inputs)?.imagePullSecrets ?? []) as Array<{ name: string }>).map((s) => `${r.name} -> ${s.name}`))
+      .filter((ref) => !secrets.has(ref.split(" -> ")[1]));
+    expect(dangling).toEqual([]);
+  });
 });
