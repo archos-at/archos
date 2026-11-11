@@ -729,6 +729,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
+            "de": "Die Prüfung von U-Wert und Schalldämmung behandelt eine Wand oder Decke ohne auswertbaren IsExternal-Wert nicht mehr als innenliegend. Im Prüfbuch erscheint sie jetzt als nicht entscheidbar, und „Was dem Modell fehlt“ nennt den fehlenden Wert."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "building-law",
           "text": {
             "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
@@ -741,6 +749,14 @@
           "text": {
             "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
             "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "When you ask to see a model, a room or a storey, the 3D view now stays in the answer instead of disappearing as the answer finishes. Asking to open a model now keeps the tiles to choose from.",
+            "de": "Wenn Sie sich ein Modell, einen Raum oder ein Geschoss anzeigen lassen, bleibt die 3D-Ansicht jetzt in der Antwort, statt mit deren Abschluss zu verschwinden. Wenn Sie darum bitten, ein Modell zu öffnen, bleiben die Kacheln zur Auswahl sichtbar."
           }
         },
         {
@@ -761,6 +777,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
+            "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
@@ -773,6 +797,14 @@
           "text": {
             "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
             "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "After you upload a corrected IFC file under the same name, the Prüfbuch now judges the new file as soon as it has been read. It could keep showing the previous file's results for up to an hour longer.",
+            "de": "Wenn Sie eine korrigierte IFC-Datei unter demselben Namen hochladen, bewertet das Prüfbuch die neue Datei jetzt, sobald sie eingelesen ist. Bisher konnte es die Ergebnisse der vorherigen Datei noch bis zu einer Stunde länger anzeigen."
           }
         },
         {
