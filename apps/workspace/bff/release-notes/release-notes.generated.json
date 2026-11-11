@@ -689,6 +689,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
+            "de": "Bei der Abfrage der lichten Höhe eines Raums in einem IFC-Modell wird wieder die gemessene Höhe ausgegeben, statt dass ein Berechnungsfehler gemeldet wird."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
