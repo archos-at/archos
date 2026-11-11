@@ -16,7 +16,7 @@ import pytest
 import yaml
 
 COMPOSE_DIR = Path(__file__).resolve().parents[1] / "deploy" / "compose"
-FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"]
+FILES = ["docker-compose.yaml"]
 
 POOLED = ("NAT_JOB_STORE_DB_URL", "CHECKPOINT_DB", "SUMMARY_DB")
 DIRECT = ("LISTEN_DB_URL", "LOCK_DB_URL")

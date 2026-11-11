@@ -243,8 +243,8 @@ surviving SSE path). It is commissioned as a RUN: one `task_runs` row and one
 message in the thread that asked, carrying the ledger the run block renders
 (ADR-0062). The turn that commissions it answers with nothing but `run_id` and
 `run_message_id` — the block is the narration, and the report lands on it. These
-backend async jobs are not the BFF `jobs` schedule table — that naming
-collision is unpacked in §5.12.
+backend async jobs are not a task's scheduled „job“ (a `task_definitions` row)
+— that naming collision is unpacked in §5.12.
 
 ### 5.6 Documents & ingestion
 Uploads go to SeaweedFS (server-side) under a tenant-scoped key
@@ -323,7 +323,7 @@ happens in the inbox, where the person was told about the result.
 
 Two naming collisions to keep straight. The `task_definitions`/`task_runs`
 tables live in `app` (the collapsed successor of `jobs`/`job_runs`/
-`tasks`); the backend async jobs live in `jobs` (deep-research runs,
+`tasks`, which migration 0226 dropped); the backend async jobs live in `jobs` (deep-research runs,
 §5.5) — a `task_runs.backend_job_id` value names one of the latter. And
 `compliance_check` is a **task kind**, not a chat tool or an agent: the
 purpose-built compliance checker is deleted, and a full Soll-Ist runs as a
@@ -367,8 +367,8 @@ marks it purged. Restore is possible only while the row is un-claimed.
 
 | Store | Owner | Holds |
 |---|---|---|
-| **`app`** (Postgres) | BFF (single writer) | projects, conversations, messages, documents, folders, **project_memory**, **platform_lessons** (+ reports/events), **deletion_queue**, **legal_holds**, user_preferences, **tasks** (the work object), **jobs** (recurring triggers) + **job_runs** (receipts), **skills** |
-| **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not the BFF `jobs` schedule table (§5.12), document summaries |
+| **`app`** (Postgres) | BFF (single writer) | projects, conversations, messages, documents, folders, **project_memory**, **platform_lessons** (+ reports/events), **deletion_queue**, **legal_holds**, user_preferences, **task_definitions** (what was asked and what makes it run) + **task_runs** (each attempt), **skills** |
+| **`jobs`** (Postgres) | backend | backend async-run info/access/events (deep research) — not a scheduled task, which is a `task_definitions` row in `app` (§5.12), document summaries |
 | **`checkpoints`** (Postgres) | backend | LangGraph conversation checkpoints (thread state) |
 | **SeaweedFS** (`grid-documents`) | BFF writes, backend/purger read | OIB PDFs + uploaded documents, keyed by org/project |
 | **Qdrant** | backend | two physical collections, `piloti_corpus` (the legal corpus, `oib_knowledge`) and `piloti_office` (everything an office uploads). The logical collections `archiv_<org>`, `proj_<id>`, `<proj>_r<folder>` and `s_<conversation>` are payload fields, and a request's scope is one filter compiled in `scope_filter` (ADR-0116). Memory and lessons are not in Qdrant — they live in `app`, with row-resident embeddings for recall ([semantic-notes.md](./semantic-notes.md)). |

@@ -46,9 +46,8 @@ export async function pruneExpiredInboxItems(now = new Date()): Promise<Retentio
   )
   const cutoff = new Date(now.getTime() - longestDays * 24 * 60 * 60 * 1000)
   const deleted = await pruneInboxItemsOlderThan(cutoff, PRUNE_BATCH)
-  // Deliberately silent on success: this runs on a scheduler, and a per-tick log
-  // line for routine housekeeping is noise. The caller gets the count back and
-  // the endpoint returns it, which is where an operator would look.
+  // Silent here: the `collaboration-retention` cron task (`bff/scheduling/sweeps.ts`)
+  // gets the count back and logs one line when a run deleted something.
   return { deleted, cutoff: cutoff.toISOString() }
 }
 

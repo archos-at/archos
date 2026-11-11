@@ -641,7 +641,7 @@ Sources: `apps/workspace/app/api/organization/{model-config,budgets,usage,audit-
 
 ### Internal service endpoints (service token, not user-facing)
 
-Firing a scheduled task and the maintenance sweeps (run reconcile, background work, folder placement, the Frist reminder, the PostHog usage export) are Hatchet tasks of the `bff-jobs` worker that call the BFF in process, not routes ([`agent-skills.md`](../architecture/agent-skills.md#scheduler-worker-hatchet-appsworkspacebffscheduling), ADR-0150). `POST /api/internal/upload-batches/sweep` stays for an operator's `?windowDays=` catch-up.
+Firing a scheduled task and the maintenance sweeps (run reconcile, background work, folder placement, collaboration retention, the platform lessons' sweep, the Frist reminder, the PostHog usage export) are Hatchet tasks of the `bff-jobs` worker that call the BFF in process, not routes ([`agent-skills.md`](../architecture/agent-skills.md#scheduler-worker-hatchet-appsworkspacebffscheduling), ADR-0150). `POST /api/internal/upload-batches/sweep` stays for an operator's `?windowDays=` catch-up.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|

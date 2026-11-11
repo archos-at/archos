@@ -41,7 +41,8 @@ FAILURE unless a verdict stands. What a task raises to Hatchet is the
 exception's class and category, `from None`: the message and its chained
 cause, which may name a file or a URL, go to our own logs only. Hatchet delivers at least once, so a copy takes the job in
 `jobs/run_ownership.py` before it runs the agent (`submitted` to `running`, or a
-`running` job silent past the ghost reaper's window) and a losing copy runs
+`running` job silent past the ghost reaper's window, which is the same number and
+reads the same two signs of life, the last event and the last `job_info` write) and a losing copy runs
 nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
 as FAILURE (`agent_job._finish_cancelled`). The run's id is kept in
 `research_orchestrator_runs` (`jobs/orchestrator_runs.py`) for the cancel.

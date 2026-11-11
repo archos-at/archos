@@ -393,10 +393,10 @@
    "name": "document-ingest-cancel",
    "domain": "documents",
    "summary": "Cancel a document’s running ingestion",
-   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.",
+   "description": "Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"document-ingest-cancel\",\"domain\":\"documents\",\"summary\":\"Cancel a document’s running ingestion\",\"description\":\"Stops a document that is still queued or being read. The document and its file stay; call document-reingest to start over. `result` says what the stop did (`cancelled`, `finished` when the read had already ended, `unavailable`), and `status` is the status the document holds afterwards, which is not `cancelled` when the read ended first.\",\"annotations\":{\"title\":\"Cancel a document’s running ingestion\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "document-list",

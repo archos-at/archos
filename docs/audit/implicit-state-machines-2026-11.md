@@ -243,44 +243,69 @@ an order.
 Five of the first list were done in the change that wrote this page: document
 reading, the run's ending (task run and ledger), the deletion queue, the BIM
 model and the CMS social post. Each began by verifying its lead, and all five
-leads held. What they left open, each a decision and not a conversion:
+leads held. Three independent reviews before the merge found nothing blocking.
 
-* **Re-screening a quarantined upload fails at the database** (`GQH01`): the
-  0122 trigger needs to let a quarantined row return to `uploaded` when the
-  write lifts nothing. In the gotchas register, with a spec waiting on it.
-* **Archiving a document does not cancel its running ingest job**, so the job
-  may write chunks after the archive purged them (unverified on the Python
-  side).
-* **`delegation.ts` can still reopen an ended run row** when the kill switch
-  fires during a submit; two files at their size limit stand in the way.
-* **Nothing records that a scheduled social post went out at Buffer.** That
-  needs a status poll per scheduled post.
-* **An entity erased over HTTP whose purger transaction then fails on its final
-  attempt** still reads `failed`.
+What those two rounds left open was decided and closed in the change after
+(November 2026). Each fix began by reproducing the defect, and two decisions
+were corrected by the code on the way:
 
-Three independent reviews before the merge (turn socket, deletion queue, run
-endings and document failure writes) found nothing blocking. What they left,
-each narrow:
+* **Re-screening a quarantined upload** works (migration 0225). The rule first
+  decided, "the write lifts nothing", was unsafe: no CHECK ties the status to
+  the screening outcome, so a quarantined row still carrying an earlier `clean`
+  would have been shown to the office. The trigger lets a quarantined row
+  return to `uploaded` only when the new row says its outcome is `quarantined`
+  and its three hashes are unchanged, and the re-screen writes that outcome.
+* **Archiving a document stops its running read first**, and the pipeline's
+  `document-exists` check answers "gone" for an archived document, so a job the
+  cancel could not reach removes its own chunks.
+* **The stop route says what state the document ended in.**
+* **An extraction job knows its row by its own job id** as well as the bytes.
+* **The kill switch interrupts only what it stopped.** The decision first aimed
+  at a run whose block already reads `done`; tracing the worker showed the
+  block reads `done` only after the outcome was delivered or given up on, and
+  the real window is a run that owns SUCCESS in the job store while its outcome
+  report is still in flight. Every row the backend does not report as killed is
+  closed by the job store's verdict.
+* **Recording a submission cannot reopen an ended run** or take a started one
+  back to waiting.
+* **A run's close is stamped by the database's clock**, so the heal's predicate
+  does not depend on a pod's.
+* **A deletion's claim is a token** (`claimed_at`): every closing write matches
+  the claim it took, so a holder whose claim was taken over changes nothing. A
+  folder already purged whose bookkeeping failed is closed `purged`
+  (`closeErased`).
+* **A connection attempt is bounded** in preparing (10 s) and dialing (15 s);
+  a thread holds one live connection error; the "restoring" line also shows
+  when the first connect after a tab returns is slow; a recorder that hung on a
+  recording the meter heard speech in says it could not be saved.
+* **Migration 0223 has its Postgres check**, and a spec holds the schema's
+  CHECK text, the migration and the script to the status tuple.
 
-* **A run that finished just before the kill switch or a lost-job close took
-  its row ends `interrupted`, and its report is not filed** and no completed
-  item follows; the report text stays in the thread. This is the first-ending
-  rule applied as its authors' comments describe it; before, the late success
-  flipped the row and filed.
-* **The heal that settles a run's block can miss a run** when the pod's clock
-  lags the database's and the block write failed too (`finished_at` is the
-  pod's time, `reconcile_checked_at` the database's).
-* **An extraction job identifies itself by storage key only**, so a re-read of
-  the same bytes under a new job can still be failed by the old job's last
-  attempt.
-* **A deletion row can read `failed` for erased data** when a request held a
-  claim for more than 15 minutes, the purger took it over and purged, and the
-  request then failed at the attempt cap: the purger's write no longer
-  overwrites it. A claim token would close it.
-* **A connection preparation that hangs** (never resolves or rejects) leaves
-  the socket at `connecting`; the fix here covers one that fails.
-* **Migration 0223 has no Postgres check** in `scripts/rls-test-db.sh`, and
-  nothing compares the schema's generated CHECK text with the SQL.
+Still open after that, each for a stated reason:
+
+* **Nothing records that a scheduled social post went out at Buffer.** No
+  Buffer account exists yet to test a status poll against.
+* **A chat whose erasure completed but whose bookkeeping failed still reads
+  `failed`.** Nothing durable records whether its traces were erased, so the
+  purger cannot tell the two apart. The same holds for a folder that owes
+  trace erasure.
+* **An old extraction job's success path is not fenced**, only its failure
+  write; and between marking a row processing and stamping the new job's id an
+  old job's failure can still land. Closing both needs the enqueue and the
+  stamp in one transaction.
+* **The review canvas exposes the "restoring" fact but shows nothing**: there
+  is no place or copy for a connection note on the canvas yet.
+* **Sliced recording is on for WebM only.** Safari's MP4 slices have not been
+  sent through the transcription, so a hung recorder there still holds nothing.
+* **After the kill switch, a run can stay live for a while**: one whose job the
+  store still holds as running (its stop failed, or it lay past the batch), or
+  one the store has lost, is left for the reconciler, which ends a lost one
+  `failed` after its grace. The platform console shows the interrupted count
+  only; the answer also carries `runsSucceeded`, `runsFailed` and
+  `runsWaiting`, which the console does not draw yet.
+* **A re-read with screening switched off** leaves a re-screened file
+  `completed` with outcome `quarantined`: held, in the reviewers' queue, with
+  no reason listed.
 
 Still to convert, by what each fixes for a person:
 

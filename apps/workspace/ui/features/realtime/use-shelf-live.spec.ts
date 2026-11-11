@@ -6,9 +6,9 @@
 
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChannelFrame, ChannelLink } from '@/features/realtime/use-channel'
+import type { ChannelFrame, ChannelLink } from './use-channel'
 import { shelfChannelKey } from '@/lib/documents/shelf-live-events'
-import { LIVE_HINT_COALESCE_MS, LIVE_HINT_JITTER_MS } from '@/features/realtime/use-live-hints'
+import { LIVE_HINT_COALESCE_MS, LIVE_HINT_JITTER_MS } from './use-live-hints'
 import { useShelfLive } from './use-shelf-live'
 
 function scriptedLink() {

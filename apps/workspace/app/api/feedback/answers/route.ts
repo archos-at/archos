@@ -39,7 +39,8 @@ export const POST = apiRoute(
       // learning.md): a down-vote is the failure signal, so it triggers
       // distillation the moment it lands — after the response, off the request
       // path, and fail-open (the kick never throws; anything it misses is
-      // picked up by the next kick or the dashboard's manual sweep).
+      // picked up by the next kick, the hourly `platform-lessons-sweep` or the
+      // dashboard's manual sweep).
       try {
         after(() => kickLessonDistillation())
       } catch {

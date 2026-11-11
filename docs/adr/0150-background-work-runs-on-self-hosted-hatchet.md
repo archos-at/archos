@@ -110,7 +110,9 @@ no second path.
   agent runs (`jobs/run_ownership.py`), because Hatchet delivers at least once
   and a lost worker's task can run twice. A run past its execution timeout, or
   out of attempts, is recorded as FAILURE by the on-failure task.
-* `bff-job`: one task, the job kind in its input.
+* `bff-job`: one task, the job kind in its input. Its row in `bff_job_queue`
+  stays the job's record; what the row and the run each hold after a failed
+  attempt is under More Information.
 * The scheduler container is gone. Each automation (`task_definitions`) has one
   Hatchet scheduled run at its next due time, computed in the office's time
   zone, because Hatchet crons take no time zone; migration 0192 adds
@@ -119,6 +121,8 @@ no second path.
   maintenance sweeps are Hatchet cron tasks on the `bff-jobs` worker, one each,
   never overlapping; the 06:45 Vienna reminder runs hourly and gates itself on
   the office clock, so it stays on 06:45 across daylight-saving changes.
+  (Corrected on 2026-11-11, under More Information: crons do take a time zone,
+  and the reminder is now one zoned cron with no gate.)
 * The worker pools keep their names: `ingest-worker`, `agent-worker`,
   `bff-jobs`. KEDA scales each on its workflow's backlog in Hatchet's tables:
   the runs in `v1_queue_item` plus those in `v1_task_runtime`
@@ -345,6 +349,137 @@ setup, re-check and drop RabbitMQ.
   queue depth stays over 1,000 (the `RabbitmqQueueDepth` rule); the shared
   `ingest-org` limit fails the CI engine job on our pinned engine; or an engine defect costs a production incident
   the claim queues would not have had.
+
+### The row and the run after a failed attempt (clarification, 2026-11-11)
+
+An audit read `bff-job` as waiting twice after a failed attempt and counting
+attempts twice: `failJob` writes `bff_job_queue.not_before = now() + delay` and
+the run throws Hatchet's retry-after with the same delay; the row counts
+`attempts` and the task declares `retries`. Both copies are needed, and it is
+one wait, not two: both clocks start at the failure and end together.
+
+* **Hatchet's retry-after is the timer.** It is what starts the next attempt,
+  in the same run. Without it the retry comes at once, finds the row not due
+  and ends as `skipped`; the job then waits for the dispatch sweep, up to three
+  minutes past its backoff (120 s grace, 60 s interval).
+* **The row's `not_before` is the record.** Three readers need it, and none can
+  ask Hatchet. The take (`takeJob`) refuses a row that is not due, so a run
+  that comes early does not cut the backoff short: a retry on an engine older
+  than v0.111.0, which ignores retry-after, or a second run. The dispatch sweep
+  (`listJobsToDispatch`) starts a run for a `queued` row only once it is due
+  and 120 s have passed; its run carries a new idempotency key (the row's take
+  changed), so without `not_before` it would start a second run in the middle
+  of every backoff. And it is what recovers the retry Hatchet never makes: the
+  pod died after the row was written and before the throw reached the engine
+  (the reassigned run comes at once, finds the row not due and ends), or the
+  run ran out of `retries`.
+* **The delay is computed once** (`retryDelaySeconds`, `task.ts`) and handed to
+  both. Hatchet's own `backoff` cannot produce it: it is `factor ** retryCount`
+  seconds with no base, where ours is `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled
+  per failed attempt of the row; and Hatchet's retry count is not the row's
+  attempts (it also counts the looks for a row not committed yet, and starts
+  at 0 in a run the sweep dispatched for a row that already failed twice). A
+  delay computed by Hatchet and a `not_before` computed by us would be two
+  formulas that must agree to within the take's 30 s tolerance.
+* **The row's `attempts` decides when a job is dead; `retries` is only a
+  ceiling** (`BFF_JOBS_MAX_ATTEMPTS` plus the three looks). The row's count
+  spans runs (a sweep's run, a takeover of a silent holder) and goes back to
+  none when a slice makes progress; Hatchet's count does neither. A dead job
+  ends the run with a non-retryable error whatever `retries` has left. Before
+  it does, the run fails the documents the job left at `processing`
+  (`buried` in `task-run.ts` calls `failDocumentsOfDeadJob`), after the row
+  says `dead` and never changing the run's answer; the sweep's dead-job branch
+  stays for a run that died in between
+  ([document ingestion](../technical-reference/document-ingestion.md)).
+
+Premise to re-check before removing either copy: Hatchet can neither be asked
+"is a retry of this job pending, and when" from SQL in the app's database, nor
+start its retry from a row. `task-run.integration.spec.ts` ("a failed attempt
+waits once") holds the three readers.
+
+### Cron time zones, and rescheduling a run (note, 2026-11-11)
+
+"Hatchet crons take no time zone" and "its crons are UTC only" above were a
+reading of the docs, and wrong for our engine. Tried on `hatchet-lite`
+v0.114.2 with TypeScript SDK 1.46.0:
+
+* **A cron whose expression starts with `CRON_TZ=<IANA zone> ` runs on that
+  zone's clock.** Four tasks were registered for the same instant three
+  minutes ahead: `CRON_TZ=Europe/Vienna 56 13 * * *`,
+  `CRON_TZ=Asia/Tokyo 56 21 * * *`, the plain `56 12 * * *`, and Vienna's
+  digits with no prefix (`56 13 * * *`). The first three started at
+  12:56:00 UTC; the fourth did not. The engine image carries the zone data.
+  That is two zones on one November day: the summer offset is the zone
+  data's to apply and was not tried.
+  The crons API returns the expression as written and no next start time, so
+  a start is the only evidence there is.
+  `bff/scheduling/orchestrator.integration.spec.ts` repeats the trial in the
+  CI engine job, so an engine upgrade that drops the prefix fails there.
+* **What changed:** `frist-reminder` is `CRON_TZ=Europe/Vienna 45 6 * * *`,
+  one run a day, and the hourly run with its office-clock gate is deleted.
+* **What did not:** a task definition stays one scheduled run plus
+  `schedule-repair`. A cron tick that comes due while the previous run is
+  still going is dropped (`CANCEL_NEWEST`, held by the engine spec), and one
+  the engine is down for is not caught up as far as we know (not tried); a
+  scheduled run that comes due late still fires, and the repair finds one that never did. A zoned cron
+  per definition would also put an office's schedule in the engine as a
+  second copy of `next_run_at`.
+* **`scheduled.update` exists and does not fit.** It moves a pending run's
+  `triggerAt` in place and leaves its input as it was. Our input carries
+  `due_at`, which the fire compares with `next_run_at`, so a run rescheduled
+  in place would answer `not-due` and never fire. A run that has fired is
+  gone from the API (404 on get, update and delete), and a fire re-arming its
+  definition is the commonest caller. `syncScheduledRun` keeps delete then
+  create; the window between the two is covered by `schedule-repair`.
+
+Premise to re-check: the `CRON_TZ=` prefix is behaviour we observed, held by
+the engine spec, not a documented contract we rely on by reading.
+
+### Folder cards: the dirty set is ours, the run is the engine's (amendment, 2026-11-11)
+
+The folder card builder (ADR-0127) was a third claim queue this ADR had not
+counted: `folder_card_queue` with a claim, a reclaim after 900 s without a
+heartbeat, an attempt counter, and a polling loop in every ingest worker. A
+build longer than the window was handed out a second time and spent an attempt.
+
+It runs on Hatchet now (`folder_cards/workflow.py`): a cron sweep, one
+`folder-cards-build` run per collection (idempotent on the collection), a
+nightly reconcile. The claim, the reclaim, the counter and the loop are gone.
+The table stays as a dirty set, because its debounce (two clocks per folder,
+moved by every mark), its order (children before parents) and its dedupe are
+records our code reads and no engine feature; and a folder path may not reach
+Hatchet's database. The three tasks are durable tasks for their slot pool
+alone, a deviation from "durable means a durable wait". It was challenged the
+same day and kept: the Python SDK at 1.44.0 gives a worker the pools `default`
+and `durable` and no public way to name a third, a second worker in one process
+does not drain on SIGTERM (tried on the engine at our tag), and sharing the two
+or three document slots of a pod lets two organisations' builds hold every
+upload for up to half an hour. The file's header carries the SDK file and line
+for each; the day a task can name a pool, these become plain tasks.
+
+One loop the move had left open is closed with it: a run that died on every
+attempt only made its folders wait a quiet period, without end. The failure
+handler now counts such a run on each dirty folder (`folder_card_queue.attempts`,
+the retired claim counter's column) and a folder leaves the set at three, until
+the nightly reconcile. The engine bounds the attempts of a run; the bound on
+runs of the same dirty record is ours, because the record is.
+
+`claimed_at`, the claim's other column, stays on existing tables until the
+release after the one that removes the claim loop is on production: the table
+is created by the agent tier at first use, so a drop would run in the first new
+pod of a rollout while old pods still claim through the column. Runbook:
+[`hatchet.md`](../deployment/hatchet.md), "Folder cards on the ingest worker".
+
+### Coolify retired as a deployment target (amendment, 2026-11-11)
+
+`deploy/compose/docker-compose.coolify.yaml` never gained the Hatchet engine,
+so a Coolify deployment of the tree this ADR describes could not run its
+background jobs or ingest documents. On the owner's decision the target is
+retired: the file, `docs/deployment/coolify.md`, `postgres.Dockerfile` (built
+only for it) and the specs that parsed it are deleted. Docker Compose
+(`deploy/compose/docker-compose.yaml`, engine behind the `hatchet` profile) and
+Kubernetes remain. Earlier ADRs that name Coolify are left as written; they
+describe the target as it was.
 
 ### AI-native check (2026-11-03)
 

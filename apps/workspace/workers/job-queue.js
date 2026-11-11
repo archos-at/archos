@@ -64,6 +64,8 @@ async function eraseProject(tx, lane, projectId) {
  */
 async function eraseLane(tx, lane) {
   const rows = await tx`DELETE FROM bff_job_queue WHERE lane = ${lane} RETURNING job_id`
+  // The retired claim's lane order: the table stays until production has cut
+  // over to Hatchet (`bff/db/schema/bff-job-queue.ts`), and its row names the organization.
   await tx`DELETE FROM bff_job_lane_turns WHERE lane = ${lane}`
   return rows.length
 }

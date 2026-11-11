@@ -1,9 +1,12 @@
 'use client'
 
 /**
- * The import dialog's state (ADR-0085): the project's imports, polled while
- * the dialog is open and something is running, and the archive this tab is
- * sending, if it is one of this project's.
+ * The import dialog's state (ADR-0085): the project's imports, and the archive
+ * this tab is sending, if it is one of this project's. While the dialog is
+ * open and something is running the list is read again when the project's
+ * shelf says it changed (`shelf.changed`: the import job announces each slice
+ * and its end, and every mail it files settles on that shelf), with a slow
+ * poll under it for a lost hint.
  *
  * The send itself lives in `../lib/mail-import-send.ts`, outside React, so it
  * outlives the dialog and the page: only closing the tab stops it, and the
@@ -11,7 +14,8 @@
  * the same file again to resume, or cancels it.
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import {
   cancelMailImport,
   fetchMailImports,
@@ -34,10 +38,12 @@ import {
   type MailImportSendFailure,
 } from '../lib/mail-import-send'
 
+import { useShelfLive } from '@/features/realtime/use-shelf-live'
+
 export type { MailImportSend } from '../lib/mail-import-send'
 
-/** How often a running import is re-read while the dialog is open. */
-const POLL_MS = 5_000
+/** How often a running import is re-read while the dialog is open and no hint came. */
+export const MAIL_IMPORT_FALLBACK_POLL_MS = 60_000
 
 /** Why a send did not go through, as the dialog words it. Never the server's own (English) text. */
 export type MailImportSendErrorKind =
@@ -104,10 +110,12 @@ export function useMailImports(projectId: string, open: boolean): UseMailImports
     if (!open) return
     void reload()
     if (!running && !isSending) return
-    const timer = setInterval(() => void reload(), POLL_MS)
+    const timer = setInterval(() => void reload(), MAIL_IMPORT_FALLBACK_POLL_MS)
     return () => clearInterval(timer)
     // `isSending` is a dependency so that the end of a send reloads the list at once.
   }, [open, running, isSending, reload])
+  const shelf = useMemo<LiveShelf>(() => ({ kind: 'project', projectId }), [projectId])
+  useShelfLive(shelf, () => void reload(), { enabled: open && running })
 
   const start = useCallback(
     async (file: File) => {

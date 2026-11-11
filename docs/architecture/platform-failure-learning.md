@@ -346,12 +346,17 @@ means anything.
   the matcher linking the repeat report to the right lesson — a recurrence the
   matcher files as a NEW lesson is invisible to the flag.
 
-- **There is no scheduler container, on purpose.** Sweeps are event-driven
-  (every down-vote kicks one) and the kick widens from 3 to 12 reports when a
-  backlog has formed, so the pipeline is self-healing while anyone is voting —
-  and a deployment where nobody votes is also one where no backlog forms. An
-  operator who wants a clock anyway points it at
-  `POST /api/internal/platform-lessons/sweep`.
+- **A vote kicks a sweep, and a clock backs it up.** Every down-vote kicks one
+  from the request's `after()`, and the kick widens from 3 to 12 reports when a
+  backlog has formed. That alone left two gaps: a pod that dies loses the kick,
+  and the report then waits for the next vote anywhere; and the upkeep at the
+  head of every sweep (retiring an addressed lesson after its quiet days,
+  expiring old candidates, re-embedding) is due by date, so a quiet fleet never
+  did it. The `platform-lessons-sweep` Hatchet cron task therefore runs one
+  sweep an hour on the `bff-jobs` worker, bounded like the dashboard's button
+  (25 reports; `runScheduledLessonSweep`, ADR-0150). The internal route
+  `POST /api/internal/platform-lessons/sweep` it replaces had no caller and is
+  removed.
 
 ## Where things are
 

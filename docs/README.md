@@ -35,7 +35,7 @@ A word you do not know: the domain language is in
 | [`technical-reference/`](technical-reference/) | Mechanism reference: auth flow, chat flow, ingestion, WebSocket gateway | You need the exact shape of one mechanism |
 | [`api/`](api/) | Route and protocol contracts | You are calling or changing an endpoint or a WebSocket message |
 | [`database/`](database/) | Schema, migrations, row-level security | You are adding a table or touching the tenant boundary |
-| [`deployment/`](deployment/) | Compose, Kubernetes, Coolify, environment variables, secrets | You are deploying, or you need to know what a variable does |
+| [`deployment/`](deployment/) | Compose, Kubernetes, environment variables, secrets | You are deploying, or you need to know what a variable does |
 | [`user-guides/`](user-guides/) | What the product does, from the user's side | You need to know how a feature is meant to behave |
 | [`design/`](design/) | Design language, card charter, UI specs | You are building a surface |
 | [`ux/`](ux/) | UX playbooks: visual evidence, file explorer, motion on the public site ([`ux/motion.md`](ux/motion.md)) | You are adding a user-visible component, or animating anything on the site |
@@ -140,7 +140,6 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Ingest memory runbook](deployment/ingest-memory-runbook.md) | Verifying the bounded raster decode in production: which build is running, the OOM signature, the `[ingest-mem]` lines, queue depth. Read-only throughout |
 | [Qdrant runbook](deployment/qdrant-runbook.md) | Operating the vector store: metrics and alerts, restore from snapshots, peer replacement, rebuilds, upgrades, key rotation, the backend flip; every procedure with its drill |
 | [Qdrant payload rename runbook](deployment/qdrant-payload-rename-runbook.md) | The English payload keys (`federal_state`, `clause_id`, `guideline`, `chunking: "clause"`), what still reads the German ones, and the rewrite that lets the fallback go |
-| [Coolify](deployment/coolify.md) | The Coolify deployment path |
 | [CD](deployment/cd.md) | Continuous delivery |
 | [Rollback runbook](deployment/rollback.md) | Putting staging or production back on the build it ran before: when, the one command, what it cannot undo (the program, migrations, the data tier), and the follow-up |
 | [Startup Flow](deployment/startup-flow.md) | Boot sequence: PostgreSQL init, SeaweedFS, uvicorn, gateway |

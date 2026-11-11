@@ -94,7 +94,7 @@
   "packages/agent/src/agent/knowledge/factory.py": 2,
   "packages/agent/src/agent/knowledge/folder_cards/__init__.py": 1,
   "packages/agent/src/agent/knowledge/folder_cards/build.py": 1,
-  "packages/agent/src/agent/knowledge/folder_cards/worker.py": 4,
+  "packages/agent/src/agent/knowledge/folder_cards/worker.py": 2,
   "packages/agent/src/agent/knowledge/ifc_spatial_client.py": 6,
   "packages/agent/src/agent/knowledge/ingest_status_store.py": 8,
   "packages/agent/src/agent/knowledge/inventory.py": 3,

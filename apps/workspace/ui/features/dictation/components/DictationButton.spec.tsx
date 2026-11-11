@@ -20,6 +20,10 @@ class FakeRecorder {
   static last: FakeRecorder | null = null
   /** A recorder that hands over its data but never reports that it stopped. */
   static reportsStop = true
+  /** A recorder that hung outright: its stop hands over nothing either. */
+  static flushesOnStop = true
+  /** What `start` was given: the timeslice. */
+  static startedWith: unknown[] = []
   state: 'inactive' | 'recording' = 'inactive'
   mimeType: string
   ondataavailable: ((event: { data: Blob }) => void) | null = null
@@ -30,12 +34,19 @@ class FakeRecorder {
     FakeRecorder.last = this
   }
 
-  start() {
+  start(...given: unknown[]) {
+    FakeRecorder.startedWith = given
     this.state = 'recording'
+  }
+
+  /** What a recorder with a timeslice does while it runs: hand over a piece. */
+  slice(bytes: number) {
+    this.ondataavailable?.({ data: new Blob([new Uint8Array(bytes)], { type: this.mimeType }) })
   }
 
   stop() {
     this.state = 'inactive'
+    if (!FakeRecorder.flushesOnStop) return
     this.ondataavailable?.({ data: new Blob([new Uint8Array(2048)], { type: this.mimeType }) })
     if (FakeRecorder.reportsStop) this.onstop?.()
   }
@@ -94,6 +105,8 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   FakeRecorder.supported = ['audio/webm;codecs=opus', 'audio/webm']
   FakeRecorder.reportsStop = true
+  FakeRecorder.flushesOnStop = true
+  FakeRecorder.startedWith = []
   track.stop.mockClear()
   getUserMedia.mockReset().mockResolvedValue(stream)
   fetchMock.mockReset()
@@ -353,5 +366,78 @@ describe('DictationButton', () => {
     expect(onError).not.toHaveBeenCalled()
     expect(track.stop).toHaveBeenCalled()
     await screen.findByTestId('dictation-button')
+  })
+
+  test('a recorder that hung outright, on a recording the meter heard a voice in, says it could not be saved', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.2)
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('The recording could not be saved. Please dictate it again.'))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onTranscript).not.toHaveBeenCalled()
+    expect(track.stop).toHaveBeenCalled()
+    await screen.findByTestId('dictation-button')
+  })
+
+  test('a recorder that hung outright over silence ends without a word', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.001)
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await screen.findByTestId('dictation-button')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onTranscript).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  test('records in slices, so a recorder that hung outright still sends what it had handed over, as one file', async () => {
+    FakeRecorder.reportsStop = false
+    FakeRecorder.flushesOnStop = false
+    installMeter(0.2)
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ text: 'Bis hierher.' })))
+    const { onTranscript, onError } = renderButton()
+
+    await recordFor(2000)
+    expect(FakeRecorder.startedWith).toEqual([1000])
+    FakeRecorder.last?.slice(700)
+    FakeRecorder.last?.slice(300)
+    fireEvent.click(screen.getByTestId('dictation-recording'))
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_LIMIT_MS)
+    })
+
+    await waitFor(() => expect(onTranscript).toHaveBeenCalledWith('Bis hierher.'))
+    expect(onError).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const form = fetchMock.mock.calls[0][1]?.body as FormData
+    const audio = form.get('audio') as File
+    // One blob of every slice in order, typed as the recorder's container.
+    expect(audio.size).toBe(1000)
+    expect(audio.type).toBe('audio/webm;codecs=opus')
+  })
+
+  test('does not slice a recording in a container the sliced file was never measured in', async () => {
+    // Safari records MP4. Until its slices went through the transcription, it records as it always did.
+    FakeRecorder.supported = ['audio/mp4']
+    installMeter(0.2)
+    renderButton()
+
+    await recordFor(2000)
+    expect(FakeRecorder.startedWith).toEqual([])
   })
 })

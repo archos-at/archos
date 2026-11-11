@@ -41,6 +41,7 @@ import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/
 import { surfaceStateOf } from '@/lib/documents/surface-state'
 import { documentTypeOf, DISCIPLINE_TAGS } from '@/lib/documents/tag-vocabulary'
 import type { FolderRow } from '@/lib/documents/shelf-folders'
+import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { listProjectFolders } from '@/lib/projects/folder-service'
 import { folderPathKey } from '@/lib/projects/folders'
 import { isProjectClosed } from '@/lib/projects/project-status'
@@ -276,6 +277,10 @@ export async function reviewUploadFiling(
       originTraceId: judgement.traceId,
     })
   }
+  // The suggestions stand on the shelf's file rows: tell the workspaces open
+  // on it to read them, instead of each asking every few seconds while an
+  // upload is on screen (`useFilingSuggestions`). After the writes, ids of nothing.
+  if (plan.create.length > 0 || withdrawn > 0) publishShelfChanged(organizationId, shelf)
   const sinceSealMs = batch.sealedAt ? Date.now() - new Date(batch.sealedAt).getTime() : null
   console.debug(
     `[filing] batch ${batch.id} (${basis}): ${plan.create.length} proposed, ${withdrawn} withdrawn, ` +

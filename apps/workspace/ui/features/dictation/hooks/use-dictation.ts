@@ -38,6 +38,20 @@ export {
   type DictationState,
 } from '../lib/dictation-machine'
 
+/**
+ * How often the recorder hands over what it has. Without it the only chunk
+ * comes with the stop, so a recorder whose stop never reports left nothing to
+ * send; with it a forced finish holds all but the last second. The chunks are
+ * one stream cut at arbitrary points, and only their concatenation, in order,
+ * is a file: they are never sent singly.
+ *
+ * Only for WebM, where the sliced file was measured to decode whole (Chromium,
+ * November 2026). Safari records MP4 and nobody has sent its slices through
+ * the transcription yet, so there the recorder runs as it always did.
+ */
+const RECORDER_TIMESLICE_MS = 1_000
+const sliced = (mimeType: string): boolean => mimeType.startsWith('audio/webm')
+
 /** How often the level is read: the silence gate's sample rate and the waveform's frame rate. */
 const LEVEL_SAMPLE_MS = 60
 
@@ -161,7 +175,8 @@ function captureMicrophone(
       if (event.data.size > 0) session.chunks.push(event.data)
     }
     recorder.onstop = finish
-    recorder.start()
+    if (sliced(mimeType)) recorder.start(RECORDER_TIMESLICE_MS)
+    else recorder.start()
     session.startedAt = Date.now()
     session.ticker = setInterval(() => {
       const level = session.meter?.read() ?? 0

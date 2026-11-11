@@ -145,5 +145,6 @@ period.
   the AVV should say so in a sentence.
 - `Pulumi.dev.yaml` still carries keys of the retired error-to-issue flow
   (a GitHub token, an Anthropic key). Not read by any code; revoke and delete.
-- `docs/deployment/coolify.md` still documents a Coolify deployment. If one
-  runs with real accounts, its server is a second hoster and needs a row.
+- Coolify was retired as a deployment target on 2026-11-11 and its page is
+  deleted. If a Coolify server still runs with real accounts, it is a second
+  hoster and needs a row until it is shut down.

@@ -135,6 +135,19 @@ it. A row left at `processing` without a live job (from before the jobs, or one
 whose job died) is found by the `reconcile-background-work` Hatchet task, every minute: a row
 with no job gets a new one, a row whose job is dead is failed with its reason.
 
+A job that goes dead does not wait for that task: the run that buries it
+(`buried`, `apps/workspace/bff/jobs-queue/task-run.ts`) fails the rows that name
+it in the same run (`failDocumentsOfDeadJob`,
+`apps/workspace/bff/documents/stuck-processing.ts`), with the sweep's own listing
+and write, minus the quarter of an hour a row must otherwise have waited. That
+covers what step 4's last attempt cannot: a run whose pod was lost on its last
+attempt, a payload that no longer parses and a kind nobody knows never reach
+the handler, and a folder restore or a placement re-read has no last-attempt
+write of its own. Any kind is covered, because the rows are found by the job id
+they name (`metadata.bffJobId`), one batch of 50; the sweep keeps its dead-job
+branch for the rest, for a pod that died between the two writes and for a
+release that buried a job before this existed.
+
 **SeaweedFS config** (`apps/workspace/bff/s3.ts`):
 - Endpoint: `process.env.SEAWEED_ENDPOINT`
 - Bucket: `process.env.SEAWEED_BUCKET || 'grid-documents'`
@@ -619,8 +632,10 @@ catches it on the next ingestion run for that collection.
 Two pollers read two different things.
 
 **Upload progress**: `UploadOrchestrator` (`apps/workspace/ui/features/documents/orchestrator.ts`, a singleton outside the React lifecycle)
-- Polls the backend JOB every 5 seconds through the BFF proxy: `GET /api/v1/documents/{jobId}/status` (`documentsClient.getJobStatus`), which reaches `GET /v1/documents/{job_id}/status` in `documents.py` and returns `IngestionJobStatus` with per-file progress
-- Maximum 420 poll attempts (~35 minutes)
+- Reads the backend JOB through the BFF proxy: `GET /api/v1/documents/{jobId}/status` (`documentsClient.getJobStatus`), which reaches `GET /v1/documents/{job_id}/status` in `documents.py` and returns `IngestionJobStatus` with per-file progress
+- For a project or office-shelf upload it reads when the shelf's live channel says a read settled (`shelf.changed`, passed on by `useUploadOrchestrator` as `UploadOrchestrator.askNow()`; the server publishes it from `reconcileDocumentStatuses`, which the ingest worker's settle push reaches the moment the job ends), and once a minute otherwise (`FALLBACK_POLL_MS`), so a lost hint costs time and never strands a row. There is no attempt budget: a long read is followed for as long as it runs. After 35 minutes on one job the person is told once that it is still being read (`STILL_READING_AFTER_MS`). A hint that arrives while a status read is in flight asks once more after it
+- A chat's attachments are on no shelf and have no channel: their listing is re-read every 5 seconds for 420 attempts (~35 minutes), then once a minute (`pollSessionDocuments`)
+- A row no job follows (a detached extraction, a job the store forgot) is asked about by document id on the same hint and the same floor (`lib/document-watch.ts`)
 - Persists job state to localStorage for recovery on page refresh
 - Updates `TrackedFile` entries in the Zustand store from the job status. A file the job ends `failed` with a `quarantine` verdict becomes `held`, not `failed` (`trackedStatusOfJobFile`; a job from before the typed field is read by its `quarantined:{…}` error), so the tray never offers to retry a file the content check held back (ADR-0086). A row settled by a document status read takes the status's read family instead (`trackedPatchFromStatus`): `quarantined` is `held`, `uploaded` and `stored` are `stored`, never `success`. The tray's states: [`docs/ux/file-upload-and-explorer.md`](../ux/file-upload-and-explorer.md#the-rule)
 

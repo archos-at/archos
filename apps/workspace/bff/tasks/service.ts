@@ -30,7 +30,7 @@ import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { InboxItemType } from '@/lib/db/schema/inbox'
 import type { TaskRun, TaskRunStatus } from '@/lib/db/schema/task-model'
-import type { TaskKind } from '@/lib/db/schema/tasks'
+import type { TaskKind } from '@/lib/db/schema/task-model'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
@@ -97,7 +97,7 @@ export interface RecordOutcomeOptions {
 type CompletedRun = { run: TaskRun; filed: { documentId: string; filename: string } | null }
 
 function closingPatch(outcome: TaskOutcome) {
-  return { status: OUTCOME_TO_STATUS[outcome.status], error: outcome.error ?? null, finishedAt: new Date() }
+  return { status: OUTCOME_TO_STATUS[outcome.status], error: outcome.error ?? null }
 }
 
 /**
