@@ -1,6 +1,6 @@
 /**
  * A lifecycle: the states one record can be in and every move between them,
- * declared once (ADR-0178). The shape is a statechart's (`id`, `initial`,
+ * declared once (ADR-0179). The shape is a statechart's (`id`, `initial`,
  * `states[state].on[event] = target`, `type: 'final'`), the one SCXML and
  * XState use, so the config is readable by anyone who knows either, draws in
  * their tools unchanged ({@link Lifecycle.statechart}) and is checked against

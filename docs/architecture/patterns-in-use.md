@@ -205,7 +205,7 @@ stays the repository's compare-and-set, whose `WHERE` reads its list from the
 declaration (`sourcesOf(event)`, `liveStates`, `finalStates`) and not from a
 literal. Who may make a move and what it stamps stay in the service. Work that
 takes time runs on Hatchet (ADR-0150), and its queued, running and retrying are
-the engine's, not states of the record. ADR-0178; the declared ones are drawn in
+the engine's, not states of the record. ADR-0179; the declared ones are drawn in
 [`lifecycles.generated.md`](lifecycles.generated.md), the ones still implicit
 are listed in [`../audit/implicit-state-machines-2026-11.md`](../audit/implicit-state-machines-2026-11.md).
 **Enforced by:** `apps/workspace/shared/lifecycle/define-lifecycle.spec.ts`

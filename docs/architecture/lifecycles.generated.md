@@ -4,7 +4,7 @@
      change the declaration and run: UPDATE_FIXTURES=1 bunx vitest run bff/lifecycles/registry.spec.ts -->
 
 Every record whose states and legal moves are declared in code, as the code declares them. Why they are
-declared this way, and which machines are not here yet: [ADR-0178](../adr/0178-lifecycles-are-declared-as-statechart-tables.md).
+declared this way, and which machines are not here yet: [ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md).
 
 ## project
 

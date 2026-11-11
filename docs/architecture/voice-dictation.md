@@ -70,7 +70,7 @@ insertTranscript at caret ◀──────────
 | Concern | Owning code |
 |---|---|
 | The button and its states | `apps/workspace/ui/features/dictation/components/DictationButton.tsx` (`DictationButton`, presentational `DictationControl`) |
-| The phases and every move between them, the 45 s stop, the silence gate | `apps/workspace/ui/features/dictation/lib/dictation-machine.ts` (an XState machine, ADR-0178) |
+| The phases and every move between them, the 45 s stop, the silence gate | `apps/workspace/ui/features/dictation/lib/dictation-machine.ts` (an XState machine, ADR-0179) |
 | The microphone, the recorder and the request the machine drives | `apps/workspace/ui/features/dictation/hooks/use-dictation.ts` |
 | Which browsers can dictate, and why not | `apps/workspace/ui/features/dictation/lib/recording-support.ts` |
 | Where the text goes | `apps/workspace/ui/features/dictation/lib/insert-transcript.ts` |

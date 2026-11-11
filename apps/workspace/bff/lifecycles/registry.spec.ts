@@ -3,7 +3,7 @@
  * @vitest-environment node
  */
 /**
- * The declared lifecycles (ADR-0178), held three ways:
+ * The declared lifecycles (ADR-0179), held three ways:
  *
  * - each means what a statechart interpreter says it means (XState is the oracle);
  * - `docs/architecture/lifecycles.generated.md` is what the code declares, so a
@@ -55,7 +55,7 @@ function render(): string {
     '     change the declaration and run: UPDATE_FIXTURES=1 bunx vitest run bff/lifecycles/registry.spec.ts -->',
     '',
     'Every record whose states and legal moves are declared in code, as the code declares them. Why they are',
-    'declared this way, and which machines are not here yet: [ADR-0178](../adr/0178-lifecycles-are-declared-as-statechart-tables.md).',
+    'declared this way, and which machines are not here yet: [ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md).',
     '',
     ...LIFECYCLES.map(section),
   ].join('\n')

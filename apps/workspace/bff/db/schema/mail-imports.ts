@@ -7,7 +7,7 @@ export const MAIL_IMPORT_STATUSES = ['uploading', 'queued', 'importing', 'comple
 export type MailImportStatus = (typeof MAIL_IMPORT_STATUSES)[number]
 
 /**
- * An import's lifecycle (ADR-0178). The browser sends the archive
+ * An import's lifecycle (ADR-0179). The browser sends the archive
  * (`uploading`), the person's last chunk queues it, the job imports it. A
  * person may cancel until it has ended; the job may end a run it has not yet
  * marked `importing`. Every end is final.

@@ -157,7 +157,7 @@ export const ROOT_SORT_RUN_STATUSES = [
 export type RootSortRunStatus = (typeof ROOT_SORT_RUN_STATUSES)[number]
 
 /**
- * A run's lifecycle (ADR-0178). The job works a run through `judging`,
+ * A run's lifecycle (ADR-0179). The job works a run through `judging`,
  * `grouping`, `applying` and `undoing` and moves it on when a step is finished
  * (`advance`); a person reviews a `ready` run and applies or cancels it, and
  * may undo what an applied run moved, also after it failed part of the way.

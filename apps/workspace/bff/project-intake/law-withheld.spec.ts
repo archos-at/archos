@@ -67,9 +67,9 @@ describe('a class while the knowledge context withholds law', () => {
   it('is not in the intake the review shows', () => {
     const row = { projectId: 'p1', status: 'read', mode: 'active', documentsRead: [] } as unknown as ProjectIntakeRow
     const input = { row, profile: derived(), definition, needs: [], unreadDocuments: 0, canDecide: true, canComplete: false }
-    const named = buildIntakeView({ ...input, applicableLaw: { gate: 'core', uses: [] } })
+    const named = buildIntakeView({ ...input, applicableLaw: { gate: 'core', uses: [], factLabels: {} } })
     expect(named.derivations[0]?.value).not.toBeNull()
-    const withheld = buildIntakeView({ ...input, applicableLaw: { gate: 'not_entitled', uses: [] } })
+    const withheld = buildIntakeView({ ...input, applicableLaw: { gate: 'not_entitled', uses: [], factLabels: {} } })
     expect(withheld.derivations).toEqual([])
     expect(JSON.stringify(withheld)).not.toContain(CLASS)
   })

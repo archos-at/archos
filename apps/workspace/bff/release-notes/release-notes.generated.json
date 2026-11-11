@@ -481,6 +481,14 @@
         },
         {
           "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
+            "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",

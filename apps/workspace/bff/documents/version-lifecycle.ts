@@ -3,7 +3,7 @@ import { DOCUMENT_VERSION_TRANSITIONS, type DocumentVersionOp } from './lifecycl
 import { DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
 
 /**
- * `DOCUMENT_VERSION_TRANSITIONS` read as a lifecycle (ADR-0178), for whoever asks the general
+ * `DOCUMENT_VERSION_TRANSITIONS` read as a lifecycle (ADR-0179), for whoever asks the general
  * questions (which states are final, what may become `published`, the diagram
  * in `docs/architecture/lifecycles.generated.md`). The rows stay the source:
  * they carry actor, permission, guards and effects, which a lifecycle does not.

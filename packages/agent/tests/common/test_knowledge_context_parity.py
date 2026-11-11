@@ -60,6 +60,9 @@ UNREAD_ENUMS: dict[str, str] = {
     "/properties/uses/items/properties/freshness": "the chain text states it, and the role already carries it",
     "/properties/uses/items/properties/connectsBy/items": "the chain text states it, and the role already carries it",
     "/properties/uses/items/properties/labels/items": "the chain text states each",
+    "/properties/uses/items/properties/applicability/anyOf/0/properties/verdict": (
+        "read as settled (applies, no open fact) or not: every other verdict, an unknown one included, is unsettled"
+    ),
 }
 
 #: The context's properties the agent reads, as ``KnowledgeContext`` holds them.
@@ -86,11 +89,12 @@ IGNORED_USE_KEYS: dict[str, str] = {
     "lastCheckedAt": "stated in the chain text",
     "connectsBy": "stated in the chain text; the role already carries its correction",
     "labels": "stated in the chain text",
+    "sourceUrl": "where a person opens the edition's text; a citation links its own passage",
 }
 
-#: EditionUse fields read from a use key on a wire this branch does not carry yet, and where it comes from.
-FORWARD_USE_FIELDS: dict[str, str] = {
-    "scope_unsettled": "applicability (ADR-0177, #1589); absent, the edition states no scope",
+#: EditionUse fields read from a use key of another name, and the key (ADR-0178: null, the edition states no scope).
+DERIVED_USE_FIELDS: dict[str, str] = {
+    "scope_unsettled": "applicability",
 }
 
 
@@ -125,8 +129,8 @@ def test_every_property_of_the_context_is_read_or_named_as_ignored() -> None:
 
 
 def test_every_property_of_a_use_is_read_or_named_as_ignored() -> None:
-    read = {_camel(field.name) for field in dataclasses.fields(EditionUse) if field.name not in FORWARD_USE_FIELDS}
-    sent = set(CONTEXT["properties"]["uses"]["items"]["properties"]) - {"applicability"}
+    read = {DERIVED_USE_FIELDS.get(field.name, _camel(field.name)) for field in dataclasses.fields(EditionUse)}
+    sent = set(CONTEXT["properties"]["uses"]["items"]["properties"])
     assert sorted(sent) == sorted(read | set(IGNORED_USE_KEYS))
 
 

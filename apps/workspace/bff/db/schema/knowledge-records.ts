@@ -128,6 +128,8 @@ export const knowledgeEditionRevisions = pgTable('knowledge_edition_revisions', 
   outline: jsonb('outline').$type<unknown[]>().notNull().default([]),
   /** An amending edition's transitional rule, a `decision_table.v1` giving old_law, new_law or choice (0206). */
   transition: jsonb('transition').$type<Record<string, unknown> | null>(),
+  /** Its scope, a `decision_table.v1` over the building facts with a boolean output (0221, ADR-0178); null applies to every building. */
+  appliesWhen: jsonb('applies_when').$type<Record<string, unknown> | null>(),
 })
 
 export const knowledgeManifestationRevisions = pgTable('knowledge_manifestation_revisions', {

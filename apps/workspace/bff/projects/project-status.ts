@@ -42,7 +42,7 @@ export const PROJECT_OUTCOMES = ['completed', 'cancelled'] as const
 export type ProjectOutcome = (typeof PROJECT_OUTCOMES)[number]
 
 /**
- * The machine, declared once (ADR-0178): every state, and each move by the
+ * The machine, declared once (ADR-0179): every state, and each move by the
  * name it is audited under (`project.paused`, `project.resumed`,
  * `project.closed`, `project.reopened`). Anything else is refused (409
  * `invalid-transition`).

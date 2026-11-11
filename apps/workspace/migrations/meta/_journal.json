@@ -1548,6 +1548,13 @@
       "when": 1793510000000,
       "tag": "0220_usage_events_cache_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1793600000000,
+      "tag": "0221_edition_applies_when",
+      "breakpoints": true
     }
   ]
 }

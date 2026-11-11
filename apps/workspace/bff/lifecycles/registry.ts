@@ -1,5 +1,5 @@
 /**
- * Every declared lifecycle in the workspace (ADR-0178), in one list: what the
+ * Every declared lifecycle in the workspace (ADR-0179), in one list: what the
  * generated reference (`docs/architecture/lifecycles.generated.md`) draws and
  * what `registry.spec.ts` checks against a statechart interpreter.
  *

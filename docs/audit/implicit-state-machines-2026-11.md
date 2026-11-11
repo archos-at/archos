@@ -2,7 +2,7 @@
 
 A sweep of the whole repository on 2026-11-11 for things that move through a
 fixed set of states without their legal moves being declared in one place. The
-decision it led to is [ADR-0178](../adr/0178-lifecycles-are-declared-as-statechart-tables.md);
+decision it led to is [ADR-0179](../adr/0179-lifecycles-are-declared-as-statechart-tables.md);
 the machines already declared are drawn in
 [`architecture/lifecycles.generated.md`](../architecture/lifecycles.generated.md).
 
