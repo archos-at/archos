@@ -23,6 +23,10 @@ from agent.citations.source_identity import source_origin_token
 from agent.citations.wire import read_source_to_wire
 from agent.citations.wire import source_entry_to_wire
 from agent.common import citation_events
+from agent.common.binding_claims import BindingClaim
+from agent.common.binding_claims import law_cited_from_web
+from agent.common.binding_claims import score_answer
+from agent.common.binding_claims import turn_binding_claims
 from agent.common.law_gate import law_unsettled
 from agent.common.retrieval_ledger import build_retrieval_ledger
 from agent.tools.bim.measurement_sources import MeasurementSource
@@ -159,6 +163,15 @@ def record_turn_ledger(
     )
 
 
+def _claims_without_records(final: FinalAnswer) -> list[BindingClaim]:
+    """The answer's sentences that state law without the records (``common/binding_claims.py``), scored."""
+    if not final.answered:
+        return []
+    claims = turn_binding_claims(final.content, [(source.entry, source.number) for source in final.cited])
+    score_answer(claims, law_cited_from_web(source.entry for source in final.cited))
+    return claims
+
+
 def assemble_result(
     graph_result: dict[str, Any],
     final: FinalAnswer,
@@ -175,6 +188,7 @@ def assemble_result(
     grounding signals reach the conversation graph by the same path.
     """
     measurement_grounded = bool(graph_result.get("answer_measurement_grounded", False))
+    claims = _claims_without_records(final)
     wire = wire_sources(final.cited)
     ledger = build_retrieval_ledger(graph_result.get("retrieval_rounds"), lane_hits)
     result: dict[str, Any] = {
@@ -185,7 +199,8 @@ def assemble_result(
         "confidence_check": final.confidence_check,
         "answer_lookup_found_nothing": final.lookup_found_nothing,
         "answer_quotes_verified": final.quotes_verified,
-        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited),
+        # A sentence that states law without the records caps like law the records do not settle.
+        "answer_law_unsettled": law_unsettled(source.entry for source in final.cited) or bool(claims),
         "escalation_requested": final.escalation_requested,
         "answer_is_handoff": final.answer_is_handoff,
         "answer_confidence_marker": final.confidence_marker,

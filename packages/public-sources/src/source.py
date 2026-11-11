@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import PrivateAttr
+from pydantic import ValidationInfo
 from pydantic import field_validator
 from pydantic import model_validator
 
@@ -209,6 +210,11 @@ class Source(_Strict):
     #: Every host the source may reach, exact DNS names. A redirect off this
     #: list is refused at every hop, and the fetcher refuses it again.
     hosts: tuple[str, ...]
+    #: Hosts that republish this source's texts (a law mirror, an aggregator), exact DNS names, never
+    #: reached by a fetch. A web hit on one is a copy of what this source holds: it is not handed on as
+    #: a source where this source can be read, and labelled as a copy where it cannot
+    #: (``agent.common.web_sources``). A subdomain of a listed host counts as that host.
+    copy_hosts: tuple[str, ...] = ()
     data_flow: DataFlow = "public_only"
     terms: Terms
     monitor: Monitor = Monitor()
@@ -244,6 +250,17 @@ class Source(_Strict):
         bad = [host for host in value if not _HOST_RE.fullmatch(host)]
         if bad:
             raise ValueError(f"hosts must be exact lower-case DNS names (no scheme, port or wildcard): {bad}")
+        return value
+
+    @field_validator("copy_hosts")
+    @classmethod
+    def _copy_hosts_shape(cls, value: tuple[str, ...], info: ValidationInfo) -> tuple[str, ...]:
+        bad = [host for host in value if not _HOST_RE.fullmatch(host)]
+        if bad:
+            raise ValueError(f"copy_hosts must be exact lower-case DNS names (no scheme, port or wildcard): {bad}")
+        own = sorted(set(value) & set(info.data.get("hosts") or ()))
+        if own:
+            raise ValueError(f"a host is the source's own or a copy of it, never both: {own}")
         return value
 
     @field_validator("fixtures")
