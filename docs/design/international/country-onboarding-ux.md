@@ -93,6 +93,40 @@ What Austria's data looks like on the map today, from the pack: Steiermark and V
 
 ## C. The data and process changes
 
+### C0. Hierarchy and inheritance
+
+Three trees carry everything, and every screen hangs off them:
+
+- **Territory**: country → Land or region → district → municipality. It is imported from ISO 3166-2 and the official register, never reviewed like law.
+- **Law**: federal → Land, and within a level, statute → ordinance → technical guideline → standard. An ordinance exists under a statute, and a guideline binds only through an act.
+- **Adoption**: a body publishes a guideline edition (OIB), and each Land's act adopts it from a date, with deviations.
+
+Inheritance is explicit. A territory reads every binding of its ancestors that it does not override: a Gemeinde in Steiermark reads Steiermark's bindings, and Steiermark reads Austria's and the EU's. An override is a statement on the lower level for the same topic, and the resolver already works this way, walking up the territory chain. A deviation is shown as a deviation, a difference from the adopted edition with its Punkt and the act's wording, never as a copy of the edition. The UI shows each value with where it comes from: "own", "from Österreich", or "deviates from OIB-RL 6:2025, Pkt. 2.2".
+
+So a new country is mostly three steps: import the tree, attach the acts, mark the deviations.
+
+### Where this departs from the owner's framing, and why
+
+The owner asked for his ideas to be treated as hypotheses. These held: the hierarchy as the frame, regions as imported reference data, the law map, and the adoption act as the source of "binds". These changed:
+
+- **Rows are law-making bodies, not ISO subdivisions.** Usually they are the same. Where they differ (an intercantonal concordat, an autonomous province, municipal plans) the map follows who makes the law.
+- **The map needs two dates.** An expert asks what applies to a procedure filed on a given day, not only what is in force today. The adoption statement therefore carries its transitional rule.
+- **Municipal plans are not map rows.** Every Gemeinde has them and few are in a gazette, so they belong to a project's site.
+- **Navigation is a folder tree, not a sidebar.** The owner found the sidebar version hard to navigate.
+
+### Decisions taken (2026-11-11, defaults the owner may revise)
+
+1. Statements that cite only the OIB overview do not block on dev. The agent captures the Land's act from the gazette where it can. What stays secondary is released marked "secondary source" and shown so on the map. On prod, the expert must tick "checked against the gazette".
+2. Release on prod needs a dedicated release permission, and the expert who confirms a request cannot release it.
+3. Reference-data additions on prod are one person's job, audited.
+4. Municipalities come later; the law map does not need them.
+5. Generated questions run before a country's first release and on any release that changes a binding.
+6. The OIB overview is a monitor signal only, never a citation.
+7. Who holds the expert role on prod is open. The build supports both a second expert and the "one expert" mark.
+8. Raumordnung, parking and federal law come later, and the model must take them without code.
+
+Every bulk write is batched at 1,000 rows or fewer. Today `insertReviewDecisions` writes all verdicts in one INSERT with 9 parameters a row, which fails past about 7,200 rows. A review unit that is not one row per field also removes most of that volume.
+
 ### C1. Three kinds of data, three treatments
 
 | Kind | What it is | Examples | Citation | Review | Four eyes on prod |
