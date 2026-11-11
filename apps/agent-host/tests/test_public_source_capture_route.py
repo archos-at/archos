@@ -320,3 +320,24 @@ async def test_a_text_is_kept_under_a_name_that_carries_its_hash_and_nothing_is_
     assert taken.status_code == 409
     assert taken.json()["code"] == "name_taken"
     assert len(kept["stored"]) == 1
+
+
+async def test_a_stored_text_whose_job_the_queue_did_not_take_is_answered_as_stored(client, kept, fetcher, monkeypatch):
+    """The file is in the corpus and the next sync cycle queues it: a 502 would say it is not there."""
+    from agent import oib_sync
+    from agent_host.jobs.ingest_dispatch import QueueUnavailable
+
+    def store_without_queue(name, data, doc_class=None, *, enqueue):
+        kept["stored"].append((name, data))
+        raise QueueUnavailable("could not hand ingestion job j to Hatchet: WorkflowNotRegistered")
+
+    monkeypatch.setattr(oib_sync, "store_and_request", store_without_queue)
+    monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", FETCHER)
+    answer = await client.post(
+        "/v1/public-sources/corpus-text",
+        headers=HEADERS,
+        json={"source": "at-ris", "url": PDF_URL, "fileStem": "richtlinie-1"},
+    )
+    assert answer.status_code == 200
+    assert answer.json()["stored"] is True
+    assert kept["stored"] == [(answer.json()["fileName"], PDF_BYTES)]
