@@ -154,7 +154,11 @@ def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
     row = corpus_store.get_file(name)
     if row is not None:
         return "unchanged" if row.sha256 == sha256 else "name_taken"
-    oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
+    try:
+        oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
+    except corpus_store.CorpusFileImmutable:
+        # Somebody stored other bytes under the name between the read above and the store's lock.
+        return "name_taken"
     return "stored"
 
 

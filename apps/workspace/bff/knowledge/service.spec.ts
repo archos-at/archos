@@ -212,6 +212,12 @@ describe('knowledge admin operations', () => {
     expect((init?.headers as Record<string, string>)['X-Admin-Token']).toBe('admin-secret')
   })
 
+  it('answers the api tier’s refusal to put other bytes under a name it keeps as a conflict, not as a broken backend', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: 'the base corpus keeps other bytes as norm.pdf' }), { status: 409 }))
+
+    await expect(uploadKnowledgeBaseDocument(new File([new Uint8Array([1])], 'norm.pdf'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+  })
+
   it('rejects non-PDF or path-carrying filenames before calling the backend', async () => {
     await expect(uploadKnowledgeBaseDocument(new File([new Uint8Array([1])], 'evil.exe'))).rejects.toBeInstanceOf(
       BadRequestError,

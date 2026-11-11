@@ -32,6 +32,26 @@ describe('the hashes of a plain corpus upload', () => {
   })
 
   it('refuses a ZIP it cannot read', async () => {
-    await expect(uploadedPdfHashes(new File(['not a zip'], 'texts.zip'))).rejects.toMatchObject({ status: 400 })
+    await expect(uploadedPdfHashes(new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3])], 'texts.zip'))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('decides ZIP or PDF by the first bytes, as the api tier does, and refuses a name that says otherwise', async () => {
+    const archive = zipSync({ 'oib-rl-1.pdf': strToU8('other bytes') })
+    // The reported attack: a ZIP sent as one PDF, whatever content type the part claims.
+    await expect(uploadedPdfHashes(new File([archive], 'innocent.pdf', { type: 'application/zip' }))).rejects.toMatchObject({ status: 400 })
+    await expect(uploadedPdfHashes(new File([archive], 'innocent.pdf', { type: 'application/pdf' }))).rejects.toMatchObject({ status: 400 })
+    await expect(uploadedPdfHashes(new File(['%PDF-1.7 one'], 'texts.zip'))).rejects.toMatchObject({ status: 400 })
+    // A content type alone makes nothing a ZIP.
+    expect([...(await uploadedPdfHashes(new File(['one'], 'oib-rl-1.pdf', { type: 'application/zip' })))]).toEqual([['oib-rl-1.pdf', sha('one')]])
+  })
+
+  it.each([['x.pdf\0y.pdf'], ['x.pdf\0.txt'], ['a\\x.pdf'], ['a/../x.pdf']])('refuses a ZIP with a member two readers would name differently: %j', async (member) => {
+    await expect(uploadedPdfHashes(zip({ [member]: 'other bytes', 'ok.pdf': 'one' }))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('compares names in one normal form', async () => {
+    const decomposed = 'Prüfung.pdf'
+    expect([...(await uploadedPdfHashes(new File(['one'], ` ${decomposed} `))).keys()]).toEqual(['Prüfung.pdf'])
+    expect([...(await uploadedPdfHashes(zip({ [`a/${decomposed}`]: 'one' }))).keys()]).toEqual(['Prüfung.pdf'])
   })
 })

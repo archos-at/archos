@@ -132,6 +132,18 @@ class CorpusStoreError(RuntimeError):
     """
 
 
+class CorpusFileImmutable(CorpusStoreError):
+    """A name the corpus keeps was offered other bytes: a corpus file's bytes never change (ADR-0165).
+
+    Another text is another file. To put other bytes under a name, the file is
+    removed first, and the BFF refuses to remove one a platform record names.
+    """
+
+    def __init__(self, name: str):
+        super().__init__(f"the base corpus keeps other bytes as {name}; remove that file first, or use another name")
+        self.file_name = name
+
+
 @dataclass(frozen=True)
 class FileRow:
     """One corpus PDF as the table records it."""

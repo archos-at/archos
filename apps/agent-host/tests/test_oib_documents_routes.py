@@ -10,6 +10,7 @@ PREPARE a job: an upload or a re-ingest must leave a job in the queue and ingest
 nothing in the route's own process.
 """
 
+import hashlib
 import io
 import os
 import tarfile
@@ -313,6 +314,92 @@ async def test_zip_slip_member_rejected(app, bucket):
     assert "unsafe" in rejected["reason"].lower()
     # The traversal target was never stored.
     assert set(bucket.objects) == {"base-corpus/ok.pdf"}
+
+
+async def _upload(app, name: str, content: bytes, content_type: str):
+    async with _client(app) as client:
+        return await client.post("/v1/admin/oib/documents", files={"file": (name, content, content_type)})
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_corpus_keeps_takes_the_same_bytes_and_no_others(app, bucket, ingestor):
+    """A corpus file is immutable in the tier that writes it (ADR-0165): a reviewer's bytes stay the published ones."""
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "oib-rl-2.pdf", reviewed, "application/pdf")).status_code == 200
+
+    again = await _upload(app, "oib-rl-2.pdf", reviewed, "application/pdf")
+    other = await _upload(app, "oib-rl-2.pdf", _pdf_bytes(b"%PDF-1.4 other bytes"), "application/pdf")
+
+    assert again.status_code == 200
+    assert other.status_code == 409 and "other bytes" in other.json()["detail"]
+    assert bucket.objects["base-corpus/oib-rl-2.pdf"] == reviewed
+    assert corpus_store.get_file("oib-rl-2.pdf").sha256 == hashlib.sha256(reviewed).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_a_zip_sent_as_a_pdf_replaces_no_file(app, bucket):
+    """The reported attack: `innocent.pdf`, `Content-Type: application/zip`, a ZIP body holding a named text.
+
+    The BFF hashed one file, `innocent.pdf`, and let it through; this tier read the content type, extracted the
+    member and replaced the text. Both tiers now decide by the bytes, the name has to agree, and a member that
+    reaches the store under a name it keeps is refused there.
+    """
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "at-oib-rl-2-aaaaaaaaaaaa.pdf", reviewed, "application/pdf")).status_code == 200
+    archive = _build_zip({"at-oib-rl-2-aaaaaaaaaaaa.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text")})
+
+    disguised = await _upload(app, "innocent.pdf", archive, "application/zip")
+    honest = await _upload(app, "bulk.zip", archive, "application/zip")
+
+    assert disguised.status_code == 400 and "disagree" in disguised.json()["detail"]
+    member = honest.json()["members"][0]
+    assert (member["status"], member["reason"]) == ("rejected", "the corpus keeps other bytes under this name")
+    assert bucket.objects == {"base-corpus/at-oib-rl-2-aaaaaaaaaaaa.pdf": reviewed}
+    assert set(corpus_store.list_files()) == {"at-oib-rl-2-aaaaaaaaaaaa.pdf"}
+
+
+@pytest.mark.asyncio
+async def test_the_content_type_decides_nothing_about_an_upload(app, bucket):
+    as_zip = await _upload(app, "plan.pdf", _pdf_bytes(), "application/zip")
+    not_a_zip = await _upload(app, "bulk.zip", _pdf_bytes(), "application/zip")
+
+    assert as_zip.status_code == 200 and as_zip.json()["kind"] == "file"
+    assert not_a_zip.status_code == 400
+    assert set(bucket.objects) == {"base-corpus/plan.pdf"}
+
+
+def _zip_with_raw_names(members: dict[str, bytes]) -> bytes:
+    """A ZIP whose member names are written as given: `ZipInfo` itself would cut one at a NUL."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in members.items():
+            info = zipfile.ZipInfo("placeholder.pdf")
+            info.filename = name
+            zf.writestr(info, data)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_a_zip_member_two_readers_would_name_differently_is_kept_under_no_name(app, bucket):
+    """The second attack: `x.pdf\0y.pdf`. The BFF's reader keeps the NUL, zipfile cuts the name to `x.pdf`."""
+    reviewed = _pdf_bytes(b"%PDF-1.4 the text a reviewer read")
+    assert (await _upload(app, "x.pdf", reviewed, "application/pdf")).status_code == 200
+    archive = _zip_with_raw_names(
+        {
+            "x.pdf\0y.pdf": _pdf_bytes(b"%PDF-1.4 the attacker's text"),
+            "fresh.pdf\0z.pdf": _pdf_bytes(),
+            "a\\b.pdf": _pdf_bytes(),
+            "sub/../c.pdf": _pdf_bytes(),
+            "ok.pdf": _pdf_bytes(),
+        }
+    )
+
+    res = await _upload(app, "bulk.zip", archive, "application/zip")
+
+    body = res.json()
+    assert (body["accepted"], body["rejected"]) == (1, 4)
+    assert all("unsafe" in m["reason"] for m in body["members"] if m["status"] == "rejected")
+    assert bucket.objects == {"base-corpus/x.pdf": reviewed, "base-corpus/ok.pdf": _pdf_bytes()}
 
 
 @pytest.mark.asyncio

@@ -340,14 +340,24 @@ def request_ingestion(name: str, doc_class: str | None = None, *, enqueue: Enque
 
 
 def store_and_request(name: str, data: bytes, doc_class: str | None = None, *, enqueue: EnqueueIngestJob) -> bool:
-    """An admin upload: store the file, then queue its job, with no cycle able to come between.
+    """An upload, a ZIP member or a fetched text: store the file, then queue its job, with no cycle in between.
+
+    **A corpus file is immutable here, the one place that writes one** (ADR-0165). A name the
+    corpus keeps takes the same bytes as a no-op and any others not at all
+    (``CorpusFileImmutable``): the bytes a reviewer read under a name are the bytes a publish
+    indexes, whatever a caller thought the upload was. The check and the store share the file's
+    lock, which holds across replicas, so two uploads of one name cannot both be first.
 
     Raises ``CorpusStoreError`` if the object store refuses the file (nothing is listed then), and
     ``QueueUnavailable`` if the file is stored but its job could not be queued (the next cycle
     queues it).
     """
     with _file_lock(name):
-        corpus_store.put(name, data)
+        held = corpus_store.get_file(name)
+        if held is None:
+            corpus_store.put(name, data)
+        elif held.sha256 != hashlib.sha256(data).hexdigest():
+            raise corpus_store.CorpusFileImmutable(name)
         return _request_locked(name, doc_class, enqueue)
 
 

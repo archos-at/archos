@@ -32,6 +32,7 @@
 
 import { createHash } from 'node:crypto'
 import { sql } from 'drizzle-orm'
+import { strToU8, zipSync } from 'fflate'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { UserSession } from '@/lib/auth/types'
 
@@ -67,8 +68,11 @@ vi.mock('@/lib/knowledge/service', () => ({
   },
   uploadKnowledgeBaseDocument: async (file: File) => {
     const bytes = Buffer.from(await file.arrayBuffer())
+    const hash = createHash('sha256').update(bytes).digest('hex')
+    // As the api tier: a name it keeps takes the same bytes and no others (`oib_sync.store_and_request`).
+    if (corpus.files.has(file.name) && corpus.files.get(file.name) !== hash) throw Object.assign(new Error('NAME_TAKEN'), { status: 409, code: 'NAME_TAKEN' })
     corpus.bytes.set(file.name, bytes)
-    corpus.files.set(file.name, createHash('sha256').update(bytes).digest('hex'))
+    corpus.files.set(file.name, hash)
     return { status: 'pending', kind: 'file', fileName: file.name, message: '' }
   },
   reingestKnowledgeBaseDocuments: async (names: string[], marks: Record<string, unknown> = {}) => {
@@ -111,6 +115,8 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
   let service: typeof import('./service')
   let onboarding: typeof import('./onboarding')
   let texts: typeof import('./texts')
+  let uploadHashes: typeof import('./upload-hashes')
+  let knowledge: typeof import('@/lib/knowledge/service')
   let store: typeof import('./store')
   let release: typeof import('./release')
   let indexing: typeof import('./indexing')
@@ -193,6 +199,8 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     service = await import('./service')
     onboarding = await import('./onboarding')
     texts = await import('./texts')
+    uploadHashes = await import('./upload-hashes')
+    knowledge = await import('@/lib/knowledge/service')
     store = await import('./store')
     release = await import('./release')
     indexing = await import('./indexing')
@@ -473,6 +481,34 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
       tamper(name, 'the reviewed text')
       await texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(pdfName('plain-upload'), 'a later text'))
       await expect(texts.refuseReplacingNamedTexts(new Map([[name, 'f'.repeat(64)]]))).rejects.toMatchObject({ status: 409 })
+    })
+
+    it('reads a plain upload as the api tier does: a ZIP sent as a PDF, or holding a member with a NUL in its name, is refused before the corpus is asked', async () => {
+      const { id, records, manifestation, manifestationKey } = await draft('disguised')
+      await service.proposePlatformRecords(AUTHOR, id, { records: [...records, manifestation], dryRun: false })
+      const name = (await texts.uploadPlatformText(AUTHOR, id, manifestationKey, pdf(pdfName('disguised'), 'the reviewed text'))).text.corpusFile
+      const pinned = corpus.files.get(name)
+      /** The plain upload's route: what it would store, the guard on named texts, then the corpus. */
+      const plainUpload = async (file: File) => {
+        await texts.refuseReplacingNamedTexts(await uploadHashes.uploadedPdfHashes(file))
+        return knowledge.uploadKnowledgeBaseDocument(file)
+      }
+      const other = strToU8('%PDF-1.7\nthe attacker’s text\n%%EOF')
+
+      // The reported attack: this tier read one file, `innocent.pdf`, that no record names; the api tier read the
+      // content type, extracted the member and put its bytes under the named text.
+      const disguised = new File([zipSync({ [name]: other })], 'innocent.pdf', { type: 'application/zip' })
+      await expect(plainUpload(disguised)).rejects.toMatchObject({ status: 400 })
+      // The second: fflate keeps the NUL, the api tier's reader cut the name to the named text's.
+      const cut = new File([zipSync({ [`${name}\0y.pdf`]: other })], 'texts.zip', { type: 'application/zip' })
+      await expect(plainUpload(cut)).rejects.toMatchObject({ status: 400 })
+      // An honest ZIP of the same member is refused by the guard, as before.
+      await expect(plainUpload(new File([zipSync({ [name]: other })], 'texts.zip'))).rejects.toMatchObject({ status: 409, code: 'NAME_TAKEN' })
+
+      expect(corpus.files.get(name)).toBe(pinned)
+      expect([...corpus.files.keys()].filter((file) => file.includes('innocent') || file === 'texts.zip')).toEqual([])
+      // Positive control: an honest PDF no record names goes through.
+      await expect(plainUpload(pdf(pdfName('disguised-unnamed')))).resolves.toMatchObject({ status: 'pending' })
     })
 
     it('publishes what the reviewer read when a fetch of other bytes finishes after the submit (the reviewed race)', async () => {

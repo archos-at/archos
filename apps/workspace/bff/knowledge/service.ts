@@ -11,7 +11,7 @@
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { internalServiceHeaders } from '@/lib/internal-auth'
-import { BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
+import { ApiError, BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
 
 /** Lifecycle of a corpus file relative to what the RAG has indexed. */
 export type KnowledgeFileState = 'ingested' | 'stale' | 'pending' | 'failed' | 'removed' | 'inconsistent'
@@ -228,6 +228,12 @@ export async function uploadKnowledgeBaseDocument(
     })
   } catch (error) {
     throw new UpstreamError('Knowledge backend unreachable', error instanceof Error ? error.message : undefined)
+  }
+  if (res.status === 409) {
+    // The api tier keeps other bytes under this name, and a corpus file's bytes never change (ADR-0165).
+    throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps other bytes as ${name}; nothing is replaced.`, {
+      hint: 'Remove that file from the base corpus first if no record names it, or upload it under another name.',
+    })
   }
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
