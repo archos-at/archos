@@ -35,7 +35,7 @@ export function editionOnDay(editions: readonly StoredEntry[], day: string): Sto
   )
   if (found.status === 'determined') return confirmed.find((entry) => entry.editionId === found.edition.id) ?? null
   // Only an edition without a date falls back: a dated one not yet or no longer in force is in force on no day asked.
-  const undated = confirmed.filter((entry) => startOf(entry) === null)
+  const undated = confirmed.filter((entry) => startOf(entry) === null && (entry.values.inForceTo === null || entry.values.inForceTo > day))
   return undated.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
 }
 

@@ -69,6 +69,9 @@ describe('the edition in force on a day', () => {
     expect(editionOnDay([expired], '2026-11-11')).toBeNull()
     const undated = edition('e-undated', null)
     expect(editionOnDay([future, undated], '2026-11-11')).toBe(undated)
+    // Without a start, but ended: in force on no day after its end.
+    const endedUndated = edition('e-undated-ended', null, {}, { inForceTo: '2025-12-31' })
+    expect(editionOnDay([endedUndated], '2026-11-11')).toBeNull()
   })
 
   it('lists every edition of the work, newest first, the one in force today marked', () => {
