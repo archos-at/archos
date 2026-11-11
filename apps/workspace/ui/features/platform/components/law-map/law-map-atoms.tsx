@@ -42,7 +42,7 @@ export function OutlineRow({
   const body = (
     <>
       <span className="flex min-w-0 items-baseline gap-2.5">
-        <span className={cn('min-w-0 break-words', size === 'lg' ? 'text-2xl font-semibold tracking-tight' : size === 'md' ? 'font-medium' : '', muted && 'text-muted-foreground font-normal')}>{name}</span>
+        <span className={cn('min-w-0 break-words', size === 'lg' ? 'text-2xl font-semibold' : size === 'md' ? 'font-medium' : '', muted && 'text-muted-foreground font-normal')}>{name}</span>
         {meta ? <span className="text-muted-foreground truncate text-xs max-sm:hidden">{meta}</span> : null}
       </span>
       <span className="flex items-baseline justify-end gap-2.5 whitespace-nowrap">
