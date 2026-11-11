@@ -91,7 +91,6 @@ import {
   type AnnotationChanges,
   type AnnotationRecord,
   type CarryLink,
-  type NewAnnotationValues,
 } from './repository'
 import { recordDecisionScore } from '@/lib/langfuse/decision-score'
 import { publishToDocumentRoom } from '@/lib/realtime/document-channel'
@@ -113,6 +112,10 @@ import {
   type MayOpen,
 } from './attention'
 import { auditMarkDecided } from './mark-audit'
+import { toMark } from './mark-values'
+import { isMeasureShape } from './measure-shapes'
+import { keptReadingFor } from '@/lib/drawing-tape/kept-reading'
+import { mayMeasure } from '@/lib/drawing-tape/service'
 import { keepMentions, mentionsAgent, newlyMentioned, noLongerMentioned } from './mentions'
 import { enforceMentionBounds } from '@/lib/mentions/service'
 import { ANNOTATION_LIFECYCLE } from './lifecycles'
@@ -268,6 +271,8 @@ function toView(
     y: record.y,
     w: record.w,
     h: record.h,
+    points: record.points ?? null,
+    measurement: record.measurement ?? null,
     kind: record.kind,
     body: record.body,
     mentions: record.mentions,
@@ -374,7 +379,8 @@ async function carryWayOf(
  * place, one already on the current Fassung.
  */
 function carryTargetOf(record: AnnotationRecord, doc: Document, way: CarryWay | null): CarryTargetView | null {
-  if (!way || record.status !== 'open') return null
+  // A measurement is true of one version: it is not carried (`carryToCurrent`).
+  if (!way || record.status !== 'open' || isMeasureShape(record.shape)) return null
   if (way.across) return record.delegatedBy ? null : way.to
   return (record.versionId ?? null) === (doc.publishedVersionId ?? null) ? null : way.to
 }
@@ -512,34 +518,6 @@ const limitReached = (error: unknown): never => {
   throw error
 }
 
-const toMark = (input: {
-  page: number
-  shape: NewAnnotationValues['shape']
-  x: number
-  y: number
-  w?: number | null
-  h?: number | null
-  kind: NewAnnotationValues['kind']
-  body: string
-  mentions?: MarkMention[]
-  basis?: string | null
-  assigneeUserId?: string | null
-  dueOn?: string | null
-}): NewAnnotationValues => ({
-  page: input.page,
-  shape: input.shape,
-  x: input.x,
-  y: input.y,
-  w: input.shape === 'region' ? (input.w ?? null) : null,
-  h: input.shape === 'region' ? (input.h ?? null) : null,
-  kind: input.kind,
-  body: input.body,
-  mentions: input.mentions ?? [],
-  basis: input.basis ?? null,
-  assigneeUserId: input.assigneeUserId ?? null,
-  dueOn: input.dueOn ?? null,
-})
-
 /** Every Anmerkung on a document this session may read, live ones first. */
 export async function listAnnotations(session: AuthorizedSession, documentId: string): Promise<AnnotationListResponse> {
   const doc = await getAccessibleDocument(session, documentId, 'read')
@@ -550,7 +528,7 @@ export async function listAnnotations(session: AuthorizedSession, documentId: st
     directoryNames(session.organizationId),
   ])
   const annotations = (await documentAnnotationViews(session, doc, records, { writable, names })).sort(compareAnnotations)
-  return { annotations, canAnnotate: writable, pilotiWakes: wakesEnabled(session) }
+  return { annotations, canAnnotate: writable, canMeasure: mayMeasure(session, doc), pilotiWakes: wakesEnabled(session) }
 }
 
 /**
@@ -591,13 +569,15 @@ export async function createAnnotation(
   if (parsed.assigneeUserId) await requireAssignable(session, doc, parsed.assigneeUserId)
   const mentions = await keepMentions(session, doc, parsed.body, parsed.mentions ?? [], { piloti: false })
   const mentioned = await spendMentions(session, newlyMentioned(mentions, [], session.userId), false)
+  // A kept measurement stores what the engine answers for its points now; a pin stores none.
+  const measurement = await keptReadingFor(session, doc, parsed)
   const [row] = await insertDocumentAnnotations({
     organizationId: session.organizationId,
     documentId: doc.id,
     versionId: doc.publishedVersionId ?? null,
     authorKind: 'person',
     createdBy: session.userId,
-    marks: [toMark({ ...parsed, mentions })],
+    marks: [toMark({ ...parsed, mentions, measurement })],
   }).catch(limitReached)
   announce(session, doc.id, [row.id], 'created', { ...actor, kind: 'person' })
   markEvent(session, 'annotation_created', doc.id, { author_kind: 'person', kind: row.kind, status: row.status })
@@ -1122,6 +1102,13 @@ async function carryToCurrent(
     throw new UnprocessableError('Only an open Anmerkung goes on with the current Fassung.', {
       field: 'carryToCurrent',
       reason: 'not-open',
+    })
+  }
+  if (isMeasureShape(existing.shape)) {
+    // Measured on one version's linework: on another it is measured again, never moved.
+    throw new UnprocessableError('A measurement belongs to the Fassung it was measured on. Measure again on the current one.', {
+      field: 'carryToCurrent',
+      reason: 'measurement',
     })
   }
   const replacing = await replacingDocumentOf(session, doc)

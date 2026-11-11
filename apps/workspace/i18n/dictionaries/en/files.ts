@@ -1867,6 +1867,48 @@ export const files = {
     },
     pinOpenBy: 'open for {names}',
     draftCard: 'New annotation',
+    // The tape on a PDF drawing: a distance, a path or an area between corners of the linework. Every number is the
+    // measuring engine's; its reason and remedy for giving none are shown in its own words.
+    measure: {
+      toolsLabel: 'Measure',
+      tools: { distance: 'Measure a distance', path: 'Measure a path', area: 'Measure an area' },
+      toolsShort: { distance: 'Distance', path: 'Path', area: 'Area' },
+      hint: {
+        distance: 'Click two corners · Esc cancels',
+        path: 'Click the corners along the path · Esc cancels',
+        area: 'Click the corners in order · Esc cancels',
+      },
+      readingLabel: 'Measurement',
+      interval: '{low} to {high}',
+      provenance: {
+        vector_verified: 'Measured on the linework',
+        vector_estimated: 'Measured on the linework, at an estimated scale: not enough to decide a requirement',
+        printed_figure: 'Not measured: the dimension printed on this span',
+      },
+      scale: {
+        verified: 'Scale confirmed by a person',
+        estimated: 'Scale estimated from the sheet’s own dimensions',
+        uncalibrated: 'No confirmed scale for this part of the sheet',
+      },
+      scaleWithRatio: {
+        verified: 'Scale 1:{ratio}, confirmed by a person',
+        estimated: 'Scale 1:{ratio}, estimated from the sheet’s own dimensions',
+        uncalibrated: 'No confirmed scale for this part of the sheet',
+      },
+      noNumber: 'No number',
+      miss: {
+        none: 'No line end or corner here. Click on a corner of the drawing.',
+        several: 'Several corners are in reach. Pick one of the marked ones.',
+      },
+      candidate: 'Use corner {number}',
+      measuring: 'Measuring …',
+      failed: 'That did not work. Try again.',
+      keep: 'Keep on the sheet',
+      keeping: 'Keeping …',
+      discard: 'Discard',
+      keptBody: { distance: 'Distance', path: 'Path length', area: 'Area' },
+      kept: 'Annotation {number}, measurement: {value}',
+    },
     aim: {
       label: {
         point: 'Choose a spot. Arrow keys move the crosshair, with Shift in larger steps. Enter places the point, Escape cancels.',

@@ -445,6 +445,8 @@ const record = (patch: Partial<AnnotationRecord> = {}): AnnotationRecord => ({
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  measurement: null,
   kind: 'defect',
   body: 'Laufbreite im Treppenhaus unter 1,20 m.',
   basis: null,

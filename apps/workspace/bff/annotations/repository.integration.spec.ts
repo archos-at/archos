@@ -192,6 +192,65 @@ describe.skipIf(!url)('Anmerkungen against live Postgres', () => {
     await expect(insert(ids.document, [mark({ shape: 'region', x: 0.8, y: 0.2, w: 0.3, h: 0.4 })])).rejects.toThrow()
   })
 
+  it('keeps a measurement with its points and reading through create, list and delete (migration 0237)', async () => {
+    const doc = await document(ids.project, `Schnitt_${STAMP}.pdf`)
+    const reading = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
+    const area = { ...reading, value: 12.5, low: 12.3, high: 12.7, unit: 'm2' } as const
+    const line = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const corners = [[0.1, 0.2], [0.4, 0.2], [0.4, 0.6]] as [number, number][]
+    const [kept] = await insert(doc, [mark({ shape: 'line', x: 0.1, y: 0.2, points: line, measurement: reading })])
+    await insert(doc, [mark({ shape: 'path', x: 0.1, y: 0.2, points: corners, measurement: reading })])
+    await insert(doc, [mark({ shape: 'polygon', x: 0.1, y: 0.2, points: corners, measurement: area })])
+
+    const listed = await inOrg(ORG, () => repo.listDocumentAnnotations(ORG, doc))
+    expect(listed.map((row) => [row.shape, row.points, row.measurement, row.w, row.h])).toEqual([
+      ['line', line, reading, null, null],
+      ['path', corners, reading, null, null],
+      ['polygon', corners, area, null, null],
+    ])
+    const found = await inOrg(ORG, () => repo.findDocumentAnnotation(ORG, doc, kept.id))
+    expect(found).toMatchObject({ shape: 'line', points: line, measurement: reading })
+
+    expect(await inOrg(ORG, () => repo.deleteDocumentAnnotation(ORG, doc, kept.id))).toBe(true)
+    const left = await inOrg(ORG, () => repo.listDocumentAnnotations(ORG, doc))
+    expect(left.map((row) => row.shape)).toEqual(['path', 'polygon'])
+    // Another organization reads none of them.
+    expect(await inOrg(OTHER_ORG, () => repo.listDocumentAnnotations(OTHER_ORG, doc))).toEqual([])
+  })
+
+  it('refuses points that are not the shape’s, and a reading that is not whole (the CHECKs of 0237)', async () => {
+    const doc = ids.second
+    const reading = { value: 4, unit: 'm', low: 3.98, high: 4.02, provenance: 'vector_estimated', scaleState: 'estimated' } as const
+    const two = [[0.1, 0.2], [0.4, 0.2]] as [number, number][]
+    const three = [...two, [0.4, 0.6]] as [number, number][]
+    const refused = (extra: Parameters<typeof mark>[0]) => expect(insert(doc, [mark(extra)])).rejects.toThrow()
+    // A pin carries no points and no reading; a measurement needs its points.
+    await refused({ points: two })
+    await refused({ shape: 'region', w: 0.2, h: 0.2, points: two })
+    await refused({ measurement: reading })
+    await refused({ shape: 'line', points: null })
+    // The count each shape takes: a line exactly two, a polygon at least three, sixty at most.
+    await refused({ shape: 'line', points: three })
+    await refused({ shape: 'polygon', points: two })
+    await refused({ shape: 'path', points: Array.from({ length: 61 }, (_, index) => [index / 100, 0.5] as [number, number]) })
+    // Each point is a pair of shares of the page.
+    await refused({ shape: 'line', points: [[0.1, 0.2], [1.4, 0.2]] })
+    await refused({ shape: 'line', points: [[0.1, 0.2], [0.4, 0.2, 0.3]] as unknown as [number, number][] })
+    await refused({ shape: 'line', points: [[0.1, 0.2], ['0.4', 0.2]] as unknown as [number, number][] })
+    await refused({ shape: 'line', points: { 0: [0.1, 0.2] } as unknown as [number, number][] })
+    // A measurement has no size.
+    await refused({ shape: 'line', points: two, w: 0.1, h: 0.1 })
+    // The reading: its interval holds its value, a length is in m and an area in m2, and every field is known.
+    await refused({ shape: 'line', points: two, measurement: { ...reading, low: 4.1 } })
+    await refused({ shape: 'line', points: two, measurement: { ...reading, unit: 'm2' } })
+    await refused({ shape: 'polygon', points: three, measurement: reading })
+    await refused({ shape: 'line', points: two, measurement: { ...reading, provenance: 'guessed' } as never })
+    await refused({ shape: 'line', points: two, measurement: { value: 4, unit: 'm' } as never })
+    // And the same shapes, whole, are taken.
+    const [bare] = await insert(doc, [mark({ shape: 'path', x: 0.1, y: 0.2, points: three })])
+    expect(bare).toMatchObject({ shape: 'path', measurement: null })
+  })
+
   it("refuses Piloti's mark as the office's own until a person took it over", async () => {
     const [proposal] = await insert(ids.document, [mark()], { authorKind: 'piloti' })
     await expect(

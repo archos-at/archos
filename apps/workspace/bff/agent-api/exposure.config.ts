@@ -255,6 +255,13 @@ export const EXPOSURE = {
   'annotation-reply-update': OFFERED,
   'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
+  // Dark behind the `drawing-measure` entitlement (ADR-0182), as the `drawing-measure` read tool below.
+  'document-measure': {
+    external: false,
+    agent: 'native:drawing_measure',
+    reason:
+      'the review view’s tape on a PDF drawing; the chat agent measures with its own drawing_measure, and the door stays shut for it until the drawing-measure entitlement is retired, as for the drawing-measure read tool',
+  },
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,

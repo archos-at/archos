@@ -150,6 +150,8 @@ const RECORD: AnnotationRecord = {
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  measurement: null,
   kind: 'defect',
   body: 'Tür T30 fehlt im Fluchtweg',
   basis: null,

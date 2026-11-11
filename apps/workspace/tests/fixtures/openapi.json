@@ -11737,7 +11737,7 @@
       "post": {
         "operationId": "annotation-create",
         "summary": "Place an annotation on a document",
-        "description": "Sets an annotation at a place on the document (page position or text range) with a kind and a body. Returns it with its number. Colleagues in `mentions` are told.",
+        "description": "Sets an annotation at a place on the document (page position or text range) with a kind and a body. Returns it with its number. Colleagues in `mentions` are told. With `shape` `line`, `path` or `polygon` and `points` it keeps a measurement on a PDF drawing: the server measures those points itself and stores the value with its interval and provenance, and refuses where there is no number.",
         "tags": [
           "review"
         ],
@@ -11769,7 +11769,10 @@
                     "type": "string",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ]
                   },
                   "x": {
@@ -11800,6 +11803,35 @@
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "points": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 60,
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          ],
+                          "minItems": 2,
+                          "maxItems": 2
+                        }
                       },
                       {
                         "type": "null"
@@ -12696,6 +12728,117 @@
         },
         "x-mcp-annotations": {
           "title": "Export a document’s annotations as a minutes file",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/documents/{id}/measure": {
+      "post": {
+        "operationId": "document-measure",
+        "summary": "Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework",
+        "description": "Measures between points on a page of the document’s current version, from the file’s own linework: `distance` (two points), `path` (two or more) or `area` (three or more corners in order); `snap` returns where each point is tied to a line end or corner, or the candidates when several are in reach. Points are shares of the page as shown, 0 to 1, origin top left. Returns a measurement with its interval, provenance and scale state, or no number with the reason and the remedy. State a number with its interval and provenance; never recompute, round or convert one. Read-only: keep a measurement on the sheet with annotation-create.",
+        "tags": [
+          "review"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The document id, from a project document listing or workspace-search."
+            },
+            "description": "The document id, from a project document listing or workspace-search."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "description": "The page, starting at 1."
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "distance",
+                      "path",
+                      "area",
+                      "snap"
+                    ],
+                    "description": "`distance` (two points), `path` (two or more), `area` (three or more corners in order), or `snap`."
+                  },
+                  "points": {
+                    "minItems": 1,
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    "description": "[[x, y], ...]: shares of the page as shown, 0 to 1, origin top left."
+                  }
+                },
+                "required": [
+                  "page",
+                  "operation",
+                  "points"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,

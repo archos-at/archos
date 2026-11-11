@@ -41,8 +41,8 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { withTenant } from '@/lib/db/tenant-context'
 import { getBackendUrl } from '@/lib/backend-url'
 import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
-import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { signedEnvelopeHeaders } from '@/lib/turns/signed-envelope'
+import { TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
 import backendTools from '../../tests/fixtures/backend-tools.schema.json'
 import type { AgentDomain, ToolAnnotations } from './operation'
 import { type OperationResult, readResponseBody } from './dispatch'
@@ -438,8 +438,6 @@ export function findBackendOperation(name: string): BackendOperation | undefined
 /** The backend answers within this, or the call is a 504. The BIM tools are the slow ones. */
 const BACKEND_TOOL_TIMEOUT_MS = 120_000
 
-const ENVELOPE_HEADERS = ['x-request-context', 'x-request-context-sig'] as const
-
 /**
  * A refusal in the routes' error envelope (`{ error, code, details }`,
  * `errorResponse` in `lib/api/handler.ts`), so the agent surface words a
@@ -466,23 +464,6 @@ export function backendRefusal(status: number, body: unknown): OperationResult {
     return refusal(status, detail.error, `The backend refused the call (${detail.error}${said})`, detail.issues)
   }
   return refusal(status, `http_${status}`, `The backend answered HTTP ${status}`)
-}
-
-/**
- * The context of a chat turn in `projectId` for `session`, signed: the two
- * envelope headers, and nothing else of a turn's headers. The backend takes the
- * person, the organization, the project and the scope from the envelope alone.
- */
-async function signedEnvelope(
-  session: AuthorizedSession,
-  projectId: string | undefined,
-  secret: string
-): Promise<Record<string, string>> {
-  const context = await resolveTurnContext(session, { projectId })
-  const headers = turnContextHeaders(context, { issuedAt: Date.now(), secret })
-  return Object.fromEntries(
-    ENVELOPE_HEADERS.flatMap((name) => (headers[name] ? [[name, headers[name]]] : []))
-  )
 }
 
 /**
@@ -533,7 +514,7 @@ export async function callBackendOperation(
     envelope = await withTenant(tenant, async () => {
       // The gate first, so a refusal is a 403 and never a half-built context.
       if (projectId) await requireProjectAccess(session, projectId, CHAT_PERMISSIONS)
-      return signedEnvelope(session, projectId, secret)
+      return signedEnvelopeHeaders(session, projectId, secret)
     })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError)

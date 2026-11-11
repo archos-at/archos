@@ -9,6 +9,7 @@ import { formatCalendarDay, localCalendarDay } from '@/lib/format'
 import { isForReader, isLive, isOverdue, type AnnotationView } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
+import { ReadingValue } from './measure/measure-reading'
 import { useAgentByline } from './agent-attribution'
 import { markInk, pinLabel } from './review-page-layer'
 
@@ -82,6 +83,8 @@ export function MarkRowContent({
     </span>
   ) : null
   const kind = <span className="whitespace-nowrap">{t(`annotations.kinds.${annotation.kind}`)}</span>
+  // A kept measurement says its value first: the engine's, as it was kept.
+  const reading = annotation.measurement ? <ReadingValue reading={annotation.measurement} /> : null
   const page = showPage ? <span className="whitespace-nowrap">{t('review.page', { page: annotation.page })}</span> : null
   const setBy = <span className="min-w-0 truncate">{author}</span>
   const replies =
@@ -128,6 +131,7 @@ export function MarkRowContent({
             it and by when stand in their own column at desk width, and a phone has a line of its own (below), so a
             line never ends on a dot (round 3: „Bernd Huber ·“ at a line's end, four-line rows). */}
         <span className={cn(META_LINE, columns ? 'flex-nowrap overflow-hidden max-sm:hidden' : 'flex-wrap gap-y-0.5')} data-testid="review-row-meta">
+          {reading}
           {kind}
           {page}
           {setBy}
@@ -140,6 +144,7 @@ export function MarkRowContent({
             has it); the replies and the author are in the review. */}
         {columns && (
           <span className={cn(META_LINE, 'flex-nowrap overflow-hidden sm:hidden')} data-testid="review-row-meta-phone">
+            {reading}
             {kind}
             {page}
             {who || due ? null : setBy}

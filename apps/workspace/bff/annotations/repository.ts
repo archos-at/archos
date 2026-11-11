@@ -31,6 +31,7 @@ import {
   type MarkMention,
   type MarkTally,
 } from './types'
+import type { KeptReading, PagePoint } from './measure-shapes'
 
 /** The other end of a carry (migration 0151): a mark on another document, by its id, its document and its number. */
 export interface CarryLink {
@@ -244,6 +245,9 @@ export interface NewAnnotationValues {
   y: number
   w: number | null
   h: number | null
+  /** A kept measurement's points and the engine's reading for them (migration 0237); absent or null on a pin. */
+  points?: PagePoint[] | null
+  measurement?: KeptReading | null
   kind: AnnotationKind
   body: string
   /** Whom `body` mentions, as the service kept them (`./mentions.ts`); none when absent. */

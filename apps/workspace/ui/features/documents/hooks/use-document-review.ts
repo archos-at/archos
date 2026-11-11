@@ -20,7 +20,6 @@ import {
   REPLY_TAKEN_UP_REASON,
   type AnnotationKind,
   type AnnotationShape,
-  type AnnotationStatus,
   type AnnotationView,
   type MarkMention,
   type UpdateAnnotationRequest,
@@ -34,6 +33,9 @@ import { useLiveEvents } from '@/features/collaboration/hooks/use-live-events'
 import { registerCanvasFocusProvider } from '@/features/chat/lib/canvas-bridge'
 import { reviewFocusOf } from '../lib/review-focus'
 import { useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'
+import { rebased, type HeldDecision } from './held-decision'
+import { useSheetTape } from './use-sheet-tape'
+import type { PagePoint } from '@/lib/annotations/measure-shapes'
 import { useDocumentRoom, type RoomTransport } from './use-document-room'
 
 /** `ask`: drag a box and ask Piloti about it (P). */
@@ -67,27 +69,6 @@ const NO_MARKS: ReadonlySet<string> = new Set()
 
 /** How long a decision taken by a key (E, ⌫) waits before it is sent: the toast's „Rückgängig" window. */
 export const DECISION_UNDO_MS = ARCHIVE_UNDO_MS
-
-/** A status move held back for the undo window: where the key moved the mark, and where it stands on the server. */
-interface HeldDecision {
-  /** The document the key was pressed on: the decision is sent there even if the pane has moved on. */
-  documentId: string
-  status: 'open' | 'resolved' | 'dismissed'
-  expectedStatus: AnnotationStatus
-  /** Said when the move, once sent, is refused for any reason but a colleague's move (that is the conflict notice). */
-  onFailed?: () => void
-}
-
-/**
- * A change asked while a decision on the same mark is held: the decision is
- * let go, and the change is rebased onto where the mark really stands. Moving
- * it back to that status is no change at all.
- */
-function rebased(input: UpdateAnnotationRequest, held: HeldDecision): UpdateAnnotationRequest {
-  const { status, expectedStatus, ...rest } = input
-  if (status === undefined || status === held.expectedStatus) return rest
-  return { ...rest, status, expectedStatus: expectedStatus === held.status ? held.expectedStatus : expectedStatus }
-}
 
 /**
  * How the document stands among its Fassungen under other names, as the
@@ -124,6 +105,8 @@ export interface ReviewDraft {
   y: number
   w: number | null
   h: number | null
+  /** A measurement's points (`./use-sheet-tape.ts`); absent on a pin. */
+  points?: PagePoint[] | null
 }
 
 /**
@@ -185,6 +168,8 @@ export function useDocumentReview(
   /** The marks as the server last answered; `annotations` below shows them with the held decisions. */
   const [stored, setAnnotations] = useState<AnnotationView[]>([])
   const [canAnnotate, setCanAnnotate] = useState(false)
+  /** The tape is offered: a PDF, in an organization that holds measuring on drawings. */
+  const [canMeasure, setCanMeasure] = useState(false)
   /** The organization lets events wake Piloti: an @Piloti reply is the server's to answer, and a mark can be delegated. */
   const [pilotiWakes, setAgentWakes] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -375,6 +360,7 @@ export function useDocumentReview(
     if (reads.current.documentId !== documentId || reads.current.list !== ticket) return result.annotations
     setAnnotations(result.annotations)
     setCanAnnotate(result.canAnnotate)
+    setCanMeasure(result.canMeasure ?? false)
     setAgentWakes(result.pilotiWakes)
     setListedFor(documentId)
     setLoad('ready')
@@ -572,6 +558,9 @@ export function useDocumentReview(
     },
     [documentId, draft, guard, replace, write]
   )
+  // The tape: a measurement in hand, kept as a mark through `create` (the server measures it again).
+  const keepMark = useCallback((body: string, place: ReviewDraft) => create({ kind: 'hint', body }, place), [create])
+  const tape = useSheetTape({ documentId, available: canMeasure, reviewTool: tool, setReviewTool: setToolState, keepMark })
 
   /**
    * Decisions taken by a key (E, ⌫), held back for {@link DECISION_UNDO_MS}
@@ -907,6 +896,7 @@ export function useDocumentReview(
       listed,
       counts,
       canAnnotate,
+      tape,
       pilotiWakes,
       tool,
       setTool,
@@ -951,6 +941,7 @@ export function useDocumentReview(
       listed,
       counts,
       canAnnotate,
+      tape,
       pilotiWakes,
       tool,
       setTool,

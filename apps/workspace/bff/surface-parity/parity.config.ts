@@ -163,6 +163,15 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: `${REVIEW}/review-page-layer.tsx` },
     chat: { exempt: 'The turn harness’s own clean-up, not a capability of the person or of ' + PRODUCT_NAME },
   },
+  measureOnSheet: {
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, tied to its linework, and keep it on the sheet',
+    tool: 'drawing_measure',
+    operations: ['document-measure', 'drawing-measure'],
+    // The tape: three tools beside the pin and the box; the engine's reading beside the shape; a kept measurement on the page.
+    canvas: { component: `${REVIEW}/measure/measure-layer.tsx` },
+    // The tool's answer is text the answer quotes with its interval and provenance; its call is an action row of the Herleitung (verb `model`).
+    chat: { step: 'action' },
+  },
   compareRevisions: {
     summary: 'Compare two Fassungen of a document: what changed on a page, boxed',
     operations: ['document-revision-compare', 'document-revision-candidates', 'document-revision-link-set'],

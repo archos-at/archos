@@ -16,13 +16,23 @@
 
 import { z } from 'zod'
 import { MAX_MENTIONS_PER_MESSAGE } from '@/lib/limits/catalog'
+import {
+  boxOfPoints,
+  isMeasureShape,
+  keptReadingSchema,
+  MEASURE_SHAPES,
+  measurePointsSchema,
+  PIN_SHAPES,
+  pointsProblem,
+  type PagePoint,
+} from './measure-shapes'
 
 /** Hinweis, Rückfrage, Mangel. */
 export const ANNOTATION_KINDS = ['hint', 'question', 'defect'] as const
 export type AnnotationKind = (typeof ANNOTATION_KINDS)[number]
 
-/** A point on the page, or a region of it. */
-export const ANNOTATION_SHAPES = ['point', 'region'] as const
+/** A point on the page or a region of it, or a kept measurement: a line, a path or a polygon (`./measure-shapes.ts`). */
+export const ANNOTATION_SHAPES = [...PIN_SHAPES, ...MEASURE_SHAPES] as const
 export type AnnotationShape = (typeof ANNOTATION_SHAPES)[number]
 
 /** Who set it. Piloti's marks are proposals until a person takes one over. */
@@ -94,10 +104,10 @@ const text = (max: number) =>
     .transform((value) => value.trim())
     .pipe(z.string().min(1).max(max))
 
-/** The place fields every mark carries: a page, and a point or a region on it. */
+/** The place fields of a pin: a page, and a point or a region on it. What an agent's canvas tools set. */
 const placeFields = {
   page: z.number().int().min(1).max(100_000),
-  shape: z.enum(ANNOTATION_SHAPES),
+  shape: z.enum(PIN_SHAPES),
   x: unit,
   y: unit,
   w: unit.nullable().optional(),
@@ -110,10 +120,21 @@ type PlaceInput = {
   y: number
   w?: number | null
   h?: number | null
+  points?: PagePoint[] | null
 }
 
-/** A point has no size; a region has one and stays on its page (the CHECK `…_region_on_page`). */
+/**
+ * A point has no size; a region has one and stays on its page (the CHECK `…_region_on_page`). A measurement
+ * has its points and no size, and is placed at its first point (the CHECK `…_points_for_measure_shapes`).
+ */
 export function placeProblem(place: PlaceInput): string | null {
+  const points = pointsProblem(place.shape, place.points)
+  if (points) return points
+  if (isMeasureShape(place.shape)) {
+    if (place.w != null || place.h != null) return 'a measurement has no size'
+    const [x, y] = place.points?.[0] ?? [place.x, place.y]
+    return x === place.x && y === place.y ? null : 'a measurement is placed at its first point'
+  }
   if (place.shape === 'point') return place.w != null || place.h != null ? 'a point has no size' : null
   if (!place.w || !place.h) return 'a region needs a size'
   if (place.x + place.w > 1.000001 || place.y + place.h > 1.000001) return 'a region stays on its page'
@@ -151,8 +172,19 @@ const content = {
   dueOn: calendarDay.nullable().optional(),
 }
 
+/**
+ * A person sets a pin, or keeps a measurement: `line`, `path` or `polygon` with its `points`. A measurement's
+ * reading is not in the request: the server asks the engine for these points and stores what it answers
+ * (`./kept-reading.ts`), so the number kept is never the caller's.
+ */
 export const createAnnotationRequestSchema = z
-  .object({ ...placeFields, ...content, mentions: markMentionsSchema.optional() })
+  .object({
+    ...placeFields,
+    shape: z.enum(ANNOTATION_SHAPES),
+    points: measurePointsSchema.nullable().optional(),
+    ...content,
+    mentions: markMentionsSchema.optional(),
+  })
   .strict()
   .superRefine(checkPlace)
 export type CreateAnnotationRequest = z.input<typeof createAnnotationRequestSchema>
@@ -323,6 +355,10 @@ export const annotationViewSchema = z.object({
   y: z.number(),
   w: z.number().nullable(),
   h: z.number().nullable(),
+  /** A kept measurement's points, in order; null or absent on a pin. */
+  points: measurePointsSchema.nullable().optional(),
+  /** What the engine answered when the measurement was kept; null or absent on a pin. */
+  measurement: keptReadingSchema.nullable().optional(),
   kind: z.enum(ANNOTATION_KINDS),
   body: z.string(),
   /** Whom its text mentions, as the server kept them; absent from a server that predates mentions. */
@@ -398,6 +434,11 @@ export const annotationListResponseSchema = z.object({
   annotations: z.array(annotationViewSchema),
   /** Whether this reader may set a new Anmerkung on the document. */
   canAnnotate: z.boolean(),
+  /**
+   * Whether this reader gets the tape on this document: the organization holds `drawing-measure` and the
+   * file is a PDF (`lib/drawing-tape/service.ts`). Absent from a server that predates it, which is off.
+   */
+  canMeasure: z.boolean().optional(),
   /**
    * Whether the organization lets events wake Piloti (the `piloti-wakes`
    * switch): a mark can be delegated to Piloti, and an @Piloti reply is
@@ -544,8 +585,11 @@ export function regionAround(place: { page: number; x: number; y: number; w?: nu
   return { page: place.page, x: start(place.x), y: start(place.y), w: POINT_BOX, h: POINT_BOX }
 }
 
-/** A mark's place as a box, `[x0, y0, x1, y1]`; a point is a box of no size. */
-export function annotationBox(annotation: Pick<AnnotationView, 'x' | 'y' | 'w' | 'h'>): [number, number, number, number] {
+/** A mark's place as a box, `[x0, y0, x1, y1]`; a point is a box of no size, a measurement the box around its points. */
+export function annotationBox(
+  annotation: Pick<AnnotationView, 'x' | 'y' | 'w' | 'h' | 'points'>
+): [number, number, number, number] {
+  if (annotation.points?.length) return boxOfPoints(annotation.points)
   return [annotation.x, annotation.y, annotation.x + (annotation.w ?? 0), annotation.y + (annotation.h ?? 0)]
 }
 

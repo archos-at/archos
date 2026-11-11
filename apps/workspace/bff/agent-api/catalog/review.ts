@@ -10,6 +10,7 @@ import {
   updateReplyRequestSchema,
 } from '@/lib/annotations/types'
 import { revisionLinkSchema } from '@/lib/documents/document-wire'
+import { measureRequestSchema } from '@/lib/drawing-tape/wire'
 import {
   approveRequestSchema,
   reviewQueueQuerySchema,
@@ -232,7 +233,9 @@ export const reviewOperations = [
     summary: 'Place an annotation on a document',
     description:
       'Sets an annotation at a place on the document (page position or text range) with a kind and a body. ' +
-      'Returns it with its number. Colleagues in `mentions` are told.',
+      'Returns it with its number. Colleagues in `mentions` are told. With `shape` `line`, `path` or `polygon` and `points` ' +
+      'it keeps a measurement on a PDF drawing: the server measures those points itself and stores the value with its interval ' +
+      'and provenance, and refuses where there is no number.',
     method: 'POST',
     path: '/api/documents/[id]/annotations',
     params: documentParams,
@@ -245,6 +248,30 @@ export const reviewOperations = [
       },
     ],
     load: () => import('@/app/api/documents/[id]/annotations/route'),
+  },
+  {
+    name: 'document-measure',
+    domain: 'review',
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework',
+    description:
+      'Measures between points on a page of the document’s current version, from the file’s own linework: `distance` (two points), ' +
+      '`path` (two or more) or `area` (three or more corners in order); `snap` returns where each point is tied to a line end or ' +
+      'corner, or the candidates when several are in reach. Points are shares of the page as shown, 0 to 1, origin top left. ' +
+      'Returns a measurement with its interval, provenance and scale state, or no number with the reason and the remedy. ' +
+      'State a number with its interval and provenance; never recompute, round or convert one. Read-only: keep a measurement ' +
+      'on the sheet with annotation-create.',
+    method: 'POST',
+    path: '/api/documents/[id]/measure',
+    params: documentParams,
+    body: measureRequestSchema,
+    readOnly: true,
+    examples: [
+      {
+        params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
+        body: { page: 1, operation: 'distance', points: [[0.21, 0.4], [0.36, 0.4]] },
+      },
+    ],
+    load: () => import('@/app/api/documents/[id]/measure/route'),
   },
   {
     name: 'annotation-get',

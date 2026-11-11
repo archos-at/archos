@@ -7,15 +7,10 @@ import {
   ArrowUp,
   ExternalLink,
   Link2,
-  MessageSquarePlus,
   MessagesSquare,
-  MousePointer2,
   RotateCcw,
   Sparkles,
-  Speech,
-  SquareDashed,
   X,
-  type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -50,6 +45,8 @@ import {
   type RoomPeerState,
 } from '../../hooks/use-document-room'
 import { CursorChat } from './cursor-chat'
+import { MeasureTools } from './measure/measure-tools'
+import { TOOLS } from './palette-tools'
 import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
 import { isAgentPeer, ReviewPageLayer } from './review-page-layer'
@@ -65,18 +62,6 @@ import { clearReviewParams, setReviewParams } from '../../lib/open-review'
 import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
 import { PRODUCT_NAME } from '@/lib/brand'
-
-/** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
-type PaletteTool = ReviewTool | 'chat'
-
-const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
-  { tool: 'select', key: 'V', icon: MousePointer2 },
-  { tool: 'point', key: 'C', icon: MessageSquarePlus },
-  { tool: 'region', key: 'R', icon: SquareDashed },
-  { tool: 'ask', key: 'P', icon: Sparkles },
-  // A head speaking, not a bubble: the comment tool already is one, and this one keeps nothing.
-  { tool: 'chat', key: '/', icon: Speech },
-]
 
 /** Where this browser keeps that it has seen the tools explained: the first review opens with them spelled out. */
 export const TOOLS_INTRO_KEY = 'review.toolsIntroSeen'
@@ -188,6 +173,7 @@ function ReviewTools({
           </Tooltip>
         )
       })}
+      <MeasureTools tape={review.tape} variant={variant} />
       {variant === 'intro' && onFold && (
         <ToolbarIconButton
           aria-label={t('review.toolsIntroFold')}

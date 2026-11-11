@@ -1838,6 +1838,48 @@ export const files: typeof en.files = {
     },
     pinOpenBy: 'offen bei {names}',
     draftCard: 'Neue Anmerkung',
+    // Das Maßband auf einer PDF-Zeichnung: Strecke, Weg oder Fläche zwischen Ecken der Linien. Jede Zahl stammt von
+    // der Messung selbst; ihr Grund und ihre Abhilfe, wenn sie keine gibt, stehen in ihren eigenen Worten da.
+    measure: {
+      toolsLabel: 'Messen',
+      tools: { distance: 'Strecke messen', path: 'Weg messen', area: 'Fläche messen' },
+      toolsShort: { distance: 'Strecke', path: 'Weg', area: 'Fläche' },
+      hint: {
+        distance: 'Zwei Ecken anklicken · Esc bricht ab',
+        path: 'Die Ecken entlang des Wegs anklicken · Esc bricht ab',
+        area: 'Die Ecken der Reihe nach anklicken · Esc bricht ab',
+      },
+      readingLabel: 'Messung',
+      interval: '{low} bis {high}',
+      provenance: {
+        vector_verified: 'An den Linien gemessen',
+        vector_estimated: 'An den Linien gemessen, mit geschätztem Maßstab: reicht nicht, um eine Anforderung zu entscheiden',
+        printed_figure: 'Nicht gemessen: die Maßzahl, die an dieser Strecke gedruckt ist',
+      },
+      scale: {
+        verified: 'Maßstab von einer Person bestätigt',
+        estimated: 'Maßstab aus den Maßzahlen des Blatts geschätzt',
+        uncalibrated: 'Kein bestätigter Maßstab für diesen Teil des Blatts',
+      },
+      scaleWithRatio: {
+        verified: 'Maßstab 1:{ratio}, von einer Person bestätigt',
+        estimated: 'Maßstab 1:{ratio}, aus den Maßzahlen des Blatts geschätzt',
+        uncalibrated: 'Kein bestätigter Maßstab für diesen Teil des Blatts',
+      },
+      noNumber: 'Keine Zahl',
+      miss: {
+        none: 'Hier ist kein Linienende und keine Ecke. Auf eine Ecke der Zeichnung klicken.',
+        several: 'Mehrere Ecken liegen in Reichweite. Eine der markierten wählen.',
+      },
+      candidate: 'Ecke {number} nehmen',
+      measuring: 'Wird gemessen …',
+      failed: 'Das hat nicht geklappt. Bitte noch einmal versuchen.',
+      keep: 'Auf dem Blatt behalten',
+      keeping: 'Wird behalten …',
+      discard: 'Verwerfen',
+      keptBody: { distance: 'Strecke', path: 'Weglänge', area: 'Fläche' },
+      kept: 'Anmerkung {number}, Messung: {value}',
+    },
     aim: {
       label: {
         point: 'Stelle wählen. Pfeiltasten bewegen das Fadenkreuz, mit Umschalt in größeren Schritten. Eingabe setzt den Punkt, Escape bricht ab.',
