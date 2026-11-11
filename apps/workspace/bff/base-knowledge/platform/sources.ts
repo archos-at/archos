@@ -116,7 +116,7 @@ export async function usableSource(tx: Tx, key: string, requestId: string | null
   return testing ?? (await activeSource(tx, key))
 }
 
-/** What a fetch went through, as the capture or the text records it (migration 0222). */
+/** What a fetch went through, as the capture or the text records it (migration 0224). */
 export interface FetchedThrough {
   sourceOrigin: FetchSourceOrigin
   sourceRevisionId: string | null

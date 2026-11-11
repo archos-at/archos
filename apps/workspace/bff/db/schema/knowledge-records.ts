@@ -78,7 +78,7 @@ export interface KnowledgeProvenance {
 }
 
 /**
- * What a fetch went through, recorded at fetch time (migration 0222): a source the repository configures
+ * What a fetch went through, recorded at fetch time (migration 0224): a source the repository configures
  * (`built_in`), a source record's released revision (`released`), or one proposed in the same change request and
  * still under test (`draft`). Only the first two can count as fetched; `knowledge_source_reviewed` decides.
  */

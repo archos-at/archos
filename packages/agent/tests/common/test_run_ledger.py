@@ -30,7 +30,9 @@ from agent.common.run_ledger import MAX_LOCI_PER_DOC
 from agent.common.run_ledger import MAX_NAME_CHARS
 from agent.common.run_ledger import MAX_STEPS
 from agent.common.run_ledger import RUN_PHASES
+from agent.common.run_ledger import RUN_STATUS_MOVES
 from agent.common.run_ledger import RUN_STATUSES
+from agent.common.run_ledger import TERMINAL_RUN_STATUSES
 from agent.common.run_ledger import RunError
 from agent.common.run_ledger import RunLedger
 from agent.common.run_ledger import RunLedgerDoc
@@ -39,6 +41,7 @@ from agent.common.run_ledger import RunPhaseEntry
 from agent.common.run_ledger import RunResult
 from agent.common.run_ledger import RunStatus
 from agent.common.run_ledger import RunStep
+from agent.common.run_ledger import next_run_status
 from agent.common.run_ledger import to_wire
 
 SCHEMA_PATH = (
@@ -189,6 +192,26 @@ class TestTheClosedShape:
         phase_enum = properties["phases"]["items"]["properties"]["phase"]["enum"]
         assert set(get_args(RunPhase)) == set(phase_enum)
         assert set(RUN_PHASES) == set(phase_enum)
+
+    def test_the_status_moves_are_the_frontends(self, schema: dict[str, Any]) -> None:
+        """Mirrored by hand, pinned here: which states have ended, and every move between states.
+
+        The BFF applies its table to what this tier sends. A move this tier
+        makes and the BFF does not would be dropped in storage while the live
+        snapshot showed it, so the reader would see two endings of one run.
+        """
+        lifecycle = schema["x-lifecycle"]
+        assert set(TERMINAL_RUN_STATUSES) == set(lifecycle["ended"])
+        declared = {state: set(node.get("on", {}).values()) for state, node in lifecycle["states"].items()}
+        assert {state: set(targets) for state, targets in RUN_STATUS_MOVES.items()} == declared
+
+    def test_an_ended_status_stays_ended(self) -> None:
+        for ended in TERMINAL_RUN_STATUSES:
+            assert set(RUN_STATUS_MOVES[ended]) <= set(TERMINAL_RUN_STATUSES)
+            assert next_run_status(ended, "running") == ended
+        assert next_run_status("failed", "done") == "failed"
+        assert next_run_status("done", "interrupted") == "interrupted"
+        assert next_run_status("running", "not-a-status") == "running"
 
     def test_the_bounds_are_the_frontends(self, schema: dict[str, Any]) -> None:
         """A producer cuts to length before it sends; the caps it cuts to are these.

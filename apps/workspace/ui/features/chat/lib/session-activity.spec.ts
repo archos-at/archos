@@ -29,8 +29,14 @@ const runMessage = (id: string, status: RunStatus): ChatMessage =>
   makeMessage({
     id,
     messageType: 'agent_response',
-    runLedger: setRunStatus(emptyRunLedger(`run-${id}`), status),
+    runLedger: ledgerAt(`run-${id}`, status),
   })
+
+/** A ledger in `status`, reached the way a run reaches it: only a run that started can be cut short. */
+const ledgerAt = (runId: string, status: RunStatus) => {
+  const created = emptyRunLedger(runId)
+  return setRunStatus(status === 'interrupted' ? setRunStatus(created, 'running') : created, status)
+}
 
 describe('hasNoUserChatMessages', () => {
   it('returns true when there are no user messages', () => {

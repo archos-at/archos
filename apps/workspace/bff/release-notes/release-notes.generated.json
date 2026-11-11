@@ -689,6 +689,30 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When the connection drops during an answer, the chat now says it is restoring the connection, and a connection that cannot be set up at all is retried and reported instead of leaving the chat silently not working.",
+            "de": "Wenn während einer Antwort die Verbindung abbricht, zeigt der Chat jetzt an, dass die Verbindung wiederhergestellt wird. Kann keine Verbindung aufgebaut werden, wird der Verbindungsaufbau erneut versucht und der Fehler gemeldet, statt dass der Chat ohne Hinweis nicht funktioniert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The dictation button can no longer get stuck: pressing it again while it waits for the microphone cancels, and a microphone or recorder that does not answer ends by itself.",
+            "de": "Die Diktiertaste bleibt nicht mehr hängen: Erneutes Drücken während des Wartens auf das Mikrofon bricht den Vorgang ab; antwortet das Mikrofon oder der Recorder nicht, wird der Vorgang automatisch beendet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
+            "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "bim",
           "text": {
             "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
@@ -717,6 +741,30 @@
           "text": {
             "en": "A file found by search no longer shows a size of \"0 B\".",
             "de": "Eine über die Suche gefundene Datei wird nicht mehr mit der Größe „0 B“ angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A research run that was cut short now still reads as interrupted after a reload, and a run that ended as interrupted or failed stays that way when a late result arrives.",
+            "de": "Ein vorzeitig abgebrochener Recherchelauf wird auch nach dem Neuladen weiterhin als unterbrochen angezeigt, und ein Lauf, der mit dem Status „unterbrochen“ oder „fehlgeschlagen“ endet, behält diesen Status auch dann, wenn später noch ein Ergebnis eintrifft."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Publishing a new version of an IFC model while the previous one is still being read no longer shows the old file's elements or marks the model as failed.",
+            "de": "Beim Veröffentlichen einer neuen Version eines IFC-Modells, während die vorherige noch eingelesen wird, werden die Elemente der alten Datei nicht mehr angezeigt und das Modell nicht mehr als fehlgeschlagen gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A document that was read again, archived or replaced while an older background step was still finishing no longer flips to failed.",
+            "de": "Ein Dokument, das erneut eingelesen, archiviert oder ersetzt wird, während ein älterer Hintergrundschritt noch läuft, wird nicht mehr als fehlgeschlagen markiert."
           }
         },
         {

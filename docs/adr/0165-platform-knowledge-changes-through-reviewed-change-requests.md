@@ -209,7 +209,7 @@ of the first three, and a third review sharpened the fourth and the sixth (see
   record's released revision id, or `draft` with the draft revision's. A
   capture keeps it in `source_origin` and `source_revision_id`, a text on
   `provenance.text` (`sourceOrigin`, `sourceRevisionId`). The database decides
-  what counts (`knowledge_source_reviewed`, migration 0222): a built-in
+  what counts (`knowledge_source_reviewed`, migration 0224): a built-in
   source, or a revision a stable release published before the fetch, from a
   request approved by four eyes or approved alone and since confirmed by its
   second review, and only while that release stands. A draft's source never
@@ -393,7 +393,7 @@ approval until another person's `sourceChecked`; a fetch through a source two
 people released is approved alone; one through a source its author released
 alone is not; a rollback of the source's release holds the fetch again, and a
 newer release of the source does not.
-`scripts/rls-test-db.sh` (migration 0222 and its down: a built-in source
+`scripts/rls-test-db.sh` (migration 0224 and its down: a built-in source
 counts, a draft's does not, a capture stored before the columns or written by
 an older build, and the two CHECK constraints).
 `upload-hashes.spec.ts` (a ZIP's members by base name; ZIP or PDF by the first

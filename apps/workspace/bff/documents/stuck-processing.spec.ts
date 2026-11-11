@@ -29,6 +29,7 @@ const row = (over: Partial<StuckProcessingDocument> = {}): StuckProcessingDocume
   id: 'doc-1',
   organizationId: 'org_1',
   jobStatus: null,
+  jobId: null,
   lastError: null,
   ...over,
 })
@@ -38,6 +39,7 @@ const NOW = new Date('2026-10-06T12:00:00Z')
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(listStuckProcessingDocuments).mockResolvedValue([])
+  vi.mocked(markDocumentIngestFailed).mockResolvedValue(true)
   vi.mocked(redispatchStuckDocument).mockResolvedValue('requeued')
   vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -71,14 +73,26 @@ describe('recoverStuckProcessing', () => {
 
   it('fails a row whose job is dead instead of queueing a fourth attempt at the same file', async () => {
     vi.mocked(listStuckProcessingDocuments).mockResolvedValue([
-      row({ jobStatus: 'dead', lastError: 'object store down' }),
+      row({ jobStatus: 'dead', jobId: 'job-dead', lastError: 'object store down' }),
     ])
 
     const result = await recoverStuckProcessing(NOW)
 
-    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org_1', 'Ingestion could not be started')
+    // Held to the job the sweep read, so a row read again since is not failed.
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org_1', 'Ingestion could not be started', {
+      backgroundJobId: 'job-dead',
+    })
     expect(redispatchStuckDocument).not.toHaveBeenCalled()
     expect(result.failed).toBe(1)
+  })
+
+  it('counts a dead-job row that moved on before the sweep reached it as gone, not failed', async () => {
+    vi.mocked(listStuckProcessingDocuments).mockResolvedValue([row({ jobStatus: 'dead', jobId: 'job-dead' })])
+    vi.mocked(markDocumentIngestFailed).mockResolvedValueOnce(false)
+
+    const result = await recoverStuckProcessing(NOW)
+
+    expect(result).toEqual({ checked: 1, requeued: 0, failed: 0, gone: 1, errors: 0 })
   })
 
   it('counts a row that was gone, or that could not be rebuilt, as what it was', async () => {

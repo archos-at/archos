@@ -1,10 +1,10 @@
--- Reverse 0222. ORDER: roll the frontend back first; the newer build writes
+-- Reverse 0224. ORDER: roll the frontend back first; the newer build writes
 -- `source_origin` on every fetched capture and tells a reviewer that an
 -- uploaded text, or anything fetched through an unreviewed source, needs
 -- another person's source check.
 --
 -- LOSSY: `source_origin` and `source_revision_id` of the captures fetched
--- since are dropped, so applying 0222 again holds those captures like the
+-- since are dropped, so applying 0224 again holds those captures like the
 -- ones stored before it (fetched only if their source is a built-in one).
 -- 0218's source check comes back: only an operator-supplied capture holds an
 -- approval up.

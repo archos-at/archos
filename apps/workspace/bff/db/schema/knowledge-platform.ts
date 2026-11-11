@@ -140,7 +140,7 @@ export const knowledgeCitationCaptures = pgTable('knowledge_citation_captures', 
   changeRequestId: uuid('change_request_id').notNull(),
   basis: text('basis').$type<'fetched' | 'operator_supplied'>().notNull(),
   sourceId: text('source_id'),
-  /** What the fetch went through, recorded at fetch time (0222): only a built-in or a reviewed released source counts as fetched. */
+  /** What the fetch went through, recorded at fetch time (0224): only a built-in or a reviewed released source counts as fetched. */
   sourceOrigin: text('source_origin').$type<FetchSourceOrigin>(),
   /** The source record's revision the fetch used: its released head, or the draft under test. */
   sourceRevisionId: uuid('source_revision_id'),

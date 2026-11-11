@@ -68,6 +68,10 @@
     "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
   },
   {
+    "en": "A cancelled upload in a chat's files now reads as cancelled instead of still uploading and can be removed with one click, and a file that finished reading just as you stopped it stays read.",
+    "de": "Ein abgebrochener Upload in den Dateien eines Chats wird jetzt als abgebrochen statt weiterhin als laufend angezeigt und lässt sich mit einem Klick entfernen; eine Datei, deren Einlesen genau beim Abbrechen abgeschlossen wurde, bleibt als eingelesen markiert."
+  },
+  {
     "en": "A cancelled, crashed or never-started run no longer shows as running forever in the task list. It now closes with its real outcome, and whoever started it is told.",
     "de": "Ein abgebrochener, abgestürzter oder nie gestarteter Lauf steht in der Aufgabenliste nicht mehr endlos auf „läuft“. Er schließt jetzt mit seinem tatsächlichen Ergebnis, und wer ihn angestoßen hat, erfährt davon."
   },
@@ -222,6 +226,10 @@
   {
     "en": "A document that never became citable no longer carries the green badge that marks it as citable. It now shows a failure with a retry option, or a neutral status for documents filed before this change.",
     "de": "Ein Dokument, das nie zitierfähig wurde, trägt nicht mehr das grüne Abzeichen, das es als zitierfähig ausweist. Stattdessen zeigt es einen Fehler mit der Möglichkeit, es erneut zu versuchen, oder einen neutralen Status für Dokumente, die vor dieser Änderung abgelegt wurden."
+  },
+  {
+    "en": "A document that was read again, archived or replaced while an older background step was still finishing no longer flips to failed.",
+    "de": "Ein Dokument, das erneut eingelesen, archiviert oder ersetzt wird, während ein älterer Hintergrundschritt noch läuft, wird nicht mehr als fehlgeschlagen markiert."
   },
   {
     "en": "A document whose reading failed can be read again from its own card: \"Erneut lesen\" is in the ⋯ menu, beside rename and delete, wherever the failure is shown. Until now the card only said it had failed, and the one retry was two clicks inside a viewer you had no reason to open.",
@@ -718,6 +726,10 @@
   {
     "en": "A research run that hits your organization's budget now says so and tells you where an admin can raise the limit, instead of reporting an internal error.",
     "de": "Scheitert ein Recherchelauf am Budget Ihrer Organisation, sagt die Meldung das jetzt und nennt, wo ein Admin die Grenze anheben kann, statt einen internen Fehler zu melden."
+  },
+  {
+    "en": "A research run that was cut short now still reads as interrupted after a reload, and a run that ended as interrupted or failed stays that way when a late result arrives.",
+    "de": "Ein vorzeitig abgebrochener Recherchelauf wird auch nach dem Neuladen weiterhin als unterbrochen angezeigt, und ein Lauf, der mit dem Status „unterbrochen“ oder „fehlgeschlagen“ endet, behält diesen Status auch dann, wenn später noch ein Ergebnis eintrifft."
   },
   {
     "en": "A research run whose end your browser missed no longer locks the chat, and a running research never blocks typing, renaming or deleting.",
@@ -3092,6 +3104,10 @@
     "de": "Bestätigungen im Prüfbuch (IFC-Prüfprotokoll) zu einem IFC-Modell, das noch in Prüfung ist, sowie die Anzahl solcher Dateien in einem Ordner im Papierkorb werden Kolleginnen und Kollegen nicht mehr angezeigt, die das Modell oder die Datei nicht sehen dürfen."
   },
   {
+    "en": "Publishing a new version of an IFC model while the previous one is still being read no longer shows the old file's elements or marks the model as failed.",
+    "de": "Beim Veröffentlichen einer neuen Version eines IFC-Modells, während die vorherige noch eingelesen wird, werden die Elemente der alten Datei nicht mehr angezeigt und das Modell nicht mehr als fehlgeschlagen gekennzeichnet."
+  },
+  {
     "en": "Questions about Austrian law are answered with citable paragraphs from the RIS, and an office can give Piloti standing instructions that apply to every question. Deep research and the Automation section are switched off for now, and an office that needs them can ask us to switch them on.",
     "de": "Fragen zum österreichischen Recht beantwortet Piloti mit zitierbaren Paragraphen aus dem RIS, und ein Büro kann Piloti stehende Anweisungen geben, die für jede Frage gelten. Tiefenrecherche und der Bereich Automatisierung sind vorerst ausgeschaltet; ein Büro, das sie braucht, kann uns bitten, sie für dieses Büro einzuschalten."
   },
@@ -3770,6 +3786,10 @@
   {
     "en": "The detail view shows where the file sat inside the folder you uploaded, and one click copies that path.",
     "de": "Die Detailansicht zeigt, wo die Datei im hochgeladenen Ordner lag, und ein Klick kopiert diesen Pfad."
+  },
+  {
+    "en": "The dictation button can no longer get stuck: pressing it again while it waits for the microphone cancels, and a microphone or recorder that does not answer ends by itself.",
+    "de": "Die Diktiertaste bleibt nicht mehr hängen: Erneutes Drücken während des Wartens auf das Mikrofon bricht den Vorgang ab; antwortet das Mikrofon oder der Recorder nicht, wird der Vorgang automatisch beendet."
   },
   {
     "en": "The docked inbox is calmer. Entries are no longer boxed into cards, the heading says once how many wait and how many are overdue, and a finished inbox shows a quiet check instead of an empty frame.",
@@ -4722,6 +4742,10 @@
   {
     "en": "When the confidence check cannot run, the chip says so instead of showing a level.",
     "de": "Wenn die Konfidenzprüfung nicht ausgeführt werden kann, zeigt der Chip dies an, statt eine Stufe anzuzeigen."
+  },
+  {
+    "en": "When the connection drops during an answer, the chat now says it is restoring the connection, and a connection that cannot be set up at all is retried and reported instead of leaving the chat silently not working.",
+    "de": "Wenn während einer Antwort die Verbindung abbricht, zeigt der Chat jetzt an, dass die Verbindung wiederhergestellt wird. Kann keine Verbindung aufgebaut werden, wird der Verbindungsaufbau erneut versucht und der Fehler gemeldet, statt dass der Chat ohne Hinweis nicht funktioniert."
   },
   {
     "en": "When the content check holds a file back for more reasons than it lists, the audit log now records how many it left out. A shortened list of reasons no longer reads as the complete one.",

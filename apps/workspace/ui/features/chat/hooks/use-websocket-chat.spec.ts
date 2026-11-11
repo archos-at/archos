@@ -96,6 +96,7 @@ import { useChatStore } from '../store'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import { ACK_TIMEOUT_MS, DELTA_FLUSH_MS, useWebSocketChat } from './use-websocket-chat'
+import { RESTORING_NOTE_AFTER_MS, useConnectionRestoring } from '../connection-restoring'
 import type { ChatMessage, Conversation } from '../types'
 import { registerCanvasFocusProvider } from '../lib/canvas-bridge'
 
@@ -916,6 +917,90 @@ describe('a phone away: locked, offline, or a network that gave up', () => {
 
     status('open')
     expect(lostCards()).toHaveLength(0)
+  })
+})
+
+describe('a socket that is reconnecting', () => {
+  const TURN = answered[0]!.turn_id
+  const halfway = answered.filter((event) => event.seq <= 15)
+  const restoring = () => renderHook(() => useConnectionRestoring(CONVERSATION)).result
+  const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms))
+
+  beforeEach(() => vi.useFakeTimers())
+
+  it('says so once it has lasted more than a moment while a turn runs, and stops saying it when the socket is open', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+
+    status('reconnecting')
+    wait(RESTORING_NOTE_AFTER_MS - 1)
+    expect(line.current).toBe(false)
+    // The ladder's attempts in between do not start the wait over.
+    status('connecting')
+    status('reconnecting')
+    wait(1)
+    expect(line.current).toBe(true)
+    // A line, not a message: nothing is added to the thread, and the turn waits.
+    expect(messages().filter((message) => message.messageType === 'error')).toEqual([])
+    expect(useChatStore.getState().turns[TURN]?.phase).toBe('running')
+
+    status('connecting')
+    expect(line.current).toBe(true)
+    status('open')
+    expect(line.current).toBe(false)
+  })
+
+  it('says nothing for a drop the first attempt mends', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+
+    status('reconnecting')
+    wait(RESTORING_NOTE_AFTER_MS - 1)
+    status('connecting')
+    status('open')
+    wait(RESTORING_NOTE_AFTER_MS)
+    expect(line.current).toBe(false)
+  })
+
+  it('says nothing for a hidden tab, and leaves offline and a spent ladder to the connection-lost line', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+
+    for (const away of ['suspended', 'offline', 'failed'] as const) {
+      status('reconnecting')
+      wait(RESTORING_NOTE_AFTER_MS)
+      expect(line.current).toBe(true)
+      status(away)
+      expect(line.current).toBe(false)
+      wait(RESTORING_NOTE_AFTER_MS)
+      expect(line.current).toBe(false)
+    }
+  })
+
+  it('says nothing while nobody waits on the socket, and says it for a question asked meanwhile', () => {
+    open(conversationOf(CONVERSATION))
+    const line = restoring()
+    status('reconnecting')
+    wait(RESTORING_NOTE_AFTER_MS)
+    expect(line.current).toBe(false)
+
+    act(() => useChatStore.getState().beginTurn(CONVERSATION, TURN))
+    expect(line.current).toBe(true)
+    status('closed')
+  })
+
+  it('stops saying it when the conversation’s socket is closed', () => {
+    openTurn(answered)
+    deliver(halfway)
+    const line = restoring()
+    status('reconnecting')
+    wait(RESTORING_NOTE_AFTER_MS)
+    expect(line.current).toBe(true)
+    status('closed')
+    expect(line.current).toBe(false)
   })
 })
 

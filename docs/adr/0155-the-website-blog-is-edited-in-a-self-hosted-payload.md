@@ -161,8 +161,9 @@ take meets them:
 * **Deletes.** Only a publisher deletes; the MCP server offers no delete at all.
 * **Social posts.** `guardSocialStatus` (`src/access/social.ts`) is the
   transition table: drafters move a post between draft and in review, only a
-  publisher approves, the hand-off only moves an approved post to scheduled or
-  failed and may write nothing but what it records.
+  publisher approves, the hand-off only claims an approved post as sending and
+  then moves it to scheduled or failed, and may write nothing but what it records
+  (`SOCIAL_MOVES`).
 * **Roles are granted.** Only an administrator sets a role; the first account
   ever created is the administrator.
 
@@ -217,6 +218,18 @@ slug or the post's own, `utm_content` the account and the post), and is a dry ru
 until a Buffer key exists. LinkedIn's Posts API scrapes no preview, so the image
 is sent: a drawing's band rendered to `/media/covers/<id>.png`, or an image
 cover's `share` size.
+
+**The hand-off claims before it sends** (added 2026-11-11). Sending first and
+recording after meant a failed record left the post `approved`, and the next run
+sent it to Buffer again. The hand-off now moves a post `approved → sending`
+(a compare-and-set under a row lock), sends, then records `scheduled` with
+Buffer's post id or `failed` with its reason. A post found `sending` is never
+sent: the run looks it up in Buffer by the tracked link in its text and records
+what it finds, or marks it `failed` for a person to check. Buffer's API offers no
+idempotency key (developers.buffer.com, read 2026-11-11), which is why the claim
+is ours. Once `sending`, `scheduled` or `published`, a post's content is locked
+and no move leads back to draft, review or approved except through `failed`.
+Nothing yet records that a scheduled post went out at Buffer or failed there.
 
 ### Consequences
 

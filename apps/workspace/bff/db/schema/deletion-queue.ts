@@ -1,25 +1,79 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { check, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 
 export type DeletionEntityType = 'project' | 'document' | 'conversation' | 'organization' | 'user' | 'folder'
 
-export type DeletionStatus = 'pending' | 'purging' | 'purged' | 'restored' | 'failed'
+export const DELETION_STATUSES = ['pending', 'purging', 'purged', 'restored', 'failed'] as const
+export type DeletionStatus = (typeof DELETION_STATUSES)[number]
 
-export const deletionQueue = pgTable('deletion_queue', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  entityType: text('entity_type').$type<DeletionEntityType>().notNull(),
-  entityId: text('entity_id').notNull(),
-  displayName: text('display_name').notNull(),
-  organizationId: text('organization_id').notNull(),
-  requestedBy: text('requested_by').notNull(),
-  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
-  purgeAfter: timestamp('purge_after', { withTimezone: true }).notNull(),
-  claimedAt: timestamp('claimed_at', { withTimezone: true }),
-  purgedAt: timestamp('purged_at', { withTimezone: true }),
-  status: text('status').$type<DeletionStatus>().notNull().default('pending'),
-  attempts: integer('attempts').notNull().default(0),
-  lastError: text('last_error'),
-  payload: jsonb('payload').$type<Record<string, unknown>>(),
+/**
+ * Claims a queue row gets before it is `failed` and waits for a person. The
+ * purger is plain JavaScript and keeps its own copy (`purger/db.js`,
+ * `MAX_ATTEMPTS`); `purger/deletion-lifecycle.spec.mjs` holds the two equal.
+ */
+export const DELETION_MAX_ATTEMPTS = 10
+
+/**
+ * A queued deletion's lifecycle (ADR-0179), from every writer of the status:
+ * the purger (`purger/db.js`), the Papierkorb (`projects/folder-bin-repository.ts`),
+ * the project restore (`projects/repository.ts`) and the chat erasure
+ * (`conversations/repository.ts`).
+ *
+ * A row is born `pending`. A holder claims it (`purging`): the purger once it
+ * is due, or „Endgültig löschen" in a request, which may also `retry` a
+ * `failed` row. The holder finishes it, releases it for another pass (a failed
+ * attempt with attempts left, a legal hold, or the purge done and only the
+ * traces owed to the purger), or fails it. The purger takes a `purging` row
+ * over once its claim is 15 minutes old (`reclaim`). A project or folder is
+ * restored only while `pending` and never claimed. A chat's delete request
+ * erases in the request and closes its own row without claiming it, and closes
+ * a `failed` one when a repeated delete worked.
+ *
+ * Attempts are not a state: a `pending` row always has attempts left, and the
+ * one that has none is `failed`.
+ */
+export const DELETION_LIFECYCLE = defineLifecycle<
+  DeletionStatus,
+  'claim' | 'reclaim' | 'retry' | 'finish' | 'release' | 'fail' | 'restore' | 'close'
+>({
+  id: 'deletion',
+  initial: 'pending',
+  states: {
+    pending: { on: { claim: 'purging', restore: 'restored', close: 'purged' } },
+    purging: { on: { reclaim: 'purging', finish: 'purged', release: 'pending', fail: 'failed' } },
+    purged: { type: 'final' },
+    restored: { type: 'final' },
+    failed: { on: { retry: 'purging', close: 'purged' } },
+  },
 })
+
+export const deletionQueue = pgTable(
+  'deletion_queue',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entityType: text('entity_type').$type<DeletionEntityType>().notNull(),
+    entityId: text('entity_id').notNull(),
+    displayName: text('display_name').notNull(),
+    organizationId: text('organization_id').notNull(),
+    requestedBy: text('requested_by').notNull(),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    purgeAfter: timestamp('purge_after', { withTimezone: true }).notNull(),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    purgedAt: timestamp('purged_at', { withTimezone: true }),
+    status: text('status').$type<DeletionStatus>().notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+  },
+  (table) => ({
+    // Migration 0223; generated from the tuple so the CHECK and the type cannot drift.
+    statusKnown: check(
+      'deletion_queue_status_known',
+      sql`${table.status} IN (${sql.raw(DELETION_STATUSES.map((status) => `'${status}'`).join(', '))})`
+    ),
+  })
+)
 
 export type DeletionQueueEntry = typeof deletionQueue.$inferSelect
 export type NewDeletionQueueEntry = typeof deletionQueue.$inferInsert

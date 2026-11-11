@@ -27,11 +27,15 @@
  *
  * ## Order, and why it makes a retry safe
  *
- * Message, then ledger, then row (the recorder does the last two in that
- * order). The claim picks only active rows, so closing the row LAST means a
- * sweep that fails halfway leaves the row active and the next sweep does the
- * rest; each earlier step checks before it writes (an empty message, a live
- * ledger), so doing it twice changes nothing.
+ * Message, then row, then ledger (the recorder does the last two in that
+ * order). The row's close is a compare-and-set from the live states, and it
+ * is what decides the ending when the worker's report and this sweep cross:
+ * the first one stands, and the block is settled with the ending the row
+ * holds, never with the one that lost. A sweep that fails before the close
+ * leaves the row active and the next sweep does the rest; the message step
+ * checks before it writes (an empty message), so doing it twice changes
+ * nothing. A block that could not be written after the close is settled by
+ * the heal below, which looks at every closed run once.
  *
  * ## Which rows, how often
  *
@@ -61,7 +65,10 @@ import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { fetchBackendJobOutcome, type BackendJobOutcome } from '@/lib/jobs/backend-client'
 import * as taskRepository from '@/lib/tasks/repository'
 import { recordRunOutcome, type TaskOutcome } from '@/lib/tasks/service'
-import { readRunMessage, settleRunLedger, writeRunReport, type RunEnding } from './service'
+import { endingOfClosedRun } from './run-ending'
+import { readRunMessage, settleRunLedger, writeRunReport } from './service'
+
+export { endingOfClosedRun }
 
 /** How many runs one sweep claims. Bounded: the sweep is housekeeping on a timer. */
 export const RECONCILE_BATCH = 25
@@ -220,17 +227,6 @@ export interface ReconcileSweepResult {
   /** Closed runs whose block still read as live, and now reads as ended. */
   healed: number
   failed: number
-}
-
-/**
- * The ending a closed row records, as its block should show it. The row is the
- * authority here: it was closed by the outcome recorder, the reaper's report or
- * the reconciler, each with the job store's verdict.
- */
-export function endingOfClosedRun(run: Pick<TaskRun, 'status' | 'error'>): RunEnding {
-  if (run.status === 'succeeded') return { status: 'success' }
-  if (run.status === 'interrupted') return { status: 'interrupted' }
-  return { status: 'failure', error: run.error }
 }
 
 /**

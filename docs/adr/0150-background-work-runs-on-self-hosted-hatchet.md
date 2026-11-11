@@ -150,9 +150,9 @@ dashboard and its backups hold nothing an office wrote.
 
 **The engine stays replaceable.** The pipeline's step functions never import
 `hatchet_sdk`. One thin layer per tier declares the tasks
-(`knowledge/ingest_hatchet.py`, `jobs/research_hatchet.py`,
-`bff/jobs-queue/hatchet*.ts`, `bff/scheduling/tasks.ts`), and the Python process
-builds its one client in `agent.common.hatchet_client`. Moving to Temporal means
+(`knowledge/ingest_workflow.py`, `jobs/research_workflow.py`,
+`bff/jobs-queue/orchestrator.ts`, `bff/scheduling/tasks.ts`), and the Python process
+builds its one client in `agent.common.orchestrator_client`. Moving to Temporal means
 rewriting those layers, not the pipeline.
 
 **Status is pushed.** When an ingest job ends, `settle` calls
@@ -229,8 +229,8 @@ change: the previous release still claims from those tables.
   production runs.
 * **Scaling.** `deploy/pulumi/src/app/keda-scaling.spec.ts` holds the backlog
   query to Hatchet's tables and each pool's workflow.
-* **One client.** `agent.common.hatchet_client` is the only place a Python
-  process builds the SDK client; `test_hatchet_client.py` holds that tests
+* **One client.** `agent.common.orchestrator_client` is the only place a Python
+  process builds the SDK client; `test_orchestrator_client.py` holds that tests
   replace it there.
 * **Before the production cutover**, on staging, recorded in the PR or the
   release that does it:

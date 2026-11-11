@@ -32,7 +32,7 @@ export interface LifecycleRequest {
 /**
  * Proposed, submitted, every claim accepted and approved as domain expert. Returns the request's id.
  * The expert also vouches for the sources (`sourceChecked`): a pasted page, or a text nobody fetched, holds
- * every approval up until another person than its author did (migrations 0218 and 0222).
+ * every approval up until another person than its author did (migrations 0218 and 0224).
  */
 export async function approvedRequest(request: LifecycleRequest, actors: LifecycleActors): Promise<string> {
   const store = await import('../store')

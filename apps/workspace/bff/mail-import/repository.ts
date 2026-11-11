@@ -12,12 +12,12 @@ import 'server-only'
 import { and, desc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import { mailImports, type MailImport, type MailImportSkippedSample, type MailImportStatus, type NewMailImport } from '@/lib/db/schema/mail-imports'
+import { MAIL_IMPORT_LIFECYCLE, mailImports, type MailImport, type MailImportSkippedSample, type MailImportStatus, type NewMailImport } from '@/lib/db/schema/mail-imports'
 import { CURSOR_TIMESTAMP_FORMAT, type DocumentListCursor } from '@/lib/documents/list-cursor'
 import { isUuid } from '@/lib/ids'
 
-const OPEN_STATUSES: MailImportStatus[] = ['uploading', 'queued', 'importing']
-const ENDED_STATUSES: MailImportStatus[] = ['completed', 'failed', 'cancelled']
+const OPEN_STATUSES: MailImportStatus[] = [...MAIL_IMPORT_LIFECYCLE.liveStates]
+const ENDED_STATUSES: MailImportStatus[] = [...MAIL_IMPORT_LIFECYCLE.finalStates]
 
 /** Insert the row, or null when the person already has an open import in the project (the unique index). */
 export async function insertMailImport(values: NewMailImport): Promise<MailImport | null> {

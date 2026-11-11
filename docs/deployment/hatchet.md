@@ -4,8 +4,11 @@ Every background job of the workspace runs on Hatchet (ADR-0150): ingesting a
 document (`ingest-document`, and `ingest-document-heavy` for a large file), a
 research run (`research-run`) and the BFF's jobs (`bff-job`, one task with the
 job kind in its input). The claim queues it
-replaced (`ingest_job_queue`, `research_job_queue`, `bff_job_queue`) are no
+replaced for ingest and research (`ingest_job_queue`, `research_job_queue`) are no
 longer written; their tables stay until a later migration drops them.
+`bff_job_queue` is still written: its row is each BFF job's record (payload,
+attempts, holder), which the `bff-job` run reads and settles
+(`apps/workspace/bff/jobs-queue/repository.ts`).
 
 This page is for the operator: what runs where, how a stack gets it, how to
 upgrade it, how to reach the dashboard, what to watch, and the cutover from

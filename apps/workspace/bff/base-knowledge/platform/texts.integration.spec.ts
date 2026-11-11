@@ -24,7 +24,7 @@
  *   bytes or nothing, and other bytes under a named file fail the kit, refuse
  *   the approval and are never indexed;
  * - an uploaded text needs another person's source check before any approval,
- *   alone included (migration 0222), and a fetched one does not.
+ *   alone included (migration 0224), and a fetched one does not.
  *
  * The corpus itself is the backend's and stands in here, as in
  * `platform.integration.spec.ts`.
@@ -654,7 +654,7 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     })
   })
 
-  describe('an upload does not get around four eyes (migration 0222)', () => {
+  describe('an upload does not get around four eyes (migration 0224)', () => {
     const alone = { ...approve, override: { reason: 'Only platform owner on call this week; counsel is back on Monday.' } }
 
     /** A submitted request whose records cite a fetched page only, so nothing but the manifestation's text can be unchecked. */
@@ -717,7 +717,7 @@ describe.skipIf(!url)('texts attached in the change request (ADR-0165)', () => {
     })
   })
 
-  describe('a fetch counts only through a source somebody else has seen (migration 0222)', () => {
+  describe('a fetch counts only through a source somebody else has seen (migration 0224)', () => {
     const alone = { ...approve, override: { reason: 'Only platform owner on call this week; counsel is back on Monday.' } }
     const OWN_HOST = 'attacker.example'
     const OWN_TERRITORY = 'AT-TXS'

@@ -134,6 +134,7 @@ export const chat: typeof en.chat = {
     start: 'Diktieren',
     startHint:
       'Sprechen Sie, {productName} schreibt es in Ihre Nachricht. Stoppt nach {seconds} Sekunden.',
+    starting: 'Wartet auf das Mikrofon. Erneut drücken bricht ab.',
     stop: 'Beenden und einfügen',
     recording: 'Aufnahme, {elapsed}',
     transcribing: 'Wird verschriftlicht …',
@@ -147,6 +148,8 @@ export const chat: typeof en.chat = {
     errors: {
       noMicrophone: 'Es wurde kein Mikrofon gefunden.',
       denied: 'Der Mikrofonzugriff wurde nicht erlaubt.',
+      noAnswer:
+        'Das Mikrofon hat nicht geantwortet. Wartet der Browser noch auf Ihre Erlaubnis? Versuchen Sie es erneut.',
       rateLimited: 'Zu viele Aufnahmen in kurzer Zeit. Versuchen Sie es in einer Minute erneut.',
       tooLarge: 'Die Aufnahme ist zu groß zum Verschriftlichen.',
       notConfigured: 'Spracheingabe ist gerade nicht verfügbar.',
@@ -1872,6 +1875,13 @@ export const chat: typeof en.chat = {
       },
       branchesTab: 'Folgewege',
     },
+  },
+  // Die leise Zeile über der Eingabe, während die Seite die Verbindung zum
+  // Chat von selbst wiederherstellt und eine Antwort oder eine Rückfrage
+  // darauf wartet. Ihre Nachbarn („Verbindung unterbrochen“, „Wieder
+  // verbunden“) stehen unter `research.chatArea.connection`.
+  connection: {
+    restoring: 'Verbindung wird wiederhergestellt …',
   },
   error: {
     showDetails: 'Details anzeigen',

@@ -37,12 +37,17 @@
  *   can stop waiting on a turn that stays silent across reopens. A question not
  *   yet acknowledged (`RUN_STARTED`) is the caller's to watch (`openTurns`
  *   leaves it out); a turn waiting for its stages (`settled`) gets no beats.
- * - **Backoff.** `createRetryLadder`, with the auth refresh before each attempt:
- *   the handshake is the only point where the gateway reads the cookie. The
- *   hello is the evidence that starts the ladder over. `partysocket` was weighed
- *   for this (MIT, 210 KB, one polyfill) and not taken: the ladder is already
- *   ours, and its send queue would replay stale client messages that `attach`
- *   makes wrong.
+ * - **Status.** Every status and every move between two of them is declared
+ *   in `turn-socket-machine.ts`, one XState machine. This file is its driver:
+ *   it owns the WebSocket, the frames, the clocks and the page, tells the
+ *   machine what happened, and does what the machine decides.
+ * - **Backoff.** The machine's ladder (the rule of `createRetryLadder`, with
+ *   the count in the machine's context), with the auth refresh before each
+ *   attempt: the handshake is the only point where the gateway reads the
+ *   cookie. The hello is the evidence that starts the ladder over.
+ *   `partysocket` was weighed for this (MIT, 210 KB, one polyfill) and not
+ *   taken: the ladder is already ours, and its send queue would replay stale
+ *   client messages that `attach` makes wrong.
  * - **A page away is not a server down** (`page-lifecycle.ts`). A phone that
  *   locks freezes the page and iOS kills the socket; a phone on site loses the
  *   network. While the page is hidden or offline no attempt is made and the
@@ -57,34 +62,14 @@
  *   freeze: it is no strike against the turn and no sign of another dialect.
  */
 
-import { createRetryLadder, type RetryLadderOptions } from '@/shared/utils/backoff'
+import { createActor, fromCallback } from 'xstate'
+import type { RetryLadderOptions } from '@/shared/utils/backoff'
 import { getWebSocketUrl } from './config'
 import { browserPageLifecycle, isActive, sleptThrough, type PageLifecycle } from './page-lifecycle'
-import {
-  CLOSE_CLIENT_OUTDATED,
-  WIRE_VERSION,
-  parseHello,
-  parseWireEvent,
-  type ClientMessage,
-  type Hello,
-  type WireEvent,
-} from './wire-v2'
+import { turnSocketMachine, type TurnSocketEvent, type TurnSocketStatus } from './turn-socket-machine'
+import { WIRE_VERSION, parseHello, parseWireEvent, type ClientMessage, type WireEvent } from './wire-v2'
 
-export type TurnSocketStatus =
-  | 'connecting'
-  | 'open'
-  | 'reconnecting'
-  /** The ladder is spent and the last attempt never reached a server. */
-  | 'failed'
-  /** The ladder is spent and the last attempt reached a server that does not speak wire v2. */
-  | 'incompatible'
-  /** The server speaks a newer wire than this page: 4426, or a frame this bundle cannot read. */
-  | 'outdated'
-  /** The page is hidden (locked, in the background): nothing is tried until it is visible. */
-  | 'suspended'
-  /** The browser has no network: nothing is tried until it is back. */
-  | 'offline'
-  | 'closed'
+export type { TurnSocketStatus } from './turn-socket-machine'
 
 /** A turn still running, and the last seq its view folded. */
 export interface OpenTurn {
@@ -135,7 +120,11 @@ export interface WebSocketLike {
 }
 
 export interface TurnSocket {
-  /** Open, or keep open. After the ladder gave up, a new ladder: this is a new request. */
+  /**
+   * Open, or keep open. After the ladder gave up, a new ladder: this is a new
+   * request. Resolves when the attempt's preparation is over and never
+   * rejects: how the attempt went is said by `onStatus`.
+   */
   connect: () => Promise<void>
   /**
    * False when the socket is not open (no hello yet), or when its server does
@@ -233,10 +222,24 @@ const typeOf = (raw: unknown): string => {
   return [record.type, record.name].filter((part) => typeof part === 'string').join(':') || typeof raw
 }
 
+/**
+ * Run a caller's callback from inside a machine step. What it throws is
+ * reported as uncaught, as it was when the socket's own handler ran it, and
+ * the step goes on: an error escaping an XState action would stop the machine
+ * for good.
+ */
+const guarded = (run: () => void): void => {
+  try {
+    run()
+  } catch (error) {
+    setTimeout(() => {
+      throw error
+    })
+  }
+}
+
 export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
-  const ladder = createRetryLadder(options.ladder ?? { baseMs: 1_000, maxMs: 30_000, budget: 12 })
   const lifecycle = options.lifecycle ?? browserPageLifecycle()
-  let unsubscribe: (() => void) | null = null
   /** When the page last went hidden or offline, until it is back. */
   let awaySince: number | null = isActive(lifecycle) ? null : Date.now()
   /** When the current socket last carried a frame. */
@@ -244,17 +247,13 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
   const warned = new Set<string>()
   let socket: WebSocketLike | null = null
   let opening: Promise<void> | null = null
-  let stopped = true
   /** The current socket's server said hello: it speaks v2, and `send` may use it. */
   let ready = false
   /** The optional client fields the current socket's server named in its hello. */
   let accepts: ReadonlySet<string> = new Set()
-  /** Why the last attempt failed, which names the status when the ladder is spent. */
-  let lastFailure: 'failed' | 'incompatible' = 'failed'
   let everyMs = DEFAULT_BEAT_MS
-  let watchdog: ReturnType<typeof setTimeout> | null = null
-
-  const status = (next: TurnSocketStatus): void => options.onStatus?.(next)
+  /** Re-arm the watchdog of the open socket: every frame it can read does. */
+  let heard: (() => void) | null = null
 
   /** Once per cause and frame type: a server in another dialect would otherwise fill the console. */
   const warnOnce = (what: string, raw?: unknown): void => {
@@ -264,101 +263,20 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     warned.add(key)
   }
 
-  const disarm = (): void => {
-    if (watchdog) clearTimeout(watchdog)
-    watchdog = null
-  }
-
   /** Detach and close the current socket without its close event starting anything. */
   const drop = (): void => {
     const current = socket
     socket = null
     ready = false
     accepts = new Set()
-    disarm()
     if (!current) return
     current.onopen = current.onmessage = current.onclose = current.onerror = null
     current.close()
   }
 
-  /** Why no attempt can be seen through now, or null when one can. */
-  const away = (): 'suspended' | 'offline' | null =>
-    !lifecycle.visible ? 'suspended' : !lifecycle.online ? 'offline' : null
-
-  const retry = (): void => {
-    const waiting = away()
-    if (waiting) {
-      // No attempt while nobody can see it through: the ladder keeps its
-      // place and its budget, and the page's return reopens the socket.
-      ladder.cancel()
-      status(waiting)
-      return
-    }
-    status('reconnecting')
-    // A rung that falls due on a page gone away since tries nothing either.
-    if (!ladder.schedule(() => (away() ? retry() : void open()))) status(lastFailure)
-  }
-
-  /** Drop whatever there is and open now, from the first rung. */
-  const reopen = (): void => {
-    ladder.reset()
-    drop()
-    void open()
-  }
-
-  /** The server does not speak this wire: this attempt failed, the next may reach another pod. */
-  const incompatible = (): void => {
-    lastFailure = 'incompatible'
-    drop()
-    retry()
-  }
-
-  /** The server speaks a newer wire than this page can read: reload, as for 4426. */
-  const outdated = (): void => {
-    drop()
-    stopped = true
-    status('outdated')
-  }
-
   /** The page was away while this timer ran: what it measured is the page, not the server. */
   const wasAway = (armedAt: number, ms: number): boolean =>
     awaySince !== null || !isActive(lifecycle) || sleptThrough(armedAt, ms)
-
-  /** Time out a socket that opened and has not said hello. */
-  const awaitHello = (): void => {
-    disarm()
-    const armedAt = Date.now()
-    watchdog = setTimeout(() => {
-      watchdog = null
-      // A freeze between the open and the hello is not another dialect.
-      if (wasAway(armedAt, HELLO_TIMEOUT_MS)) {
-        drop()
-        return retry()
-      }
-      warnOnce('no hello within the timeout')
-      incompatible()
-    }, HELLO_TIMEOUT_MS)
-  }
-
-  /** Watch the running turns: three beats with no frame and the socket is dead. */
-  const arm = (): void => {
-    disarm()
-    const armedAt = Date.now()
-    const ms = DEAD_AFTER_BEATS * everyMs
-    watchdog = setTimeout(() => {
-      watchdog = null
-      const silent = options
-        .openTurns()
-        .filter((turn) => !turn.settled)
-        .map((turn) => turn.turnId)
-      if (silent.length === 0) return
-      drop()
-      // Silence heard while the page was away is the page's, not the turn's:
-      // reopened when it is back, and no strike against the turn.
-      if (!wasAway(armedAt, ms)) options.onSilent?.(silent)
-      retry()
-    }, ms)
-  }
 
   const send = (message: ClientMessage): boolean => {
     if (!ready || socket?.readyState !== OPEN) return false
@@ -368,34 +286,27 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     return true
   }
 
-  /** The hello: the server speaks v2. Now the socket is open, and every open turn is attached. */
-  const greeted = (hello: Hello): void => {
-    ready = true
-    accepts = new Set(hello.value.accepts ?? [])
-    ladder.reset()
-    status('open')
-    for (const turn of options.openTurns()) {
-      send({ type: 'attach', conversation_id: options.conversationId, turn_id: turn.turnId, after_seq: turn.lastSeq })
-    }
-    arm()
-  }
-
-  const receive = (data: unknown): void => {
+  /** What a frame means for the connection goes to the machine; a turn's event goes to the caller. */
+  const receive = (data: unknown, tell: (event: TurnSocketEvent) => void): void => {
     heardAt = Date.now()
     const raw = jsonOf(data)
     if (!ready) {
       const hello = parseHello(raw)
-      if (hello) return greeted(hello)
-      warnOnce('opened with something other than a v2 hello', raw)
-      return incompatible()
+      if (!hello) {
+        warnOnce('opened with something other than a v2 hello', raw)
+        return tell({ type: 'GREETING_FOREIGN' })
+      }
+      ready = true
+      accepts = new Set(hello.value.accepts ?? [])
+      return tell({ type: 'HELLO' })
     }
     const event = parseWireEvent(raw)
     if (!event) {
       warnOnce('not a v2 event this page can read', raw)
-      return outdated()
+      return tell({ type: 'FRAME_UNREADABLE' })
     }
     if (event.type === 'CUSTOM' && event.name === 'heartbeat') everyMs = event.value.every_ms
-    arm()
+    heard?.()
     options.onEvent(event)
   }
 
@@ -406,89 +317,156 @@ export function createTurnSocket(options: TurnSocketOptions): TurnSocket {
     return `${base}${base.includes('?') ? '&' : '?'}${params}`
   }
 
-  const connectOnce = async (): Promise<void> => {
-    status('connecting')
-    await options.refreshAuth?.().catch(() => undefined)
-    const url = await urlOf()
-    if (stopped) return
-    lastFailure = 'failed'
-    const ws: WebSocketLike = options.createWebSocket ? options.createWebSocket(url) : new WebSocket(url)
+  /** One attempt's socket. The machine stops it when the attempt is over. */
+  const socketActor = fromCallback<TurnSocketEvent, { url: string }>(({ input, sendBack }) => {
+    let ws: WebSocketLike
+    try {
+      ws = options.createWebSocket ? options.createWebSocket(input.url) : new WebSocket(input.url)
+    } catch (error) {
+      warnOnce(`could not construct a socket: ${String(error)}`)
+      sendBack({ type: 'SOCKET_REFUSED' })
+      return undefined
+    }
     socket = ws
     ws.onopen = () => {
-      if (socket === ws) awaitHello()
+      if (socket === ws) sendBack({ type: 'SOCKET_OPENED' })
     }
     ws.onmessage = (message: MessageEvent) => {
-      if (socket === ws) receive(message.data)
+      if (socket === ws) receive(message.data, sendBack)
     }
     ws.onclose = (event: CloseEvent) => {
       if (socket !== ws) return
       socket = null
       ready = false
-      disarm()
-      if (stopped) return
-      if (event.code === CLOSE_CLIENT_OUTDATED) {
-        stopped = true
-        status('outdated')
-        return
-      }
-      retry()
+      sendBack({ type: 'SOCKET_CLOSED', code: event.code })
     }
-  }
+    return () => {
+      if (socket === ws) drop()
+    }
+  })
 
-  const open = (): Promise<void> => {
-    if (stopped || socket) return Promise.resolve()
-    opening ??= connectOnce().finally(() => (opening = null))
-    return opening
-  }
+  /** Time out a socket that opened and has not said hello. */
+  const helloTimer = fromCallback<TurnSocketEvent>(({ sendBack }) => {
+    const armedAt = Date.now()
+    const timer = setTimeout(() => {
+      const pageWasAway = wasAway(armedAt, HELLO_TIMEOUT_MS)
+      if (!pageWasAway) warnOnce('no hello within the timeout')
+      sendBack({ type: 'HELLO_TIMED_OUT', pageWasAway })
+    }, HELLO_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  })
 
-  /** The page went hidden or offline. An open socket is kept: it may well live through it. */
-  const suspend = (): void => {
-    awaySince ??= Date.now()
-    if (stopped || socket || opening) return
-    // A rung waiting to fire is not spent on a page nobody can see through.
-    retry()
-  }
+  /** Watch the running turns: three beats with no frame and the socket is dead. */
+  const silenceWatch = fromCallback<TurnSocketEvent>(({ sendBack }) => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const arm = (): void => {
+      if (timer) clearTimeout(timer)
+      const armedAt = Date.now()
+      const ms = DEAD_AFTER_BEATS * everyMs
+      timer = setTimeout(() => {
+        timer = null
+        const turnIds = options
+          .openTurns()
+          .filter((turn) => !turn.settled)
+          .map((turn) => turn.turnId)
+        if (turnIds.length > 0) sendBack({ type: 'WATCHDOG_EXPIRED', turnIds, pageWasAway: wasAway(armedAt, ms) })
+      }, ms)
+    }
+    heard = arm
+    arm()
+    return () => {
+      if (timer) clearTimeout(timer)
+      if (heard === arm) heard = null
+    }
+  })
+
+  const page = fromCallback<TurnSocketEvent>(({ sendBack }) => {
+    // Nothing listened while the socket was closed: a hide from before the
+    // close may be long over, and the away clock must describe the page now.
+    if (isActive(lifecycle)) awaySince = null
+    else awaySince ??= Date.now()
+    return lifecycle.subscribe({
+      // A ready socket that heard nothing while the page was away longer than a
+      // beat may be dead without its close having reached us (iOS).
+      resume: () => {
+        const since = awaySince
+        awaySince = null
+        const socketWentQuiet = since !== null && heardAt < since && Date.now() - since > everyMs
+        sendBack({ type: 'PAGE_RESUMED', socketWentQuiet })
+      },
+      suspend: () => {
+        // Away only if the page says so: a suspend on a page still visible and
+        // online has no resume to end it, and would count as away for good.
+        if (!isActive(lifecycle)) awaySince ??= Date.now()
+        sendBack({ type: 'PAGE_SUSPENDED' })
+      },
+    })
+  })
 
   /**
-   * The page is visible and online again. No socket, one still opening, or a
-   * ready one that heard nothing while the page was away longer than a beat
-   * (iOS may have killed it without its close reaching us): reopen now, from
-   * the first rung. A socket that kept talking through it is kept.
+   * Refresh auth and build the URL, then tell the machine, which opens the
+   * socket in the same step. It never rejects: an attempt the ladder starts
+   * has no caller, and a failure is the machine's to count and to announce.
    */
-  const resume = (): void => {
-    const since = awaySince
-    awaySince = null
-    if (stopped) return
-    const quietSince = since !== null && heardAt < since && Date.now() - since > everyMs
-    if (socket && ready && !quietSince) return
-    reopen()
+  const prepare = async (): Promise<void> => {
+    let url: string
+    try {
+      await options.refreshAuth?.().catch(() => undefined)
+      url = await urlOf()
+    } catch (error) {
+      warnOnce(`could not prepare an attempt: ${String(error)}`)
+      actor.send({ type: 'PREPARE_FAILED' })
+      return
+    }
+    actor.send({ type: 'PREPARED', url })
   }
 
-  const listen = (): void => {
-    unsubscribe ??= lifecycle.subscribe({ resume, suspend })
-  }
+  const actor = createActor(
+    turnSocketMachine.provide({
+      actors: { page, socket: socketActor, helloTimer, silenceWatch },
+      actions: {
+        announce: (_, { status }) => guarded(() => options.onStatus?.(status)),
+        prepare: () => {
+          opening = prepare().finally(() => (opening = null))
+        },
+        dropSocket: drop,
+        // The hello: now the socket is open, and every open turn is attached.
+        attachOpenTurns: () =>
+          guarded(() => {
+            for (const turn of options.openTurns()) {
+              send({
+                type: 'attach',
+                conversation_id: options.conversationId,
+                turn_id: turn.turnId,
+                after_seq: turn.lastSeq,
+              })
+            }
+          }),
+        reportSilence: (_, { turnIds }) => guarded(() => options.onSilent?.(turnIds)),
+      },
+      guards: {
+        pageHidden: () => !lifecycle.visible,
+        pageOffline: () => !lifecycle.online,
+      },
+    }),
+    { input: { ladder: options.ladder ?? { baseMs: 1_000, maxMs: 30_000, budget: 12 } } }
+  )
+  actor.start()
 
   return {
     connect: () => {
-      stopped = false
-      listen()
-      if (ladder.spent) ladder.reset()
-      return open()
+      actor.send({ type: 'CONNECT' })
+      return opening ?? Promise.resolve()
     },
     send,
     accepts: (entry) => ready && accepts.has(entry),
-    reconnect: () => {
-      stopped = false
-      listen()
-      reopen()
-    },
+    reconnect: () => actor.send({ type: 'RECONNECT' }),
     close: () => {
-      stopped = true
-      unsubscribe?.()
-      unsubscribe = null
-      ladder.cancel()
-      drop()
-      status('closed')
+      // At once, not at the end of the step: a close called from inside
+      // `onStatus` is queued behind that step's remaining effects, and until
+      // then nothing more may be sent or attached on the socket being closed.
+      ready = false
+      actor.send({ type: 'CLOSE' })
     },
   }
 }

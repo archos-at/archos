@@ -57,6 +57,22 @@ describe('FileSourceCard', () => {
     expect(screen.getByLabelText('Reading')).toBeInTheDocument() // Spinner
   })
 
+  test('a cancelled upload says so, with no spinner, and can be dismissed', async () => {
+    const onDelete = vi.fn()
+    // Busy would disable a delete; dismissing a notice deletes nothing.
+    mockUseIsCurrentSessionBusy.mockReturnValue(true)
+    render(<FileSourceCard {...defaultProps} status="canceled" onDelete={onDelete} />)
+
+    expect(screen.getByText('Canceled')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Uploading...')).not.toBeInTheDocument()
+
+    const dismiss = screen.getByRole('button', { name: 'Dismiss document.pdf' })
+    expect(dismiss).toBeEnabled()
+    await userEvent.click(dismiss)
+    expect(onDelete).toHaveBeenCalledWith('file-1')
+  })
+
   test('renders error status with error message', () => {
     render(<FileSourceCard {...defaultProps} status="error" errorMessage="Upload failed" />)
 

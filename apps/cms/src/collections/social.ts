@@ -7,6 +7,7 @@
 import type { CollectionConfig } from 'payload';
 import { canDraft, canPublish, roleOf } from '../access/roles';
 import {
+  contentWritable,
   createSocialPosts,
   deleteSocialPosts,
   guardSocialStatus,
@@ -40,6 +41,8 @@ export const SocialAccounts: CollectionConfig = {
   ],
 };
 
+/** Locked once the post is handed over: Buffer holds a copy that an edit here would not reach. */
+const untilHandedOver = { update: contentWritable };
 const handoffMayNot = { update: notByHandoff };
 
 export const SocialPosts: CollectionConfig = {
@@ -62,31 +65,32 @@ export const SocialPosts: CollectionConfig = {
       options: options(SOCIAL_STATUSES),
       admin: {
         position: 'sidebar',
-        description: 'draft -> in_review -> approved (a publisher) -> scheduled (handed to Buffer) -> published. Only a publisher approves.',
+        description:
+          'draft -> in_review -> approved (a publisher) -> sending -> scheduled (Buffer holds it) -> published. Only a publisher approves; only the hand-off sets sending and scheduled. From sending on the text, link, image and time are locked: change or delete the post in Buffer, then set it failed here to edit it and send it again.',
       },
     },
-    { name: 'account', type: 'relationship', relationTo: 'social-accounts', required: true, access: handoffMayNot },
-    { name: 'language', type: 'select', required: true, options: options(LOCALES), access: handoffMayNot },
+    { name: 'account', type: 'relationship', relationTo: 'social-accounts', required: true, access: untilHandedOver },
+    { name: 'language', type: 'select', required: true, options: options(LOCALES), access: untilHandedOver },
     {
       name: 'text',
       type: 'textarea',
       required: true,
       maxLength: 3000,
-      access: handoffMayNot,
+      access: untilHandedOver,
       admin: { description: 'The post as it appears. LinkedIn shows about the first 210 characters before "see more"; the tracked link is added at the end.' },
     },
-    { name: 'blogPost', type: 'relationship', relationTo: 'posts', access: handoffMayNot, admin: { description: 'The post this one promotes. Its link and share image are used unless set below.' } },
-    { name: 'linkUrl', type: 'text', access: handoffMayNot, admin: { description: 'A page of the website to link instead of (or without) a blog post. Absolute, without tracking parameters.' } },
-    { name: 'utmCampaign', type: 'text', access: handoffMayNot, admin: { description: "Defaults to the blog post's slug. Lower-case, hyphens." } },
-    { name: 'image', type: 'upload', relationTo: 'media', access: handoffMayNot, admin: { description: "Optional. Defaults to the blog post's share image." } },
+    { name: 'blogPost', type: 'relationship', relationTo: 'posts', access: untilHandedOver, admin: { description: 'The post this one promotes. Its link and share image are used unless set below.' } },
+    { name: 'linkUrl', type: 'text', access: untilHandedOver, admin: { description: 'A page of the website to link instead of (or without) a blog post. Absolute, without tracking parameters.' } },
+    { name: 'utmCampaign', type: 'text', access: untilHandedOver, admin: { description: "Defaults to the blog post's slug. Lower-case, hyphens." } },
+    { name: 'image', type: 'upload', relationTo: 'media', access: untilHandedOver, admin: { description: "Optional. Defaults to the blog post's share image." } },
     {
       name: 'scheduledAt',
       type: 'date',
-      access: handoffMayNot,
+      access: untilHandedOver,
       admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime' }, description: "When it should go out. Empty: the next free slot of the account's queue." },
     },
     { name: 'sourceRef', type: 'text', index: true, access: handoffMayNot, admin: { position: 'sidebar', readOnly: true, description: 'Set by whatever drafted it, so a re-run never drafts it twice.' } },
-    { name: 'externalId', type: 'text', admin: { position: 'sidebar', readOnly: true, description: 'The id Buffer gave the post.' } },
+    { name: 'externalId', type: 'text', admin: { position: 'sidebar', readOnly: true, description: 'The id Buffer gave the post. Empty while sending: the hand-off has not recorded the answer yet.' } },
     { name: 'publishError', type: 'textarea', admin: { position: 'sidebar', readOnly: true } },
   ],
 };

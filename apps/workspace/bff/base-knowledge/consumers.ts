@@ -117,7 +117,7 @@ const SOURCES_CHECKED = {
   file: ONBOARDING_SPEC,
   name: 'approves only on the person’s yes, never the author’s, and only once the operator-supplied sources were checked',
 }
-/** What a fetch went through decides whether it counts as fetched (migration 0222). */
+/** What a fetch went through decides whether it counts as fetched (migration 0224). */
 const FETCHED_THROUGH = {
   file: 'apps/workspace/bff/base-knowledge/platform/texts.integration.spec.ts',
   name: 'holds a page captured through a source its own draft proposes, as it holds a pasted one',

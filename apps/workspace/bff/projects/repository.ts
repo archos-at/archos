@@ -22,7 +22,7 @@ import { isUuid } from '@/lib/ids'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import { withOptionalTenant, withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
-import { deletionQueue } from '@/lib/db/schema/deletion-queue'
+import { DELETION_LIFECYCLE, deletionQueue } from '@/lib/db/schema/deletion-queue'
 import { projectIntakes } from '@/lib/db/schema/project-intakes'
 import { projects, type Project } from '@/lib/db/schema/projects'
 import type { GeocodeResult } from '@/lib/geocoding/types'
@@ -585,7 +585,7 @@ export async function restoreProjectIfPending(
             eq(deletionQueue.entityType, 'project'),
             eq(deletionQueue.entityId, projectId),
             eq(deletionQueue.organizationId, organizationId),
-            eq(deletionQueue.status, 'pending'),
+            inArray(deletionQueue.status, DELETION_LIFECYCLE.sourcesOf('restore')),
             isNull(deletionQueue.claimedAt)
           )
         )

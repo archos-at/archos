@@ -41,7 +41,7 @@ import { captureUploadBatch } from './upload-batch-event'
 import { fileExtensionLabel } from '../document-kind'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
-import { requestCancelIngest } from '../lib/cancel-request'
+import { stopReadingRow } from '../lib/stop-reading'
 import { mayRetryRefusal, uploadRefusalOf } from '../lib/upload-refusal'
 import { uploadFailureSentence, UploadFailureSentence, type UploadFailureCopy } from '../lib/upload-failure'
 import { toast } from 'sonner'
@@ -747,16 +747,16 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
    * bytes are stored and an ingest job is working on them. There the stop is a
    * request to the backend (`stopReading`), and the row settles the same way —
    * `canceled` — because nothing was indexed and the file can be read again.
+   * `stopReadingRow` writes that, and only when the stop took effect.
    */
   const stopReading = useCallback(
     async (fileId: string, documentId: string): Promise<void> => {
-      const outcome = await requestCancelIngest(documentId)
-      if (outcome.kind === 'cancelled') {
-        updateTrackedFile(fileId, { status: 'canceled' })
+      const outcome = await stopReadingRow(fileId, documentId)
+      if (outcome === 'cancelled') {
         notifyDocumentsChanged()
         return
       }
-      if (outcome.kind === 'finished') {
+      if (outcome === 'finished') {
         // The job had already run to an end, so the row is not stuck: let the
         // orchestrator read where it actually landed rather than say stopped.
         toast.info(t('actions.cancelFinished'))
@@ -766,13 +766,13 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       // Not a failure to retry: the work runs somewhere a queue cannot reach
       // (queue off, or a conversion inside the BFF), and the row is honest as
       // it stands.
-      if (outcome.kind === 'unavailable') {
+      if (outcome === 'unavailable') {
         toast.info(t('actions.cancelUnavailable'))
         return
       }
       toast.error(t('actions.cancelError'))
     },
-    [updateTrackedFile, t]
+    [t]
   )
 
   const cancelFile = useCallback(

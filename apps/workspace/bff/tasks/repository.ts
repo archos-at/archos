@@ -11,6 +11,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { CURSOR_TIMESTAMP_FORMAT, type DocumentListCursor } from '@/lib/documents/list-cursor'
 import { SCHEDULE_SKIPPED_BECAUSE } from '@/lib/projects/project-status'
 import type { TaskRunReviewFilter } from './task-wire'
+import { TASK_RUN_LIFECYCLE } from './task-vocabulary'
 import { documents } from '@/lib/db/schema/documents'
 import { taskDefinitions, taskRuns, type NewTaskDefinition, type NewTaskRun, type TaskDefinition, type TaskRun, type TaskRunStatus } from '@/lib/db/schema/task-model'
 
@@ -442,24 +443,24 @@ export async function markRunStarted(
       and(
         eq(taskRuns.id, runId),
         eq(taskRuns.organizationId, organizationId),
-        eq(taskRuns.status, 'queued'),
+        inArray(taskRuns.status, [...TASK_RUN_LIFECYCLE.sourcesOf('start')]),
       ),
     )
     .returning({ id: taskRuns.id })
   return rows.length > 0
 }
 
-/** The statuses a run is still in the worker's hands in; see `isActiveTaskRunStatus`. */
-const ACTIVE_RUN_STATUSES = ['queued', 'running'] as const satisfies readonly TaskRunStatus[]
+/** The statuses a run is still in the worker's hands in: the live states of its lifecycle. */
+const ACTIVE_RUN_STATUSES = TASK_RUN_LIFECYCLE.liveStates
 
 /**
  * Close a run only while it is still active, and answer whether this call did.
  *
- * The conditional twin of {@link updateRun}, for the run reconciler: the worker's
- * own report and the reconciler can close one run at the same moment, and the
- * `status IN ('queued','running')` guard lets exactly one of them go on to file
- * the report and tell the requester. Null means the row had already ended (or
- * is not this organization's), which the caller reads as „nothing to do".
+ * The one write of an ending: the worker's own report, the reconciler and the
+ * kill switch can close one run at the same moment, and the guard on the live
+ * states lets exactly one of them record its ending, so the first final word
+ * stands. Null means the row had already ended (or is not this
+ * organization's); the caller reads the row to learn which ending stands.
  */
 export async function closeActiveRun(
   runId: string,

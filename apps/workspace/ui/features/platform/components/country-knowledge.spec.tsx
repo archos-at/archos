@@ -257,7 +257,7 @@ describe('CountryKnowledge', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
     first.unmount()
 
-    // A text fetched through a source its own request proposed is held the same way (migration 0222).
+    // A text fetched through a source its own request proposed is held the same way (migration 0224).
     fetchMock.mockClear()
     serve(200, withText('url', false) as unknown as typeof REQUEST)
     const second = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))

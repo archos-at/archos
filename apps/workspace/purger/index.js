@@ -27,6 +27,7 @@ const {
   markFailedPermanent,
   markPurged,
   reapStranded,
+  reofferExhausted,
   releaseHeld,
 } = require('./db')
 const { createSql } = require('../workers/app-database')
@@ -106,8 +107,12 @@ function createPurger({ sql, deps, streak }) {
     }
 
     try {
-      await withPlatformScope(sql, (tx) => purge(tx, claimed, deps))
-      await markPurged(sql, claimed.id)
+      // The row is marked in the purge's transaction: a purge that committed
+      // is `purged`, and one that did not is not.
+      await withPlatformScope(sql, async (tx) => {
+        await purge(tx, claimed, deps)
+        await markPurged(tx, claimed.id)
+      })
       console.log(`[purger] purged ${claimed.entity_type} ${claimed.entity_id} ("${claimed.display_name}")`)
       return true
     } catch (error) {
@@ -158,6 +163,16 @@ function createPurger({ sql, deps, streak }) {
       })
       if (reaped > 0) {
         console.warn(`[purger] reaped ${reaped} row(s) stranded in 'purging' → 'failed' (see last_error)`)
+      }
+      // A 'pending' row with no attempts left is one the claim below never
+      // takes: it would wait for ever while reading as waiting.
+      const reoffered = await reofferExhausted(sql).catch((e) => {
+        outage = outage ?? databaseOutage(e)
+        if (!databaseOutage(e)) console.error('[purger] failed to re-offer exhausted rows:', e)
+        return 0
+      })
+      if (reoffered > 0) {
+        console.warn(`[purger] re-offered ${reoffered} 'pending' row(s) that had no attempts left, for one more purge`)
       }
       // Drain everything due, one at a time.
       //

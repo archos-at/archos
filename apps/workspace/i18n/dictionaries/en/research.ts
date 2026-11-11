@@ -172,6 +172,9 @@ export const research = {
     // Kept, never read: Piloti cannot answer from it, nothing failed.
     statusStored: 'Filed',
     statusDeleting: 'Deleting...',
+    // As in the upload tray (`uploads.row.canceled`, `uploads.actions.dismiss`).
+    statusCanceled: 'Canceled',
+    dismiss: 'Dismiss {title}',
     expiryPending: 'Deletion Pending - Reupload',
     expiresIn: 'Expires in {minutes} min',
     deleteDisabled: 'Delete {title} (disabled)',

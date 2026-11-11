@@ -1,0 +1,21 @@
+---
+# area: general
+incident:
+  - >
+    A folder whose permanent deletion failed once more after the automatic
+    attempts had run out could stay queued for good, so its documents, or the
+    stored traces of content removed with it, were not erased. Such deletions
+    now end as erased or failed, and ones already stuck are picked up
+    automatically after the update.
+fixes:
+  - >
+    A research run that was cut short now still reads as interrupted after a
+    reload, and a run that ended as interrupted or failed stays that way when a
+    late result arrives.
+  - >
+    Publishing a new version of an IFC model while the previous one is still
+    being read no longer shows the old file's elements or marks the model as
+    failed.
+  - >
+    A document that was read again, archived or replaced while an older
+    background step was still finishing no longer flips to failed.

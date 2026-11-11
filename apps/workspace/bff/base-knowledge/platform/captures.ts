@@ -53,7 +53,7 @@ export function pagesOf(contentType: string | null, text: string | null): number
   return isPdf(contentType) && text !== null ? text.split(PAGE_BREAK).length : null
 }
 
-/** Whether the capture counts as fetched (migration 0222), asked of the database: the one place that decides. */
+/** Whether the capture counts as fetched (migration 0224), asked of the database: the one place that decides. */
 const COUNTS_AS_FETCHED = sql<boolean>`knowledge_capture_counts_as_fetched(${knowledgeCitationCaptures.basis}, ${knowledgeCitationCaptures.sourceId}, ${knowledgeCitationCaptures.sourceOrigin}, ${knowledgeCitationCaptures.sourceRevisionId}, ${knowledgeCitationCaptures.createdAt})`
 
 export function captureView(row: Omit<CaptureRow, 'text'> & { textChars: number; pages: number | null; countsAsFetched: boolean }): CaptureView {

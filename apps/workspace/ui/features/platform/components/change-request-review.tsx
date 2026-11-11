@@ -154,7 +154,7 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide, unfetchedTe
   // A page nobody fetched from a reviewed source (pasted, or fetched through a source still in a draft): accepting the
   // record says the reviewer compared it with its source.
   const pastedPage = revision.citations.some((citation) => citation.captureId && captures.get(citation.captureId)?.countsAsFetched === false)
-  // The same holds for a text a person uploaded or fetched that way: the verdict vouches for it (migration 0222).
+  // The same holds for a text a person uploaded or fetched that way: the verdict vouches for it (migration 0224).
   const pasted = pastedPage || unfetchedText
   return (
     <section className="flex flex-col gap-3 border-b pb-6 last:border-b-0" data-testid="change-request-record">

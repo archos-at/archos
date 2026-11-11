@@ -123,6 +123,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
   const {
     uploadFiles,
     deleteFile,
+    dismissFiles,
     sessionFiles: targetFiles,
     isUploading,
     isPolling,
@@ -233,6 +234,10 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
     setFileIdToDelete(id)
     setIsDeleteModalOpen(true)
   }, [])
+
+  // A cancelled upload is taken off the list, as in the upload tray: no
+  // question asked, and nothing is deleted.
+  const handleDismiss = useCallback((id: string) => dismissFiles([id]), [dismissFiles])
 
   // Actually performs the delete after confirmation
   const handleConfirmDelete = useCallback(async () => {
@@ -407,8 +412,8 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
             // A project document is deleted in the project's Files, where the
             // delete runs the legal-hold check and erases every version. This
             // dialog lists what the chat can see; it only deletes the chat's own
-            // attachments.
-            onDelete={isProjectTarget ? undefined : handleDeleteClick}
+            // attachments. A cancelled upload is dismissed on either shelf.
+            onDelete={file.status === 'canceled' ? handleDismiss : isProjectTarget ? undefined : handleDeleteClick}
             onOpen={handleOpenPreview}
           />
         ))}

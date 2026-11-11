@@ -452,7 +452,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 }
 
 /**
- * Why an approval waits on a page or a text nobody fetched from a reviewed source (0209, 0218, 0222), and the two
+ * Why an approval waits on a page or a text nobody fetched from a reviewed source (0209, 0218, 0224), and the two
  * ways out: a second person's source check, or, to approve alone, a fetch through a built-in source or a released
  * one two people have seen (ADR-0170, ADR-0176).
  */
