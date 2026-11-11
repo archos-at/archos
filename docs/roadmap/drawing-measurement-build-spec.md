@@ -7,8 +7,8 @@ says why and what. This says how, in what order, and what done means for each
 slice. Where the two disagree, this file is newer and wins; the differences are
 under [What changed against the plan](#what-changed-against-the-plan).*
 
-**Slice 1 is built** (the reader, and `look` returning the text in its crop);
-the rest is not. Every path named as existing was read on 2026-11-11.
+**Slices 1 and 2 are built** (the reader, `look` returning the text in its crop,
+and scale and probe as pure functions); the rest is not. Every path named as existing was read on 2026-11-11.
 Every number under [Measured](#measured) was produced that day; the scripts were
 research and are not committed.
 
@@ -166,6 +166,81 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
    looser one did, do not loosen the 80 % or the terminator rule to get green:
    report the numbers in the pull request, because the thresholds are then the
    product owner's call.
+   **As built in slice 2, and what it measured.** The check is
+   `agent/drawings/sheet_scale.py`; three points the definition left open were
+   settled in the stricter direction:
+   * *The dimension line* is the nearest parallel segment (within 3°, within
+     twice the figure's height) that itself ends in two terminators, and its
+     length is the span, whatever stops near it on the way. Only where no
+     segment ends so (a chain drawn as one long line) is the nearest terminator
+     on each side of the figure taken. Before this, on a real plot, a dimension
+     set inside the drawing was cut short by wall hatching in 22 of 65 cases.
+   * *A terminator* is a line that meets the dimension line and stops there:
+     a tick, an extension line whose end lies within 1.5 text heights of it, or
+     the tip of an arrowhead. A line that crosses and runs on ends nothing: the
+     extension line of a chain further out crossed the inner chain's 5,50 span
+     on the first fixture and made that figure disagree.
+   * *The unit convention* is fixed from form alone, and only from figures
+     that sit on a dimension line (one room number „1.05“ in a region otherwise
+     switched a millimetre sheet to metres): decimals present, decimals are
+     metres and whole numbers centimetres; no decimals but a raised digit,
+     centimetres; whole numbers only, **undetermined**, and nothing is
+     corroborated. Centimetres and millimetres differ by ten, and a scale note
+     of 1:100 over a 1:10 detail dimensioned in millimetres would otherwise
+     agree under the other reading. A decimal needs two or three decimals to be
+     a length: „400,0“ and „2,5“ are read as nothing.
+   * *A stored factor without a unit label* is read as metres only when
+     something else on the sheet states the same ratio within one percent (the
+     region's own ratio text, a printed scale note). A file drawn in
+     centimetres with an empty label otherwise decodes a hundred times too
+     large, and figures printed in centimetres agree with it.
+   * *Corroboration is local.* Figures vouch for the part of the sheet they
+     dimension: the dimension nearest the place asked about must be one that
+     agrees, and the place must lie within the extent the agreeing dimensions
+     span, grown by a quarter of its longer side. Otherwise a second view at
+     1:50 under a note that says 1:100 was `estimated` on the strength of the
+     other view's eight figures.
+   * *An estimate is no finer than its check.* An `estimated` reading carries
+     a relative error of at least 0.5 %, whatever decision 10 gives its source:
+     a stored factor 0.4 % off is corroborated, and at 0.1 % its interval did
+     not hold the true value.
+
+   On the fixture floor (eight dimensions, drawn exactly) 8 of 8 agree on all
+   four rotations, cropped, and in a view turned by 20°, and 0 of 8 at ×0.5,
+   ×0.707, ×1.414 and ×2. The public sheet behind the 39 of 42 is not in the
+   repository.
+
+   **On real plots (measured 2026-11-11, three drawings of the dev workspace,
+   fetched for the measurement and not committed):**
+
+   | Sheet | What it holds | Strict match at the printed scale | At other scales |
+   |---|---|---|---|
+   | A basement floor, A1, 1:50, 1,970 segments, 201 figures | 65 dimension figures on dimension lines, note „1:50“, no stored region | **52 of 65 agree (80 %)**: `estimated`, exactly at the threshold | 0 of 65 at 1:100, 1:200 and 1:500 |
+   | An elevation, A1, 1:50, 16,029 segments | 6 figures on dimension lines | 3 of 6: `uncalibrated` | 0 of 6 |
+   | A ground floor, A1, 518,910 segments, read in 5.3 s | no dimension figure; the scale printed as „1.200“, which is no „1:N“ | no hint: `uncalibrated` | n/a |
+
+   All 13 misses on the first sheet are short figures (20 to 44.5 cm) whose
+   drawn span differs from the printed value by 1 to 5 mm; 12 of them lie
+   within half the last printed digit: inside what a figure printed to the
+   centimetre can say, outside 0.5 %. So the one real
+   dimensioned floor plan is corroborated with nothing to spare, and a sheet
+   like it with a few more short dimensions would not be. Three sheets from
+   one office are not a corpus.
+
+   **What print rounding does to the 0.5 % rule (measured 2026-11-11, synthetic).**
+   Spans drawn to the millimetre, labelled as a drawing prints them, three
+   sheets of about 100 figures each, correct scale:
+
+   | Labels rounded to | Figures under 0.5 m that agree | From 0.5 m up | Sheets corroborated |
+   |---|---|---|---|
+   | the centimetre | 15 of 67 | 237 of 243 | 2 of 3 (the third at 79 of 101, 78 %) |
+   | the half centimetre (raised 5) | 47 of 67 | 243 of 243 | 3 of 3 |
+
+   A figure printed to the centimetre is exact to ±5 mm, which is more than
+   0.5 % of anything under one metre. A sheet with many short dimensions can
+   therefore be `uncalibrated` at its true scale. The thresholds were not
+   changed. Whether agreement should allow half the last printed digit is the
+   product owner's call, to be taken on real plots.
 6. **Only a verified, uncontradicted scale can decide a threshold.** On
    `estimated` a length is returned with its caveat and the verdict is always
    `undecidable`, with „confirm the scale“ as the remedy. `uncalibrated` returns
@@ -195,6 +270,22 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
    and either a printed figure on the span that agrees or the answer carrying
    the crop with the span drawn on it for the person. Anything less is
    `undecidable` with the reason.
+   *As built:* between two parallel lines the probe meets squarely (65° or
+   more) the span is the perpendicular between them, so a width does not grow
+   because the two points were placed askew (at 1:100 a 10° slant adds 1.8 cm to
+   1.20 m). Between lines that are not parallel it is the piece of the probe
+   between them, the answer says so, and no verdict is given. `distance`, `path`
+   and `area` move each point to the ONE line end or intersection within 6 pt
+   and refuse two, listing them; a point placed on a listed candidate takes it.
+   No number comes from a point the engine could not tie to linework.
+   *Refused outright:* a probe that meets either line flatter than 65° (past a
+   25° slant the width was once taken along the probe and came out a tenth too
+   long, with a verdict); a point with more than 60 lines within reach
+   (hatching), where line ends and corners cannot be told apart; an area whose
+   corners are out of order. A path that passes through a line between two of
+   its points decides nothing, and a measurement that passes OVER another
+   scale region is refused like one that ends in it: the scale is read at nine
+   places along every leg, not at its ends alone.
 10. **Tolerance, first version.** A length carries
     `max(widest end stroke at scale, value × relative_scale_error)`:
     `1 pt / reference_length_pt` for a two-point calibration, 0.001 for a stored
@@ -202,6 +293,14 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
     error of its lengths. A threshold within `VERDICT_FLOOR_M = 0.02` of the value
     is `undecidable` whatever the interval: the face a width is measured to is
     unknown to centimetres. Slice 7 measures both constants.
+    *As built:* an `estimated` reading carries at least 0.5 % (decision 5), and
+    a length is never finer than 0.25 pt, the distance below which two lines
+    are one. A calibration counts as contradicted by another calibration over
+    the same place, by its stored region, by what the figures corroborate at
+    that place without it, or by the figures inside its own region. What stays
+    undetected: a calibration within 0.5 % of the truth where no stored region
+    says otherwise. The figure check cannot see finer, and the calibration's
+    own stated error (one point over its reference length) is the person's.
 11. **Figures keep their text.** A figure is returned as printed, with its place,
     direction and height, and a parsed value only where the form is unambiguous. A
     figure is returned whole or not at all: one whose centre lies outside a crop is
@@ -261,11 +360,12 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
 | `knowledge_layer/sheet/reader.py` | `read_sheet(pdf_bytes, page_number)`, returning plain tuples and dicts: the page's box, rotation and size in points and millimetres, the ISO 216 format if within 3 mm, segments with a width, dash state and colour each, characters with box and matrix, the stored regions, whether the page is a scan. |
 | `knowledge_layer/sheet/figures.py` | Characters into figures in reading order; nothing else. `look` uses this alone. |
 | `knowledge_layer/sheet/crop_text.py` | The figures inside a crop, bounded, for `look`. |
-| `agent/drawings/sheet_types.py` | `Sheet`, `Segment`, `Character`, `Figure`, `StoredRegion`: frozen dataclasses, no imports outside the standard library. |
+| `agent/drawings/sheet_types.py` | `Sheet`, `Segment`, `Figure`, `StoredRegion`, the columnar `SegmentTable`, and `sheet_from_plain`, which turns the reader's plain values into them. No imports outside the standard library. (No `Character`: figures are grouped in the reader's package, and nothing in the agent reads single characters.) |
 | `agent/drawings/sheet_scale.py` | Scale at a point by decision 5; the corroboration check; the ratio for display. |
 | `agent/drawings/sheet_figures.py` | Classification of figures (dimension, level mark, opening size, scale note, room stamp) and the unit convention as an inference. |
 | `agent/drawings/sheet_probe.py` | Crossings over a grid index of the segments, so a probe never scans a million of them; `clearance`, `distance`, `path`, `area`; snapping that returns the point and the distance moved and refuses two candidates; the tolerance. |
-| `agent/drawings/sheet_answers.py` | The answer type and the one function that renders it. |
+| `agent/drawings/sheet_answers.py` | The answer type, the verdict (`decide`) and the one function that renders it. |
+| `agent/drawings/sheet_measure.py` | The four measuring operations: span or snapped points, the scale they share, the tolerance, the answer. Added in slice 2: the join of probe, scale and answer needed a home that is none of the three. |
 | `agent/tools/drawings/sheet_source.py` | Loading through the scoped lookup, converting the reader's plain values into a `Sheet`, the cache of decision 1. |
 | `agent/tools/drawings/measure_register.py` | The tool, modelled on `register.py` beside it. |
 
