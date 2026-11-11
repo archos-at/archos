@@ -16,6 +16,7 @@ from pydantic import model_validator
 from agent.cards.card_model import CardModel
 from agent.cards.schematic_cards import NormReference
 from agent.cards.schematic_cards import Provenance
+from agent.common.knowledge_context import get_turn_knowledge_context
 
 FormulaStairType = Literal["main", "dwelling", "secondary"]
 
@@ -359,6 +360,77 @@ FormulaSpec = Annotated[
 ]
 
 
+#: Most binding editions a card is stamped with. A site may bind hundreds of works; past the bound the stamp
+#: says it was cut (``truncated``), and a work it does not name then reads as unknown, not as not binding.
+MAX_SITE_EDITIONS = 64
+
+#: How far the turn's records settle what binds at the site: ``settled`` (core, full), ``unsettled`` (no
+#: reviewed base yet: none, open), ``site_unknown`` (no site, or no law of it this office holds) and
+#: ``unavailable`` (the context could not be read). Each is a different reason the card gives no verdict.
+SiteCoverage = Literal["settled", "unsettled", "site_unknown", "unavailable"]
+#: Every gate state but ``knowledge_unavailable``; one not listed fails closed as ``unavailable``.
+COVERAGE_OF_GATE: dict[str, SiteCoverage] = {
+    "organization_unplaced": "site_unknown",
+    "site_unknown": "site_unknown",
+    "not_entitled": "site_unknown",
+    "none": "unsettled",
+    "open": "unsettled",
+    "core": "settled",
+    "full": "settled",
+}
+
+
+class SiteEdition(CardModel):
+    """One work that binds at the turn's site, and the edition that binds, as the knowledge context names them."""
+
+    designation: str
+    edition_label: str | None = Field(
+        default=None, description="The edition that binds; None where the binding uses name none, or more than one"
+    )
+    scope_unsettled: bool = Field(default=False, description="A binding edition's own scope is still open here")
+
+
+class SiteBinding(CardModel):
+    """Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).
+
+    The card judges a bound only where the edition its values come from is the one that binds here and the
+    coverage is settled; everywhere else it shows the value against the bound as a hint, with the reason.
+    """
+
+    coverage: SiteCoverage
+    editions: list[SiteEdition] = Field(default_factory=list, max_length=MAX_SITE_EDITIONS)
+    truncated: bool = Field(default=False, description="More works bind than the stamp names")
+
+
+def site_binding() -> dict[str, Any] | None:
+    """The turn's binding editions as a formula card carries them; None outside a turn. Pure but for the turn.
+
+    One entry per designation. Its label is the binding uses' one label, or None where they name two
+    editions (the card cannot tell which binds); ``scope_unsettled`` where any of them is still open.
+    """
+    context = get_turn_knowledge_context()
+    if context is None:
+        return None
+    labels: dict[str, set[str | None]] = {}
+    unsettled: set[str] = set()
+    for use in context.uses:
+        if use.role != "binding" or not use.designation:
+            continue
+        labels.setdefault(use.designation, set()).add(use.edition_label)
+        if use.scope_unsettled:
+            unsettled.add(use.designation)
+    editions = [
+        {"designation": work, "edition_label": next(iter(found)) if len(found) == 1 else None}
+        | ({"scope_unsettled": True} if work in unsettled else {})
+        for work, found in labels.items()
+    ]
+    return {
+        "coverage": COVERAGE_OF_GATE.get(context.gate, "unavailable"),
+        "editions": editions[:MAX_SITE_EDITIONS],
+        "truncated": len(editions) > MAX_SITE_EDITIONS,
+    }
+
+
 class FormulaCard(CardModel):
     """Emit for a number worked out by one of four named rules, so the reader can ask "what if" on the card.
 
@@ -387,6 +459,22 @@ class FormulaCard(CardModel):
         default=None,
         description="Optional one-line caveat in words, never a figure or a result, e.g. what the rule leaves out",
     )
+
+    site_binding: SiteBinding | None = Field(
+        default=None,
+        description=(
+            "Which editions bind at the turn's site, set where the card is validated and never by the model. "
+            "Absent: the site is not known, and the card shows hints rather than verdicts"
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _site_binding_is_the_servers(cls, data: Any) -> Any:
+        # Whatever the model wrote is replaced: a stamp it could set would buy it a verdict.
+        if not isinstance(data, dict):
+            return data
+        return {**data, "site_binding": site_binding()}
 
     @field_validator("title")
     @classmethod
