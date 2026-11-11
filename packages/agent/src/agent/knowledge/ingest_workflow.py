@@ -254,6 +254,11 @@ def credit_rate_limit_key(client: Any) -> str:
     return f"{namespace}{CREDIT_RATE_LIMIT_KEY}"
 
 
+def put_credit_rate_limit(client: Any) -> None:
+    """Create the key every ``index`` consumes; a static key must exist before a step consumes it. Only ever paused."""
+    client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+
+
 def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMIT_KEY) -> dict[str, Any]:
     """The ``index`` step, as ``Workflow.task`` takes it; the heavy one needs a high-memory worker to itself."""
     options: dict[str, Any] = {
@@ -373,7 +378,7 @@ def ensure_registered(heavy: bool) -> None:
     wanted = client.config.apply_namespace(name)
     if not any(row.name == wanted for row in listed.rows or []):
         logger.info("No worker has registered %s yet; registering it for the first run", wanted)
-        client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+        put_credit_rate_limit(client)
         # The call a worker makes when it starts (``Worker.register_workflow``); the SDK has no public one.
         client._client.admin.put_workflow(workflow.to_proto())
     _registered[heavy] = client
@@ -571,8 +576,7 @@ def serve(
                 _runtime.ingestor = None
 
     orchestrator_tracing.instrument(getattr(client, "config", None))
-    # A static key must exist before a step consumes it; it is only ever paused.
-    client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
+    put_credit_rate_limit(client)
     worker = client.worker(
         f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,
         slots=heavy_worker_slots() if heavy else max(1, slots),
