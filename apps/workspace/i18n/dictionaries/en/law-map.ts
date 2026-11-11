@@ -38,6 +38,7 @@ export const lawMap = {
   unplaced: 'Region not in this request',
   toConfirm: '{count, plural, one {# to confirm →} other {# to confirm →}}',
   allConfirmed: 'Everything in this request is confirmed. Approve it below; publishing follows.',
+  allConfirmedSecond: 'Everything in this request is confirmed. Give the second review below.',
   yesStatement: 'That is what the act says',
   yesEdition: 'This is the text of {edition}',
   yesStatute: 'This is the region’s building law',

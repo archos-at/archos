@@ -6,8 +6,8 @@
  * (docs/design/international/country-onboarding-ux.md, section B). It reads
  * the open change request the review reads (`change-requests/[id]`), so what
  * it shows is what a reviewer decides on; `?request=` names another. A
- * reviewer confirms there, unit by unit (`law-map-review.ts`); approving and
- * publishing stay in the change request.
+ * reviewer confirms there, unit by unit (`law-map-review.ts`), and the request
+ * is approved, published or rolled back from the same page (`ReleaseBar`).
  */
 
 import type { JSX } from 'react'
@@ -97,12 +97,14 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     setOpen(key)
     window.setTimeout(() => document.getElementById(`row-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
   }
+  // As the server decides it (0208, 0218): an author of any revision in the request.
+  const authored = Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id)
   const confirm = {
     requestId: view.id,
-    open: reviewable,
+    // A second review is never its author's: the review dialog hides its verdicts from them too.
+    open: reviewable && !(view.status !== 'submitted' && authored),
     canReview,
-    // As the server decides it (0208, 0218): an author of any revision in the request.
-    authored: Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id),
+    authored,
     onDone: (advance: boolean) => {
       request.reload()
       if (!advance) return
@@ -128,7 +130,9 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
           </Button>
         </div>
       ) : null}
-      {reviewable && waiting.length === 0 ? <p className="text-sm">{view.sourcesUnchecked ? t('sourcesUnchecked') : t('allConfirmed')}</p> : null}
+      {reviewable && canReview && waiting.length === 0 ? (
+        <p className="text-sm">{view.sourcesUnchecked ? t('sourcesUnchecked') : view.status === 'submitted' ? t('allConfirmed') : t('allConfirmedSecond')}</p>
+      ) : null}
       {/* What comes after the verdicts: approve, publish, roll back, the second review, the same bar the review dialog ends with. */}
       <ReleaseBar view={view} canManage={canReview} onChanged={request.reload} className="justify-start" />
       {units.length === 0 ? (

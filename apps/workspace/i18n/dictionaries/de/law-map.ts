@@ -38,6 +38,7 @@ export const lawMap = {
   unplaced: 'Gebiet nicht in diesem Antrag',
   toConfirm: '{count, plural, one {# zu bestätigen →} other {# zu bestätigen →}}',
   allConfirmed: 'Alles in diesem Antrag ist bestätigt. Genehmigen Sie ihn unten; die Veröffentlichung folgt.',
+  allConfirmedSecond: 'Alles in diesem Antrag ist bestätigt. Geben Sie unten die zweite Prüfung ab.',
   yesStatement: 'Das sagt der Akt',
   yesEdition: 'Das ist der Text der {edition}',
   yesStatute: 'Das ist das Baurecht des Gebiets',

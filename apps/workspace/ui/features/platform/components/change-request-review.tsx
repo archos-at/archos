@@ -360,8 +360,8 @@ export function ChangeRequestReview({
       <ReleaseBar
         view={view}
         canManage={canManage}
-        onChanged={() => {
-          void load()
+        onChanged={async () => {
+          await load()
           onChanged()
         }}
         className="bg-card sticky -bottom-6 -mx-6 -mb-6 mt-6 border-t px-6 py-4"
