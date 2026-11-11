@@ -21,6 +21,30 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLElement>,
   subtitle?: React.ReactNode
   /** Optional primary action rendered on the right of the header row. */
   action?: React.ReactNode
+  /**
+   * Where the page is, above the title, small and muted (12/16, `text-meta`): the project a tab belongs to, so the
+   * title can name the place itself („E-Mail-Eingang“, not „Dateien“ over the inbox).
+   */
+  crumb?: React.ReactNode
+  /** Classes for the crumb's line: `max-md:hidden` where the widths without a rail start the page with its title. */
+  crumbClassName?: string
+  /** What starts the title's line, before the title: a way back (a phone's ←), on the title's edge. */
+  titleStart?: React.ReactNode
+  /** Where `titleStart` is shown (`md:hidden`): an empty slot still took the line's gap and moved the title 8px in. */
+  titleStartClassName?: string
+  /**
+   * What ends the title's line, at every width: a glyph that belongs to the header (the phone's search, a page's
+   * one ⋯). A 44px target hangs into the line's height, so it costs the header none.
+   */
+  titleEnd?: React.ReactNode
+  /** The action stays on the title's line at every width: a compact one (a single ⋯) that a phone need not stack. */
+  actionInline?: boolean
+  /** Classes for the title itself (`line-clamp-2` where a title can be a folder's sentence-long name). */
+  titleClassName?: string
+  /** The whole title as a tooltip, where `titleClassName` may cut it. */
+  titleTooltip?: string
+  /** Beside the title, on its first line's baseline: what the place holds („240 Elemente“). */
+  titleAside?: React.ReactNode
 }
 
 /**
@@ -74,22 +98,56 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  crumb,
+  crumbClassName,
+  titleStart,
+  titleStartClassName,
+  titleEnd,
+  actionInline = false,
+  titleClassName,
+  titleTooltip,
+  titleAside,
   className,
   ...props
 }: PageHeaderProps): JSX.Element {
+  // The aside follows the title's last word inline („Index C  2 Elemente“): beside a two-line title as a box it stood
+  // at the far edge of the column, away from what it counts.
+  const heading = (
+    <h1 className={cn('min-w-0 flex-1 text-balance text-page-title phone:text-section', titleClassName)} title={titleTooltip}>
+      {title}
+      {titleAside && <span className="ml-2 whitespace-nowrap align-baseline font-normal">{titleAside}</span>}
+    </h1>
+  )
   return (
-    <header className={cn('min-w-0', TITLE_ROW_CLASS, className)} {...props}>
+    <header className={cn('min-w-0', TITLE_ROW_CLASS, actionInline && 'flex-row items-center justify-between', className)} {...props}>
       <div className={TITLE_COLUMN_CLASS}>
         {/* On a phone the title is one compact line and the description is
             gone: the tab bar and the page already say where this is, and the
             sentence cost two lines of a 393px-wide screen on every tab. A
             ratchet in `page-header.spec.tsx` holds it. */}
-        <h1 className="text-balance text-xl font-medium tracking-tight phone:text-base">{title}</h1>
+        {crumb && (
+          <p className={cn('text-meta text-muted-foreground mb-1 flex min-w-0 items-center gap-1', crumbClassName)} data-testid="page-header-crumb">
+            {crumb}
+          </p>
+        )}
+        {titleStart || titleEnd ? (
+          // `items-start`: a way back stands on the title's first line when the title takes two (it floated beside
+          // the second, centred on both).
+          <div className="flex min-w-0 items-start gap-2" data-slot="page-header-title-line">
+            {/* -10px each side: a 44px target on the title's 24px line. */}
+            {titleStart && <div className={cn('-my-2.5 flex shrink-0 items-center', titleStartClassName)}>{titleStart}</div>}
+            {heading}
+            {titleEnd && <div className="-my-2.5 flex shrink-0 items-center">{titleEnd}</div>}
+          </div>
+        ) : (
+          heading
+        )}
         {subtitle && (
           <p className="mt-1 text-pretty text-sm text-muted-foreground phone:hidden">{subtitle}</p>
         )}
       </div>
-      {action ? <div className="min-w-0">{action}</div> : null}
+      {/* Inline, a 44px ⋯ hangs into the title's line height (-8px each side), so it costs the header no height. */}
+      {action ? <div className={cn('min-w-0', actionInline && '-my-2 shrink-0')}>{action}</div> : null}
     </header>
   )
 }

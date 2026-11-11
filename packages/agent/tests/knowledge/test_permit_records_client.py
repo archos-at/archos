@@ -168,6 +168,10 @@ def test_a_redirect_is_not_followed_and_does_not_carry_the_token(bff):
 
 
 def test_an_unreachable_bff_is_false(monkeypatch):
+    # What is under test is the answer once the connect has failed, not the
+    # retries before it (tests/knowledge_layer_tests/test_connect_retry.py holds
+    # those): with them this test slept through 15.5 seconds of real backoff.
+    monkeypatch.setattr("agent.common.connect_retry.CONNECT_RETRIES", 0)
     server = _Bff()
     url = server.url
     server.close()

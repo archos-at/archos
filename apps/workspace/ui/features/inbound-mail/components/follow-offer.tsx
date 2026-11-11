@@ -58,7 +58,7 @@ export function FollowOffer({ threadName, onFollow, following = false, className
         <BusyButton
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           busy={busy}
           busyLabel={t('follow.busy')}
           onClick={() => void follow()}

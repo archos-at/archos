@@ -281,3 +281,93 @@ def test_a_malformed_or_wordy_server_timing_puts_nothing_in_the_trace(header):
     facts = client.parse_server_timing(header)
     assert not any("Attika" in str(value) for value in facts.values())
     assert "bff_memory_desc" not in facts
+
+
+def test_base_knowledge_is_read_and_bounded_at_a_line(request_context, opener):
+    lines = "\n".join(f"- ÖNORM B {n}: technical standard, edition 2017" for n in range(1000))
+    opener.open.return_value.read.return_value = json.dumps(
+        {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None, "baseKnowledge": lines}}
+    ).encode("utf-8")
+    blocks = client.fetch_turn_context(request_context)
+    assert blocks.base_knowledge is not None
+    assert len(blocks.base_knowledge) <= client.BASE_KNOWLEDGE_MAX_CHARS
+    assert blocks.base_knowledge.splitlines()[-1].startswith("- ÖNORM B ")
+
+
+def test_an_older_bff_without_base_knowledge_reads_as_none(request_context, opener):
+    assert client.fetch_turn_context(request_context).base_knowledge is None
+
+
+def test_base_knowledge_rides_after_the_memory_tagged():
+    assert client.with_base_knowledge("MEMORY", None) == "MEMORY"
+    assert client.with_base_knowledge(None, "- a") == "<office_base_knowledge>\n- a\n</office_base_knowledge>"
+    assert client.with_base_knowledge("MEMORY", "- a") == (
+        "MEMORY\n\n<office_base_knowledge>\n- a\n</office_base_knowledge>"
+    )
+
+
+def test_base_knowledge_labels_are_read_as_records_and_bounded(request_context, opener):
+    labels = [{"documentId": f"doc-{n}", "holder": "office", "role": "requirement_source"} for n in range(60)]
+    opener.open.return_value.read.return_value = json.dumps(
+        {
+            "data": {
+                "projectContext": None,
+                "projectMemory": None,
+                "orgInstructions": None,
+                "baseKnowledgeLabels": [*labels, "not a record"],
+            }
+        }
+    ).encode("utf-8")
+    blocks = client.fetch_turn_context(request_context)
+    assert len(blocks.base_knowledge_labels) == client.BASE_KNOWLEDGE_MAX_LABELS
+    assert blocks.base_knowledge_labels[0] == labels[0]
+
+
+def test_the_chain_and_the_roles_are_read_from_the_knowledge_context_alone(request_context, opener):
+    """ADR-0168, ADR-0175: the chain text and each edition's role come from ``knowledgeContext``; a
+    ``buildingLaw`` beside it is no second answer and is not read."""
+    knowledge_context = {
+        "gate": {"state": "core", "reason": None, "leaves": [{"country": "AT", "coverage": "core"}]},
+        "retrieval": {"countries": ["AT"]},
+        "chains": {"AT-9": ["AT-9", "AT", "EU"]},
+        "text": "Building law at this site, Wien (AT-9, AT, EU) …",
+        "date": "2026-11-10",
+        "uses": [
+            {
+                "workId": "work:oib-rl-2",
+                "editionId": "edition:oib-rl-2-2023",
+                "role": "binding",
+                "qualifier": None,
+                "via": "relation",
+                "corpusFiles": ["oib-rl_2_ausgabe_mai_2023.pdf"],
+                "designation": "OIB-Richtlinie 2",
+                "editionLabel": "Ausgabe Mai 2023",
+            }
+        ],
+    }
+    disagreeing = {"text": "Some other chain", "uses": [{**knowledge_context["uses"][0], "role": "guidance"}]}
+    data = {"projectContext": None, "projectMemory": None, "orgInstructions": None}
+    opener.open.return_value.read.return_value = json.dumps(
+        {"data": {**data, "knowledgeContext": knowledge_context, "buildingLaw": disagreeing}}
+    ).encode("utf-8")
+    context = client.fetch_turn_context(request_context).knowledge_context
+    assert context.text == "Building law at this site, Wien (AT-9, AT, EU) …"
+    assert [(use.edition_id, use.role, use.via) for use in context.uses] == [
+        ("edition:oib-rl-2-2023", "binding", "relation")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("sent", "read"),
+    [
+        ({"ifc": True, "dxf": False}, frozenset({"ifc"})),
+        ({"ifc": False, "dxf": False}, frozenset()),
+        (None, None),
+        ("ifc", None),
+    ],
+)
+def test_the_project_models_are_read_and_anything_else_is_unknown(request_context, opener, sent, read):
+    """Unknown (an older BFF, no project) keeps the measuring tools bound as before (``turn_tools``)."""
+    body = {"projectContext": None, "projectMemory": None, "orgInstructions": None, "projectModels": sent}
+    opener.open.return_value.read.return_value = json.dumps({"data": body}).encode("utf-8")
+    assert client.fetch_turn_context(request_context).project_models == read

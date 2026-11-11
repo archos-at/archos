@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from agent_testing.claim_judge_stub import failing_judge
 from agent_testing.claim_judge_stub import stub_judge
 from langchain_core.messages import AIMessage
@@ -225,7 +226,7 @@ async def test_a_record_never_enters_the_source_registry():
     assert final.citation_grounded is False and state.verified_sources is None
 
 
-async def test_a_locus_the_cited_passage_does_not_hold_is_labelled_in_the_answer():
+async def test_a_locus_the_cited_passage_does_not_hold_is_removed_from_the_answer():
     from agent.citations.entries import DROPPED_CITATION_MARKER
     from agent.citations.entries import SourceEntry
 
@@ -247,7 +248,9 @@ async def test_a_locus_the_cited_passage_does_not_hold_is_labelled_in_the_answer
 
     final, _ = await _finalize(messages, registry)
 
-    assert f"Punkt 11.2.1 [1], die Belichtung Punkt 9.1 {DROPPED_CITATION_MARKER}." in final.content
+    # Removed, never labelled (ADR-0125, amended 2026-11-10).
+    assert "Punkt 11.2.1 [1], die Belichtung Punkt 9.1." in final.content
+    assert DROPPED_CITATION_MARKER not in final.content
 
 
 # --- a work turn (kind work, ADR-0123) under per-sentence provenance (ADR-0125) ---
@@ -433,3 +436,79 @@ async def test_a_turn_with_no_drawing_value_writes_no_looked_before_measurement(
 
     names = {score.name for score in written}
     assert "look-count" in names and "looked-before-measurement" not in names
+
+
+# --- no verification marker ever reaches an answer (dev acceptance; ADR-0125, amended 2026-11-10) ---
+
+#: Every spelling a verification marker has had in an answer: the verifier's German labels and the English
+#: the BFF translated them to for an agent (``bff/agent-asks/answer-text.ts``). QC found both in answers.
+VERIFICATION_MARKER_SPELLINGS = (
+    "[nicht wörtlich in der Quelle belegt]",
+    "[Beleg nicht verifiziert]",
+    "(quote not found verbatim in the source)",
+    "(citation not verified)",
+)
+
+_MARKER_CASES = {
+    # A number whose source line names nothing retrieved.
+    "unresolved": (
+        "Die Raumhöhe beträgt 2,50 m [1]. Das gilt immer [2].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7\\n- [2] erfunden.pdf, p.1",
+    ),
+    # A Punkt beside a resolved number the passage does not hold.
+    "locus": (
+        "Die Raumhöhe regelt Punkt 11.2.1 [1], die Belichtung Punkt 9.1 [1].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
+    ),
+    # A quotation no passage holds.
+    "quote": (
+        "Es gilt: „Aufenthaltsräume müssen eine Sprinkleranlage haben“ [1].",
+        "\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7",
+    ),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", sorted(_MARKER_CASES))
+@pytest.mark.parametrize("retrieved", [True, False], ids=["retrieved", "nothing-retrieved"])
+async def test_no_verification_marker_reaches_the_answer(case, retrieved):
+    """Dev acceptance: no raw verification marker appears in an answer, whatever the verifier found."""
+    registry = SourceRegistry()
+    if retrieved:
+        registry.add(_oib_passage())
+    body, sources = _MARKER_CASES[case]
+    messages = [HumanMessage("Raumhöhe?"), AIMessage(ANSWER_ENVELOPE.format(prose=body + sources))]
+
+    final, _ = await _finalize(messages, registry)
+
+    for spelling in VERIFICATION_MARKER_SPELLINGS:
+        assert spelling not in final.content, (case, spelling)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("gate", "unsettled"), [("none", True), ("core", False)])
+async def test_an_answer_resting_on_law_the_records_do_not_settle_is_marked(gate, unsettled):
+    """Staging QC F6: the law gate caps the level of an answer that cites building law the records do not settle."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    registry = SourceRegistry()
+    registry.add(
+        SourceEntry(
+            citation_key="oib-rl_3.pdf, p.7",
+            source_type="knowledge_layer",
+            tool_name="knowledge_search",
+            shelf="base",
+            chunk_text="11.2.1 Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.",
+        )
+    )
+    prose = "Die Raumhöhe beträgt mindestens 2,50 m [1].\\n\\n**Quellen:**\\n- [1] oib-rl_3.pdf, p.7"
+    set_turn_knowledge_context(KnowledgeContext(gate=gate, site_country="AT", retrieval_countries=frozenset({"AT"})))
+    try:
+        _, state = await _finalize(
+            [HumanMessage("Raumhöhe?"), AIMessage(ANSWER_ENVELOPE.format(prose=prose))], registry
+        )
+    finally:
+        set_turn_knowledge_context(None)
+
+    assert state.answer_law_unsettled is unsettled

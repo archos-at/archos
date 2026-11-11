@@ -24,6 +24,9 @@ import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
+import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
+import { projectModelKinds } from '@/lib/bim/model-kinds-repository'
 import type { ProjectAccess } from '@/lib/authz/projects'
 import { TurnContextTiming } from './timing'
 import type { TurnContextRequest, TurnContextResponse } from './wire'
@@ -137,7 +140,7 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
 
-  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace] = await Promise.all([
+  const [projectContext, orgInstructions, digest, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, knowledgeContext, projectModels] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
@@ -157,6 +160,16 @@ export async function loadTurnContext(
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     // Who asks, where, and what is open now: the state office work starts from (ADR-0123).
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query))),
+    // The office's own standards, commentaries and directives, and how far each binds here (ADR-0163).
+    timed('base-knowledge', () => advisory('load the base knowledge', () => baseKnowledgeForTurn(organizationId, projectId ?? null))),
+    // Which country, coverage and editions apply, what binds at the site and why (its chain text),
+    // and what the turn may retrieve (ADR-0168, ADR-0173): one payload for the law.
+    // Not advisory: it fails closed to `knowledge_unavailable` itself, and is timed as `knowledge`.
+    knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
+    // Which model files the project holds, so the agent binds its measuring tools only where there is one.
+    projectId
+      ? timed('models', () => advisory('read the project models', () => projectModelKinds(organizationId, projectId, conversationId ?? null)))
+      : Promise.resolve(null),
   ])
   // Whether the memory read waited for the query embed is what decides its cost.
   if (digestTiming.dense) timing.describe('memory', digestTiming.dense)
@@ -167,5 +180,10 @@ export async function loadTurnContext(
     drewOnOtherProjects: drewOnOthers,
     referenceProjects,
     workspace,
+    baseKnowledge: baseKnowledge?.block ?? null,
+    baseKnowledgeLabels: (baseKnowledge?.labels ?? []).map((label) => ({ ...label })),
+    // Always present (ADR-0175): unreadable is `knowledge_unavailable`, never no context.
+    knowledgeContext,
+    projectModels,
   }
 }

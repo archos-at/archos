@@ -86,6 +86,15 @@ tasks:
     cmds:
       - SEARCH_LATENCY=1 bash scripts/rls-test-db.sh --only bff/search/search-latency.integration.spec.ts
 
+  workspace:register:spike:
+    desc: >-
+      Import the whole BEV address register into a throwaway Postgres and resolve
+      200 of its addresses typed seven ways (ADR-0172). Prints the rates; a
+      measurement, not a gate. Needs PostgreSQL server binaries and
+      REGISTER_ARCHIVE, the path of the BEV relational tables' zip.
+    cmds:
+      - bash scripts/rls-test-db.sh --only bff/site-resolution/register-spike.integration.spec.ts
+
   workspace:test:shard:
     desc: 'One shard of the UI suite, as a blob report (CI: SHARD=1/8 task workspace:test:shard)'
     dir: '{{.UI}}'

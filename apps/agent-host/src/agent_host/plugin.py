@@ -42,7 +42,9 @@ from fastapi import FastAPI
 from pydantic import Field
 from pydantic import model_validator
 
+from agent.common.data_flow_register import assert_no_latent_vendor
 from agent.common.log_redaction import install_presigned_url_scrubbing
+from agent.common.residency import assert_residency
 from agent.knowledge.leader_lock import require_direct_dsns
 from agent.observability import posthog_exceptions
 from agent.stages.delivery import register_stage_frame_sink
@@ -89,6 +91,7 @@ from .routes.generate_summary import add_generate_summary_routes
 from .routes.ingest import add_ingest_routes
 from .routes.internal_tools import add_internal_tool_routes
 from .routes.jobs import register_job_routes
+from .routes.knowledge_mark import add_knowledge_mark_routes
 from .routes.lesson_distill import add_lesson_distill_routes
 from .routes.mail import add_mail_routes
 from .routes.mail_archive import add_mail_archive_routes
@@ -98,6 +101,7 @@ from .routes.note_embeddings import add_note_embedding_routes
 from .routes.oib import add_oib_routes
 from .routes.project_experience import add_project_experience_routes
 from .routes.project_facts import add_project_facts_routes
+from .routes.public_source_capture import add_public_source_capture_routes
 from .routes.revision_compare import add_revision_compare_routes
 from .routes.ris import add_ris_routes
 from .routes.similar_passages import add_similar_passages_routes
@@ -329,9 +333,13 @@ API_APP_REGISTRARS = (register_job_routes,)
 #: calls Gotenberg for an office file (ADR-0157).
 _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_internal_tool_routes,
+    # A file's licence class and knowledge edition onto its chunks (office base knowledge).
+    add_knowledge_mark_routes,
     add_mail_archive_routes,
     add_mail_routes,
     add_drawing_rendition_routes,
+    # A public source's page captured for a citation (ADR-0170): only the backend roles reach the fetcher.
+    add_public_source_capture_routes,
 )
 
 
@@ -463,11 +471,13 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         log_boot_line()
         logger.info("Web role: %s", self._role.value)
 
-        # A web process on Postgres needs the direct lock DSN (session advisory
-        # locks), and the api role also the direct LISTEN DSN, because it serves
-        # the job SSE streams. The chat role serves none: its stream is the
+        # A web process on Postgres needs the direct lock DSN (session advisory locks), and the api role also the
+        # direct LISTEN DSN, because it serves the job SSE streams. The chat role serves none: its stream is the
         # socket, over Dragonfly. Fail the boot, not every request (ADR-0083).
         require_direct_dsns(listen=self._role is WebRole.API)
+        # No data to a processor the legal page does not name (configs/subprocessors).
+        assert_no_latent_vendor()
+        assert_residency()  # no model call outside the cell's zone (ADR-0167)
 
         app = super().build_app()
 

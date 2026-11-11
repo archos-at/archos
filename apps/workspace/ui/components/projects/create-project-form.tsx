@@ -39,6 +39,8 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { MonthInput } from '@/components/ui/month-input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AddressField, type AddressFieldProps, type AddressValue } from './address-field'
+import { EMPTY_SITE_PLACE, SitePlaceFields, type SitePlace } from './site-place-fields'
+import { toFormData, type CreateProjectState } from './create-project-form-data'
 import { createProject } from '@/app/app/(shell)/projects/actions'
 import {
   FileDropOverlay,
@@ -64,7 +66,6 @@ import {
 } from '@/lib/projects/project-status'
 import { isRedirectSignal } from '@/lib/utils/redirect-signal'
 
-export type CreateProjectState = 'active' | 'closed'
 type AbschlussProblem = ReturnType<typeof closingProblem>
 
 export interface CreateProjectFormProps {
@@ -144,6 +145,7 @@ export function CreateProjectForm({
     defaultValues: {
       name: initial?.name ?? '',
       address: { text: initial?.address ?? '', place: null } as AddressValue,
+      site: EMPTY_SITE_PLACE as SitePlace,
       description: initial?.description ?? '',
       state: 'active' as CreateProjectState,
       outcome: '' as ProjectOutcome | '',
@@ -156,7 +158,7 @@ export function CreateProjectForm({
       created.current = true
       let result: Awaited<ReturnType<typeof createProject>>
       try {
-        result = await createProject({}, toFormData(value, holding.current ? dropKey : null))
+        result = await createProject({}, toFormData(value, holding.current ? dropKey : null, 'piloti'))
       } catch (error) {
         // A created project answers with `redirect()`: Next has navigated to
         // it already and rejects the call with the redirect. That rejection is
@@ -273,6 +275,15 @@ export function CreateProjectForm({
             />
           )}
         </form.Field>
+
+        {/* A chosen hit knows its Land; the picker is for a typed address. */}
+        {!values.address.place && (
+          <form.Field name="site">
+            {(site) => (
+              <SitePlaceFields value={site.state.value} onChange={site.handleChange} disabled={isSubmitting} />
+            )}
+          </form.Field>
+        )}
 
         {/* The state and what a closed project adds stay one block, so the
             folded part costs no gap of its own while it is shut. */}
@@ -544,37 +555,6 @@ function FolderZone({
       )}
     </div>
   )
-}
-
-/**
- * The action's fields. `name`, `state` and `setup` always; the address (the chosen hit, else the typed
- * line), the description and the held drop's key when given; the closed project's facts when it is closed.
- */
-function toFormData(
-  value: {
-    name: string
-    address: AddressValue
-    description: string
-    state: CreateProjectState
-    outcome: string
-    startedOn: string
-    endedOn: string
-  },
-  dropKey: string | null
-): FormData {
-  const formData = new FormData()
-  if (dropKey) formData.set('dropKey', dropKey)
-  formData.set('name', value.name.trim())
-  formData.set('state', value.state)
-  formData.set('setup', 'piloti')
-  if (value.description.trim() !== '') formData.set('description', value.description.trim())
-  if (value.address.place) formData.set('location', JSON.stringify(value.address.place))
-  else if (value.address.text.trim() !== '') formData.set('address', value.address.text.trim())
-  if (value.state !== 'closed') return formData
-  formData.set('outcome', value.outcome)
-  formData.set('startedOn', value.startedOn)
-  formData.set('endedOn', value.endedOn)
-  return formData
 }
 
 function OutcomeField({

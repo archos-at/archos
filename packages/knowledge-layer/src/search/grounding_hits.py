@@ -179,6 +179,7 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
     effect with no re-ingest (ADR-0049).
     """
     from agent.common.grounding_block import GroundingHit
+    from agent.common.licensed_text import licence_from_metadata
 
     metadata = chunk.metadata or {}
     shelf = _chunk_shelf(chunk)
@@ -210,6 +211,8 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
         source_format=_metadata_text(metadata.get("source_format")),
         # Where `read_file` opens the page around this hit (ADR-0133); none for a shelf with no mount.
         path=estate_path(shelf, folder_path, chunk.file_name) if chunk.file_name else None,
+        # The office layer marks a licensed point at upload; the renderer keeps its text out of the transcript.
+        licence=licence_from_metadata(metadata),
     )
 
 

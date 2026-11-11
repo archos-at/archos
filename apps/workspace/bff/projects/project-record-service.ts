@@ -25,6 +25,7 @@
  * trail names a person by id, never by name.
  */
 
+import { officeMonth } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -35,7 +36,7 @@ import type { ProjectPersonRow } from '@/lib/db/schema/project-people'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { findProjectProfile } from './repository'
 import { projectSiteAddress } from './site-address'
-import { currentMonth, dateToMonth, isOrderedPeriod, monthToDate, type Month } from './month'
+import { dateToMonth, isOrderedPeriod, monthToDate, type Month } from './month'
 import { closingOf, isProjectClosed, projectClosedError } from './project-status'
 import { loadProjectTeam } from './project-team'
 import {
@@ -245,7 +246,7 @@ export async function recordMemberLeft(
   try {
     const period = await findProjectPeriod(projectId, session.organizationId)
     if (!period || isProjectClosed(period)) return
-    const left = currentMonth()
+    const left = await officeMonth(session.organizationId)
     const row = await findProjectPersonByUser(projectId, session.organizationId, member.userId)
     if (row) {
       if (row.endedOn || !isOrderedPeriod(dateToMonth(row.startedOn), left)) return

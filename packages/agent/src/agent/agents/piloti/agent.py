@@ -66,9 +66,9 @@ from agent.common import content_to_text
 from agent.common.cost_tracking import cost_tracker_var
 from agent.common.data_sources import disabled_source_notice
 from agent.common.data_sources import source_id_for_call
-from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
 from agent.common.grounding_block import strip_trace_lanes
+from agent.common.licensed_recall import open_grounding_capture
 from agent.common.model_vision import chat_model_scope
 from agent.common.model_vision import model_name_of
 from agent.common.prompt_caching import begin_stable_prefix
@@ -128,12 +128,15 @@ from .answer_pipeline import RepairFn
 from .answer_pipeline import finalize_answer
 from .answer_pipeline import handed_this_turn
 from .envelope_call import ainvoke
+from .envelope_call import ainvoke_synthesis
 from .envelope_call import ainvoke_with_envelope_json_mode
 from .grounding import tool_result_is_measurement
 from .ledger import assemble_result
 from .models import ResearchAgentState
 from .prompt import TurnPrompt
 from .prompt import build_tools_info
+from .prompt import cached_prompt_fields
+from .prompt import cached_turn_prompt
 from .prompt import render_turn_prompt
 from .prompt import request_messages
 from .prompt import shelf_label
@@ -974,7 +977,7 @@ def _bind_registry() -> tuple[SourceRegistry, Any]:
     """
     registry = get_session_registry()
     if registry is not None:
-        return registry, None
+        return registry.for_turn(), None
     registry = SourceRegistry()
     return registry, set_session_registry(registry)
 
@@ -1044,9 +1047,9 @@ class ChatAgent:
                 runaway guard far above any batch the prompt asks for. The calls
                 past it are told to ask again next round, never deleted. 0 disables it.
             callbacks: Optional LangGraph callbacks.
-            envelope_json_mode_with_tools: Whether provider JSON mode is ALSO
-                bound on tool-bound research iterations, not only on the
-                tool-free forced-synthesis call. Default False: some providers
+            envelope_json_mode_with_tools: Whether provider JSON mode is
+                bound on tool-bound research iterations, forced synthesis
+                included (it follows the rounds). Default False: some providers
                 accept it and then stop emitting tool calls, unseen.
             repair_pass: Correct a misremembered quotation in place, on
                 ``card_repair_llm`` (``quote_patch.py``, ADR-0067). Off, or
@@ -1170,14 +1173,7 @@ class ChatAgent:
         binding = self._turn_binding(config)
         tools_info = state.tools_info if state.tools_info else binding.tools_info
         llm_with_tools = binding.llm_with_tools
-        # Rendered once per run and cached on the state: every input is fixed
-        # for the life of one run(), so both strings are byte-identical across
-        # tool-loop iterations and the norm-block computation runs once.
-        prompt = (
-            TurnPrompt(system=state.cached_system_prompt, context=state.cached_turn_context)
-            if state.cached_system_prompt is not None and state.cached_turn_context is not None
-            else None
-        )
+        prompt = cached_turn_prompt(state)
         if prompt is None:
             # In a THREAD, because the render resolves the static half through
             # the prompt store: with Langfuse prompt management on, that is one
@@ -1218,8 +1214,7 @@ class ChatAgent:
             "messages": [response],
             "tool_iterations": rounds,
             "retrieval_round": retrieval_round,
-            "cached_system_prompt": prompt.system,
-            "cached_turn_context": prompt.context,
+            **cached_prompt_fields(prompt),
         }
         if round_record is not None:
             update["retrieval_rounds"] = [*state.retrieval_rounds, round_record]
@@ -1284,11 +1279,11 @@ class ChatAgent:
 
         The answer carries ``research_truncated`` whichever bound fired, so the
         reader can be told that evidence-gathering was cut off rather than
-        finished. Forced synthesis is the tool-FREE call, so provider JSON mode
-        is safe here unconditionally.
+        finished. It keeps the round's binding and asks for no tool call
+        (``envelope_call.ainvoke_synthesis``), so the cached prefix holds.
         """
         self._record_cutoff(state, binding, cutoff)
-        # This call IS the synthesis, by construction (tool-free, anchored on
+        # This call IS the synthesis, by construction (no tool call, anchored on
         # the answer), so the status goes out before it rather than after: the
         # final generation is the longest call of the turn, and the live line
         # would otherwise show the last retrieval event through all of it.
@@ -1302,13 +1297,11 @@ class ChatAgent:
             *request_messages(prompt, state.messages, steering),
             HumanMessage(content=_SYNTHESIS_ANCHOR),
         ]
-        answering, call_config = streaming_call(binding.llm, live=_live_answer(state))
-        response = await ainvoke_with_envelope_json_mode(answering, messages, call_config)
+        response = await ainvoke_synthesis(binding, messages, _live_answer(state), self.envelope_json_mode_with_tools)
         return {
             "messages": [response],
             "tool_iterations": state.tool_iterations,
-            "cached_system_prompt": prompt.system,
-            "cached_turn_context": prompt.context,
+            **cached_prompt_fields(prompt),
             "research_truncated": True,
             "steering": list(steering),
         }
@@ -1551,7 +1544,7 @@ class ChatAgent:
         # What each evidence tool STATED, filed under the bytes it returned, so
         # the citation registry copies fields instead of re-parsing the text an
         # evidence tool wrote (ADR-0061).
-        grounding_capture = begin_grounding_capture()
+        grounding_capture = await open_grounding_capture(state.licensed_text_allowed, state.messages)
         try:
             graph_result = await self._graph.ainvoke(state, config=self._graph_config(binding))
             turn_sources = get_turn_captures()

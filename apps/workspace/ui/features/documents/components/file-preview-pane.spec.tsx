@@ -154,10 +154,10 @@ describe('FilePreviewPane', () => {
     expect(chrome.getByRole('button', { name: 'Download' })).toBeInTheDocument()
     expect(chrome.getByTestId('document-actions-trigger')).toBeInTheDocument()
     expect(chrome.getByRole('button', { name: 'Close preview' })).toBeInTheDocument()
-    // Which document it is — the category, as a chip under the name. No
-    // „Citable" chip: this document is citable like almost every other, and a
-    // badge that appears on everything distinguishes nothing.
-    expect(chrome.getByText('Grundriss')).toBeInTheDocument()
+    // Which document it is is the rail's reading („… hält es für Grundriss“), not a header chip that said it
+    // twice. No „Citable" chip: this document is citable like almost every other, and a badge that appears on
+    // everything distinguishes nothing.
+    expect(chrome.queryByText('Floor plan')).toBeNull()
     expect(screen.queryByText('Citable')).toBeNull()
 
     // What Piloti made of it, and who owns it — the rail's, not the chrome's.
@@ -471,7 +471,7 @@ describe('FilePreviewPane', () => {
       expect(panel.getByText('A ground-floor plan of the east wing.')).toBeInTheDocument()
       expect(panel.getByText('4 pages read · Text, Tables')).toBeInTheDocument()
       expect(panel.getByText(`${PRODUCT_NAME} reads this as`)).toBeInTheDocument()
-      expect(panel.getByText('Grundriss')).toBeInTheDocument()
+      expect(panel.getByText('Floor plan')).toBeInTheDocument()
       // The page, passage and contents rows are gone; the facts line says it instead.
       expect(panel.queryByText('Pages')).toBeNull()
       expect(panel.queryByText('Passages')).toBeNull()
@@ -483,7 +483,7 @@ describe('FilePreviewPane', () => {
 
       const panel = within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` }))
       expect(panel.getByText(`${PRODUCT_NAME} reads this as`)).toBeInTheDocument()
-      expect(panel.getByText('Grundriss')).toBeInTheDocument()
+      expect(panel.getByText('Floor plan')).toBeInTheDocument()
     })
 
     it('loads the per-page drawing descriptions with the document, under "On the pages"', async () => {
@@ -865,15 +865,14 @@ describe('FilePreviewPane', () => {
           projectName="Stadthaus Linz"
         />
       )
-      // The detected type is a chip beside the name now, not a rail row —
-      // 'Grundriss' appears there and as the reading's type chip, and nowhere else.
+      // The detected type is the reading's, in the rail, once: no rail row and no header chip.
       expect(screen.queryByText('Document type')).toBeNull()
-      expect(screen.getAllByText('Grundriss')).toHaveLength(2)
+      expect(screen.getAllByText('Floor plan')).toHaveLength(1)
     })
 
     it('omits the project row and the category chip without the metadata', () => {
       render(<FilePreviewPane file={mockFile} projectId="proj-1" />)
-      expect(screen.queryByText('Grundriss')).toBeNull()
+      expect(screen.queryByText('Floor plan')).toBeNull()
       expect(screen.queryByText('Project')).toBeNull()
       expect(screen.queryByText('Pages')).toBeNull()
       expect(screen.queryByText('Passages')).toBeNull()
@@ -940,14 +939,14 @@ describe('FilePreviewPane', () => {
       render(<FilePreviewPane file={{ ...mockFile, tags: ['Grundriss', 'Brandschutz'] }} projectId="proj-1" />)
 
       const panel = within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` }))
-      expect(panel.getByText('Grundriss')).toBeInTheDocument()
-      expect(panel.getByText('Brandschutz')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Remove tag Grundriss' })).toBeNull()
+      expect(panel.getByText('Floor plan')).toBeInTheDocument()
+      expect(panel.getByText('Fire safety')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Remove tag Floor plan' })).toBeNull()
       expect(screen.queryByRole('textbox', { name: /add tag/i })).toBeNull()
 
       await userEvent.click(screen.getByRole('button', { name: 'Correct' }))
 
-      expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeInTheDocument()
       expect(screen.getByRole('textbox', { name: /add tag/i })).toBeInTheDocument()
     })
 
@@ -984,7 +983,7 @@ describe('FilePreviewPane', () => {
       await user.click(screen.getByRole('button', { name: 'Done' }))
 
       expect(screen.queryByRole('textbox', { name: /add tag/i })).toBeNull()
-      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Brandschutz')).toBeInTheDocument()
+      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Fire safety')).toBeInTheDocument()
     })
 
     it('shows a read-only viewer the reading, with no Correct and no editor', () => {
@@ -992,7 +991,7 @@ describe('FilePreviewPane', () => {
         <FilePreviewPane file={{ ...mockFile, tags: ['Grundriss'] }} projectId="proj-1" canManage={false} />
       )
 
-      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Grundriss')).toBeInTheDocument()
+      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Floor plan')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull()
       expect(screen.queryByRole('textbox', { name: /add tag/i })).toBeNull()
     })
@@ -1024,8 +1023,8 @@ describe('FilePreviewPane', () => {
         />
       )
       expect(screen.queryByRole('region', { name: `Read by ${PRODUCT_NAME}` })).toBeNull()
-      expect(screen.queryByText('Grundriss')).toBeNull()
-      expect(screen.queryByText('Brandschutz')).toBeNull()
+      expect(screen.queryByText('Floor plan')).toBeNull()
+      expect(screen.queryByText('Fire safety')).toBeNull()
       expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull()
     })
   })
@@ -1599,13 +1598,13 @@ describe('FilePreviewPane', () => {
       const { rerender } = render(
         <FilePreviewPane file={{ ...mockFile, status: 'processing', tags: null }} projectId="proj-1" />
       )
-      expect(screen.queryByText('Brandschutz')).toBeNull()
+      expect(screen.queryByText('Fire safety')).toBeNull()
 
       rerender(
         <FilePreviewPane file={{ ...mockFile, status: 'ready', tags: ['Brandschutz'] }} projectId="proj-1" />
       )
 
-      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Brandschutz')).toBeInTheDocument()
+      expect(within(screen.getByRole('region', { name: `Read by ${PRODUCT_NAME}` })).getByText('Fire safety')).toBeInTheDocument()
     })
 
     it('says the document is still being read instead of an empty "Read by Piloti"', () => {

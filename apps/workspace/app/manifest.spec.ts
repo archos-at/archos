@@ -1,4 +1,4 @@
-// @disk-inputs: ui/styles/tokens.css
+// @disk-inputs: shared/brand/tokens.vars.css, ui/styles/tokens.css
 /**
  * @vitest-environment node
  */
@@ -38,12 +38,21 @@ describe('installed app chrome', () => {
   })
 
   test('THEME_COLOR is still the --background token of each theme', () => {
-    // The token is oklch with its hex in a comment; the comment is the contract
-    // `theme-boot.ts` states ("Retune both together").
+    // The app's layer ("Paper on a desk", the last block of the file) sets --background to var(--paper)
+    // over the brand's surface, so the cascade's answer is the last --background and the --paper of each
+    // theme. `theme-boot.ts` states the contract.
     const tokens = readFileSync(join(__dirname, '..', 'ui', 'styles', 'tokens.css'), 'utf8')
-    const backgrounds = [...tokens.matchAll(/^\s*--background:[^;]+;\s*\/\*\s*(#[0-9a-f]{6})/gim)].map((m) => m[1])
+    const backgrounds = [...tokens.matchAll(/^\s*--background:\s*([^;]+);/gm)].map((m) => m[1].trim())
+    const papers = [...tokens.matchAll(/^\s*--paper:\s*(#[0-9a-f]{6});/gim)].map((m) => m[1])
 
-    expect(backgrounds).toEqual([THEME_COLOR.light, THEME_COLOR.dark])
+    expect(backgrounds.at(-1)).toBe('var(--paper)')
+    expect(papers).toEqual([THEME_COLOR.light, THEME_COLOR.dark])
+  })
+
+  test('the light paper is the brand\u2019s surface (the corporate design), so the installed app opens on the brand ground', () => {
+    // Round 3 darkened the paper to #f6f5f3 and the pilot offices saw the app drift off the brand (2026-11-10).
+    const brand = readFileSync(join(__dirname, '..', 'shared', 'brand', 'tokens.vars.css'), 'utf8')
+    expect(THEME_COLOR.light).toBe(/--ds-surface:\s*(#[0-9a-f]{6});/.exec(brand)?.[1])
   })
 
   test('iOS gets standalone metadata, under the product name', async () => {

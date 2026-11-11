@@ -209,6 +209,7 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
         )
     )
     _inject_scope_headers(state, request, fn_config)
+    bind_knowledge(request)
     user_info = await _inject_identity_headers(state, request)
     memory_digest = await _inject_memory_header(state, request)
     return RunContext(
@@ -221,6 +222,19 @@ async def bind_request(request: JobRequest, fn_config: Any) -> RunContext:
         memory_digest=memory_digest,
         project_context=compose_project_context(request.project_context, memory_digest),
     )
+
+
+def bind_knowledge(request: JobRequest) -> None:
+    """Bind the run's knowledge context, as a chat turn binds its own (ADR-0175).
+
+    A run carries no turn context, so the payload is the only place it comes from: its gate, its chain
+    text and every edition's role. Absent reads as ``knowledge_unavailable`` (``parse_knowledge_context``):
+    the run fails closed, never as Austria.
+    """
+    from agent.common.knowledge_context import parse_knowledge_context
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    set_turn_knowledge_context(parse_knowledge_context(request.knowledge_context))
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:

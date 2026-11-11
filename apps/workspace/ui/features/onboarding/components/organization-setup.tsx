@@ -8,7 +8,8 @@
  * tiles and the same three-step list twice, once as a promise and once as a
  * receipt. The design language asks for the opposite (no decoration, one focal
  * point, 20px page titles), and the screen asks one question, so it is now
- * built like the question it is: a narrow column, one field, one ink button,
+ * built like the question it is: a narrow column, the name and the office's
+ * country (its seat, never the law of its sites), one ink button,
  * and three quiet lines saying what happens next. Everything else it said was
  * restating the button.
  *
@@ -35,6 +36,9 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { onboardingCopy } from '@/i18n/namespaces/onboarding'
 import type { JSX } from 'react'
+import { HOME_COUNTRIES, type HomeCountry } from '@/lib/organizations/home-country'
+
+const isHomeCountry = (value: string): value is HomeCountry => (HOME_COUNTRIES as readonly string[]).includes(value)
 
 export interface OrganizationSetupProps {
   /** The signed-in account, shown beside sign-out. */
@@ -46,7 +50,7 @@ export interface OrganizationSetupProps {
   /** A translated failure from the last attempt. */
   error: string | null
   /** Resolves when created; rejects are the caller's to turn into `error`. */
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
   onSignOut: () => void
 }
 
@@ -99,7 +103,7 @@ function SetupHeading({ eyebrow, title, children }: { eyebrow: string; title: st
   return (
     <div>
       <SectionLabel as="p">{eyebrow}</SectionLabel>
-      <h1 className="mt-2 text-xl font-medium tracking-tight">{title}</h1>
+      <h1 className="mt-2 text-xl font-medium">{title}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{children}</p>
     </div>
   )
@@ -110,19 +114,25 @@ function SetupForm({
   onCreate,
 }: {
   error: string | null
-  onCreate: (name: string) => Promise<void>
+  onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
 }): JSX.Element {
   const t = useTranslations(onboardingCopy)
 
   const schema = z.object({
     name: z.string().trim().min(1, t('validation.nameRequired')).max(100, t('validation.nameTooLong')),
+    // No default: the office says where it is; nothing guesses it (migration 0200).
+    homeCountry: z.string().refine(isHomeCountry, t('validation.homeCountryRequired')),
   })
 
   const form = useAppForm({
-    defaultValues: { name: '' },
+    defaultValues: { name: '', homeCountry: '' },
     validators: { onChange: schema },
-    onSubmit: async ({ value }) => onCreate(value.name.trim()),
+    onSubmit: async ({ value }) => {
+      if (!isHomeCountry(value.homeCountry)) return
+      await onCreate({ name: value.name.trim(), homeCountry: value.homeCountry })
+    },
   })
+  const countryOptions = HOME_COUNTRIES.map((code) => ({ value: code, label: t(`form.homeCountries.${code}`) }))
 
   const next: { icon: LucideIcon; label: string }[] = [
     { icon: Lock, label: t('next.private') },
@@ -161,6 +171,17 @@ function SetupForm({
                 autoComplete="organization"
                 enterKeyHint="go"
                 autoFocus
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="homeCountry">
+            {(field) => (
+              <field.SelectField
+                label={t('form.homeCountryLabel')}
+                placeholder={t('form.homeCountryPlaceholder')}
+                description={t('form.homeCountryHint')}
+                options={countryOptions}
+                required
               />
             )}
           </form.AppField>
@@ -213,7 +234,7 @@ function SetupDone({ name }: { name: string }): JSX.Element {
   return (
     <div role="status" aria-live="polite">
       <EmptyStateDisc icon={Check} />
-      <h1 className="mt-5 text-xl font-medium tracking-tight">{t('success.title')}</h1>
+      <h1 className="mt-5 text-xl font-medium">{t('success.title')}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
         {t('success.description', { name })}
       </p>

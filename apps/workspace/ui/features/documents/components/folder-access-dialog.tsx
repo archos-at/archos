@@ -347,7 +347,7 @@ const FolderAccessForm: FC<
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+        <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
           {tc('actions.cancel')}
         </Button>
         <Button type="button" onClick={() => void save()} disabled={!canSave} data-testid="folder-access-save">

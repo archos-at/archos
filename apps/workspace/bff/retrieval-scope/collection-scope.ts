@@ -27,6 +27,8 @@ export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
 export interface ScopedCollection {
   collection: string
   shelf?: CollectionShelf
+  /** On the base corpus only, the countries whose chunks this request may read (ADR-0173). */
+  countries?: string[]
 }
 
 /**
@@ -70,6 +72,13 @@ export interface ScopeContext {
    * session-less path) cannot include one by accident.
    */
   restrictedCollections?: readonly string[]
+  /**
+   * Whether the base corpus (Austrian building law) is searched. False for a
+   * project its profile does not place in Austria (ADR-0158): a Bavarian
+   * project's "Brandschutz?" must not come back with OIB-RL 2 as its law. A
+   * turn with no project keeps it. Absent means true.
+   */
+  includeBase?: boolean
 }
 
 export function computeCollectionScope(
@@ -78,7 +87,7 @@ export function computeCollectionScope(
 ): string[] {
   const scope: string[] = []
   const base = context.baseCollection || process.env.BASE_COLLECTION_NAME || 'oib_knowledge'
-  scope.push(base)
+  if (context.includeBase !== false) scope.push(base)
 
   // Org-wide Archiv: shared across every project in the org, so it rides in the
   // scope right next to the base corpus (independent of the active project).

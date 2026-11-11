@@ -20,6 +20,7 @@ export type AnswerConfidence = 'low' | 'medium' | 'high'
 const CAPPED_REASON_KEYS: Record<AnswerConfidenceCappedReason, string> = {
   ungrounded: 'ungrounded',
   quote_unverified: 'quoteUnverified',
+  law_unsettled: 'lawUnsettled',
   normative_claim_uncited: 'normativeClaimUncited',
   measurement_only: 'measurementOnly',
   citation_fallback: 'citationFallback',
@@ -97,7 +98,7 @@ export const ConfidenceChip: FC<ConfidenceChipProps> = ({
     return null
   }
   if (check?.status === 'judged') {
-    return <CheckedChip confidence={confidence} check={check} quoteCapped={cappedReason === 'quote_unverified'} />
+    return <CheckedChip confidence={confidence} check={check} cappedReason={cappedReason} />
   }
 
   const byClaim = version === 2
@@ -157,11 +158,11 @@ export const ConfidenceChip: FC<ConfidenceChipProps> = ({
 }
 
 /** The chip of a checked answer (ADR-0139): the check's level, and what it found unbacked. */
-const CheckedChip: FC<{ confidence: AnswerConfidence; check: ConfidenceCheck; quoteCapped: boolean }> = ({
-  confidence,
-  check,
-  quoteCapped,
-}) => {
+const CheckedChip: FC<{
+  confidence: AnswerConfidence
+  check: ConfidenceCheck
+  cappedReason: AnswerConfidenceCappedReason | null | undefined
+}> = ({ confidence, check, cappedReason }) => {
   const t = useTranslations(chatCopy)
   const levelLabel = t(`confidence.levels.${confidence}`)
   return (
@@ -198,7 +199,9 @@ const CheckedChip: FC<{ confidence: AnswerConfidence; check: ConfidenceCheck; qu
           </span>
         ) : null}
         <span className="mt-1 block">{t('confidence.checked.tooltip')}</span>
-        {quoteCapped ? <span className="mt-1 block">{t('confidence.checked.quoteUnverified')}</span> : null}
+        {cappedReason === 'quote_unverified' || cappedReason === 'law_unsettled' ? (
+          <span className="mt-1 block">{t(`confidence.checked.${CAPPED_REASON_KEYS[cappedReason]}`)}</span>
+        ) : null}
       </TooltipContent>
     </Tooltip>
   )

@@ -36,7 +36,8 @@ const maskFor = ({ start, end }: Overflow): string | undefined => {
 
 /** A small paper disc, so the chevron reads over whatever text the fade is cutting. */
 const CUE_CLASS =
-  'pointer-events-none absolute top-1/2 size-6 -translate-y-1/2 rounded-control border border-border bg-card p-1 text-muted-foreground shadow-xs'
+  // A frosted disc, as the tiles' ⋯ is: a cue over the content, not a boxed control (one grey, no ring).
+  'pointer-events-none absolute top-1/2 size-6 -translate-y-1/2 rounded-full bg-background/90 p-1 text-muted-foreground backdrop-blur-sm'
 
 export interface HorizontalScrollProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode

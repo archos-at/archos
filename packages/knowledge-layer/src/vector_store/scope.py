@@ -15,6 +15,7 @@ always accepted::
     {"field": {"$eq"|"$ne": v}}                   -> (not) equal
     {"field": {"$in"|"$nin": [v1, ...]}}          -> (not) in
     {"field": {"$gt"|"$gte"|"$lt"|"$lte": v}}     -> range (integer and datetime fields only)
+    {"field": {"$exists": true|false}}            -> the point carries the field, or lacks it (empty)
     {"$and": [node, ...]}  /  {"$or": [node, ...]} -> groups
 
 A read is over chunks unless it says otherwise. A folder card's point
@@ -23,6 +24,15 @@ A read is over chunks unless it says otherwise. A folder card's point
 to a read that asks for ``kind="folder"``; a delete of a whole scope asks for
 ``kind="any"``. A chunk carries no ``kind`` at all, which the ``must_not``
 keeps: nothing was backfilled.
+
+A read over an office's own scopes (``schema.TENANT_PREFIXES``: the shelf,
+a project, a session) also carries the office it reads as. :class:`ScopeRead`
+is that pair, and it cannot be built for a tenant scope without an office: the
+search reads (``search.hybrid_search``, ``search.grouped_search``,
+``similar.find_similar``, ``retrieval.search``, ``retrieval.find_text``) AND
+:func:`office_condition` into their filter, so a scope name that reached the
+list by mistake (another office's ``proj_``) still returns nothing of the
+other office. Writes, deletes and maintenance reads stay on :func:`scope_filter`.
 
 ``$ne`` and ``$nin`` keep a point that lacks the field, as
 ``test_page_chunk_exclusion.py`` pins: the base corpus's ``chunking $ne page``
@@ -37,6 +47,7 @@ a closed interval is ``{"$and": [{"f": {"$gte": a}}, {"f": {"$lte": b}}]}``.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 from typing import Literal
 
@@ -45,6 +56,7 @@ from qdrant_client import models
 from agent.profile_names import legacy_profile_token
 
 from .payload import coerce_field
+from .schema import COUNTRY_FIELD
 from .schema import DATETIME_FIELDS
 from .schema import FOLDER_KIND
 from .schema import INDEXED_FIELDS
@@ -52,8 +64,10 @@ from .schema import INTEGER_FIELDS
 from .schema import KIND_FIELD
 from .schema import LEGACY_CHUNKING
 from .schema import LEGACY_FIELDS
+from .schema import OFFICE_FIELD
 from .schema import PROJECT_FACTS_FIELD
 from .schema import SCOPE_FIELD
+from .schema import TENANT_PREFIXES
 from .schema import TEXT_FIELDS
 
 #: Which points a read is over: chunks (every read's default), folder card points, or both
@@ -61,7 +75,7 @@ from .schema import TEXT_FIELDS
 PointKind = Literal["chunk", "folder", "any"]
 
 _RANGE_OPERATORS = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
-_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", *_RANGE_OPERATORS})
+_OPERATORS = frozenset({"$eq", "$ne", "$in", "$nin", "$exists", *_RANGE_OPERATORS})
 
 
 def _range(field: str, op: str, value: Any) -> models.FieldCondition:
@@ -160,6 +174,11 @@ def _field_exact(field: str, condition: Any) -> models.Filter:
         return models.Filter(must=[_match_any(field, value)])
     if op in _RANGE_OPERATORS:
         return models.Filter(must=[_range(field, op, value)])
+    if op == "$exists":
+        if not isinstance(value, bool):
+            raise ValueError(f"Filter on {field!r}: $exists needs true or false, got {value!r}")
+        empty = models.IsEmptyCondition(is_empty=models.PayloadField(key=field))
+        return models.Filter(must_not=[empty]) if value else models.Filter(must=[empty])
     # $nin of nothing excludes nothing.
     return models.Filter(must_not=[_match_any(field, value)] if value else [])
 
@@ -217,9 +236,103 @@ def scope_filter(
     if kind not in ("chunk", "folder", "any"):
         raise ValueError(f"Unknown point kind {kind!r}")
     must: list[Any] = [scope_condition(scopes)]
+    country = corpus_country_condition(scopes)
+    if country is not None:
+        must.append(country)
     if filters:
         must.append(translate(filters))
     must.extend(extra)
     if kind == "folder":
         must.append(_is_folder())
     return models.Filter(must=must, must_not=[_is_folder()] if kind == "chunk" else None)
+
+
+def corpus_country_condition(scopes: Sequence[str]) -> models.Filter | None:
+    """The base corpus read only for the countries this request may see (ADR-0173); None when nothing says.
+
+    The one place every vector read passes (:func:`scope_filter`): a chat turn, a run, a door tool,
+    ``read_passage``, the estate's file reads. A point passes when it is in one of the read's tenant
+    scopes, or its ``country_id`` is one the request may read. A point without ``country_id`` passes
+    nothing: an unmarked text is read by nobody (fail closed); the corpus that predates the field is
+    marked Austrian by the sync's one-time backfill (``oib_sync.backfill_legacy_marks``).
+    """
+    if all(is_tenant_scope(scope) for scope in scopes):
+        return None
+    from agent.common.knowledge_context import corpus_countries
+
+    countries = corpus_countries()
+    if countries is None:
+        return None
+    # An empty list matches nothing; Qdrant refuses an empty MatchAny, so a value no point carries stands in.
+    allowed = sorted(countries) or ["__none__"]
+    should: list[Any] = [models.FieldCondition(key=COUNTRY_FIELD, match=models.MatchAny(any=allowed))]
+    tenant = [scope for scope in scopes if is_tenant_scope(scope)]
+    if tenant:
+        should.append(scope_condition(tenant))
+    return models.Filter(should=should)
+
+
+def is_tenant_scope(scope: str) -> bool:
+    """Whether ``scope`` is one an office owns (its shelf, a project, a session), not the shared corpus."""
+    return scope.startswith(TENANT_PREFIXES)
+
+
+@dataclass(frozen=True)
+class ScopeRead:
+    """The scopes a search reads and the office it reads them as; a tenant scope with no office raises.
+
+    ``office_id`` may be None only when every scope is shared corpus: a corpus
+    point may carry the platform organization's ``office_id``, which is why the
+    office is checked on this read's tenant scopes alone (:func:`office_condition`).
+    """
+
+    scopes: tuple[str, ...]
+    office_id: str | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "scopes", tuple(self.scopes))
+        office = self.office_id.strip() if isinstance(self.office_id, str) else ""
+        object.__setattr__(self, "office_id", office or None)
+        if self.tenant_scopes and self.office_id is None:
+            raise ValueError(f"A read over the office scopes {list(self.tenant_scopes)!r} needs the office it reads as")
+
+    @property
+    def tenant_scopes(self) -> tuple[str, ...]:
+        """This read's scopes an office owns, in order, each once."""
+        return tuple(dict.fromkeys(scope for scope in self.scopes if isinstance(scope, str) and is_tenant_scope(scope)))
+
+    def filter(
+        self, filters: dict[str, Any] | None = None, *extra: models.Condition, kind: PointKind = "chunk"
+    ) -> models.Filter:
+        """:func:`scope_filter` over this read's scopes, with :func:`office_condition` ANDed in."""
+        return scope_filter(self.scopes, filters, *extra, *self.office(), kind=kind)
+
+    def office(self) -> list[models.Filter]:
+        """:func:`office_condition` as extra conditions for a read that builds its own filter (a scroll, a facet)."""
+        condition = office_condition(self)
+        return [condition] if condition is not None else []
+
+
+def office_condition(read: ScopeRead) -> models.Filter | None:
+    """A point passes when its scope is none of ``read``'s tenant scopes, or it is the office's, or it names none.
+
+    None when the read touches no tenant scope: the corpus has no office to check.
+
+    The known legacy gap: a point imported from Chroma before enrichment
+    (``import_vectors.scope_enrichment`` sets ``office_id`` for office-shelf
+    scopes only) and a point written by an ingest job that named no
+    organization carry no ``office_id``. They pass, or a project's older
+    documents would vanish from its own search; for them the scope list is the
+    only boundary, as it was before this condition. A backfill of ``office_id``
+    on those points closes the gap and lets this clause go.
+    """
+    tenant = read.tenant_scopes
+    if not tenant:
+        return None
+    return models.Filter(
+        should=[
+            models.Filter(must_not=[models.FieldCondition(key=SCOPE_FIELD, match=models.MatchAny(any=list(tenant)))]),
+            models.FieldCondition(key=OFFICE_FIELD, match=models.MatchValue(value=str(read.office_id))),
+            models.IsEmptyCondition(is_empty=models.PayloadField(key=OFFICE_FIELD)),
+        ]
+    )

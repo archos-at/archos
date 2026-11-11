@@ -55,7 +55,7 @@ export function ClaimedMailBar({
       </FactLine>
       <BusyButton
         type="button"
-        variant={impersonation ? 'default' : 'outline'}
+        variant={impersonation ? 'default' : 'secondary'}
         busy={dismissing}
         busyLabel={t('bar.dismissBusy')}
         onClick={() => onConfirmOpenChange(true)}

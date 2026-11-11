@@ -107,7 +107,7 @@ export function PlacementTreeView({
       </ul>
       {!onlyUnsure && tree.stays.length > 0 && (
         <section aria-label={t('rootSort.review.staysLabel')} className="border-border border-t">
-          <SectionLabel as="h3" className="bg-muted/40 px-3 py-2">
+          <SectionLabel as="h3" className="bg-muted px-3 py-2">
             {t('rootSort.review.staysLabel')}
           </SectionLabel>
           <ul>
@@ -267,7 +267,7 @@ function FileRow({ file, depth, onToggleFile, onRetarget, targets }: FileRowProp
           {t(file.certainty === 'sure' ? 'rootSort.tree.sure' : 'rootSort.tree.unsure')}
         </Badge>
       )}
-      {file.chosenByPerson && <Badge variant="outline">{t('rootSort.tree.changed')}</Badge>}
+      {file.chosenByPerson && <Badge variant="secondary">{t('rootSort.tree.changed')}</Badge>}
       <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
         {file.reason || (placed || file.chosenByPerson ? '' : t('rootSort.tree.noReason'))}
       </span>

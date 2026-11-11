@@ -27,6 +27,8 @@ export const FINDING_FILTERS = [
   'iban',
   'at_svnr',
   'credit_card',
+  'de_svnr',
+  'de_tax_id',
   'other',
   'unscreened',
 ] as const

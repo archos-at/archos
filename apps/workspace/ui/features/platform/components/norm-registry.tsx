@@ -9,32 +9,25 @@
  * Sheet holding the editor for the one entry in hand. The editor itself is a
  * guided flow and lives in `./norm-entry-editor`.
  *
- * Why this is not a per-row CRUD list: the backend persists the catalog as ONE
- * file guarded by an optimistic-concurrency version. So edits accumulate in
- * local state and a single Save PUTs the whole registry under the version we
- * loaded. A 409 means somebody else wrote in the meantime — we then stop
- * offering Save entirely until the user reloads, because re-sending our copy
- * would overwrite a registry they have never seen.
+ * Read-only since the cut-over (ADR-0175): a norm reaches offices only through
+ * a reviewed change request (ADR-0165), so the registry takes no edits (its
+ * route answers 409) and this view says where norms change now. The view and
+ * its route go with the contract step that drops `norm_registry`.
  */
 
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import Link from 'next/link'
 import {
-  AlertCircle,
   BadgeCheck,
   BookMarked,
   CircleAlert,
   ClipboardList,
   Lock,
-  Plus,
-  RotateCcw,
-  Save,
 } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DataToolbar } from '@/components/ui/data-toolbar'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Pagination } from '@/components/ui/pagination'
@@ -46,7 +39,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Spinner } from '@/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -56,10 +48,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SectionCard } from '@/features/platform/components/section-card'
-import { usePlatformCan } from '@/features/platform/platform-access'
-import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import {
-  emptyEntry,
   isStale,
   NormEntryEditor,
 } from '@/features/platform/components/norm-entry-editor'
@@ -70,7 +59,6 @@ import {
   NORM_RANKS,
   type NormEntry,
   type NormRegistryEnvelope,
-  type NormsFile,
 } from '@/lib/norms/schemas'
 
 /* ---------------------------------------------------------------------------
@@ -137,43 +125,14 @@ function matchesQuery(entry: NormEntry, query: string): boolean {
  * Main component
  * ------------------------------------------------------------------------- */
 
-interface EditorTarget {
-  entry: NormEntry
-  originalId: string | null
-}
-
 export function NormRegistry(): JSX.Element {
   const t = useTranslations(platformCopy)
-  // Saving the registry (and verifying an entry) is `settings:manage`. A
-  // read-only viewer gets the table, without the controls that would 403.
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
-
   const [entries, setEntries] = useState<NormEntry[]>([])
-  const [version, setVersion] = useState<number>(0)
-  // Preserved verbatim across the PUT round-trip; not editable in the UI.
-  const [corpusCollection, setCorpusCollection] = useState('oib_knowledge')
-  // CountryProfile data overrides — no UI surface, but must not be dropped on
-  // PUT (a country-#2 registry carries these; see country_profile.py).
-  type ProfileOverrides = Pick<
-    NormsFile,
-    'language' | 'states' | 'corpus_note' | 'doctrine' | 'parcel_tags'
-  >
-  const [overrides, setOverrides] = useState<ProfileOverrides>({
-    language: '',
-    states: {},
-    corpus_note: '',
-    doctrine: '',
-    parcel_tags: [],
-  })
   const [isLoading, setIsLoading] = useState(true)
   /** Set once a load landed: a later reload (after a conflict) keeps the table. */
   const [hasLoaded, setHasLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [conflict, setConflict] = useState(false)
-  const [editor, setEditor] = useState<EditorTarget | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [editor, setEditor] = useState<NormEntry | null>(null)
 
   const [query, setQuery] = useState('')
   const [rankFilter, setRankFilter] = useState<string>(ALL)
@@ -184,7 +143,6 @@ export function NormRegistry(): JSX.Element {
   const load = useCallback(() => {
     setIsLoading(true)
     setHasError(false)
-    setConflict(false)
     return fetch('/api/platform/norms')
       .then((r) => {
         if (!r.ok) throw new Error(`Load failed (${r.status})`)
@@ -192,16 +150,6 @@ export function NormRegistry(): JSX.Element {
       })
       .then((data) => {
         setEntries(data.registry.entries)
-        setCorpusCollection(data.registry.corpus_collection ?? 'oib_knowledge')
-        setOverrides({
-          language: data.registry.language ?? '',
-          states: data.registry.states ?? {},
-          corpus_note: data.registry.corpus_note ?? '',
-          doctrine: data.registry.doctrine ?? '',
-          parcel_tags: data.registry.parcel_tags ?? [],
-        })
-        setVersion(data.version)
-        setDirty(false)
         setHasLoaded(true)
       })
       .catch(() => {
@@ -216,61 +164,6 @@ export function NormRegistry(): JSX.Element {
     void load()
   }, [load])
 
-  const otherIds = useCallback(
-    (originalId: string | null) =>
-      new Set(entries.filter((e) => e.id !== originalId).map((e) => e.id)),
-    [entries]
-  )
-
-  const handleSaveEntry = useCallback((originalId: string | null, entry: NormEntry) => {
-    setEntries((prev) => {
-      if (originalId && prev.some((e) => e.id === originalId)) {
-        return prev.map((e) => (e.id === originalId ? entry : e))
-      }
-      return [...prev, entry]
-    })
-    setDirty(true)
-    setEditor(null)
-  }, [])
-
-  const handleDelete = useCallback((id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id))
-    setDirty(true)
-    setPendingDelete(null)
-    setEditor(null)
-  }, [])
-
-  const handleSave = useCallback(() => {
-    // A held version we know to be stale must never be written back.
-    if (conflict) return
-    setIsSaving(true)
-    fetch('/api/platform/norms', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        version,
-        registry: { version: 1, corpus_collection: corpusCollection, ...overrides, entries },
-      }),
-    })
-      .then(async (r) => {
-        const body = await r.json().catch(() => ({}))
-        if (r.status === 409) {
-          setConflict(true)
-          toast.error(t('norms.conflict.toast'))
-          return
-        }
-        if (r.status === 422 || r.status === 400) {
-          toast.error(body?.error ?? t('norms.invalid'))
-          return
-        }
-        if (!r.ok) throw new Error(`Save failed (${r.status})`)
-        if (typeof body?.version === 'number') setVersion(body.version)
-        setDirty(false)
-        toast.success(t('norms.saved'))
-      })
-      .catch(() => toast.error(t('norms.saveError')))
-      .finally(() => setIsSaving(false))
-  }, [entries, version, corpusCollection, overrides, conflict, t])
 
   const openReviewCount = useMemo(() => entries.filter(hasReview).length, [entries])
 
@@ -308,7 +201,7 @@ export function NormRegistry(): JSX.Element {
 
   const resetPaging = useCallback(() => setOffset(0), [])
 
-  const registryEmpty = !isLoading && !hasError && entries.length === 0 && !conflict
+  const registryEmpty = !isLoading && !hasError && entries.length === 0
 
   return (
     <>
@@ -331,50 +224,17 @@ export function NormRegistry(): JSX.Element {
         emptyIcon={BookMarked}
         emptyTitle={t('norms.empty.title')}
         emptyDescription={t('norms.empty.description')}
-        action={
-          canManage ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {dirty && <Badge variant="warning">{t('norms.unsaved')}</Badge>}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditor({ entry: emptyEntry(), originalId: null })}
-              >
-                <Plus className="size-3.5" aria-hidden />
-                {t('norms.add')}
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={!dirty || isSaving || conflict}>
-                {isSaving ? (
-                  <Spinner className="size-3.5" />
-                ) : (
-                  <Save className="size-3.5" aria-hidden />
-                )}
-                {t('norms.save')}
-              </Button>
-            </div>
-          ) : undefined
-        }
       >
         <div className="flex flex-col gap-3">
-          {!canManage ? (
-            <Alert>
-              <Lock aria-hidden />
-              <AlertDescription>{t('norms.readOnly')}</AlertDescription>
-            </Alert>
-          ) : null}
-          {conflict && (
-            <Alert variant="destructive" data-testid="norm-registry-conflict">
-              <AlertCircle className="size-4" aria-hidden />
-              <AlertTitle>{t('norms.conflict.title')}</AlertTitle>
-              <AlertDescription className="flex flex-col gap-2">
-                <span>{t('norms.conflict.description')}</span>
-                <Button variant="outline" size="sm" className="w-fit" onClick={() => void load()}>
-                  <RotateCcw className="size-3.5" aria-hidden />
-                  {t('norms.conflict.reload')}
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
+          <Alert data-testid="norm-registry-retired">
+            <Lock aria-hidden />
+            <AlertDescription className="flex flex-col gap-2">
+              <span>{t('norms.retired')}</span>
+              <Link href="/app/platform/countries" className="w-fit underline underline-offset-2">
+                {t('norms.retiredLink')}
+              </Link>
+            </AlertDescription>
+          </Alert>
 
           <DataToolbar
             searchValue={query}
@@ -472,7 +332,7 @@ export function NormRegistry(): JSX.Element {
                     key={entry.id}
                     entry={entry}
                     t={t}
-                    onOpen={() => setEditor({ entry, originalId: entry.id })}
+                    onOpen={() => setEditor(entry)}
                   />
                 ))}
               </TableBody>
@@ -494,34 +354,22 @@ export function NormRegistry(): JSX.Element {
       <Sheet open={editor !== null} onOpenChange={(open) => !open && setEditor(null)}>
         <SheetContent className="sm:max-w-xl" closeLabel={t('norms.sheet.close')}>
           {editor && (
+            // Read-only: the editor offers only Close, so its save and delete never run.
             <NormEntryEditor
-              key={editor.originalId ?? '__new__'}
-              entry={editor.entry}
-              originalId={editor.originalId}
-              existingIds={otherIds(editor.originalId)}
-              onSave={handleSaveEntry}
+              key={editor.id}
+              entry={editor}
+              originalId={editor.id}
+              existingIds={new Set()}
+              onSave={() => undefined}
               onCancel={() => setEditor(null)}
-              onRequestDelete={() => editor.originalId && setPendingDelete(editor.originalId)}
-              isNew={editor.originalId === null}
-              readOnly={!canManage}
+              onRequestDelete={() => undefined}
+              isNew={false}
+              readOnly
               t={t}
             />
           )}
         </SheetContent>
       </Sheet>
-
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        title={t('norms.delete.title')}
-        description={t('norms.delete.description')}
-        confirmLabel={t('norms.delete.confirm')}
-        cancelLabel={t('norms.delete.cancel')}
-        confirmTestId="norm-delete-confirm"
-        onConfirm={() => {
-          if (pendingDelete) handleDelete(pendingDelete)
-        }}
-      />
     </>
   )
 }

@@ -11,7 +11,6 @@ from langchain_core.tools import tool
 
 from agent.agents.piloti.agent import ChatAgent
 from agent.agents.piloti.models import ResearchAgentState
-from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import EmptySourceRegistryError
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
@@ -525,8 +524,9 @@ class TestChatAgent:
     # ------------------------------------------------------------------
     # Provider JSON mode for the envelope (`response_format: json_object`),
     # the OpenRouter-safe variant `cards/generate.py` established. Bound on
-    # the tool-free forced-synthesis call; tool-bound iterations only by
-    # explicit opt-in (`envelope_json_mode_with_tools`).
+    # tool-bound calls, forced synthesis included, only by explicit opt-in
+    # (`envelope_json_mode_with_tools`); forced synthesis keeps the round's
+    # tools and asks for no call (`envelope_call.ainvoke_synthesis`).
     # ------------------------------------------------------------------
 
     def _bindable(self, mock_llm, reply):
@@ -537,39 +537,93 @@ class TestChatAgent:
         return bound
 
     @pytest.mark.asyncio
-    async def test_forced_synthesis_binds_json_mode_on_research_turns(self, mock_llm_provider, mock_llm, real_tool):
-        """Budget exhausted on a research turn → the synthesis call requests JSON."""
-        bound = self._bindable(mock_llm, self._envelope_reply(fenced=False))
+    async def test_forced_synthesis_keeps_the_tools_and_asks_for_no_call(self, mock_llm_provider, mock_llm, real_tool):
+        """Budget exhausted → the synthesis call is the round's own binding with ``tool_choice: "none"``.
+
+        Dropping the tools, or switching the output format, invalidates the
+        cached prefix on the turn's longest call (``envelope_call.ainvoke_synthesis``).
+        """
+        bound = self._bindable(mock_llm, self._envelope_reply())
         # Ceiling 0: the very first agent_node call is forced synthesis.
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        # The strongest rung binds first: strict structured outputs, derived
-        # from the envelope models themselves.
-        mock_llm.bind.assert_called_once_with(response_format=render_envelope_response_format())
+        mock_llm.bind_tools.assert_called()
+        mock_llm.bind.assert_called_once_with(tool_choice="none")
         bound.ainvoke.assert_awaited_once()
-        # The JSON-mode response flowed through the same extraction chain.
+        # The fenced envelope flowed through the same extraction chain.
         assert result.answer_confidence_marker == "medium"
         assert "```" not in result.messages[-1].content
 
     @pytest.mark.asyncio
-    async def test_json_mode_falls_back_to_a_plain_call(self, mock_llm_provider, mock_llm, real_tool):
-        """A provider that rejects response_format degrades to prose, never fails."""
+    async def test_synthesis_binds_json_mode_only_where_the_rounds_did(self, mock_llm_provider, mock_llm, real_tool):
+        """With ``envelope_json_mode_with_tools`` every round sent the format, so synthesis keeps it too."""
+        bound = self._bindable(mock_llm, self._envelope_reply(fenced=False))
+        bound.bind = MagicMock(return_value=bound)
+        agent = ChatAgent(
+            llm_provider=mock_llm_provider,
+            tools=[real_tool],
+            max_tool_iterations=0,
+            envelope_json_mode_with_tools=True,
+        )
+
+        result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
+
+        mock_llm.bind.assert_called_once_with(tool_choice="none")
+        bound.bind.assert_called_once_with(response_format=render_envelope_response_format())
+        assert result.answer_confidence_marker == "medium"
+
+    @pytest.mark.asyncio
+    async def test_a_provider_that_ignores_tool_choice_gets_the_tool_free_call(
+        self, mock_llm_provider, mock_llm, real_tool
+    ):
+        """A tool call at the ceiling would run past it: the answer comes from the old tool-free call."""
         bound = self._bindable(mock_llm, "")
-        rejected = RuntimeError("response_format not supported")
-        rejected.status_code = 400
-        bound.ainvoke = AsyncMock(side_effect=rejected)
-        mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply()))
+        ignored = AIMessage(content="", tool_calls=[{"name": "knowledge_search", "args": {}, "id": "c1"}])
+        bound.ainvoke = AsyncMock(side_effect=[ignored, AIMessage(content=self._envelope_reply(fenced=False))])
         agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
 
         result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        # The whole ladder was tried in order — json_schema, then json_object —
-        # before the plain call answered.
-        formats = [call.kwargs["response_format"]["type"] for call in mock_llm.bind.call_args_list]
-        assert formats == ["json_schema", "json_object"]
-        mock_llm.ainvoke.assert_awaited()
+        kinds = [next(iter(call.kwargs)) for call in mock_llm.bind.call_args_list]
+        assert kinds == ["tool_choice", "response_format"]
+        assert not getattr(result.messages[-1], "tool_calls", None)
+        assert result.answer_confidence_marker == "medium"
+
+    @pytest.mark.asyncio
+    async def test_a_malformed_tool_call_at_synthesis_is_not_taken_for_the_answer(
+        self, mock_llm_provider, mock_llm, real_tool
+    ):
+        bound = self._bindable(mock_llm, "")
+        malformed = AIMessage(
+            content="",
+            invalid_tool_calls=[{"name": "knowledge_search", "args": "{", "id": "c1", "error": "bad json"}],
+        )
+        bound.ainvoke = AsyncMock(side_effect=[malformed, AIMessage(content=self._envelope_reply(fenced=False))])
+        agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
+
+        result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
+
+        kinds = [next(iter(call.kwargs)) for call in mock_llm.bind.call_args_list]
+        assert kinds == ["tool_choice", "response_format"]
+        assert result.answer_confidence_marker == "medium"
+
+    @pytest.mark.asyncio
+    async def test_a_provider_that_rejects_tool_choice_gets_the_tool_free_call(
+        self, mock_llm_provider, mock_llm, real_tool
+    ):
+        """A 400 on ``tool_choice: "none"`` must not end the turn the old tool-free call answered."""
+        rejected = RuntimeError("tool_choice not supported")
+        rejected.status_code = 400
+        bound = self._bindable(mock_llm, "")
+        bound.ainvoke = AsyncMock(side_effect=[rejected, AIMessage(content=self._envelope_reply(fenced=False))])
+        agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
+
+        result = await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
+
+        kinds = [next(iter(call.kwargs)) for call in mock_llm.bind.call_args_list]
+        assert kinds == ["tool_choice", "response_format"]
         assert result.answer_confidence_marker == "medium"
 
     @pytest.mark.asyncio
@@ -581,14 +635,21 @@ class TestChatAgent:
         latency of a turn that was already lost.
         """
         bound = self._bindable(mock_llm, "")
+        bound.bind = MagicMock(return_value=bound)
         bound.ainvoke = AsyncMock(side_effect=ConnectionError("upstream reset"))
         mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=self._envelope_reply()))
-        agent = ChatAgent(llm_provider=mock_llm_provider, tools=[real_tool], max_tool_iterations=0)
+        agent = ChatAgent(
+            llm_provider=mock_llm_provider,
+            tools=[real_tool],
+            max_tool_iterations=0,
+            envelope_json_mode_with_tools=True,
+        )
 
         with pytest.raises(ConnectionError):
             await agent.run(ResearchAgentState(messages=[HumanMessage(content="Frage?")]))
 
-        assert mock_llm.bind.call_count == 1
+        # The strongest rung only: a transport fault is not a rejected format.
+        assert bound.bind.call_count == 1
         mock_llm.ainvoke.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -1342,7 +1403,8 @@ class TestChatSourceRegistryGating:
         result = await agent.run(state)
 
         assert result.answer_lookup_found_nothing is True
-        assert result.messages[-1].content == f"Hochhäuser regelt die OIB-RL 2.3 {DROPPED_CITATION_MARKER}."
+        # Removed, never labelled (ADR-0125, amended 2026-11-10).
+        assert result.messages[-1].content == "Hochhäuser regelt die OIB-RL 2.3."
         assert result.verified_sources is None
 
     @pytest.mark.asyncio
@@ -1971,7 +2033,7 @@ class TestChatAnswerGrounding:
             result, _ = await _run_with_captured_registry(self._agent(mock_llm_provider, repair_pass=False), state)
 
         answer = next(m for m in reversed(result.messages) if isinstance(m, AIMessage) and not m.tool_calls)
-        assert answer.content == f"The building height limit is 12 m {DROPPED_CITATION_MARKER}."
+        assert answer.content == "The building height limit is 12 m."
         assert "OIB Richtlinie" not in answer.content
         assert result.answer_citation_grounded is False
 
@@ -2261,7 +2323,7 @@ class TestChatQuoteVerification:
         )
 
     @pytest.mark.asyncio
-    async def test_fabricated_quote_annotated_and_flagged(self, mock_llm_provider, mock_llm):
+    async def test_fabricated_quote_kept_unmarked_and_flagged(self, mock_llm_provider, mock_llm):
         final = AIMessage(
             content=(
                 "Die Richtlinie fordert „Treppen muessen mit einer automatischen "
@@ -2275,7 +2337,8 @@ class TestChatQuoteVerification:
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
         output = result.messages[-1].content
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        # No marker in the prose (ADR-0125, amended 2026-11-10); the quote gate holds the signal.
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
         # Fail-open: the fabricated sentence itself is preserved, never stripped.
         assert "automatische" in output.lower()
         assert result.answer_quotes_verified is False
@@ -2393,7 +2456,9 @@ class TestChatRepairPass:
         assert patch_llm.ainvoke.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_a_quote_no_passage_comes_close_to_keeps_its_marker(self, mock_llm_provider, mock_llm, patch_llm):
+    async def test_a_quote_no_passage_comes_close_to_stays_as_written_and_flagged(
+        self, mock_llm_provider, mock_llm, patch_llm
+    ):
         # Invented, not misremembered: "correcting" it would put the passage's
         # different claim in the model's mouth.
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.FABRICATED])
@@ -2404,7 +2469,7 @@ class TestChatRepairPass:
 
         output = result.messages[-1].content
         assert "Loeschanlage" in output
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
         assert result.answer_quotes_verified is False
         assert patch_llm.ainvoke.await_count == 0
 
@@ -2422,7 +2487,8 @@ class TestChatRepairPass:
         output = result.messages[-1].content
         assert "wenigstens 2,10 m" in output
         assert "2,50" not in output
-        assert "[nicht wörtlich in der Quelle belegt]" in output
+        assert "[nicht wörtlich in der Quelle belegt]" not in output
+        assert result.answer_quotes_verified is False
 
     @pytest.mark.asyncio
     async def test_a_clean_answer_costs_no_extra_call(self, mock_llm_provider, mock_llm, patch_llm):
@@ -2436,7 +2502,7 @@ class TestChatRepairPass:
         assert patch_llm.ainvoke.await_count == 0
 
     @pytest.mark.asyncio
-    async def test_switched_off_ships_the_marker_as_before(self, mock_llm_provider, mock_llm, patch_llm):
+    async def test_switched_off_ships_the_quote_unpatched_and_flagged(self, mock_llm_provider, mock_llm, patch_llm):
         mock_llm.ainvoke = AsyncMock(side_effect=[self._tool_call(), self.MISQUOTED])
         agent = ChatAgent(
             llm_provider=mock_llm_provider, tools=[knowledge_search], repair_pass=False, card_repair_llm=patch_llm
@@ -2445,7 +2511,8 @@ class TestChatRepairPass:
 
         result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
-        assert "[nicht wörtlich in der Quelle belegt]" in result.messages[-1].content
+        assert "[nicht wörtlich in der Quelle belegt]" not in result.messages[-1].content
+        assert result.answer_quotes_verified is False
         assert patch_llm.ainvoke.await_count == 0
 
     @pytest.mark.asyncio
@@ -2461,7 +2528,8 @@ class TestChatRepairPass:
         with patch("agent.agents.piloti.agent.quote_patcher") as patcher:
             result = await _run_with_bound_registry(agent, state, SourceRegistry())
 
-        assert "[nicht wörtlich in der Quelle belegt]" in result.messages[-1].content
+        assert "[nicht wörtlich in der Quelle belegt]" not in result.messages[-1].content
+        assert result.answer_quotes_verified is False
         assert "wenigstens 2,10 m" in result.messages[-1].content
         patcher.assert_not_called()
         assert mock_llm.ainvoke.await_count == 2
@@ -2735,7 +2803,7 @@ class TestKnowledgeInventoryIsNotCitable:
         """
         source = self._prompt("piloti/prompts/piloti.j2")
 
-        block = source.split("<building_law>")[1].split("</building_law>")[0]
+        block = source.split("<legal_method>")[1].split("</legal_method>")[0]
         rule = block.split("When two sources disagree")[1].split("\n")[0]
         # Show the difference rather than silently choosing.
         assert "show both with their citations" in rule

@@ -21,6 +21,7 @@ from agent.profile_names import normalize_profile_token
 
 from ..object_store_url import ObjectStoreUrl
 from .document_type_tag import DocumentTypeField
+from .knowledge_mark import KnowledgeMarkFields
 from .mail_facts import MailOrigin
 from .mail_facts import MailThreadFacts
 
@@ -75,9 +76,9 @@ class ScreeningPolicy(BaseModel):
             "characters after stripping; empty entries are dropped."
         ),
     )
-    detectors: list[Literal["iban", "at_svnr", "credit_card"]] = Field(
+    detectors: list[Literal["iban", "at_svnr", "credit_card", "de_svnr", "de_tax_id"]] = Field(
         default_factory=list,
-        description="Identifiers that quarantine a document: IBAN, Austrian social-security number, card number.",
+        description="Identifiers that quarantine a document: IBAN, AT and DE social-insurance number, card, DE tax ID.",
     )
 
     @field_validator("content_terms")
@@ -174,8 +175,8 @@ class ProjectFactsUpdate(BaseModel):
     status: ProjectStatus = Field(..., description="The project's lifecycle state (ADR-0098)")
 
 
-class IngestRequest(BaseModel):
-    """Request body for URL-based ingestion."""
+class IngestRequest(KnowledgeMarkFields):
+    """Request body for URL-based ingestion; a base-knowledge copy also carries its licence mark."""
 
     file_ref: ObjectStoreUrl = Field(..., description="Presigned GET of the original in the object store")
     collection: str = Field(..., description="Target collection name")
@@ -941,12 +942,6 @@ class OibDocumentUploadResponse(BaseModel):
     accepted: int | None = Field(None, description="Members queued for ingestion (ZIP uploads).")
     rejected: int | None = Field(None, description="Members skipped/rejected during extraction (ZIP uploads).")
     members: list[OibUploadedMember] | None = Field(None, description="Per-member outcome (ZIP uploads).")
-
-
-class OibReingestRequest(BaseModel):
-    """Which base-corpus documents to re-index, by basename."""
-
-    file_names: list[str] = Field(..., description="Base-corpus PDF basenames to re-ingest.", min_length=1)
 
 
 class OibReingestResponse(BaseModel):

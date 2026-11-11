@@ -14,6 +14,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
+vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(async () => ({ role: 'project-editor', closed: false, readsBecauseClosed: false })),
@@ -23,6 +25,8 @@ vi.mock('@/lib/projects/repository', () => ({
   findProjectCollectionName: vi.fn(),
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org-1', deletedAt: null, status: 'active' })),
 }))
+// An Austrian project: the base corpus is in its scope (ADR-0158).
+vi.mock('@/lib/project-profile/prompt-view', () => ({ loadProjectSiteCountry: vi.fn(async () => 'at') }))
 vi.mock('@/lib/user-preferences/repository', () => ({ findUserPreferencesForSession: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
 vi.mock('@/lib/sharing/repository', () => ({ countGrantsForResource: vi.fn() }))

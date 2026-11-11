@@ -68,9 +68,16 @@ class _Embedder:
         return SELECTION
 
 
+#: The office every request here is signed for.
+OFFICE = "org_similar"
+
+
 def _scope_headers(scope: list[str], secret: str | None = SECRET) -> dict[str, str]:
-    """The signed ``X-Grid-Request-Context`` envelope the BFF forwards (``buildRequestContextWireHeaders``)."""
-    payload = json.dumps({"collectionScope": scope})
+    """The signed ``X-Grid-Request-Context`` envelope the BFF forwards (``buildRequestContextWireHeaders``).
+
+    It names the organization: the search reads as that office (``document_search.request_office``).
+    """
+    payload = json.dumps({"collectionScope": scope, "organizationId": OFFICE})
     headers = {"x-grid-request-context": base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")}
     if secret:
         headers["x-grid-request-context-sig"] = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()

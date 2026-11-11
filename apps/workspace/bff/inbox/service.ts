@@ -28,6 +28,7 @@ import { resolvePeople } from '@/lib/sharing/directory'
 import { unreadableRunIds, type RunRef } from '@/lib/tasks/subject-access'
 import { parseUploadReport } from '@/lib/upload-batches/upload-report'
 import { findInboxTarget, type InboxTargetAccess, type RunMessageRef } from './targets'
+import { withLiveCounts } from './live-counts'
 import {
   archiveInboxItem,
   countInboxFilters,
@@ -754,8 +755,7 @@ export async function listInbox(
   const listed = params.type
     ? lanes.map((lane) => ({ ...lane, types: lane.types.filter((type) => type === params.type) }))
     : lanes
-  // One more than a page per lane: the extra row is how the page knows there
-  // is a further one, without a count.
+  // One more than a page per lane: the extra row says there is a further one, without a count.
   const perLane = await Promise.all(
     listed.map((lane) =>
       inLane(session, lane, () =>
@@ -769,8 +769,7 @@ export async function listInbox(
       ),
     ),
   )
-  // Each lane is already newest-first and bounded, so the merged page is the
-  // newest `pageSize` across them — the same bound one lane had.
+  // Each lane is newest-first and bounded, so the merged page is the newest `pageSize` across them.
   const merged = perLane.flat().sort(newestFirst)
   const rows = merged.slice(0, pageSize)
   const hasMore = merged.length > pageSize
@@ -791,7 +790,7 @@ export async function listInbox(
   const projectNames = await listProjectNamesInOrg(session.organizationId, projectIdsOf(targets))
 
   return {
-    items: rows.map((row) => toItemView(row, targets, actorNames, withheld, answers, projectNames)),
+    items: await withLiveCounts(rows.map((row) => toItemView(row, targets, actorNames, withheld, answers, projectNames))),
     pending,
     counts,
     hasMore,
@@ -846,7 +845,7 @@ export async function viewInboxItemAs(session: AuthorizedSession, row: InboxItem
   const actorNames = new Map([...people].map(([userId, person]) => [userId, person.name]))
   const projectNames = await listProjectNamesInOrg(session.organizationId, projectIdsOf(targets))
   const view = toItemView(row, targets, actorNames, withheld, await markAnswersFor(session, [row], targets), projectNames)
-  return view.href ? view : null
+  return view.href ? (await withLiveCounts([view]))[0] : null // counted only once the target is reachable
 }
 
 /**

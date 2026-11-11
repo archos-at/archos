@@ -21,6 +21,7 @@ import { annotationsOf } from './operation'
 
 const READ_ONLY_WRITE_METHODS: Readonly<Record<string, string>> = {
   'bim-model-query': 'queryAccessibleModel answers a query over the stored model; the POST carries the query.',
+  'classification-evaluate': 'evaluateProjectClassification reads the profile and runs the classification on it; the POST carries the what-if values. It writes nothing.',
   'citation-format': 'renderCitations formats the citations in the body; reads no stored data and stores none.',
   'passage-similar-search': 'findSimilarPassages searches the projects the person may read; stores nothing.',
   'workspace-search':
@@ -35,6 +36,8 @@ const READ_ONLY_WRITE_METHODS: Readonly<Record<string, string>> = {
   'document-revision-compare': 'compareRevisionVisually compares two Fassungen in the backend; stores no result.',
   'document-revision-candidates': 'probeProjectRevisionCandidates / probeOfficeShelfRevisionCandidates list earlier revisions by name.',
   'skill-review': 'reviewSkill asks the model to review a draft in the body; the skill is not saved.',
+  'platform-knowledge-source-test':
+    'testPlatformSource runs the source’s recorded fixtures and, if asked, one live probe through the fetcher; no monitor state, capture or record is written.',
 }
 
 const claims = AGENT_OPERATIONS.filter((op) => op.method !== 'GET' && annotationsOf(op).readOnlyHint)

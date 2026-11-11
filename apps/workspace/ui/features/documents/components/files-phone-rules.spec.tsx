@@ -4,10 +4,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { briefHasNothingToSay, everythingRead } from './folder-brief'
+import { everythingRead } from './folder-brief'
 import { AssignmentFaces } from './assignment-faces'
 import { emptyTally } from '../lib/folder-knowledge'
-import { DOCUMENT_ROLES } from '@/lib/project-profile/document-roles'
 
 const source = (file: string): string => readFileSync(join(__dirname, file), 'utf8')
 
@@ -28,17 +27,11 @@ describe('Dateien on a phone', () => {
     expect(everythingRead({ ...read, total: 3, unindexed: 1 })).toBe(true)
   })
 
-  it('the brief stays while something still needs a person: unplaced or missing documents', () => {
-    const read = { ...emptyTally(), total: 2, readable: 2 }
-    expect(briefHasNothingToSay(read, null)).toBe(true)
-    expect(briefHasNothingToSay(read, [])).toBe(true)
-    expect(briefHasNothingToSay({ ...read, unplaced: 1 }, null)).toBe(false)
-    expect(briefHasNothingToSay(read, [{ role: DOCUMENT_ROLES[0], label: 'Energieausweis', buildingName: null }])).toBe(false)
-  })
-
-  it('the brief renders nothing on a phone only when it has nothing to say (gate is in the component)', () => {
+  it('the brief’s read line stands on a phone at every level, as at desk width', () => {
+    // Shown at the root (for its finding) and gone in every folder, the line was a rule nobody could see (finding 10).
     const src = source('folder-brief.tsx')
-    expect(src).toMatch(/if \(phone && briefHasNothingToSay\(tally, folderName === null \? missing : null\)\) return null/)
+    expect(src).not.toMatch(/briefHasNothingToSay/)
+    expect(src).not.toMatch(/usePhoneLayout/)
   })
 
   it('the list ends 6rem above the floor so the last row scrolls clear of the floating Hochladen', () => {
@@ -51,7 +44,8 @@ describe('Dateien on a phone', () => {
 
   it('the breadcrumb row pins to the top of the list at every width, on the base surface', () => {
     const row = source('folder-navigation.tsx')
-    expect(row).toContain('className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background')
+    // No hairline under it: whitespace and the title's weight end the row.
+    expect(row).toContain("'sticky top-0 z-10 flex listing-container shrink-0 items-center justify-between gap-2 bg-background")
     expect(row).not.toContain('phone:sticky')
     // Sticky only sticks inside a parent as tall as the content.
     expect(source('file-browser-pane.tsx')).toContain('<div className="flex min-h-full flex-col">')

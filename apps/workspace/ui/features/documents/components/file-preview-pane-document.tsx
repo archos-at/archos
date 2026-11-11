@@ -51,7 +51,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                 // A PDF brings its own stage (the viewer's), so the well under it
                 // is no ground of its own: the document looks the same here as in
                 // every other place a PDF opens.
-                !peeking && !pdfInWell && 'bg-muted/40',
+                !peeking && !pdfInWell && 'bg-desk',
                 wellHostsViewer || (reader && (isModel || pdfInWell))
                   ? cn(
                       'h-full min-h-0 flex-1 overflow-hidden',
@@ -191,11 +191,11 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       setPreviewFailed(true)
                     }}
                     className={cn(
-                      'bg-background h-fit max-h-full w-auto max-w-full rounded-surface border object-contain',
+                      'bg-sheet h-fit max-h-full w-auto max-w-full rounded-surface object-contain',
                       // The reader's well is the screen: the image fits it whole,
                       // on a phone on its side too (852px wide is past `@2xl`).
                       !reader && '@2xl:max-h-none',
-                      peeking ? 'shadow-md' : 'shadow-lg'
+                      'shadow-md' /* the page lies on the stage at elevation 2: elevation 3 is a dialog's, and drew a wide halo no token named */
                     )}
                   />
                 )
@@ -219,7 +219,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // reader cannot do from inside a viewer that will not load.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() =>
@@ -236,7 +236,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     null : previewFailed && (canPreview || isTextual) ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={loadPreview}
@@ -253,7 +253,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // an icon the reader has to go and find in the chrome.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() => void actions.download()}

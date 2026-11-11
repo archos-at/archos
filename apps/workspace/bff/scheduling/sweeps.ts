@@ -38,6 +38,7 @@ import {
 } from '../../workers/maintenance-sql.js'
 import { report } from './log'
 import { isFristReminderHour } from './office-clock'
+import { runSourceMonitor } from '@/lib/base-knowledge/platform/monitor'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** Most rounds one run of a sweep that drains a backlog takes; the next cron run continues. */
@@ -104,6 +105,15 @@ export async function sweepUploads(): Promise<void> {
   const counts = await sweepUploadBatches(new Date())
   if (counts.sealed > 0 || counts.completed > 0 || counts.failed > 0 || counts.audited > 0) {
     report(`upload sweep: ${JSON.stringify(counts)}`)
+  }
+}
+
+/** The public-source monitor (ADR-0174): opens a change request for a changed source; off behind `source-monitors`. */
+export async function sweepSourceMonitors(): Promise<void> {
+  const outcome = await runSourceMonitor()
+  if (outcome.run && (outcome.run.changed > 0 || outcome.run.failed > 0 || outcome.run.opened > 0)) {
+    const { checked, changed, failed, opened } = outcome.run
+    report(`source monitor: ${JSON.stringify({ checked, changed, failed, opened })}`)
   }
 }
 

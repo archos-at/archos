@@ -73,20 +73,6 @@ class SourceEntry:
     # is but how nearly it matched; the best score of a page's chunks survives
     # dedup. None for URL/web sources.
     score: float | None = None
-    # BINDING CLASSIFICATION carried to the client (see
-    # ``binding_classification_for_entry``). Both default to the honest-unknown
-    # value on purpose: a source that matched no catalogued norm must NEVER claim
-    # to bind — a fabricated "binding" badge would be a false legal claim, so the
-    # safe default is "we don't know". ``rank`` is the :data:`NormRank` of the
-    # registry entry the source resolved to, or None when it matched none (an OIB
-    # corpus document, or any unrecognised file — those carry no RIS rank).
-    # ``binding_status`` is the coarse bindingness the UI badges: ``binding`` /
-    # ``declared_binding`` / ``interpretive`` / ``unknown``. These are optional
-    # carriers; the wire recomputes the classification fresh (it needs the
-    # registry + Bundesland the raw entry lacks) and they round-trip through the
-    # session-registry cache like the other fields.
-    rank: str | None = None
-    binding_status: str = "unknown"
     # WHERE ON THE PAGE the passage sits, as boxes the viewer draws (issue #433).
     # Stated by the producer for a passage read off a picture of the page (a
     # plan's Grundriss, a photo), never for running text, which the viewer
@@ -217,18 +203,13 @@ def normalize_url(url: str) -> str:
     return urlunparse((scheme, netloc, path, "", query_str, ""))
 
 
-# Inline marker appended immediately after a quoted span that could not be
-# verified against any retrieved passage. Fail-open: the sentence is NEVER
-# stripped or altered; only this marker is inserted after the closing quote.
+#: The labels the verifier wrote into an answer's prose before ADR-0125's amendment of 2026-11-10: after
+#: a quoted span no passage held, and where a citation did not resolve. Nothing writes them any more (no
+#: verification marker reaches an answer); they stay named because stored answers carry them and the
+#: BFF translates them for an agent reading one (``bff/agent-asks/answer-text.ts``).
+#: ``test_no_verification_marker_reaches_the_answer`` (the answer-check pipeline's tests) holds that no
+#: answer gains one.
 UNVERIFIED_QUOTE_MARKER = "[nicht wörtlich in der Quelle belegt]"
-
-
-#: What stands where the answer cited something that did not resolve
-#: (``verify_citations(label_dropped=True)``): no retrieved source behind the
-#: number, or a § / Punkt beside it the cited passage does not hold. The claim
-#: stays, as it always did; what changed is that it no longer reads like every
-#: other unmarked sentence, and the answer check reads the label too
-#: (``common/claim_judge.py``). Reader-facing German, like the quote marker.
 DROPPED_CITATION_MARKER = "[Beleg nicht verifiziert]"
 
 

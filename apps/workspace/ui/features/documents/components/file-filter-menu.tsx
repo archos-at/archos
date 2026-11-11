@@ -134,7 +134,8 @@ export function FileFilterMenu({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          // Tonal: it opens the filters, and as bare words „Filter“ read as a label (2026-11-10). The count says when one is on.
+          variant="secondary"
           size={compact ? 'icon' : 'sm'}
           className={compact ? 'relative shrink-0' : 'gap-2'}
           data-testid="file-filter-menu-trigger"
@@ -182,8 +183,8 @@ export function FileFilterMenu({
                     onSortChange({ key, direction: defaultDirectionFor(key) })
                   }
                 }}
+                segmented
                 size="sm"
-                className="flex-wrap justify-start"
                 aria-label={t('filters.sortLabel')}
               >
                 {SORT_KEYS.map((key) => (
@@ -221,8 +222,8 @@ export function FileFilterMenu({
                     onFiltersChange({ ...filters, assignment: value })
                   }
                 }}
+                segmented
                 size="sm"
-                className="flex-wrap justify-start"
                 aria-label={t('assignment.responsible')}
               >
                 {ASSIGNMENT_FILTERS.map((key) => (
@@ -342,7 +343,7 @@ export function FileFilterMenu({
             pressed. */}
         <Button
           type="button"
-          variant="ghost"
+          variant="secondary"
           size="sm"
           className="w-full"
           disabled={count === 0}

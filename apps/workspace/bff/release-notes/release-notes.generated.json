@@ -24,6 +24,776 @@
   ],
   "releases": [
     {
+      "id": "2026-W46",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-09",
+      "dateEnd": "2026-11-15",
+      "summary": null,
+      "notes": [
+        {
+          "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "A project's address can now be confirmed against the Austrian address register, kept in our own database, so what you type is never sent to anyone else. A match names the Gemeinde and Bundesland; an address the register does not hold stays unconfirmed, with its candidates shown.",
+            "de": "Eine Projektadresse lässt sich jetzt mit dem österreichischen Adressregister abgleichen, das in unserer eigenen Datenbank gespeichert ist. Ihre Eingaben werden dabei nie an Dritte übermittelt. Bei einem Treffer werden Gemeinde und Bundesland angegeben; eine im Register nicht geführte Adresse bleibt unbestätigt, mögliche Treffer werden angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "general",
+          "text": {
+            "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
+            "de": "Ihre letzten Chats in einem Projekt werden jetzt in der Seitenleiste unter Chat angezeigt, wobei der geöffnete Chat hervorgehoben ist; „Alle Chats“ darunter öffnet den gesamten Chatverlauf."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Files has places of its own along the top: All files, the e-mail inbox with the number of mails waiting, Open points and the Bin. The inbox shows the project's address at the top for copying, and a new project's empty inbox leads with it.",
+            "de": "Dateien bietet oben eigene Bereiche: Alle Dateien, Posteingang mit der Anzahl wartender E-Mails, Offene Punkte und Papierkorb. Im Posteingang steht oben die Projektadresse zum Kopieren; im leeren Posteingang eines neuen Projekts wird sie gleich angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Files is calmer to read. Tiles and folders sit on the page without boxes around them, every file type reads in the same ink, and in the list a column appears only when one of its rows has something to show.",
+            "de": "Files ist ruhiger gestaltet: Kacheln und Ordner erscheinen ohne Rahmen, alle Dateitypen werden in derselben Farbe dargestellt, und in der Liste wird eine Spalte nur angezeigt, wenn mindestens eine Zeile darin einen Wert enthält."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Titles and headings across the workspace are set with the open letter spacing of the ARCHOS design, and Files lines everything up on one left edge, from the title down to the last tile.",
+            "de": "Titel und Überschriften im gesamten Workspace sind mit dem großzügigen Zeichenabstand des ARCHOS-Designs gesetzt, und Files richtet alles an einer einzigen linken Kante aus – vom Titel bis zur letzten Kachel."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the e-mail inbox, mails from one thread stand under a single line with the press that files them all, and each mail's subject shows only what sets it apart from the others.",
+            "de": "Im E-Mail-Posteingang werden Mails aus einem Thread unter einer einzigen Zeile gruppiert, und im Betreff jeder Mail wird nur angezeigt, wodurch sie sich von den anderen unterscheidet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Folders in Files sit on the page as a glyph and a name, and \"Select\" and \"New folder\" moved up beside the tabs, so the overview and the files start a row higher. On a phone both are the first entries of the \"...\" menu.",
+            "de": "Ordner in Files werden auf der Seite mit Symbol und Namen angezeigt, und „Auswählen“ und „Neuer Ordner“ sind neben die Tabs gerückt, sodass Übersicht und Dateien eine Zeile höher beginnen. Auf dem Smartphone sind beide die ersten Einträge im „...“-Menü."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "While files or mails are picked, the bar at the foot is a grey band with the main action last, the same in Files and in the inbox. Checkboxes and option buttons have a clearer edge.",
+            "de": "Wenn Dateien oder Mails ausgewählt sind, erscheint die Leiste am unteren Rand als graues Band; die Hauptaktion steht ganz rechts – sowohl in Dateien als auch im Posteingang. Checkboxen und Optionsfelder haben eine deutlichere Umrandung."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Open points and the Bin keep the same page edges as All files, without boxes or lines, and in the inbox a picked set of mails is filed from the bar alone while the group buttons step back.",
+            "de": "Offene Punkte und Papierkorb übernehmen die Seitenränder von Alle Dateien, ohne Kästen oder Linien; im Posteingang lassen sich ausgewählte E-Mails nur über die Leiste ablegen, während die Gruppen-Schaltflächen in den Hintergrund treten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The list view writes each file's format as a word, and the inbox states one size limit for attachments. In an opened mail on a wide screen, the buttons follow the mail instead of waiting at the foot of the screen.",
+            "de": "Die Listenansicht zeigt das Dateiformat jeder Datei ausgeschrieben an, und im Posteingang wird eine Größenbeschränkung für Anhänge angegeben. Bei einer geöffneten E-Mail auf einem breiten Bildschirm folgen die Schaltflächen der E-Mail, statt am unteren Bildschirmrand fixiert zu bleiben."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The inbox header offers \"Copy address\" instead of showing the whole address, and Files centres its content on a wide screen without a side rail. Search results mark the words they matched.",
+            "de": "Der Posteingangs-Header bietet „Adresse kopieren“, statt die vollständige Adresse anzuzeigen. Der Bereich Dateien zentriert seine Inhalte auf breiten Bildschirmen ohne Seitenleiste. Suchergebnisse markieren die Wörter, auf die sie zutreffen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Bin says why a folder cannot be restored, and the list view shows reading and open comments right after each file's name.",
+            "de": "Der Papierkorb zeigt an, warum ein Ordner nicht wiederhergestellt werden kann. In der Listenansicht werden gelesene und offene Kommentare direkt nach dem Namen jeder Datei angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "On a tile, open comments now sit on the preview image beside the reading state, and the files at the top level are headed \"Files\".",
+            "de": "Auf einer Kachel werden offene Kommentare jetzt neben dem Lesestatus auf dem Vorschaubild angezeigt, und Dateien auf oberster Ebene tragen die Überschrift „Dateien“."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The title and tabs of Files stay in place on every tab, the inbox included, and on a phone the open tab is shown whole.",
+            "de": "Der Titel und die Tabs von Files bleiben auf allen Tabs an derselben Stelle, auch im Posteingang. Auf dem Smartphone wird der aktive Tab vollständig angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the list view a folder's size and date stand in the same columns as a file's, and search marks only the part of a word that matched.",
+            "de": "In der Listenansicht stehen Größe und Datum eines Ordners in denselben Spalten wie bei einer Datei, und die Suche markiert nur den übereinstimmenden Teil eines Wortes."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A mail held because its sender may not file in the project now says so in one sentence, and the Bin's dates no longer list a folder count of zero.",
+            "de": "Eine zurückgehaltene Mail weist nun in einem Satz darauf hin, wenn ihr Absender derzeit keine Dateien im Projekt ablegen darf, und im Papierkorb wird bei den Datumsangaben keine Ordneranzahl von null mehr angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "An opened mail shows its sender as a name and an address without brackets, and the file preview's header shows the name without a format box.",
+            "de": "Bei einer geöffneten E-Mail werden Name und Adresse des Absenders ohne Klammern angezeigt, und in der Kopfzeile der Dateivorschau wird der Name ohne Formatfeld angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Every button in Files, the inbox, Open points, the Bin and the file preview that does something now looks like a button, and filters and the grid or list choice sit on a grey track with the chosen option raised.",
+            "de": "Jeder Button in Dateien, im Posteingang, bei den offenen Punkten, im Papierkorb und in der Dateivorschau, der eine Aktion ausführt, ist jetzt auch als Button erkennbar. Filter und die Auswahl zwischen Raster- und Listenansicht befinden sich auf einer grauen Leiste, auf der die ausgewählte Option erhöht dargestellt ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
+            "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "building-law",
+          "text": {
+            "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
+            "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Answers now say how far the base knowledge goes where a project stands: not set up for that country, read from the official source without review, or overdue for a check. Your documents and your office's own copies still answer, and the HOAI is shown as depending on the office's seat.",
+            "de": "Antworten zeigen jetzt den Stand des Basiswissens für das jeweilige Projekt: für das betreffende Land nicht eingerichtet, aus der offiziellen Quelle übernommen, aber nicht geprüft, oder eine Prüfung ist überfällig. Ihre Dokumente und die eigenen Kopien Ihres Büros liefern weiterhin Antworten; die HOAI wird abhängig vom Sitz Ihres Büros angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
+            "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "For a project in Austria, answers can now say which edition of the OIB-Richtlinien its Land declared binding and since when: the 2019 edition in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition that a Land has not adopted is marked as guidance in the sources, no longer as binding.",
+            "de": "Bei einem Projekt in Österreich können Antworten jetzt angeben, welche Ausgabe der OIB-Richtlinien das jeweilige Land für verbindlich erklärt hat und seit wann: die Ausgabe 2019 in der Steiermark, in Vorarlberg und im Burgenland, die Ausgabe 2023 in den Ländern, die sie übernommen haben, sowie RL 6 in der Ausgabe 2025 in Wien und Tirol. Eine neuere Ausgabe, die ein Land nicht übernommen hat, wird in den Quellen nicht mehr als verbindlich, sondern als Orientierung gekennzeichnet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Answers now name the standards the platform lists for your country even when your office holds no copy, saying the text is not available, and an authority's directives reach a project only where that authority decides.",
+            "de": "Antworten nennen jetzt die Normen, die die Plattform für Ihr Land auflistet, auch wenn Ihrem Büro keine Kopie vorliegt, und weisen darauf hin, dass der Text nicht verfügbar ist. Vorgaben einer Behörde gelten für ein Projekt nur, wenn die Behörde dies festlegt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
+            "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Ask in the chat how an existing building's class changes with the planned work: the answer gives the class today and after, what is still missing to decide it, and the document that settles it.",
+            "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Questions about an older submission can be answered with the law that applied then: give a procedure's filing and decision dates (or a date) and the answer names the edition in force, follows the Land's reference date and transitional rules, and says which date is still missing instead of assuming today. The law lookup can read the version of a past day from RIS.",
+            "de": "Fragen zu einer älteren Einreichung lassen sich mit dem damals geltenden Recht beantworten: Geben Sie das Einreichungs- und Entscheidungsdatum eines Verfahrens oder ein einzelnes Datum an. Die Antwort nennt die geltende Fassung, berücksichtigt den maßgeblichen Stichtag des Landes und die Übergangsbestimmungen und weist darauf hin, welches Datum noch fehlt, statt das heutige Datum anzunehmen. Die Rechtssuche kann die an einem vergangenen Tag geltende Fassung aus dem RIS abrufen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
+            "de": "In Word exportierte Antworten sowie Berichte und Diagramme, die der Agent als PDF ablegt, weisen jetzt in ihren Dateieigenschaften mit standardisierten Begriffen, die Archivierungs- und Compliance-Tools erkennen, darauf hin, dass sie von einer KI erstellt wurden. Jedes vom Agenten verfasste Dokument, auch ein Schreiben an eine Behörde, beginnt jetzt mit einer Zeile, die angibt, dass es von einem KI-System erstellt wurde und für welches Büro."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
+            "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone you switch projects from „Mehr“: its first entry shows the project you are in, and „Projekt wechseln“ opens the list of projects.",
+            "de": "Am Smartphone wechseln Sie Projekte über „Mehr“: Der erste Eintrag zeigt das Projekt, in dem Sie sich befinden, und „Projekt wechseln“ öffnet die Projektliste."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone a page starts with its title: the project's name is no longer shown at the top of every page, so the content starts higher. The project you are in is shown in „Mehr“.",
+            "de": "Auf dem Smartphone beginnt jede Seite mit ihrem Titel: Der Projektname wird nicht mehr oben auf jeder Seite angezeigt, sodass der Inhalt weiter oben beginnt. Das aktuelle Projekt finden Sie unter „Mehr“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "An opened mail on a phone has one way back, the arrow beside „E-Mail-Eingang“ at the top, instead of two arrows above each other.",
+            "de": "Bei einer geöffneten E-Mail am Smartphone gibt es nur noch einen Zurück-Pfeil: den neben „E-Mail-Eingang“ oben statt zwei übereinanderliegenden Pfeilen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone, Suche is also listed in „Mehr“.",
+            "de": "Auf dem Smartphone wird Suche auch unter „Mehr“ angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "A project name too long for the selector is shortened in the middle, so its end stays readable, and is never wrapped onto a second line.",
+            "de": "Ein für das Auswahlfeld zu langer Projektname wird in der Mitte gekürzt, sodass das Ende lesbar bleibt, und nie auf eine zweite Zeile umgebrochen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The sidebar inside a project shows where you are: the section you are in is a white sheet with an edge, as the open tab in Dateien, and the other sections are set in black instead of grey.",
+            "de": "Die Seitenleiste in einem Projekt zeigt Ihnen, wo Sie sich befinden: Der aktuelle Bereich ist wie der geöffnete Tab in Dateien als weißes Blatt mit Kante dargestellt, die anderen Bereiche sind schwarz statt grau."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The lines between the parts of the sidebar are gone, in the sidebar and in the tab bar on a phone.",
+            "de": "Die Trennlinien zwischen den Bereichen der Seitenleiste fehlen nun sowohl in der Seitenleiste als auch in der Tab-Leiste auf dem Smartphone."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The sidebar is a little wider, so most project names fit in full.",
+            "de": "Die Sidebar ist etwas breiter, sodass die meisten Projektnamen vollständig angezeigt werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Übersicht now stands with the project's other sections, under the project switcher, rather than at the foot of the sidebar among the organisation's Büroablage, Suche and Postfach.",
+            "de": "Die Übersicht befindet sich jetzt bei den anderen Projektbereichen unter dem Projektwechsler und nicht mehr unten in der Seitenleiste bei Büroablage, Suche und Postfach der Organisation."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The collapsed sidebar lets you switch projects from it, and its tooltips name each area's keyboard shortcut.",
+            "de": "Über die eingeklappte Seitenleiste wechseln Sie Projekte, und die Tooltips nennen die Tastenkombination des jeweiligen Bereichs."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The connection state appears only while the connection is being restored or is gone; the green „Verbunden“ is no longer shown all the time.",
+            "de": "Der Verbindungsstatus wird nur angezeigt, während die Verbindung wiederhergestellt wird oder unterbrochen ist; das grüne „Verbunden“ wird nicht mehr dauerhaft angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Büroablage, Suche and Postfach stand at the foot of the sidebar under your office's name, just above your own name; the project and its sections have the top to themselves.",
+            "de": "Büroablage, Suche und Postfach befinden sich am unteren Ende der Seitenleiste unter dem Namen Ihres Büros, direkt über Ihrem eigenen Namen; das Projekt und seine Bereiche bleiben dem oberen Bereich vorbehalten."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The project switcher in the sidebar has the search and the order of the one on a phone: the projects you opened last, then the rest. The collapsed sidebar shows the project's initials, so it says which project you are in.",
+            "de": "Der Projektumschalter in der Seitenleiste bietet die Suche und dieselbe Sortierung wie auf dem Smartphone: zuerst die zuletzt geöffneten Projekte, danach die übrigen. Die eingeklappte Seitenleiste zeigt die Projektinitialen und damit, in welchem Projekt Sie sich befinden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The counts beside Postfach are quiet grey pills, as the count beside the E-Mail-Eingang in Dateien.",
+            "de": "Die Zähler neben Postfach sind dezente graue Badges, ebenso wie der Zähler neben E-Mail-Eingang in Dateien."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Above a project, the header marks „Projekte“ as the page you are on, and its Büroablage, Suche and Postfach show their names on wide screens.",
+            "de": "Oberhalb eines Projekts kennzeichnet die Kopfzeile „Projekte“ als aktuelle Seite; auf breiten Bildschirmen zeigt sie außerdem die Namen von Büroablage, Suche und Postfach an."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "On a phone, „Mehr“ shows who is signed in and groups its entries by the project, the office and your account.",
+            "de": "Auf dem Smartphone zeigt „Mehr“, wer angemeldet ist, und gruppiert die Einträge nach Projekt, Büro und Ihrem Konto."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "The button that opens the chat history at the top of a chat is now labelled „Chats“ on every screen, on a phone too, instead of an icon alone.",
+            "de": "Die Schaltfläche zum Öffnen des Chatverlaufs oben im Chat ist jetzt auf allen Bildschirmen, auch auf dem Smartphone, mit „Chats“ beschriftet statt nur mit einem Symbol."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Chats that a scheduled task created for each of its runs no longer fill your chat history.",
+            "de": "Chats, die bei jedem Durchlauf einer geplanten Aufgabe erstellt werden, überladen Ihren Chatverlauf nicht mehr."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+            "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+            "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+            "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+            "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+            "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+            "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
+            "de": "Im Projekt-Setup sehen Sie jetzt, welches Recht am Standort gilt, sowie jede Vorschrift und Richtlinie in der dort verbindlichen Fassung – dieselbe Rechtsgrundlage, auf der auch die Antworten im Chat beruhen. Wenn noch kein Recht angegeben werden kann, erfahren Sie warum: weil kein Standort hinterlegt ist oder Ihr Büro das betreffende Land nicht aktiviert hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
+            "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
+            "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
+            "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",
+            "de": "Dateien, Projekt-E-Mails, offene Punkte und Papierkorb wirken jetzt wie Blätter auf einem Schreibtisch: Dokumente sind weiß und haben einen dezenten Schatten, Schaltflächen sind erhaben, Überschriften fetter und E-Mails mit Handlungsbedarf stechen hervor. Wenn jede Zeile dieselbe Aktion bietet, wird diese zunächst nur als kleines Symbol angezeigt, bis Sie mit der Maus über die Zeile fahren."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Each place in Files is now titled by its own name, with the project above it as a small breadcrumb, and the explanatory line under the title is gone. The places (Alle Dateien, E-Mail-Eingang, …) stand clearly apart from the title above them.",
+            "de": "Jeder Bereich in Dateien trägt jetzt seinen eigenen Namen als Titel; das Projekt wird darüber als kleiner Breadcrumb angezeigt, und die erläuternde Zeile unter dem Titel entfällt. Die Bereiche (Alle Dateien, E-Mail-Eingang, …) sind klar vom darüberstehenden Titel abgesetzt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Project mail opens the first waiting email on a wide screen, so the reading pane is never empty. On a phone the list stays first.",
+            "de": "Projektmail öffnet auf breiten Bildschirmen die erste wartende E-Mail, sodass der Lesebereich nie leer ist. Auf dem Smartphone wird weiterhin zuerst die Liste angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "File tiles show the name, format, size and date only, so more of a folder fits on one screen; the summary stays in the list view and the preview. A folder with more than 50 documents opens as a list unless you chose the tiles yourself.",
+            "de": "Dateikacheln zeigen nur Name, Format, Größe und Datum, damit mehr Dateien aus einem Ordner auf einen Bildschirm passen; die Zusammenfassung bleibt in der Listenansicht und in der Vorschau. Ordner mit mehr als 50 Dokumenten werden als Liste geöffnet, sofern Sie nicht selbst die Kachelansicht ausgewählt haben."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Folders, the preview's side panel and the email reader use the same white sheets, and list rows are separated by one even line. Dark mode keeps the email list visible against the page.",
+            "de": "Ordner, die Seitenleiste der Vorschau und der E-Mail-Reader verwenden dieselben weißen Flächen; Listeneinträge sind durch eine einheitliche Linie getrennt. Im Dark Mode hebt sich die E-Mail-Liste vom Seitenhintergrund ab."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The page keeps the light background of the brand, and white documents and folders stand apart from it by a fine edge and a soft shadow. Buttons, the selected tab and folders now each look different: a folder shows an arrow to open it.",
+            "de": "Die Seite behält den hellen Hintergrund der Marke, weiße Dokumente und Ordner heben sich durch eine feine Kontur und einen weichen Schatten davon ab. Buttons, der ausgewählte Tab und Ordner unterscheiden sich jetzt optisch: Ein Ordner zeigt einen Pfeil zum Öffnen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Open points mark a point in colour only when it is yours or overdue, and the filters are one row of rounded chips with „Alle“ to clear them. Who has a point and by when stand in their own column on the right.",
+            "de": "Offene Punkte werden nur dann farblich markiert, wenn sie Ihnen zugewiesen oder überfällig sind. Die Filter stehen in einer Zeile aus abgerundeten Chips; „Alle“ setzt sie zurück. Wer für einen Punkt zuständig ist und bis wann, steht rechts jeweils in einer eigenen Spalte."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The bin keeps its list to a readable width and says how long each item stays in bold; on a phone each item has two short lines.",
+            "de": "Der Papierkorb hält seine Liste auf einer gut lesbaren Breite und zeigt fett an, wie lange jedes Element noch im Papierkorb bleibt; auf dem Smartphone wird jedes Element in zwei kurzen Zeilen dargestellt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "In the list view folders are rows of the file table, under the same column headings, and every row has the same height. Dates line up on the left.",
+            "de": "In der Listenansicht werden Ordner als Zeilen in der Dateitabelle unter denselben Spaltenüberschriften angezeigt, und alle Zeilen sind gleich hoch. Datumsangaben stehen links."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "On a phone folders sit two to a row and Hochladen is a round button, so the first files show sooner. The search field is a white field with a clear border.",
+            "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Dark mode tells buttons, chips and sheets apart: buttons are outlined, the open email stands clearly above selected ones, and the point markers in open points are no longer bright white discs.",
+            "de": "Der Dark Mode hebt Buttons, Chips und Sheets besser voneinander ab: Buttons sind umrandet, die geöffnete E-Mail hebt sich deutlich von den ausgewählten E-Mails ab, und die Markierungen offener Punkte sind keine grellweißen Kreise mehr."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "In project mail the filing button is one short word, with a line beside it saying what it files once the choice above has scrolled away, and it sits at the foot of the email. While emails are selected for a batch, only the batch's buttons are offered for discarding and filing in bulk.",
+            "de": "In der Projektmail ist die Schaltfläche zum Ablegen mit einem kurzen Wort beschriftet. Daneben steht, was abgelegt wird, sobald die Auswahl oben nicht mehr sichtbar ist. Die Schaltfläche befindet sich am unteren Rand der E-Mail. Sind E-Mails für eine Sammelaktion ausgewählt, werden zum gemeinsamen Verwerfen und Ablegen nur die Schaltflächen für die Sammelaktion angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "On a phone the places in Files fit on one line, and the email address and the export sit behind one menu next to the project name.",
+            "de": "Auf dem Smartphone passen die Orte in Files in eine Zeile, und E-Mail-Adresse und Export befinden sich in einem Menü neben dem Projektnamen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "administration",
+          "text": {
+            "en": "The subprocessor page in the legal section now names everyone who receives your data, including address search, voice dictation and our team's Slack notices, with the legal basis for each transfer, and says plainly that the AI reads whole pages of a document when a question needs them.",
+            "de": "Die Seite zu den Unterauftragsverarbeitern im Rechtsbereich nennt jetzt alle, die Ihre Daten erhalten – darunter die Adresssuche, die Spracheingabe und die Slack-Mitteilungen unseres Teams – samt Rechtsgrundlage für jede Übermittlung und hält klar fest, dass die KI ganze Dokumentseiten liest, wenn eine Frage dies erfordert."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A research run now works from the same law as the chat: the editions that apply at the project's site, in their role there, or a clear note when that law cannot be named.",
+            "de": "Ein Recherchelauf arbeitet jetzt mit derselben Rechtsgrundlage wie der Chat: mit den am Projektstandort geltenden Fassungen und ihrer dortigen Funktion – oder mit einem klaren Hinweis, wenn sich die Rechtsgrundlage nicht benennen lässt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Where the law of a project's site cannot be named (the office is not entitled to its country, or it cannot be read), no building class is named either: not in the evaluation, the setup or the project profile.",
+            "de": "Kann das am Projektstandort geltende Baurecht nicht bestimmt werden (weil das Büro für das betreffende Bundesland nicht berechtigt ist oder die Bauordnung nicht ausgelesen werden kann), wird auch keine Gebäudeklasse angegeben – weder in der Auswertung noch in der Konfiguration oder im Projektprofil."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "An office's base knowledge entry keeps who proposed it after it is confirmed, and names who confirmed it.",
+            "de": "Ein Eintrag in der Wissensbasis eines Büros zeigt auch nach der Bestätigung, wer ihn vorgeschlagen hat, und nennt die bestätigende Person."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "Where nobody has reviewed a country's records yet, the chat says it reads that law from an uncurated official source, and it says when a newer edition is known.",
+            "de": "Wenn die Unterlagen eines Landes noch niemand geprüft hat, weist der Chat darauf hin, dass er das betreffende Gesetz aus einer nicht kuratierten offiziellen Quelle bezieht, und nennt, falls bekannt, eine neuere Fassung."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "building-law",
+          "text": {
+            "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
+            "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
+            "de": "Neuerungen ist übersichtlicher: Jede Woche zeigt ihre Datumsangaben, ihre Zusammenfassung und die Anzahl der enthaltenen Änderungen und lässt sich bei Bedarf aufklappen. Innerhalb einer Woche sind die Änderungen nach Bereichen gruppiert, und ein einzelner Fix wird jetzt als „1 fix“ angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "The connection state reads „Verbindung unterbrochen“ or „Keine Verbindung“, in German, with a symbol beside the words instead of a coloured dot alone; while the server does not answer, „Erneut versuchen“ checks again at once.",
+            "de": "Der Verbindungsstatus wird als „Verbindung unterbrochen“ oder „Keine Verbindung“ angezeigt, mit einem Symbol neben dem Text statt nur mit einem farbigen Punkt; solange der Server nicht antwortet, wird mit „Erneut versuchen“ sofort erneut geprüft."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers now name the editions the Landesgesetzblatt itself makes binding: OIB-RL 6 Ausgabe 2025 in Burgenland from 5 November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg, and the 2023 guidelines in Salzburg from 1 September 2026 and in Niederösterreich from 20 March 2025.",
+            "de": "Die Antworten nennen jetzt die Ausgaben, die das Landesgesetzblatt selbst für verbindlich erklärt: OIB-RL 6 Ausgabe 2025 im Burgenland ab 5. November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg sowie die Richtlinien 2023 in Salzburg ab 1. September 2026 und in Niederösterreich ab 20. März 2025."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+            "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+            "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+            "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
+            "de": "Bei der Abfrage der lichten Höhe eines Raums in einem IFC-Modell wird wieder die gemessene Höhe ausgegeben, statt dass ein Berechnungsfehler gemeldet wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
+            "de": "Bei den Dateien eines Projekts wird die Anzahl wartender E-Mails nicht mehr in einer Zeile oberhalb der Dateien angezeigt, sondern im Inbox-Tab."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "On a phone the open-comments chip on a tile shows its first part whole instead of cutting the last one, and the inbox address and its info button fit the screen.",
+            "de": "Auf dem Smartphone zeigt der Chip für offene Kommentare auf einer Kachel den ersten Teil vollständig an, statt den letzten abzuschneiden; außerdem passen die Inbox-Adresse und ihr Info-Button auf den Bildschirm."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file found by search no longer shows a size of \"0 B\".",
+            "de": "Eine über die Suche gefundene Datei wird nicht mehr mit der Größe „0 B“ angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+            "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
+            "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
+            "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",
+            "de": "Der Text einer E-Mail zu einem Projekt ließ sich nicht ablegen, wenn ARCHOS dafür einen Ordner vorgeschlagen hatte, und blieb dauerhaft bei „Ablage …“ stehen. Jetzt wird er wie jeder andere Text in diesem Ordner abgelegt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
+            "de": "Die Modellprüfung ordnet ein Projekt – wie die Projekteinstellung – dem Bundesland zu, das die Adresssuche ermittelt hat: Bei einem österreichischen Projekt, dessen Bundesland nie manuell eingetragen wurde, werden nicht mehr alle OIB-Richtlinien als offen angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
+            "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
+            "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "building-law",
+          "text": {
+            "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+            "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
+          }
+        },
+        {
+          "section": "deprecations",
+          "area": "building-law",
+          "text": {
+            "en": "For now the setup no longer marks the OIB guidelines that only some buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for each. They return shortly, worked out from the building's facts.",
+            "de": "Fürs Erste kennzeichnet das Setup die OIB-Richtlinien, die nur für bestimmte Gebäude gelten (Betriebsbau, Garage, Hochhaus), nicht mehr jeweils mit einer Begründung. Sie kommen bald zurück und werden anhand der Gebäudedaten ermittelt."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W45",
       "kind": "week",
       "version": null,

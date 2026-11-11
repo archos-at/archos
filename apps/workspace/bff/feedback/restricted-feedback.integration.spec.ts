@@ -461,4 +461,35 @@ describe.skipIf(!url)('answer feedback from a restricted conversation, against P
     const byId = await listProfiledConversations(PROFILER_SCOPE, PROFILED_CHAT)
     expect(byId.rows.map((row) => row.conversationId)).toEqual([PROFILED_CHAT])
   })
+
+  /**
+   * Design E44: a down-voted answer that read the office's licensed text becomes no platform lesson, whose
+   * text reaches every other office. Seeded as production stores it: the asking tab writes the answer row
+   * first and the Herleitung onto the QUESTION row; the server's persist then finds the answer row taken and
+   * merges its mark into it (`mergeMessageMetadata`, as `persistInternalConversationMessages` does).
+   */
+  it('leaves a vote on an answer that read licensed text out of the lessons input, and keeps one that did not', async () => {
+    const licensedChat = randomUUID()
+    const lawChat = randomUUID()
+    const licensedAnswer = await seedVotedChat(licensedChat, 'Was sagt unsere Norm?', 'Laut Büroexemplar 110 cm.', false)
+    const lawAnswer = await seedVotedChat(lawChat, 'Was sagt die OIB-RL 4?', 'Laut OIB-RL 4 100 cm.', false)
+    const reasoningSteps = (slot: string) =>
+      JSON.stringify({ thinkingSteps: [{ id: `status:${slot}`, kind: 'status', slot, isComplete: true }] })
+    for (const [chat, slot] of [[licensedChat, 'licensed-text'], [lawChat, 'synthesis']]) {
+      await inOrg((executor) =>
+        executor.execute(
+          sql`update messages set metadata = ${reasoningSteps(slot)}::jsonb where conversation_id = ${chat} and role = 'user'`
+        )
+      )
+    }
+    const { mergeMessageMetadata } = await import('@/lib/conversations/repository')
+    const { LICENSED_TEXT_KEY } = await import('@/lib/conversations/agent-answer-metadata')
+    await inOrg(() => mergeMessageMetadata(licensedChat, licensedAnswer, { [LICENSED_TEXT_KEY]: true }))
+    expect(lawAnswer).toBeTruthy()
+
+    const { reports } = await readers()
+    const answers = reports.map((report) => report.answer)
+    expect(answers).not.toContain('Laut Büroexemplar 110 cm.')
+    expect(answers).toContain('Laut OIB-RL 4 100 cm.')
+  })
 })

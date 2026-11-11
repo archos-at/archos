@@ -4,7 +4,8 @@ Qdrant is the one store, so a delete is one delete: it took what it names or
 it raised, and the caller's retry starts over. What these pin, per operation:
 
 * when Qdrant refuses, nothing is deleted and nothing recorded as deleted (the
-  metadata row stays, the collection version is not bumped), and a retry
+  metadata row stays, the collection version is not bumped), the delete raises
+  so the batch reports it ``failed`` and never ``not_found``, and a retry
   finishes the job;
 * a delete takes the chunks it names and nothing else: another file, another
   version of the same name, another collection;
@@ -95,7 +96,11 @@ def test_delete_file_deletes_nothing_when_qdrant_fails_and_finishes_on_retry(env
     _seed("plan.pdf", scope="proj_elsewhere")
     env["outage"].down = True
 
-    assert env["ingestor"].delete_file("plan.pdf", SCOPE) is False
+    with pytest.raises(ConnectionError):
+        env["ingestor"].delete_file("plan.pdf", SCOPE)
+    # The batch the BFF calls names it failed, never "nothing was there" (``purgeIngestedChunks``).
+    outcome = env["ingestor"].delete_files(["plan.pdf"], SCOPE)
+    assert outcome["not_found"] == [] and [entry["file_id"] for entry in outcome["failed"]] == ["plan.pdf"]
 
     assert _ids("plan.pdf") == set(ids)
     assert "plan.pdf" in _summary_rows()

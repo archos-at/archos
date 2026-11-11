@@ -331,7 +331,7 @@ The Next.js UI application.
 | `WORKOS_COOKIE_PASSWORD` | `${WORKOS_COOKIE_PASSWORD}` |
 | `FILE_UPLOAD_ACCEPTED_TYPES` | `${FILE_UPLOAD_ACCEPTED_TYPES:-.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx}` — the same list as the code default in `apps/workspace/shared/config/file-upload.ts` |
 | `GOTENBERG_URL` | `${GOTENBERG_URL-http://gotenberg:3000}`. Required for indexing Word, presentation, `.xls` and `.ods` files (ADR-0071). An empty value disables conversion: those files are then marked failed with a retryable reason, and `.xlsx`/`.xlsm` index without a preview. No colon in the expansion, so an empty value is kept rather than replaced by the default. The Coolify file uses `:-`, so there an empty value falls back to the bundled converter |
-| `GEOCODER_URL` | `${GEOCODER_URL-https://photon.komoot.io}`, in both files. The project dialog's address search: komoot's public Photon (ADR-0151), which needs no account. An empty value switches it off and the address stays a plain text field |
+| `GEOCODER_URL` | `${GEOCODER_URL-}`, in both files: off unless set (ADR-0159). The project dialog's address search; `https://photon.komoot.io` is komoot's public Photon (ADR-0151), which needs no account and receives every keystroke. Unset or empty, the address stays a plain text field and is stored as unconfirmed |
 | `SEAWEED_ENDPOINT` | `http://seaweedfs:8333` (hardcoded in compose) |
 | `SEAWEED_ACCESS_KEY` | `seaweedadmin` (hardcoded in compose) |
 | `SEAWEED_SECRET_KEY` | `${SEAWEED_SECRET_KEY:?}` — **required**; the deploy fails fast if it is unset (see `deploy/.env.example`) |

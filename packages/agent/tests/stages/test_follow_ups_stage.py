@@ -95,8 +95,11 @@ class _StubLLM:
         return self
 
     async def ainvoke(self, messages):
+        from agent.common import prompt_caching
+
         self.calls += 1
         self.messages = messages
+        self.one_shot = prompt_caching._ONE_SHOT.get()
         return type("_Response", (), {"content": self.body})()
 
 
@@ -355,3 +358,10 @@ class TestCostCeiling:
         encoding = self._encoding()
         body = json.dumps({"items": GOOD_ITEMS}, ensure_ascii=False)
         assert len(encoding.encode(body)) * 2 < FOLLOW_UPS.max_output_tokens
+
+
+async def test_the_follow_ups_call_writes_nothing_to_the_cache():
+    """The facts are this answer's own (``prompt_caching.one_shot_calls``)."""
+    llm = _StubLLM('{"items": []}')
+    await FOLLOW_UPS.handler(StageContext(facts=_facts(), llm=llm))
+    assert llm.calls == 1 and llm.one_shot is True

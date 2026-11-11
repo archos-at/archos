@@ -1,0 +1,5 @@
+---
+# area: answers
+operators:
+  - >
+    Chat answers now reuse the cached project context across turns, and the usage ledger records the tokens written to the provider's cache. If answers change for the worse, set CHAT_CONTEXT_LAYOUT=turn on the chat backend to return to the previous layout.

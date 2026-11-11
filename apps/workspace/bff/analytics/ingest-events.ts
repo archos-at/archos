@@ -17,8 +17,8 @@
  * scans `lib/documents` for every `status:` it writes, and this event's `status`
  * property is a report about the column, not a write to it.
  *
- * What is sent: the outcome, the screening verdict, the counts the backend
- * reported, the file's extension, how long it took, the document's id, its
+ * What is sent: the outcome, the screening verdict, why a held file was held
+ * (`hold_kinds`), the counts the backend reported, the file's extension, how long it took, the document's id, its
  * upload batch, which attempt it was, the machine prefix of the failure message
  * (`error_reason`), the stored failure class (`error_category`) and which path
  * noticed (`settled_by`). Never the filename, the summary or the error text,
@@ -39,6 +39,7 @@
  * the lag the settle push (`/api/internal/ingest/settled`) exists to remove.
  */
 import { INGEST_STAGES, type IngestReading, type IngestTiming } from '@/lib/documents/ingest-timing'
+import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
 import { captureServer, getPosthogServer } from './posthog-server'
 
 /**
@@ -85,6 +86,8 @@ export interface FinishedIngest {
    */
   failureCategory?: string | null
   retryable?: boolean | null
+  /** The job's verdict on a held file (ADR-0113); only each reason's `kind` is read. */
+  quarantine?: { reasons: ReadonlyArray<{ kind: string }> } | null
 }
 
 /** What `finishedIngestOf` reads of a document row, a resolution and the backend's counts. */
@@ -96,6 +99,7 @@ export const finishedIngestOf = (
     screeningOutcome?: string
     failure?: { category: string | null; retryable: boolean | null }
     timing?: Partial<IngestTiming>
+    quarantine?: FinishedIngest['quarantine']
   },
   meta?: { pageCount?: number; chunkCount?: number }
 ): FinishedIngest => ({
@@ -113,6 +117,7 @@ export const finishedIngestOf = (
   processingMs: resolution.timing?.processingMs,
   stageSeconds: resolution.timing?.stageSeconds,
   reading: resolution.timing?.reading,
+  quarantine: resolution.quarantine,
 })
 
 /** `text_s` … `write_s`: one property per stage the file reached, flat like `processing_ms`. */
@@ -138,6 +143,17 @@ export const errorReasonOf = (message: string | null | undefined): string | unde
 
 /** The screening value for an ingest whose job reported none. */
 export const SCREENING_NOT_RUN = 'not_run'
+
+const HOLD_KINDS: ReadonlySet<string> = new Set(['term', ...SCREENING_DETECTORS])
+
+/**
+ * Why the content gate held a file, as `credit_card,term`: each kind once, sorted, `other` for
+ * one this build does not know, `unknown` when the verdict names none. Never a term or a sample.
+ */
+export const holdKindsOf = (verdict: FinishedIngest['quarantine']): string => {
+  const kinds = new Set((verdict?.reasons ?? []).map(({ kind }) => (HOLD_KINDS.has(kind) ? kind : 'other')))
+  return kinds.size === 0 ? 'unknown' : [...kinds].sort().join(',')
+}
 
 const EXTENSION = /^[a-z0-9]{1,8}$/
 
@@ -241,6 +257,7 @@ export function announceIngestsFinished(
         attempt: ingest.attempt ?? undefined,
         status: ingest.status,
         screening: ingest.screening ?? SCREENING_NOT_RUN,
+        hold_kinds: ingest.status === 'quarantined' ? holdKindsOf(ingest.quarantine) : undefined,
         error_reason: errorReasonOf(ingest.errorMessage),
         error_category: ingest.status === 'failed' ? (ingest.failureCategory ?? undefined) : undefined,
         retryable: ingest.retryable ?? undefined,

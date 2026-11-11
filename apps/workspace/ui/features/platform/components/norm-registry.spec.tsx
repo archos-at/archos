@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@/test-utils'
+import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { PlatformAccessProvider } from '@/features/platform/platform-access'
@@ -121,12 +121,6 @@ function stubFetch(options: { put?: { status: number; body?: unknown }; verify?:
 // sheet/dialog closes; the checks would fail clicks the user can really make.
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
-/** Open the editing sheet for one entry via its row. */
-async function openEditor(title: string) {
-  await user().click(await screen.findByRole('button', { name: `Edit ${title}` }))
-  return screen.findByRole('dialog')
-}
-
 const putCalls = (spy: ReturnType<typeof stubFetch>) =>
   spy.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
 
@@ -202,182 +196,28 @@ describe('NormRegistry', () => {
     expect(screen.getByText('No entry matches these filters')).toBeDefined()
   })
 
-  test('edits an entry in the sheet and writes the whole registry under the held version', async () => {
+  test('is read-only for every member, managers too, and points to change requests (ADR-0175)', async () => {
     const spy = stubFetch()
-
-    render(<NormRegistry />)
-    const sheet = await openEditor('Bauordnung für Wien')
-
-    const title = within(sheet).getByPlaceholderText('Full title of the norm')
-    await user().clear(title)
-    await user().type(title, 'Bauordnung für Wien 2026')
-    await user().click(within(sheet).getByRole('button', { name: 'Apply' }))
-
-    expect(await screen.findByText('Bauordnung für Wien 2026')).toBeDefined()
-
-    await user().click(screen.getByRole('button', { name: 'Save registry' }))
-
-    await waitFor(() => expect(putCalls(spy)).toHaveLength(1))
-    const body = JSON.parse((putCalls(spy)[0][1] as RequestInit).body as string)
-    // The held optimistic-concurrency version, not the file-format version.
-    expect(body.version).toBe(7)
-    expect(body.registry.version).toBe(1)
-    expect(body.registry.entries).toHaveLength(3)
-    expect(body.registry.entries.find((e: { id: string }) => e.id === 'bauo-wien').title).toBe(
-      'Bauordnung für Wien 2026'
-    )
-    // Fields with no UI surface must survive the round-trip untouched.
-    expect(body.registry.corpus_collection).toBe('oib_knowledge')
-    expect(body.registry.states).toEqual({ W: 'Wien' })
-    expect(body.registry.parcel_tags).toEqual(['grundstueck'])
-  })
-
-  test('verifies a pointer against RIS and applies the picked candidate', async () => {
-    const spy = stubFetch()
-
-    render(<NormRegistry />)
-    const sheet = await openEditor('Bauordnung für Wien')
-
-    // An entry that already carries a document number opens on its confirmed
-    // facts, not on the search box — re-searching is a deliberate act.
-    await user().click(within(sheet).getByRole('button', { name: 'Search again' }))
-    await user().click(within(sheet).getByRole('button', { name: 'Search RIS' }))
-
-    const candidate = await screen.findByRole('button', {
-      name: 'Apply Bauordnung für Wien — Fassung 2026',
-    })
-
-    const verifyCall = spy.mock.calls.find(([url]) => String(url).includes('/verify'))
-    expect(JSON.parse((verifyCall![1] as RequestInit).body as string)).toMatchObject({
-      title_query: 'Bauordnung für Wien',
-      application: 'LrW',
-      federal_state: 'Wien',
-    })
-
-    await user().click(candidate)
-
-    // The picked candidate's identity is now presented as confirmed fact rather
-    // than as raw fields the operator has to keep correct by hand.
-    const confirmed = await within(sheet).findByTestId('norm-editor-confirmed')
-    expect(within(confirmed).getByText('LrW40011223')).toBeDefined()
-    expect(within(confirmed).getByText('2026-07-28')).toBeDefined()
-    // The diff makes the overwrite reviewable before it is applied to the file.
-    expect(within(sheet).getByText('Applied:')).toBeDefined()
-    expect(within(sheet).getByText(/LrW40009876 → LrW40011223/)).toBeDefined()
-  })
-
-  test('a 409 blocks further saves until the current registry has been reloaded', async () => {
-    const spy = stubFetch({ put: { status: 409, body: { error: 'conflict' } } })
-
-    render(<NormRegistry />)
-    const sheet = await openEditor('Bauordnung für Wien')
-    await user().click(within(sheet).getByRole('button', { name: 'Apply' }))
-
-    await user().click(screen.getByRole('button', { name: 'Save registry' }))
-
-    expect(await screen.findByText('The catalog changed elsewhere')).toBeDefined()
-    // Saving again would push a version the user has never seen.
-    expect(screen.getByRole('button', { name: 'Save registry' })).toBeDisabled()
-
-    await user().click(screen.getByRole('button', { name: /Discard and reload/ }))
-
-    await waitFor(() => expect(screen.queryByText('The catalog changed elsewhere')).toBeNull())
-    expect(await screen.findByText('Bauordnung für Wien')).toBeDefined()
-    expect(putCalls(spy)).toHaveLength(1)
-  })
-
-  test('deletes an entry only after the confirmation, and only locally until saved', async () => {
-    const spy = stubFetch()
-
-    render(<NormRegistry />)
-    const sheet = await openEditor('Bauordnung für Wien')
-    await user().click(within(sheet).getByRole('button', { name: 'Delete' }))
-
-    expect(await screen.findByText('Delete entry?')).toBeDefined()
-    await user().click(screen.getByTestId('norm-delete-confirm'))
-
-    await waitFor(() => expect(screen.queryByText('Bauordnung für Wien')).toBeNull())
-    // Nothing was written yet — the removal lives in the pending registry.
-    expect(putCalls(spy)).toHaveLength(0)
-  })
-
-  test('refuses a new entry that reuses an existing ID', async () => {
-    stubFetch()
-    const { toast } = await import('sonner')
-
-    render(<NormRegistry />)
-    await screen.findByText('Bauordnung für Wien')
-    await user().click(screen.getByRole('button', { name: 'New entry' }))
-
-    const sheet = await screen.findByRole('dialog')
-    // The kind gates every field downstream, so it has to be picked first.
-    // It is a radiogroup, not buttons — single choice, correctly modelled.
-    // An external standard is the cheapest rank to fill: it needs no RIS
-    // lookup, so the duplicate-ID guard is reached without a document number.
-    await user().click(within(sheet).getByRole('radio', { name: /External standard/ }))
-    await user().type(within(sheet).getByPlaceholderText('e.g. OIB-RL 2'), 'BO W')
-    await user().type(within(sheet).getByPlaceholderText('Full title of the norm'), 'Duplikat')
-    await user().type(
-      within(sheet).getByPlaceholderText('https://www.wien.gv.at/…'),
-      'https://example.test/n'
-    )
-
-    // The ID derives from the short name; overriding it lives under Advanced,
-    // which is exactly where a collision gets introduced by hand.
-    await user().click(within(sheet).getByRole('button', { name: /Advanced/ }))
-    const idField = within(within(sheet).getByTestId('norm-editor-advanced')).getByPlaceholderText(
-      'e.g. oib-rl2-2023'
-    )
-    await user().clear(idField)
-    await user().type(idField, 'bauo-wien')
-
-    await user().click(within(sheet).getByRole('button', { name: 'Apply' }))
-
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('The ID “bauo-wien” is already taken')
-    )
-    expect(screen.getByRole('dialog')).toBeDefined()
-  })
-
-  test('a 422 reports the backend detail without pretending the save went through', async () => {
-    const spy = stubFetch({
-      put: { status: 422, body: { error: 'entry oib-rl2-2023 has no application' } },
-    })
-    const { toast } = await import('sonner')
-
-    render(<NormRegistry />)
-    const sheet = await openEditor('Bauordnung für Wien')
-    await user().click(within(sheet).getByRole('button', { name: 'Apply' }))
-    await user().click(screen.getByRole('button', { name: 'Save registry' }))
-
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('entry oib-rl2-2023 has no application')
-    )
-    // No conflict banner — 422 is our data being wrong, not someone else's write.
-    expect(screen.queryByText('The catalog changed elsewhere')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Save registry' })).not.toBeDisabled()
-    expect(putCalls(spy)).toHaveLength(1)
-  })
-
-  test('read-only staff see the catalog without Add or Save, and open entries read-only', async () => {
-    stubFetch()
     render(
-      <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.settingsView]}>
+      <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.settingsManage]}>
         <NormRegistry />
       </PlatformAccessProvider>
     )
 
     expect(await screen.findByText('Bauordnung für Wien')).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Save registry' })).toBeNull()
-    expect(screen.getByText(/do not have permission to change it/)).toBeDefined()
+    expect(screen.queryByRole('button', { name: /Add/ })).toBeNull()
+    expect(screen.getByTestId('norm-registry-retired')).toHaveTextContent('reviewed change request')
+    expect(screen.getByRole('link', { name: 'Open country knowledge' })).toHaveAttribute('href', '/app/platform/countries')
 
     // The entry still opens: the source, rank and scope are what support staff
-    // need to answer "why did Piloti cite this?". Nothing in it can change.
+    // need to answer "why was this cited?". Nothing in it can change.
     await userEvent.click(screen.getByRole('button', { name: /Bauordnung für Wien/ }))
     const sheet = await screen.findByRole('dialog')
     for (const input of within(sheet).queryAllByRole('textbox')) expect(input).toBeDisabled()
     expect(within(sheet).queryByRole('button', { name: /Apply|Übernehmen/ })).toBeNull()
     expect(within(sheet).queryByRole('button', { name: /Delete/ })).toBeNull()
+    expect(putCalls(spy)).toHaveLength(0)
   })
 
   test('the card is titled by its entry count, not by the page title, and the table has no second frame', async () => {

@@ -72,6 +72,15 @@ describe('taskOf', () => {
     expect(task.metadata).toMatchObject({ projectId: 'project-1' })
   })
 
+  it('marks the answer artifact as a model’s text, and not a filed document, which carries its own marking', () => {
+    const [answer, document] = taskOf(view()).artifacts
+    expect(answer?.metadata).toEqual({
+      aiGenerated: true,
+      digitalSourceType: 'http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia',
+    })
+    expect(document?.metadata?.aiGenerated).toBeUndefined()
+  })
+
   it('says why in the status message of a rejected ask', () => {
     const task = taskOf(view({ state: 'rejected', reason: 'budget: spent', answer: null, documents: [] }))
     expect(task.status?.state).toBe(TaskState.TASK_STATE_REJECTED)

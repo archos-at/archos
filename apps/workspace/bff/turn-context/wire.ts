@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { knowledgeContextSchema } from '@/lib/base-knowledge/context/wire'
 
 export const turnContextRequestSchema = z.object({
   query: z.string().trim().max(2000).optional(),
@@ -28,6 +29,38 @@ export const turnContextResponseSchema = z.object({
    * not be read; an older agent ignores it.
    */
   workspace: z.string().nullable(),
+  /**
+   * The office's confirmed base knowledge (`lib/base-knowledge/office/turn-block.ts`,
+   * ADR-0163): one line per licensed standard, commentary, directive, guideline
+   * or law it holds, with edition, role, the project's directive verdict and the
+   * last check. Null when the office holds none; an older agent ignores it.
+   */
+  baseKnowledge: z.string().nullable(),
+  /**
+   * The data of the label an answer puts on a passage from each confirmed
+   * office copy (`lib/base-knowledge/office/answer-label.ts`): kind,
+   * designation, edition, role, last check, text use, a directive's verdict.
+   * Tokens, no prose; the answer's renderer words it. Empty with the flag off.
+   */
+  baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
+  /**
+   * The turn's knowledge context (`lib/base-knowledge/context/`, ADR-0173):
+   * the gate, the chain, each edition's role with its coverage qualifier and
+   * freshness, the packs and their release sequence, and the countries the
+   * turn may retrieve from, and the chain text (`text`, the `<building_law>`
+   * block) in the same roles: one payload for the law, never a second one beside
+   * it. On every turn (ADR-0175): a context that could not
+   * be read is the gate's `knowledge_unavailable`, never absent, so the agent
+   * fails closed.
+   */
+  knowledgeContext: knowledgeContextSchema,
+  /**
+   * Which kinds of model file the project holds and the agent may read
+   * (`lib/bim/model-kinds-repository.ts`), so the agent binds its IFC and DXF
+   * tools only where there is one. Null outside a project or when it could not
+   * be read: the agent then binds them as before. An older agent ignores it.
+   */
+  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean() }).strict().nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

@@ -454,7 +454,7 @@ export function ResultRow({
       </ItemMedia>
       <ItemContent className="flex min-w-0 flex-col gap-0.5">
         <span className="flex min-w-0 items-start gap-2">
-          <span className={cn('min-w-0 flex-1 text-sm font-medium tracking-tight text-foreground', compact ? 'truncate' : 'max-sm:line-clamp-2 sm:truncate')}>{title}</span>
+          <span className={cn('min-w-0 flex-1 text-sm font-medium text-foreground', compact ? 'truncate' : 'max-sm:line-clamp-2 sm:truncate')}>{title}</span>
           {aside ? <span className="flex shrink-0 items-center gap-1.5">{aside}</span> : null}
         </span>
         {meta ? (
@@ -1004,7 +1004,7 @@ export function RegisterStackRow({
       >
         {code ? <span className="min-w-0 truncate font-mono text-xs text-foreground/80">{code}</span> : null}
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium tracking-tight text-foreground">{title}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
           {aside ? <span className="flex shrink-0 items-center gap-1.5">{aside}</span> : null}
         </span>
         {meta && meta.some(Boolean) ? (

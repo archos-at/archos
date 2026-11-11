@@ -89,12 +89,12 @@ export const PLATFORM_FAKE_OPERATIONS: readonly AgentOperation[] = [
     }),
   },
   {
-    name: 'platform-kill-runs',
+    name: 'platform-model-defaults-update',
     domain: 'platform',
-    summary: 'Kill switch: stop every running deep research',
-    description: 'Interrupts every running deep research in every organization. It cannot be undone.',
-    method: 'POST',
-    path: '/api/platform/maintenance/kill-runs',
+    summary: 'Set the fleet-wide default models',
+    description: 'Replaces the complete set of default models; it moves every organization at once.',
+    method: 'PUT',
+    path: '/api/platform/model-defaults',
     destructive: true,
     load,
   },
@@ -126,7 +126,7 @@ export const FAKE_EXPOSURE: Readonly<Record<string, Exposure>> = {
   'workspace-search': { external: true, agent: true },
   'project-folder-access-set': { external: true, agent: false, reason: 'sensitive: Piloti never proposes it' },
   'platform-overview-get': { external: false, agent: false, platform: true },
-  'platform-kill-runs': { external: false, agent: false, platform: true },
+  'platform-model-defaults-update': { external: false, agent: false, platform: true },
   'platform-audit-portal-link': { external: false, agent: false, platform: true },
 }
 

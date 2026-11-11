@@ -1,0 +1,7 @@
+---
+# area: administration
+operators:
+  - >
+    A deployment can now be pinned to its residency cell: every model call is then processed in the EU or
+    refused, zero data retention can no longer be switched off, and the deployment refuses to start with a model
+    endpoint outside the EU. It stays off until the cell is set, which needs OpenRouter's EU contract first.

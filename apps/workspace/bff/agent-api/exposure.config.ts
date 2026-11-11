@@ -12,7 +12,9 @@
  *    so the door hides the operation from the agent; `false` hides it for the
  *    `reason` the entry gives.
  *  - `platform`: platform staff on the platform door (ADR-0126). Only the
- *    `platform` domain, and that domain on no other door.
+ *    `platform` domain, and that domain on no other door. Each console
+ *    operation is platform-public or tenant content (`exposure/platform.ts`,
+ *    ADR-0160); tenant content is on no door at all.
  *  - `app`: an MCP Apps view in an outside agent's host (ADR-0142). Set only
  *    on an app-only tool (`catalog/app-views.ts`): a control on a card the
  *    person presses, listed with `_meta.ui.visibility: ['app']` so the host
@@ -50,12 +52,15 @@ import {
   MEMORY,
   NATIVE_READ,
   OFFERED,
-  PLATFORM,
   SENSITIVE,
   SKILL_READ,
   TASK,
 } from './exposure-presets'
 import { MAIL_EXPOSURE } from './exposure-mail'
+import { BASE_KNOWLEDGE_EXPOSURE } from './exposure-base-knowledge'
+import { PLATFORM_EXPOSURE } from './exposure/platform'
+import { PLATFORM_KNOWLEDGE_EXPOSURE } from './exposure/platform-knowledge'
+import { PLATFORM_SKILL_EXPOSURE } from './exposure/platform-skills'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
@@ -65,8 +70,18 @@ import { MAIL_EXPOSURE } from './exposure-mail'
  * itself whose result is no office artifact. `ui-state`: this person's own
  * screen or device state. `evidence`: bytes kept as proof, which no model reads
  * (a mail's original `.eml`, ADR-0137; ADR-0122's amendment of 2026-10-22).
+ * `tenant-content`: a console operation that reads what offices or their people
+ * wrote, across offices; platform staff read it in the console in the browser,
+ * and no agent client does, the operator's own included (ADR-0160).
  */
-export const WITHHELD_CATEGORIES = ['external-service', 'product-config', 'model-compute', 'ui-state', 'evidence'] as const
+export const WITHHELD_CATEGORIES = [
+  'external-service',
+  'product-config',
+  'model-compute',
+  'ui-state',
+  'evidence',
+  'tenant-content',
+] as const
 export type WithheldCategory = (typeof WITHHELD_CATEGORIES)[number]
 
 export interface Withholding {
@@ -131,13 +146,13 @@ export const EXPOSURE = {
   'project-person-update': OFFERED,
   'project-profile-get': OFFERED,
   'project-profile-patch': OFFERED,
+  'project-site-set': OFFERED,
   'project-profile-replace': OFFERED,
   'project-record-get': OFFERED,
   'project-reindex': OFFERED,
   'project-rename': OFFERED,
   'project-restore': OFFERED,
   'project-same-address-list': OFFERED,
-  'project-standards-get': OFFERED,
   'project-status-set': OFFERED,
   'project-summary-generate': OFFERED,
   'project-upload-screening-get': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
@@ -227,6 +242,7 @@ export const EXPOSURE = {
 
   // mail: `exposure-mail.ts`
   ...MAIL_EXPOSURE,
+  ...BASE_KNOWLEDGE_EXPOSURE,
 
   // review
   'annotation-create': { external: true, agent: 'native:canvas__mark', reason: CANVAS },
@@ -358,6 +374,7 @@ export const EXPOSURE = {
   'skill-update': OFFERED,
 
   // knowledge
+  'site-resolve': OFFERED,
   'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
   'knowledge-base-get': OFFERED,
   'norm-list': OFFERED,
@@ -429,62 +446,10 @@ export const EXPOSURE = {
   'release-summary-seen-mark': withheld('ui-state', 'whether this person has closed the weekly summary notice; their own screen'),
   'release-summary-unseen-get': withheld('ui-state', 'which summary the notice still owes this person; release-note-list reads them'),
 
-  // platform
-  'platform-answer-feedback-digest-get': PLATFORM,
-  'platform-answer-feedback-export': PLATFORM,
-  'platform-answer-feedback-get': PLATFORM,
-  'platform-answer-feedback-options-get': PLATFORM,
-  'platform-audit-portal-link': PLATFORM,
-  'platform-card-list': PLATFORM,
-  'platform-citation-health-export': PLATFORM,
-  'platform-citation-health-get': PLATFORM,
-  'platform-feedback-claim': PLATFORM,
-  'platform-feedback-get': PLATFORM,
-  'platform-feedback-list': PLATFORM,
-  'platform-feedback-triage': PLATFORM,
-  'platform-kill-runs': PLATFORM,
-  'platform-knowledge-doc-class-update': PLATFORM,
-  'platform-knowledge-document-delete': PLATFORM,
-  'platform-knowledge-document-upload': PLATFORM,
-  'platform-knowledge-reingest': PLATFORM,
-  'platform-knowledge-sync': PLATFORM,
-  'platform-knowledge-title-update': PLATFORM,
-  'platform-lesson-get': PLATFORM,
-  'platform-lesson-list': PLATFORM,
-  'platform-lesson-sweep-run': PLATFORM,
-  'platform-lesson-update': PLATFORM,
-  'platform-model-defaults-get': PLATFORM,
-  'platform-model-defaults-update': PLATFORM,
-  'platform-model-search': PLATFORM,
-  'platform-norm-registry-get': PLATFORM,
-  'platform-norm-registry-update': PLATFORM,
-  'platform-norm-verify': PLATFORM,
-  'platform-org-budget-get': PLATFORM,
-  'platform-org-budget-update': PLATFORM,
-  'platform-org-storage-get': PLATFORM,
-  'platform-org-storage-update': PLATFORM,
-  'platform-org-upload-limit-update': PLATFORM,
-  'platform-org-usage-get': PLATFORM,
-  'platform-overview-get': PLATFORM,
-  'platform-pricing-get': PLATFORM,
-  'platform-pricing-update': PLATFORM,
-  'platform-profiler-conversation-get': PLATFORM,
-  'platform-profiler-conversation-list': PLATFORM,
-  'platform-quality-scope-options': PLATFORM,
-  'platform-reasoning-efforts-get': PLATFORM,
-  'platform-reasoning-efforts-update': PLATFORM,
-  'platform-retrieval-settings-get': PLATFORM,
-  'platform-retrieval-settings-update': PLATFORM,
-  'platform-skill-category-create': PLATFORM,
-  'platform-skill-category-delete': PLATFORM,
-  'platform-skill-category-list': PLATFORM,
-  'platform-skill-category-update': PLATFORM,
-  'platform-skill-create': PLATFORM,
-  'platform-skill-delete': PLATFORM,
-  'platform-skill-list': PLATFORM,
-  'platform-skill-update': PLATFORM,
-  'platform-storage-overview': PLATFORM,
-  'platform-vectors-reconcile': PLATFORM,
+  // platform: classified platform-public or tenant content, in `exposure/platform.ts` (ADR-0160)
+  ...PLATFORM_EXPOSURE,
+  ...PLATFORM_KNOWLEDGE_EXPOSURE,
+  ...PLATFORM_SKILL_EXPOSURE,
 
   // the agent’s read tools (`backend-operations.ts`)
   'knowledge-search': { external: true, agent: 'native:knowledge_search', reason: NATIVE_READ },

@@ -51,6 +51,8 @@ const SURFACE_DIRS = ['bff/agent-api', 'app/api/mcp']
  */
 const DOMAIN_DATA: readonly { text: string; reason: string }[] = [
   { text: 'OIB-Richtlinie', reason: 'the published title of the OIB guidelines, a legal citation' },
+  { text: 'ÖNORM', reason: 'the prefix of an Austrian standard’s designation (ÖNORM B 1600), a citation' },
+  { text: 'ris_gesetzesnummer', reason: 'an identifier scheme, named for the RIS field it holds: the key a work’s identifiers carry and the agent matches' },
 ]
 
 /** One piece of text an agent reads, and where it was found. */

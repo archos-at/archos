@@ -300,8 +300,8 @@ export async function listProjectAddressesInOrg(organizationId: string): Promise
         id: projects.id,
         name: projects.name,
         status: projects.status,
-        // `standort_adresse` is the key an older pod still writes during a rolling deploy (migration 0159).
-        address: sql<string | null>`COALESCE(${projects.profile} #>> '{facts,site_address,value}', ${projects.profile} #>> '{facts,standort_adresse,value}')`,
+        // `standort_adresse`: an older pod's key (migration 0159); the assumption: a typed, unconfirmed address.
+        address: sql<string | null>`COALESCE(${projects.profile} #>> '{facts,site_address,value}', ${projects.profile} #>> '{facts,standort_adresse,value}', ${projects.profile} #>> '{assumptions,site_address,value}')`,
         location: projectIntakes.location,
       })
       .from(projects)
@@ -310,7 +310,7 @@ export async function listProjectAddressesInOrg(organizationId: string): Promise
         and(
           eq(projects.organizationId, organizationId),
           isNull(projects.deletedAt),
-          sql`(COALESCE(${projects.profile} #>> '{facts,site_address,value}', ${projects.profile} #>> '{facts,standort_adresse,value}') IS NOT NULL OR ${projectIntakes.location} IS NOT NULL)`
+          sql`(COALESCE(${projects.profile} #>> '{facts,site_address,value}', ${projects.profile} #>> '{facts,standort_adresse,value}', ${projects.profile} #>> '{assumptions,site_address,value}') IS NOT NULL OR ${projectIntakes.location} IS NOT NULL)`
         )
       )
       .orderBy(desc(projects.createdAt))

@@ -35,6 +35,7 @@ from agent.knowledge.base import DocumentPosition
 from agent.knowledge.base import document_position
 from agent.knowledge.base import reading_order
 
+from .reading_office import office_read
 from .schema import CHUNK_ID_FIELD
 from .schema import READING_ORDER_FIELD
 from .schema import TEXT_FIELD
@@ -59,15 +60,16 @@ def fetch(scope: str, filters: dict[str, Any] | None, limit: int, order_by: str 
     """
     if order_by not in (None, READING_ORDER_FIELD):
         raise ValueError(f"A structural fetch orders by {READING_ORDER_FIELD!r} only, not {order_by!r}")
+    office = office_read(scope)
     store = get_store()
     if limit <= 0 or not store.exists(scope):
         return []
     if order_by is None:
-        records = list(store.scroll(scope, filters, limit=limit))
-    elif _orders_server_side(store, scope, filters):
-        records = _ordered_by_server(store, scope, filters, limit)
+        records = list(store.scroll(scope, filters, *office, limit=limit))
+    elif _orders_server_side(store, scope, filters, office):
+        records = _ordered_by_server(store, scope, filters, limit, office)
     else:
-        records = _ordered_here(store, scope, filters, limit)
+        records = _ordered_here(store, scope, filters, limit, office)
     return [_hit(record) for record in records]
 
 
@@ -85,14 +87,16 @@ def fetch_from(scope: str, filters: dict[str, Any] | None, start: DocumentPositi
     existed) is read whole and ordered here, as :func:`fetch` does; the rest takes
     the server-side bound ``reading_order >= start[0]`` and is read from there.
     """
+    office = office_read(scope)
     store = get_store()
     if limit <= 0 or not store.exists(scope):
         return []
-    if _orders_server_side(store, scope, filters):
+    if _orders_server_side(store, scope, filters, office):
         bound = {READING_ORDER_FIELD: {"$gte": start[0]}}
-        records = list(store.scroll(scope, {"$and": [filters, bound]} if filters else bound, limit=WHOLE_SET_CAP))
+        both = {"$and": [filters, bound]} if filters else bound
+        records = list(store.scroll(scope, both, *office, limit=WHOLE_SET_CAP))
     else:
-        records = list(store.scroll(scope, filters, limit=WHOLE_SET_CAP))
+        records = list(store.scroll(scope, filters, *office, limit=WHOLE_SET_CAP))
     _warn_if_capped(records, scope)
     start = tuple(start)
     after = [hit for hit in in_document_order([_hit(record) for record in records]) if _document_key(hit) > start]
@@ -121,29 +125,37 @@ def _document_key(hit: Hit) -> DocumentPosition:
     return document_position(hit.payload, hit.chunk_id)
 
 
-def _orders_server_side(store: QdrantStore, scope: str, filters: dict[str, Any] | None) -> bool:
+#: The office condition a read carries (``reading_office.office_read``): empty for the corpus.
+Office = Sequence[models.Filter]
+
+
+def _orders_server_side(store: QdrantStore, scope: str, filters: dict[str, Any] | None, office: Office) -> bool:
     """Whether every admitted point carries an indexed ``reading_order``, so Qdrant can order them."""
     if not store.has_index(scope, READING_ORDER_FIELD):
         return False
     missing = models.IsEmptyCondition(is_empty=models.PayloadField(key=READING_ORDER_FIELD))
-    return store.count(scope, filters, missing) == 0
+    return store.count(scope, filters, missing, *office) == 0
 
 
-def _ordered_by_server(store: QdrantStore, scope: str, filters: dict[str, Any] | None, limit: int) -> list[Any]:
+def _ordered_by_server(
+    store: QdrantStore, scope: str, filters: dict[str, Any] | None, limit: int, office: Office
+) -> list[Any]:
     """The first ``limit`` points by ``reading_order``, then the rest of the last one's tie group."""
-    page = store.scroll_ordered(scope, filters, READING_ORDER_FIELD, limit)
+    page = store.scroll_ordered(scope, filters, READING_ORDER_FIELD, limit, *office)
     if len(page) < limit:
         return page
     boundary = _stored_order(page[-1])
     tie = {READING_ORDER_FIELD: boundary}
-    tied = list(store.scroll(scope, {"$and": [filters, tie]} if filters else tie, limit=WHOLE_SET_CAP))
+    tied = list(store.scroll(scope, {"$and": [filters, tie]} if filters else tie, *office, limit=WHOLE_SET_CAP))
     _warn_if_capped(tied, scope)
     return [record for record in page if _stored_order(record) < boundary] + tied
 
 
-def _ordered_here(store: QdrantStore, scope: str, filters: dict[str, Any] | None, limit: int) -> list[Any]:
+def _ordered_here(
+    store: QdrantStore, scope: str, filters: dict[str, Any] | None, limit: int, office: Office
+) -> list[Any]:
     """The same cut, ordered client-side: for a set holding points written before ``reading_order``."""
-    records = list(store.scroll(scope, filters, limit=WHOLE_SET_CAP))
+    records = list(store.scroll(scope, filters, *office, limit=WHOLE_SET_CAP))
     _warn_if_capped(records, scope)
     records.sort(key=_derived_order)
     return _first_with_ties(records, limit, _derived_order)

@@ -1,0 +1,108 @@
+id: openrouter
+kind: processor
+status: active
+order: 20
+name: OpenRouter, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [model_io, tenant_content]
+purposes: [service_provision, quality_evaluation]
+holds_tenant_text: true
+deletion:
+  status: partial
+  de: >-
+    Auf dem Schlüssel der Plattform läuft jede Anfrage mit Zero Data Retention: weder OpenRouter noch der
+    Modellanbieter speichern Inhalte, es bleibt nichts zu löschen. Schaltet eine Organisation Zero Data Retention ab
+    oder bringt sie einen eigenen Schlüssel mit, gelten die Aufbewahrungsregeln des Anbieters; eine Löschung bei
+    Vertragsende erreicht diese Kopien nicht.
+  en: >-
+    On the platform's key every request runs with zero data retention: neither OpenRouter nor the model provider
+    keeps content, so nothing is left to delete. Where an organization switches zero data retention off or brings its
+    own key, the provider's retention applies, and deletion at contract end does not reach those copies.
+hosts: [openrouter.ai, eu.openrouter.ai]
+# Where a request to each host is processed (ADR-0167). The global gateway runs in the US and routes to any
+# upstream; the EU host routes only to upstreams in the EU. Residency enforcement and the `processing_location`
+# on every generation read this.
+endpoints:
+  - host: eu.openrouter.ai
+    processing_location: [EU]
+  - host: openrouter.ai
+    processing_location: [US]
+env:
+  - OPENROUTER_INGEST_API_KEY
+  - OPENROUTER_RESEARCH_API_KEY
+  - LLM_API_KEY
+  - DECISIONS_URL
+  - DECISIONS_API_KEY
+  - SKILL_REVIEW_LLM_API_KEY
+  - OPENROUTER_API_KEY
+  - OPENROUTER_BASE_URL
+  - OPENROUTER_HOST
+  - LLM_BASE_URL
+  - EMBED_API_KEY
+  - EMBED_BASE_URL
+  - VLM_API_KEY
+  - VLM_BASE_URL
+  - RERANKER_API_KEY
+  - RERANKER_BASE_URL
+  - SUMMARY_LLM_API_KEY
+  - SUMMARY_LLM_BASE_URL
+  - CONSISTENCY_LLM_API_KEY
+  - CONSISTENCY_LLM_BASE_URL
+  - BACKFILL_SUMMARY_API_KEY
+  - BACKFILL_SUMMARY_BASE_URL
+  - SKILL_REVIEW_LLM_BASE_URL
+# langchain-openai defaults to api.openai.com; every model call passes an
+# OpenRouter base URL through common/openrouter.py (test_openrouter_call_sites.py).
+sdks:
+  - 'py:langchain-openai'
+evidence:
+  - packages/agent/src/agent/common/openrouter.py
+  - configs/config_oib_openrouter.yml
+copy:
+  name:
+    de: OpenRouter, Inc.
+    en: OpenRouter, Inc.
+  purpose:
+    de: KI-Gateway für alle Sprachmodell-, Embedding-, Bildmodell- und Transkriptionsanfragen
+    en: AI gateway for all language-model, embedding, vision-model and transcription requests
+  data:
+    de: Chat-Nachrichten; Dokumentinhalte, die eine Frage braucht (Passagen, bei Bedarf ganze Seiten); beim Einlesen jede Seite eines Dokuments; abgerufene Vorschriften; erzeugte Antworten; Audio von Diktaten
+    en: Chat messages; the document content a question needs (passages, and whole pages where needed); every page of a document when it is read in; retrieved regulations; generated answers; dictation audio
+  location:
+    de: USA (Gateway); vorgelagerter Modellanbieter variiert — siehe Hinweis unten
+    en: USA (gateway); upstream model provider varies — see notice below
+  required:
+    de: Ja
+    en: 'Yes'
+# One flow per role (design §6.2). `processing_location` is where the upstream
+# runs: `per_model` follows the model an office chose; residency enforcement
+# narrows it per organization.
+flows:
+  - id: answers
+    what: {de: 'Chat, Recherche, Projekterfassung und Auslesen von Bescheiden', en: 'Chat, research, project intake and permit extraction'}
+    data_classes: [model_io, tenant_content]
+    purposes: [service_provision]
+    processing_location: [per_model]
+  - id: embeddings
+    what: {de: Suchindex (Embeddings) jedes Dokuments und jeder Frage, en: Search index (embeddings) of every document and question}
+    data_classes: [tenant_content]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: vision
+    what: {de: Texterkennung jeder Seite beim Einlesen, en: Text recognition of every page when a document is read in}
+    data_classes: [tenant_content]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: reranking
+    what: {de: Sortierung der Suchtreffer, en: Re-ranking of search hits}
+    data_classes: [model_io]
+    purposes: [service_provision]
+    processing_location: [US]
+  - id: judges
+    what: {de: Qualitätsbewertung einer Stichprobe von Antworten, en: Quality evaluation of a sample of answers}
+    data_classes: [model_io]
+    purposes: [quality_evaluation]
+    processing_location: [per_model]

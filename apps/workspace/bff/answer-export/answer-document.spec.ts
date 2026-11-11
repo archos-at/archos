@@ -28,7 +28,7 @@ import { describe, expect, it } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { answerExportCopy } from '@/i18n/namespaces/answer-export'
 import type { DocBlock } from './blocks'
-import { buildAnswerDocument, type AnswerDocumentInput } from './answer-document'
+import { buildAnswerDocument, EXPORTED_CAPPED_REASONS, type AnswerDocumentInput } from './answer-document'
 import { CARD_EXPORT, isCheck, SKIPPED_FIELDS, skippedNested } from './cards'
 import { answerCardSchema } from '@/shared/cards/schemas'
 import { previewFixtureFor } from '@/features/cards/preview-fixtures'
@@ -317,6 +317,23 @@ describe('fields the stored answer does not have', () => {
     expect(output).toContain('Verlässlichkeit: mittel')
     expect(output).toContain('Begründung des Assistenten: Die Quelle nennt die Länge')
     expect(output).toContain('nicht wortgleich gegen die Quelle prüfbar')
+  })
+
+  // Each cap an export can carry, with its own sentence: a reason mapped to the wrong key reads as another cap.
+  it.each([
+    ['ungrounded', 'nicht durch Quellen belegt'],
+    ['quote_unverified', 'nicht wortgleich gegen die Quelle prüfbar'],
+    ['law_unsettled', 'verbindliche Fassung des Baurechts steht für diesen Standort noch nicht geprüft fest'],
+  ] as const)('explains the %s cap in its own words', (cappedReason, sentence) => {
+    const output = text(
+      buildAnswerDocument(input({ confidence: { level: 'medium', cappedReason } }), german, 'de')
+    )
+    expect(output).toContain(sentence)
+    expect(EXPORTED_CAPPED_REASONS).toContain(cappedReason)
+  })
+
+  it('names every cap it can export', () => {
+    expect([...EXPORTED_CAPPED_REASONS].sort()).toEqual(['law_unsettled', 'quote_unverified', 'ungrounded'])
   })
 })
 

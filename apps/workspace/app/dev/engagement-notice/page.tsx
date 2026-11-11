@@ -82,7 +82,7 @@ export default function EngagementNoticePreviewPage() {
         className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 md:p-8"
       >
         <header>
-          <h1 className="text-xl font-semibold tracking-tight">Wann {PRODUCT_NAME} antwortet</h1>
+          <h1 className="text-xl font-semibold">Wann {PRODUCT_NAME} antwortet</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Die Regel steht da, wo die Frage entsteht — und ist gleich der Schalter.
           </p>

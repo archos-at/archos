@@ -27,48 +27,36 @@ def _normalize_session_collection_name(session_id: str | None) -> str | None:
 
 
 def resolve_base_collection(config: KnowledgeRetrievalConfig) -> str:
-    """The base corpus collection for retrieval, country-profile-aware.
+    """The base corpus collection for retrieval: the configured ``collection_name``.
 
-    Retrieval scope keys off the project country's ``CountryProfile.corpus_collection``
-    rather than a hardcoded name — the RAG-side seam for country expansion. The
-    country is read from the injected project context (``resolve_country``); an
-    unknown country / missing profile falls back to the configured
-    ``collection_name``.
-
-    Behavior-neutral for Austria: its profile's ``corpus_collection`` IS the
-    configured ``oib_knowledge``, so this returns the same name and never logs.
-    A second country ships its own registry file naming its own corpus, and
-    retrieval follows without a config change.
-
-    Fail-open: any lookup problem keeps the configured ``collection_name``.
+    One shared corpus holds every country's texts, each chunk marked with its ``country_id``
+    (ADR-0173); which countries a read may see is the turn's knowledge context, applied as a
+    filter on every read (``vector_store.scope.corpus_country_condition``), never a collection
+    chosen from where the project seems to be.
     """
-    try:
-        from agent.common.country_profile import DEFAULT_COUNTRY
-        from agent.common.country_profile import get_country_profile
-        from agent.common.norm_registry import resolve_country
-        from agent.project_context import get_profile_context_from_context
-
-        # Precedence: an EXPLICIT non-default config wins (test/bench/dev configs
-        # pointing at e.g. `test_collection` must never be silently re-routed);
-        # the profile only re-routes the default corpus, which is what a real
-        # multi-country deployment runs on.
-        default_profile = get_country_profile(DEFAULT_COUNTRY)
-        default_corpus = default_profile.corpus_collection if default_profile else config.collection_name
-        if config.collection_name != default_corpus:
-            return config.collection_name
-        country = resolve_country(get_profile_context_from_context())
-        profile = get_country_profile(country)
-        if profile is not None and profile.corpus_collection and profile.corpus_collection != config.collection_name:
-            logger.debug(
-                "Retrieval base collection from country profile '%s': %s (config collection_name: %s)",
-                country,
-                profile.corpus_collection,
-                config.collection_name,
-            )
-            return profile.corpus_collection
-    except Exception:  # noqa: BLE001 — profile routing must never break retrieval
-        logger.debug("Country-profile base-collection resolution failed; using configured collection", exc_info=True)
     return config.collection_name
+
+
+def scoped_collections_for_site(
+    config: KnowledgeRetrievalConfig, session_id: str | None, base_collection: str | None = None
+):
+    """The collections to search (:func:`resolve_scoped_collections`), less the base corpus if no country is readable.
+
+    The knowledge context decides (ADR-0173, ADR-0175): the corpus is searched when the read may see any
+    country, and ``corpus_country_condition`` keeps only those countries' chunks. A turn or run that may see
+    none (unplaced, not entitled, unavailable, a run that brought no context, or a signed scope whose base
+    entry lists no countries, ``countries: []``) does not search it. A read nothing scopes by country (a
+    script, or a request the BFF signs without a ``countries`` field: one with no organization) keeps it, and
+    the vector store filters nothing there either (``knowledge_context.corpus_countries``). Possibly empty.
+    """
+    entries = resolve_scoped_collections(config, session_id, base_collection)
+    from agent.common.knowledge_context import base_corpus_readable
+
+    readable = base_corpus_readable()
+    if readable is None or readable:
+        return entries
+    base = base_collection if base_collection is not None else config.collection_name
+    return [entry for entry in entries if _shelf_name(entry) != "base" and entry.collection != base]
 
 
 def resolve_scoped_collections(
@@ -187,9 +175,9 @@ def _resolve_target_collections(
     """Names-only projection of :func:`resolve_scoped_collections`.
 
     Returns:
-        Ordered, de-duplicated list of collection names (never empty).
+        Ordered, de-duplicated list of collection names (empty only for a project the base corpus does not serve).
     """
-    return [entry.collection for entry in resolve_scoped_collections(config, session_id, base_collection)]
+    return [entry.collection for entry in scoped_collections_for_site(config, session_id, base_collection)]
 
 
 #: The ``chunking`` value the base corpus uses for text that is not evidence.

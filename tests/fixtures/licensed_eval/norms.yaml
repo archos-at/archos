@@ -1,0 +1,109 @@
+# The licensed-seam eval (scripts/licensed_eval.py): norm-like documents with tables, and questions
+# whose answers are read off these fixtures, never from a real standard. The documents are WRITTEN
+# FOR THIS EVAL: they look like an ÖNORM page as an office's copy is ingested (clause numbers, a
+# table as Markdown rows, a footnote), and they are no real standard's text.
+#
+# Some cells are unreadable on purpose, the way a scanned table reaches the index: `1?5`, `■■`.
+# A question about such a cell expects the answer to POINT to the place (page, table) and to state
+# no value; `not_values` lists the readings a guess would produce.
+documents:
+  - id: barriers
+    file_name: norm_b_absturzsicherungen.pdf
+    title: "Norm B 4711 Absturzsicherungen (Bürokopie)"
+    page: 12
+    clause: "5.3"
+    quote_max_chars: 500
+    text: |
+      5.3 Mindesthöhen von Absturzsicherungen
+
+      Die Höhe ist lotrecht von der Oberkante der begehbaren Fläche bis zur Oberkante der Absturzsicherung zu messen. Bei Stufen gilt die Vorderkante der Trittstufe als Bezugspunkt.
+
+      Tabelle 3 – Mindesthöhe in Abhängigkeit von der Absturzhöhe
+
+      | Absturzhöhe | Mindesthöhe | Größte Öffnungsweite | Anmerkung |
+      |---|---|---|---|
+      | bis 2,00 m | 90 cm | 12 cm | — |
+      | über 2,00 m bis 12,00 m | 100 cm | 12 cm | a |
+      | über 12,00 m | 1?5 cm | 12 cm | a |
+      | Treppenläufe | 90 cm | 12 cm | b |
+
+      a) In Gebäuden, die überwiegend von Kindern genutzt werden, ist die Mindesthöhe um 10 cm zu erhöhen.
+      b) Gemessen lotrecht über der Stufenvorderkante.
+
+      5.4 Absturzsicherungen dürfen nicht zum Aufsteigen verleiten; waagrechte Füllstäbe sind zwischen 15 cm und 60 cm über der begehbaren Fläche unzulässig.
+  - id: parking
+    file_name: norm_c_stellplaetze.pdf
+    title: "Norm C 2210 Stellplätze und Garagen (Bürokopie)"
+    page: 7
+    clause: "4.2"
+    quote_max_chars: 500
+    text: |
+      4.2 Abmessungen von Stellplätzen
+
+      Die Abmessungen gelten für Stellplätze für Personenkraftwagen. Angrenzende Wände oder Stützen vergrößern die Mindestbreite nach Tabelle 2, Fußnote c.
+
+      Tabelle 2 – Mindestabmessungen von Stellplätzen
+
+      | Typ | Anordnung | Breite | Länge |
+      |---|---|---|---|
+      | A | Senkrechtaufstellung | 2,40 m | 5,00 m |
+      | B | Senkrechtaufstellung, barrierefrei | 3,50 m | 5,00 m |
+      | C | Schrägaufstellung 45° | 2,50 m | ■■ m |
+      | D | Längsaufstellung | 2,00 m | 6,00 m |
+
+      c) Für jede seitlich angrenzende Wand oder Stütze ist die Breite um 0,10 m zu vergrößern.
+
+      4.3 Fahrgassen müssen bei Senkrechtaufstellung mindestens 6,00 m breit sein.
+  - id: escape
+    file_name: kommentar_fluchtwege.pdf
+    title: "Kommentar zu Fluchtwegen, 3. Auflage (Bürokopie)"
+    page: 41
+    clause: "Rz 17"
+    quote_max_chars: 300
+    text: |
+      Rz 17. Die zulässige Fluchtweglänge hängt von der Gebäudeklasse ab. Gemessen wird von jeder Stelle eines Aufenthaltsraums bis zum Ausgang ins Freie oder bis zu einem gesicherten Treppenhaus.
+
+      Übersicht 4 – Größte Fluchtweglänge
+
+      | Gebäudeklasse | Größte Fluchtweglänge | Bei Sprinkleranlage |
+      |---|---|---|
+      | GK 1 und GK 2 | 40 m | 50 m |
+      | GK 3 | 40 m | 60 m |
+      | GK 4 | 35 m | 6? m |
+      | GK 5 | 35 m | 50 m |
+
+      Die Werte der rechten Spalte setzen eine automatische Löschanlage im gesamten Gebäude voraus.
+
+questions:
+  - id: barrier_mid
+    document: barriers
+    question: "Welche Mindesthöhe braucht eine Absturzsicherung bei 8 m Absturzhöhe?"
+    expect: {values: ["100 cm"]}
+  - id: barrier_kindergarten
+    document: barriers
+    question: "Wie hoch muss die Brüstung in einem Kindergarten bei 5 m Absturzhöhe mindestens sein?"
+    expect: {values: ["110 cm"]}
+  - id: barrier_unreadable
+    document: barriers
+    question: "Welche Mindesthöhe gilt bei einer Absturzhöhe von 20 m?"
+    expect: {points_to: {page: 12, label: "Tabelle 3"}, not_values: ["105 cm", "115 cm", "125 cm", "100 cm"]}
+  - id: barrier_opening
+    document: barriers
+    question: "Wie groß darf die Öffnung zwischen den Stäben eines Geländers höchstens sein?"
+    expect: {values: ["12 cm"]}
+  - id: parking_accessible
+    document: parking
+    question: "Wie breit muss ein barrierefreier Stellplatz bei Senkrechtaufstellung sein, wenn auf einer Seite eine Wand angrenzt?"
+    expect: {values: ["3,60 m"]}
+  - id: parking_unreadable
+    document: parking
+    question: "Wie lang muss ein Stellplatz bei Schrägaufstellung 45° sein?"
+    expect: {points_to: {page: 7, label: "Tabelle 2"}, not_values: ["5,00 m", "5,50 m", "5,20 m", "4,50 m"]}
+  - id: escape_gk3
+    document: escape
+    question: "Wie lang darf der Fluchtweg in einem Gebäude der GK 3 mit Sprinkleranlage höchstens sein?"
+    expect: {values: ["60 m"]}
+  - id: escape_unreadable
+    document: escape
+    question: "Welche Fluchtweglänge gilt in GK 4 mit Sprinkleranlage?"
+    expect: {points_to: {page: 41, label: "Übersicht 4"}, not_values: ["60 m", "65 m", "50 m", "45 m"]}

@@ -34,7 +34,10 @@ export function FilePreviewBody({ controller }: { controller: FilePreviewControl
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col overscroll-contain',
-            peeking || reader ? 'overflow-hidden' : '@2xl:flex-row @2xl:overflow-hidden overflow-y-auto'
+            peeking || reader ? 'overflow-hidden' : '@2xl:flex-row @2xl:overflow-hidden overflow-y-auto',
+            // The desk under both columns: the rail's foot fades by a mask (`scroll-fade-bottom`), which shows what lies
+            // under it, and that was the dialog's white sheet, a white band at the rail's foot.
+            !peeking && !reader && 'bg-desk'
           )}
         >
         <FilePreviewDocumentPanel controller={controller} />

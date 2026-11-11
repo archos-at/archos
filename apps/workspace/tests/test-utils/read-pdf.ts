@@ -23,6 +23,12 @@ export interface PdfContents {
   info: Record<string, unknown>
   pageCount: number
   /**
+   * The catalog's XMP metadata stream, as pdf.js parsed it: property names
+   * lower-cased with their prefix (`iptc4xmpext:digitalsourcetype`). Empty
+   * when the file has no `/Metadata` stream.
+   */
+  xmp: Record<string, unknown>
+  /**
    * Every page's text, in reading order, whitespace-normalised.
    *
    * Normalised because pdf.js reports one item per laid-out LINE (and one per
@@ -54,7 +60,10 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfContents> {
   // document proxy does not (pdf.js 6). Holding it is the difference between a
   // spec file that finishes and one that leaves a worker alive per assertion.
   const task = pdfjs.getDocument({
-    data: bytes,
+    // A copy: pdf.js transfers the buffer it is given to its worker, which
+    // leaves the caller's array empty, and a spec that then asserts on the
+    // same bytes (a byte scan for a marking) fails on a file that is fine.
+    data: bytes.slice(),
     // No system font probing: a test process has no font book, and asking for
     // one turns a parse into a filesystem sweep.
     useSystemFonts: false,
@@ -85,11 +94,12 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfContents> {
       pages.push(items.map((item) => item.str).join(' '))
     }
 
-    const { info } = await document.getMetadata()
+    const { info, metadata } = await document.getMetadata()
 
     if (!isRecord(info)) throw new Error('the PDF carries no information dictionary')
 
-    return { info, pageCount, text: normalizePdfText(pages.join(' ')) }
+    const xmp = Object.fromEntries(metadata ? [...metadata] : [])
+    return { info, pageCount, xmp, text: normalizePdfText(pages.join(' ')) }
   } finally {
     await task.destroy()
   }
