@@ -533,7 +533,7 @@ async function runView(run: TaskRun): Promise<RunView> {
  * project is every member's, steering somebody else's run is not. Returns the
  * run, found in the project.
  */
-async function requireRunActor(
+export async function requireRunActor(
   session: AuthorizedSession,
   projectId: string,
   runId: string,

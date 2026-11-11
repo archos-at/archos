@@ -452,6 +452,34 @@ Born as `created`. Final: `failed`, `cancelled`, `interrupted`.
 | `waiting` | `cancel` | `cancelled` |
 | `done` | `salvage` | `interrupted` |
 
+## run-input-request
+
+A question a run asks a person: open until a person answers or declines it, the run ends, or its deadline passes. The first final word stands.
+
+Stored in `run_input_requests.status`. Declared in [`bff/runs/input-request-types.ts`](../../apps/workspace/bff/runs/input-request-types.ts).
+
+```mermaid
+stateDiagram-v2
+  [*] --> open
+  open --> answered: answer
+  open --> declined: decline
+  open --> cancelled: cancel
+  open --> expired: expire
+  answered --> [*]
+  declined --> [*]
+  cancelled --> [*]
+  expired --> [*]
+```
+
+Born as `open`. Final: `answered`, `declined`, `cancelled`, `expired`.
+
+| From | Move | To |
+|---|---|---|
+| `open` | `answer` | `answered` |
+| `open` | `decline` | `declined` |
+| `open` | `cancel` | `cancelled` |
+| `open` | `expire` | `expired` |
+
 ## deletion
 
 A queued deletion of a project, folder or chat: waiting out its grace period, claimed by the purger or by a request, then purged, restored or failed.

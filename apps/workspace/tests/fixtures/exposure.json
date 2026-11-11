@@ -2461,6 +2461,26 @@
    "withheld": null,
    "reason": null
   },
+  "task-run-input-request-list": {
+   "kind": "catalog",
+   "domain": "tasks",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "task-run-input-request-resolve": {
+   "kind": "catalog",
+   "domain": "tasks",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "the person decides a proposal, or undoes a change, on its own card; the agent never decides it for them"
+  },
   "task-run-review": {
    "kind": "catalog",
    "domain": "tasks",

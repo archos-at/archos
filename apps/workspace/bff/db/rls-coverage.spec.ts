@@ -259,6 +259,10 @@ const BOUNDARY_MIGRATIONS = [
   // Adds personal_memory (ADR-0180), keyed to the person as user_preferences
   // is: `organization_id = current_org() AND user_id = current_user_id()`.
   '0229_personal_memory.sql',
+  // Adds run_input_requests (ADR-0181): a run's question to a person and the
+  // answer. Keyed by its organization AND the run's, and held to the run's
+  // project, so a row cannot be planted on another tenant's or project's run.
+  '0234_run_input_requests.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

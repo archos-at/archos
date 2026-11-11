@@ -16,6 +16,7 @@ import { DOCUMENT_VERSION_LIFECYCLE } from '@/lib/documents/version-lifecycle'
 import { BIM_MODEL_LIFECYCLE } from '@/lib/bim/types'
 import { DELETION_LIFECYCLE } from '@/lib/db/schema/deletion-queue'
 import { ROOT_SORT_LIFECYCLE } from '@/lib/filing/root-sort-types'
+import { INPUT_REQUEST_LIFECYCLE } from '@/lib/runs/input-request-types'
 import { RUN_LEDGER_LIFECYCLE } from '@/lib/runs/run-ledger-types'
 import { TASK_RUN_LIFECYCLE } from '@/lib/tasks/task-vocabulary'
 import { PROJECT_LIFECYCLE } from '@/lib/projects/project-status'
@@ -92,6 +93,12 @@ export const LIFECYCLES: readonly RegisteredLifecycle[] = [
     what: 'What a reader sees of a research run in the thread. An ended ledger stays ended; a run settled as done may still be marked interrupted when the worker says it was cut short.',
     where: 'bff/runs/run-ledger-types.ts',
     column: 'messages.metadata.run_ledger.status',
+  },
+  {
+    lifecycle: INPUT_REQUEST_LIFECYCLE,
+    what: 'A question a run asks a person: open until a person answers or declines it, the run ends, or its deadline passes. The first final word stands.',
+    where: 'bff/runs/input-request-types.ts',
+    column: 'run_input_requests.status',
   },
   {
     lifecycle: DELETION_LIFECYCLE,
