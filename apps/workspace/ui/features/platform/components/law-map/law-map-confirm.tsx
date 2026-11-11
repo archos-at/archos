@@ -3,10 +3,11 @@
 /**
  * The yes or no under an opened row: one review verdict on every claim the
  * unit holds, sent through the existing review route (`POST …/review`) in
- * calls of at most 500. Four eyes is the server's: an author's verdict is
- * refused unless the deployment runs one operator alone, and the refusal is
- * shown as "waits for a second person". A page nobody fetched needs the
- * reviewer's own check first.
+ * calls of at most 500. Four eyes is the server's: an author of any revision
+ * in the request has their verdicts refused unless the deployment runs one
+ * operator alone, and that refusal reads "waits for a second person". A page
+ * or text nobody fetched is shown here, and only its records carry the
+ * reviewer's source check.
  */
 
 import type { JSX } from 'react'
@@ -28,12 +29,13 @@ async function refusal(response: Response): Promise<string> {
 
 export interface ConfirmContext {
   requestId: string
-  /** Verdicts are taken while the request is submitted. */
+  /** Verdicts are taken here while the request is submitted. */
   open: boolean
   canReview: boolean
-  me: string | null
-  /** Read the request again, then open what comes next. */
-  onDone: () => void
+  /** The viewer wrote a revision anywhere in the request: the server refuses their verdicts unless one operator runs alone. */
+  authored: boolean
+  /** Read the request again; `advance` also opens what comes next. */
+  onDone: (advance: boolean) => void
 }
 
 export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: ConfirmContext; yes: string }): JSX.Element | null {
@@ -44,35 +46,59 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
   const [waits, setWaits] = useState(false)
   if (unit.review === 'accepted') return <p className="text-success text-sm">{t('review.accepted')}</p>
   if (!context.canReview || !context.open) return <p className="text-muted-foreground text-xs">{t(context.open ? 'cannotReview' : 'notSubmitted')}</p>
+  if (waits) return <p className="text-muted-foreground text-sm">{t('waitsForSecond')}</p>
+  const needsCheck = unit.uncheckedRevisionIds.length > 0
 
   const send = async (decision: 'accepted' | 'rejected', note?: string): Promise<void> => {
     setBusy(true)
+    let saved = 0
     try {
-      for (const call of verdictCalls(unit, decision, { note, sourceChecked: decision === 'accepted' && unit.needsSourceCheck })) {
+      const calls = verdictCalls(unit, decision, { note, sourceChecked: checked })
+      for (const call of calls) {
         const response = await fetch(`${BASE}/${context.requestId}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(call) })
-        if (response.status === 409 && context.me && unit.authors.includes(context.me)) return setWaits(true)
-        if (!response.ok) {
-          toast.error(t('failed', { reason: await refusal(response) }))
+        if (response.status === 409 && context.authored && saved === 0) {
+          setWaits(true)
           return
         }
+        if (!response.ok) {
+          toast.error(t(saved > 0 ? 'partlySaved' : 'failed', { reason: await refusal(response) }))
+          // A refusal may mean the request moved on (approved, rejected): read it again either way.
+          context.onDone(false)
+          return
+        }
+        saved += 1
       }
       toast.success(t(decision === 'accepted' ? 'confirmed' : 'sentBack'))
       setWrong(null)
-      context.onDone()
+      context.onDone(true)
     } finally {
       setBusy(false)
     }
   }
 
-  if (waits) return <p className="text-muted-foreground text-sm">{t('waitsForSecond')}</p>
-  const mine = Boolean(context.me && unit.authors.includes(context.me))
   return (
     <div className="flex flex-col gap-3">
-      {unit.needsSourceCheck ? (
-        <label className="flex items-start gap-2 text-sm">
-          <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} aria-label={t('sourceCheck')} />
-          <span>{t('sourceCheck')}</span>
-        </label>
+      {needsCheck ? (
+        <div className="flex flex-col gap-2 text-sm">
+          <ul className="text-muted-foreground flex flex-col gap-1 text-xs">
+            {unit.uncheckedSources.map((source) => (
+              <li key={`${source.url}|${source.quote ?? ''}`} className="break-words">
+                {/^https?:\/\//.test(source.url) ? (
+                  <a href={source.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    {source.url}
+                  </a>
+                ) : (
+                  source.url
+                )}
+                {source.quote ? <q className="ml-1">{source.quote}</q> : null}
+              </li>
+            ))}
+          </ul>
+          <label className="flex items-start gap-2">
+            <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} />
+            <span>{t('sourceCheck')}</span>
+          </label>
+        </div>
       ) : null}
       {wrong !== null ? (
         <div className="flex flex-col gap-2">
@@ -81,20 +107,20 @@ export function ConfirmBar({ unit, context, yes }: { unit: ReviewUnit; context: 
             <Button size="sm" variant="outline" disabled={busy || wrong.trim().length === 0} onClick={() => void send('rejected', wrong.trim())}>
               {t('sendBack')}
             </Button>
-            <button type="button" className="text-muted-foreground text-sm underline underline-offset-2" onClick={() => setWrong(null)}>
+            <Button size="sm" variant="link" disabled={busy} onClick={() => setWrong(null)}>
               {t('cancel')}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" disabled={busy || (unit.needsSourceCheck && !checked)} onClick={() => void send('accepted')} data-testid={`confirm-${unit.key}`}>
+          <Button size="sm" disabled={busy || (needsCheck && !checked)} onClick={() => void send('accepted')} data-testid={`confirm-${unit.key}`}>
             {yes}
           </Button>
-          <button type="button" className="text-muted-foreground text-sm underline underline-offset-2" onClick={() => setWrong('')} disabled={busy}>
+          <Button size="sm" variant="link" disabled={busy} onClick={() => setWrong('')}>
             {t('somethingWrong')}
-          </button>
-          {mine ? <span className="text-muted-foreground text-xs">{t('youWroteThis')}</span> : null}
+          </Button>
+          {context.authored ? <span className="text-muted-foreground text-xs">{t('youWroteThis')}</span> : null}
         </div>
       )}
     </div>

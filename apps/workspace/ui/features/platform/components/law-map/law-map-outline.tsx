@@ -46,7 +46,7 @@ interface Outline {
 }
 
 /** A unit's row marks: a dot while it waits for a verdict, a check once confirmed. */
-const marks = (unit: ReviewUnit | undefined) => ({ attention: unit ? unit.review !== 'accepted' : false, confirmed: unit?.review === 'accepted' })
+const marks = (unit: ReviewUnit | undefined) => ({ attention: unit?.review === 'open', confirmed: unit?.review === 'accepted' })
 
 function Decide({ o, unitKey, yes }: { o: Outline; unitKey: string; yes: string }): JSX.Element | null {
   const unit = o.units.get(unitKey)
@@ -120,10 +120,9 @@ function Openable({ o, id, row, children }: { o: Outline; id: string; row: (open
 }
 
 /** A region's own law: its building acts, then the acts that make editions binding there, each unfolding in place. */
-function OwnLaw({ o, territoryId, statements }: { o: Outline; territoryId: string; statements: LawMapStatement[] }): JSX.Element {
+function OwnLaw({ o, statutes, statements }: { o: Outline; statutes: LawMap['statutes']; statements: LawMapStatement[] }): JSX.Element {
   const { map, t } = o
   const date = useDate()
-  const statutes = map.statutes.filter((statute) => statute.territoryId === territoryId)
   return (
     <>
       {statutes.map((statute) => (
@@ -158,6 +157,30 @@ function OwnLaw({ o, territoryId, statements }: { o: Outline; territoryId: strin
 }
 
 const byStart = (a: LawMapStatement, b: LawMapStatement): number => (a.validFrom ?? '').localeCompare(b.validFrom ?? '')
+const statutesOn = (map: LawMap, territoryId: string) => map.statutes.filter((statute) => statute.territoryId === territoryId)
+const statementsOn = (map: LawMap, territoryId: string) => map.statements.filter((statement) => statement.territoryId === territoryId).sort(byStart)
+
+/** The areas below a region that make law of their own, each with it: nothing under a region is left unreachable. */
+function BelowRegion({ o, territoryId }: { o: Outline; territoryId: string }): JSX.Element | null {
+  const { map, t } = o
+  const territory = map.territories.get(territoryId)
+  if (!territory || territory.children.length === 0) return null
+  const lawful = territory.children.filter((id) => [...under(map, id)].some((one) => statementsOn(map, one).length > 0 || statutesOn(map, one).length > 0))
+  return (
+    <>
+      <OutlineRow size="sm" muted name={t('below', { count: territory.children.length })} value={lawful.length === 0 ? t('sameAs', { territory: territory.name }) : t('ownLaw', { count: lawful.length })} />
+      {lawful.map((id) => (
+        <div key={id}>
+          <OutlineRow size="sm" name={map.territories.get(id)?.name ?? id} />
+          <Branch>
+            <OwnLaw o={o} statutes={statutesOn(map, id)} statements={statementsOn(map, id)} />
+            <BelowRegion o={o} territoryId={id} />
+          </Branch>
+        </div>
+      ))}
+    </>
+  )
+}
 
 /** Every territory id at and below one, in the tree the map holds. */
 function under(map: LawMap, id: string): Set<string> {
@@ -171,13 +194,20 @@ function under(map: LawMap, id: string): Set<string> {
 }
 
 /** The branches a unit sits in, so opening it from "next" also shows it. */
+/** The regions the outline lists: the root's children, or the topmost territories when the request holds no root. */
+export function regionsOf(map: LawMap): string[] {
+  const root = map.territories.get(map.rootIds[0] ?? '')
+  return root ? root.children : map.rootIds
+}
+
 export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
-  if (unit.kind === 'statement') {
-    const statement = map.statements.find((one) => one.key === unit.key)
-    const region = [...map.territories.values()].find((territory) => statement && under(map, territory.id).has(statement.territoryId) && map.rootIds.some((root) => map.territories.get(root)?.children.includes(territory.id)))
-    return [region?.id ?? 'unplaced']
+  const regionFor = (territoryId: string): string[] => {
+    if (territoryId === map.rootIds[0] && map.territories.has(territoryId)) return []
+    const region = regionsOf(map).find((id) => under(map, id).has(territoryId))
+    return [region ?? 'unplaced']
   }
-  if (unit.kind === 'statute') return map.statutes.filter((statute) => `statute:${statute.workId}` === unit.key).map((statute) => statute.territoryId)
+  if (unit.kind === 'statement') return regionFor(map.statements.find((one) => one.key === unit.key)?.territoryId ?? '')
+  if (unit.kind === 'statute') return regionFor(map.statutes.find((statute) => `statute:${statute.workId}` === unit.key)?.territoryId ?? '')
   if (unit.kind === 'series') return ['works']
   if (unit.kind === 'edition') return ['works', `work:${map.editions.get(unit.key.slice('edition:'.length))?.workId ?? ''}`]
   if (unit.kind === 'record') return ['others']
@@ -201,12 +231,11 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
 
   const rootId = map.rootIds[0] ?? ''
   const root = map.territories.get(rootId)
-  const regions = root ? root.children : map.rootIds
-  const shown = new Set([...(root ? [rootId] : []), ...regions])
-  const placed = new Set(regions.flatMap((id) => [...under(map, id)]))
-  // A statement on no territory this request holds (its act is in another request): shown, never dropped.
-  const unplaced = map.statements.filter((statement) => !placed.has(statement.territoryId) && !shown.has(statement.territoryId)).sort(byStart)
-  const rootStatements = root ? map.statements.filter((statement) => statement.territoryId === rootId).sort(byStart) : []
+  const regions = regionsOf(map)
+  const placed = new Set([...(root ? [rootId] : []), ...regions.flatMap((id) => [...under(map, id)])])
+  // Law on no territory this request holds (its act is in another request): shown, never dropped.
+  const unplaced = map.statements.filter((statement) => !placed.has(statement.territoryId)).sort(byStart)
+  const unplacedStatutes = map.statutes.filter((statute) => !placed.has(statute.territoryId))
   const others = [...units.values()].filter((unit) => unit.kind === 'record')
   const regionsUnit = units.get('regions')
 
@@ -220,16 +249,15 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
       </Openable>
       <p className="text-muted-foreground mb-5 max-w-prose text-sm">{t('lead')}</p>
       <Branch>
-        {root ? <OwnLaw o={o} territoryId={rootId} statements={rootStatements} /> : null}
+        {root ? <OwnLaw o={o} statutes={statutesOn(map, rootId)} statements={statementsOn(map, rootId)} /> : null}
         {regions.map((id) => {
           const territory = map.territories.get(id)
           const now = summaryOn(map, id, today)
           const coming = nextChange(map, id, today)
           const comingSummary = coming ? summaryOf(statementEditions(map, coming)) : null
-          const statements = map.statements.filter((statement) => statement.territoryId === id).sort(byStart)
-          const below = map.statements.filter((statement) => statement.territoryId !== id && under(map, id).has(statement.territoryId))
-          const statutes = map.statutes.filter((statute) => statute.territoryId === id)
-          const waiting = [...statements, ...below].some((statement) => units.get(statement.key)?.review !== 'accepted') || statutes.some((statute) => units.get(`statute:${statute.workId}`)?.review !== 'accepted')
+          const statements = statementsOn(map, id)
+          const inside = under(map, id)
+          const waiting = map.statements.some((statement) => inside.has(statement.territoryId) && units.get(statement.key)?.review === 'open') || map.statutes.some((statute) => inside.has(statute.territoryId) && units.get(`statute:${statute.workId}`)?.review === 'open')
           return (
             <div key={id}>
               <OutlineRow
@@ -245,28 +273,26 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
               {expanded.has(id) ? (
                 <Branch>
                   {statements.length === 0 ? <p className="text-muted-foreground py-2.5 text-sm">{t('noActs')}</p> : null}
-                  <OwnLaw o={o} territoryId={id} statements={statements} />
-                  {territory && territory.children.length > 0 ? (
-                    <OutlineRow size="sm" muted name={t('below', { count: territory.children.length })} value={below.length === 0 ? t('sameAs', { territory: territory.name }) : t('ownActs', { count: below.length })} />
-                  ) : null}
+                  <OwnLaw o={o} statutes={statutesOn(map, id)} statements={statements} />
+                  <BelowRegion o={o} territoryId={id} />
                 </Branch>
               ) : null}
             </div>
           )
         })}
-        {unplaced.length > 0 ? (
+        {unplaced.length + unplacedStatutes.length > 0 ? (
           <div>
-            <OutlineRow name={t('unplaced')} value={t('ownActs', { count: unplaced.length })} attention={unplaced.some((statement) => units.get(statement.key)?.review !== 'accepted')} expanded={expanded.has('unplaced')} onClick={() => toggle('unplaced')} testId="unplaced" />
+            <OutlineRow name={t('unplaced')} value={t('ownActs', { count: unplaced.length + unplacedStatutes.length })} attention={unplaced.some((statement) => units.get(statement.key)?.review === 'open')} expanded={expanded.has('unplaced')} onClick={() => toggle('unplaced')} testId="unplaced" />
             {expanded.has('unplaced') ? (
               <Branch>
-                <OwnLaw o={o} territoryId="" statements={unplaced} />
+                <OwnLaw o={o} statutes={unplacedStatutes} statements={unplaced} />
               </Branch>
             ) : null}
           </div>
         ) : null}
         {map.topics.length > 0 ? (
           <div className="mt-5">
-            <OutlineRow name={t('works')} meta={t('worksMeta')} value={t('series', { count: map.topics.length })} attention={[...units.values()].some((unit) => (unit.kind === 'series' || unit.kind === 'edition') && unit.review !== 'accepted')} expanded={expanded.has('works')} onClick={() => toggle('works')} testId="works" />
+            <OutlineRow name={t('works')} meta={t('worksMeta')} value={t('series', { count: map.topics.length })} attention={[...units.values()].some((unit) => (unit.kind === 'series' || unit.kind === 'edition') && unit.review === 'open')} expanded={expanded.has('works')} onClick={() => toggle('works')} testId="works" />
             {expanded.has('works') ? (
               <Branch>
                 {map.topics.map((topic) => {
@@ -275,7 +301,7 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
                   const series = units.get(`series:${topic.workId}`)
                   return (
                     <div key={topic.workId}>
-                      <OutlineRow size="sm" name={topic.designation} meta={topic.title} value={t('editions', { count: editions.length })} attention={[series, ...editions.map((edition) => units.get(`edition:${edition.id}`))].some((unit) => unit && unit.review !== 'accepted')} expanded={expanded.has(key)} onClick={() => toggle(key)} />
+                      <OutlineRow size="sm" name={topic.designation} meta={topic.title} value={t('editions', { count: editions.length })} attention={[series, ...editions.map((edition) => units.get(`edition:${edition.id}`))].some((unit) => unit?.review === 'open')} expanded={expanded.has(key)} onClick={() => toggle(key)} />
                       {expanded.has(key) ? (
                         <Branch>
                           {series ? (
@@ -301,7 +327,7 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
         ) : null}
         {others.length > 0 ? (
           <div className="mt-5">
-            <OutlineRow name={t('others')} value={t('records', { count: others.length })} attention={others.some((unit) => unit.review !== 'accepted')} expanded={expanded.has('others')} onClick={() => toggle('others')} testId="others" />
+            <OutlineRow name={t('others')} value={t('records', { count: others.length })} attention={others.some((unit) => unit.review === 'open')} expanded={expanded.has('others')} onClick={() => toggle('others')} testId="others" />
             {expanded.has('others') ? (
               <Branch>
                 {others.map((unit) => (

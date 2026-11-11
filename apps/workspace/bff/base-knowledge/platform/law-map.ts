@@ -112,7 +112,8 @@ export function reviewOf(revisions: readonly RevisionView[]): ReviewState {
   const decisions = revisions.flatMap((revision) => revision.claims.map((claim) => claim.decision))
   if (decisions.some((decision) => decision === 'rejected')) return 'rejected'
   // An edited claim is not confirmed: it blocks approval and goes into a follow-up request (`decide.ts`).
-  if (decisions.length > 0 && decisions.every((decision) => decision === 'accepted')) return 'accepted'
+  // A record with no stated claim has nothing to decide.
+  if (decisions.every((decision) => decision === 'accepted')) return 'accepted'
   return 'open'
 }
 

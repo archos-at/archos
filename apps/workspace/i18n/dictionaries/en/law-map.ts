@@ -58,9 +58,12 @@ export const lawMap = {
   youWroteThis: 'You wrote this. Unless this deployment runs one operator alone, a second person confirms it.',
   waitsForSecond: 'You wrote this, so it waits for a second person.',
   cannotReview: 'Only a reviewer confirms here.',
-  notSubmitted: 'Confirm once the request is submitted for review.',
+  notSubmitted: 'Confirm in the change request: this request is not taken for review here (not submitted, or awaiting a second review).',
   confirmed: 'Confirmed.',
   sentBack: 'Sent back with your note.',
   failed: 'Not saved: {reason}',
+  partlySaved: 'Only part was saved before this refusal: {reason}',
+  ownLaw: '{count, plural, one {# with law of its own} other {# with law of their own}}',
+  sourcesUnchecked: 'Every claim is confirmed, but a pasted page or an uploaded text still needs a person’s check against its source.',
   openRequest: 'Open the change request',
 }

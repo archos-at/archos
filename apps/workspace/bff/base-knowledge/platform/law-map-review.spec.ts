@@ -62,17 +62,20 @@ describe('reviewUnitsOf', () => {
     expect(units.at(-1)?.label).toBe('How long may an escape route be?')
   })
 
-  it('knows who wrote a unit and when its source needs a person’s check', () => {
+  it('knows who wrote a unit and which of its records needs a person’s source check', () => {
     expect(units[0]?.authors).toEqual(['user_b', 'user_a'])
-    expect(units[0]?.needsSourceCheck).toBe(true)
-    expect(units[1]?.needsSourceCheck).toBe(false)
+    expect(units[0]?.uncheckedRevisionIds).toEqual([REVISIONS[7]?.revisionId])
+    expect(units[0]?.uncheckedSources).toEqual([{ url: 'https://gazette.xa.example/1', quote: 'the words on the page' }])
+    expect(units[1]?.uncheckedRevisionIds).toEqual([])
   })
 
   it('sends one verdict per claim not yet carrying it, at most a call’s worth at a time', () => {
     const calls = verdictCalls(units[0]!, 'accepted', { sourceChecked: true })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.decisions).toHaveLength(9)
-    expect(calls[0]?.decisions.every((one) => one.decision === 'accepted' && one.sourceChecked)).toBe(true)
+    // The relation's six claims carry the check; the act it names, fetched by nobody's paste, does not.
+    expect(calls[0]?.decisions.filter((one) => one.sourceChecked).map((one) => one.revisionId)).toEqual(Array(6).fill(REVISIONS[7]?.revisionId))
+    expect(verdictCalls(units[0]!, 'rejected', { note: 'no', sourceChecked: true })[0]?.decisions.some((one) => one.sourceChecked)).toBe(false)
     const big = { ...units[0]!, revisions: [{ ...REVISIONS[0]!, claims: Array.from({ length: VERDICTS_PER_CALL + 1 }, (_, index) => ({ path: `p${index}`, value: index, decision: null })) }] }
     expect(verdictCalls(big, 'rejected', { note: 'wrong date' }).map((call) => call.decisions.length)).toEqual([VERDICTS_PER_CALL, 1])
   })

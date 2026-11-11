@@ -58,9 +58,12 @@ export const lawMap = {
   youWroteThis: 'Sie haben das eingetragen. Außer wenn hier ein einzelner Betreiber arbeitet, bestätigt es eine zweite Person.',
   waitsForSecond: 'Sie haben das eingetragen, daher wartet es auf eine zweite Person.',
   cannotReview: 'Nur wer prüft, bestätigt hier.',
-  notSubmitted: 'Bestätigen Sie, sobald der Antrag zur Prüfung eingereicht ist.',
+  notSubmitted: 'Bestätigen Sie im Änderungsantrag: Dieser Antrag wird hier nicht geprüft (nicht eingereicht, oder er wartet auf eine zweite Prüfung).',
   confirmed: 'Bestätigt.',
   sentBack: 'Mit Ihrer Notiz zurückgeschickt.',
   failed: 'Nicht gespeichert: {reason}',
+  partlySaved: 'Vor dieser Ablehnung wurde nur ein Teil gespeichert: {reason}',
+  ownLaw: '{count, plural, one {# mit eigenem Recht} other {# mit eigenem Recht}}',
+  sourcesUnchecked: 'Jede Aussage ist bestätigt, aber eine eingefügte Seite oder ein hochgeladener Text muss noch von einer Person mit der Quelle verglichen werden.',
   openRequest: 'Änderungsantrag öffnen',
 }

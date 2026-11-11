@@ -80,7 +80,8 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
   }
 
   const view = request.load.value
-  const waiting = units.filter((unit) => unit.review !== 'accepted')
+  // What waits for a verdict; a unit sent back waits for its proposer, not for this reviewer.
+  const waiting = units.filter((unit) => unit.review === 'open')
   const reviewable = view.status === 'submitted'
   // "Next" opens what waits and the branches it sits in, then brings it into view.
   const goTo = (key: string): void => {
@@ -94,9 +95,11 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     requestId: view.id,
     open: reviewable,
     canReview,
-    me: user?.id ?? null,
-    onDone: () => {
+    // As the server decides it (0208, 0218): an author of any revision in the request.
+    authored: Boolean(user?.id) && view.revisions.some((revision) => revision.createdBy === user?.id),
+    onDone: (advance: boolean) => {
       request.reload()
+      if (!advance) return
       const next = waiting.find((unit) => unit.key !== open)
       if (next) goTo(next.key)
       else setOpen(null)
@@ -113,7 +116,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
             </Button>
           ) : (
             <span>
-              {t('allConfirmed')}{' '}
+              {view.sourcesUnchecked ? t('sourcesUnchecked') : t('allConfirmed')}{' '}
               <Link href={`${countryHref}?section=review&request=${view.id}`} className="underline underline-offset-2">
                 {t('approveThere')}
               </Link>
@@ -121,7 +124,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
           )}
         </div>
       ) : null}
-      {map.territories.size === 0 && map.statements.length === 0 ? (
+      {units.length === 0 ? (
         <EmptyState icon={MapIcon} title={t('title')} description={t('empty')} />
       ) : (
         <LawMapOutline map={map} units={new Map(units.map((unit) => [unit.key, unit]))} confirm={confirm} today={today} rootName={name} expanded={expanded} toggle={toggle} open={open} setOpen={setOpen} />
