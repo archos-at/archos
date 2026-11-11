@@ -207,7 +207,7 @@ describe("four-eyes review of platform knowledge", () => {
   it("is never switched off by the prod stack", () => {
     const prod = stacks().find((stack) => stack.file === "Pulumi.prod.yaml");
     expect(prod, "Pulumi.prod.yaml").toBeDefined();
-    const value = prod?.config["grid-oib:knowledgeSingleOperator"];
+    const value = prod?.config[`${LEGACY_PROJECT}:knowledgeSingleOperator`];
     expect(value === undefined || value === false || value === "false").toBe(true);
   });
 });
