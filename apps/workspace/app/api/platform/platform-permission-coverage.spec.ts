@@ -74,6 +74,11 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/publish/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/rollback/route.ts POST': 'knowledgeReview',
   'knowledge/change-requests/[changeRequestId]/index-status/route.ts GET': 'settingsView',
+  // A golden run asks as the operator and spends the platform organization's budget: the drafting permission.
+  // Reading a run is a read like the change requests'.
+  'knowledge/golden-runs/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/advance/route.ts POST': 'knowledgeWrite',
+  'knowledge/golden-runs/[runId]/route.ts GET': 'settingsView',
   // Which countries an office is entitled to, and its seat: an organization's platform settings.
   'organizations/[organizationId]/countries/route.ts POST': 'organizationsManage',
   'organizations/countries/route.ts GET': 'organizationsView',

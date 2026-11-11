@@ -59,6 +59,8 @@ function sourcesOf(
         documentId: document.id,
         name: document.title,
         ...(locus.page !== undefined && { page: locus.page }),
+        ...(locus.clause !== undefined && { clause: locus.clause }),
+        kind: document.kind,
         url: outbound ?? `${base}&${CITATION_PARAM}=${encodeCitationLink({ document, locus })}`,
       })
     }

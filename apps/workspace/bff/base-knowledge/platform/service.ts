@@ -18,7 +18,7 @@
  * `platform:knowledge:approve_alone` approves their own request with a reason.
  * The request is marked `single`, and another person's second review stays due.
  * On a deployment set to one operator alone (dev, `./single-operator.ts`) the
- * author's own verdicts count and no second review is due (migration 0228).
+ * author's own verdicts count and no second review is due (migration 0229).
  */
 
 import 'server-only'

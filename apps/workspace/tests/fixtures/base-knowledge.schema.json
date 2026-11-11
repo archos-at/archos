@@ -13,7 +13,8 @@
         "territory",
         "authority",
         "relation",
-        "source"
+        "source",
+        "golden_case"
       ]
     },
     "knowledge_work_revisions.kind": {

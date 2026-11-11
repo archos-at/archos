@@ -1,4 +1,4 @@
--- Reverse 0228. ORDER: roll the frontend back first, or unset
+-- Reverse 0229. ORDER: roll the frontend back first, or unset
 -- KNOWLEDGE_SINGLE_OPERATOR: this build sets `knowledge.single_operator`, and
 -- the functions it restores no longer read it, so four eyes holds again on
 -- every deployment.

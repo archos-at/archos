@@ -6,7 +6,7 @@
  *
  * This is the one place the BFF reads it. `platformTransaction` (`./store.ts`)
  * hands it to the database as the transaction-local `knowledge.single_operator`,
- * and the triggers of migration 0228 read it there: the author's own verdicts,
+ * and the triggers of migration 0229 read it there: the author's own verdicts,
  * `sourceChecked` included, then count, and an override approval is marked
  * `single` with no second review left due. The override, its reason, the
  * person's own yes and the audit event stay as they are. Unset (prod, and the

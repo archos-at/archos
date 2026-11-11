@@ -1109,9 +1109,11 @@ The text parsers in `citations/text_parsers.py`
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
 `apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
-`Citation:` line in carries no sources at all; the generic URL extractor beneath
-them reads the tools with no registered parser (web search), never a passage
-body. Nothing reads a FAILED call either: both capture loops skip a
+`Citation:` line in carries no sources at all. A web search is read by its
+result records (`citations/web_results.py`: one `<Document href>` header per
+hit, never an address inside a page's text, and no address `common/url_safety.py`
+refuses); the generic URL extractor beneath them reads only the tools with no
+registered parser, never a passage body. Nothing reads a FAILED call either: both capture loops skip a
 `ToolMessage` whose `status` is `error`, so the words a tool failure returns are
 the model's to act on and nobody's evidence. The contract test asserts the
 two readers produce the same entries

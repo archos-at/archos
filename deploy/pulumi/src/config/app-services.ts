@@ -51,7 +51,7 @@ export interface AuthConfig {
   allowAgentOrgMemory: boolean;
   /**
    * One operator reviews, approves and publishes a platform change request
-   * alone (`KNOWLEDGE_SINGLE_OPERATOR`, migration 0228). The owner's decision
+   * alone (`KNOWLEDGE_SINGLE_OPERATOR`, migration 0229). The owner's decision
    * of 2026-11-11: dev only. Prod keeps four eyes, so it never sets the key.
    */
   knowledgeSingleOperator: boolean;

@@ -408,3 +408,100 @@ path twice in a ZIP; a name of the attached-text form with other bytes).
 bytes and their read both come from the fetcher, without a fetcher nothing
 is fetched, parsed or kept, and a text is kept under the name of its bytes
 and never replaced).
+
+## Amendment (2026-11-11): golden cases are records, and the golden run scores them
+
+**The problem.** The original decision left golden runs "for the slice that
+brings them", and no slice did. What stood in their place was a scorecard of
+twenty Austrian questions that recorded seconds, the model's own confidence and
+a source count, with no expected value. It called four answers "high" whose own
+reason named an open point (B1, B9, B10 and B11 of the before-baseline in
+[`quality-and-cost.md`](../design/international/quality-and-cost.md)), and a
+second country had no way to say what a right answer there is. "Better than
+before" could not be measured.
+
+**The decision.** A country's quality bar is data, in the same records and the
+same review as its law.
+
+- **`golden_case` is a platform record type** (migration 0228, body
+  `knowledge_golden_case_revisions`). One case is one question, the `context`
+  it needs (the site's territory, project facts by fact key, a reference day),
+  what a right answer says (`expected.values`, `expected.edition` with its role,
+  `expected.citations` with designation and locus), what it must not do
+  (`mustNot`: a phrase in the answer or in the reason of its confidence,
+  optionally only at a confidence level or only while the site's records are
+  unpublished; or a cited source of a kind) and tags. The schema names no
+  country: every word of a law or a language is a value in the record. The kit
+  holds a case to an edition and a territory that exist and to at least one
+  thing an answer can be held to (KC-1), and to a captured quote like any
+  record (KC-6).
+- **Every expectation says where it was taken from** (`grounding`: `records`,
+  `text` or `unconfirmed`). An unconfirmed expectation is scored and shown and
+  never decides a case, so a proposer never has to invent a value to fill the
+  schema; the reviewer confirms or rewrites it.
+- **`platform-knowledge-golden-run` asks through the real answer path.** Each
+  case is an ask (`askAgent`, ADR-0124): the headless turn an outside agent's
+  `agent-ask-create` runs, as the operator, in the platform organization, on its
+  budget, traced in Langfuse like any turn. The turn's context is resolved for
+  the site the case states, and the case's facts stand where a project's would
+  (`bff/base-knowledge/golden/turn.ts`); only a conversation a run asked in is
+  read that way, and only in the platform organization, so an office's turn
+  pays nothing. A run steps (`-golden-run-advance`), four cases at once, the
+  load the before-baseline was measured under.
+- **A case is scored by what the reader got**: each expected value present, the
+  edition named, each citation resolving to a cited source and its locus, no
+  must-not violated; with the server seconds of the ask and the turn's cost from
+  the usage ledger. The verdicts are kept (`knowledge_golden_run_cases`) and
+  written as Langfuse scores on the answer's trace, under a dataset run of the
+  dataset `golden-cases`. The score names are declared in
+  `agent.observability.golden_scores`, with the six citation scores the review
+  names: three the run writes today on golden cases (`edition-named`,
+  `claim-citation-resolves`, `law-cited-from-web`), three declared with no
+  writer until a citation carries its edition and role
+  (`citation-role-resolved`, `edition-agrees`, `binding-claim-without-records`).
+- **The answer suite reads the same cases** (`--set golden --cases <file>`,
+  `scripts/turn_census/golden_eval.py`), so a prompt or model change is held to
+  every country's bar. Its scorer mirrors the door's; one fixture of recorded
+  answers holds both to the same verdicts.
+
+**Considered and not chosen.** Scoring on the api tier behind a route, so that
+one implementation serves both the door and the suite: the door's run would
+then need a second tier to answer before it could keep a verdict, for forty
+lines of string matching. The mirror is held by the parity fixture instead. A
+case as a ruleset payload: a case is no rule over facts, and a type of its own
+gives the reviewer its claims by name.
+
+**Not built here, and why.**
+
+- **A release gate.** A publish does not wait for a run. A run answers on the
+  law released to stable, because no turn reads a preview (above, "a head column
+  per channel"); a gate that refused a stable publish would have to answer on
+  law that is not released yet. `changeRequestId` therefore chooses whose
+  *cases* run, never whose law. The gate comes with a preview a turn can read.
+- **Role and edition on a citation.** The run reads the edition from the prose
+  and the cited source's name. Holding a citation to the edition it was read
+  as needs the hit to carry it.
+- **Released cases as the suite's input.** The suite runs with no stack, so it
+  reads the cases from a file in the records format, today the pack an operator
+  proposes from. Reading a release needs the door to export one (the pack export
+  the country-as-data review asks for), and until then a case edited in review
+  is edited in the file too.
+- **Meaning.** A phrase is found or it is not. Whether a sentence that names an
+  edition says it binds is a judge's question (`edition_eval.py` asks one); the
+  golden scorer asks none, so a must-not is as sharp as the phrase its reviewer
+  accepted.
+
+**Confirmation.** `bff/base-knowledge/golden/score.spec.ts` (the scorer; the
+seed cases against the Austria pack; the recorded before-baseline, where B1,
+B9, B10 and B11 fail on `confident-despite-open-point`),
+`tests/test_golden_eval.py` (the mirror, on the same fixture),
+`golden/golden-run.integration.spec.ts` under `task db:test:rls` (a case
+released and run, the conversation carrying the case's site, cost from the
+ledger, preview, entitlement, a tenant reading nothing) and the 0228 block of
+`scripts/rls-test-db.sh`.
+
+**Austria's first cases** are `configs/knowledge-packs/at-golden-cases.json`:
+the 20 scorecard questions and the dev-acceptance scenarios A1 to A8, proposed
+by an operator once the Austria pack is published. 25 of their 66 expectations
+are `unconfirmed`: the values that sit in RIS paragraphs or OIB texts this
+repository holds no copy of.

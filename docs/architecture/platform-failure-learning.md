@@ -188,6 +188,13 @@ automatic; the supervision is a held-back state, not a required click):
 - the active set is hard-capped (20 lessons / 1600-char digest — a prompt
   budget, paid on every turn of every tenant). Past the cap the
   least-recently-reported lesson is auto-retired (`evicted_capacity`).
+  Precisely: the active set is ordered by `last_reported_at`, then
+  `report_count`, and the tail beyond 20 is retired, each with its own event.
+  An automatic promotion competes like any lesson. An operator's activation
+  does not: the activation, the eviction and their event rows are one
+  transaction (`activateLessonWithCapacity`), the lesson activated by that
+  request is never the one evicted, the stalest OTHER lesson gives way, and
+  the response is the row as stored. The rule is `selectCapacityEvictions`.
 - **candidates expire too** (45 days without a repeat report, or beyond a cap
   of 40 — `candidate_expired`, reversible, evented). Without this, flagged
   singletons nobody reviews would accumulate, crowd the bounded matcher

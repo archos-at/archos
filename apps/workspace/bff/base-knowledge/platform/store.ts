@@ -53,7 +53,7 @@ export const MAX_CHANGE_REQUESTS = 200
 /** Run `fn` in one transaction as the platform role. */
 /**
  * Every change request read and write runs here. On a deployment set to one operator alone (`./single-operator.ts`)
- * the transaction tells the triggers so (migration 0228); otherwise it sets nothing.
+ * the transaction tells the triggers so (migration 0229); otherwise it sets nothing.
  */
 export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!singleOperator()) return withPlatformAccess(REASON, () => getDb().transaction(fn))
@@ -471,7 +471,7 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
 const SOURCE_UNCHECKED_FOUR_EYES =
   'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source (uploaded, only named in the base corpus, or fetched through a source that is still in a draft or that one person released alone), and nobody but its author has checked it against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import, both through a built-in source or a released source another person approved.'
 
-/** On one operator's deployment the author's own source check counts (migration 0228), so the way out is theirs. */
+/** On one operator's deployment the author's own source check counts (migration 0229), so the way out is theirs. */
 const SOURCE_UNCHECKED_SINGLE_OPERATOR =
   'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source, and nobody has checked it against its source. This deployment lets one operator work alone: check the source yourself, mark sourceChecked on your verdicts with platform-knowledge-change-request-review, then approve with an override.'
 

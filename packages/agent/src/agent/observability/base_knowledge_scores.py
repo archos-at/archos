@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from .golden_scores import GOLDEN_SCORE_DEFINITIONS
+from .law_source_scores import LAW_SOURCE_SCORE_DEFINITIONS
 from .onboarding_scores import ONBOARDING_SCORE_DEFINITIONS
 from .score_definition import ScoreDefinition
 
@@ -26,6 +28,10 @@ BASE_KNOWLEDGE_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
     ),
     # The country onboarding tooling's (ADR-0174): the platform's base knowledge, kept in its own module.
     *ONBOARDING_SCORE_DEFINITIONS,
+    # A country's quality bar (ADR-0165 amendment): the golden run's scores and the six citation scores.
+    *GOLDEN_SCORE_DEFINITIONS,
+    # Whether law was cited from its own source (the web screen and the binding-claim check).
+    *LAW_SOURCE_SCORE_DEFINITIONS,
 )
 
 

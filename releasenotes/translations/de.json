@@ -808,6 +808,10 @@
     "de": "Ein Schnitt, eine Treppe, ein Fluchtweg oder eine Strecke wird aus den Werten gezeichnet, die Piloti liest, sodass Zeichnung und Zahlen aus derselben Quelle stammen."
   },
   {
+    "en": "A shared conversation you have left is no longer marked as read afterwards.",
+    "de": "Eine geteilte Konversation, die Sie verlassen haben, wird danach nicht mehr als gelesen markiert."
+  },
+  {
     "en": "A sheet that mixes a floor plan, a section, a chart and a photo has each part recognised and read on its own terms. Values read off a chart are stored with their meaning.",
     "de": "Ein Blatt, das Grundriss, Schnitt, Diagramm und Foto mischt, wird Teil für Teil erkannt und passend ausgewertet. Abgelesene Diagrammwerte werden mit ihrer Bedeutung gespeichert."
   },
@@ -850,6 +854,10 @@
   {
     "en": "A subfolder can only narrow what its parent allows, and someone who may only read a folder sees it marked „Nur lesen“, without upload, rename, move or delete. Only a project admin who may edit a folder can change who may read or edit it.",
     "de": "Ein Unterordner kann nur einschränken, was sein übergeordneter Ordner erlaubt, und wer einen Ordner nur lesen darf, sieht ihn als „Nur lesen“ markiert, ohne Hochladen, Umbenennen, Verschieben oder Löschen. Nur ein Projekt-Admin, der einen Ordner bearbeiten darf, kann ändern, wer ihn lesen oder bearbeiten darf."
+  },
+  {
+    "en": "A suggested change that could not be loaded recovers by itself when the connection returns or you come back to the tab, and no longer offers Apply and Discard beside the message that it could not be loaded.",
+    "de": "Ein Änderungsvorschlag, der nicht geladen werden konnte, wird automatisch wiederhergestellt, sobald die Verbindung wieder besteht oder Sie zum Tab zurückkehren. Neben der Meldung, dass er nicht geladen werden konnte, werden Apply und Discard nicht mehr angeboten."
   },
   {
     "en": "A suggested change to a project's facts is shown field by field, as Vorher and Nachher, so you see what would change before you accept it.",
@@ -1234,6 +1242,10 @@
   {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a law from a website that only republishes it, or from a page served without encryption: the text is read from the official legal database or the knowledge base. An answer that still rests on a web page for a rule gets a lower confidence.",
+    "de": "Antworten zitieren Gesetze nicht mehr von Websites, die diese lediglich wiederveröffentlichen, oder von unverschlüsselten Seiten: Der Text stammt aus der offiziellen Rechtsdatenbank oder der Wissensdatenbank. Antworten, die sich weiterhin bei einer Regel auf eine Webseite stützen, erhalten eine niedrigere Konfidenz."
   },
   {
     "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
@@ -2726,6 +2738,10 @@
   {
     "en": "Opening a file on a phone shows its name again. In the file preview, long filenames and the „Von Piloti erstellt\" line were being squeezed out by the row of buttons beside them.",
     "de": "Beim Öffnen einer Datei am Smartphone wird ihr Name wieder angezeigt. In der Dateivorschau werden lange Dateinamen und die Zeile „Von Piloti erstellt“ von der danebenliegenden Button-Reihe verdrängt."
+  },
+  {
+    "en": "Opening a file whose preview cannot be loaded now says so and offers to try again, instead of showing the picture of the file opened before.",
+    "de": "Kann die Vorschau einer geöffneten Datei nicht geladen werden, wird dies jetzt angezeigt und Sie können es erneut versuchen, statt das Bild der zuvor geöffneten Datei zu sehen."
   },
   {
     "en": "Opening a menu or panel with a click no longer pops up the hint of its first help icon, as the Aufwand dial and the project choice in the chat input did. Hints now appear on hover, and when you reach them with the Tab key.",
@@ -4638,6 +4654,10 @@
   {
     "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
     "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+  },
+  {
+    "en": "When a chat was deleted, the stored record of how its answers were produced could stay behind if removing it kept failing. It is now removed automatically and the deletion is recorded as complete.",
+    "de": "Wurde ein Chat gelöscht, konnte die gespeicherte Dokumentation dazu, wie seine Antworten zustande kamen, zurückbleiben, wenn das Entfernen wiederholt fehlschlug. Sie wird jetzt automatisch entfernt und die Löschung als abgeschlossen vermerkt."
   },
   {
     "en": "When a colleague answers or closes many of your Anmerkungen at once, your devices get one notification that counts them, such as „15 Neuigkeiten zu Anmerkungen“, instead of one per Anmerkung. The Postfach still lists each.",

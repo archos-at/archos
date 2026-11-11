@@ -202,6 +202,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/project-profile/profile-bindings.integration.spec.ts \
     bff/compliance/legal-hold.integration.spec.ts \
     bff/conversations/erasure-queue.integration.spec.ts \
+    bff/scheduling/conversation-trace-erasure.integration.spec.ts \
     bff/conversations/restricted-use.integration.spec.ts \
     bff/feedback/restricted-feedback.integration.spec.ts \
     bff/tasks/subject-access.integration.spec.ts \
@@ -308,7 +309,8 @@ TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
     bff/jobs-queue/orchestrator.integration.spec.ts \
     bff/scheduling/repository.integration.spec.ts \
     bff/base-knowledge/chain/chain.integration.spec.ts \
-    bff/base-knowledge/store/visibility.integration.spec.ts
+    bff/base-knowledge/store/visibility.integration.spec.ts \
+    bff/base-knowledge/golden/golden-run.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -4100,31 +4102,74 @@ SQL
 apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
 check_in dq_0227 "SELECT status || '/' || attempts FROM deletion_queue WHERE entity_id = 'f-c-failed'" "pending/9" "0227 applies again after its down, repairing a row stranded meanwhile"
 echo "==> 0227 pending deletions keep an attempt and its down migration verified"
+# 0228: golden cases as records, and golden runs (ADR-0165 amendment). What the
+# service does is golden-run.integration.spec.ts (registered above); here, what
+# the database itself holds: a golden case is a platform record whose body is
+# never rewritten; a run's case is asked before it is settled, a settled one
+# has a verdict with its result or a failure and never both, and one
+# conversation answers one case. The down drops it all, and 0228 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0228 golden cases and its down migration on gc_0228"
+migrate_until gc_0228 0228_golden_cases
+CR="c0000000-0000-4000-8000-000000000228"
+RV="e0000000-0000-4000-8000-000000000228"
+RUN_ID="a0000000-0000-4000-8000-000000000228"
+ASK="b0000000-0000-4000-8000-000000000228"
+sql_in gc_0228 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('golden_case:xa-stair', NULL, 'golden_case', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$RV', 'golden_case:xa-stair', 'golden_case', NULL, 'user_author', '$CR');
+INSERT INTO knowledge_golden_case_revisions (revision_id, record_id, organization_id, question, language, context, expected, must_not, tags)
+  VALUES ('$RV', 'golden_case:xa-stair', NULL, 'How long may the escape route be?', 'en', '{}', '{"values": []}', '[]', '{fixture}');
+INSERT INTO knowledge_golden_runs (id, country_id, asked_in, started_by) VALUES ('$RUN_ID', 'XA', 'org_platform', 'user_author');
+INSERT INTO knowledge_golden_run_cases (run_id, record_id, revision_id, position) VALUES ('$RUN_ID', 'golden_case:xa-stair', '$RV', 0);
+SQL
+refused_in gc_0228 "INSERT INTO knowledge_records (id, organization_id, type, created_by) VALUES ('golden_case:office', 'org_a', 'golden_case', 'user_a')" "knowledge_records_platform_types" "an office owning a golden case"
+refused_in gc_0228 "UPDATE knowledge_golden_case_revisions SET question = 'Another question?'" "append-only" "a golden case's question rewritten"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET ask_id = '$ASK' WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_asked" "a case asked with no conversation"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = true WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_settled" "a verdict with no result"
+refused_in gc_0228 "UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = false, result = '{}', failure = 'failed: no answer' WHERE run_id = '$RUN_ID'" "knowledge_golden_run_cases_settled" "a verdict and a failure at once"
+sql_in gc_0228 <<SQL
+UPDATE knowledge_golden_run_cases SET ask_id = '$ASK', conversation_id = 's_golden_0228', asked_at = now() WHERE run_id = '$RUN_ID';
+INSERT INTO knowledge_golden_runs (id, country_id, asked_in, started_by) VALUES ('a1000000-0000-4000-8000-000000000228', 'XA', 'org_platform', 'user_author');
+SQL
+refused_in gc_0228 "INSERT INTO knowledge_golden_run_cases (run_id, record_id, revision_id, position, ask_id, conversation_id, asked_at) VALUES ('a1000000-0000-4000-8000-000000000228', 'golden_case:xa-stair', '$RV', 0, gen_random_uuid(), 's_golden_0228', now())" "knowledge_golden_run_cases_conversation" "a second case in one conversation"
+sql_in gc_0228 <<SQL
+UPDATE knowledge_golden_run_cases SET settled_at = now(), passed = true, result = '{"checks": []}' WHERE run_id = '$RUN_ID';
+SQL
+check_in gc_0228 "SELECT count(*) FROM knowledge_golden_run_cases WHERE passed" "1" "0228: a case asked, then settled with its verdict"
+apply_in gc_0228 0228_golden_cases.down.sql
+check_in gc_0228 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_golden_%'" "0" "0228 down drops the golden tables"
+check_in gc_0228 "SELECT count(*) FROM knowledge_records WHERE type = 'golden_case'" "0" "0228 down drops the golden cases"
+apply_in gc_0228 0228_golden_cases.sql
+check_in gc_0228 "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'knowledge_golden_%'" "3" "0228 applies again after its down"
+echo "==> 0228 golden cases and its down migration verified"
 # ---------------------------------------------------------------------------
 # 0228: one operator alone, on a deployment that says so. Without the setting a
 # request is never single without its second review, by update or insert; with
 # it (the dev stack's BFF sets it per transaction) it is. The down hands such a
 # request its second review back and restores 0214's CHECK; 0228 applies again.
 # ---------------------------------------------------------------------------
-echo "==> verifying 0228 one operator alone and its down migration on so_0228"
-migrate_before so_0228 0228_knowledge_single_operator
+echo "==> verifying 0228 one operator alone and its down migration on so_0229"
+migrate_before so_0229 0229_knowledge_single_operator
 SO_0228=c0000000-0000-4000-8000-000000000228
-sql_in so_0228 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$SO_0228', 'dev alone', 'AT', 'user_author');"
-apply_in so_0228 0228_knowledge_single_operator.sql
-apply_in so_0228 0228_knowledge_single_operator.sql   # up twice: idempotent, the trigger included
-check_in so_0228 "SELECT knowledge_single_operator()" "f" "0228: off unless the transaction says so"
-refused_in so_0228 "UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228'" "owes a second review" "a request made single without its second review"
-refused_in so_0228 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, approval) VALUES (gen_random_uuid(), 'born single', 'AT', 'user_author', 'single')" "owes a second review" "a request inserted single without its second review"
-sql_in so_0228 <<SQL
+sql_in so_0229 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$SO_0228', 'dev alone', 'AT', 'user_author');"
+apply_in so_0229 0229_knowledge_single_operator.sql
+apply_in so_0229 0229_knowledge_single_operator.sql   # up twice: idempotent, the trigger included
+check_in so_0229 "SELECT knowledge_single_operator()" "f" "0228: off unless the transaction says so"
+refused_in so_0229 "UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228'" "owes a second review" "a request made single without its second review"
+refused_in so_0229 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, approval) VALUES (gen_random_uuid(), 'born single', 'AT', 'user_author', 'single')" "owes a second review" "a request inserted single without its second review"
+sql_in so_0229 <<SQL
 BEGIN;
 SELECT set_config('knowledge.single_operator', 'on', true);
 UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228';
 COMMIT;
 SQL
-check_in so_0228 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/-" "0228: one operator's request is single and owes nothing"
-apply_in so_0228 0228_knowledge_single_operator.down.sql
-check_in so_0228 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/due" "0228 down: the request owes its second review again"
-check_in so_0228 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single_operator'" "0" "0228 down drops the setting's reader"
-apply_in so_0228 0228_knowledge_single_operator.sql
-check_in so_0228 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
+check_in so_0229 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/-" "0228: one operator's request is single and owes nothing"
+apply_in so_0229 0229_knowledge_single_operator.down.sql
+check_in so_0229 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/due" "0228 down: the request owes its second review again"
+check_in so_0229 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single_operator'" "0" "0228 down drops the setting's reader"
+apply_in so_0229 0229_knowledge_single_operator.sql
+check_in so_0229 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
 echo "==> 0228 one operator alone and its down migration verified"

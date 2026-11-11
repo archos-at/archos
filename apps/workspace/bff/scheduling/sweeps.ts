@@ -31,6 +31,7 @@ import {
   readTraceRetentionDays,
 } from '../../workers/langfuse-traces.js'
 import {
+  conversationExists,
   conversationIsHeld,
   findConversationsAwaitingTraceErasure,
   markConversationTracesErased,
@@ -152,11 +153,15 @@ const CONVERSATION_TRACES_PER_RUN = 100
 const CONVERSATION_TRACES_BUDGET_MS = 120_000
 
 /**
- * Erase the Langfuse traces of the chats the BFF erased in the delete request,
- * which the purger never sees (`findConversationsAwaitingTraceErasure`: erased
- * within 35 days, at least 15 minutes ago, not stamped, not under a legal
- * hold). The hold is asked again right before each deletion, and each erased
- * chat is stamped so it is done once. Not configured is a no-op.
+ * Erase the Langfuse traces of the chats that are erased and still have them
+ * (`findConversationsAwaitingTraceErasure`: erased within 35 days, at least 15
+ * minutes ago, not stamped, not under a legal hold). That is a chat the BFF
+ * erased in the delete request, which the purger never sees, and a chat whose
+ * queue row ended `failed` after the chat itself was erased: the purger's trace
+ * step failed on every attempt, and nothing else would go back for them. The
+ * hold is asked again right before each deletion, and for a `failed` row so is
+ * whether the chat is really gone; each erased chat is stamped so it is done
+ * once, and such a `failed` row is closed `purged`. Not configured is a no-op.
  */
 export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const { config } = readLangfuseConfig(env)
@@ -168,6 +173,7 @@ export async function sweepConversationTraces(env: NodeJS.ProcessEnv = process.e
   for (const row of await findConversationsAwaitingTraceErasure(db, CONVERSATION_TRACES_PER_RUN)) {
     if (Date.now() - started >= CONVERSATION_TRACES_BUDGET_MS) break
     if (await conversationIsHeld(db, row)) continue
+    if (row.status === 'failed' && (await conversationExists(db, row))) continue
     await eraseSessionTraces(client, row.entity_id)
     await markConversationTracesErased(db, row.id)
     erased += 1

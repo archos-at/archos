@@ -209,7 +209,6 @@
   "packages/agent/src/agent/common/retrieval_settings.py": 4,
   "packages/agent/src/agent/common/source_kinds.py": 2,
   "packages/agent/src/agent/common/tool_calls.py": 2,
-  "packages/agent/src/agent/common/web_sources.py": 5,
   "packages/agent/src/agent/corpus_store.py": 1,
   "packages/agent/src/agent/corpus_tables.py": 2,
   "packages/agent/src/agent/drawings/site_ops.py": 1,
