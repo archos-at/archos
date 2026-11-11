@@ -137,6 +137,11 @@ function onSite(host: string | null, sites: ReadonlySet<string>): boolean {
   })
 }
 
+/** Where a work is published: its identifiers' addresses first, then the pages its own record cites. */
+function actUrls(body: Body, revision: RevisionView, captures: ReadonlyMap<string, CaptureView>): string[] {
+  return [...identifierUrls(body), ...revision.citations.map((citation) => citedUrl(citation, captures)).filter((url): url is string => url !== null)]
+}
+
 /** Every http(s) address among a work's identifiers (its ELI, a database link). */
 function identifierUrls(body: Body): string[] {
   const identifiers = body.identifiers
@@ -230,10 +235,11 @@ function sourcesOf(revision: RevisionView, captures: ReadonlyMap<string, Capture
 function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, captures: ReadonlyMap<string, CaptureView>): LawMapStatement[] {
   const relations = revisions.filter((revision) => revision.type === 'relation').map((revision) => ({ revision, body: bodyOfRevision(revision) }))
   const primaryHosts = new Map<string, Set<string>>()
-  for (const { body } of indexed.works.values()) {
+  for (const { body, revision } of indexed.works.values()) {
     // A region's legal database is where its acts are published; a guideline's or a standard's publisher is not it.
     if (!LEGAL_ACT_KINDS.has(text(body.kind) ?? '')) continue
-    const hosts = identifierUrls(body).map(hostOf).filter((host): host is string => host !== null)
+    // Where an act is published: its identifiers' addresses, and the pages its own record cites (an act may name only its designation).
+    const hosts = actUrls(body, revision, captures).map(hostOf).filter((host): host is string => host !== null)
     for (const territoryId of (body.territoryIds as string[] | undefined) ?? []) {
       const known = primaryHosts.get(territoryId) ?? new Set<string>()
       hosts.forEach((host) => known.add(host))
@@ -315,7 +321,7 @@ export function lawMapOf(countryId: string, revisions: readonly RevisionView[], 
         territoryId,
         title: text(body.title) ?? revision.recordId,
         designation: designationOf(body, revision.recordId),
-        url: identifierUrls(body)[0] ?? null,
+        url: actUrls(body, revision, captureById)[0] ?? null,
         review: reviewOf([revision]),
       })),
     )
