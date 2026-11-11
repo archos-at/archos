@@ -17,8 +17,15 @@ also drops the client tool ``show_in_viewer``). Not counted: the six file
 verbs a turn with a working directory adds (~1.7k), and the chat binding's
 small rewrites of two descriptions.
 
+Measured 2026-11-11 after the tool descriptions lost what they said twice
+(``ifc_measure``, ``ifc_query``, ``remember``): the tools 19,844 (20,897
+before), the three model tools 8,628 of them, and 10,736 in a project without
+a model; the system prompt 8,052.
+
 The ceilings are a ratchet: a change that grows the prefix past one fails here
-and has to say why in the same change; one that shrinks it lowers them.
+and has to say why in the same change; one that shrinks it lowers them. A
+tool ceiling sits roughly 450 to 500 tokens above its measurement,
+the margin the first measurement set: 20,418 under 20,900.
 """
 
 from __future__ import annotations
@@ -37,9 +44,9 @@ from agent.agents.piloti import turn_tools
 from agent.common.prompt_store import PromptStore
 
 SYSTEM_CEILING = 8_300
-TOOLS_CEILING = 20_900
+TOOLS_CEILING = 20_300
 #: Inside a project that holds neither an IFC nor a DXF.
-TOOLS_WITHOUT_A_MODEL_CEILING = 11_300
+TOOLS_WITHOUT_A_MODEL_CEILING = 11_200
 
 _ENCODING = tiktoken.get_encoding("o200k_base")
 

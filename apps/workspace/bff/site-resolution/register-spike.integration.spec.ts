@@ -55,7 +55,9 @@ describe.skipIf(!url || !archivePath)('the 200-address spike', () => {
     service = await import('./service')
     const { readBevArchive } = await import('./bev-archive')
     const { importRelease } = await import('./import')
-    const { BEV_ADDRESS_REGISTER } = await import('./registers')
+    const { AT_FACT_DEFINITIONS_VALUES, BEV_ADDRESS_REGISTER } = await import('@/lib/project-intake/at-setup.fixtures')
+    const { insertOfficeRuleset } = await import('@/lib/base-knowledge/store/rulesets')
+    await insertOfficeRuleset(ORG, AT_FACT_DEFINITIONS_VALUES, { createdBy: 'user_spike', provenance: { proposedBy: 'person' }, inForce: true })
     const { bevAttribution } = await import('./bev')
     const scope = (await import('../../workers/platform-scope.js')).default
     raw = (await import('postgres')).default(url!, { max: 2 })

@@ -234,6 +234,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/agent-api/operation-proposals.integration.spec.ts \
     bff/agent-api/read-gate.integration.spec.ts \
     bff/project-intake/repository.integration.spec.ts \
+    bff/project-intake/setup-records.integration.spec.ts \
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
@@ -4269,10 +4270,10 @@ check_in pm_0232 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_me
 apply_in pm_0232 0232_personal_memory_content_key.sql
 check_in pm_0232 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0232' AND content_key IS NOT NULL" "2" "0232 applies again after its down, and every note has a key"
 echo "==> 0232 content key and its down migration verified"
-# 0228: one operator alone, on a deployment that says so. Without the setting a
+# 0233: one operator alone, on a deployment that says so. Without the setting a
 # request is never single without its second review, by update or insert; with
 # it (the dev stack's BFF sets it per transaction) it is. The down hands such a
-# request its second review back and restores 0214's CHECK; 0228 applies again.
+# request its second review back and restores 0214's CHECK; 0233 applies again.
 # ---------------------------------------------------------------------------
 echo "==> verifying 0233 one operator alone and its down migration on so_0233"
 migrate_before so_0233 0233_knowledge_single_operator
@@ -4296,3 +4297,30 @@ check_in so_0233 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single
 apply_in so_0233 0233_knowledge_single_operator.sql
 check_in so_0233 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
 echo "==> 0233 one operator alone and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0234: a country's citation style is a ruleset of the purpose
+# `citation_style` (`citation_style.v1`). The payload serves that purpose and no
+# other. The down deletes the records that held one, by cascade (revisions are
+# append-only), and 0234 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0234 citation style and its down migration on cs_0234"
+migrate_until cs_0234 0234_citation_style_rulesets
+apply_in cs_0234 0234_citation_style_rulesets.sql   # up twice: idempotent
+CS_CR="c0000000-0000-4000-8000-000000000234"
+CS_RV="e0000000-0000-4000-8000-000000000234"
+sql_in cs_0234 <<SQL
+INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$CS_CR', 'XA', 'XA', 'user_author');
+INSERT INTO knowledge_records (id, organization_id, type, country_id, created_by) VALUES ('ruleset:xa-citation-style', NULL, 'ruleset', 'XA', 'user_author');
+INSERT INTO knowledge_revisions (revision_id, record_id, record_type, organization_id, created_by, change_request_id)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', 'ruleset', NULL, 'user_author', '$CS_CR');
+INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload)
+  VALUES ('$CS_RV', 'ruleset:xa-citation-style', NULL, 'citation_style', '{XA}', '2026-01-01', 'citation_style.v1', '{"styles": []}');
+SQL
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from, payload_schema, payload) VALUES (gen_random_uuid(), 'ruleset:xa-citation-style', NULL, 'terminology', '{XA}', '2026-01-01', 'citation_style.v1', '{}')" "knowledge_ruleset_revisions_citation_style_purpose" "a citation style under another purpose"
+apply_in cs_0234 0234_citation_style_rulesets.down.sql
+check_in cs_0234 "SELECT count(*) FROM knowledge_records WHERE id = 'ruleset:xa-citation-style'" "0" "0234 down drops the record that held a citation style"
+refused_in cs_0234 "INSERT INTO knowledge_ruleset_revisions (revision_id, record_id, organization_id, purpose, territory_ids, valid_from) VALUES (gen_random_uuid(), 'ruleset:none', NULL, 'citation_style', '{XA}', '2026-01-01')" "knowledge_ruleset_revisions_purpose_known" "the citation_style purpose after the down"
+apply_in cs_0234 0234_citation_style_rulesets.sql
+check_in cs_0234 "SELECT count(*) FROM pg_constraint WHERE conname = 'knowledge_ruleset_revisions_citation_style_purpose'" "1" "0234 applies again after its down"
+echo "==> 0234 citation style and its down migration verified"

@@ -15,6 +15,7 @@ import {
 } from './needs'
 import { needSchema, type Need } from './types'
 import { BUILDING_CLASS_INPUTS } from './derivations.oracle'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const at = '2026-10-14T08:00:00.000Z'
 
@@ -42,7 +43,7 @@ function profileWith(
   return profile
 }
 
-const active: ComputeNeedsOptions = { mode: 'active', dismissed: [] }
+const active: ComputeNeedsOptions = { mode: 'active', dismissed: [], records: AT_SETUP_RECORDS }
 
 function needs(profile: ProjectProfile, options: Partial<ComputeNeedsOptions> = {}): Need[] {
   return computeNeeds(profile, projectIntakeDefinitionV1, { ...active, ...options })

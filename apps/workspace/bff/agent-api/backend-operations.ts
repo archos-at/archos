@@ -285,7 +285,6 @@ export const ENGLISH_GLOSSES: readonly (readonly [RegExp, string])[] = [
   [/the lateral Verschwenkung/g, 'the lateral swivel'],
   [/a lichte Breite/g, 'a clear width'],
   [/a lichte Höhe/g, 'a clear height'],
-  [/an Achsabstand/g, 'a centre-to-centre distance'],
   [/\(Achsabstand\)/g, '(centre to centre)'],
   [/a Fluchtweglänge/g, 'an escape-route length'],
   [/the NUTZBREITE/g, 'the USABLE WIDTH'],

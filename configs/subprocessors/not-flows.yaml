@@ -142,6 +142,7 @@ packages:
     - 'js:remark-frontmatter'
     - 'js:remark-mdx'
     - 'js:remark-parse'
+    - 'js:safe-regex2'
     - 'js:unified'
     - 'js:@xstate/react'
     - 'js:xstate'

@@ -12,6 +12,13 @@
  *         # parse it, count, change nothing
  *     bun run register:import -- --reference-date 2025-10-01 --download
  *         # the same, fetching the archive from data.bev.gv.at
+ *
+ * What describes the register (its id, rows' municipality and state, postcodes,
+ * download address) is the `addressRegister` block of the country's
+ * `fact_definitions` record, not code: the script reads it from the pack file
+ * the operator proposed (`--pack`, default `configs/knowledge-packs/at-setup.json`).
+ * The BEV file's own format (`bev-archive.ts`) is what this script is code for.
+ *
  *     APP_DATABASE_URL=postgres://app_rw:…@…/app bun run register:import -- --zip … --apply
  *         # write it as a new release and make it the active one
  *
@@ -28,7 +35,8 @@ import postgres from 'postgres'
 import { bevAttribution } from '../bff/site-resolution/bev'
 import { readBevArchive } from '../bff/site-resolution/bev-archive'
 import { DEFAULT_MAX_SHRINK, importRelease, type WithPlatform } from '../bff/site-resolution/import'
-import { BEV_ADDRESS_REGISTER } from '../bff/site-resolution/registers'
+import { registerFromRecord, type AddressRegister } from '../bff/site-resolution/registers'
+import { factDefinitionsSchema } from '../bff/base-knowledge/wire/setup-facts'
 // CommonJS, shared with the purger and the scheduler: the one place the step-up is spelled.
 import platformScope from '../workers/platform-scope.js'
 
@@ -37,16 +45,28 @@ function argument(name: string): string | null {
   return index >= 0 ? (process.argv[index + 1] ?? null) : null
 }
 
+/** The register the pack's `fact_definitions` record describes: the one the BEV importer reads. */
+function registerOfPack(): AddressRegister {
+  const path = argument('--pack') ?? new URL('../../../configs/knowledge-packs/at-setup.json', import.meta.url).pathname
+  const pack = JSON.parse(readFileSync(path, 'utf8')) as { records: Array<{ type: string; values?: { territoryIds: string[]; body: { kind: string; payload: unknown } } }> }
+  for (const record of pack.records) {
+    if (record.type !== 'ruleset' || record.values?.body.kind !== 'fact_definitions') continue
+    const payload = factDefinitionsSchema.parse(record.values.body.payload)
+    if (payload.addressRegister) return registerFromRecord(record.values.territoryIds[0] ?? '', payload.addressRegister)
+  }
+  return fail(`${path} holds no fact_definitions record with an addressRegister.`)
+}
+
 function fail(message: string): never {
   console.error(message)
   process.exit(2)
 }
 
-async function archiveBytes(stated: string | null): Promise<{ bytes: Uint8Array; sourceUrl: string | null }> {
+async function archiveBytes(register: AddressRegister, stated: string | null): Promise<{ bytes: Uint8Array; sourceUrl: string | null }> {
   const zip = argument('--zip')
   if (zip) return { bytes: readFileSync(zip), sourceUrl: null }
   if (!process.argv.includes('--download') || !stated) fail('Give --zip <file>, or --download with --reference-date YYYY-MM-DD.')
-  const url = BEV_ADDRESS_REGISTER.downloadUrl(stated)
+  const url = register.downloadUrl(stated)
   console.log(`Downloading ${url}`)
   const response = await fetch(url)
   if (!response.ok) fail(`The BEV answered ${response.status} for ${url}.`)
@@ -56,7 +76,8 @@ async function archiveBytes(stated: string | null): Promise<{ bytes: Uint8Array;
 async function main(): Promise<void> {
   const stated = argument('--reference-date')
   if (stated && !/^\d{4}-\d{2}-\d{2}$/.test(stated)) fail('--reference-date is YYYY-MM-DD.')
-  const { bytes, sourceUrl } = await archiveBytes(stated)
+  const register = registerOfPack()
+  const { bytes, sourceUrl } = await archiveBytes(register, stated)
   const archive = readBevArchive(bytes)
   if (stated && archive.referenceDate && stated !== archive.referenceDate)
     fail(`--reference-date ${stated}, but the archive says ${archive.referenceDate}.`)
@@ -66,7 +87,7 @@ async function main(): Promise<void> {
     let count = 0
     for (const _ of archive.entries()) count += 1
     console.log(
-      `${BEV_ADDRESS_REGISTER.id} ${referenceDate}: ${count} addresses, ${archive.skipped()} rows skipped, ` +
+      `${register.id} ${referenceDate}: ${count} addresses, ${archive.skipped()} rows skipped, ` +
         `${archive.lookups.municipalities.size} municipalities. Nothing written (--apply writes).`
     )
     return
@@ -83,7 +104,7 @@ async function main(): Promise<void> {
     }) as ReturnType<typeof fn>
   try {
     const result = await importRelease(withPlatform, {
-      register: BEV_ADDRESS_REGISTER,
+      register,
       referenceDate,
       attribution: bevAttribution(referenceDate),
       sourceUrl,
@@ -92,7 +113,7 @@ async function main(): Promise<void> {
       allowOlder: process.argv.includes('--allow-older'),
     })
     console.log(
-      `${BEV_ADDRESS_REGISTER.id} ${referenceDate}: release ${result.releaseId} active with ${result.entryCount} addresses ` +
+      `${register.id} ${referenceDate}: release ${result.releaseId} active with ${result.entryCount} addresses ` +
         `(${archive.skipped()} rows skipped); retired ${result.retiredReleaseIds.length}.`
     )
   } finally {
