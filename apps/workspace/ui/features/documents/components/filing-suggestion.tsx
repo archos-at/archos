@@ -359,7 +359,7 @@ function FilingDecisionBody({
       {decision.mayDecide ? (
         <SuggestionActions>
           <SuggestionButton
-            variant="ghost"
+            variant="secondary"
             loading={decision.busy?.action === 'dismiss'}
             aria-disabled={decision.busy !== null}
             onClick={decision.dismiss}

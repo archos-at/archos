@@ -62,6 +62,19 @@ class SourceRegistry:
         # document's evidence entirely.
         self._citation_key_files: set[tuple[str | None, str, int | None]] = set()
         self._all: list[SourceEntry] = []
+        #: This turn's licensed passages whole, by citation key, for quote verification only (ADR-0164). Held in
+        #: memory for the turn: the session cache stores ``_all``, never this, and the next turn starts it empty.
+        self.licensed_text: dict[str, str] = {}
+
+    def keep_licensed_text(self, key: str, body: str) -> None:
+        """File a licensed passage under its citation key; a page's chunks share one key, so they are joined."""
+        held = self.licensed_text.get(key)
+        self.licensed_text[key] = body if not held else held if body in held else f"{held}\n\n{body}"
+
+    def for_turn(self) -> SourceRegistry:
+        """This registry, for a new turn: licensed text is not carried between turns, not even for verification."""
+        self.licensed_text.clear()
+        return self
 
     @staticmethod
     def _identity(entry: SourceEntry) -> tuple[str | None, str, int | None]:

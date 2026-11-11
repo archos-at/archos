@@ -64,7 +64,7 @@ describe('PATCH /api/skills/[skillId]', () => {
     session.featureFlags = []
     const res = await PATCH(req({ description: 'New.' }), context)
     expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'feature-disabled', feature: 'skills' })
+    expect(await res.json()).toMatchObject({ code: 'feature_disabled', feature: 'skills' })
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 

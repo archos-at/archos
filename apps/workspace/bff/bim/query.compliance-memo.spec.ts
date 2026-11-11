@@ -25,6 +25,13 @@ const repository = vi.hoisted(() => ({
 }))
 vi.mock('./repository', () => repository)
 
+// OIB rules judge only a project placed in Austria (ADR-0169); one in no project gets no verdicts.
+vi.mock('@/lib/projects/repository', async () => {
+  const { placedProfile } = await import('@/lib/project-intake/setup-countries.fixtures')
+  return { findProjectProfileInOrg: vi.fn(async () => ({ profile: placedProfile({ country: 'at' }) })) }
+})
+vi.mock('@/lib/project-intake/repository', () => ({ findProjectIntake: vi.fn(async () => null) }))
+
 const { bimQuerySchema, runBimQuery } = await import('./query')
 
 const MODEL_ID = '11111111-1111-4111-8111-111111111111'
@@ -62,7 +69,7 @@ const SUMMARY = {
 const header = (updatedAt: string): BimModelHeader => ({
   id: MODEL_ID,
   documentId: '22222222-2222-4222-8222-222222222222',
-  projectId: null,
+  projectId: '33333333-3333-4333-8333-333333333333',
   filename: 'haus.ifc',
   displayName: null,
   status: 'ready',

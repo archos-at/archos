@@ -183,6 +183,21 @@ describe('ConfidenceChip for a checked answer (ADR-0139)', () => {
     expect(screen.queryByTestId('confidence-check-findings')).not.toBeInTheDocument()
   })
 
+  test('says when building law the records do not settle capped the level (ADR-0175)', async () => {
+    const user = userEvent.setup()
+    render(
+      <ConfidenceChip
+        confidence="medium"
+        cappedReason="law_unsettled"
+        check={{ status: 'judged', level: 'high', findings: [] }}
+      />
+    )
+
+    await user.hover(screen.getByRole('button'))
+
+    expect((await screen.findAllByText(/Which edition binds at this site is not yet settled/)).length).toBeGreaterThan(0)
+  })
+
   test('an unavailable check shows no level and says the check did not run', async () => {
     const user = userEvent.setup()
     render(<ConfidenceChip confidence={null} check={{ status: 'unavailable', findings: [] }} />)

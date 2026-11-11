@@ -1,4 +1,5 @@
 import { type FC } from 'react'
+import { usePathname } from 'next/navigation'
 import { ShimmerText } from '@/components/ui/shimmer-text'
 import { Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,10 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { researchCopy } from '@/i18n/namespaces/research'
+import { projectIdFromPathname } from '@/components/shell'
+import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
+import { inboundMailPaths } from '@/lib/inbound-mail/paths'
+import { InboundMailWaitingLine } from '@/features/documents'
 import { WELCOME_OFFSET_FALLBACK } from '../../hooks/use-composer-metrics'
 import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
 
@@ -199,6 +204,8 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
   const { user } = useAuth()
   const composerSubject = useChatStore((s) => s.composerSubject)
   const tFiles = useTranslations(filesCopy)
+  const projectId = projectIdFromPathname(usePathname() ?? '')
+  const waitingMail = useInboundMailWaitingShown(inProject ? projectId : null)
 
   if (!isAuthenticated) {
     return (
@@ -272,6 +279,18 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
         <p className="text-muted-foreground mt-3 max-w-md text-center text-sm leading-relaxed">
           {tChat('greeting.projectWrites')}
         </p>
+      )}
+
+      {/* What waits for this reader at the project's start (the UI revision's „what happened since your last
+          visit“, its first line): mail to file, the rail's own number, quiet, and only while something waits. */}
+      {inProject && projectId && (waitingMail.count ?? 0) > 0 && (
+        <div className="mt-4">
+          <InboundMailWaitingLine
+            href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}
+            count={waitingMail.count ?? 0}
+            more={waitingMail.more}
+          />
+        </div>
       )}
     </div>
   )

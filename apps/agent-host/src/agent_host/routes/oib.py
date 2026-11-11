@@ -26,9 +26,9 @@ from agent.knowledge.document_classification import canonical_doc_class
 from agent.oib_status import OibKnowledgeStatus
 
 from ..jobs.ingest_dispatch import enqueue_only
+from ..models.knowledge_mark import OibReingestRequest
 from ..models.requests import OibDocumentDeleteResponse
 from ..models.requests import OibDocumentUploadResponse
-from ..models.requests import OibReingestRequest
 from ..models.requests import OibReingestResponse
 from ..models.requests import OibSyncResponse
 from ..models.requests import OibUploadedMember
@@ -110,7 +110,9 @@ class _TemporaryFileResponse(FileResponse):
 def _run_ingestion():
     from agent.oib_sync import sync
 
-    return sync(enqueue=enqueue_only)
+    from ..jobs.corpus_payloads import mark_corpus_chunks
+
+    return sync(enqueue=enqueue_only, mark_chunks=mark_corpus_chunks)
 
 
 def _compute_status():
@@ -216,14 +218,14 @@ def _extract_zip_pdfs(content: bytes) -> tuple[list[tuple[str, bytes]], list[tup
     return accepted, rejected
 
 
-def _queue_reingest(names: list[str]) -> tuple[list[str], list[str]]:
-    """``(queued, unknown)``: each known name made to need ingestion again, with a job queued for it."""
+def _queue_reingest(names: list[str], marks: dict | None = None) -> tuple[list[str], list[str]]:
+    """``(queued, unknown)``: each known name made to need ingestion again (with its mark), and a job queued for it."""
     from agent import oib_sync
 
     queued: list[str] = []
     unknown: list[str] = []
     for name in names:
-        if not oib_sync.mark_for_reingest(name):
+        if not oib_sync.mark_for_reingest(name, (marks or {}).get(name)):
             unknown.append(name)
             continue
         oib_sync.request_ingestion(name, enqueue=enqueue_only)
@@ -484,7 +486,9 @@ async def reingest_oib_documents(
 
     names = list(dict.fromkeys(request.file_names))
     try:
-        queued, unknown = await asyncio.get_event_loop().run_in_executor(_ADMIN_EXECUTOR, _queue_reingest, names)
+        queued, unknown = await asyncio.get_event_loop().run_in_executor(
+            _ADMIN_EXECUTOR, _queue_reingest, names, request.file_marks()
+        )
     except Exception as e:
         logger.exception("OIB re-ingest could not be queued")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

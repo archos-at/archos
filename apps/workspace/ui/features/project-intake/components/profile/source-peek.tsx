@@ -48,9 +48,11 @@ function OtherSource({ evidence, more }: { evidence: Exclude<ProfileEvidence, Do
   const [Icon, text, title] =
     evidence.kind === 'geocoder'
       ? [MapPin, t('source.geocoder'), evidence.label]
-      : evidence.kind === 'derivation'
-        ? [Calculator, t('source.derivation'), evidence.citation]
-        : [UserRound, t('source.person'), undefined]
+      : evidence.kind === 'register'
+        ? [MapPin, t('source.register'), evidence.label]
+        : evidence.kind === 'derivation'
+          ? [Calculator, t('source.derivation'), evidence.citation]
+          : [UserRound, t('source.person'), undefined]
   return (
     <Chip variant="muted" className={CHIP_CLASS} title={title}>
       <Icon aria-hidden />

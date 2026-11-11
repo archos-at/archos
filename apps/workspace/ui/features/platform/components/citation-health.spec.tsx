@@ -458,8 +458,21 @@ describe('CitationHealth', () => {
         .disabled
     ).toBe(true)
     expect(
-      within(card).getByText('Adding sources needs permission to manage platform settings.')
+      within(card).getByText('Adding sources needs permission to write platform knowledge, or to manage platform settings for the norm catalog.')
     ).toBeDefined()
+  })
+
+  test('offers adding to base knowledge to a holder of knowledge:write alone, the corpus routes\' permission', async () => {
+    vi.stubGlobal('fetch', okFetch())
+
+    render(
+      <PlatformAccessProvider permissions={['platform:organizations:view', 'platform:settings:view', 'platform:knowledge:write']}>
+        <CitationHealth scope={SEPTEMBER} />
+      </PlatformAccessProvider>
+    )
+
+    const card = await screen.findByTestId('citation-missing-sources')
+    expect(within(card).getByRole('link', { name: 'Add to base knowledge' }).getAttribute('href')).toBe('/app/platform/knowledge')
   })
 
   test('claims nothing about held sources when the inventory could not be checked', async () => {

@@ -124,7 +124,6 @@ const ROWS = [
   {
     id: 'conv-empty',
     caption: 'Frischer, leerer Chat — nur die Tür zum Verlauf, ohne Pillen-Rahmen',
-    projectName: 'Wohnbau Favoriten',
     sessionTitle: '',
     started: false,
     state: sharingState('conv-empty', 'private', [ME_ENTRY]),
@@ -132,7 +131,6 @@ const ROWS = [
   {
     id: 'conv-solo',
     caption: 'Privater Einzel-Chat — keine Kollaborations-Möblierung',
-    projectName: 'Wohnbau Favoriten',
     sessionTitle: 'Fluchtweglängen OG2',
     started: true,
     state: sharingState('conv-solo', 'private', [ME_ENTRY]),
@@ -140,7 +138,6 @@ const ROWS = [
   {
     id: 'conv-shared',
     caption: 'Geteilt, lange Namen — der gemeldete Gedrängefall',
-    projectName: 'Testprojekt Garagenordnung Wien',
     sessionTitle: 'Wiener Garagengesetz — Stellplatzverpflichtung',
     started: true,
     state: sharingState('conv-shared', 'private', [
@@ -152,7 +149,6 @@ const ROWS = [
   {
     id: 'conv-project',
     caption: 'Projektweit — die Regel ersetzt die Gesichter',
-    projectName: 'Wohnbau Nord',
     sessionTitle: 'Brandschutz Stiegenhaus',
     started: true,
     state: sharingState('conv-project', 'project', [
@@ -265,12 +261,11 @@ export default function ChatToolbarPreviewPage(): JSX.Element {
                 </p>
                 {/* The toolbar positions itself against this block, exactly as it
                     does against the chat plane in MainLayout. On the phone shell the
-                    toolbar is two rows (the project context above the pills) and a
-                    third while the connection line speaks, so the block is taller. */}
+                    toolbar is its pills, and a line more while the connection
+                    line speaks. */}
                 <div className="relative h-20 rounded-lg border border-dashed border-base max-md:h-36">
                   <ChatToolbar
                     sessionTitle={row.sessionTitle}
-                    projectName={row.projectName}
                     conversationId={row.id}
                     currentUserId={ME}
                     isCollaborationEnabled

@@ -1,0 +1,56 @@
+---
+# area: documents
+improvements:
+  - >
+    Files, project mail, open points and the bin now read as sheets lying on a
+    desk: documents are white with a soft edge, buttons are raised, headings are
+    bolder and mail that needs you stands out. Where every row offers the same
+    action, it shows as a small icon until you point at the row.
+  - >
+    Each place in Files is now titled by its own name, with the project above it
+    as a small breadcrumb, and the explanatory line under the title is gone.
+    The places (Alle Dateien, E-Mail-Eingang, …) stand clearly apart from the
+    title above them.
+  - >
+    Project mail opens the first waiting email on a wide screen, so the reading
+    pane is never empty. On a phone the list stays first.
+  - >
+    File tiles show the name, format, size and date only, so more of a folder
+    fits on one screen; the summary stays in the list view and the preview.
+    A folder with more than 50 documents opens as a list unless you chose the
+    tiles yourself.
+  - >
+    Folders, the preview's side panel and the email reader use the same white
+    sheets, and list rows are separated by one even line. Dark mode keeps the
+    email list visible against the page.
+  - >
+    The page keeps the light background of the brand, and white
+    documents and folders stand apart from it by a fine edge and a soft
+    shadow. Buttons, the selected tab and folders now each look different: a
+    folder shows an arrow to open it.
+  - >
+    Open points mark a point in colour only when it is yours or overdue, and
+    the filters are one row of rounded chips with „Alle“ to clear them. Who has
+    a point and by when stand in their own column on the right.
+  - >
+    The bin keeps its list to a readable width and says how long each item
+    stays in bold; on a phone each item has two short lines.
+  - >
+    In the list view folders are rows of the file table, under the same column
+    headings, and every row has the same height. Dates line up on the left.
+  - >
+    On a phone folders sit two to a row and Hochladen is a round button, so
+    the first files show sooner. The search field is a white field with a
+    clear border.
+  - >
+    Dark mode tells buttons, chips and sheets apart: buttons are outlined,
+    the open email stands clearly above selected ones, and the point markers
+    in open points are no longer bright white discs.
+  - >
+    In project mail the filing button is one short word, with a line beside it
+    saying what it files once the choice above has scrolled away, and it sits at
+    the foot of the email. While emails are selected for a batch, only the
+    batch's buttons are offered for discarding and filing in bulk.
+  - >
+    On a phone the places in Files fit on one line, and the email address and
+    the export sit behind one menu next to the project name.

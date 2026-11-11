@@ -215,14 +215,13 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
         </div>
       )}
 
-      <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
+      <div className="flex flex-wrap items-center gap-3" /* tonal presses 12px apart, the first on the entry's edge */>
         <EntryOriginal entry={entry} download={() => client.downloadOriginal(projectId, threadId, entry.id)} />
         {compared && (
           <Button
             type="button"
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            className="h-7 px-2 text-xs"
             aria-expanded={comparison !== null}
             aria-label={t('entry.compareLabel', { from: compared.from.number, to: compared.to.number })}
             onClick={() => void compare()}

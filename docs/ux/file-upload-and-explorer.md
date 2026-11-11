@@ -536,7 +536,7 @@ second colour on the card.
 lines, where it is now struck through and muted („Eingang“, or „Projektordner
 (oberste Ebene)“ / „Büroablage (oberste Ebene)“ for a file at the top of the
 shelf) and „→ Behörde/Bescheide“ with „neu“ where created (`PathChange`); the
-reason, up to three lines; and the answer, „Belassen“ (ghost) and
+reason, up to three lines; and the answer, „Belassen“ (tonal) and
 „Verschieben“ or „Anlegen und verschieben“ (primary: in here it is the focal
 action). When the proposal moves more than this file the popover says so („mit
 1 weiteren Datei“), the button reads „Alle 2 verschieben“, and while it is open
@@ -551,8 +551,8 @@ the popover opens, not when the chip mounts.
 folder (`FilingBar`, `features/documents/components/filing-bar.tsx`) when one
 target folder in view collects two files or more; then it lists every target
 folder of the view, one line each: the path in full and never cut, „neu“, the
-count („2 Dateien“), and „Belassen“ (ghost) and „Verschieben“ / „Anlegen und
-verschieben“ (outline), under „Piloti schlägt vor, 3 Dateien abzulegen“. With
+count („2 Dateien“), and „Belassen“ and „Verschieben“ / „Anlegen und
+verschieben“ (both tonal), under „Piloti schlägt vor, 3 Dateien abzulegen“. With
 one file per folder the chip is the shorter way, so the bar stays away. It is
 quiet: the card surface, one hairline, no shadow. Hovering or focusing a line
 fills it and outlines the cards and rows it would move, a 2px strongest-hairline

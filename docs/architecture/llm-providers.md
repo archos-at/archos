@@ -93,6 +93,22 @@ Every generation's cost is metered into the `llm_usage_events` ledger and
 bounded by per-org/member/project budgets — see
 [`usage-budgets.md`](usage-budgets.md) (ADR-0015).
 
+## Where a call is processed (ADR-0167)
+
+Every model call is routed and recorded by `common/residency.py`, called from both seams: the httpx
+transport in `common/openrouter.py` (embeddings, vision, reranking, summaries, titles, decisions, the
+distiller, dictation) and the chat-request contract in `common/llm_factory.py` (every chat model).
+The data-flow register places each host (`endpoints` in `configs/subprocessors/openrouter.yaml`:
+`eu.openrouter.ai` in `EU`, `openrouter.ai` in `US`), and every generation carries
+`processing_location`, `subprocessor` and `processing_location_compliant` as observation metadata.
+
+With `RESIDENCY_CELL` unset (the default) nothing is rewritten or refused. With a cell
+(`configs/residency/cells.yaml`) the transport rewrites `openrouter.ai` to `eu.openrouter.ai`, refuses
+any host outside the zone before sending, and zero data retention cannot be switched off. The chat
+models cannot be rewritten per call (their client is built at boot), so a cell sets
+`OPENROUTER_BASE_URL=https://eu.openrouter.ai/api/v1`, which every `llms` entry of
+`configs/config_oib_openrouter.yml` reads; the boot check refuses a cell without it.
+
 ## Caveats
 
 - Prompts are tuned against the reference model; very different models may need
@@ -128,6 +144,16 @@ bounded by per-org/member/project budgets — see
   write at 1.25x input from GPT-5.6 on, so a cold first call costs more than an
   uncached one used to. The per-answer carry is measured from the first agent
   call of each answer (`chat_cross_turn_cache_carry` in PostHog).
+- **What closed the cross-turn miss (2026-11-10, slice Q1, not yet measured in
+  production).** No cache entry was ever written at the end of the bytes every
+  turn shares, because a provider writes only at a breakpoint and the only one
+  was the automatic marker at each request's tail. The chat system prompt now
+  carries a block breakpoint (`common/prompt_caching.py`), which is why
+  `research_llm` runs on Chat Completions: the Responses API drops per-block
+  `cache_control`. The project and office context sits right after it with a
+  breakpoint of its own, and history is pruned and trimmed in steps (ADR-0177);
+  `test_cross_turn_prefix.py` measures the request builders, and the ledger's
+  `cache_write_tokens` says what each call wrote.
 - **What zero data retention leaves open on price (2026-11-04,
   `/api/v1/endpoints/zdr`).** Only Azure serves `openai/gpt-6.1-terra` and
   `openai/gpt-6-luna` with zero data retention; `azure/eu` lists 20 % above
@@ -182,7 +208,7 @@ bounded by per-org/member/project budgets — see
   OpenRouter's `supported_parameters` has no token for it. The measurements
   are in the ADR; a new tool search starts from them rather than re-deriving
   them. Since ADR-0052 Piloti binds its full tool set on every turn, greetings
-  included; scope (`register._tools_in_scope`) is what keeps the BIM schemas
+  included; scope (`turn_tools.tools_in_scope`) is what keeps the BIM schemas
   off a turn without a project.
 - `reasoning_effort` is a **native** `ChatOpenAI` field
   (`langchain_openai`'s `BaseChatOpenAI.reasoning_effort`), not something

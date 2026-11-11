@@ -302,6 +302,11 @@ function logUpstreamError(error: UpstreamError, requestId: string): void {
 /** Seconds a client should wait before retrying a request the database outage refused. */
 const DATABASE_RETRY_AFTER_S = 5
 
+/** An RFC 9457 problem object: a `type` URI and a `status`. */
+function isProblem(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string' && typeof (value as { status?: unknown }).status === 'number'
+}
+
 export function errorResponse(error: unknown, request: Request): Response {
   if (isNextControlFlowError(error)) throw error
   const requestId = resolveRequestId(request)
@@ -310,6 +315,11 @@ export function errorResponse(error: unknown, request: Request): Response {
   // for no organization (see `SessionRequiredError`).
   if (error instanceof SessionRequiredError || error instanceof NoOrganizationError) {
     return errorPayload({ error: 'Forbidden', code: 'FORBIDDEN' }, 403, requestId)
+  }
+  // An error that carries its RFC 9457 problem (a switched-off feature found in a service, `FeatureDisabledError`)
+  // answers with it, as `requireFeature` does. Read by shape, so the handler imports no feature module.
+  if (error instanceof ApiError && isProblem((error as { problem?: unknown }).problem)) {
+    return errorPayload((error as unknown as { problem: Record<string, unknown> }).problem, error.status, requestId, { 'Content-Type': 'application/problem+json' })
   }
   if (error instanceof ApiError) {
     const body: Record<string, unknown> = { error: error.message, code: error.code }

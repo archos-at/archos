@@ -301,7 +301,7 @@ class TestTheExemplarPassesItsRow:
 
 class TestTheSuiteWiring:
     def test_north_star_is_a_set_the_suite_loads(self):
-        assert [q["id"] for q in suite._north_star_questions()] == [r["id"] for r in ROWS]
+        assert [q["id"] for q in suite.set_questions("north-star")] == [r["id"] for r in ROWS]
 
     def test_the_arm_and_the_look_switch_stay_with_their_sets(self, capsys):
         with pytest.raises(SystemExit):

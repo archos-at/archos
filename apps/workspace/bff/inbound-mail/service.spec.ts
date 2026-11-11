@@ -170,6 +170,17 @@ describe('what a reader is shown', () => {
     expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ action: 'inbound_mail.part_read' }))
   })
 
+  it('keeps a part under a legal hold from an agent, and serves it to the person', async () => {
+    store.parts = [textPart(), filePart({ erasureDeferredAt: new Date() })]
+    store.agent = true
+    try {
+      await expect(readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).rejects.toMatchObject({ details: { reason: 'legal_hold' } })
+    } finally {
+      store.agent = false
+    }
+    expect((await readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).status).toBe(200)
+  })
+
   it('scans the original whole on the request and refuses it unless clean, recording the read', async () => {
     await expect(readInboundMailOriginal(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({
       details: { reason: 'original_not_clean', scan: 'infected' },

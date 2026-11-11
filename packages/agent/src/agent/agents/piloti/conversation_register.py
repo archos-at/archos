@@ -25,6 +25,7 @@ from agent.agents.piloti.clarify import build_clarifier
 from agent.agents.piloti.conversation import ConversationGraph
 from agent.agents.piloti.history import warm_token_encoder
 from agent.agents.piloti.models import ConversationState
+from agent.agents.piloti.turn_tools import set_project_models
 from agent.auth.request_identity import skip_clarifier_requested
 from agent.common import AgentGroup
 from agent.common import filter_tools_by_sources
@@ -35,6 +36,9 @@ from agent.common import get_langchain_llm
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
 from agent.common.fenced_checkpointer import FencedCheckpointer
+from agent.common.knowledge_context import set_turn_knowledge_context
+from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
+from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
@@ -54,6 +58,7 @@ from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import get_scoped_collections_from_context
 from agent.memory.shown_notes import ShownNotes
+from agent.observability.langfuse_trace_attributes import record_trace_metadata
 from agent.observability.turn_outcome import record_turn_facts
 from agent.project_context import RequestContext
 from agent.stages import schedule_post_answer_stages
@@ -282,6 +287,7 @@ def _turn_state(
         workspace_block=context.workspace,
         deep_research_allowed=context.deep_research_allowed,
         tasks_allowed=context.tasks_allowed,
+        licensed_text_allowed=context.licensed_text_allowed,
         confined=context.confined,
     )
 
@@ -451,6 +457,11 @@ async def _prepare_turn(
     set_turn_documents(inventory.all_documents or inventory.available_documents)
     set_norm_families(inventory.norm_families)
     set_inventory_drops(inventory.inventory_drops)
+    set_project_models(context.project_models)  # which model files the project holds, for the tools bound
+    # Which country, coverage and editions apply (each edition's role, for the citation wire), and what
+    # the turn may retrieve (ADR-0173); bound every turn, so a turn never reads the last turn's gate.
+    set_turn_knowledge_context(context.knowledge_context)
+    record_trace_metadata(**knowledge_trace_metadata(turn_knowledge_context()))
     state = _turn_state(inputs, context, inventory, header_scope, request=request, skip_clarifier=skip_clarifier)
     yield _Turn(agent, state, session_registry, context, inputs, request, runtime, shown_notes)
 

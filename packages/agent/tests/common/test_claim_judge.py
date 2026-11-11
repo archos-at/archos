@@ -54,7 +54,10 @@ class _Model:
         return self
 
     async def ainvoke(self, messages):
+        from agent.common import prompt_caching
+
         self.messages = messages
+        self.one_shot = prompt_caching._ONE_SHOT.get()
         if self.delay:
             await asyncio.sleep(self.delay)
         if self.error is not None:
@@ -163,6 +166,8 @@ class TestTheCall:
         assert check is not None and check.level == "high"
         assert {"temperature": 0, "max_tokens": claim_judge.MAX_OUTPUT_TOKENS} in model.bound
         assert any("response_format" in kwargs for kwargs in model.bound)
+        # The evidence is this answer's own: the call writes nothing to the provider's cache.
+        assert model.one_shot is True
 
     async def test_an_error_a_timeout_or_an_unreadable_reply_is_no_level(self, monkeypatch):
         monkeypatch.setattr(claim_judge, "JUDGE_TIMEOUT_S", 0.01)
@@ -198,3 +203,23 @@ def test_every_stored_answer_reaches_the_check_whole(answer):
         p.text for p in sorted(evidence.passages, key=lambda p: not p.cited)
     ]
     assert answer["content"] in build_messages(evidence)[1].content
+
+
+async def test_a_provider_that_refuses_the_cache_switch_still_gets_judged():
+    """A 400 on every call made inside ``one_shot_calls`` is answered by a call outside it."""
+    from agent.common import prompt_caching
+
+    class _RefusesTheSwitch(_Model):
+        async def ainvoke(self, messages):
+            if prompt_caching._ONE_SHOT.get():
+                refused = RuntimeError("unknown field prompt_cache_options")
+                refused.status_code = 400
+                raise refused
+            return await super().ainvoke(messages)
+
+    model = _RefusesTheSwitch()
+
+    check = await llm_judge(model)(_evidence())
+
+    assert check is not None and check.level == "high"
+    assert model.one_shot is False

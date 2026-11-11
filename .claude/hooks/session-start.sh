@@ -13,7 +13,8 @@
 #
 # Mirrors `Taskfile.yml`'s `setup` target step for step, deliberately: when that
 # target changes this file has to change with it, and a reader comparing the two
-# should see the same list in the same order.
+# should see the same list in the same order. One step is the hook's own: the
+# git hooks (`pre-commit install`), which AGENTS.md leaves to a contributor.
 #
 # IDEMPOTENT and cheap on a warm container: each dependency step records a hash
 # of its lockfile and skips itself when the hash and its output are unchanged,
@@ -118,6 +119,17 @@ if stale venv "$H" .venv/bin/python; then
   # candidate is rebuilt on a final 3.14 here, or the sync fails saying why.
   uv sync --group dev
   mark venv "$H"
+fi
+
+# Git hooks. AGENTS.md leaves `pre-commit install` as a step of its own after
+# `task setup`, and nothing ran it in a cloud session, so `.git/hooks` held only
+# samples and every local hook was silently off. The one that cost a force-push:
+# `merge-release-notes` never saw a merge that edited a release note (#1574), the
+# exact failure it exists to stop. A session gets the hooks a contributor would.
+# Not fatal: CI lints the whole repo either way.
+if ! grep -q "pre-commit" "$(git rev-parse --git-path hooks/pre-commit)" 2>/dev/null; then
+  step "git hooks (pre-commit install)"
+  .venv/bin/pre-commit install || step "pre-commit install failed; local hooks are off, CI still lints"
 fi
 
 # Bun, pinned where CI pins it (.github/actions/setup-bun). The container's own

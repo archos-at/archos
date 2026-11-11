@@ -33,6 +33,7 @@ from agent.memory import register as memory_register
 from agent.memory.register import ProjectMemoryRememberConfig
 from agent.memory.register import project_memory_remember
 from agent.stages import TurnFacts
+from agent.stages.flags import TurnFlags
 from agent.stages.memory_reflection import _handler as reflection_handler
 from agent.stages.spec import StageContext
 from agent.turn import context as turn_context
@@ -80,9 +81,8 @@ class TestTheTurnLearnsIt:
         monkeypatch.setattr(
             turn_context,
             "_turn_flags",
-            lambda *_a, **_k: _awaitable(
-                SimpleNamespace(deep_research_allowed=True, tasks_allowed=True, enabled_stages=())
-            ),
+            # The real type, so a flag added to it needs no edit here.
+            lambda *_a, **_k: _awaitable(TurnFlags(enabled_stages=frozenset())),
         )
         request = SimpleNamespace(organization_id="org", project_id="p1", user_id="u1", federal_state=None)
 

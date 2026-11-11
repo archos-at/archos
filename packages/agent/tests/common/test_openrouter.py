@@ -32,7 +32,17 @@ class TestTargetsOpenRouter:
     def test_openrouter_hosts(self, url):
         assert targets_openrouter(url)
 
-    @pytest.mark.parametrize("url", ["https://api.openai.com/v1", "", None, "https://evil.test/openrouter.ai"])
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://api.openai.com/v1",
+            "",
+            None,
+            "https://evil.test/openrouter.ai",
+            "https://openrouter.ai.example.net/api/v1",
+            "https://notopenrouter.ai/api/v1",
+        ],
+    )
     def test_other_hosts(self, url):
         assert not targets_openrouter(url)
 

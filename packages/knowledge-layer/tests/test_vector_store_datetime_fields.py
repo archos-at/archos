@@ -55,6 +55,22 @@ class TestSchema:
         assert made == {name: models.PayloadSchemaType.DATETIME for name in schema.DATETIME_FIELDS}
 
 
+class TestLicenceMarkIndexes:
+    """``licence_class`` and ``knowledge_edition_id``: keyword fields, made on a collection that predates them."""
+
+    def test_both_fields_are_keyword_indexed(self):
+        for field in (schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD):
+            assert field in schema.KEYWORD_FIELDS
+            assert schema._field_schema(field) == models.PayloadSchemaType.KEYWORD
+
+    def test_ensure_payload_indexes_creates_them_on_a_collection_made_before_them(self):
+        new = {schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD}
+        client = MagicMock()
+        client.get_collection.return_value.payload_schema = {name: MagicMock() for name in schema.INDEXED_FIELDS - new}
+
+        assert schema.ensure_payload_indexes(client, "office_v1") == sorted(new)
+
+
 class TestCoercion:
     @pytest.mark.parametrize(
         ("raw", "expected"),

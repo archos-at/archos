@@ -199,7 +199,7 @@ def run_conversation(
     return run_once(turns[-1], out, conversation, overrides, extra), before
 
 
-def report_lines(runs: list[Any]) -> list[str]:
+def report_lines(runs: list[Any], meta: dict[str, Any] | None = None) -> list[str]:
     """The set's own totals: did the work get done, and what finding the operation cost."""
     ok = [run for run in runs if not run.error]
     if not ok:

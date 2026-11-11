@@ -23,8 +23,9 @@ import {
  * key, segment, icon, label, and flag gating for every project section live in
  * ONE place, so the rail and the palette can never disagree again.
  *
- * One icon per destination. Rail order (top → bottom, Settings pinned
- * separately): Chat · Files · Automation* · Archiv* · Suche · Inbox*.
+ * One icon per destination. Rail order (top → bottom): Chat · Files ·
+ * Automation* · Overview (the project hub, appended by the rail), then the
+ * organisation's doorways at the foot: Archiv* · Suche · Inbox*.
  *
  * Chat is the primary job-to-be-done and leads; Files is the other work
  * surface. History has no rail entry any more — the chat toolbar's history
@@ -35,8 +36,9 @@ import {
  * made a place people work every day read as a settings drawer — a group label
  * over a single item is a category of one, and it cost the section a rail
  * position it had earned. Archiv then Inbox are cross-project doorways; Inbox
- * is last because the badge already draws the eye. Settings stays pinned at the
- * bottom.
+ * is last because the badge already draws the eye. Overview closes the
+ * project's own list; it stood pinned at the foot, under the organisation's
+ * doorways, until 2026-11-06, where proximity made it read as theirs.
  *
  * There is deliberately no Similar projects entry either: it is reference
  * reading about the project, so it is a tile on the project's Overview and a
@@ -253,13 +255,12 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
 ]
 
 /**
- * The pinned project hub entry, labelled Overview (spec §5, §9.2). It opens on
- * the project dashboard, with the setup sections behind it; the key and the
+ * The project hub entry, labelled Overview (spec §5, §9.2). It opens on the
+ * project dashboard, with the setup sections behind it; the key and the
  * `/settings` segment kept their old name so links and the `g s` jump still
- * land. The rail renders it separately from the
- * scrollable section nav (docked above the user footer); the palette lists it
- * inline. Kept out of {@link PROJECT_SECTIONS} so `railSections` never emits it
- * into the scrollable group.
+ * land. The rail appends it to the project's sections, after the last of them;
+ * the palette lists it inline, last. Kept out of {@link PROJECT_SECTIONS} so
+ * each surface places it itself.
  */
 export const PROJECT_SETTINGS_SECTION: ProjectSection = {
   key: 'settings',
@@ -299,8 +300,8 @@ function isVisible(section: ProjectSection, flags: ProjectSectionFlags): boolean
 
 /**
  * The rail's scrollable section nav, in order, with flag-gated sections
- * filtered out. Excludes the pinned {@link PROJECT_SETTINGS_SECTION}, which the
- * shell docks separately.
+ * filtered out. Excludes {@link PROJECT_SETTINGS_SECTION}, which the rail
+ * appends to the project's group itself.
  */
 export function railSections(flags: ProjectSectionFlags): ProjectSection[] {
   return PROJECT_SECTIONS.filter((section) => section.inRail && isVisible(section, flags))

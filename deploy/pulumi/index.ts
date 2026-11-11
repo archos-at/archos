@@ -50,6 +50,7 @@ import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
+import { installPublicSourceFetcher } from "./src/app/public-source-fetcher";
 import { installClamAV } from "./src/app/clamav";
 import { installWorkers } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
@@ -238,10 +239,13 @@ const gotenberg = cfg.gotenberg.enabled
 const clamav = cfg.malwareScan.enabled
   ? installClamAV(cfg, provider, namespace, [ns])
   : undefined;
-
 // ── Shared wiring for the app tier ─────────────────────────────────────────
 // Pull Secret for private app images (no-op when none are configured).
 const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
+// The sandboxed fetcher of public sources (ADR-0162), in every stack: the backend roles read
+// public sources, and parse their PDFs, only through it (`publicSourceFetcherEnv`, ADR-0162 amendment).
+// It runs the private backend image, so it needs the pull Secret like every app pod.
+installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
 const wiring: AppWiring = {
   cfg,
   namespace,

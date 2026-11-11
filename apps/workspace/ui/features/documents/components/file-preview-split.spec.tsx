@@ -14,11 +14,11 @@
  *
  * The mechanism, for whoever breaks this next. `FilePreviewBridge` is mounted
  * by the PROJECT layout, so it mounts once per project and survives the move
- * from Files to chat. On that mount `split` is false. If the panel's
- * `defaultSize` / `minSize` / `maxSize` are derived from `split`, they are all
- * zero at that moment — and `defaultSize` is a mount-time value that never gets
- * a second chance. The panel is also `collapsible`, so it is genuinely
- * COLLAPSED, and `resize()` alone does not bring a collapsed panel back.
+ * from Files to chat. On that mount `split` is false, so the panel mounts
+ * COLLAPSED (`defaultSize` 0, the state it mounts in). If its `minSize` /
+ * `maxSize` were derived from `split` too, they would be zero at that moment
+ * and clamp every later size back to nothing; and since the panel is
+ * `collapsible`, `resize()` alone does not bring a collapsed panel back.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -187,8 +187,10 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
 
   it('declares its size bounds independently of the split flag', () => {
     // Mounted in Files — split OFF. The bounds must ALREADY be the real ones:
-    // `defaultSize` is read once at mount and never revisited, and bounds of
-    // zero would clamp the expand above back to nothing.
+    // bounds of zero would clamp the expand above back to nothing. The default
+    // is the state it mounts in, shut: the library lays a group out again from
+    // its defaults, and a shut panel that declared 320 came back open at 320
+    // on every project page of a phone (`docked-split.spec.tsx`).
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     render(
       <FilePreviewBridge>
@@ -197,7 +199,7 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
     )
 
     expect(declared.current).toMatchObject({
-      defaultSize: 320,
+      defaultSize: 0,
       minSize: FILE_PEEK_WIDTH_MIN,
       maxSize: FILE_PEEK_WIDTH_MAX,
       collapsible: true,

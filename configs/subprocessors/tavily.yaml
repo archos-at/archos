@@ -1,0 +1,38 @@
+id: tavily
+kind: processor
+status: active
+order: 60
+name: Tavily
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [search_query]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: unknown
+  de: Ob und wie lange Tavily Suchanfragen speichert, ist nicht belegt; eine Löschung bei Vertragsende erreicht sie nicht.
+  en: Whether and how long Tavily keeps search queries is not established; deletion at contract end does not reach them.
+hosts: [api.tavily.com, tavily.com]
+env: [TAVILY_API_KEY]
+sdks:
+  - 'py:langchain-tavily'
+evidence:
+  - packages/tavily-web-search/src/register.py
+copy:
+  name:
+    de: Tavily
+    en: Tavily
+  purpose:
+    de: Websuche für Recherchefragen
+    en: Web search for research questions
+  data:
+    de: Aus Ihren Fragen abgeleitete (KI-generierte) Suchanfragen
+    en: Search queries derived from your questions (AI-generated from your prompts)
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Ja (für Web-Recherche)
+    en: Yes (for web research)

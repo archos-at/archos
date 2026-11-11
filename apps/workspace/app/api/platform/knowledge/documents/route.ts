@@ -31,5 +31,5 @@ export const POST = platformApiRoute(
     const ok = result.status === 'pending' || result.status === 'success'
     return NextResponse.json(result, { status: ok ? 200 : 502 })
   },
-  { permission: PLATFORM_PERMISSIONS.settingsManage }
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite }
 )

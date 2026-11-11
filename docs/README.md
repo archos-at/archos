@@ -44,7 +44,7 @@ A word you do not know: the domain language is in
 | [`roadmap/README.md`](roadmap/README.md) | Status of every roadmap doc: live, dated review, revised or superseded, with one line each | You want to know whether a roadmap doc still describes what Piloti is building |
 | [`observability/`](observability/) | **Langfuse is our observability platform and everything is observable in it** ([ADR-0089](adr/0089-langfuse-is-the-observability-platform-and-everything-is-observable.md)): the trace and score contract, the guide for analysts and the Fachbereich, the audit | You add a model call, a quality check or a surface, or you want to read how the product behaves |
 | [`audit/`](audit/) | Dated, point-in-time audits and measurements (the file name carries the month), and frozen run logs from past audit and feedback-triage loops | You are tracing where a finding or a spec's evidence came from, or want what was measured at a date |
-| [`compliance/`](compliance/) | Audits and external dependency review | You are answering a compliance question |
+| [`compliance/`](compliance/) | Audits, external dependency review, and the [data-flow register](compliance/data-flow-register.md) (every place data leaves the cluster; the processor page and DPA annex are generated from it) | You are answering a compliance question, or adding a vendor, host, key or base URL |
 
 ## Architecture
 

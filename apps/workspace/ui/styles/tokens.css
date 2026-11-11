@@ -127,7 +127,6 @@
   --ring: color-mix(in oklch, var(--ink) 64%, transparent); /* ink-based focus ring */
   --overlay: color-mix(in oklch, var(--ink) 35%, transparent); /* modal/backdrop scrim */
 
-  --radius: 0.75rem; /* 12px — inside the dummy's 7–14px range */
 
   /* ---- elevation: the brand's app shadow scale (packages/brand tokens.json
      shadow-raised / -floating / -modal), kept faint. Every shadow-* utility
@@ -501,15 +500,24 @@
   --color-input-background: var(--input-background);
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
+  --color-sheet: var(--sheet);
+  --color-desk: var(--desk);
+  --color-selected: var(--selected);
+  --color-pressed: var(--pressed);
+  --color-hairline: var(--hairline);
+  --color-edge: var(--edge);
+  --color-field-border: var(--field-border);
   --color-paper-ink: var(--paper-ink);
   --color-paper-ink-foreground: var(--paper-ink-foreground);
 
   /* sidebar primitive — aliases onto the existing paper/ink tokens, not a second palette */
-  --color-sidebar: var(--background-color-surface-sunken);
+  /* The rail is the desk (Paper on a desk): what the pointer is over, or what stands open, is one step down the
+     ladder (the picked grey), and where the reader is lies on it as a sheet (`bg-sheet shadow-xs`). */
+  --color-sidebar: var(--desk);
   --color-sidebar-foreground: var(--foreground);
   --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: var(--primary-foreground);
-  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent: var(--selected);
   --color-sidebar-accent-foreground: var(--foreground);
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
@@ -543,26 +551,29 @@
   /* Radius follows size and shape: the brand's ladder (packages/brand/README.md
      "Layout and shape", tokens.json radius-*). Pick the semantic step for the job;
      the same kind of element always takes the same step. */
-  --radius-inline: var(--ds-radius-inline); /* 4px: kbd, checkbox, a tag inside a field */
+  --radius-inline: 6px; /* paper on a desk: the ladder is 6 / 10 / 16 / full, so the 4px step is gone (design-language.md) */
   --radius-control: var(--ds-radius-control); /* 6px: buttons, inputs, selects, tabs, toggles, menu and list items */
   --radius-surface: var(--ds-radius-surface); /* 10px: cards, panels, list containers, toasts, tables, code blocks */
-  --radius-overlay: var(--ds-radius-overlay); /* 14px: dialogs, popovers, menus, sheets, the command palette */
-  --radius-bubble: var(--ds-radius-bubble); /* 18px: chat messages and the composer */
+  --radius-overlay: 16px; /* dialogs, popovers, menus, floating bars, the command palette */
+  --radius-bubble: 16px; /* chat messages and the composer: the overlay step */
   /* rounded-full stays Tailwind's: chips, badges, counts, avatars, dots, switches. */
   /* Tailwind's own steps, for code not yet on a semantic name; mapped onto the ladder. */
-  --radius-sm: var(--ds-radius-inline);
+  --radius-sm: 6px;
   --radius-md: var(--ds-radius-control);
   --radius-lg: var(--ds-radius-surface);
-  --radius-xl: var(--ds-radius-overlay);
-  --radius-2xl: var(--ds-radius-bubble);
-  --radius-3xl: var(--ds-radius-bubble);
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
 
   /* Bare `shadow` (Tailwind v3's name for today's `shadow-sm`) resolved to
      Tailwind's own deprecated `--shadow`, a cold black drop shadow on no
      elevation step and the same in both themes. It is the `sm` step here. */
   --shadow: var(--elevation-sm);
+  --shadow-sheet: var(--elevation-sm);
   --shadow-2xs: var(--shadow-hairline);
+  --shadow-press: var(--elevation-press);
   --shadow-xs: var(--elevation-xs);
+  --shadow-thumb: var(--elevation-thumb);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
@@ -654,4 +665,98 @@
   --energy-band-7: #d98332;
   --energy-band-8: #d15f2a;
   --energy-band-9: #cf2733;
+}
+
+/* =============================================================================
+   Paper on a desk (2026-11-10): the app's own layer on top of the brand.
+
+   The brand README stays the website's rulebook; inside the app the desk is
+   grey, the working page is paper and every document, card, menu and floating
+   bar is a white sheet with an edge and a shadow (docs/design/design-language.md,
+   "Paper on a desk"). Five neutrals, two lines, three elevations, one ladder of
+   radii (6 / 10 / 16 / full). Declared after the palettes above so these win.
+   ============================================================================= */
+:root {
+  --sheet: #ffffff; /* a document, card, menu, floating bar */
+  --paper: #fafaf9; /* the working page: the brand's surface; a white sheet stands 1.04:1 off it and reads by its 12% edge and its shadow */
+  --desk: #f2f1f0; /* the brand's sunken surface: rail, list columns, the canvas behind a document, hover (1.08:1 under the paper) */
+  --selected: #e7e5e3; /* a picked row or tile: one step under the desk (1.11:1), 1.26:1 under the open row's sheet */
+  --pressed: #dcdad7; /* a control while the button is down: one step under picked (1.11:1) */
+  --hairline: rgb(15 14 13 / 0.08); /* between list rows */
+  --edge: rgb(15 14 13 / 0.12); /* the 1px edge of a sheet or a raised press */
+  --field-border: #8a8784; /* a field's border: 3.4:1 on the paper, 3.2:1 on the desk, the 3:1 a control's boundary needs */
+
+  --background: var(--paper); /* the brand's surface; a sheet separates from it by its edge and elevation, not by a darker page */
+  --background-color-surface-base: var(--paper); /* the body's own plane, so the header band and the page are one paper */
+  --card: var(--sheet);
+  --popover: var(--sheet);
+  --secondary: var(--desk);
+  --accent: var(--selected);
+  --background-color-surface-overlay: var(--sheet);
+  --overlay: rgb(15 14 13 / 0.4); /* the scrim under a dialog */
+
+  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06), 0 2px 6px rgb(15 14 13 / 0.04); /* a sheet always carries the 12% edge */
+  --elevation-2: 0 0 0 1px rgb(15 14 13 / 0.08), 0 4px 12px rgb(15 14 13 / 0.1), 0 12px 32px rgb(15 14 13 / 0.08);
+  --elevation-3: 0 0 0 1px rgb(15 14 13 / 0.1), 0 24px 64px rgb(15 14 13 / 0.22);
+  --elevation-press: 0 0 0 1px var(--edge); /* a press at rest: its edge, no drop shadow */
+  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(15 14 13 / 0.06); /* a press under the pointer, a track's thumb */
+  --elevation-thumb: var(--elevation-xs); /* the current choice on a track (a tab, a view): white, its edge and 1px shadow */
+  --elevation-sm: var(--elevation-1); /* a sheet */
+  --elevation-md: var(--elevation-2); /* menu, popover, floating bar */
+  --elevation-lg: var(--elevation-3); /* dialog */
+}
+
+/* Dark is derived, not mirrored: nearness is lightness. The paper is the darkest plane, the desk (the rail, a list
+   column, the hover) one step lighter, as macOS's sidebar sits lighter than its content, and a sheet lighter still,
+   with its edge; selected and pressed keep lightening. A darker desk (#0a0908) was 1.03:1 against the paper: the
+   E-Mail-Eingang's list column vanished and every hover read as a hole. `brand-literals.spec.ts` holds the ladder. */
+.dark {
+  --sheet: #363330; /* the lightest plane a list holds: the open mail's row 1.23:1 above a picked one (#2c2a27 was 1.08:1, one grey) */
+  --paper: #0f0e0d;
+  --desk: #1f1e1c;
+  --selected: #262422; /* a picked row: one step up from the desk, still under the open row's sheet */
+  --pressed: #3a3734;
+  --hairline: rgb(245 244 242 / 0.1);
+  --edge: rgb(245 244 242 / 0.16);
+  --field-border: #77736e; /* 3.5:1 on the dark paper, 3.2:1 on the desk */
+
+  --card: var(--sheet);
+  --popover: #3d3a37; /* a menu sits above a sheet: the lightest plane */
+  --secondary: var(--desk);
+  --accent: var(--selected);
+  --background-color-surface-overlay: var(--sheet);
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --elevation-1: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 6px rgb(0 0 0 / 0.3);
+  /* A shadow is invisible on charcoal: a floating bar lifts by its edge at 14% and a lit top edge. */
+  --elevation-2: 0 0 0 1px rgb(245 244 242 / 0.14), inset 0 1px 0 rgb(245 244 242 / 0.06), 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
+  --elevation-3: 0 0 0 1px rgb(245 244 242 / 0.14), 0 24px 64px rgb(0 0 0 / 0.6);
+  --elevation-press: 0 0 0 1px var(--edge);
+  --elevation-xs: 0 0 0 1px var(--edge), 0 1px 2px rgb(0 0 0 / 0.4);
+  /* The thumb is 1.2:1 above its track in dark: the field's border (3.2:1 on the desk) is its edge, so the current tab
+     and view read as chosen (review of 2026-11-10, finding 25). */
+  --elevation-thumb: 0 0 0 1px var(--field-border), 0 1px 2px rgb(0 0 0 / 0.4);
+  --elevation-sm: var(--elevation-1);
+  --elevation-md: var(--elevation-2);
+  --elevation-lg: var(--elevation-3);
+}
+
+/* The type scale (size / line / weight). Weights are 440, 500 and 600 only:
+   600 is for headings and for state (unread, needs you). `text-section`,
+   `text-pane-title` and `text-page-title` carry their weight. */
+@theme static {
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  --text-name: 0.8125rem;
+  --text-name--line-height: 1.25rem;
+  --text-name--font-weight: 500;
+  --text-section: 1rem;
+  --text-section--line-height: 1.5rem;
+  --text-section--font-weight: 600;
+  --text-pane-title: 1.25rem;
+  --text-pane-title--line-height: 1.75rem;
+  --text-pane-title--font-weight: 600;
+  --text-page-title: 1.5rem;
+  --text-page-title--line-height: 2rem;
+  --text-page-title--font-weight: 600;
 }

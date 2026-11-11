@@ -1,0 +1,7 @@
+---
+# area: building-law
+fixes:
+  - >
+    On the last day a version of a law or regulation is in force, answers now
+    use that version instead of leaving the law out or saying no version was
+    found.

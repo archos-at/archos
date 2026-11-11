@@ -8,7 +8,7 @@
  * SAME model id — a same-name re-upload keeps the document, and `startBimModel`
  * upserts on it — and it moves `updatedAt` in the transaction that replaces the
  * rows. So a catalogue run is a pure function of
- * `(modelId, updatedAt, buildingClass, mainUse)`, and the same four inputs can
+ * `(modelId, updatedAt, buildingClass, mainUse, site)`, and the same five inputs can
  * only ever produce the same verdicts. Recomputing is always *correct*; it is
  * just expensive.
  *
@@ -69,23 +69,26 @@ export interface ComplianceCacheModel {
  * `model.id` alone is not enough: the same revision judged at Gebäudeklasse 4
  * and at 5 produces different fire-resistance verdicts, and serving one for
  * the other is exactly the class of silent wrong answer this subsystem exists
- * to avoid. Both facts are part of the identity of the result.
+ * to avoid. Both facts are part of the identity of the result, and so is the
+ * site (`siteKey`): an OIB rule binds in Austria and nowhere else.
  */
 function key(
   model: ComplianceCacheModel,
   buildingClass: number | null,
-  mainUse: string | null
+  mainUse: string | null,
+  site: string
 ): string {
-  return `${model.id}|${model.updatedAt.getTime()}|${buildingClass ?? ''}|${mainUse ?? ''}`
+  return `${model.id}|${model.updatedAt.getTime()}|${buildingClass ?? ''}|${mainUse ?? ''}|${site}`
 }
 
 export function readComplianceCache(
   model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
+  site: string,
   now: number = Date.now()
 ): CachedCompliance | null {
-  const id = key(model, buildingClass, mainUse)
+  const id = key(model, buildingClass, mainUse, site)
   const entry = cache.get(id)
   if (!entry) return null
   if (now - entry.storedAt > TTL_MS) {
@@ -103,10 +106,11 @@ export function writeComplianceCache(
   model: ComplianceCacheModel,
   buildingClass: number | null,
   mainUse: string | null,
+  site: string,
   value: CachedCompliance,
   now: number = Date.now()
 ): void {
-  const id = key(model, buildingClass, mainUse)
+  const id = key(model, buildingClass, mainUse, site)
   cache.delete(id)
   cache.set(id, { value, storedAt: now })
   while (cache.size > MAX_ENTRIES) {

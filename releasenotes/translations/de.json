@@ -260,6 +260,10 @@
     "de": "Über eine Datei, die in Quarantäne wartet, lässt sich keine andere hochladen, auch nicht von ihrem Uploader, sodass die zurückgehaltene Fassung nie Teil des Verlaufs wird. Löschen Sie zuerst die Datei in Quarantäne oder lassen Sie sie freigeben."
   },
   {
+    "en": "A file found by search no longer shows a size of \"0 B\".",
+    "de": "Eine über die Suche gefundene Datei wird nicht mehr mit der Größe „0 B“ angezeigt."
+  },
+  {
     "en": "A file held back by the content check is now marked as reviewed and allowed, not released, so it can no longer be confused with approving a revision.",
     "de": "Eine von der Inhaltsprüfung zurückgehaltene Datei ist jetzt als geprüft und zugelassen markiert, nicht als freigegeben, und lässt sich so nicht mehr mit der Freigabe einer Fassung verwechseln."
   },
@@ -444,12 +448,20 @@
     "de": "Eine Folgefrage baut jetzt auf der vorherigen Frage und Antwort auf – auch nach einer Antwort, bei der lange Passagen gelesen wurden, sowohl im Chat als auch, wenn ein anderer Agent Piloti fragt."
   },
   {
+    "en": "A guideline written only for some buildings, such as a garage or a high-rise, can now say so, and is then named only for the buildings it is for, in the setup and in the chat alike. Where a deciding fact is still missing it reads „zu prüfen“ and names it; where it applies it says why and opens its text.",
+    "de": "Eine Richtlinie, die nur für bestimmte Gebäude wie Garagen oder Hochhäuser gilt, kann das jetzt angeben und wird dann sowohl in der Einrichtung als auch im Chat nur für die Gebäude angezeigt, für die sie gilt. Fehlt noch eine entscheidende Angabe, steht dort „zu prüfen“ und die fehlende Angabe wird genannt; gilt die Richtlinie, wird erklärt, warum, und ihr Text geöffnet."
+  },
+  {
     "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
     "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
   },
   {
     "en": "A large upload no longer shows as failed while it is still being read: it stays at Wird gelesen, a notice says reading continues in the background, and the file becomes citable once it is ready.",
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
+  },
+  {
+    "en": "A licensed standard your office holds but has not cleared for AI processing is now named in answers as held and not read, so the answer says why it cannot quote it instead of leaving it out.",
+    "de": "Eine lizenzierte Norm, über die Ihr Büro verfügt, die aber nicht für die KI-Verarbeitung freigegeben ist, wird in Antworten jetzt als vorhanden, aber nicht gelesen genannt. So erklärt die Antwort, warum sie daraus nicht zitieren kann, statt die Norm auszulassen."
   },
   {
     "en": "A long answer no longer freezes the page while it arrives, and its cards land when they are ready instead of long after the text.",
@@ -468,6 +480,10 @@
     "de": "Eine an eine Projektadresse weitergeleitete E-Mail wird im E-Mail-Verlauf und in Antworten, die auf ihre Anhänge verweisen, nun mit dem Namen der verfassenden Person und dem Datum des Schreibens zitiert und als „Domain nicht bestätigt“ gekennzeichnet; darunter steht der Name der weiterleitenden Person. Wird die E-Mail zweimal weitergeleitet, wird die ursprüngliche Person nur einmal genannt; jede Weiterleitung bleibt mit eigenem Text und eigenen Anhängen erhalten."
   },
   {
+    "en": "A mail held because its sender may not file in the project now says so in one sentence, and the Bin's dates no longer list a folder count of zero.",
+    "de": "Eine zurückgehaltene Mail weist nun in einem Satz darauf hin, wenn ihr Absender derzeit keine Dateien im Projekt ablegen darf, und im Papierkorb wird bei den Datumsangaben keine Ordneranzahl von null mehr angezeigt."
+  },
+  {
     "en": "A member budget can no longer be set for someone who does not belong to the organization; such a limit used to be saved and never applied.",
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },
@@ -478,6 +494,10 @@
   {
     "en": "A new chat now opens with the greeting and the input box together in the middle of the screen, instead of the greeting floating high and the input pinned to the bottom edge. As soon as you ask something, the input returns to the bottom and the answer gets the full height.",
     "de": "Ein neuer Chat öffnet sich jetzt mit Begrüßung und Eingabefeld gemeinsam in der Bildschirmmitte, statt dass die Begrüßung weit oben schwebt und das Eingabefeld am unteren Rand fixiert ist. Sobald Sie etwas fragen, wandert das Eingabefeld wieder nach unten und die Antwort nimmt die volle Höhe ein."
+  },
+  {
+    "en": "A new organization names the country its office is in, and upload screening can now also hold files with German social insurance numbers or tax IDs.",
+    "de": "Eine neue Organisation gibt das Land ihres Büros an, und die Upload-Prüfung kann jetzt auch Dateien mit deutschen Sozialversicherungsnummern oder Steuer-IDs zurückhalten."
   },
   {
     "en": "A new project can now be created as already closed, so a past project can join the office as a reference in one step. The dialog for creating a project was redesigned: it asks whether the project is still running or already finished, and for a finished one how it ended and when.",
@@ -548,6 +568,10 @@
     "de": "Ein Projekt listet Erkenntnisse aus seinen Dokumenten auf: ein referenziertes Dokument oder eine Plannummer, die dem Projekt nicht vorliegt, sowie zwei Dokumente, die denselben Sachverhalt unterschiedlich darstellen – jeweils mit den Seiten, auf die sich der Befund stützt."
   },
   {
+    "en": "A project name too long for the selector is shortened in the middle, so its end stays readable, and is never wrapped onto a second line.",
+    "de": "Ein für das Auswahlfeld zu langer Projektname wird in der Mitte gekürzt, sodass das Ende lesbar bleibt, und nie auf eine zweite Zeile umgebrochen."
+  },
+  {
     "en": "A project now has a page of similar past projects: the closed projects most like it that you may open, with what they share, the OIB edition they were planned under, what the authority demanded there, and the decisions they recorded.",
     "de": "Ein Projekt hat jetzt eine Seite mit ähnlichen früheren Projekten: abgeschlossene Projekte, die Sie öffnen können und die ihm am ähnlichsten sind, samt Gemeinsamkeiten, der Ausgabe der OIB-Richtlinien, nach der sie geplant wurden, den Forderungen der Behörde und den dokumentierten Entscheidungen."
   },
@@ -556,12 +580,24 @@
     "de": "Ein Projekt, dessen Anlegen auf halbem Weg scheiterte, bleibt für die Person, die es angelegt hat, nicht mehr unerreichbar."
   },
   {
+    "en": "A project's Files no longer repeats the number of waiting mails in a line above the files; the inbox tab carries it.",
+    "de": "Bei den Dateien eines Projekts wird die Anzahl wartender E-Mails nicht mehr in einer Zeile oberhalb der Dateien angezeigt, sondern im Inbox-Tab."
+  },
+  {
+    "en": "A project's address can now be confirmed against the Austrian address register, kept in our own database, so what you type is never sent to anyone else. A match names the Gemeinde and Bundesland; an address the register does not hold stays unconfirmed, with its candidates shown.",
+    "de": "Eine Projektadresse lässt sich jetzt mit dem österreichischen Adressregister abgleichen, das in unserer eigenen Datenbank gespeichert ist. Ihre Eingaben werden dabei nie an Dritte übermittelt. Bei einem Treffer werden Gemeinde und Bundesland angegeben; eine im Register nicht geführte Adresse bleibt unbestätigt, mögliche Treffer werden angezeigt."
+  },
+  {
     "en": "A project's completion month is now set when you close it. A running project shows \"ongoing\", and a month entered earlier is no longer shown; you are asked for it again when you close the project.",
     "de": "Der Abschlussmonat eines Projekts wird jetzt beim Schließen festgelegt. Ein laufendes Projekt zeigt „laufend“, und ein früher eingetragener Monat wird nicht mehr angezeigt; beim Schließen des Projekts wird er erneut abgefragt."
   },
   {
     "en": "A project's findings now show where a document states a different building class, storey count, plot area, construction method, use or federal state than the project profile, side by side with links to both.",
     "de": "Die Ergebnisse eines Projekts zeigen jetzt nebeneinander, wo ein Dokument eine andere Gebäudeklasse, Geschossanzahl, Grundstücksfläche, Bauweise, Nutzung oder ein anderes Bundesland als im Projektprofil angibt, jeweils mit Links zu beiden."
+  },
+  {
+    "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
+    "de": "Im Projekt-Setup sehen Sie jetzt, welches Recht am Standort gilt, sowie jede Vorschrift und Richtlinie in der dort verbindlichen Fassung – dieselbe Rechtsgrundlage, auf der auch die Antworten im Chat beruhen. Wenn noch kein Recht angegeben werden kann, erfahren Sie warum: weil kein Standort hinterlegt ist oder Ihr Büro das betreffende Land nicht aktiviert hat."
   },
   {
     "en": "A project's Übersicht opens again when your office has a closed project to compare it with. Before, the similar-projects tile failed to load and took the whole Übersicht down with an error page.",
@@ -586,6 +622,10 @@
   {
     "en": "A question about a whole Richtlinie, such as „Was weißt du über die OIB 2?“, is now answered from one search covering every part on file: the scope of each part as a citable passage, with its outline beneath.",
     "de": "Eine Frage nach einer ganzen Richtlinie wie „Was weißt du über die OIB 2?“ beantwortet Piloti jetzt aus einem Suchlauf über alle vorhandenen Teile: je Teil der Geltungsbereich als zitierfähige Passage, darunter dessen Gliederung."
+  },
+  {
+    "en": "A question about an Austrian law is answered from the legal database even before the office's building-law base is published; the answer no longer claims the database is switched off.",
+    "de": "Eine Frage zu einem österreichischen Gesetz wird bereits aus der Rechtsdatenbank beantwortet, bevor die baurechtliche Wissensbasis des Büros veröffentlicht ist; die Antwort gibt nicht mehr an, dass die Datenbank deaktiviert ist."
   },
   {
     "en": "A question about building regulations no longer comes back empty just because a document was open beside the chat. Only the file you chose with \"Asking about this file\" narrows the search now, and when a search in that file finds nothing on a regulation question, Piloti searches the guidelines again without it.",
@@ -666,6 +706,10 @@
   {
     "en": "A research report can now show a file from the project or the office archive as a card, as the chat already could.",
     "de": "Auch ein Recherchebericht kann jetzt eine Datei aus dem Projekt oder dem Büroarchiv als Karte zeigen, wie es der Chat schon konnte."
+  },
+  {
+    "en": "A research run now works from the same law as the chat: the editions that apply at the project's site, in their role there, or a clear note when that law cannot be named.",
+    "de": "Ein Recherchelauf arbeitet jetzt mit derselben Rechtsgrundlage wie der Chat: mit den am Projektstandort geltenden Fassungen und ihrer dortigen Funktion – oder mit einem klaren Hinweis, wenn sich die Rechtsgrundlage nicht benennen lässt."
   },
   {
     "en": "A research run or task that finished during a brief outage now shows its result, instead of staying \"running\" with an empty message forever.",
@@ -760,6 +804,10 @@
     "de": "Ein in Kleinbuchstaben eingegebener Norm- oder Produktcode findet jetzt auch Dokumente, in denen er in Großbuchstaben geschrieben ist. Fragen zu einem bestimmten Code liefern daher unabhängig von der Schreibweise dieselben Quellen."
   },
   {
+    "en": "A standard that a building code makes binding, such as a Swiss or German norm referenced by Viennese law, can now also be asked about for a past date, instead of being reported as unknown.",
+    "de": "Eine durch eine Bauordnung verbindlich gemachte Norm, etwa eine im Wiener Recht referenzierte Schweizer oder deutsche Norm, kann nun auch für einen vergangenen Zeitpunkt abgefragt werden, statt als unbekannt gemeldet zu werden."
+  },
+  {
     "en": "A subfolder can only narrow what its parent allows, and someone who may only read a folder sees it marked „Nur lesen“, without upload, rename, move or delete. Only a project admin who may edit a folder can change who may read or edit it.",
     "de": "Ein Unterordner kann nur einschränken, was sein übergeordneter Ordner erlaubt, und wer einen Ordner nur lesen darf, sieht ihn als „Nur lesen“ markiert, ohne Hochladen, Umbenennen, Verschieben oder Löschen. Nur ein Projekt-Admin, der einen Ordner bearbeiten darf, kann ändern, wer ihn lesen oder bearbeiten darf."
   },
@@ -818,6 +866,10 @@
   {
     "en": "ARCHOS suggests a folder and a Dokumentart for each attachment of a waiting mail, from the file names, the masked subject and the sender's domain only. Several complete mails can then be filed as suggested with one press.",
     "de": "ARCHOS schlägt für jeden Anhang einer wartenden Mail anhand des Dateinamens, des maskierten Betreffs und ausschließlich der Domain des Absenders einen Ordner und eine Dokumentart vor. Mehrere vollständige Mails lassen sich anschließend mit einem Klick wie vorgeschlagen ablegen."
+  },
+  {
+    "en": "Above a project, the header marks „Projekte“ as the page you are on, and its Büroablage, Suche and Postfach show their names on wide screens.",
+    "de": "Oberhalb eines Projekts kennzeichnet die Kopfzeile „Projekte“ als aktuelle Seite; auf breiten Bildschirmen zeigt sie außerdem die Namen von Büroablage, Suche und Postfach an."
   },
   {
     "en": "Above the folder view, a named way back such as „Zurück zu Planung“ now accompanies the breadcrumb trail.",
@@ -916,6 +968,10 @@
     "de": "Ein Outlook-Archivimport endet mit derselben Zusammenfassung, sobald alles gelesen ist, was er abgelegt hat."
   },
   {
+    "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
+    "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
+  },
+  {
     "en": "An agent connected to Piloti, such as Claude or Cursor, now learns when a project it has open changes: a new name, status, profile or document. It hears only about projects the signed-in person may open.",
     "de": "Ein mit Piloti verbundener Agent wie Claude oder Cursor wird jetzt informiert, wenn sich ein geöffnetes Projekt ändert – etwa Name, Status, Profil oder Dokument. Er erhält nur Informationen zu Projekten, die die angemeldete Person öffnen darf."
   },
@@ -962,6 +1018,10 @@
   {
     "en": "An answer now appears word by word at an even pace, each word fading in softly. When it is finished, the last words follow quickly, and then the Herleitung folds away and the actions below the answer appear in one smooth step instead of several jumps.",
     "de": "Eine Antwort erscheint jetzt Wort für Wort in gleichmäßigem Tempo, und jedes Wort blendet sanft ein. Ist sie fertig, laufen die letzten Worte schnell durch, danach klappt die Herleitung zusammen, und die Schaltflächen unter der Antwort erscheinen in einem Zug statt in mehreren Sprüngen."
+  },
+  {
+    "en": "An answer now names a rule binding only where the reviewed building-law records say it binds at the project's site, in the edition they name. When the site's law cannot be read, the answer says so instead of assuming Austrian law.",
+    "de": "Eine Antwort nennt eine Vorschrift nun nur dann als verbindlich, wenn aus den geprüften baurechtlichen Unterlagen hervorgeht, dass sie am Projektstandort in der dort genannten Fassung gilt. Lässt sich das dort geltende Baurecht nicht feststellen, weist die Antwort darauf hin, statt österreichisches Recht vorauszusetzen."
   },
   {
     "en": "An answer read from your workspace, such as who is on a project or which approvals are open, no longer shows as low confidence. The confidence tooltip now says what the answer rests on, for example „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg\".",
@@ -1040,6 +1100,10 @@
     "de": "Beim Import eines Outlook-Archivs wird der Text jeder E-Mail nun im Mail-Thread des Projekts abgelegt, neben der E-Mail an die Projektadresse, statt als eigene Notiz. Antworten werden dem jeweiligen Gespräch zugeordnet, und bereits im Projekt vorhandene E-Mails werden nicht doppelt abgelegt."
   },
   {
+    "en": "An office's base knowledge entry keeps who proposed it after it is confirmed, and names who confirmed it.",
+    "de": "Ein Eintrag in der Wissensbasis eines Büros zeigt auch nach der Bestätigung, wer ihn vorgeschlagen hat, und nennt die bestätigende Person."
+  },
+  {
     "en": "An office's default language under Organisation → Einstellungen is now \"Nicht festgelegt\" until an administrator picks one, and each person then starts in their browser's language. Offices that had the English preset stored have it reset; set it again there if your office wants English.",
     "de": "Die Standardsprache eines Büros unter Organisation → Einstellungen ist jetzt „Nicht festgelegt“, bis ein Administrator eine Sprache auswählt. Anschließend startet jede Person in der Sprache ihres Browsers. Bei Büros, bei denen Englisch als Voreinstellung gespeichert war, wird diese zurückgesetzt. Wählen Sie Englisch dort erneut aus, wenn Ihr Büro Englisch verwenden möchte."
   },
@@ -1058,6 +1122,14 @@
   {
     "en": "An open file shows its summary, page count and tags as soon as Piloti has finished reading it, without closing and reopening it.",
     "de": "Eine geöffnete Datei zeigt ihre Zusammenfassung, Seitenzahl und Schlagwörter, sobald Piloti sie fertig gelesen hat, ohne dass Sie sie schließen und neu öffnen müssen."
+  },
+  {
+    "en": "An opened mail on a phone has one way back, the arrow beside „E-Mail-Eingang“ at the top, instead of two arrows above each other.",
+    "de": "Bei einer geöffneten E-Mail am Smartphone gibt es nur noch einen Zurück-Pfeil: den neben „E-Mail-Eingang“ oben statt zwei übereinanderliegenden Pfeilen."
+  },
+  {
+    "en": "An opened mail shows its sender as a name and an address without brackets, and the file preview's header shows the name without a format box.",
+    "de": "Bei einer geöffneten E-Mail werden Name und Adresse des Absenders ohne Klammern angezeigt, und in der Kopfzeile der Dateivorschau wird der Name ohne Formatfeld angezeigt."
   },
   {
     "en": "An opened mail starts with its text: sender, confirmed domain and arrival stand in one line, and the recipients, the original and the expiry date under „Details“.",
@@ -1104,8 +1176,20 @@
     "de": "Antworten lassen sich schneller überfliegen: Die erste Zeile nennt den Wert fett, Prüfungen je Gebäudeklasse stehen in Tabellen mit Verweisen, Abläufe als nummerierte Schritte und offene Punkte als Aufgabenliste."
   },
   {
+    "en": "Answers can now quote the edition of an OIB guideline that actually binds in your Land: the April 2019 guidelines in Burgenland, Steiermark and Vorarlberg, and the 2019, 2025 and 2015 editions of OIB-RL 6 where a Land still applies them.",
+    "de": "Antworten können jetzt die Ausgabe einer OIB-Richtlinie zitieren, die in Ihrem Bundesland tatsächlich verbindlich ist: die Richtlinien vom April 2019 in Burgenland, Steiermark und Vorarlberg sowie die Ausgaben 2019, 2025 und 2015 der OIB-RL 6, sofern ein Bundesland diese noch anwendet."
+  },
+  {
+    "en": "Answers exported to Word, and the reports and diagrams the agent files as PDF, now say in their file properties that AI wrote them, in the standard vocabulary archive and compliance tools recognise. Every document the agent drafts, a letter to an authority included, now opens with a line saying that an AI system wrote it and for which office.",
+    "de": "In Word exportierte Antworten sowie Berichte und Diagramme, die der Agent als PDF ablegt, weisen jetzt in ihren Dateieigenschaften mit standardisierten Begriffen, die Archivierungs- und Compliance-Tools erkennen, darauf hin, dass sie von einer KI erstellt wurden. Jedes vom Agenten verfasste Dokument, auch ein Schreiben an eine Behörde, beginnt jetzt mit einer Zeile, die angibt, dass es von einem KI-System erstellt wurde und für welches Büro."
+  },
+  {
     "en": "Answers in chat arrive sooner, because Piloti prepares what it needs for the answer in parallel.",
     "de": "Antworten im Chat kommen früher, weil Piloti alles Nötige für die Antwort parallel vorbereitet."
+  },
+  {
+    "en": "Answers no longer cite a web copy of a guideline the knowledge base holds, or the product's own website, as a source for law, and no longer show internal notes such as \"citation not verified\" in the text.",
+    "de": "Antworten zitieren eine Webkopie einer in der Wissensdatenbank gespeicherten Richtlinie oder die Website des Produkts nicht mehr als Quelle für Rechtsauskünfte und zeigen im Text keine internen Hinweise wie „Quelle nicht verifiziert“ mehr an."
   },
   {
     "en": "Answers no longer occasionally end in a block of raw technical data after the list of sources.",
@@ -1136,8 +1220,20 @@
     "de": "Antworten bringen ihre Kernelemente jetzt vorneweg: das Urteil als kopierbarer Wert über der Antwort, die Kernaussagen darunter und höchstens ein Hinweis darauf, was Ihren nächsten Schritt ändert."
   },
   {
+    "en": "Answers now name the editions the Landesgesetzblatt itself makes binding: OIB-RL 6 Ausgabe 2025 in Burgenland from 5 November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg, and the 2023 guidelines in Salzburg from 1 September 2026 and in Niederösterreich from 20 March 2025.",
+    "de": "Die Antworten nennen jetzt die Ausgaben, die das Landesgesetzblatt selbst für verbindlich erklärt: OIB-RL 6 Ausgabe 2025 im Burgenland ab 5. November 2026, OIB-RL 6 Ausgabe März 2015 in Salzburg sowie die Richtlinien 2023 in Salzburg ab 1. September 2026 und in Niederösterreich ab 20. März 2025."
+  },
+  {
+    "en": "Answers now name the standards the platform lists for your country even when your office holds no copy, saying the text is not available, and an authority's directives reach a project only where that authority decides.",
+    "de": "Antworten nennen jetzt die Normen, die die Plattform für Ihr Land auflistet, auch wenn Ihrem Büro keine Kopie vorliegt, und weisen darauf hin, dass der Text nicht verfügbar ist. Vorgaben einer Behörde gelten für ein Projekt nur, wenn die Behörde dies festlegt."
+  },
+  {
     "en": "Answers now open with a clear heading whatever the question: overviews get a title and a line on their scope, legal rulings keep their verdict header, and answers about one provision quote the decisive passage right beneath it.",
     "de": "Antworten beginnen jetzt mit einer klaren Überschrift, egal worum es geht: Übersichten erhalten einen Titel und eine Zeile zum Umfang, Gerichtsentscheidungen behalten ihren Kopf mit dem Urteil, und Antworten zu einer einzelnen Vorschrift zitieren darunter direkt die entscheidende Textstelle."
+  },
+  {
+    "en": "Answers now say how far the base knowledge goes where a project stands: not set up for that country, read from the official source without review, or overdue for a check. Your documents and your office's own copies still answer, and the HOAI is shown as depending on the office's seat.",
+    "de": "Antworten zeigen jetzt den Stand des Basiswissens für das jeweilige Projekt: für das betreffende Land nicht eingerichtet, aus der offiziellen Quelle übernommen, aber nicht geprüft, oder eine Prüfung ist überfällig. Ihre Dokumente und die eigenen Kopien Ihres Büros liefern weiterhin Antworten; die HOAI wird abhängig vom Sitz Ihres Büros angezeigt."
   },
   {
     "en": "Answers now show what else Piloti read. The details of an answer list the documents Piloti looked at but did not cite, as quiet document chips, so you can see how broad the research was without those documents backing any claim.",
@@ -1216,6 +1312,10 @@
     "de": "Bitten Sie um ein Diagramm, ein Schaubild oder eine Grafik, und Piloti antwortet mit einer echten Zeichnung statt mit Textkunst aus Strichen und Pfeilen."
   },
   {
+    "en": "Ask in the chat how an existing building's class changes with the planned work: the answer gives the class today and after, what is still missing to decide it, and the document that settles it.",
+    "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
+  },
+  {
     "en": "Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you can open the drawing as a sketch to rework it, instead of being told it cannot. Asked about itself, such as whether it works inside your own assistant, Piloti now answers instead of searching your files.",
     "de": "Wenn Sie Piloti um ein Excalidraw-Diagramm oder eine Skizze bitten, erstellt es diese jetzt. Sie können die Zeichnung als Skizze öffnen und weiterbearbeiten, statt die Meldung zu erhalten, dass dies nicht möglich ist. Fragen Sie Piloti nach sich selbst, etwa ob es in Ihrem eigenen Assistenten funktioniert, antwortet es jetzt, statt Ihre Dateien zu durchsuchen."
   },
@@ -1242,6 +1342,10 @@
   {
     "en": "Asking for a full Soll-Ist or Konformitätsprüfung now runs the complete check against this project, instead of going through the six Richtlinien by hand.",
     "de": "Wenn Sie eine vollständige Soll-Ist- oder Konformitätsprüfung anfordern, prüft Piloti dieses Projekt jetzt vollständig, statt die sechs Richtlinien von Hand durchzugehen."
+  },
+  {
+    "en": "Asking for a room's clear height in an IFC model now gives the measured height again, instead of saying the calculation failed.",
+    "de": "Bei der Abfrage der lichten Höhe eines Raums in einem IFC-Modell wird wieder die gemessene Höhe ausgegeben, statt dass ein Berechnungsfehler gemeldet wird."
   },
   {
     "en": "Asking for the documents that refer to a plan finds them when the plan is named the way a person writes it, such as \"Plan Nr. EP-05\" or \"siehe EP-05\".",
@@ -1312,6 +1416,10 @@
     "de": "Buttons, Eingabefelder, Karten und Dialoge im Arbeitsbereich folgen jetzt einem einheitlichen Form- und Farbschema – sowohl im hellen als auch im dunklen Modus."
   },
   {
+    "en": "Büroablage, Suche and Postfach stand at the foot of the sidebar under your office's name, just above your own name; the project and its sections have the top to themselves.",
+    "de": "Büroablage, Suche und Postfach befinden sich am unteren Ende der Seitenleiste unter dem Namen Ihres Büros, direkt über Ihrem eigenen Namen; das Projekt und seine Bereiche bleiben dem oberen Bereich vorbehalten."
+  },
+  {
     "en": "Card headers with buttons in them no longer run past the edge of a narrow screen. Where there is not room for the title and the buttons on one line, the buttons move underneath.",
     "de": "Kartenüberschriften mit Schaltflächen ragen nicht mehr über den Rand schmaler Bildschirme hinaus. Wenn Titel und Schaltflächen nicht in eine Zeile passen, werden die Schaltflächen darunter angezeigt."
   },
@@ -1350,6 +1458,10 @@
   {
     "en": "Chats in projects with detailed profiles now connect reliably, and new conversations save their messages and show them correctly.",
     "de": "Chats in Projekten mit ausführlichem Profil funktionieren jetzt zuverlässig, und neue Unterhaltungen speichern ihre Nachrichten und zeigen sie richtig an."
+  },
+  {
+    "en": "Chats that a scheduled task created for each of its runs no longer fill your chat history.",
+    "de": "Chats, die bei jedem Durchlauf einer geplanten Aufgabe erstellt werden, überladen Ihren Chatverlauf nicht mehr."
   },
   {
     "en": "Check tables show their result up front, such as „2 erfüllt · 1 offen“, and on a phone wide tables stack row by row instead of scrolling sideways.",
@@ -1486,6 +1598,10 @@
   {
     "en": "Custom roles grant the Büroablage under a new permission name. Roles that hold the old one keep their access; the role editor offers only the new one.",
     "de": "Benutzerdefinierte Rollen gewähren unter einem neuen Berechtigungsnamen Zugriff auf die Büroablage. Rollen mit der alten Berechtigung behalten ihren Zugriff; der Rollen-Editor bietet nur die neue Berechtigung an."
+  },
+  {
+    "en": "Dark mode tells buttons, chips and sheets apart: buttons are outlined, the open email stands clearly above selected ones, and the point markers in open points are no longer bright white discs.",
+    "de": "Der Dark Mode hebt Buttons, Chips und Sheets besser voneinander ab: Buttons sind umrandet, die geöffnete E-Mail hebt sich deutlich von den ausgewählten E-Mails ab, und die Markierungen offener Punkte sind keine grellweißen Kreise mehr."
   },
   {
     "en": "Dateien and the Archiv now update while you look at them: a colleague's upload, a file Piloti filed, a move, a rename or a new folder appears without reloading the page, and a file's status changes as soon as it has been read.",
@@ -1712,6 +1828,10 @@
     "de": "Jedes Foto wird nach dem Zeitpunkt der Aufnahme benannt, sodass ein weiteres Foto das erste nicht mehr ersetzt. Wenn Fotos nicht aktiviert sind, zeigt das Menü den Grund an."
   },
   {
+    "en": "Each place in Files is now titled by its own name, with the project above it as a small breadcrumb, and the explanatory line under the title is gone. The places (Alle Dateien, E-Mail-Eingang, …) stand clearly apart from the title above them.",
+    "de": "Jeder Bereich in Dateien trägt jetzt seinen eigenen Namen als Titel; das Projekt wird darüber als kleiner Breadcrumb angezeigt, und die erläuternde Zeile unter dem Titel entfällt. Die Bereiche (Alle Dateien, E-Mail-Eingang, …) sind klar vom darüberstehenden Titel abgesetzt."
+  },
+  {
     "en": "Each project in your project list shows its address under its name, so you can tell projects apart at a glance. The two project lists on the overview now line up.",
     "de": "In Ihrer Projektliste wird bei jedem Projekt die Adresse unter dem Namen angezeigt, sodass Sie Projekte auf einen Blick unterscheiden können. Die beiden Projektlisten in der Übersicht sind jetzt aufeinander ausgerichtet."
   },
@@ -1760,6 +1880,10 @@
     "de": "Jeder Startversuch einer Aufgabe steht jetzt unter „Aufgaben“, auch Läufe, die übersprungen wurden oder schon vor ihrem Start fehlgeschlagen sind, jeweils mit dem Grund."
   },
   {
+    "en": "Every button in Files, the inbox, Open points, the Bin and the file preview that does something now looks like a button, and filters and the grid or list choice sit on a grey track with the chosen option raised.",
+    "de": "Jeder Button in Dateien, im Posteingang, bei den offenen Punkten, im Papierkorb und in der Dateivorschau, der eine Aktion ausführt, ist jetzt auch als Button erkennbar. Filter und die Auswahl zwischen Raster- und Listenansicht befinden sich auf einer grauen Leiste, auf der die ausgewählte Option erhöht dargestellt ist."
+  },
+  {
     "en": "Every document now has Besprechen, in Dateien, on the report card in the chat and on the approval request in the inbox. It opens a conversation about exactly that file.",
     "de": "Jedes Dokument hat jetzt „Besprechen“, in den Dateien, auf der Berichtskarte im Chat und auf der Freigabe-Aufforderung im Posteingang. Der Knopf öffnet ein Gespräch über genau diese Datei."
   },
@@ -1778,6 +1902,14 @@
   {
     "en": "Every finished answer can now be copied. Before, an answer without a source, such as a clarifying question or a short reply, offered only the Word download, so you could not take a sentence from it into an e-mail.",
     "de": "Jede fertige Antwort lässt sich jetzt kopieren. Bisher bot eine Antwort ohne Quelle, etwa eine Rückfrage oder ein kurzer Gesprächsbeitrag, nur den Word-Download an, sodass Sie keinen Satz daraus in eine E-Mail übernehmen konnten."
+  },
+  {
+    "en": "Every folder shows its subfolders first and its files after them. The list view keeps the size and date columns on a laptop screen, and on a phone each row shows them under the name.",
+    "de": "Jeder Ordner zeigt zuerst seine Unterordner und danach seine Dateien. In der Listenansicht bleiben die Spalten für Größe und Datum auch auf einem Laptop-Bildschirm sichtbar. Auf dem Smartphone werden sie in jeder Zeile unter dem Namen angezeigt."
+  },
+  {
+    "en": "Every office can now record its own standards, commentaries and directives, and ask which edition of a law applied on an earlier date.",
+    "de": "Jedes Büro kann jetzt eigene Standards, Kommentare und Richtlinien erfassen und abfragen, welche Fassung eines Gesetzes zu einem früheren Zeitpunkt galt."
   },
   {
     "en": "Every step behind that figure is published with it: which numbers are our assumptions, which are yours, what a planner's week is assumed to look like, and what the calculation deliberately leaves out.",
@@ -1808,6 +1940,10 @@
     "de": "Dateinamen, die Piloti in einer Antwort nennt, öffnen ihre Datei jetzt zuverlässiger, weil jeder Name genau so erscheint, wie die Datei ihn trägt."
   },
   {
+    "en": "File tiles show the name, format, size and date only, so more of a folder fits on one screen; the summary stays in the list view and the preview. A folder with more than 50 documents opens as a list unless you chose the tiles yourself.",
+    "de": "Dateikacheln zeigen nur Name, Format, Größe und Datum, damit mehr Dateien aus einem Ordner auf einen Bildschirm passen; die Zusammenfassung bleibt in der Listenansicht und in der Vorschau. Ordner mit mehr als 50 Dokumenten werden als Liste geöffnet, sofern Sie nicht selbst die Kachelansicht ausgewählt haben."
+  },
+  {
     "en": "Files Piloti writes now carry that mark, and a file without it is refused. Files already in a project stay as they are; file a drawing again to get a marked copy.",
     "de": "Dateien, die Piloti schreibt, tragen jetzt diese Kennzeichnung, und eine Datei ohne sie wird abgelehnt. Dateien, die schon im Projekt liegen, bleiben unverändert; legen Sie eine Zeichnung erneut ab, um eine gekennzeichnete Kopie zu erhalten."
   },
@@ -1826,6 +1962,14 @@
   {
     "en": "Files dragged from your desktop onto a folder, or onto a folder in the path above the list, now upload into that folder, and the drop area names it before you let go.",
     "de": "Dateien, die Sie vom Desktop auf einen Ordner oder auf einen Ordner im Pfad oberhalb der Liste ziehen, werden jetzt in diesen Ordner hochgeladen. Der Ablagebereich zeigt den Ordnernamen an, bevor Sie die Dateien loslassen."
+  },
+  {
+    "en": "Files has places of its own along the top: All files, the e-mail inbox with the number of mails waiting, Open points and the Bin. The inbox shows the project's address at the top for copying, and a new project's empty inbox leads with it.",
+    "de": "Dateien bietet oben eigene Bereiche: Alle Dateien, Posteingang mit der Anzahl wartender E-Mails, Offene Punkte und Papierkorb. Im Posteingang steht oben die Projektadresse zum Kopieren; im leeren Posteingang eines neuen Projekts wird sie gleich angezeigt."
+  },
+  {
+    "en": "Files is calmer to read. Tiles and folders sit on the page without boxes around them, every file type reads in the same ink, and in the list a column appears only when one of its rows has something to show.",
+    "de": "Files ist ruhiger gestaltet: Kacheln und Ordner erscheinen ohne Rahmen, alle Dateitypen werden in derselben Farbe dargestellt, und in der Liste wird eine Spalte nur angezeigt, wenn mindestens eine Zeile darin einen Wert enthält."
   },
   {
     "en": "Files now open the way a folder does anywhere else: click a folder to step into it, and a path at the top (\"All Files › Brandschutz\") shows exactly where you are and lets you click back out to any level above. Folders show up as cards right beside your files, at every level, not just at the top.",
@@ -1848,6 +1992,10 @@
     "de": "Im Projekt-Assistenten hochgeladene Dateien erhalten jetzt dieselbe Meldung im Postfach und dieselbe Upload-Zusammenfassung wie jeder andere Upload und erscheinen im Upload-Verlauf des Projekts."
   },
   {
+    "en": "Files, project mail, open points and the bin now read as sheets lying on a desk: documents are white with a soft edge, buttons are raised, headings are bolder and mail that needs you stands out. Where every row offers the same action, it shows as a small icon until you point at the row.",
+    "de": "Dateien, Projekt-E-Mails, offene Punkte und Papierkorb wirken jetzt wie Blätter auf einem Schreibtisch: Dokumente sind weiß und haben einen dezenten Schatten, Schaltflächen sind erhaben, Überschriften fetter und E-Mails mit Handlungsbedarf stechen hervor. Wenn jede Zeile dieselbe Aktion bietet, wird diese zunächst nur als kleines Symbol angezeigt, bis Sie mit der Maus über die Zeile fahren."
+  },
+  {
     "en": "Filing an attachment the E-Mail-Eingang had suggested a folder for no longer fails.",
     "de": "Das Ablegen eines Anhangs in einem vom E-Mail-Eingang vorgeschlagenen Ordner schlägt nicht mehr fehl."
   },
@@ -1866,6 +2014,10 @@
   {
     "en": "Findings from a report now carry on in the project. An open finding can become its own task with Klären, and a finished report can be updated with Bericht fortschreiben, which marks each finding as new, changed or dropped.",
     "de": "Befunde aus einem Bericht bleiben im Projekt erhalten. Ein offener Befund wird mit „Klären“ zu einer eigenen Aufgabe, und ein fertiger Bericht lässt sich mit „Bericht fortschreiben“ aktualisieren, wobei jeder Befund als neu, geändert oder entfallen markiert wird."
+  },
+  {
+    "en": "Findings from the documents now stand as a button next to the line that says what was read, and open the overview at the top of Dateien.",
+    "de": "Ergebnisse aus den Dokumenten erscheinen jetzt als Schaltfläche neben der Zeile, die angibt, was gelesen wurde, und öffnen die Übersicht oben in Dateien."
   },
   {
     "en": "Findings of the skill check now appear under the field they concern. „Erneut prüfen“ checks the revised text, and a finding on text that has since changed is marked as outdated.",
@@ -1900,6 +2052,10 @@
     "de": "Ordner lassen sich jetzt auf einen anderen Ordner ziehen oder auf „Alle Dateien“, um sie wieder nach oben zu verschieben. Ein Ordner lässt sich nie in sich selbst ablegen."
   },
   {
+    "en": "Folders in Files sit on the page as a glyph and a name, and \"Select\" and \"New folder\" moved up beside the tabs, so the overview and the files start a row higher. On a phone both are the first entries of the \"...\" menu.",
+    "de": "Ordner in Files werden auf der Seite mit Symbol und Namen angezeigt, und „Auswählen“ und „Neuer Ordner“ sind neben die Tabs gerückt, sodass Übersicht und Dateien eine Zeile höher beginnen. Auf dem Smartphone sind beide die ersten Einträge im „...“-Menü."
+  },
+  {
     "en": "Folders in a project's files can now be renamed, moved and deleted, not only created. Hover over a folder in the tree to open its menu: Rename lets you edit the name in place, and Delete asks once before removing the folder.",
     "de": "Ordner in den Projektdateien lassen sich jetzt umbenennen, verschieben und löschen, nicht nur anlegen. Fahren Sie in der Ordnerliste über einen Ordner, um sein Menü zu öffnen: Umbenennen macht den Namen direkt bearbeitbar, und Löschen fragt einmal nach, bevor der Ordner entfernt wird."
   },
@@ -1914,6 +2070,10 @@
   {
     "en": "Folders no longer disappear from the folder list after you create or rename one, or after a brief connection drop.",
     "de": "Ordner verschwinden nicht mehr aus der Ordnerliste, wenn Sie einen Ordner erstellen oder umbenennen oder die Verbindung kurz unterbrochen wird."
+  },
+  {
+    "en": "Folders, the preview's side panel and the email reader use the same white sheets, and list rows are separated by one even line. Dark mode keeps the email list visible against the page.",
+    "de": "Ordner, die Seitenleiste der Vorschau und der E-Mail-Reader verwenden dieselben weißen Flächen; Listeneinträge sind durch eine einheitliche Linie getrennt. Im Dark Mode hebt sich die E-Mail-Liste vom Seitenhintergrund ab."
   },
   {
     "en": "Follow-up questions are answered sooner, because only the cited passages of the last answer travel with the conversation.",
@@ -1940,12 +2100,24 @@
     "de": "Fußnoten in einer Antwort folgen Ihrer Sprache, und ihre Sprungmarken funktionieren wieder."
   },
   {
+    "en": "For a project in Austria, answers can now say which edition of the OIB-Richtlinien its Land declared binding and since when: the 2019 edition in Steiermark, Vorarlberg and Burgenland, the 2023 edition where a Land adopted it, and RL 6 in its 2025 edition in Wien and Tirol. A newer edition that a Land has not adopted is marked as guidance in the sources, no longer as binding.",
+    "de": "Bei einem Projekt in Österreich können Antworten jetzt angeben, welche Ausgabe der OIB-Richtlinien das jeweilige Land für verbindlich erklärt hat und seit wann: die Ausgabe 2019 in der Steiermark, in Vorarlberg und im Burgenland, die Ausgabe 2023 in den Ländern, die sie übernommen haben, sowie RL 6 in der Ausgabe 2025 in Wien und Tirol. Eine neuere Ausgabe, die ein Land nicht übernommen hat, wird in den Quellen nicht mehr als verbindlich, sondern als Orientierung gekennzeichnet."
+  },
+  {
+    "en": "For a project outside Austria, or one whose site is not yet stated, the assistant no longer searches or presents Austrian law, OIB guidelines, the legal information system (RIS) or building classes as applying, and says what it does not cover or asks where the project is. Within Austria it no longer cites Vienna's laws for projects in other Länder.",
+    "de": "Bei Projekten außerhalb Österreichs oder mit noch nicht angegebenem Standort sucht oder präsentiert der Assistent österreichisches Recht, OIB-Richtlinien, das Rechtsinformationssystem (RIS) oder Gebäudeklassen nicht mehr als anwendbar. Stattdessen gibt er an, was nicht abgedeckt ist, oder fragt nach dem Projektstandort. Innerhalb Österreichs zitiert er bei Projekten in anderen Bundesländern nicht mehr die Gesetze Wiens."
+  },
+  {
     "en": "For a question an earlier project may already have answered, Piloti now searches the closed projects most like yours from the start, and finds them by construction method too.",
     "de": "Bei Fragen, die möglicherweise bereits in einem früheren Projekt beantwortet wurden, durchsucht Piloti jetzt von Anfang an die abgeschlossenen Projekte, die Ihrem am ähnlichsten sind, und findet sie auch anhand der Bauweise."
   },
   {
     "en": "For a very long text file, a note under the text now says that only the beginning is shown, so the last visible line no longer reads like the end of the document.",
     "de": "Bei einer sehr langen Textdatei steht jetzt unter dem Text, dass nur der Anfang angezeigt wird, damit die letzte sichtbare Zeile nicht wie das Ende des Dokuments wirkt."
+  },
+  {
+    "en": "For now the setup no longer marks the OIB guidelines that only some buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for each. They return shortly, worked out from the building's facts.",
+    "de": "Fürs Erste kennzeichnet das Setup die OIB-Richtlinien, die nur für bestimmte Gebäude gelten (Betriebsbau, Garage, Hochhaus), nicht mehr jeweils mit einer Begründung. Sie kommen bald zurück und werden anhand der Gebäudedaten ermittelt."
   },
   {
     "en": "For offices that have it switched on, every project can have its own mail address, and mail sent to it waits in the project's E-Mail-Eingang in Dateien until someone files it. Apart from a member's own mail, nothing becomes part of the project without a person's decision, and every attachment is checked for malware before anyone can open or file it.",
@@ -2100,6 +2272,10 @@
     "de": "In exportierten PDFs erschienen die Zeichen für „kleiner oder gleich“ und „größer oder gleich“ als fremde Buchstaben. Eine Grenze von höchstens 40 Metern erschien mit einem fremden Zeichen an der Stelle des Vergleichszeichens, während die Zahl daneben stimmte."
   },
   {
+    "en": "In project mail the filing button is one short word, with a line beside it saying what it files once the choice above has scrolled away, and it sits at the foot of the email. While emails are selected for a batch, only the batch's buttons are offered for discarding and filing in bulk.",
+    "de": "In der Projektmail ist die Schaltfläche zum Ablegen mit einem kurzen Wort beschriftet. Daneben steht, was abgelegt wird, sobald die Auswahl oben nicht mehr sichtbar ist. Die Schaltfläche befindet sich am unteren Rand der E-Mail. Sind E-Mails für eine Sammelaktion ausgewählt, werden zum gemeinsamen Verwerfen und Ablegen nur die Schaltflächen für die Sammelaktion angezeigt."
+  },
+  {
     "en": "In review, the annotation list stays folded while a document has no annotations. Next to the chat, full screen opens the review, and a document's details sit behind an info button instead of a tab row.",
     "de": "Im Review bleibt die Annotationsliste eingeklappt, solange ein Dokument keine Annotationen enthält. Das Review lässt sich neben dem Chat im Vollbild öffnen, und die Dokumentdetails sind über einen Info-Button statt über eine Tab-Leiste erreichbar."
   },
@@ -2134,6 +2310,18 @@
   {
     "en": "In the derivation, project documents, the Office filing and chat attachments now each have their own label and color instead of all appearing as building law.",
     "de": "In der Herleitung haben Projektdokumente, die Büroablage und Chat-Anhänge jetzt jeweils eine eigene Kennzeichnung und Farbe, statt alle als Baurecht zu erscheinen."
+  },
+  {
+    "en": "In the e-mail inbox, mails from one thread stand under a single line with the press that files them all, and each mail's subject shows only what sets it apart from the others.",
+    "de": "Im E-Mail-Posteingang werden Mails aus einem Thread unter einer einzigen Zeile gruppiert, und im Betreff jeder Mail wird nur angezeigt, wodurch sie sich von den anderen unterscheidet."
+  },
+  {
+    "en": "In the list view a folder's size and date stand in the same columns as a file's, and search marks only the part of a word that matched.",
+    "de": "In der Listenansicht stehen Größe und Datum eines Ordners in denselben Spalten wie bei einer Datei, und die Suche markiert nur den übereinstimmenden Teil eines Wortes."
+  },
+  {
+    "en": "In the list view folders are rows of the file table, under the same column headings, and every row has the same height. Dates line up on the left.",
+    "de": "In der Listenansicht werden Ordner als Zeilen in der Dateitabelle unter denselben Spaltenüberschriften angezeigt, und alle Zeilen sind gleich hoch. Datumsangaben stehen links."
   },
   {
     "en": "In the quarantine you can now filter held files by what was found, select several or all shown files (up to 50 at a time), and allow, delete or check them again with the current rules in one step.",
@@ -2236,6 +2424,10 @@
     "de": "Lange Tiefenrecherchen hinterlassen im Chat keine überzähligen oder doppelten Nachrichten mehr, auch wenn sie im Hintergrund an ihr Zeitlimit stoßen."
   },
   {
+    "en": "Long file names are no longer broken in the middle of a word: a name that does not fit on two lines keeps its beginning and its end, with the file extension. Folder cards are all the same height, with the full name when you point at it.",
+    "de": "Lange Dateinamen werden nicht mehr mitten im Wort getrennt: Passt ein Name nicht in zwei Zeilen, bleiben Anfang und Ende samt Dateiendung sichtbar. Ordnerkarten sind alle gleich hoch; zeigen Sie auf eine Karte, wird der vollständige Name angezeigt."
+  },
+  {
     "en": "Long text documents now scroll correctly in the side preview.",
     "de": "Lange Textdokumente lassen sich in der Seitenvorschau jetzt korrekt scrollen."
   },
@@ -2270,6 +2462,10 @@
   {
     "en": "Naming a skill with a slash now simply writes its name into your message, and Piloti picks that skill from there. What reaches Piloti is exactly the text you sent.",
     "de": "Einen Skill mit Schrägstrich zu nennen schreibt jetzt einfach seinen Namen in Ihre Nachricht, und Piloti greift von dort zum gemeinten Skill. Bei Piloti kommt genau der Text an, den Sie abgeschickt haben."
+  },
+  {
+    "en": "Neuerungen is easier to read: each week shows its dates, its summary and how many changes it holds, and opens on demand. Inside a week the changes are grouped by area, and a single fix now reads \"1 fix\".",
+    "de": "Neuerungen ist übersichtlicher: Jede Woche zeigt ihre Datumsangaben, ihre Zusammenfassung und die Anzahl der enthaltenen Änderungen und lässt sich bei Bedarf aufklappen. Innerhalb einer Woche sind die Änderungen nach Bereichen gruppiert, und ein einzelner Fix wird jetzt als „1 fix“ angezeigt."
   },
   {
     "en": "New Postfach entries, mentions and shares now reach colleagues right away again, without a reload.",
@@ -2324,8 +2520,24 @@
     "de": "Auf dem Smartphone öffnet sich eine Zeichnung jetzt unabhängig davon, wie Sie sie aufrufen, im Vollbild und lässt sich so weit vergrößern, dass die 2,5-mm-Beschriftung eines A1-Plans lesbar ist – mit Pinch-Geste, Doppeltippen und scharfen Linien bei jeder Zoomstufe."
   },
   {
+    "en": "On a phone a page starts with its title: the project's name is no longer shown at the top of every page, so the content starts higher. The project you are in is shown in „Mehr“.",
+    "de": "Auf dem Smartphone beginnt jede Seite mit ihrem Titel: Der Projektname wird nicht mehr oben auf jeder Seite angezeigt, sodass der Inhalt weiter oben beginnt. Das aktuelle Projekt finden Sie unter „Mehr“."
+  },
+  {
+    "en": "On a phone folders sit two to a row and Hochladen is a round button, so the first files show sooner. The search field is a white field with a clear border.",
+    "de": "Auf dem Smartphone werden Ordner in zwei Spalten angezeigt und Hochladen ist ein runder Button, sodass die ersten Dateien schneller erscheinen. Das Suchfeld ist weiß und hat einen deutlich sichtbaren Rahmen."
+  },
+  {
+    "en": "On a phone the open-comments chip on a tile shows its first part whole instead of cutting the last one, and the inbox address and its info button fit the screen.",
+    "de": "Auf dem Smartphone zeigt der Chip für offene Kommentare auf einer Kachel den ersten Teil vollständig an, statt den letzten abzuschneiden; außerdem passen die Inbox-Adresse und ihr Info-Button auf den Bildschirm."
+  },
+  {
     "en": "On a phone the opened citation no longer jumps past the highlighted passage, and the document name is no longer pushed aside by the copy buttons.",
     "de": "Am Telefon springt das geöffnete Zitat nicht mehr über die markierte Stelle hinaus, und die Kopier-Schaltflächen verdrängen den Dokumentnamen nicht mehr."
+  },
+  {
+    "en": "On a phone the places in Files fit on one line, and the email address and the export sit behind one menu next to the project name.",
+    "de": "Auf dem Smartphone passen die Orte in Files in eine Zeile, und E-Mail-Adresse und Export befinden sich in einem Menü neben dem Projektnamen."
   },
   {
     "en": "On a phone the project list opens as a launcher with recent projects to swipe through, search also finds a project by its address, municipality or client, and the project wizard starts with its first question.",
@@ -2336,8 +2548,20 @@
     "de": "Auf dem Smartphone ist der obere Bereich jeder Projektseite ruhiger: mit einem kompakten Titel ohne Beschreibung, sodass in Dateien die ersten Dokumente im oberen Drittel des Bildschirms angezeigt werden."
   },
   {
+    "en": "On a phone you switch projects from „Mehr“: its first entry shows the project you are in, and „Projekt wechseln“ opens the list of projects.",
+    "de": "Am Smartphone wechseln Sie Projekte über „Mehr“: Der erste Eintrag zeigt das Projekt, in dem Sie sich befinden, und „Projekt wechseln“ öffnet die Projektliste."
+  },
+  {
     "en": "On a phone, Piloti now has a bar at the bottom of the screen with Frag Piloti, Dateien, Übersicht and Postfach inside a project, and Projekte, Büroablage and Postfach above one. Tapping the project name at the top switches project from a sheet with the most recent projects first, and the magnifier opens search.",
     "de": "Auf dem Smartphone hat Piloti jetzt eine Leiste am unteren Bildschirmrand: Innerhalb eines Projekts finden Sie darin Frag Piloti, Dateien, Übersicht und Postfach, außerhalb eines Projekts Projekte, Büroablage und Postfach. Tippen Sie oben auf den Projektnamen, um das Projekt über ein Auswahlfenster zu wechseln, in dem die zuletzt verwendeten Projekte zuerst angezeigt werden. Über die Lupe öffnen Sie die Suche."
+  },
+  {
+    "en": "On a phone, Suche is also listed in „Mehr“.",
+    "de": "Auf dem Smartphone wird Suche auch unter „Mehr“ angezeigt."
+  },
+  {
+    "en": "On a phone, every page of a project (the chat, the files, the mail and the settings) uses the whole width of the screen again. It was squeezed into a narrow strip beside an empty column.",
+    "de": "Auf dem Smartphone nutzen alle Seiten eines Projekts (Chat, Dateien, E-Mail und Einstellungen) wieder die gesamte Bildschirmbreite. Zuvor waren sie neben einer leeren Spalte auf einen schmalen Streifen zusammengedrückt."
   },
   {
     "en": "On a phone, the Herleitung under an answer used to swallow every swipe: a finger anywhere on it moved nothing, so you could not scroll past it to the answer itself. It now scrolls like the rest of the page.",
@@ -2364,6 +2588,14 @@
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
   },
   {
+    "en": "On a phone, „Mehr“ shows who is signed in and groups its entries by the project, the office and your account.",
+    "de": "Auf dem Smartphone zeigt „Mehr“, wer angemeldet ist, und gruppiert die Einträge nach Projekt, Büro und Ihrem Konto."
+  },
+  {
+    "en": "On a tile, open comments now sit on the preview image beside the reading state, and the files at the top level are headed \"Files\".",
+    "de": "Auf einer Kachel werden offene Kommentare jetzt neben dem Lesestatus auf dem Vorschaubild angezeigt, und Dateien auf oberster Ebene tragen die Überschrift „Dateien“."
+  },
+  {
     "en": "On a wide screen the bell docks the inbox beside your page: what waits on you comes first, grouped by document and most urgent on top, and an entry opens the chat or the review in place while the inbox stays open for the next one.",
     "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
   },
@@ -2382,6 +2614,10 @@
   {
     "en": "On the Skills tab, a skill can be switched off. Switched off, it disappears from the “/” menu and from what Piloti can pick for an answer.",
     "de": "Im Skills-Tab lässt sich ein Skill ausschalten. Ausgeschaltet verschwindet er aus dem „/“-Menü und aus der Auswahl, die Piloti für eine Antwort treffen kann."
+  },
+  {
+    "en": "On the last day a version of a law or regulation is in force, answers now use that version instead of leaving the law out or saying no version was found.",
+    "de": "Am letzten Tag, an dem eine Fassung eines Gesetzes oder einer Verordnung gilt, verwenden Antworten nun diese Fassung, statt die Rechtsvorschrift wegzulassen oder anzugeben, dass keine Fassung gefunden wurde."
   },
   {
     "en": "On the overview the Steckbrief is now a summary with a „Bearbeiten“ dialog, and closing a project asks who was involved, so the record is complete before it becomes read-only.",
@@ -2406,6 +2642,14 @@
   {
     "en": "Only runs you start yourself file a report at the moment. Scheduled runs deliver their reports into their chat.",
     "de": "Vorerst legen nur Läufe, die Sie selbst starten, einen Bericht ab. Geplante Läufe liefern ihre Berichte in den jeweiligen Chat."
+  },
+  {
+    "en": "Open points and the Bin keep the same page edges as All files, without boxes or lines, and in the inbox a picked set of mails is filed from the bar alone while the group buttons step back.",
+    "de": "Offene Punkte und Papierkorb übernehmen die Seitenränder von Alle Dateien, ohne Kästen oder Linien; im Posteingang lassen sich ausgewählte E-Mails nur über die Leiste ablegen, während die Gruppen-Schaltflächen in den Hintergrund treten."
+  },
+  {
+    "en": "Open points mark a point in colour only when it is yours or overdue, and the filters are one row of rounded chips with „Alle“ to clear them. Who has a point and by when stand in their own column on the right.",
+    "de": "Offene Punkte werden nur dann farblich markiert, wenn sie Ihnen zugewiesen oder überfällig sind. Die Filter stehen in einer Zeile aus abgerundeten Chips; „Alle“ setzt sie zurück. Wer für einen Punkt zuständig ist und bis wann, steht rechts jeweils in einer eigenen Spalte."
   },
   {
     "en": "Opening a citation of a drawing or photo now marks the drawing it refers to, such as the floor plan or the section, with a labeled box instead of only opening the page. The box shows which drawing on the sheet was read, not the exact object within it.",
@@ -2824,6 +3068,10 @@
     "de": "Projekt-Mail enthält jetzt nur noch den Text, den eine Person sehen kann: Ausgeblendete Absätze, Tracking-Bilder und unsichtbare Zeichen, die Wörter trennen oder Dateinamen verdrehen, werden aus dem Mailtext und dem E-Mail-Verlauf entfernt. Was Sie in einer Mail lesen, ist genau die Grundlage für Suche und Antworten."
   },
   {
+    "en": "Project mail opens the first waiting email on a wide screen, so the reading pane is never empty. On a phone the list stays first.",
+    "de": "Projektmail öffnet auf breiten Bildschirmen die erste wartende E-Mail, sodass der Lesebereich nie leer ist. Auf dem Smartphone wird weiterhin zuerst die Liste angezeigt."
+  },
+  {
     "en": "Project memory now finds older notes when they fit the question, and a correction reaches the note it means, however long ago it was written.",
     "de": "Das Projektgedächtnis findet jetzt auch ältere Notizen, wenn sie zur Frage passen, und eine Korrektur trifft die gemeinte Notiz, auch wenn sie lange zurückliegt."
   },
@@ -2846,6 +3094,10 @@
   {
     "en": "Questions about Austrian law are now answered with citable paragraphs from the RIS, each with the reference a Bescheid would use, such as „Bauordnung für Wien, § 63 Abs 1“. The paragraph is listed as a source and can go straight into your text.",
     "de": "Fragen zum österreichischen Recht beantwortet Piloti jetzt mit zitierbaren Paragraphen aus dem RIS, jeweils mit der Fundstelle, wie ein Bescheid sie nennt, etwa „Bauordnung für Wien, § 63 Abs 1“. Der Absatz steht als Quelle unter der Antwort und lässt sich in den Fachtext übernehmen."
+  },
+  {
+    "en": "Questions about an older submission can be answered with the law that applied then: give a procedure's filing and decision dates (or a date) and the answer names the edition in force, follows the Land's reference date and transitional rules, and says which date is still missing instead of assuming today. The law lookup can read the version of a past day from RIS.",
+    "de": "Fragen zu einer älteren Einreichung lassen sich mit dem damals geltenden Recht beantworten: Geben Sie das Einreichungs- und Entscheidungsdatum eines Verfahrens oder ein einzelnes Datum an. Die Antwort nennt die geltende Fassung, berücksichtigt den maßgeblichen Stichtag des Landes und die Übergangsbestimmungen und weist darauf hin, welches Datum noch fehlt, statt das heutige Datum anzunehmen. Die Rechtssuche kann die an einem vergangenen Tag geltende Fassung aus dem RIS abrufen."
   },
   {
     "en": "Questions about one of the office's working methods (Gebäudeklasse, Brandschutz, Einreichcheck, Bestand and the others) get answers faster. Piloti recognizes from the start which method a question is about, with no separate step, and the section “Skills used for this answer” still names the methods it followed.",
@@ -3220,6 +3472,10 @@
     "de": "Die Zeile „Belegt durch“ zeigt ab acht Quellen „+N weitere“ und klappt auf Wunsch alle auf, und „Alle Quellen kopieren“ übernimmt stets jede Quelle."
   },
   {
+    "en": "The Bin says why a folder cannot be restored, and the list view shows reading and open comments right after each file's name.",
+    "de": "Der Papierkorb zeigt an, warum ein Ordner nicht wiederhergestellt werden kann. In der Listenansicht werden gelesene und offene Kommentare direkt nach dem Namen jeder Datei angezeigt."
+  },
+  {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
   },
@@ -3376,6 +3632,10 @@
     "de": "Das Banner nennt den Ablageort eines Berichts schon beim Start der Recherche, solange Sie sie noch abbrechen können, und verlinkt die fertige Datei mit „Im Projekt öffnen“. Konnte nichts abgelegt werden, verspricht es nichts."
   },
   {
+    "en": "The bin keeps its list to a readable width and says how long each item stays in bold; on a phone each item has two short lines.",
+    "de": "Der Papierkorb hält seine Liste auf einer gut lesbaren Breite und zeigt fett an, wie lange jedes Element noch im Papierkorb bleibt; auf dem Smartphone wird jedes Element in zwei kurzen Zeilen dargestellt."
+  },
+  {
     "en": "The blog has a feed again at its old addresses (/rss.xml and /en/rss.xml), so existing subscriptions keep working.",
     "de": "Der Blog-Feed ist wieder unter den alten Adressen (/rss.xml und /en/rss.xml) verfügbar, sodass bestehende Abonnements weiterhin funktionieren."
   },
@@ -3394,6 +3654,10 @@
   {
     "en": "The built-in skills have English names: /submission-check, /fire-safety, /existing-building, /safety-in-use, /building-class, /thermal-protection, /plot-development and /inspection-report-writer. The old names, such as /einreichcheck, still work when typed and in scheduled tasks, and typing one still finds the skill in the menu.",
     "de": "Die integrierten Skills haben englische Namen: /submission-check, /fire-safety, /existing-building, /safety-in-use, /building-class, /thermal-protection, /plot-development und /inspection-report-writer. Die bisherigen Namen, etwa /einreichcheck, funktionieren weiterhin bei der Eingabe und in geplanten Aufgaben. Wenn Sie einen davon eingeben, wird der Skill weiterhin im Menü angezeigt."
+  },
+  {
+    "en": "The button that opens the chat history at the top of a chat is now labelled „Chats“ on every screen, on a phone too, instead of an icon alone.",
+    "de": "Die Schaltfläche zum Öffnen des Chatverlaufs oben im Chat ist jetzt auf allen Bildschirmen, auch auf dem Smartphone, mit „Chats“ beschriftet statt nur mit einem Symbol."
   },
   {
     "en": "The button that starts a conversation about a document now reads „Mit Piloti besprechen“, so it is clear it opens a chat with Piloti and not with a colleague.",
@@ -3440,6 +3704,10 @@
     "de": "Die zitierte Stelle ist im Dokument wieder markiert und bleibt auch nach einem Neuladen markiert. „Zitat kopieren“ kopiert jetzt das Zitat selbst und nicht nur die Quellenangabe."
   },
   {
+    "en": "The collapsed sidebar lets you switch projects from it, and its tooltips name each area's keyboard shortcut.",
+    "de": "Über die eingeklappte Seitenleiste wechseln Sie Projekte, und die Tooltips nennen die Tastenkombination des jeweiligen Bereichs."
+  },
+  {
     "en": "The command palette opens instantly on Cmd+K, and once one tooltip is showing, the next one appears as soon as you point at it.",
     "de": "Die Command-Palette öffnet sich sofort mit Cmd+K. Sobald ein Tooltip angezeigt wird, erscheint der nächste, sobald Sie mit dem Mauszeiger darüberfahren."
   },
@@ -3450,6 +3718,14 @@
   {
     "en": "The confidence under an answer is now a check of the whole answer against everything Piloti read for it, and the chip names the statements nothing backs or a source contradicts. A listing of your files or an answer drawn from the project details no longer shows low confidence for a suggested next step.",
     "de": "Die Konfidenz unter einer Antwort prüft jetzt die gesamte Antwort anhand aller Inhalte, die Piloti dafür gelesen hat. Der Chip kennzeichnet Aussagen, die unbelegt sind oder denen eine Quelle widerspricht. Eine Dateiliste oder eine Antwort auf Basis der Projektdetails zeigt bei einem vorgeschlagenen nächsten Schritt nicht mehr eine niedrige Konfidenz an."
+  },
+  {
+    "en": "The connection state appears only while the connection is being restored or is gone; the green „Verbunden“ is no longer shown all the time.",
+    "de": "Der Verbindungsstatus wird nur angezeigt, während die Verbindung wiederhergestellt wird oder unterbrochen ist; das grüne „Verbunden“ wird nicht mehr dauerhaft angezeigt."
+  },
+  {
+    "en": "The connection state reads „Verbindung unterbrochen“ or „Keine Verbindung“, in German, with a symbol beside the words instead of a coloured dot alone; while the server does not answer, „Erneut versuchen“ checks again at once.",
+    "de": "Der Verbindungsstatus wird als „Verbindung unterbrochen“ oder „Keine Verbindung“ angezeigt, mit einem Symbol neben dem Text statt nur mit einem farbigen Punkt; solange der Server nicht antwortet, wird mit „Erneut versuchen“ sofort erneut geprüft."
   },
   {
     "en": "The contact and demo forms open a ready-to-send e-mail with your details filled in, and tell you what to do if no e-mail program opens.",
@@ -3466,6 +3742,10 @@
   {
     "en": "The controls for zooming a cited PDF were laid out past the right-hand edge of a phone screen, where they could not be reached. They now wrap onto a second line when the screen is narrow.",
     "de": "Die Zoom-Steuerelemente eines zitierten PDFs lagen außerhalb des rechten Bildschirmrands eines Smartphones und waren nicht erreichbar. Bei schmalen Bildschirmen werden sie nun in eine zweite Zeile umgebrochen."
+  },
+  {
+    "en": "The counts beside Postfach are quiet grey pills, as the count beside the E-Mail-Eingang in Dateien.",
+    "de": "Die Zähler neben Postfach sind dezente graue Badges, ebenso wie der Zähler neben E-Mail-Eingang in Dateien."
   },
   {
     "en": "The derivation (Herleitung) builds up more calmly while Piloti works: new steps and sources simply appear, and only the lines into the step in progress move. A finished derivation no longer moves.",
@@ -3576,6 +3856,10 @@
     "de": "Die erste Frage in einem neuen Chat geht nicht mehr verloren, wenn Sie sie direkt aus einem Vorschlag senden, ohne etwas einzutippen."
   },
   {
+    "en": "The first tab in Dateien is now called „Ordner“, and inside a folder the page's title is the folder's name, with how many items it holds beside it. The line above the title shows the way there, each step one click back up, and on a phone it names the folder above.",
+    "de": "Der erste Tab in Dateien heißt jetzt „Ordner“. In einem Ordner ist der Seitentitel der Ordnername; daneben steht die Anzahl der darin enthaltenen Elemente. Die Zeile darüber zeigt den Pfad: Jeder Schritt führt Sie mit einem Klick eine Ebene nach oben. Auf dem Smartphone wird der übergeordnete Ordner angezeigt."
+  },
+  {
     "en": "The first time something waits on you, Piloti offers once to notify you on this device, also if you never open the Postfach.",
     "de": "Wenn zum ersten Mal etwas auf Sie wartet, bietet Piloti Ihnen einmalig an, Sie auf diesem Gerät zu benachrichtigen – auch wenn Sie das Postfach nie öffnen."
   },
@@ -3590,6 +3874,10 @@
   {
     "en": "The imprint, privacy, terms and AI transparency pages in the app now state the company's details as they stand, with no open placeholders, and describe the product as the workspace for architecture and planning firms.",
     "de": "Die Seiten zu Impressum, Datenschutz, Nutzungsbedingungen und KI-Transparenz in der App enthalten jetzt die aktuellen Unternehmensangaben ohne offene Platzhalter und beschreiben das Produkt als Arbeitsumgebung für Architektur- und Planungsbüros."
+  },
+  {
+    "en": "The inbox header offers \"Copy address\" instead of showing the whole address, and Files centres its content on a wide screen without a side rail. Search results mark the words they matched.",
+    "de": "Der Posteingangs-Header bietet „Adresse kopieren“, statt die vollständige Adresse anzuzeigen. Der Bereich Dateien zentriert seine Inhalte auf breiten Bildschirmen ohne Seitenleiste. Suchergebnisse markieren die Wörter, auf die sie zutreffen."
   },
   {
     "en": "The inbox is calmer: each entry shows what happened, which project it belongs to and when, with overdue and soon-due annotations marked, and its actions appear when you point at it.",
@@ -3608,6 +3896,10 @@
     "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
   },
   {
+    "en": "The inbox's notice that e-mails to a project wait for filing now says how many wait. It used to count only those that arrived since you last opened it, so it could read \"One e-mail\" while two were waiting.",
+    "de": "Der Hinweis im Posteingang, dass E-Mails zu einem Projekt auf die Ablage warten, zeigt jetzt an, wie viele es sind. Bisher zählte er nur die E-Mails, die eingegangen sind, seit Sie ihn zuletzt geöffnet haben. Daher konnte dort „Eine E-Mail“ stehen, obwohl zwei warteten."
+  },
+  {
     "en": "The interface feels calmer and more responsive: buttons answer every press with a subtle dip, copying an answer pops a check mark, and loading placeholders shimmer instead of flashing grey.",
     "de": "Die Oberfläche wirkt ruhiger und reagiert schneller: Buttons geben bei jedem Klick dezent nach, beim Kopieren einer Antwort erscheint ein Häkchen, und Ladeplatzhalter schimmern, statt grau aufzublitzen."
   },
@@ -3622,6 +3914,10 @@
   {
     "en": "The line above each folder that says how much Piloti has read now opens in place: it stays where you clicked it and the overview unfolds beneath it, instead of the line vanishing and a separate box appearing.",
     "de": "Die Zeile über jedem Ordner, die anzeigt, wie viel Piloti gelesen hat, klappt jetzt an Ort und Stelle auf: Sie bleibt dort, wo Sie sie angeklickt haben, und die Übersicht klappt darunter auf, statt dass die Zeile verschwindet und ein separates Feld erscheint."
+  },
+  {
+    "en": "The lines between the parts of the sidebar are gone, in the sidebar and in the tab bar on a phone.",
+    "de": "Die Trennlinien zwischen den Bereichen der Seitenleiste fehlen nun sowohl in der Seitenleiste als auch in der Tab-Leiste auf dem Smartphone."
   },
   {
     "en": "The list of Outlook imports shows how many mail threads an import started or added to, and how many mails the project already had.",
@@ -3644,6 +3940,10 @@
     "de": "Die Liste der wöchentlichen Änderungen ist wieder auf der Website verfügbar – unter „Neuigkeiten“ im Footer, auf Deutsch und Englisch. In der neuesten Woche werden die neuen Funktionen zuerst angezeigt, und jeder Abschnitt jeder Woche ist mit einem Klick erreichbar."
   },
   {
+    "en": "The list view writes each file's format as a word, and the inbox states one size limit for attachments. In an opened mail on a wide screen, the buttons follow the mail instead of waiting at the foot of the screen.",
+    "de": "Die Listenansicht zeigt das Dateiformat jeder Datei ausgeschrieben an, und im Posteingang wird eine Größenbeschränkung für Anhänge angegeben. Bei einer geöffneten E-Mail auf einem breiten Bildschirm folgen die Schaltflächen der E-Mail, statt am unteren Bildschirmrand fixiert zu bleiben."
+  },
+  {
     "en": "The message box at the bottom of a chat now has a thin grey outline, so it is easier to see where the typing area begins when a long conversation scrolls behind it.",
     "de": "Das Nachrichtenfeld am unteren Rand eines Chats hat jetzt eine dünne graue Umrandung, damit Sie leichter erkennen, wo der Eingabebereich beginnt, wenn eine lange Unterhaltung dahinter weitergescrollt wird."
   },
@@ -3662,6 +3962,10 @@
   {
     "en": "The model area is now reachable from the office archive, with structure, quantities and revisions. The Prüfbuch still needs a project, because it checks against building class and main use.",
     "de": "Der Modellbereich ist jetzt auch aus dem Büroarchiv erreichbar, mit Struktur, Mengen und Revisionen. Das Prüfbuch braucht weiterhin ein Projekt, weil es gegen Gebäudeklasse und Hauptnutzung prüft."
+  },
+  {
+    "en": "The model check places a project by the Land its address search found, as the project setup does: an Austrian project whose Land was never entered by hand no longer gets every OIB rule left open.",
+    "de": "Die Modellprüfung ordnet ein Projekt – wie die Projekteinstellung – dem Bundesland zu, das die Adresssuche ermittelt hat: Bei einem österreichischen Projekt, dessen Bundesland nie manuell eingetragen wurde, werden nicht mehr alle OIB-Richtlinien als offen angezeigt."
   },
   {
     "en": "The model picker shows roughly how many points a typical question costs on each model, so a cheap model can be told from an expensive one at a glance.",
@@ -3694,6 +3998,10 @@
   {
     "en": "The page for setting up an organization is simpler: one field, one button and three lines on what happens next, with sign-out always at the top right.",
     "de": "Die Seite zum Einrichten der Organisation ist einfacher: ein Feld, ein Knopf und drei Zeilen dazu, wie es weitergeht, mit dem Abmelden immer oben rechts."
+  },
+  {
+    "en": "The page keeps the light background of the brand, and white documents and folders stand apart from it by a fine edge and a soft shadow. Buttons, the selected tab and folders now each look different: a folder shows an arrow to open it.",
+    "de": "Die Seite behält den hellen Hintergrund der Marke, weiße Dokumente und Ordner heben sich durch eine feine Kontur und einen weichen Schatten davon ab. Buttons, der ausgewählte Tab und Ordner unterscheiden sich jetzt optisch: Ein Ordner zeigt einen Pfeil zum Öffnen."
   },
   {
     "en": "The page stays smooth while an answer is arriving, even in a long conversation; it used to stutter and react late to typing.",
@@ -3740,8 +4048,20 @@
     "de": "Die Projektliste und die Ordnerzeilen oberhalb der Dateien bilden jetzt eine zusammenhängende Liste: Nur die oberen und unteren Ecken sind abgerundet, und die Zeilen werden durch eine einzelne Linie statt durch separate Boxen mit Zwischenräumen getrennt."
   },
   {
+    "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
+    "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
+  },
+  {
     "en": "The project setup asks for the Bundesland right away, before a country is chosen, and hides it only when the project is outside Austria.",
     "de": "Bei der Projekteinrichtung wird sofort nach dem Bundesland gefragt, noch bevor ein Land ausgewählt wurde, und das Feld wird nur bei Projekten außerhalb Österreichs ausgeblendet."
+  },
+  {
+    "en": "The project setup now follows where the project is: an Austrian project is set up as before, while a project elsewhere gets no Austrian documents, building class or OIB model check. Until a project's location is set, the model check leaves the OIB rules open instead of judging them.",
+    "de": "Die Projekteinstellungen richten sich jetzt nach dem Projektstandort: Ein österreichisches Projekt wird wie bisher eingerichtet, während für ein Projekt außerhalb Österreichs keine österreichischen Dokumente, Gebäudeklasse oder OIB-Modellprüfung vorgesehen sind. Solange der Standort eines Projekts nicht festgelegt ist, lässt die Modellprüfung die OIB-Regeln offen, statt sie zu bewerten."
+  },
+  {
+    "en": "The project switcher in the sidebar has the search and the order of the one on a phone: the projects you opened last, then the rest. The collapsed sidebar shows the project's initials, so it says which project you are in.",
+    "de": "Der Projektumschalter in der Seitenleiste bietet die Suche und dieselbe Sortierung wie auf dem Smartphone: zuerst die zuletzt geöffneten Projekte, danach die übrigen. Die eingeklappte Seitenleiste zeigt die Projektinitialen und damit, in welchem Projekt Sie sich befinden."
   },
   {
     "en": "The project wizard lists all its modules by full name beside the questions, each with how many answers it already has, and you can jump to any of them.",
@@ -3788,12 +4108,24 @@
     "de": "Die Suche findet jetzt dieselben Dokumente, egal ob Sie Flächenwidmung oder Flaechenwidmung eingeben, und die Einstellung „nur aktuelle“ berücksichtigt alle passenden Dokumente, statt ältere Uploads auszuschließen."
   },
   {
+    "en": "The search, the filter, the view and the buttons for the folder you are in now stand in one row under the tabs, which no longer breaks into several lines next to a long folder name. On a narrower window „Ordner anlegen“ is in the „Hochladen“ menu.",
+    "de": "Die Suche, der Filter, die Ansicht und die Schaltflächen für den Ordner, in dem Sie sich gerade befinden, stehen unter den Tabs nun in einer Zeile. Auch neben langen Ordnernamen wird die Zeile nicht mehr umgebrochen. Bei schmaleren Fenstern befindet sich „Ordner anlegen“ im Menü „Hochladen“."
+  },
+  {
     "en": "The settings overview of a project whose intake was never completed no longer shows an error. Its similar closed projects load again.",
     "de": "Die Einstellungsübersicht eines Projekts, dessen Erfassung nie abgeschlossen wurde, zeigt keinen Fehler mehr. Ähnliche abgeschlossene Projekte werden wieder geladen."
   },
   {
     "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
     "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
+  },
+  {
+    "en": "The sidebar inside a project shows where you are: the section you are in is a white sheet with an edge, as the open tab in Dateien, and the other sections are set in black instead of grey.",
+    "de": "Die Seitenleiste in einem Projekt zeigt Ihnen, wo Sie sich befinden: Der aktuelle Bereich ist wie der geöffnete Tab in Dateien als weißes Blatt mit Kante dargestellt, die anderen Bereiche sind schwarz statt grau."
+  },
+  {
+    "en": "The sidebar is a little wider, so most project names fit in full.",
+    "de": "Die Sidebar ist etwas breiter, sodass die meisten Projektnamen vollständig angezeigt werden."
   },
   {
     "en": "The skill editor no longer has the switch that let Piloti pick skills on its own. Piloti decides which skills to consider, and saved skills are unchanged and available again.",
@@ -3828,6 +4160,10 @@
     "de": "Die Statuszeile über der Herleitung sagt, wonach Piloti gerade sucht, und sobald die Recherche abgeschlossen ist, dass die Antwort formuliert wird."
   },
   {
+    "en": "The subprocessor page in the legal section now names everyone who receives your data, including address search, voice dictation and our team's Slack notices, with the legal basis for each transfer, and says plainly that the AI reads whole pages of a document when a question needs them.",
+    "de": "Die Seite zu den Unterauftragsverarbeitern im Rechtsbereich nennt jetzt alle, die Ihre Daten erhalten – darunter die Adresssuche, die Spracheingabe und die Slack-Mitteilungen unseres Teams – samt Rechtsgrundlage für jede Übermittlung und hält klar fest, dass die KI ganze Dokumentseiten liest, wenn eine Frage dies erfordert."
+  },
+  {
     "en": "The summary of an image no longer starts with a stray text marker.",
     "de": "Die Zusammenfassung eines Bildes beginnt nicht mehr mit einer störenden Textmarkierung."
   },
@@ -3836,12 +4172,24 @@
     "de": "Die Begriffe und Nummernprüfungen, die Ihr Büro festlegt, gelten jetzt auch für alles, was Sie in den Chat tippen: Bevor eine Nachricht mit einer IBAN oder einem aufgeführten Begriff hinausgeht, zeigt Piloti, was es gefunden hat, und sendet nur eine maskierte Version oder lässt Sie sie vorher bearbeiten."
   },
   {
+    "en": "The text of an e-mail to a project could not be filed when ARCHOS had suggested a folder for it, so it stayed at \"Filing …\" for good. It is now filed into that folder like any other text.",
+    "de": "Der Text einer E-Mail zu einem Projekt ließ sich nicht ablegen, wenn ARCHOS dafür einen Ordner vorgeschlagen hatte, und blieb dauerhaft bei „Ablage …“ stehen. Jetzt wird er wie jeder andere Text in diesem Ordner abgelegt."
+  },
+  {
+    "en": "The title and tabs of Files stay in place on every tab, the inbox included, and on a phone the open tab is shown whole.",
+    "de": "Der Titel und die Tabs von Files bleiben auf allen Tabs an derselben Stelle, auch im Posteingang. Auf dem Smartphone wird der aktive Tab vollständig angezeigt."
+  },
+  {
     "en": "The upload area now states the largest file you can upload as a size per file, and the number it shows is the one your organization is held to. It no longer shows 95 MB for a 100 MB limit.",
     "de": "Der Upload-Bereich gibt nun die maximale Dateigröße pro Datei an, die Sie hochladen können. Angezeigt wird der für Ihre Organisation geltende Wert. Bei einem Limit von 100 MB werden nicht mehr 95 MB angezeigt."
   },
   {
     "en": "The upload history in the project settings now reaches back to the project's first upload. With „Ältere Uploads laden“, you see the next older ones.",
     "de": "Der Upload-Verlauf in den Projekteinstellungen reicht jetzt bis zum ersten Upload des Projekts zurück. Mit „Ältere Uploads laden“ sehen Sie die nächstälteren Uploads."
+  },
+  {
+    "en": "The upload menu says which formats you can upload and the size limit, and that you can drop files anywhere on the page. An empty folder shows one „Hochladen“ button, and the upload panel shows its progress as „3,0 von 6,0 MB“.",
+    "de": "Im Upload-Menü steht, welche Formate Sie hochladen können, welches Größenlimit gilt und dass Sie Dateien überall auf der Seite ablegen können. In einem leeren Ordner wird ein einzelner Button „Hochladen“ angezeigt, und das Upload-Panel zeigt den Fortschritt als „3,0 von 6,0 MB“ an."
   },
   {
     "en": "The upload panel and the chat now show a file the content check held back as held for review, with what was found, instead of as failed, and no longer offer to retry it. A file that was kept but not read is shown as filed rather than citable.",
@@ -3934,6 +4282,10 @@
   {
     "en": "Title and summary stand above the answer before its first word, and a card keeps its place in the text instead of pushing down what you are reading. A colleague reading along sees the same answer with title, sources and cards.",
     "de": "Titel und Kurzfassung stehen über der Antwort, bevor ihr erstes Wort erscheint, und eine Karte hält ihren Platz frei, statt den Text, den Sie lesen, nach unten zu schieben. Wer einen geteilten Verlauf mitliest, sieht dieselbe Antwort mit Titel, Quellen und Karten."
+  },
+  {
+    "en": "Titles and headings across the workspace are set with the open letter spacing of the ARCHOS design, and Files lines everything up on one left edge, from the title down to the last tile.",
+    "de": "Titel und Überschriften im gesamten Workspace sind mit dem großzügigen Zeichenabstand des ARCHOS-Designs gesetzt, und Files richtet alles an einer einzigen linken Kante aus – vom Titel bis zur letzten Kachel."
   },
   {
     "en": "Two files with the same name from different subfolders no longer silently overwrite each other during a folder upload; both are held back and named in the dialog.",
@@ -4428,6 +4780,10 @@
     "de": "Wenn Sie Claude, Cursor oder einen anderen Agenten mit Piloti verbinden, kann dieser jetzt einen kurzen Leitfaden zu Ihrem Arbeitsbereich, ein Glossar der bürointernen Begriffe und eine Liste der erlaubten Aktionen lesen. Außerdem stellt er fertige Workflows (Projektbriefing, baurechtliche Prüfung, Ihre anstehenden Aufgaben) sowie die Skills Ihres Büros unter ihren jeweiligen Namen bereit."
   },
   {
+    "en": "When you create a project you can state its country and, in Austria, its Bundesland. Left empty, the postal code of an Austrian address suggests the Bundesland, and you confirm it during setup.",
+    "de": "Bei der Projekterstellung können Sie das Land und in Österreich das Bundesland angeben. Wenn Sie das Bundesland nicht angeben, schlägt die Postleitzahl einer österreichischen Adresse ein Bundesland vor, das Sie bei der Einrichtung bestätigen."
+  },
+  {
     "en": "When you draw a box and ask Piloti about it, Piloti answers about that box again, and an @Piloti question in an Anmerkung is answered in its thread. Everyone sees in the thread when Piloti is working on it, also after reloading, and the thread says why when Piloti could not answer.",
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
   },
@@ -4516,6 +4872,14 @@
     "de": "Wo eine Organisation die Prüfung von Uploads eingeschaltet hat, prüft Piloti den Text jedes Uploads auf Pilotis Servern, bevor ein KI-Modell ihn liest. Eine Datei, die die Prüfung zurückhält, wartet unter Organisation → Quarantäne, wo kein Modell sie liest, bis ein Büro- oder Projekt-Admin sie freigibt oder löscht."
   },
   {
+    "en": "Where nobody has reviewed a country's records yet, the chat says it reads that law from an uncurated official source, and it says when a newer edition is known.",
+    "de": "Wenn die Unterlagen eines Landes noch niemand geprüft hat, weist der Chat darauf hin, dass er das betreffende Gesetz aus einer nicht kuratierten offiziellen Quelle bezieht, und nennt, falls bekannt, eine neuere Fassung."
+  },
+  {
+    "en": "Where the law of a project's site cannot be named (the office is not entitled to its country, or it cannot be read), no building class is named either: not in the evaluation, the setup or the project profile.",
+    "de": "Kann das am Projektstandort geltende Baurecht nicht bestimmt werden (weil das Büro für das betreffende Bundesland nicht berechtigt ist oder die Bauordnung nicht ausgelesen werden kann), wird auch keine Gebäudeklasse angegeben – weder in der Auswertung noch in der Konfiguration oder im Projektprofil."
+  },
+  {
     "en": "Where your office has switched it on, Piloti now checks a newly uploaded document against the project's other documents. If a key figure disagrees, for example the number of dwellings, it marks the place as a proposal with both sources; when everything agrees it says nothing.",
     "de": "Wenn Ihr Büro die Funktion aktiviert hat, gleicht Piloti ein neu hochgeladenes Dokument jetzt mit den übrigen Projektdokumenten ab. Weicht eine Kennzahl ab, etwa die Anzahl der Wohneinheiten, markiert Piloti die betreffende Stelle als Vorschlag und nennt beide Quellen; stimmen alle Angaben überein, gibt es keinen Hinweis."
   },
@@ -4550,6 +4914,10 @@
   {
     "en": "While an upload is still held by the office's content check, only you and whoever reviews held files can be made responsible for it or mentioned on it. Colleagues no longer get a Postfach entry about a file they cannot open yet.",
     "de": "Solange ein Upload noch von der Inhaltsprüfung des Büros zurückgehalten wird, können nur Sie und Personen, die zurückgehaltene Dateien prüfen, dafür verantwortlich sein oder darin erwähnt werden. Kolleginnen und Kollegen erhalten keinen Postfach-Eintrag mehr zu einer Datei, die sie noch nicht öffnen können."
+  },
+  {
+    "en": "While files or mails are picked, the bar at the foot is a grey band with the main action last, the same in Files and in the inbox. Checkboxes and option buttons have a clearer edge.",
+    "de": "Wenn Dateien oder Mails ausgewählt sind, erscheint die Leiste am unteren Rand als graues Band; die Hauptaktion steht ganz rechts – sowohl in Dateien als auch im Posteingang. Checkboxen und Optionsfelder haben eine deutlichere Umrandung."
   },
   {
     "en": "While files upload and Piloti reads them, every status now has its own symbol, so a document that is waiting, being read, held back for review or filed unread is told apart at a glance in the upload panel, on the cards and in the list. A document that could not be read is marked in a calmer red, and shortened file names always show where they were cut.",
@@ -4684,6 +5052,10 @@
     "de": "Ihr Büro kann jetzt unter Organisation → Personen & Zugriff → Eigene Rollen eigene Rollen in Piloti anlegen und je Projektordner festlegen, welche Rollen ihn lesen und welche ihn bearbeiten dürfen. Eine Rolle, die nicht auf der Liste eines Ordners steht, sieht weder den Ordner noch seine Dateien noch das, was Piloti darin findet, und Organisations-Admins dürfen alles lesen und bearbeiten."
   },
   {
+    "en": "Your office can record the standards, commentaries and authority directives it owns as office base knowledge, with edition, where each applies and when it was last checked; answers draw on them for your office only, cite the edition and warn when the check is overdue.",
+    "de": "Sie können die Normen, Kommentare und behördlichen Vorgaben Ihres Büros als büroeigenes Grundwissen erfassen – mit Ausgabe, Anwendungsbereich und Datum der letzten Prüfung; Antworten für Ihr Büro berücksichtigen diese Inhalte, nennen die Ausgabe und weisen auf überfällige Prüfungen hin."
+  },
+  {
     "en": "Your office decides whether Piloti may change annotations when you ask it to. Until it is switched on for your organization, Piloti only proposes: an annotation you ask for arrives as a suggestion you take over, and a change or deletion is left for you to make in the document.",
     "de": "Ihr Büro entscheidet, ob Piloti Anmerkungen ändern darf, wenn Sie es dazu auffordern. Bis die Funktion für Ihre Organisation aktiviert ist, macht Piloti nur Vorschläge: Eine von Ihnen angeforderte Anmerkung wird als Vorschlag angezeigt, den Sie übernehmen können; Änderungen oder Löschungen im Dokument nehmen Sie selbst vor."
   },
@@ -4732,12 +5104,20 @@
     "de": "Ihre Frage bleibt oben stehen, während die Antwort erscheint, und eine kurze Antwort springt am Ende nicht mehr nach unten."
   },
   {
+    "en": "Your recent chats in a project are now listed in the sidebar under Chat, with the open one highlighted, and „Alle Chats“ below them opens the whole chat history.",
+    "de": "Ihre letzten Chats in einem Projekt werden jetzt in der Seitenleiste unter Chat angezeigt, wobei der geöffnete Chat hervorgehoben ist; „Alle Chats“ darunter öffnet den gesamten Chatverlauf."
+  },
+  {
     "en": "Your uploads no longer wait behind another office's large import.",
     "de": "Ihre Uploads warten nicht mehr hinter dem großen Import eines anderen Büros."
   },
   {
     "en": "Zero data retention is on by default for every organization, and it covers AI requests for chat, document reading, search and research reports unless an admin switches it off under Organization → Models. Where a provider offers EU hosting, Piloti prefers it; that is a preference, not a guarantee of where data is processed.",
     "de": "Zero Data Retention ist für jede Organisation standardmäßig aktiviert und gilt für KI-Anfragen zu Chat, Dokumentlesen, Suche und Recherche-Berichten, solange ein Admin sie nicht unter Organisation → Modelle abschaltet. Bietet ein Anbieter EU-Hosting, bevorzugt Piloti ihn; das ist eine Präferenz und keine Garantie dafür, wo Daten verarbeitet werden."
+  },
+  {
+    "en": "Übersicht now stands with the project's other sections, under the project switcher, rather than at the foot of the sidebar among the organisation's Büroablage, Suche and Postfach.",
+    "de": "Die Übersicht befindet sich jetzt bei den anderen Projektbereichen unter dem Projektwechsler und nicht mehr unten in der Seitenleiste bei Büroablage, Suche und Postfach der Organisation."
   },
   {
     "en": "„Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint file.",

@@ -440,10 +440,7 @@ class TurnResult(_Model):
     answer_meta: dict[str, Any] | None = None
     answer_confidence: Literal["low", "medium", "high"] | None = None
     answer_confidence_reason: str | None = Field(default=None, max_length=300)
-    answer_confidence_capped_reason: (
-        Literal["ungrounded", "quote_unverified", "normative_claim_uncited", "measurement_only", "citation_fallback"]
-        | None
-    ) = None
+    answer_confidence_capped_reason: Literal["ungrounded", "quote_unverified", "law_unsettled"] | None = None
     routing_decision: Literal["meta", "shallow", "deep", "error"] | None = None
     escalation_reason: str | None = None
     citations_removed: CitationsRemoved | None = None

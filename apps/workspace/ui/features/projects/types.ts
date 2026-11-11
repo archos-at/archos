@@ -1,5 +1,4 @@
 import type { ProjectLifecycleView, ProjectStatus } from '@/lib/projects/project-status'
-import type { ApplicableStandard } from '@/lib/oib/applicable-standards'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 
 export interface OverviewDocument {
@@ -30,8 +29,6 @@ export interface ProjectOverviewData {
   } | null
   /** Raw structured profile — the brief fact sheet is derived from this at render time. */
   profile: ProjectProfile | null
-  applicableStandards: ApplicableStandard[]
-  briefComplete: boolean
   documentCount: number
   totalFileSize: number
   recentDocuments: OverviewDocument[]

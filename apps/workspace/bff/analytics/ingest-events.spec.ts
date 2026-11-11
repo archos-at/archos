@@ -211,6 +211,32 @@ describe('announceIngestsFinished', () => {
     )
   })
 
+  it('says why a held file was held by kind alone, never the office’s term or a sample', () => {
+    const verdict = {
+      reasons: [
+        { kind: 'term', term: 'Lohnzettel Meier', count: 1, pages: [2] },
+        { kind: 'credit_card', count: 3, pages: [1], sample: '4111 •••• •••• 1111' },
+        { kind: 'credit_card', count: 1, pages: [4] },
+        { kind: 'passport', count: 1, pages: [5] },
+      ],
+    }
+    announceIngestsFinished(
+      'org-1',
+      [
+        ingest({ status: 'quarantined', screening: 'quarantined', quarantine: verdict }),
+        ingest({ status: 'quarantined', screening: 'quarantined', quarantine: null }),
+        ingest({ status: 'quarantined', screening: 'quarantined', quarantine: { reasons: [] } }),
+        ingest({ status: 'completed', quarantine: verdict }),
+      ],
+      'push'
+    )
+
+    expect([0, 1, 2, 3].map((n) => propertiesOf(n).hold_kinds)).toEqual(['credit_card,other,term', 'unknown', 'unknown', undefined])
+    const sent = JSON.stringify(captureServer.mock.calls)
+    expect(sent).not.toContain('Lohnzettel')
+    expect(sent).not.toContain('4111')
+  })
+
   it('says not_run when the job carried no screening, instead of leaving the value out', () => {
     announceIngestsFinished('org-1', [ingest()], 'read')
 

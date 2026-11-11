@@ -1,0 +1,7 @@
+---
+# area: administration
+operators:
+  - >
+    Approving a country knowledge change request now needs the approval role you
+    approve in, and nobody who wrote a revision in a request can review its
+    claims; give each expert the approval role they hold before their next approval.

@@ -25,3 +25,4 @@ export { FileExtChip } from './components/file-ext-chip'
 export { documentFilesHref } from './lib/document-question'
 // The E-Mail-Eingang offers to follow a Verlauf on the same card as the Verlauf's own tab.
 export { FollowCard, FollowCardHint } from './components/mail-thread/follow-card'
+export { InboundMailWaitingLine } from './components/inbound-mail-waiting-line'

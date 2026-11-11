@@ -425,7 +425,7 @@ function RevisionsPreview(): JSX.Element {
           {only === null && (
             <header className="flex flex-col gap-1">
               <p className="text-muted-foreground text-xs">Dev-Vorschau</p>
-              <h1 className="text-foreground text-xl font-semibold tracking-[-0.01em]">Fassungen und Freigabe</h1>
+              <h1 className="text-foreground text-xl font-semibold">Fassungen und Freigabe</h1>
             </header>
           )}
           <div className="flex flex-wrap items-start gap-8">

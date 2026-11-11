@@ -427,7 +427,7 @@ function MarkdownH1({ children, node }: HeadingProps) {
   return (
     <h1
       id={id}
-      className="text-foreground mb-3 mt-8 block scroll-mt-4 text-xl font-medium tracking-tight"
+      className="text-foreground mb-3 mt-8 block scroll-mt-4 text-xl font-medium"
     >
       {children}
     </h1>
@@ -444,7 +444,7 @@ function MarkdownH2({ children, node, id: givenId, className: givenClass }: Head
   return (
     <h2
       id={givenId ?? derived}
-      className={`mb-3 mt-8 block scroll-mt-4 text-lg font-medium tracking-tight text-foreground hyphens-manual${givenClass ? ` ${givenClass}` : ''}`}
+      className={`mb-3 mt-8 block scroll-mt-4 text-lg font-medium text-foreground hyphens-manual${givenClass ? ` ${givenClass}` : ''}`}
     >
       {openOutline ? (
         // A long answer's way back to its section list, at every section: the
@@ -475,7 +475,7 @@ function MarkdownH3({ children, node }: HeadingProps) {
   return (
     <h3
       id={id}
-      className="text-foreground mb-2 mt-6 block scroll-mt-4 text-base font-medium tracking-tight hyphens-manual"
+      className="text-foreground mb-2 mt-6 block scroll-mt-4 text-base font-medium hyphens-manual"
     >
       {children}
     </h3>

@@ -49,7 +49,8 @@ def empty_search_message(
             if folder
             else ""
         )
-        + "Do not invent a citation. This tool does not open files — that is `surface_documents`."
+        + "Do not invent a citation. This search returns passages, not whole documents: open a document by the "
+        "name a hit's `Source:` line gives."
     )
 
 

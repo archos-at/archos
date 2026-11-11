@@ -258,6 +258,19 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect((await inTenant(() => repo.findMailForReceive(mailId)))?.notifiedAt).not.toBeNull()
     })
 
+    it('counts a project’s waiting mails, as its Postfach row says them, and no other project’s', async () => {
+      const { waitingMailCounts } = await import('./notice-repository')
+      const before = (await inTenant(() => waitingMailCounts([projectId]))).get(projectId) ?? 0
+      const mailId = await received()
+      await inTenant(() => repo.recordRawScan(mailId, { status: 'clean', engine: 'ClamAV 1.5.4/28157', signature: null, scannedAt: new Date() }))
+      await inTenant(() => repo.holdMail(mailId, fields(mailId), [textPart(mailId)]))
+
+      const counts = await inTenant(() => waitingMailCounts([projectId, otherProjectId]))
+      expect(counts.get(projectId)).toBe(before + 1)
+      // Another tenant's project is not visible here, so it is absent rather than zero.
+      expect(counts.has(otherProjectId)).toBe(false)
+    })
+
     it('holds an outsider’s mail that claims a member’s name, and refuses the claim on a member’s own address (the database)', async () => {
       const claimed = await received()
       await inTenant(() => repo.recordRawScan(claimed, { status: 'clean', engine: 'ClamAV 1.5.4/28157', signature: null, scannedAt: new Date() }))

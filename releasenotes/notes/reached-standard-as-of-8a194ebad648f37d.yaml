@@ -1,0 +1,7 @@
+---
+# area: building-law
+fixes:
+  - >
+    A standard that a building code makes binding, such as a Swiss or German
+    norm referenced by Viennese law, can now also be asked about for a past
+    date, instead of being reported as unknown.

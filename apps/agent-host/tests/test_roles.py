@@ -402,13 +402,32 @@ def test_each_role_mounts_one_health_route_that_names_the_build_and_the_role(app
     from fastapi.testclient import TestClient
 
     monkeypatch.setenv("GIT_SHA", "abc1234")
+    monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", "http://public-source-fetcher:8095")
 
     health = [r for r in apps[role].routes if getattr(r, "path", None) == "/health"]
     answer = TestClient(apps[role]).get("/health")
 
     assert len(health) == 1
     assert answer.status_code == 200
-    assert answer.json() == {"status": "healthy", "sha": "abc1234", "role": role}
+    assert answer.json() == {
+        "status": "healthy",
+        "sha": "abc1234",
+        "role": role,
+        "public_source_fetcher": "configured",
+    }
+
+
+@pytest.mark.parametrize("role", ["chat", "api"])
+def test_a_role_without_its_fetcher_says_so_in_health_and_stays_in_rotation(apps, monkeypatch, role):
+    """A missing fetcher is visible from outside, not only as failed RIS calls; it is no reason to stop serving."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.delenv("PUBLIC_SOURCE_FETCHER_URL", raising=False)
+
+    answer = TestClient(apps[role]).get("/health")
+
+    assert answer.status_code == 200
+    assert answer.json()["public_source_fetcher"] == "missing"
 
 
 def test_each_role_records_its_ready_reading_once_its_routes_are_mounted(apps):

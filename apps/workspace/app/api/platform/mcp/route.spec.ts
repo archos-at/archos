@@ -257,12 +257,12 @@ describe('what it offers', () => {
   it('lists exactly the platform domain in tools mode: no office operation, no agent read tool', async () => {
     const tools = await toolsOf(POST, `${PLATFORM}?mode=tools`, await bearer())
     // platform-audit-portal-link is `secret`: hidden until the step-up scope is enforced, as on the office door.
-    expect(tools.map((tool) => tool.name)).toEqual(['platform-overview-get', 'platform-kill-runs', 'report-missing-operation'])
+    expect(tools.map((tool) => tool.name)).toEqual(['platform-overview-get', 'platform-model-defaults-update', 'report-missing-operation'])
   })
 
   it('marks a fleet-wide write destructive, so the client asks the person', async () => {
     const tools = await toolsOf(POST, `${PLATFORM}?mode=tools`, await bearer())
-    expect(tools.find((tool) => tool.name === 'platform-kill-runs')?.annotations).toMatchObject({ destructiveHint: true })
+    expect(tools.find((tool) => tool.name === 'platform-model-defaults-update')?.annotations).toMatchObject({ destructiveHint: true })
   })
 
   it('offers only the platform domain to search', async () => {
