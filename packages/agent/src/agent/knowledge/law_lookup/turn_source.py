@@ -51,6 +51,20 @@ def _released(_revision_id: str, source: TurnSource) -> LawSource:
     return law_source_from_record(parse_released_source(dict(source.config)))
 
 
+#: Released revisions this process could not read (logged once each).
+_UNREADABLE: set[str] = set()
+
+
+def note_unreadable(key: str, revision_id: str) -> None:
+    """Log, once per process and revision, that a released record could not be read and the fallback answers."""
+    if revision_id in _UNREADABLE:
+        return
+    _UNREADABLE.add(revision_id)
+    logger.exception(
+        "[law_source_record_unreadable=true] the turn's source %s (revision %s) could not be read", key, revision_id
+    )
+
+
 def note_fallback(law: LawSource) -> None:
     """Log, once per process and source, that a lookup read the repository record for want of a released one."""
     if law.source.id in _FELL_BACK:

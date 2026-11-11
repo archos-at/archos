@@ -37,6 +37,7 @@ from agent.knowledge.law_lookup.trace import LookupTrace
 from agent.knowledge.law_lookup.turn_source import WITHHELD_PREFIX
 from agent.knowledge.law_lookup.turn_source import dropped_note
 from agent.knowledge.law_lookup.turn_source import note_fallback
+from agent.knowledge.law_lookup.turn_source import note_unreadable
 from agent.knowledge.law_lookup.turn_source import released_law_source
 from agent.knowledge.law_lookup.turn_source import turn_source
 from agent.knowledge.law_lookup.turn_source import withheld_note
@@ -157,15 +158,13 @@ class _Lookup:
             try:
                 law = released_law_source(chosen)
             except ValueError:  # SourceError, LawSourceError: a record this build cannot read
-                logger.exception(
-                    "[law_source_record_unreadable=true] the turn's source %s could not be read", chosen.key
-                )
+                note_unreadable(chosen.key, chosen.revision_id)
             else:
                 return self._bind(f"turn:{chosen.revision_id}", law, "turn", chosen.revision_id), ""
         law = law_source(self.config.source)
         note_fallback(law)
         bound = self._bind(f"repository:{self.config.source}", law, "repository", "")
-        return bound, dropped_note(law) or withheld_note(law)
+        return bound, withheld_note(law) or dropped_note(law)
 
     async def aclose(self) -> None:
         for bound in [*self.bound.values(), *self.retired]:

@@ -46,7 +46,11 @@ async def test_without_a_record_the_fallback_is_read_and_logged_once(caplog):
 
 @pytest.mark.asyncio
 async def test_a_source_the_turn_could_not_carry_is_said_in_the_answer():
-    set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", sources_dropped=("at-ris-ogd",)))
+    set_turn_knowledge_context(
+        KnowledgeContext(
+            gate="core", site_country="AT", sources_dropped=("at-ris-ogd",), retrieval_countries=frozenset({"AT"})
+        )
+    )
     try:
         output = await run_law_lookup(_MISS, Upstream.load())
     finally:
