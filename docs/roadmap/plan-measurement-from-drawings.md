@@ -256,6 +256,60 @@ so the model cannot round an interval into a pass:
 | `scale_check` | Compares the sources for a region: the stored scale, the one computed from dimension chains, the printed note. Reports agreement, a contradiction, or a different scale in the two directions. |
 | `drawing-calibration-propose` (a workspace operation, a write) | The agent proposes a scale for a region with its source. It lands as `estimated` until a person confirms it in the review view. Only a person makes a scale `verified`. |
 
+### The card that asks a person to confirm a scale
+
+Critical to the plan (product owner, 2026-11-11): the agent composes a card that
+proposes a scale, and the person confirms it or changes it right there, and the
+result goes back to the agent. Most of the machinery exists. A scale proposal is a
+**proposed change** ([`proposed-changes.md`](../architecture/proposed-changes.md),
+ADR-0105): a server object the agent proposes and a person applies.
+
+What a proposed change already gives, checked in the code:
+
+| Needed | Exists as |
+|---|---|
+| A stored proposal with a lifecycle (`proposed`, `applied`, `dismissed`) and who decided, when | table `proposed_changes`, its CHECKs, `apps/workspace/bff/proposals/service.ts` |
+| A card with accept and dismiss that shows the server's object, live for every reader | the receipt card (`ProposalReceipt.tsx`), channel `proposal:<id>` |
+| The person's decision applied in the person's own session, audited | `POST /api/proposals/[id]/apply` and `…/dismiss` |
+| The decider changing what is applied | precedent: a memory note's scope is the decider's choice, recorded in `results` |
+| The decision reaching the agent on the next turn | the `PROPOSAL_DECISIONS` block (`bff/projects/proposal-decisions.ts`) |
+| An item in the person's inbox while it is open | `bff/proposals/attention.ts` |
+| A score for accepted against corrected against dismissed | `bff/langfuse/decision-score.ts` |
+| A proposal no chat turn made (at ingestion) | precedent: filing suggestions, with `origin_trace_id` |
+| A page crop with a place marked, in a card | `PageRegionThumbnail`, used by the `look` card |
+| Opening the review view at a region, and a region coming back into a turn | viewer action `highlight_region`; `focus_region` on the user message |
+
+What is new:
+
+- **A fifth proposal kind, `drawing_scale`,** in `proposals/kinds.ts`: its payload
+  (document version, page, region, proposed ratio, the reference span and its true
+  length, source, the cross-check result), who may decide, and its applier, which
+  writes the calibration record as `verified`.
+- **Its card, `drawing_scale_proposal`.** It shows the crop of the region with the
+  reference span drawn on it, the proposed scale, where it comes from and what it
+  was checked against. The person can:
+  - **confirm** it;
+  - **change** it in the card: pick another standard scale, or type the true length
+    of the span shown, and see the resulting scale before applying;
+  - **calibrate on the sheet**: open the review view at that region and set two
+    points there;
+  - **dismiss** it, which leaves the region `uncalibrated`.
+- **Apply takes the decider's value.** What is stored is what the person confirmed
+  or entered, with the agent's proposal kept beside it in the record.
+
+When the agent composes it: whenever a measuring question lands on a region whose
+scale is `estimated` or missing. The answer gives the number with its caveat, or no
+number, and carries the card. The same proposal is created without a turn when a
+sheet is ingested and a scale can be suggested; it then waits in the review view and
+the inbox.
+
+After the person decides, the agent reads the decision on the next turn and measures
+on the verified scale. Re-running the measurement inside the same turn would need a
+turn that pauses for a person (ADR-0140, proposed); until then the card offers
+„Jetzt neu messen“ as a follow-up message. `ask_user` was considered for this and
+not chosen: its answer is a label inside one run, it stores nothing and has no
+provenance.
+
 ### What every measuring answer carries
 
 Value and unit; interval; provenance, one of `printed_figure`, `vector_verified`,
