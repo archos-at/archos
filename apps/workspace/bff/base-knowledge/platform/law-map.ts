@@ -108,7 +108,7 @@ const bodyOfRevision = (revision: RevisionView): Body => Object.fromEntries(revi
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null)
 
-function reviewOf(revisions: readonly RevisionView[]): ReviewState {
+export function reviewOf(revisions: readonly RevisionView[]): ReviewState {
   const decisions = revisions.flatMap((revision) => revision.claims.map((claim) => claim.decision))
   if (decisions.some((decision) => decision === 'rejected')) return 'rejected'
   // An edited claim is not confirmed: it blocks approval and goes into a follow-up request (`decide.ts`).
