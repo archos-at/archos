@@ -7,6 +7,7 @@ the drawing does not hold, a look counted under one of its names and not another
 
 from __future__ import annotations
 
+import math
 import sys
 from dataclasses import dataclass
 from dataclasses import field
@@ -86,6 +87,7 @@ class TestTheRendering:
         assert sizes["EP-01_Grundrisse_Index-B.pdf"] == (2, (420, 297))
         assert sizes["EP-01_Grundrisse_Index-A.pdf"] == (1, (420, 297))
         assert sizes["EP-02_Schnitt_A-A.pdf"] == (1, (841, 594))
+        assert sizes["EP-03_Grundriss_DG.pdf"] == (1, (841, 594))
 
     def test_every_drawn_element_has_ink_in_its_gold_box_and_a_blank_page_does_not(self):
         for drawing in SPEC["drawings"]:
@@ -96,6 +98,43 @@ class TestTheRendering:
                         continue
                     area = drawings.pixel_box(element["box"], image.size)
                     assert image.crop(area).getextrema()[0] < 128, (drawing["file_name"], element["id"])
+
+    def test_a_vector_drawing_holds_its_figures_as_text_inside_their_gold_boxes(self, rendered):
+        from knowledge_layer.sheet.figures import group_figures
+        from knowledge_layer.sheet.reader import read_sheet
+
+        vector = [d for d in SPEC["drawings"] if d.get("render") == "vector"]
+        assert [d["file_name"] for d in vector] == ["EP-03_Grundriss_DG.pdf"]
+        for drawing in vector:
+            sheet = read_sheet(rendered[drawing["file_name"]].read_bytes(), 1)
+            width, height = sheet["page"]["width_pt"], sheet["page"]["height_pt"]
+            assert not sheet["scan"] and len(sheet["segments"]["width"]) > 20
+            centres = {
+                f["text"]: (f["centre"][0] / width, f["centre"][1] / height) for f in group_figures(sheet["characters"])
+            }
+            for element in drawing["pages"][0]["elements"]:
+                if element["kind"] not in ("dimension", "title_field", "note"):
+                    continue
+                x, y, w, h = element["box"]
+                cx, cy = centres[element["text"]]
+                assert x <= cx <= x + w and y <= cy <= y + h, element["id"]
+
+    def test_a_vector_sheet_is_drawn_true_to_the_scale_its_title_block_states(self):
+        drawing = next(d for d in SPEC["drawings"] if d.get("render") == "vector")
+        width_mm, height_mm = SPEC["sheets"][drawing["sheet"]]
+        elements = drawing["pages"][0]["elements"]
+        scale = int(next(e for e in elements if e["id"] == "title-scale")["value"].split(":")[1])
+        for element in (e for e in elements if e["kind"] == "dimension"):
+            x0, y0, x1, y1 = element["line"]
+            drawn_mm = math.hypot((x1 - x0) * width_mm, (y1 - y0) * height_mm)
+            assert drawn_mm * scale / 1000 == pytest.approx(float(element["value"].replace(",", ".")), abs=0.002)
+
+    def test_the_raster_drawings_stay_raster(self, rendered):
+        from knowledge_layer.sheet.reader import read_sheet
+
+        for drawing in SPEC["drawings"]:
+            if drawing.get("render") != "vector":
+                assert read_sheet(rendered[drawing["file_name"]].read_bytes(), 1)["scan"], drawing["file_name"]
 
     def test_nothing_but_the_spec_is_committed(self):
         committed = {p.suffix for p in (REPO_ROOT / "tests" / "fixtures" / "visual").iterdir()}

@@ -75,7 +75,7 @@ Gründerzeithaus Hubergasse 14 in 1160 Wien:
   Fluchtniveau; the neighbour's Gutachten states one (13,80 m) for its own
   house.
 - **visual** (`proj_visual_eval`, [`tests/fixtures/visual/drawings.json`](../../tests/fixtures/visual/drawings.json)):
-  three drawings rendered at suite start, whose values are on the sheet and in
+  four drawings rendered at suite start (three raster sheets and one vector, EP-03), whose values are on the sheet and in
   no indexed text. EG Index B has five doors and Index A four; the Wohnen
   dimension is 5,24 in Index B and 5,04 in Index A.
 
