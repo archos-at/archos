@@ -489,14 +489,19 @@ What each body adds:
 (`ONE_LINE_LENGTH`, 80 characters of JSON) is written on one line and waits for nothing; a longer or
 multi-line one is `long` and „Übernehmen“ waits until it was unfolded once (`lib/operation-input.ts`).
 
-**A proposed calibration shows what is confirmed.** For `drawing-calibration-set` whose input parses
-with the route's own schema, the open receipt draws the page clip of the region with the reference
-span on it and one line, „Referenzstrecke: 10,80 m zwischen den beiden markierten Punkten, Seite 1“,
-above the inputs (`CalibrationProposalPreview.tsx`; the thumbnail's `overlay` maps a page point to
-the drawn frame, because the drawn part is wider than the box). An input that does not parse shows
-nothing extra. Whatever `ProposalReceipts.tsx` imports lands in the MCP App view, which is one inline
-script with no cookie: the preview is replaced there by a stand-in that renders nothing
-(`STAND_INS` in `scripts/build-mcp-app-views.ts`; the size budget is in `view-build.spec.ts`).
+**A proposed calibration is one question.** For `drawing-calibration-set` whose input parses with
+the route's own schema, the receipt is not the generic body: its title is „Maßstab bestätigen“, it
+draws the page clip of the region with the reference span on it, asks „Ist die markierte Strecke
+10,80 m lang?“, says what a yes means („Dann gilt im markierten Bereich der Maßstab 1:100.“, computed
+from the page as opened), names the file and the page, and offers „Bestätigen“ and „Verwerfen“
+(`useCalibrationReceipt` in `CalibrationProposalPreview.tsx`). The operation's name, „Betrifft“ and
+the input rows are not shown: the clip and the two sentences show every field of the call, and
+„Bestätigen“ waits until the clip is drawn. Where the clip cannot be drawn (the reader may not open
+the document, or it fails to load), or the input does not parse, the generic receipt with every row
+is shown, so nothing is accepted unseen. Whatever `ProposalReceipts.tsx` imports lands in the MCP App
+view, which is one inline script with no cookie: the calibration receipt is replaced there by a
+stand-in that returns nothing, so the frame shows the generic receipt (`STAND_INS` in
+`scripts/build-mcp-app-views.ts`; the size budget is in `view-build.spec.ts`).
 
 After a profile change is applied, by this reader or a colleague, the facts the
 thread's answers bind (`:project[key]`) are told to re-read; after a file

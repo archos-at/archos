@@ -708,51 +708,33 @@ describe('operation proposal with a proposal_id', () => {
     expect(screen.getByTestId('operation-targets')).toHaveTextContent('Person Anna Berger')
   })
 
-  it('shows a proposed calibration as the page clip and the line that is confirmed, above its inputs, and „Apply“ applies once', async () => {
+  it('hands a proposed calibration to its own body: the question instead of the action, its targets and its inputs', async () => {
     const documentId = '3c2b1a0f-9e8d-4c7b-a6f5-4e3d2c1b0a9f'
-    const calibration = operationProposal({
-      payload: {
-        operation: 'drawing-calibration-set',
-        input: {
-          params: { id: documentId },
-          body: { page: 2, region: { x: 0.2, y: 0.3, w: 0.4, h: 0.2 }, from: { x: 0.25, y: 0.35 }, to: { x: 0.55, y: 0.45 }, lengthM: 4.25 },
+    serve(
+      operationProposal({
+        payload: {
+          operation: 'drawing-calibration-set',
+          input: {
+            params: { id: documentId },
+            body: { page: 2, region: { x: 0.2, y: 0.3, w: 0.4, h: 0.2 }, from: { x: 0.25, y: 0.35 }, to: { x: 0.55, y: 0.45 }, lengthM: 4.25 },
+          },
+          summary: 'Set the scale of the drawing',
         },
-        summary: 'Set the scale of the drawing',
-      },
-      targets: [{ type: 'document', id: documentId, name: 'Grundriss EG.pdf' }],
-    })
-    const stored = serve(calibration)
-    server.use(
-      http.post(`/api/proposals/${PROPOSAL_ID}/apply`, () => {
-        stored.current = { ...calibration, ...decidedByAnna('applied', [{ label: 'x', ok: true }]) }
-        return HttpResponse.json({ proposal: stored.current })
+        targets: [{ type: 'document', id: documentId, name: 'Grundriss EG.pdf' }],
       })
     )
-    const user = userEvent.setup()
     render(<OperationReceipt proposalId={PROPOSAL_ID} title="Set the scale" operation="drawing-calibration-set" input={{}} />)
 
-    const preview = await screen.findByTestId('calibration-preview')
-    // The suite's IntersectionObserver never reports, so no page is fetched here: the line stands without „marked points“.
-    expect(screen.getByTestId('calibration-confirm')).toHaveTextContent(/^Reference length: 4\.25\sm, page 2$/)
-    expect(preview.querySelector('[data-place-thumbnail]')).not.toBeNull()
-    // The inputs stay, below the picture: what is decided is what is stored.
-    const input = screen.getByTestId('operation-input')
-    expect(input).toHaveTextContent('Length (m)4.25')
-    expect(preview.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    // The picture does not stand in for reading: the region and the two points are nested values, and „Apply“ waits on each.
-    // Its region and its two points are short enough to be shown whole: nothing waits to be unfolded.
-    expect(screen.queryAllByRole('button', { name: /^Show all/ })).toEqual([])
-    expect(screen.queryByTestId('proposal-accept-blocked')).toBeNull()
-
-    await user.click(screen.getByRole('button', { name: 'Apply' }))
-    await waitFor(() => expect(posts()).toEqual([`POST /api/proposals/${PROPOSAL_ID}/apply`]))
-    expect(await screen.findByTestId('proposal-status')).toHaveAttribute('data-status', 'applied')
-    // Decided: the receipt, not the preview (once the question has faded out).
-    await waitFor(() => expect(screen.queryByTestId('calibration-preview')).toBeNull())
+    // Drawn clip, „Confirm“, the decided headlines and the fallback to the rows: `CalibrationProposalPreview.spec.tsx`.
+    expect(await screen.findByTestId('calibration-question')).toHaveTextContent(/^Is the marked length 4\.25\sm\?$/)
+    expect(screen.getByText('Confirm the scale')).toBeInTheDocument()
+    expect(screen.queryByTestId('operation-name')).toBeNull()
+    expect(screen.queryByTestId('operation-targets')).toBeNull()
+    expect(screen.queryByTestId('operation-input')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
   })
 
-  it('draws no calibration preview for another operation, or for a calibration whose input the route would refuse', async () => {
+  it('keeps the generic receipt for a calibration whose input the route would refuse', async () => {
     serve(
       operationProposal({
         payload: { operation: 'drawing-calibration-set', input: { params: { id: 'not-a-uuid' }, body: { page: 1, lengthM: 4 } }, summary: 'Set the scale' },
