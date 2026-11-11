@@ -94,7 +94,8 @@ async function rejectRequest(tx: Tx, request: ChangeRequestRow, actor: Actor): P
  * Approve a submitted request, in a role. With `override` its author approves
  * alone: a claim nobody reviewed waits for the second review, one somebody
  * marked edited or rejected still blocks, and the trigger marks the request
- * single with a second review due (migration 0214).
+ * single with a second review due (migration 0214); on a deployment set to one
+ * operator alone it marks it single with none due (migration 0228).
  */
 async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input, actor: Actor): Promise<Decided> {
   if (request.status !== 'submitted') throw new ConflictError(`The change request is ${request.status}; only a submitted one is approved.`)
@@ -114,9 +115,9 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
     decisionSource: actor.decisionSource,
     ...(input.override ? { overrideReason: input.override.reason } : {}),
   })
-  const marks = input.override
-    ? { approval: 'single' as const, secondReview: request.secondReview ?? ('due' as const) }
-    : { approval: request.approval, secondReview: request.secondReview }
+  // The trigger marked an override `single`, with a second review due unless one operator works alone (migration 0228).
+  const marked = (await lockChangeRequest(tx, request.id)) ?? request
+  const marks = { approval: marked.approval, secondReview: marked.secondReview }
   const alone = input.override ? revisions.map((revision) => revision.revisionId) : []
   // Counsel for an advice policy, a privacy reviewer for a site-keyed source (ADR-0174): until each has said
   // yes the request stays submitted, and the publish trigger refuses it whatever path reaches it.

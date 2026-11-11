@@ -189,6 +189,10 @@ config:
   # AuthKit domain of this stack's WorkOS environment: the agent doors' authorization server (ADR-0122).
   grid-oib:workosAuthkitDomain: grateful-view-25-staging.authkit.app
   grid-oib:registryUsername: matthiasbigl
+  # One operator reviews, approves alone and publishes a country's knowledge
+  # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0228): the owner's
+  # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
+  grid-oib:knowledgeSingleOperator: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
   # Deployed only when the flag is on AND every dependency is set; otherwise
   # `pulumi preview` logs a warning naming what is missing and the tier

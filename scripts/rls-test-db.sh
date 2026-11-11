@@ -250,6 +250,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/base-knowledge/store/rulesets.integration.spec.ts \
     bff/base-knowledge/platform/platform.integration.spec.ts \
     bff/base-knowledge/platform/approve-alone.integration.spec.ts \
+    bff/base-knowledge/platform/single-operator.integration.spec.ts \
     bff/base-knowledge/platform/texts.integration.spec.ts \
     bff/base-knowledge/platform/organization-countries.integration.spec.ts
 
@@ -4099,3 +4100,31 @@ SQL
 apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
 check_in dq_0227 "SELECT status || '/' || attempts FROM deletion_queue WHERE entity_id = 'f-c-failed'" "pending/9" "0227 applies again after its down, repairing a row stranded meanwhile"
 echo "==> 0227 pending deletions keep an attempt and its down migration verified"
+# ---------------------------------------------------------------------------
+# 0228: one operator alone, on a deployment that says so. Without the setting a
+# request is never single without its second review, by update or insert; with
+# it (the dev stack's BFF sets it per transaction) it is. The down hands such a
+# request its second review back and restores 0214's CHECK; 0228 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0228 one operator alone and its down migration on so_0228"
+migrate_before so_0228 0228_knowledge_single_operator
+SO_0228=c0000000-0000-4000-8000-000000000228
+sql_in so_0228 <<<"INSERT INTO knowledge_change_requests (id, title, country_id, created_by) VALUES ('$SO_0228', 'dev alone', 'AT', 'user_author');"
+apply_in so_0228 0228_knowledge_single_operator.sql
+apply_in so_0228 0228_knowledge_single_operator.sql   # up twice: idempotent, the trigger included
+check_in so_0228 "SELECT knowledge_single_operator()" "f" "0228: off unless the transaction says so"
+refused_in so_0228 "UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228'" "owes a second review" "a request made single without its second review"
+refused_in so_0228 "INSERT INTO knowledge_change_requests (id, title, country_id, created_by, approval) VALUES (gen_random_uuid(), 'born single', 'AT', 'user_author', 'single')" "owes a second review" "a request inserted single without its second review"
+sql_in so_0228 <<SQL
+BEGIN;
+SELECT set_config('knowledge.single_operator', 'on', true);
+UPDATE knowledge_change_requests SET approval = 'single' WHERE id = '$SO_0228';
+COMMIT;
+SQL
+check_in so_0228 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/-" "0228: one operator's request is single and owes nothing"
+apply_in so_0228 0228_knowledge_single_operator.down.sql
+check_in so_0228 "SELECT approval || '/' || coalesce(second_review, '-') FROM knowledge_change_requests WHERE id = '$SO_0228'" "single/due" "0228 down: the request owes its second review again"
+check_in so_0228 "SELECT count(*) FROM pg_proc WHERE proname = 'knowledge_single_operator'" "0" "0228 down drops the setting's reader"
+apply_in so_0228 0228_knowledge_single_operator.sql
+check_in so_0228 "SELECT count(*) FROM pg_trigger WHERE tgname = 'knowledge_change_requests_starts_four_eyes'" "1" "0228 applies again after its down"
+echo "==> 0228 one operator alone and its down migration verified"

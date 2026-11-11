@@ -326,8 +326,9 @@ export const platformKnowledgeOperations = [
       'an operator-supplied capture and a text nobody fetched (uploaded, or only named) need before approval; a verdict ' +
       'that sets it is the person’s own and is asked of them. A verdict is ' +
       'not an approval and changes nothing offices read. Refused (409) for anyone who wrote a revision in the ' +
-      'request; a verdict sent without the person’s confirmation is recorded as the agent’s. A request approved alone ' +
-      'stays reviewable until its second review is given.',
+      'request, except on a deployment set to one operator alone (dev): there the author records verdicts, ' +
+      '`sourceChecked` included, on their own request. A verdict sent without the person’s confirmation is recorded as ' +
+      'the agent’s. A request approved alone stays reviewable until its second review is given.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/review',
     params: requestParams,
@@ -349,7 +350,9 @@ export const platformKnowledgeOperations = [
       'submitted and answers `awaiting`. A draft can be rejected too, which closes a monitor’s request with nothing to do. ' +
       '`override: {reason}` lets an author approve alone when nobody else can: it needs platform:knowledge:approve_alone ' +
       '(403 without), is refused while a pasted capture is not source-checked by another person, is never implied, and marks the request `approval: single` with a second review due; propose it ' +
-      'and ask, the person decides. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
+      'and ask, the person decides. On a deployment set to one operator alone (dev) the author’s own source check ' +
+      'counts and no second review is due (`secondReview: null`): the author reviews, approves with the override and ' +
+      'publishes alone, still audited and marked `single`; the 409 that names the source check says which applies. A reject, like an approve, needs the `role` the person holds (403 otherwise). On an ' +
       'approved request whose second review is due, another person gives it in each role approved alone they hold ' +
       '(`secondReviewRoles`): approve (every claim accepted) confirms that role, reject disputes the request. A disputed ' +
       'request is not published further; rejecting it again withdraws its preview, and a published one is rolled back ' +
