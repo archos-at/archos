@@ -34,9 +34,19 @@ describe('recordSchemas', () => {
     expect(JSON.stringify(all.recordTypes)).not.toContain('platform-knowledge-citation-capture')
   })
 
+  it('writes a calendar date once, and every date field references it', () => {
+    expect(all.$defs?.date).toMatchObject({ type: 'string', format: 'date', pattern: expect.any(String) })
+    const text = JSON.stringify([all.recordTypes, all.citation, all.$defs?.['decision_table.v1']])
+    expect(text).toContain('"$ref":"#/$defs/date"')
+    // The leap-year pattern stays in the one definition and nowhere else.
+    expect(text).not.toContain('"format":"date"')
+    // A date that says something of its own keeps saying it.
+    expect(JSON.stringify(all.recordTypes.source)).toContain('The day a person last read the terms.')
+  })
+
   it('carries no table for a type that has none', () => {
     const work = recordSchemas(['work'])
     expect(Object.keys(work.recordTypes)).toEqual(['work'])
-    expect(work).not.toHaveProperty('$defs')
+    expect(work.$defs ?? {}).not.toHaveProperty('decision_table.v1')
   })
 })

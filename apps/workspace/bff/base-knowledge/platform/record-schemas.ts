@@ -5,8 +5,11 @@
  * under `$defs` and referenced wherever a record carries one (a ruleset's body,
  * an edition's `transition` and its scope, `appliesWhen`, ADR-0178), and a
  * record's citations reference the one citation schema the answer carries
- * beside the types (`#/citation`), so the whole set fits one tool result on
- * the door (`MAX_RESULT_CHARS`). Pure.
+ * beside the types (`#/citation`). A calendar date is written once too
+ * (`#/$defs/date`): its schema carries a leap-year pattern of some 260
+ * characters, and thirteen fields are dates. All of that is so the whole set
+ * fits one tool result on the door (`MAX_RESULT_CHARS`); past the cap the
+ * result is cut and its structured content dropped. Pure.
  */
 
 import { z } from 'zod'
@@ -20,6 +23,8 @@ export type ProposedRecordType = (typeof PROPOSED_RECORD_TYPES)[number]
 const DECISION_TABLE = 'decision_table.v1'
 const DECISION_TABLE_REF = `#/$defs/${DECISION_TABLE}`
 const CITATION_REF = '#/citation'
+const DATE = 'date'
+const DATE_REF = `#/$defs/${DATE}`
 const OPTIONS = { io: 'input', unrepresentable: 'any' } as const
 
 type JsonSchema = Record<string, unknown>
@@ -32,8 +37,22 @@ function isDecisionTable(schema: unknown): boolean {
   return false
 }
 
-/** A node that is a decision table becomes a reference to the one written under `$defs`. */
+/**
+ * A calendar date (`z.iso.date()`) becomes a reference to the one under `$defs`. What the field says of its own
+ * (a description, a default) stays beside the reference, which the 2020-12 draft allows.
+ */
+function referenceDates(context: { jsonSchema: JsonSchema }): void {
+  const { jsonSchema } = context
+  if (jsonSchema.type !== 'string' || jsonSchema.format !== 'date' || typeof jsonSchema.pattern !== 'string') return
+  delete jsonSchema.type
+  delete jsonSchema.format
+  delete jsonSchema.pattern
+  jsonSchema.$ref = DATE_REF
+}
+
+/** A node that is a decision table becomes a reference to the one written under `$defs`; a date likewise. */
 function referenceTables(context: { zodSchema: unknown; jsonSchema: JsonSchema }): void {
+  referenceDates(context)
   if (context.zodSchema === citationSchema) {
     // Every record carries the same citation: written once, as the answer's `citation`.
     for (const key of Object.keys(context.jsonSchema)) delete context.jsonSchema[key]
@@ -56,11 +75,16 @@ export function recordSchemas(types: readonly ProposedRecordType[]) {
       return [name, variant ? z.toJSONSchema(variant, { ...OPTIONS, override: referenceTables }) : null]
     }),
   )
-  const referenced = JSON.stringify(recordTypes).includes(DECISION_TABLE_REF)
+  const citation = z.toJSONSchema(citationSchema, { ...OPTIONS, override: referenceDates })
+  const table = JSON.stringify(recordTypes).includes(DECISION_TABLE_REF)
+    ? { [DECISION_TABLE]: z.toJSONSchema(decisionTableSchema, { ...OPTIONS, override: referenceDates }) }
+    : {}
+  const dated = JSON.stringify([recordTypes, citation, table]).includes(DATE_REF)
+  const $defs = { ...table, ...(dated ? { [DATE]: z.toJSONSchema(z.iso.date(), OPTIONS) } : {}) }
   return {
     recordTypes,
-    citation: z.toJSONSchema(citationSchema, OPTIONS),
-    ...(referenced ? { $defs: { [DECISION_TABLE]: z.toJSONSchema(decisionTableSchema, OPTIONS) } } : {}),
+    citation,
+    ...(Object.keys($defs).length > 0 ? { $defs } : {}),
     maxBatch: MAX_PROPOSED_RECORDS,
     checks: KIT_CHECKS.map((code) => ({ code, type: `${KIT_PROBLEM_TYPE_BASE}${code.toLowerCase()}`, hint: KIT_HINTS[code] })),
   }
