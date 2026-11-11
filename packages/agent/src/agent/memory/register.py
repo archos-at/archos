@@ -486,14 +486,9 @@ _TOOL_DESCRIPTION = (
     "Do NOT record general building-code knowledge, transient conversation details, restatements "
     "of the person's message, facts already in the project profile, or secrets (passwords, keys, "
     "account or identity numbers).\n"
-    "A personal finding is written without the person's name, as the preference or role itself "
-    "('Maße immer in Zentimetern.'), in the language the person wrote in.\n"
-    "When a project finding CORRECTS an entry of the PROJECT_MEMORY shown in your context (the "
-    "person changed a project fact, or an earlier note turned out to be wrong), pass the outdated "
-    "entry's text VERBATIM as 'supersedes'. That retires the stale entry instead of leaving two "
-    "contradictory notes in memory.\n"
-    "The result says whether the finding was saved, where, and who can read it. Only tell the "
-    "person it was noted when the result says it was recorded."
+    "When a project finding CORRECTS an entry of the PROJECT_MEMORY shown in your context, pass the "
+    "outdated entry's text VERBATIM as 'supersedes', which retires it.\n"
+    "Only tell the person it was noted when the result says it was recorded."
 )
 
 _KIND_DESCRIPTION = (
