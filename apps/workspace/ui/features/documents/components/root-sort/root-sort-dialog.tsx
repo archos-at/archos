@@ -358,7 +358,7 @@ export function RootSortDialog({
         <DialogFooter className="gap-2">
           {phase === 'intro' && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" disabled={busy || !canStart} onClick={start}>
@@ -373,7 +373,7 @@ export function RootSortDialog({
                   {t('rootSort.cancel')}
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
             </>
@@ -383,7 +383,7 @@ export function RootSortDialog({
               <Button type="button" variant="ghost" disabled={busy} onClick={cancel}>
                 {t('rootSort.cancel')}
               </Button>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button
@@ -402,7 +402,7 @@ export function RootSortDialog({
               {current && current.moved > 0 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => perform(() => undoRootSortRun(current.id))}
                 >
@@ -416,7 +416,7 @@ export function RootSortDialog({
           )}
           {(phase === 'undone' || phase === 'cancelled') && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" disabled={busy || !canStart} onClick={start}>
@@ -426,13 +426,13 @@ export function RootSortDialog({
           )}
           {phase === 'failed' && current && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               {current.moved > 0 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   disabled={busy}
                   onClick={() => perform(() => undoRootSortRun(current.id))}
                 >
@@ -446,7 +446,7 @@ export function RootSortDialog({
           )}
           {phase === 'failed' && current === null && (
             <>
-              <Button type="button" variant="outline" onClick={close}>
+              <Button type="button" variant="secondary" onClick={close}>
                 {t('rootSort.close')}
               </Button>
               <Button type="button" onClick={() => setAttempt((count) => count + 1)}>
@@ -455,7 +455,7 @@ export function RootSortDialog({
             </>
           )}
           {phase === 'loading' && (
-            <Button type="button" variant="outline" onClick={close}>
+            <Button type="button" variant="secondary" onClick={close}>
               {t('rootSort.close')}
             </Button>
           )}

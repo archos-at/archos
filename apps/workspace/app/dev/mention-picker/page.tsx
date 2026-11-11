@@ -42,6 +42,7 @@ import {
 } from '@/features/collaboration/components/MentionPicker'
 import { AGENT_MENTION_ID, type MentionCandidate } from '@/lib/mentions/types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const candidate = (
   userId: string,
@@ -101,9 +102,9 @@ function PickerBlock({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+      <SectionLabel as="h2">
         {label}
-      </h2>
+      </SectionLabel>
 
       <MentionPicker
         ref={pickerRef}

@@ -295,7 +295,7 @@ export function DocumentReviewControls({
       key={gesture}
       type="button"
       size="sm"
-      variant={PRIMARY_ACTION[gesture] ? 'default' : 'outline'}
+      variant={PRIMARY_ACTION[gesture] ? 'default' : 'secondary'}
       className="h-8 flex-1"
       disabled={pending !== null}
       aria-busy={pending === gesture}
@@ -446,7 +446,7 @@ export function DocumentReviewControls({
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
+                    variant="secondary"
                     className="size-8 shrink-0"
                     aria-label={t('lifecycle.actions.more')}
                     title={t('lifecycle.actions.more')}

@@ -71,6 +71,9 @@ EMBED_EXCLUDED_METADATA_KEYS = (
     "approved_by",
     "approved_at",
     "producer",
+    # A filed mail thread's format (``mail``): a lane and a filter, not a word of
+    # any message. The grounding block states it as its own ``Format:`` line.
+    "source_format",
 )
 
 
@@ -173,9 +176,15 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
 
 
 def stamp_chunk_metadata(
-    documents: list[Any], *, doc_class: Any, provenance: dict[str, Any], chunk_size: int, file_name: str
+    documents: list[Any],
+    *,
+    doc_class: Any,
+    provenance: dict[str, Any],
+    chunk_size: int,
+    file_name: str,
+    source_format: str | None = None,
 ) -> None:
-    """Stamp ``doc_class`` and provenance on a file's documents and fit each header to half of ``chunk_size``.
+    """Stamp ``doc_class``, provenance and format on a file's documents; fit each header to half of ``chunk_size``.
 
     ``chunk_size`` is the one this job's splitter runs with (the job config's, which
     ``_ingest_job`` also sets on ``Settings``), not the ingestor's default: budgeted
@@ -189,6 +198,8 @@ def stamp_chunk_metadata(
     for doc in documents:
         doc.metadata["doc_class"] = doc_class
         doc.metadata.update(provenance)
+        if source_format:
+            doc.metadata["source_format"] = source_format
         apply_metadata_exclusions(doc)
         unrendered.update(_fit_rendered_metadata(doc, limit))
         longest = max(longest, _rendered_metadata_tokens(doc))

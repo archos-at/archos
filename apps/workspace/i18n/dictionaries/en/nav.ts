@@ -2,6 +2,9 @@
 export const nav = {
   projectNavigation: 'Project navigation',
   projectSections: 'Project sections',
+  /** The project's last chats under „Chat“ in the rail, and the way to all of them. */
+  recentChats: 'Recent chats',
+  allChats: 'All chats',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
@@ -17,9 +20,8 @@ export const nav = {
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
-  closeNavigation: 'Close navigation',
   sections: {
-    chat: 'Ask {productName}',
+    chat: 'Chat',
     files: 'Files',
     knowledge: 'Knowledge',
     research: 'Research',
@@ -40,11 +42,9 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
-    work: 'Work',
     org: 'Organization',
   },
   sectionSubtitles: {
-    files: 'This project’s documents. {productName} reads them and cites from them.',
     automation:
       'What {productName} did while you were away, what it will do next, and the skills it does it with.',
     knowledge: 'What the knowledge base currently contains.',
@@ -57,6 +57,24 @@ export const nav = {
    * is the name of the location the reader actually came from, resolved from the
    * tab's return trail.
    */
+  /** A page inside a section (Files › Project mail): its title, under the crumb „Project › Files“. */
+  subpages: {
+    'files/all': {
+      title: 'Files',
+      /** The tab: true at every depth of the tree, where „Alle Dateien“ over a subfolder was not. */
+      tab: 'Folders',
+    },
+    'files/mail': {
+      title: 'Project mail',
+    },
+    'files/bin': {
+      title: 'Bin',
+    },
+    'files/open-points': {
+      title: 'Open points',
+    },
+  },
+  filesPlaces: 'File places',
   backTo: 'Back to {label}',
   /**
    * Names for return destinations that have no nav entry of their own to borrow
@@ -92,6 +110,8 @@ export const nav = {
     newProject: 'New project',
   },
   /** The phone's bottom tab bar (`components/shell/phone-tab-bar.tsx`). */
+  /** The muted count on Files in the rail and the tab bar: mail waiting in the E-Mail-Eingang. */
+  inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
   tabBar: {
     label: 'Main navigation',
     /** Opens the sheet with the destinations the bar does not carry. */
@@ -101,7 +121,7 @@ export const nav = {
       title: 'More',
       description: 'More areas and your account.',
       close: 'Close',
-      places: 'Areas',
+      project: 'Project',
       account: 'Account',
     },
   },
@@ -133,6 +153,7 @@ export const nav = {
     switchingOrganization: 'Switching…',
     switchOrganizationFailed: 'Could not switch. Please try again.',
     settings: 'Settings',
+    whatsNew: "What's new",
     productTour: 'Product tour',
   },
 }

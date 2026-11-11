@@ -43,6 +43,7 @@ from agent.agents.piloti.prompt import render_turn_prompt
 from agent.agents.piloti.prompt import request_messages
 from agent.agents.piloti.prompt import system_prompt_template
 from agent.common import LLMProvider
+from agent.common.message_utils import content_to_text
 from agent.common.prompt_store import PromptStore
 from agent.common.steering import AppliedSteer
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
@@ -51,6 +52,16 @@ from agent.observability.langfuse_trace_attributes import snapshot_contributions
 
 TOOLS = [{"name": "knowledge_search"}, {"name": "workspace__search"}, {"name": "project_lookup"}]
 PROMPT = TurnPrompt(system="SYSTEM", context="<turn_context>\nCTX\n</turn_context>")
+
+
+def _read(prompt: TurnPrompt) -> str:
+    """Everything the model reads about the turn besides the system prompt, in either layout (``context_layout``)."""
+    return (prompt.conversation or "") + prompt.context
+
+
+def _between(request: list) -> str:
+    """The text a request carries between its system prompt and the question."""
+    return "".join(content_to_text(message.content) for message in request[1:-1])
 
 
 @pytest.fixture(autouse=True)
@@ -104,10 +115,10 @@ class TestTheSystemPromptIsTheStaticHalf:
         rendered = render_turn_prompt(system_prompt_template(), state, TOOLS)
 
         for value in ("2026-10-02", "Anna Weber", "Wohnbau", "Grundriss_EG.pdf", "p-1", "Kurz antworten."):
-            assert value in rendered.context, value
+            assert value in _read(rendered), value
             assert value not in rendered.system, value
         assert rendered.context.startswith("<turn_context>")
-        assert "<restricted_conversation>" in rendered.context
+        assert "<restricted_conversation>" in _read(rendered)
 
 
 class TestWhereTheContextGoes:
@@ -122,7 +133,7 @@ class TestWhereTheContextGoes:
 
         request = request_messages(PROMPT, history)
 
-        assert isinstance(request[0], SystemMessage) and request[0].content == "SYSTEM"
+        assert isinstance(request[0], SystemMessage) and content_to_text(request[0].content) == "SYSTEM"
         assert request[1:3] == history[:2]
         assert isinstance(request[3], HumanMessage) and request[3].content == PROMPT.context
         assert request[4:] == history[2:]
@@ -138,10 +149,22 @@ class TestWhereTheContextGoes:
         assert two[0] == one[0]
         assert two[1] == turn_one[0]
 
+    def test_the_system_prompt_ends_on_the_one_cache_breakpoint(self):
+        """The static prompt is one text block whose end is where the cache entry is written.
+
+        Without it no entry is ever written at the bytes every turn shares, and
+        the next turn's first call re-writes the whole static prefix
+        (``common/prompt_caching.py``, "one block breakpoint").
+        """
+        request = request_messages(PROMPT, [HumanMessage(content="Frage")])
+
+        assert request[0].content == [{"type": "text", "text": "SYSTEM", "cache_control": {"type": "ephemeral"}}]
+        assert not any(isinstance(m.content, list) for m in request[1:])
+
     def test_a_transcript_without_a_question_gets_it_after_the_system_prompt(self):
         request = request_messages(PROMPT, [AIMessage(content="geweckt")])
 
-        assert [m.content for m in request] == ["SYSTEM", PROMPT.context, "geweckt"]
+        assert [content_to_text(m.content) for m in request] == ["SYSTEM", PROMPT.context, "geweckt"]
 
     def test_steering_notes_keep_their_place_after_the_context(self):
         history = [
@@ -153,7 +176,7 @@ class TestWhereTheContextGoes:
 
         request = request_messages(PROMPT, history, [note])
 
-        assert [m.content for m in request] == [
+        assert [content_to_text(m.content) for m in request] == [
             "SYSTEM",
             PROMPT.context,
             "Frage",
@@ -277,13 +300,13 @@ class TestThroughTheAgent:
         sent_one = llm.ainvoke.call_args_list[0][0][0]
         sent_two = llm.ainvoke.call_args_list[1][0][0]
         assert sent_one[0].content == sent_two[0].content
-        assert "name: A" in sent_one[-2].content and sent_one[-1].content == "Frage eins"
-        assert "name: B" in sent_two[-2].content and sent_two[-1].content == "Frage zwei"
+        assert "name: A" in _between(sent_one) and sent_one[-1].content == "Frage eins"
+        assert "name: B" in _between(sent_two) and sent_two[-1].content == "Frage zwei"
         # Turn one's context is not replayed into turn two.
         assert not any("name: A" in str(message.content) for message in sent_two)
         # Request-only: the stored transcript carries no turn context.
         for result in (first, second):
-            assert not any("<turn_context>" in str(message.content) for message in result.messages)
+            assert not any("_context>" in str(message.content) for message in result.messages)
 
     async def test_the_request_carries_the_line_and_the_trace_names_the_call(self, agent, llm):
         token = begin_trace_contributions()
@@ -315,3 +338,86 @@ class TestThroughTheAgent:
         assert contributed is not None
         assert contributed["metadata"]["question_language"] == "de"
         assert contributed["metadata"]["answer_language_instructed"] is False
+
+
+# =============================================================================
+# The knowledge context alone decides what building law the turn context presents
+# (ADR-0173, ADR-0175; design A1, defects 1, 2, 4, 6, 7)
+# =============================================================================
+# The project's own text no longer places it: a Vienna profile with no context
+# reads no Austrian law, and a German one with a core Austrian context would
+# read Austria's. Each case binds a context and the chain text the BFF sends.
+
+VIENNA_TEXT = "PROJECT_CONTEXT v1\n\nconfirmed:\n- federal_state=vienna\n- main_use=residential\n- building_class=4\n"
+CHAIN = "Building law at this site, Wien (AT-9, AT, EU), on 2026-11-10, from the platform's reviewed records."
+
+
+@pytest.fixture
+def bound():
+    """Bind a knowledge context with a chain text for one test; reset after it."""
+    from agent.common.knowledge_context import KnowledgeContext
+    from agent.common.knowledge_context import set_turn_knowledge_context
+
+    def bind(gate: str | None, *, chain: str | None = CHAIN, country: str | None = "AT") -> None:
+        context = (
+            None
+            if gate is None
+            else KnowledgeContext(
+                gate=gate,
+                site_country=country,
+                retrieval_countries=frozenset({country} if country else ()),
+                text=chain,
+            )
+        )
+        set_turn_knowledge_context(context)
+
+    yield bind
+    set_turn_knowledge_context(None)
+
+
+def _context(project_context: str = VIENNA_TEXT) -> str:
+    state = ResearchAgentState(
+        messages=[HumanMessage(content="Welche Anforderungen gelten für das Stiegenhaus?")],
+        project_context=project_context,
+    )
+    return _read(render_turn_prompt(system_prompt_template(), state, [{"name": "knowledge_search"}]))
+
+
+def test_a_core_context_carries_the_records_chain_and_no_note(bound):
+    bound("core")
+    context = _context()
+    assert f"<building_law>\n{CHAIN}\n</building_law>" in context
+    assert "## Building law:" not in context
+
+
+def test_without_a_context_a_vienna_profile_reads_no_law_and_the_unavailable_note(bound):
+    """ADR-0175: the project's text never places it; no context fails closed, chain or not."""
+    bound(None)
+    context = _context()
+    assert "<building_law>" not in context
+    assert "Building law: not available this turn" in context
+    assert "OIB 1 —" not in context
+
+
+@pytest.mark.parametrize(
+    "gate", ["organization_unplaced", "site_unknown", "not_entitled", "knowledge_unavailable", "none"]
+)
+def test_a_gate_that_withholds_law_shows_its_note_and_no_chain(bound, gate):
+    bound(gate, country="DE" if gate in ("not_entitled", "none") else None)
+    context = _context()
+    assert "<building_law>" not in context
+    assert "## Building law:" in context
+
+
+def test_open_coverage_carries_the_chain_and_says_it_is_open(bound):
+    bound("open")
+    context = _context()
+    assert f"<building_law>\n{CHAIN}" in context
+    assert "open coverage" in context
+
+
+def test_no_hand_written_verdicts_reach_the_turn_any_more(bound):
+    """``common/applicability.py`` is gone: which law applies is the records' to say."""
+    bound("core")
+    assert "OIB 1 —" not in _context()
+    assert "Likely relevant for this project" not in _context()

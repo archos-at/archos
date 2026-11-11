@@ -204,8 +204,8 @@ async def evaluate_precedent() -> dict[str, Any]:
     from agent.agents.piloti.decisions import decide_turn
     from agent.cards.catalog import card_index_entries
     from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
-    from agent.common.applicability import facts_from_project_context
     from agent.common.norm_registry import oib_families
+    from agent.common.project_facts import facts_from_project_context
     from agent.skills.builtin import discover_builtin_skills
     from agent.skills.resolver import _skill_applies_to_agent
     from scripts.decision_eval import CORPUS_FILES

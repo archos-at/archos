@@ -212,8 +212,18 @@ describe('what tools mode costs a client', () => {
   // the exporter drops the keywords that only restate an absence (`lib/api/zod-json-schema.ts`).
   // Raised to 1,060 on 2026-11-04 for `dxf-measure` (ADR-0153): about 3,000 characters, its eight operations and the
   // setbacks and limits `buildable` takes; one tool for a site's geometry, not ballast. Measured 1,055 with it.
-  const MAX_AVERAGE_CHARS = 1_060
-  const MAX_OPERATION_CHARS = 9_000
+  // Raised to 1,080 on 2026-11-10 for `idempotencyKey` on every write (ADR-0170): a bare `{ type: 'string' }`, its
+  // description given once in the server's instructions instead of on each tool. A real input the agent needs to
+  // retry a write safely, not ballast. Measured 1,075 with it.
+  // Raised to 1,070 on 2026-11-10 for the `register` evidence kind (ADR-0172): an address confirmed by an official
+  // register in the cell is a fifth evidence shape, and the profile schema repeats the evidence union in facts,
+  // assumptions and alternatives of every profile-carrying tool. Measured 1,063 with it and the two site tools.
+  // The same change raised the operation cap from 9,000 to 10,000: `project-profile-replace` carries the whole profile
+  // schema, which inlines the evidence union four times (MCP clients read `$ref` unevenly, so the export inlines);
+  // measured 8,386 before the register kind and 9,774 with it.
+  // Both raises together (idempotencyKey and the register kind, merged the same day): 1,090, measured 1,082.
+  const MAX_AVERAGE_CHARS = 1_090
+  const MAX_OPERATION_CHARS = 10_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {
     const tools = await listTools('tools')

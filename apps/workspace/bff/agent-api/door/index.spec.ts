@@ -97,11 +97,12 @@ describe('the door docs', () => {
     }
   })
 
-  it('names only operations an outside agent is offered (ADR-0131, rule 8)', () => {
+  it('names only operations its door offers (ADR-0131, rule 8): the office guide an outside agent’s, the platform guide the platform door’s', () => {
     const names = new Set([...AGENT_OPERATIONS, ...BACKEND_OPERATIONS].map((op) => op.name))
     for (const [doc, text] of Object.entries(DOOR_DOCS)) {
+      const audience = doc.startsWith('platform/') ? 'platform' : 'external'
       for (const [, name] of text.matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`/g)) {
-        if (names.has(name)) expect({ doc, name, offered: isExposedTo('external', name) }).toEqual({ doc, name, offered: true })
+        if (names.has(name)) expect({ doc, name, offered: isExposedTo(audience, name) }).toEqual({ doc, name, offered: true })
       }
     }
   })

@@ -36,7 +36,9 @@
 import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
+import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
 import { InboxDock } from '@/features/collaboration/components'
+import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
 import { resolveShellChrome } from '@/lib/shell/chrome'
@@ -55,6 +57,8 @@ export default async function AppShellLayout({
   const chrome = await runWithTenantSlot(resolveShellChrome)
 
   return (
+    // The rail's last chats come from the chat's side, so the shell imports no feature (`rail-chats.tsx`).
+    <RailChatsProvider>
     <AppShellChrome
       projects={chrome.projects}
       user={chrome.user}
@@ -68,6 +72,7 @@ export default async function AppShellLayout({
       canAccessInbox={chrome.navFlags.canAccessInbox}
       showSkills={chrome.showSkills}
       showModels={chrome.showModels}
+      inboundMail={chrome.inboundMail}
       tours={chrome.tours}
       overlay={overlay}
       // What may dock beside the page: the Postfach, for a reader who may open it.
@@ -88,6 +93,9 @@ export default async function AppShellLayout({
         <MainScrollMemory />
         {children}
       </main>
+      {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
+      <WhatsNewNoticeInShell state={chrome.whatsNew} />
     </AppShellChrome>
+    </RailChatsProvider>
   )
 }

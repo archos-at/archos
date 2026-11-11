@@ -1,4 +1,5 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
+import { loadProjectSiteCountry } from '@/lib/project-profile/prompt-view'
 import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
@@ -15,6 +16,7 @@ import {
 } from '@/lib/retrieval-scope/collection-scope'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
+import { corpusCountriesFor } from '@/lib/base-knowledge/context/corpus-countries'
 
 export interface RequestContext {
   projectId?: string
@@ -293,6 +295,10 @@ export async function buildCollectionScopeFromRequest(
         )
       : []
 
+  // The Austrian corpus is Austria's law: a project placed elsewhere, or not
+  // placed at all, does not search it (ADR-0158). A turn with no project does.
+  const includeBase = !projectId || (await loadProjectSiteCountry(projectId, session?.organizationId)) === 'at'
+
   const shelfByCollection = new Map<string, CollectionShelf>()
   // The base knowledge corpus, and nothing else, is `base`.
   shelfByCollection.set(baseCollection, 'base')
@@ -310,12 +316,21 @@ export async function buildCollectionScopeFromRequest(
     officeShelfCollectionName: officeShelfCollection,
     baseCollection,
     restrictedCollections,
+    includeBase,
   } satisfies ScopeContext)
 
+  // The countries the office may read of the base corpus (ADR-0173), signed onto its entry;
+  // an office entitled to nothing reads none of it (ADR-0175).
+  const corpusCountries =
+    scope.includes(baseCollection) && session?.organizationId && !anonymous
+      ? await corpusCountriesFor(session.organizationId)
+      : undefined
   const scopedCollections: ScopedCollection[] = scope.map((collection) => {
     const shelf = shelfByCollection.get(collection)
     // No shelf → omit the field. Unknown stays unknown; it is never defaulted.
-    return shelf ? { collection, shelf } : { collection }
+    const entry: ScopedCollection = shelf ? { collection, shelf } : { collection }
+    if (collection === baseCollection && corpusCountries) entry.countries = corpusCountries
+    return entry
   })
 
   return {

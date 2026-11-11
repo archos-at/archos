@@ -3,8 +3,8 @@
 Stages over ``(messages, registry)``, in this order: DSML strip, envelope
 split, grouped-citation expansion and control-marker extraction
 (``_extract``), envelope card registration, citation and quote verification
-with the turn's ONE repair (an unresolvable ``[N]`` is labelled where it
-stood, never silently removed), the dialect validator
+with the turn's ONE repair (an unresolvable ``[N]`` is removed, and no
+verification marker ever reaches the prose: ADR-0125, amended), the dialect validator
 (``common/answer_dialect``), sanitisation, the restated-mindmap drop,
 re-citing the composed cards, the ``answer_meta`` gates, card suppression,
 callout resolution, the quote-line stamps (``common/quote_stamps``), and
@@ -35,19 +35,17 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool
 from pydantic import ValidationError
 
-from agent.citations.binding import agent_authored_document_names
-from agent.citations.entries import DROPPED_CITATION_MARKER
 from agent.citations.entries import EmptySourceRegistryError
 from agent.citations.entries import SourceEntry
 from agent.citations.entries import is_look_place
 from agent.citations.entries import merged_citations
 from agent.citations.quote_matching import UnverifiedQuote
-from agent.citations.quote_verification import annotate_unverified_quotes
 from agent.citations.quote_verification import verify_quoted_spans
 from agent.citations.references import expand_grouped_citations
 from agent.citations.registry import SourceRegistry
 from agent.citations.sanitize import sanitize_report
 from agent.citations.session import get_turn_captures
+from agent.citations.source_identity import agent_authored_document_names
 from agent.citations.trailer_values import drop_ungrounded_trailer_values
 from agent.citations.verification import verify_citations
 from agent.common import citation_events
@@ -534,16 +532,15 @@ def _verify(
 
     ``verify_citations`` only proves a cited SOURCE is real, not that a QUOTED
     sentence appears in it; ``verify_quoted_spans`` catches the "real section,
-    fabricated quote" pattern. Fail-open: quotes are annotated, never stripped.
+    fabricated quote" pattern. Fail-open: a quote is kept, never stripped, and the quote gate lowers confidence.
     ``with_nearest`` asks for each misquote's nearest cited passage, a search
     over every cited page that only a patch about to run reads.
     """
-    # Labelled, not stripped: a claim whose pointer did not hold must not read
-    # like every other unmarked sentence (ADR-0125). The locus beside a marker
-    # is held to the passage it resolves to, and a source list the answer did
-    # not write is THIS turn's passages by content (``unlisted_citations``).
+    # Removed, never labelled (ADR-0125, amended 2026-11-10). The locus beside a marker is held to the
+    # passage it resolves to, and a source list the answer did not write is THIS turn's passages by
+    # content (``unlisted_citations``).
     verification = verify_citations(
-        content, registry, reference_sources=numbering, label_dropped=True, check_locus=True
+        content, registry, reference_sources=numbering, drop_unresolved=True, check_locus=True
     )
     logger.debug(
         "Piloti: citation verification complete — %d valid, %d removed",
@@ -644,9 +641,9 @@ def _ground(verified: _Verified, registry: SourceRegistry) -> _Grounding:
     """
     content = verified.content
     if verified.unverified_quotes:
-        content = annotate_unverified_quotes(content, list(verified.unverified_quotes))
+        # Never a marker in the prose: the quote gate caps the answer's confidence instead (``markers._quote_cap``).
         logger.info(
-            "Piloti: %d quoted span(s) not verbatim in any retrieved passage; annotated inline",
+            "Piloti: %d quoted span(s) not verbatim in any retrieved passage; confidence capped",
             len(verified.unverified_quotes),
         )
     common = {
@@ -1188,7 +1185,7 @@ async def finalize_answer(
     # like the quote check it repeats: each line reads the registry's passages.
     pairs = [(source.entry, source.number) for source in cited if not is_look_place(source.entry)]
     stamps = await asyncio.to_thread(stamp_quote_lines, content, pairs, registry.all_sources())
-    _emit_answer_scores(looks, looks_made, content, cited, readings := relied_readings(looks, cited))
+    _emit_answer_scores(looks, looks_made, content, cited, readings := relied_readings(looks, cited), grounding)
     seen, quotes = [*_trailer_captures(turn_sources), *sources], grounding.unverified_quotes
     answered = Answered(messages, content, cited, seen, stamps, quotes, turn, measured_values, readings)
     checked = await check_answer(answered, check) if extracted.confidence is not None else None
@@ -1224,6 +1221,7 @@ def _emit_answer_scores(
     content: str,
     cited: Sequence[CitedSource],
     readings: Sequence[str],
+    grounding: _Grounding,
 ) -> None:
     """``look-count``, ``looked-before-measurement`` (ADR-0128) and ``citations-dropped-labelled`` at the turn's end."""
     from agent.tools.look.cards import drawing_value_status
@@ -1232,7 +1230,7 @@ def _emit_answer_scores(
     emit_scores(
         [
             *look_scores(looks=looks_made, drawing_value=drawing_value, region_look_first=region_look_first),
-            *dropped_citation_scores(content.count(DROPPED_CITATION_MARKER)),
+            *dropped_citation_scores(len(grounding.removed_citations)),
         ],
         writer="piloti",
     )

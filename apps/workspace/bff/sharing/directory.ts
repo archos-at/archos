@@ -49,7 +49,9 @@ function displayName(user: {
  * Pages through the whole roster (`autoPagination`) so an organization with more
  * than one page is not silently cut off. Returns an empty map on failure — the
  * callers all degrade to showing ids/initials rather than breaking, because a
- * WorkOS hiccup must not take the chat down.
+ * WorkOS hiccup must not take the chat down. A caller for whom "nobody" and
+ * "WorkOS did not answer" lead to different decisions takes
+ * {@link loadOrganizationDirectoryStrict} instead.
  *
  * The failure is caught OUTSIDE `getCached`, so the empty map is never stored.
  * Caught inside the loader, one failed `listUsers` was cached as the roster for
@@ -61,23 +63,35 @@ export async function loadOrganizationDirectory(
   organizationId: string,
 ): Promise<Map<string, DirectoryPerson>> {
   try {
-    const people = await getCached(`directory:${organizationId}`, DIRECTORY_TTL_MS, async () => {
-      const workos = getWorkOS()
-      const users = await workos.userManagement
-        .listUsers({ organizationId })
-        .then((page) => page.autoPagination())
-      return users.map((user) => ({
-        userId: user.id,
-        email: user.email ?? null,
-        name: displayName(user),
-        profilePictureUrl: user.profilePictureUrl ?? null,
-      })) satisfies DirectoryPerson[]
-    })
-    return new Map(people.map((person) => [person.userId, person]))
+    return await loadOrganizationDirectoryStrict(organizationId)
   } catch (error) {
     console.warn(`[directory] failed to load organization ${organizationId}:`, error)
     return new Map()
   }
+}
+
+/**
+ * The same roster, but a failed read THROWS instead of reading as an empty
+ * organization: for a decision an empty directory would get wrong, such as
+ * the receive job's "is this sender a member" (a member's mail read as a
+ * stranger's is discarded sooner).
+ */
+export async function loadOrganizationDirectoryStrict(
+  organizationId: string,
+): Promise<Map<string, DirectoryPerson>> {
+  const people = await getCached(`directory:${organizationId}`, DIRECTORY_TTL_MS, async () => {
+    const workos = getWorkOS()
+    const users = await workos.userManagement
+      .listUsers({ organizationId })
+      .then((page) => page.autoPagination())
+    return users.map((user) => ({
+      userId: user.id,
+      email: user.email ?? null,
+      name: displayName(user),
+      profilePictureUrl: user.profilePictureUrl ?? null,
+    })) satisfies DirectoryPerson[]
+  })
+  return new Map(people.map((person) => [person.userId, person]))
 }
 
 /**

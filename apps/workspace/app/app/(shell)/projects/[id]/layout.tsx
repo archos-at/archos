@@ -13,6 +13,8 @@ import { CurrentProjectProvider } from '@/features/projects/lib/current-project'
 import { ProjectStatusBanner } from '@/features/projects/components/project-status-banner'
 import { lifecycleViewOf } from '@/lib/projects/project-status'
 import { holdsManageEvenWhenClosed } from '@/lib/projects/settings-access'
+import { isInboundMailEnabled } from '@/lib/authz/feature-flags'
+import { requireMailReviewer } from '@/lib/inbound-mail/access'
 
 interface ProjectLayoutProps {
   children: React.ReactNode
@@ -86,12 +88,15 @@ export default async function ProjectLayout({
     // Beside it, what the reader may do at the project's root (ADR-0088), where
     // a file dropped on any page is filed. An outage refuses the drop rather
     // than failing every page of the project, and is logged.
-    const [current, rootAccess] = await Promise.all([
+    const [current, rootAccess, inboundMail] = await Promise.all([
       findProjectInOrg(id, session.organizationId),
       projectRootAccess(session, id).catch((error: unknown): 'read' => {
         console.error('[projects] could not ask the root access for the project drop:', error)
         return 'read'
       }),
+      // Whether Dateien shows the E-Mail-Eingang as a tab: whoever may decide the project's mail (ADR-0137),
+      // asked only where the office has the feature. A refusal or an outage hides the tab, never the page.
+      isInboundMailEnabled(session) ? requireMailReviewer(session, id).then(() => true, () => false) : Promise.resolve(false),
     ])
     if (!current) notFound()
     // Whether the banner of a paused or closed project offers the way out of
@@ -132,7 +137,7 @@ export default async function ProjectLayout({
                 a closed project takes none, and a reader who may only read at
                 its root is told so. */}
             <ProjectFileDrop projectId={id} disabled={current.status === 'closed'} rootAccess={rootAccess}>
-              <ProjectSectionFrame projectId={id} projectName={current.name}>
+              <ProjectSectionFrame projectId={id} projectName={current.name} inboundMail={inboundMail}>
                 {children}
               </ProjectSectionFrame>
             </ProjectFileDrop>

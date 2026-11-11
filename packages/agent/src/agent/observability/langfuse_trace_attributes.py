@@ -69,6 +69,8 @@ from collections.abc import Sequence
 from typing import Any
 
 from agent.observability.responses_cost import with_cost
+from agent.observability.usage_details import normalize_langchain_usage as _normalize_langchain_usage
+from agent.observability.usage_details import usage_observation_attributes
 
 logger = logging.getLogger(__name__)
 
@@ -348,19 +350,6 @@ def reset_contributions() -> None:
 # when the provider reported one) and per-turn dollars land on the trace
 # via ``agent.observability.usage_rollup``.
 
-#: OTel GenAI semconv usage keys Langfuse maps to ``usageDetails`` (it
-#: normalizes cache buckets server-side, so these stay provider-verbatim).
-GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
-GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
-#: The model a generation ran on — what Langfuse matches against its model
-#: price table to infer ``costDetails`` when no cost is ingested.
-GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
-#: Flat Langfuse-style keys, stored verbatim (no server normalization), so
-#: their buckets must already be exclusive — see ``usage_observation_attributes``.
-OBSERVATION_USAGE_DETAILS = "langfuse.observation.usage_details"
-OBSERVATION_COST_DETAILS = "langfuse.observation.cost_details"
-OBSERVATION_MODEL_NAME = "langfuse.observation.model.name"
-
 
 # ---------------------------------------------------------------------------
 # Prompt linkage: which prompt version produced this generation
@@ -562,25 +551,6 @@ def _find_usage(node: Any, matches: Any, depth: int = 0) -> dict[str, Any] | Non
     return None
 
 
-def _normalize_langchain_usage(usage: dict[str, Any]) -> dict[str, Any]:
-    """LangChain's ``usage_metadata`` reshaped into the provider key names.
-
-    ``input_token_details.cache_read`` is where langchain-openai puts
-    OpenRouter's ``input_tokens_details.cached_tokens`` (Responses) /
-    ``prompt_tokens_details.cached_tokens`` (Chat Completions). No ``cost``
-    exists on this shape, so none is claimed.
-    """
-    input_details = usage.get("input_token_details") or {}
-    output_details = usage.get("output_token_details") or {}
-    return {
-        "prompt_tokens": usage.get("input_tokens"),
-        "completion_tokens": usage.get("output_tokens"),
-        "total_tokens": usage.get("total_tokens"),
-        "prompt_tokens_details": {"cached_tokens": input_details.get("cache_read")},
-        "completion_tokens_details": {"reasoning_tokens": output_details.get("reasoning")},
-    }
-
-
 #: The one key in the agent runtime's ``TraceMetadata`` holding THIS call's output. Both the
 #: chat-completions and the Responses-API path reach it through the same
 #: ``on_llm_end`` (``nat/plugins/langchain/callback_handler.py:318``, and :249
@@ -652,6 +622,7 @@ def extract_provider_usage(metadata_json: Any) -> dict[str, int | float] | None:
             "completion_tokens": _as_count(usage.get("completion_tokens")),
             "total_tokens": _as_count(usage.get("total_tokens")),
             "cached_tokens": _as_count(prompt_details.get("cached_tokens")),
+            "cache_write_tokens": _as_count(prompt_details.get("cache_write_tokens")),
             "reasoning_tokens": _as_count(completion_details.get("reasoning_tokens")),
             "cost_usd": float(raw_cost) if isinstance(raw_cost, int | float) else None,  # type: ignore[dict-item]
         }
@@ -674,55 +645,6 @@ def extract_span_token_counts(attributes: dict[str, Any]) -> dict[str, int] | No
     if prompt <= 0 and completion <= 0 and total <= 0:
         return None
     return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": total}
-
-
-def usage_observation_attributes(
-    *,
-    prompt_tokens: int,
-    completion_tokens: int,
-    total_tokens: int,
-    cached_tokens: int = 0,
-    reasoning_tokens: int = 0,
-    cost_usd: int | float | None = None,
-    model: str | None = None,
-) -> dict[str, Any]:
-    """The span attributes that land input/output/total (+cost) on a generation.
-
-    ``gen_ai.usage.*`` carries the provider-verbatim counts (Langfuse
-    normalizes cache buckets server-side on that path).
-    ``langfuse.observation.usage_details`` is stored VERBATIM, so its buckets
-    are exclusive here: ``input`` excludes cached tokens (which ride their own
-    ``input_cached_tokens`` bucket) and ``output`` excludes reasoning tokens
-    (own ``output_reasoning_tokens`` bucket) — otherwise Langfuse's
-    per-bucket cost math would bill the same token twice.
-    ``cost_details`` carries the provider-reported total when known; without
-    it Langfuse infers cost from ``model`` + usage via its model table.
-    Pure, so the mapping is testable without a span or an event loop.
-    """
-    import json
-
-    exclusive_input = max(0, prompt_tokens - cached_tokens)
-    exclusive_output = max(0, completion_tokens - reasoning_tokens)
-    details: dict[str, Any] = {
-        "input": exclusive_input,
-        "output": exclusive_output,
-        "total": total_tokens,
-    }
-    if cached_tokens > 0:
-        details["input_cached_tokens"] = cached_tokens
-    if reasoning_tokens > 0:
-        details["output_reasoning_tokens"] = reasoning_tokens
-    attributes: dict[str, Any] = {
-        GEN_AI_USAGE_INPUT_TOKENS: prompt_tokens,
-        GEN_AI_USAGE_OUTPUT_TOKENS: completion_tokens,
-        OBSERVATION_USAGE_DETAILS: json.dumps(details, separators=(",", ":")),
-    }
-    if model:
-        attributes[GEN_AI_REQUEST_MODEL] = model
-        attributes[OBSERVATION_MODEL_NAME] = model
-    if isinstance(cost_usd, int | float):
-        attributes[OBSERVATION_COST_DETAILS] = json.dumps({"total": float(cost_usd)}, separators=(",", ":"))
-    return attributes
 
 
 def is_generation_span(attributes: dict[str, Any]) -> bool:
@@ -1021,6 +943,7 @@ try:
                     completion_tokens=int(counts.get("completion_tokens") or 0),
                     total_tokens=int(counts.get("total_tokens") or 0),
                     cached_tokens=int(counts.get("cached_tokens") or 0),
+                    cache_write_tokens=int(counts.get("cache_write_tokens") or 0),
                     reasoning_tokens=int(counts.get("reasoning_tokens") or 0),
                     cost_usd=counts.get("cost_usd"),
                     model=model,

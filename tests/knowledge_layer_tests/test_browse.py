@@ -33,6 +33,7 @@ from knowledge_layer.browse import split_alternatives
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import reading_as
 
 from agent.common.brand import PRODUCT_NAME
 from agent.common.source_kinds import Shelf
@@ -128,6 +129,54 @@ class TestSelectFiles:
     def test_files_still_being_read_are_named(self):
         text = render_listing(select_files(_rows()), in_flight=["Neu.pdf"])
         assert "Still processing" in text and "Neu.pdf" in text
+
+
+class TestAFiledMailIsListedInTheWordsOfItsVerlauf:
+    """``list_files`` names where a filed mail came from, never an unconfirmed sender as the domain (ADR-0137)."""
+
+    THREAD = {"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5, "locale": "de"}
+    SIGNED = {
+        "sent_at": "2026-05-04T06:30:00Z",
+        "from_name": "Ing. Paul Gruber",
+        "from_domain": "verkehrsplanung-gruber.at",
+        "signer_domain": "verkehrsplanung-gruber.at",
+        "sender_trust": "external_verified",
+    }
+    FORGED = {
+        "sent_at": "2026-05-14T14:40:00Z",
+        "from_name": "Mag. Anna Huber",
+        "from_domain": "ma37-wien.at",
+        "sender_trust": "external_unverified",
+    }
+
+    def _listing(self, **extra) -> str:
+        return render_listing(select_files(file_rows([_doc("Datei.pdf", "Korrespondenz", **extra)])))
+
+    def test_the_verlauf_says_what_it_is_and_how_new(self):
+        text = self._listing(mail_thread=self.THREAD)
+        assert "E-Mail-Verlauf · 5 E-Mails, zuletzt 14.05.2026" in text
+
+    def test_an_attachment_names_the_signed_mail_it_came_with(self):
+        text = self._listing(mail_origin=self.SIGNED)
+        assert "kam mit der E-Mail vom 04.05.2026 08:30 von Ing. Paul Gruber (verkehrsplanung-gruber.at)" in text
+
+    def test_an_unconfirmed_sender_is_printed_as_unconfirmed(self):
+        text = self._listing(mail_origin=self.FORGED)
+        assert "von Mag. Anna Huber (ma37-wien.at, Domain nicht bestätigt)" in text
+
+    def test_a_record_that_cannot_be_printed_honestly_prints_nothing(self):
+        text = self._listing(mail_origin={**self.FORGED, "sender_trust": "trusted"})
+        assert "kam mit der E-Mail" not in text and "Domain" not in text
+
+    def test_the_verlaufs_date_is_its_newest_message_and_an_attachments_is_its_own(self):
+        thread, attachment = file_rows(
+            [
+                _doc("Verlauf.md", mail_thread=self.THREAD),
+                _doc("Berechnung.pdf", mail_origin=self.SIGNED),
+            ]
+        )
+        assert thread.document_date == "2026-05-14"
+        assert attachment.document_date is None
 
 
 def _builder() -> MagicMock:
@@ -328,6 +377,14 @@ def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
     assert ranked == fetch_signature({"name": "knowledge_search", "args": {"query": "ba-03", "match": "meaning"}})
 
 
+@pytest.fixture
+def reads_as_an_office():
+    """A search over a project's scope reads as an office (``vector_store.ScopeRead``, ADR-0163), as a request does."""
+    with reading_as("org_test"):
+        yield
+
+
+@pytest.mark.usefixtures("reads_as_an_office")
 def test_the_store_query_finds_every_spelling_and_honours_a_file_filter(qdrant_store):
     """Against a real Qdrant: the pattern and the file filter are what the store accepts."""
     retriever = _store_retriever()
@@ -381,6 +438,7 @@ def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
     """An excluded edition and a cover page are not evidence in either mode."""
 
@@ -451,6 +509,7 @@ class _FailingStore(_TextStore):
         return await super().find_text(collection_name, pattern, filters, limit)
 
 
+@pytest.mark.usefixtures("reads_as_an_office")
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
         from knowledge_layer.vector_store import store as store_module

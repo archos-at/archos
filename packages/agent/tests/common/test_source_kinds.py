@@ -82,6 +82,25 @@ class TestAgentAuthoredLane:
         assert "{" not in AGENT_AUTHORED_LANE_LABEL
 
 
+class TestMailLanes:
+    """A filed E-Mail-Verlauf is Projektwissen with a sub-label, never building law (ADR-0137)."""
+
+    def test_the_project_thread_is_project_and_the_office_thread_is_office(self):
+        from agent.common.source_kinds import MAIL_LANE
+        from agent.common.source_kinds import OFFICE_MAIL_LANE
+
+        assert kind_for_lane(MAIL_LANE) == "project"
+        assert kind_for_lane(OFFICE_MAIL_LANE) == "office"
+
+    def test_both_lanes_carry_the_one_label(self):
+        from agent.common.norm_registry import _LANE_LABELS
+        from agent.common.source_kinds import MAIL_LANE
+        from agent.common.source_kinds import MAIL_LANE_LABEL
+        from agent.common.source_kinds import OFFICE_MAIL_LANE
+
+        assert _LANE_LABELS[MAIL_LANE] == _LANE_LABELS[OFFICE_MAIL_LANE] == MAIL_LANE_LABEL == "E-Mail"
+
+
 class TestSourceKindLookup:
     def test_known_kind(self):
         assert source_kind("office").label == "Büroablage"
@@ -126,27 +145,19 @@ class TestWireKind:
         assert source_entry_to_wire(entry)["kind"] == "web"
 
 
-class TestBindingNote:
-    """RIS sources catalogued in the norm registry carry their bindingness note."""
+class TestNoBindingNote:
+    """ADR-0175: the norm registry's prose ``binding_note`` no longer reaches a citation; the roles speak."""
 
-    def test_ris_source_matching_registry_gets_binding_note(self):
-        # wbtv (document_number LWI40016790) is the entry that makes the OIB
-        # Richtlinien binding in Wien — the canonical bindingness fact.
+    def test_a_catalogued_ris_source_carries_no_binding_note(self):
+        # The WBTV entry (LWI40016790) once carried how it makes the OIB binding in Wien.
         entry = SourceEntry(
             url="https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=LWI40016790",
             source_type="generic",
         )
         wire = source_entry_to_wire(entry)
         assert wire["kind"] == "building_law"
-        assert "verbindlich" in wire["binding_note"].lower()
-
-    def test_non_ris_source_has_no_binding_note(self):
-        entry = SourceEntry(citation_key="oib-rl_2.pdf, p.5", source_type="knowledge_layer")
-        assert "binding_note" not in source_entry_to_wire(entry)
-
-    def test_ris_without_registry_match_has_no_binding_note(self):
-        entry = SourceEntry(url="https://www.ris.bka.gv.at/Dokumente/Bundesnormen/NOR99999999", source_type="generic")
-        assert "binding_note" not in source_entry_to_wire(entry)
+        assert "binding_note" not in wire
+        assert wire["binding_status"] == "unknown"
 
 
 class TestShelf:

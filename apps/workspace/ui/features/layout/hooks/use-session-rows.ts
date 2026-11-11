@@ -15,7 +15,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { hasFinishedRun, hasLiveRun } from '@/features/chat/lib/session-activity'
-import { conversationMatchesProject } from '@/features/chat/lib/project-scope'
+import { conversationMatchesProject, isHiddenJobConversation } from '@/features/chat/lib/project-scope'
 
 export interface SessionRow {
   id: string
@@ -70,15 +70,22 @@ const rowFor = (conversation: Conversation, cache: RowCache): SessionRow => {
  * The current user's sessions in the active project context, newest first.
  * Legacy sessions without a projectId fail open (always visible) so users
  * never lose sight of pre-scoping history.
+ *
+ * `projectId` names the project when the caller knows it better than the chat
+ * store does: the rail lists a project's chats on every page of it, where the
+ * store's project is whichever chat was open last.
  */
-export function useSessionRows(): SessionRow[] {
+export function useSessionRows(projectId?: string | null): SessionRow[] {
   const cache = useRef<RowCache>({ byConversation: new WeakMap(), byId: new Map() })
   return useChatStore(
     useShallow((s) => {
       if (!s.currentUserId) return []
+      const scope = projectId === undefined ? s.projectId : projectId
       return (
         s.conversations
-          .filter((c) => c.userId === s.currentUserId && conversationMatchesProject(c, s.projectId))
+          // A per-fire job conversation is a job's output, not a chat this person started (`isHiddenJobConversation`,
+          // as `getUserConversations` applies it): the rows dropped this filter and listed every weekly run.
+          .filter((c) => c.userId === s.currentUserId && conversationMatchesProject(c, scope) && !isHiddenJobConversation(c))
           // The store keeps creation order; sort newest-first so date groups
           // and rows in the sessions panel come out most-recently-updated first.
           .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))

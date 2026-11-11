@@ -6,8 +6,8 @@
     the history behind it. Tool names are not listed here: the bound tool
     schemas carry them. -#}
 <turn_context>
-Date: {{ current_datetime }}
-{% set user = user_info or {} %}{% set user_name = user.get("name") %}{% set user_email = user.get("email") -%}
+{% if current_datetime %}Date: {{ current_datetime }}
+{% endif %}{% set user = user_info or {} %}{% set user_name = user.get("name") %}{% set user_email = user.get("email") -%}
 {% if user_name or user_email %}User: {{ user_name or user_email }}{% if user_name and user_email %} ({{ user_email }}){% endif %}
 {% endif %}{% if user.get("office") %}Office: {{ user.get("office") }}
 {% endif %}
@@ -57,8 +57,11 @@ The user has this file open, so every bare reference in their message („dieses
 {%- if parcel_note is defined and parcel_note %}
 {{ parcel_note }}
 {% endif %}
-{%- if oib_applicability is defined and oib_applicability %}
-{{ oib_applicability }}
+{%- if building_law is defined and building_law %}
+{{ building_law }}
+{% endif %}
+{%- if jurisdiction_note is defined and jurisdiction_note %}
+{{ jurisdiction_note }}
 {% endif %}
 {%- if platform_lessons is defined and platform_lessons %}
 {{ platform_lessons }}

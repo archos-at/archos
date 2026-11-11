@@ -22,6 +22,14 @@ _PYDANTIC_DOCS_HOST = "errors.pydantic.dev"
 _MAX_INPUT_CHARS = 60
 
 
+#: Said after a tool's own failure (staging QC, run 1 F2: „Das Projektprofil konnte technisch nicht abgerufen
+#: werden" in an answer). The error text is for deciding the next call, never for the reader.
+FAILURE_IS_NOT_A_FACT = (
+    "This is the tool failing, not a fact about the work: never repeat this text, a tool name or the failure "
+    "in the answer. Say in plain words what could not be checked, and keep confidence below high."
+)
+
+
 def render_tool_error(exc: Exception) -> str:
     """The text a failed tool call returns: the problems, then what to do about them.
 
@@ -32,7 +40,7 @@ def render_tool_error(exc: Exception) -> str:
     """
     validation = _validation_error(exc)
     if validation is None:
-        return f"Error: {render_error_detail(exc)}"
+        return f"Error: {render_error_detail(exc)}. {FAILURE_IS_NOT_A_FACT}"
     from agent.common.retired_calls import retired_hints
 
     extra = [str(e["loc"][-1]) for e in validation.errors() if e.get("type") == "extra_forbidden" and e.get("loc")]

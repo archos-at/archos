@@ -1,0 +1,8 @@
+---
+# area: building-law
+operators:
+  - >
+    A source that changes again while its monitor's change request is open is
+    no longer forgotten: the monitor keeps comparing against the page under
+    review, so once that request is closed, the later change opens the next
+    one.

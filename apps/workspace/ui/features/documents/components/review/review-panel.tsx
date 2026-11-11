@@ -124,7 +124,7 @@ function Pages({
       {pages.map((page) => (
         <section key={page} aria-label={t('review.page', { page })}>
           {headed && (
-            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-medium tracking-[0.05em] uppercase">
+            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-medium">
               {t('review.page', { page })}
             </h3>
           )}
@@ -175,7 +175,7 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
+    <div className="bg-muted mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
       <div className="flex items-center gap-2">
         <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>
@@ -279,7 +279,7 @@ function CarriedFrom({
           <p className="text-muted-foreground text-[11px] leading-4">
             {t('review.carriedLoadError', { name: group.from.filename })}
           </p>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
+          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
             {t('annotations.retry')}
           </Button>
         </div>
@@ -315,7 +315,7 @@ function CarriedFrom({
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-7 text-xs"
                     disabled={busy}
@@ -381,7 +381,7 @@ const FILTERS: ReviewFilter[] = ['open', 'closed']
  * tab lists Piloti's untaken proposals too, and counts them apart, as
  * Dateien's chip does („2 offen · 12 Vorschläge"): `open` is the office's own
  * open marks, `proposed` the proposals. With „Für Sie" on its `open` is the
- * number the chip says „für Sie".
+ * number the chip says „für Sie". A tab at 0 shows no count; a count is set in the tab's own sans.
  */
 export function tabCounts(
   annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId'>[],
@@ -457,7 +457,7 @@ export function ReviewPanel({
                 )}
               >
                 {t(`review.filters.${option}`)}
-                <span className="text-muted-foreground font-mono tabular-nums">{count}</span>
+                {count > 0 && <span className="text-muted-foreground tabular-nums">{count}</span>}
                 {option === 'open' && counts.proposed > 0 && (
                   <span className="text-muted-foreground" data-testid="review-filter-open-proposed">
                     · {t('annotations.listedProposedShort', { count: counts.proposed })}
@@ -489,7 +489,7 @@ export function ReviewPanel({
         ) : load === 'error' ? (
           <div className="space-y-2 px-2 py-6 text-center">
             <p className="text-muted-foreground text-sm">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" onClick={review.retry}>
               {t('annotations.retry')}
             </Button>
           </div>

@@ -23,7 +23,7 @@
  */
 
 import { type FC } from 'react'
-import { CornerDownRight, MessageCircleQuestion, type LucideIcon } from 'lucide-react'
+import { CornerDownRight, type LucideIcon } from 'lucide-react'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useChatStore } from '@/features/chat/store'
 import { useTranslations } from '@/i18n'
@@ -110,7 +110,7 @@ export const FollowUpChips: FC<FollowUpChipsProps> = ({
 
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
-      <SectionLabel icon={MessageCircleQuestion}>{t('cards.followUps.eyebrow')}</SectionLabel>
+      <SectionLabel>{t('cards.followUps.eyebrow')}</SectionLabel>
       {title && <p className="card-title text-foreground">{title}</p>}
 
       <div

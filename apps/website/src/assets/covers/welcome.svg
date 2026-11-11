@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- Welcome: guidelines, a building code, project drawings and an office detail, scattered, each tied to one place (solid). -->
+  <line class="axis" x1="120" y1="400" x2="1080" y2="400"/>
+  <line class="axis" x1="600" y1="110" x2="600" y2="690"/>
+  <g transform="translate(320 240) rotate(-6)"><rect class="paper cut" x="-120" y="-80" width="240" height="160"/><line class="view" x1="-96" y1="-52" x2="74" y2="-52"/><line class="view" x1="-96" y1="-30" x2="94" y2="-30"/><line class="view" x1="-96" y1="-8" x2="34" y2="-8"/><line class="view" x1="-96" y1="14" x2="84" y2="14"/><line class="view" x1="-96" y1="36" x2="4" y2="36"/></g>
+  <line class="view" x1="447.7" y1="307.02" x2="580" y2="380"/>
+  <circle class="paper view" cx="447.7" cy="307.02" r="5"/>
+  <g transform="translate(900 270) rotate(4)"><rect class="paper cut" x="-90" y="-125" width="180" height="250"/><line class="cut" x1="-66" y1="-97" x2="-2" y2="-97"/><line class="view" x1="-66" y1="-73" x2="66" y2="-73"/><line class="view" x1="-66" y1="-55" x2="54" y2="-55"/><line class="view" x1="-66" y1="-37" x2="66" y2="-37"/><line class="view" x1="-66" y1="-19" x2="34" y2="-19"/><line class="view" x1="-66" y1="-1" x2="66" y2="-1"/><line class="view" x1="-66" y1="17" x2="58" y2="17"/><line class="view" x1="-66" y1="35" x2="4" y2="35"/><line class="view" x1="-66" y1="53" x2="66" y2="53"/><line class="view" x1="-66" y1="71" x2="44" y2="71"/></g>
+  <line class="view" x1="801.5" y1="388.42" x2="620" y2="380"/>
+  <circle class="paper view" cx="801.5" cy="388.42" r="5"/>
+  <g transform="translate(310 570) rotate(3)"><rect class="paper cut" x="-130" y="-80" width="260" height="160"/><rect class="cut" x="-106" y="-56" width="150" height="104"/><line class="view" x1="-36" y1="-56" x2="-36" y2="4"/><line class="view" x1="-106" y1="4" x2="44" y2="4"/><line class="view" x1="64" y1="-48" x2="106" y2="-48"/><line class="view" x1="64" y1="-28" x2="106" y2="-28"/><line class="view" x1="64" y1="-8" x2="106" y2="-8"/><line class="view" x1="64" y1="12" x2="106" y2="12"/><line class="view" x1="64" y1="32" x2="106" y2="32"/></g>
+  <line class="view" x1="444.01" y1="496.91" x2="580" y2="420"/>
+  <circle class="paper view" cx="444.01" cy="496.91" r="5"/>
+  <g transform="translate(890 570) rotate(-7)"><rect class="paper cut" x="-110" y="-75" width="220" height="150"/><rect class="cut hatch" x="-46" y="-51" width="24" height="100"/><rect class="cut hatch" x="-22" y="-7" width="108" height="16"/><polyline class="view" points="-22,-51 -6,-43 -22,-35 -6,-27 -22,-19 -6,-11"/><polyline class="view" points="-22,13 -6,21 -22,29 -6,37 -22,45"/></g>
+  <line class="view" x1="771.68" y1="508.96" x2="620" y2="420"/>
+  <circle class="paper view" cx="771.68" cy="508.96" r="5"/>
+  <rect class="solid" x="580" y="380" width="40" height="40"/>
+</svg>

@@ -26,6 +26,7 @@ import { notFound } from 'next/navigation'
 import { AgentPrompt } from '@/features/chat/components/AgentPrompt'
 import { useChatStore } from '@/features/chat/store'
 import { I18nProvider } from '@/i18n'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const PLAN_BODY =
   '**Research Plan Preview**\n\n' +
@@ -49,9 +50,9 @@ const timestamp = new Date('2026-07-29T10:00:00Z')
 
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     {children}
   </section>
 )
@@ -79,7 +80,7 @@ export default function PlanApprovalPreviewPage() {
         className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6 text-foreground md:p-8"
       >
         <header>
-          <h1 className="text-xl font-semibold tracking-tight">Rechercheplan-Entscheidung</h1>
+          <h1 className="text-xl font-semibold">Rechercheplan-Entscheidung</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Starten, kurz beantworten lassen — oder abbrechen, mit Quittung.
           </p>

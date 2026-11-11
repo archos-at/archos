@@ -293,7 +293,7 @@ export interface ChatMessage {
    * Which path the turn turned out to take, observed after the answer rather
    * than classified before it: `meta` is a direct reply (no source consulted,
    * no self-assessment), `shallow` and `deep` are research, `error` a failed
-   * turn. Drives the answer's role tab — a `meta` reply reads as a "Hinweis".
+   * turn. Drives the answer's kind — a `meta` reply reads as a "Hinweis".
    */
   routingDecision?: 'meta' | 'shallow' | 'deep' | 'error'
   /** Narration shown when the turn escalated shallow→deep this turn. */
@@ -564,7 +564,7 @@ export interface CitationSource {
   shelf?: Shelf
   /**
    * Identity of the DOCUMENT this source is a passage of, as the backend
-   * registry groups it (`citations.binding.document_key`). Absent on
+   * registry groups it (`citations.source_identity.document_key`). Absent on
    * messages persisted before the wire carried it, where the client derives an
    * equivalent key from filename/collection instead.
    */

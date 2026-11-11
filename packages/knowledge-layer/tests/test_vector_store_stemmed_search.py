@@ -35,6 +35,9 @@ from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.scoping import ScopedCollection
 
+# A search over a project or session scope reads as an office, as every request does (ADR-0163).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 PROJECT = "proj_stem"
 BASE = "oib_knowledge"
 TEXTS = {
@@ -103,7 +106,7 @@ class TestOnQdrant:
     def test_the_plural_finds_the_singular_and_the_singular_the_plural(self, placed):
         for asked in ("Fluchtwegbreiten", "Fluchtwegbreite"):
             pattern = stemmed_pattern([asked])
-            found = retrieval.find_text(PROJECT, pattern, None, 50, stem_phrases=[asked])
+            found = retrieval.find_text(PROJECT, pattern, None, 50, stem_phrases=[asked], office_id="org_test")
 
             assert _files(found) >= {"Plural.pdf", "Singular.pdf"}, asked
             assert "Other.pdf" not in _files(found)
@@ -111,7 +114,7 @@ class TestOnQdrant:
     def test_the_literal_search_is_what_it_was(self, placed):
         from knowledge_layer.browse import phrase_pattern
 
-        literal = retrieval.find_text(PROJECT, phrase_pattern(["Fluchtwegbreiten"]), None, 50)
+        literal = retrieval.find_text(PROJECT, phrase_pattern(["Fluchtwegbreiten"]), None, 50, office_id="org_test")
 
         # A substring: the plural and the compound, never the singular.
         assert _files(literal) == {"Plural.pdf", "Compound.pdf"}
@@ -119,17 +122,17 @@ class TestOnQdrant:
     def test_the_stemmed_result_is_the_literal_one_and_more(self, placed):
         pattern = stemmed_pattern(["Fluchtwegbreiten"])
 
-        found = retrieval.find_text(PROJECT, pattern, None, 50, stem_phrases=["Fluchtwegbreiten"])
+        found = retrieval.find_text(PROJECT, pattern, None, 50, stem_phrases=["Fluchtwegbreiten"], office_id="org_test")
 
         assert _files(found) == {"Plural.pdf", "Singular.pdf", "Compound.pdf"}
 
     def test_an_umlaut_plural_and_a_phrase(self, placed):
-        assert _files(retrieval.find_text(PROJECT, stemmed_pattern(["Tür"]), None, 50, stem_phrases=["Tür"])) == {
-            "Tueren.pdf"
-        }
+        assert _files(
+            retrieval.find_text(PROJECT, stemmed_pattern(["Tür"]), None, 50, stem_phrases=["Tür"], office_id="org_test")
+        ) == {"Tueren.pdf"}
         phrase = ["Fluchtwegbreite betragen"]
         assert "Plural.pdf" in _files(
-            retrieval.find_text(PROJECT, stemmed_pattern(phrase), None, 50, stem_phrases=phrase)
+            retrieval.find_text(PROJECT, stemmed_pattern(phrase), None, 50, stem_phrases=phrase, office_id="org_test")
         )
 
     def test_a_point_written_before_the_field_is_still_found_literally(self, placed):
@@ -144,7 +147,12 @@ class TestOnQdrant:
         )
 
         found = retrieval.find_text(
-            PROJECT, stemmed_pattern(["Fluchtwegbreiten"]), None, 50, stem_phrases=["Fluchtwegbreiten"]
+            PROJECT,
+            stemmed_pattern(["Fluchtwegbreiten"]),
+            None,
+            50,
+            stem_phrases=["Fluchtwegbreiten"],
+            office_id="org_test",
         )
 
         assert "Alt.pdf" in _files(found)

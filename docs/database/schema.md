@@ -45,6 +45,17 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `tasks.ts` | `tasks` — LEGACY since 0086, same |
 | `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086) |
 | `bff-job-queue.ts` | `bff_job_queue`, `bff_job_lane_turns` — the BFF's durable background work (migration 0104, ADR-0079) |
+| `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0196, ADR-0137) |
+| `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0196, ADR-0137) |
+| `mail-imports.ts` | `mail_imports` — the Outlook archive import ([`mail-import.md`](../architecture/mail-import.md); its Verlauf counts below) |
+
+Two things drizzle's schema builder cannot declare live only in the migration
+and are kept in step by hand: a foreign key with a column list on its action
+(`ON DELETE SET NULL ("conversation_id")`, needed when the key is composite with
+`organization_id`, as in `0043_jobs.sql`) and an expression index
+(`COALESCE(…)`). A partial index, unique or not, can be declared with
+`.where(sql`…`)`, as `mail_imports_one_open_per_person_uidx` is; some older ones
+were written only in their migration.
 
 ---
 
@@ -150,7 +161,7 @@ export const conversations = pgTable('conversations', {
 | `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
 | `updated_at` | `timestamptz` | NOT NULL, `defaultNow()` | Updated on message activity |
 
-**Indexes:** `conversations_org_updated_idx` on `(organization_id, updated_at)` — tenant list ordered by activity; `conversations_project_idx` on `(project_id)` — FK lookups/cascades (migration `0014`); `conversations_job_id_idx` on `(job_id)` **partial**, `WHERE job_id IS NOT NULL` (migration `0044`) — it exists for the foreign key, since an unindexed referencing column makes every `DELETE FROM task_definitions` seq-scan this table; partial because job-produced conversations are a small minority and Drizzle's builder cannot express a partial index, so it lives only in the migration.
+**Indexes:** `conversations_org_updated_idx` on `(organization_id, updated_at)` — tenant list ordered by activity; `conversations_project_idx` on `(project_id)` — FK lookups/cascades (migration `0014`); `conversations_job_id_idx` on `(job_id)` **partial**, `WHERE job_id IS NOT NULL` (migration `0044`) — it exists for the foreign key, since an unindexed referencing column makes every `DELETE FROM task_definitions` seq-scan this table; partial because job-produced conversations are a small minority and It is declared only in the migration, not in the schema file.
 
 ---
 
@@ -220,7 +231,7 @@ grounding (`sourced` \| `derived` \| `open`); a callout's `kind` (`note` \|
 `running`, `waiting`, `done`, `failed`, `cancelled`, `interrupted`), its phases
 (`planning`, `researching`, `checking`, `writing`, `filed`) and the `grundlage`
 key, now `basis`; a citation's `kind` (`building_law`, `office`, `project`,
-`web`, `measurement`), `lane` (`building_law_oib`, `office_piloti`, …),
+`web`, `measurement`), `lane` (`building_law_oib`, `office_piloti`, `project_mail`, …),
 `binding_status` (`binding`, `declared_binding`, `interpretive`, `unknown`),
 `rank` (`federal_law`, `state_law`, `ordinance`, `authority_info`,
 `external_standard`) and the key `punkt`, now `clause` (also on quote stamps);
@@ -237,7 +248,7 @@ plan: the `plan_json` fence of a plan preview and the `approve {…}` reply
 Both have a `.down.sql`. The readers keep one table per vocabulary for the old
 spellings (`LEGACY_*`, listed in each migration's header) for one release.
 
-**Indexes:** `messages_conversation_created_idx` on `(conversation_id, created_at)` — conversation history reads (migration `0014`; Postgres does not auto-index FK columns); `idx_messages_run_id` on `(run_id)` **partial**, `WHERE run_id IS NOT NULL` (migration `0091`) — a run message is a small minority of all messages, and an index entry per chat message would be paid for on every insert. Drizzle's builder cannot express a partial index, so it lives only in the migration.
+**Indexes:** `messages_conversation_created_idx` on `(conversation_id, created_at)` — conversation history reads (migration `0014`; Postgres does not auto-index FK columns); `idx_messages_run_id` on `(run_id)` **partial**, `WHERE run_id IS NOT NULL` (migration `0091`) — a run message is a small minority of all messages, and an index entry per chat message would be paid for on every insert. It is declared only in the migration, not in the schema file.
 
 ---
 
@@ -320,7 +331,7 @@ export const documents = pgTable('documents', {
 | `status` | `text` | NOT NULL, DEFAULT `'uploaded'`, CHECK `documents_status_known` | **Migration `0135`** (ADR-0104): one of `uploaded` (bytes here, nothing dispatched), `pending` (an ingest job is queued), `processing` (the BFF works on it locally: IFC, Office rendition, placement re-read), `completed` (read; citable), `failed`, `quarantined` (the content check holds it, ADR-0086), `stored` (bytes here and deliberately not read: a Piloti document nobody published, an archived document), `cancelled` (a person stopped the read before it finished; **migration `0153`** widened the CHECK to add it). TERMINAL: `completed`, `failed`, `quarantined`, `stored`, `uploaded`, `cancelled`; `stored` and `cancelled` must stay out of the in-flight set the reconcile polls, and a `cancelled` row is re-checked for a short window in case its job finalized in the same instant as the stop (`reconcile-status.ts`). Open `text` until 0135, which rewrote the legacy spellings (`ready`, `ingested`, `success`, `processed` → `completed`; `error` → `failed`). Vocabulary: `lib/documents/document-status.ts` — `DOCUMENT_STATUSES` |
 | `error_message` | `text` | | Error details if status is `failed`. A `quarantined` row still carries the job's legacy `quarantined:{json}` text for one release; nothing reads it but `quarantineVerdictOf`, and only where `quarantine` is NULL |
 | `quarantine` | `jsonb` | CHECK `documents_quarantine_shape_check` (NULL, or an object with a `reasons` array), CHECK `documents_quarantine_held_check` (NULL unless `status = 'quarantined'`) | **Migration `0148`, ADR-0113**: why the content check held the row, as the ingest job's typed verdict (`{reasons:[{kind, term?, count, pages, pages_truncated?, sample?}], checked, omitted?, after_transcription?}`; kinds kept as the job wrote them). Written by `setDocumentReconciledStatus` with the `quarantined` status, cleared by `markScreeningReleased`. Read through `quarantineVerdictOf` (`lib/upload-screening/quarantine.ts`), and shown only to whoever may see the held row. The migration backfilled it row by row from `error_message`; a row whose message did not parse stays NULL and is read from the message. The down drops it (lossless for older builds, which read `error_message`) |
-| `metadata` | `jsonb` | | Flexible metadata |
+| `metadata` | `jsonb` | | Internal to the BFF, never sent to a browser. `ingestJobId` and `ingestContentHash` (the dispatch's job and the digest of the bytes it reads, `setDocumentIngestJob`, which rewrites the object), `filingChoice` (`{documentType?, revisionOfId?}`: what the person filing those bytes chose, the Fassung as the older document's id, recorded by the same dispatch so a reviewer's release of a held file sends it again after re-resolving the id; `lib/documents/filing-choice.ts`), `bffJobId` (a job at `processing`, below) |
 | `screening_outcome` | `text` | CHECK `NULL` or `clean`/`partial`/`unchecked`/`quarantined`/`released` | **Migration `0109`, ADR-0086**: what the local content screening found before the first model call. `NULL` = not screened (a row older than the column, or one replaced since: a replacement resets it). `partial` = some pages had no text layer and were checked by name only; `unchecked` = no text could be read locally at all; `quarantined` = a term or detector matched and nothing went to a model. Written by reconciliation from the ingest job's `file_details[].screening`. |
 | `screened_hash` | `text` | | **Migration `0123`, ADR-0086**: the `content_hash` of the bytes `screening_outcome` judged (or, with screening off, the completed read covered). Recorded by the dispatch beside its job id (`metadata.ingestContentHash`), written by reconciliation with the verdict and by a release. A person's upload passes the hold only while it equals `content_hash`, so bytes swapped in after a verdict are held until their own screen. Backfilled to `content_hash` for every person's upload; NULL for Piloti's documents, which are never held. |
 | `screening_released_hash` / `screening_released_by` / `screening_released_at` | `text` / `text` / `timestamptz` | all three or none (CHECK) | **Migration `0109`**: a reviewer released a quarantined document. The release names the BYTES (`content_hash` at the time), so a replacement under the same id is screened again instead of riding the old release. |
@@ -342,7 +353,7 @@ export const documents = pgTable('documents', {
 
 - `uniq_documents_live_name_per_collection` — **UNIQUE**, on (`organization_id`, `collection_name`, `filename`), **PARTIAL** (`WHERE authored_by = 'user' OR filename LIKE 'piloti/%'`) — one live document per filename per collection over every row that can own chunks, because the ingest pipeline replaces passages by filename and a second row under one name is a ghost (migration `0074`, widened by `0083`). The predicate is two disjoint arms: `authored_by = 'user'` is 0074's rule, and `filename LIKE 'piloti/%'` covers the namespace an agent-authored document is filed under once a version of it may be published and therefore indexed (ADR-0054). They cannot meet — no browser produces a filename containing a slash, so no upload can reach the second arm — and a machine-authored row OUTSIDE the namespace is in neither: it carries a model-chosen name, owns no chunks, and must coexist with a person's file of the same name. Its columns and its FIRST arm are the WHERE clause of `findLiveDocumentByFilename`, the probe that makes a re-upload replace instead of insert; the index closes the concurrent-first-upload race the probe cannot. Its refusal is an OUTCOME, not a bug: `insertDocumentWithinQuota` maps a 23505 on THIS index (by name, `lib/documents/unique-conflicts.ts`) to `LiveFilenameTakenError`, a `409`, and the project and Archiv upload paths answer it by retrying once as a re-upload (`retryRacedUpload`) — the refused insert charged nothing and `admitOrDiscard` already deleted the loser's object, so the retry's bytes become the next version of the winner's document, under a `v<n>/<write id>/` key of their own, charged in full (ADR-0054 correction 14). The second arm has no probe and needs none — the document id inside the namespace is unique by construction, and the filing path's idempotency is `uniq_documents_authored_ref_producer_per_project` one level up — so it is the database refusing to hold a collision the application has no way to create. Created with `AND deleted_at IS NULL` and restated without it by migration `0077`, which dropped `documents.deleted_at`: the column was added by `0009` for a soft delete that documents never got (every document delete is a hard DELETE), so the clause was inert, and a predicate over a column nothing writes hides rows the day something does. `projects` and `conversations` keep their `deleted_at`.
 
-The three `authored_by` partial indexes above live **only in the migration** — drizzle's index builder cannot express a `WHERE` clause — with a NOTE beside the relevant column in `schema/documents.ts`; the filename one is declared in the schema as well. `documents.spec.ts` pins each one to its migration so a regeneration cannot quietly drop it.
+The three `authored_by` partial indexes above live **only in the migration** — they were never declared in the schema file, although `.where(sql`…`)` can express them — with a NOTE beside the relevant column in `schema/documents.ts`; the filename one is declared in the schema as well. `documents.spec.ts` pins each one to its migration so a regeneration cannot quietly drop it.
 
 **Constraints:**
 - `documents_folder_requires_project` — `folder_id IS NULL OR project_id IS NOT NULL OR scope = 'office_shelf'`: a filed document is a project document or an Archiv one. Introduced as "a document with a folder has a project" so the composite `(folder_id, project_id)` FK checks anything under MATCH SIMPLE (migrations `0030`, `0031`); widened by migration `0102`, whose next constraint now checks every folder reference whatever the project
@@ -911,11 +922,425 @@ who started it ([`mail-import.md`](../architecture/mail-import.md#what-the-perso
 | `sealed_at` | `timestamptz` | | The uploader's last request is done; a batch no file has come into for 30 min (counted from its newest document, or its opening) is sealed by the sweep |
 | `completed_at` | `timestamptz` | CHECK: only after `sealed_at` | Every document is terminal; set once, by a guarded UPDATE, which is what makes the inbox item exactly-once |
 | `created_at` | `timestamptz(3)` | NOT NULL, `defaultNow()` | |
+| `announces_completion` | `boolean` | NOT NULL, default `true` | **Migration `0195`**. Off: the settle sends no `upload.completed` |
+| `reviews_filing` | `boolean` | NOT NULL, default `true` | **Migration `0195`**. Off: neither filing review is queued, the name review at the seal nor the content review at the settle (`lib/filing/trigger.ts`) |
+| `starts_intake` | `boolean` | NOT NULL, default `true` | **Migration `0195`**. Off: the batch starts no intake reading (`lib/project-intake/trigger.ts`, ADR-0111) |
+| `revision_notice` | `text` | NOT NULL, default `'all'`, CHECK `all`/`marks_only` | **Migration `0195`**. Who hears about a new Fassung a document of this batch makes: `marks_only` reaches only the people on an open mark it leaves behind ([`revisions.md`](../architecture/revisions.md#notifications)) |
+| `runs_document_check` | `boolean` | NOT NULL, default `true` | **Migration `0195`**. Off: no settled document of the batch is checked against the project (`document_check`, ADR-0130, where the office switched it on), so an E-Mail-Verlauf's next Fassung buys no model call |
+
+The five effect columns (migration 0195) say what settling the batch sets
+off. Their defaults are a person's upload, and only a server-side caller sets
+them (`OpenUploadBatchInput.effects` in `lib/upload-batches/service.ts`): the
+route's body has no field for them, so no browser or agent opens a quiet batch.
+Each one off suppresses exactly its own effect. The quarantine reviewers' item
+does not depend on them.
 
 Indexes: `upload_batches_project_created_idx` (a project's history, newest
 first) and the partial `upload_batches_open_idx` (`WHERE completed_at IS NULL`,
 the sweep). Repository: `lib/upload-batches/repository.ts`; the completion guard
 is proven against Postgres in `upload-batches.integration.spec.ts`.
+
+A batch whose inbox item could not be written is reopened (`completed_at` back
+to NULL, guarded on the completion time that call wrote), so the sweep
+completes it and tells the uploader again (`reopenCompletedBatches`,
+`lib/upload-batches/settle.ts`). `onDocumentsSettled`, the hook reconciliation
+calls, never throws into its caller; `settleUploadBatches` itself rethrows
+after the reopen. The intake reading (ADR-0111) and the filing-review queue
+start after the uploader was told and cannot undo the completion. The
+quarantine reviewers' inbox item is the exception: the read that moved the row
+sends it once and a failed write is not retried.
+
+---
+
+## Project mail (migration 0196, ADR-0137)
+
+`apps/workspace/migrations/0196_inbound_mail.sql` (schema files
+`inbound-mail.ts`, `mail-thread.ts`): mail sent to a project waits until a
+person files it, a conversation is one document, its originals are evidence,
+and a person may follow it. The migration's header says why each rule exists;
+`scripts/rls-test-db.sh` (section "Migration 0196") proves each refusal with a
+violating statement. The flow: [`inbound-mail.md`](../architecture/inbound-mail.md).
+
+Nine tables, one job each:
+
+| Table | Holds |
+|---|---|
+| `inbound_mail_addresses` | a project's address, and every address it had (rotation history) |
+| `inbound_mails` | one delivery: who sent it, how far it got, where it is staged |
+| `inbound_mail_parts` | what a person can file: the mail's text or one attachment |
+| `inbound_mail_decisions` | append-only: every act of a person on a part |
+| `mail_threads` | one conversation = one document of the project (the E-Mail-Verlauf) |
+| `mail_thread_entries` | one filed message: the renderer's only input, and its original |
+| `mail_thread_entry_attachments` | what came with a filed message, and which Fassung of which document it became (D36) |
+| `mail_thread_message_ids` | the Message-IDs a thread received or was referred to by |
+| `mail_thread_follows` | a person's standing decision to append a thread's later replies |
+
+**Rules every table keeps.**
+
+- **Tenancy is structural.** Every table carries `organization_id`, is secured
+  by `grid_secure_table(…, 'organization_id = grid_current_org()')`, and every
+  reference carries the organization or the project inside its key (the
+  `document_roles` pattern): a row cannot point at another tenant's project,
+  mail, part, decision, thread, entry or follow. All cascade from `projects`.
+  Listed in `rls-coverage.spec.ts` `BOUNDARY_MIGRATIONS`.
+- **Ending is a state, never a tenant's DELETE.** `REVOKE DELETE … FROM
+  app_rw` on eight tables (all but `mail_thread_message_ids`, which a
+  detach rewrites), after `grid_secure_table` so a re-run revokes again. Only
+  the retention sweeps and the project purge, as the platform role, delete.
+  FK cascades run with the owner's rights, so a purge still cascades.
+- **People are WorkOS user ids**: every person column has a CHECK
+  `~ '^user_[0-9A-Z]{26}$'`, so no `system:*` actor ever decides, files,
+  creates a thread or follows.
+- **Every key is a row's own**, under the project prefix and a reserved
+  segment (`lib/s3.ts` `RESERVED_DERIVED_SEGMENTS` holds `_inbound-mail` and
+  `_mail-originals`): `org/<org>/project/<project>/_inbound-mail/<mailId>/{raw.eml,read.json,<position>}`
+  and `…/_mail-originals/<entryId>.eml`, each held to that exact shape by a
+  CHECK. Erasure is by these keys; the purger reads the buckets from
+  `inbound_mails.staging_bucket` and `mail_thread_entries.original_bucket`.
+- **Legal hold.** `BEFORE DELETE` triggers on `inbound_mails`,
+  `mail_thread_entries` and `mail_thread_entry_attachments`
+  (`grid_refuse_held_project_row_delete`) refuse with SQLSTATE `GLH01` when
+  `legal_hold_blocks('project', project_id, organization_id)`, which is
+  true for a hold on the project **or on anything in it** (a document, a
+  folder, a conversation, a user; migration 0115). The sweeps filter holds in
+  their WHERE; the triggers are the backstop.
+
+### inbound_mail_addresses
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `organization_id`, `project_id` | | FK `(project_id, organization_id)` → `projects` CASCADE | |
+| `token` | `text` | NOT NULL, `^[a-z2-7]{12}$`, unique across all rows, revoked included (`uniq_inbound_mail_addresses_token`) | 60 bits of lowercase base32; only the token resolves, and a token is never minted twice |
+| `slug` | `text` | NOT NULL, default `''`, `^[a-z0-9-]{0,30}$` | Frozen at mint time; no dots (the parser takes what follows the last dot as the token) |
+| `created_by`, `created_at` | | NOT NULL | |
+| `revoked_at`, `revoked_by`, `revoked_reason` | | all three set together (`…_revocation_attributed`); reason `rotated`/`switched_off` | |
+| `cap_notice` | `text` | `nearly_full`/`full` (`inbound_mail_addresses_cap_notice_known`) | What the managers were last told about the staged-bytes caps (sweep 14) |
+| `cap_noticed_at` | `timestamptz` | set exactly with `cap_notice` (`inbound_mail_addresses_cap_noticed_at`) | |
+
+One active address per project (`uniq_inbound_mail_addresses_active_project`,
+partial on `revoked_at IS NULL`); two lazy mints race into a 23505 the service
+answers by reading the winner. Index `(project_id, created_at)`.
+
+### inbound_mails
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | FK to `projects` CASCADE | |
+| `address_id` | `uuid` | NOT NULL, FK `(address_id, project_id, organization_id)` → `inbound_mail_addresses`, **NO ACTION** | An address is revoked, never deleted, while a mail names it; the purge removes both in one statement |
+| `status` | `text` | `receiving`/`received`/`waiting`/`settled`/`dropped` | |
+| `delivery_key` | `text` | 64 hex; required from `received` on; unique per address (`uniq_inbound_mails_address_delivery`) | A hash of the authored headers, the DKIM signature values and the body (`deliveryKey`, `mime.ts`), so a relay's prepended lines do not make a redelivery new and a stripped signature never shadows the signed copy; an unreadable header block hashes its own mail id, never a duplicate |
+| `envelope_from` | `text` | ≤ 320 | The SMTP MAIL FROM; `''` is a bounce's null sender |
+| `raw_size_bytes` | `bigint` | 0..27262976; required from `received` on | |
+| `staging_bucket` | `text` | NOT NULL | Recorded before the first object is written (ADR-0043) |
+| `raw_storage_key`, `read_storage_key` | `text` | exact shape (`inbound_mails_staging_keys_shape`); the raw key required while `received` | |
+| `raw_scan_status` | `text` | `pending`/`clean`/`infected`/`failed`, default `pending` | The whole raw message, scanned before the mail is shown |
+| `raw_scan_engine`, `raw_scan_signature`, `raw_scanned_at`, `raw_scan_attempts` | | the signature only when `infected`; `raw_scanned_at` set exactly when not `pending`; attempts 0..100 | |
+| `message_id`, `in_reply_to text[]` (≤ 5), `reference_ids text[]` (≤ 50), `thread_index_guid`, `base_subject` (≤ 500) | | `inbound_mails_identifiers_bounded` | Thread identity, normalized; kept after the mail settles |
+| `thread_match` | `jsonb` | array, ≤ 50 | `[{ threadId, strength, headers }]`, ids and strengths only. Candidates are computed for the viewer at read time, never stored |
+| `sender_address`, `sender_name`, `subject` | `text` | lengths; `sender_address` required while `waiting` | Gone once the mail settles |
+| `participants` | `jsonb` | array ≤ 200 | From, Reply-To, To, Cc, the project addresses taken out |
+| `participant_domains` | `text[]` | ≤ 50 | |
+| `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
+| `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
+| `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
+| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
+| `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
+| `signer_domain` | `text` | ≤ 253 | |
+| `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
+| `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name`, `relaxed_alignment` (0197), `sender_unchecked` (0199) | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`); `relaxed_alignment` only on `*_verified` (`inbound_mails_relaxed_alignment_verified`); `sender_unchecked` (WorkOS did not answer for the receive job's whole fault budget, or the sender was never judged) never on a `verified_writer` (`inbound_mails_sender_unchecked_not_direct`) and never with less than 30 days (`inbound_mails_sender_unchecked_full_window`) |
+| `authentication_results` | `text` | ≤ 4096, never containing `spf=` (`inbound_mails_authentication_results_shape`) | Our RFC 8601 line from DKIM and DMARC only |
+| `automatic` | `boolean` | NOT NULL, default false | List, bulk or auto-generated mail: held, announced collapsed, no model spend |
+| `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | A forward is never dropped for its original (0198, below) |
+| `sent_at`, `sent_at_header` | `timestamptz` | | The clamped Date and the sender's claim |
+| `received_at` | `timestamptz` | NOT NULL | |
+| `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) unless it is `sender_unchecked`; a restore may move it later |
+| `settled_at` | `timestamptz` | set exactly when `settled` | |
+| `notified_at`, `expiring_notified_at` | `timestamptz` | | Told once |
+| `not_staged` | `jsonb` | array ≤ 100 | `[{ filename, reason }]` while waiting |
+| `ignored` | `jsonb` | object | Counts by reason after settling |
+| `erasure_deferred_at` | `timestamptz` | | A hold stopped the erasure; sweep 10 retries after release |
+| `original_move_pending_at` | `timestamptz` | | The raw message is moving to a filed entry's original; sweep 13 finishes a stopped move |
+| `reader_fault_at` | `timestamptz` | only on `waiting` or `settled` (`inbound_mails_reader_fault_held`) | Migration 0199. The Python reader did not answer for the receive job's whole fault budget: the text waits `unreadable` and sweep 15 reads it again from this time on while the mail waits; NULL once read. A text the reader answered for (a refusal, a timeout inside it) never carries it |
+| `receive_progress` | `jsonb` | only on `received` (`inbound_mails_receive_progress_received`) | Migration 0199. What a receive run learned before a dependency fault gave its claim back, for the next run of the same mail: the sender's authentication (unless transient) and each attachment's scan by SHA-256 (a `failed` one is scanned again). Cleared by the hold and the drop (`receive-progress.ts`) |
+| `original_author_address` (≤ 320), `original_author_name` (≤ 300), `original_subject` (≤ 998) | `text` | `inbound_mails_original_lengths`; NULL once the mail ends (trigger `inbound_mails_scrub_original`, CHECK `inbound_mails_original_scrubbed`) | Migration 0198. Who wrote the original a forward carried (`original-message.ts`, read by `receive-original.ts`): attribution, never verified; the `sender_*` columns stay the forwarder's |
+| `original_sent_at` | `timestamptz` | | When the original was written, as the forward said; never after the forward arrived |
+| `original_message_id` | `text` | 1..998; only with source `attachment` (`inbound_mails_original_message_id_attached`); never unique | Kept after the mail ends. What the attached `.eml` says, the sender's word: it drops and merges no delivery, and filing reads it against `mail_thread_entries.author_message_id` (below) |
+| `original_source` | `text` | `attachment`/`inline` (`inbound_mails_original_source_known`); required with any original column (`inbound_mails_original_with_source`) | An inline block has no Message-ID |
+| `created_at`, `updated_at` | | | |
+
+The scrub is a CHECK (`inbound_mails_ended_is_scrubbed`): a `settled` or
+`dropped` mail holds no sender, name, subject, base subject, envelope sender,
+participants or `not_staged`, and no staged key unless `erasure_deferred_at`
+(or, for the raw key only, `original_move_pending_at`). A mail is never
+`waiting` before its raw message was scanned (`inbound_mails_waiting_is_scanned`).
+The original's author, name and subject (0198) are cleared by a `BEFORE INSERT
+OR UPDATE` trigger as the row ends, since the ending paths predate them, and
+`inbound_mails_original_scrubbed` holds it.
+
+**Why an original's Message-ID is not unique.** It is read out of the `.eml`
+a delivery carries, written by whoever sent the delivery, before anyone checked
+who that is. Unique per project (as 0198 first had it), it let an outsider
+suppress mail: a junk mail attaching a fake `.eml` with the Message-ID of a
+mail they had sent the architect made the architect's real forward of it a
+silent drop, and once the junk was filed, every later forward for the
+Verlauf's life. It also dropped a colleague's mail that attached a known
+original for context, with its own text and new attachments. So every forward
+is held. The id counts once, at filing (`lib/mail-thread/append.ts`): when
+another mail's entry in the project already holds the original
+(`author_message_id`), the forward is filed as its forwarder's own message, not
+as a second section under the original's author.
+
+Trigger `inbound_mails_sender_verdict_guard` (0197): the verdict (`sender_class`,
+`sender_trust`, `sender_user_id`, `sender_reason`, `sender_flags`,
+`signer_domain`, `signed_headers`, `automatic`, `received_at`) changes only in
+the `received → waiting` transition (`inbound_mails_sender_verdict_frozen`); a
+mail never goes back to `receiving` or `received`, and no INSERT is a
+`verified_writer`'s (`…_sender_verdict_held_once`). One place writes the
+evidence of a direct filing: the hold's compare-and-set.
+
+Indexes: `inbound_mails_waiting_idx` (org, project, received_at; waiting),
+`_expiry_idx`, `_receiving_idx` (updated_at; receiving or received),
+`_settled_idx`, `_dropped_idx`, `_message_id_idx` (project, message_id),
+`_erasure_deferred_idx`, `_original_move_idx`, `_original_message_id_idx`
+(project, original_message_id; set), `_reader_fault_idx` (reader_fault_at; set,
+`waiting`; 0199).
+
+### inbound_mail_parts
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | | |
+| `mail_id` | `uuid` | FK `(mail_id, project_id, organization_id)` → `inbound_mails` CASCADE | |
+| `position` | `integer` | ≥ 0, unique per mail | An attachment is staged at `<mail>/<position>` |
+| `kind` | `text` | `message`/`attachment` | |
+| `filename` | `text` | 1..500 or NULL; only while the bytes are there (`inbound_mail_parts_name_with_bytes`); never on the message | |
+| `content_type`, `size_bytes` (0..27262976), `sha256` (64 hex) | | NOT NULL | The message's `sha256` is its own text's, for `already_filed` |
+| `storage_key` | `text` | exact shape; none on the message; required on an attachment while `waiting`/`filing` (`…_bytes_while_open`); NULL once `filed` unless erasure is deferred | |
+| `state` | `text` | `waiting`/`filing`/`filed`/`dismissed`/`expired` | |
+| `scan_status` | `text` | `pending`/`clean`/`infected`/`failed`/`not_applicable`; `not_applicable` exactly for the message (`…_scan_applies`) | The text is covered by the raw message's scan |
+| `scan_engine`, `scan_signature`, `scanned_at`, `scan_attempts` | | signature only when infected; `scanned_at` exactly when scanned; attempts 0..100 | |
+| `risk_flags` | `text[]` | `<@` `macro`, `type_mismatch`, `encrypted`, `name_stop`, `duplicate_of`, `forwarded_inner`, `unreadable`, `unverified_thread`, `type_not_accepted` | |
+| `name_stop_terms` | `text[]` | ≤ 20, only with `name_stop` | |
+| `content_findings` | `text[]` | ≤ 32, only on the message | The kinds `findSpans` found after the signature was removed |
+| `duplicate_of_document_id`, `revision_candidate_document_id` | `uuid` | no FK; the duplicate only with `duplicate_of` | Ids only: what a viewer may see of them is decided at read time |
+| `decision_id` | `uuid` | set exactly when `filing`/`filed` (`inbound_mail_parts_decision_iff_filing`); FK `(decision_id, id)` → `inbound_mail_decisions (id, part_id)` CASCADE | The `file` decision of THIS part; a trigger requires `action = 'file'` |
+| `claim_expires_at` | `timestamptz` | set exactly when `filing` | Sweep 5 |
+| `last_failure` | `text` | 13 known codes, only on `waiting` | Why the last filing made no document |
+| `document_id` | `uuid` | FK `(document_id, project_id)` → `documents`, `ON DELETE SET NULL (document_id)`; only when `filed` | |
+| `document_version_id` | `uuid` | FK `(document_version_id, document_id)` → `document_versions`, `SET NULL (document_version_id)`; only when `filed` | The guard nulls it with the document (below) |
+| `mail_thread_entry_id` | `uuid` | FK to `mail_thread_entries`, `SET NULL`; only on a filed message | |
+| `filed_at` | `timestamptz` | exactly when `filed` | |
+| `ended_at` | `timestamptz` | exactly when `dismissed`/`expired` | Restorable for seven days from here |
+| `erasure_deferred_at` | `timestamptz` | | |
+| `suggestion`, `suggestion_trace_id` | `jsonb`, `text` | an object, only while the bytes are there (the text's until filed) | The agent's suggestion; written without touching `updated_at`, which is part of `ifMatch` |
+| `created_at`, `updated_at` | | | |
+
+Nothing reaches a project unless its scan said clean
+(`inbound_mail_parts_filed_is_clean`: `filing`/`filed` only with `clean` or
+`not_applicable`).
+
+Triggers:
+- `inbound_mail_parts_decision_guard` (`BEFORE INSERT OR UPDATE OF decision_id`):
+  the named decision must be a `file` (`inbound_mail_parts_decision_files`).
+- `inbound_mail_parts_document_guard` (`BEFORE UPDATE OF document_id`): when
+  the document goes, `document_version_id` goes too. Deleting the document
+  nulls `document_id` first, after which the composite key to the Fassung is
+  MATCH SIMPLE-unchecked and its own SET NULL never fires; without the guard
+  the part kept a dangling version id.
+
+Indexes: `inbound_mail_parts_document_idx`, `_claim_idx` (filing),
+`_ended_bytes_idx` (dismissed/expired with bytes), `_scan_failed_idx`.
+
+### inbound_mail_decisions
+
+Append-only. The filing job reads what to do from here, the audit trail is
+sent from here.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id`, `mail_id` | | | |
+| `part_id` | `uuid` | FK `(part_id, mail_id, project_id, organization_id)` → `inbound_mail_parts` CASCADE; unique `(id, part_id)` | |
+| `action` | `text` | `file`/`dismiss`/`restore` | |
+| `decided_by` | `text` | NOT NULL, person-shaped (`inbound_mail_decisions_decider_is_person`) | Always a person |
+| `via` | `text` | `app`/`agent`/`agent_proposal`/`follow`/`sender`, default `app` | `sender` (0197): a verified writer's own mail, filed as them without a click |
+| `proposal_id` | `uuid` | exactly with `agent_proposal` | |
+| `follow_id` | `uuid` | exactly with `follow`; FK `(follow_id, mail_thread_id, decided_by, organization_id)` → `mail_thread_follows (id, thread_id, user_id, organization_id)` CASCADE | The decider is the follower |
+| `decided_at` | `timestamptz` | | |
+| `folder_id`, `folder_path` (≤ 1000), `file_name` (1..255), `target_document_id` | | no FKs; `folder_path` required for every `file` except an append (`''` is the root) | The decision carries what was decided even if the folder or document goes |
+| `document_type` | `text` | 1..64, no control characters | Membership in the Dokumentart vocabulary is the code's |
+| `thread_action` | `text` | `append`/`create`; `append` exactly with `mail_thread_id`, `create` with `file_name` | Only for a filed message (trigger) |
+| `mail_thread_id` | `uuid` | | |
+| `message_text` | `text` | `masked`/`full`, exactly with `thread_action` | |
+| `screening_release`, `acknowledged_sender`, `acknowledged_risk` | `boolean` | NOT NULL, default false; only on `file` | Read by the filing job from here and nowhere else |
+| `audited_at` | `timestamptz` | | NULL while owed to the trail |
+
+CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
+no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
+`file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
+`…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
+`…_sender_files_clean` (0197: a `sender` decision files, and acknowledges or
+releases nothing).
+
+Trigger `inbound_mail_decisions_guard`:
+- INSERT: a follow files a text, never an attachment
+  (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
+  text and only for it (`…_thread_for_text`). From 0197: `via = 'sender'` only
+  on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
+  `clean`, the part without risk flags or content findings
+  (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
+  `unverified_writer` mail only by its `sender_user_id`, a `file` with
+  `acknowledged_sender` (`…_claimed_sender_releases`); no `restore` of an
+  `expired` part of an `external` mail (`…_external_expiry_final`). The part and
+  the mail are read by their full composite keys, under the caller's row-level
+  security; SECURITY INVOKER.
+- UPDATE: nothing changes but `audited_at`, once, NULL to a time (`…_immutable`).
+- DELETE: refused while `audited_at IS NULL` and the project row exists
+  (`…_audited_before_delete`, RT-S8): sweeps wait for the trail, a purge (which
+  deletes the project first) goes through.
+
+Indexes: `(part_id, decided_at)`, `(mail_id)`, `(follow_id, decided_at)` where a
+follow, `inbound_mail_decisions_project_follow_idx` `(project_id, decided_at)
+WHERE via = 'follow'` (the project's daily follow cap), and the due index
+`(decided_at) WHERE audited_at IS NULL` (sweep 11).
+
+### mail_threads
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | FK to `projects` CASCADE | |
+| `document_id` | `uuid` | FK `(document_id, project_id)` → `documents`, `SET NULL (document_id)`; unique when set | The E-Mail-Verlauf. NULL while its first Fassung is written, and again once deleted (sweep 9 then deletes the thread) |
+| `base_subject` | `text` | NOT NULL, ≤ 500 | RFC 5256 base subject, lowercased: never show it as a name |
+| `thread_index_guid` | `uuid` | | Outlook's conversation GUID |
+| `participant_domains` | `text[]` | ≤ 200 | Every domain that took part, ours excluded (follow condition 5) |
+| `continues_thread_id` | `uuid` | self-FK, `SET NULL`, not itself | Reserved for „Als Fortsetzung ablegen“; not written yet |
+| `entry_count` | `integer` | 0..200 | |
+| `rendered_bytes` | `integer` | 0..2097152 | |
+| `last_entry_at` | `timestamptz` | | |
+| `render_pending_at` | `timestamptz` | | An archive slice wrote entries not rendered yet; `coalesce(render_pending_at, now())` per entry, NULL on its render or when given up |
+| `render_lease_holder`, `render_lease_until` | `uuid`, `timestamptz` | together (`mail_threads_render_lease_together`) | Who writes the next Fassung now (the superset invariant needs one writer at a time) |
+| `locale` | `text` | NOT NULL, `de`/`en` | The rendition's language for the thread's life |
+| `created_by` | `text` | person-shaped | |
+| `created_at` | | | |
+
+Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
+`mail_threads_base_subject_idx` (project, base_subject),
+`mail_threads_without_document_idx` (created_at where no document: sweep 9),
+`mail_threads_render_pending_idx`.
+
+### mail_thread_entries
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | | |
+| `thread_id` | `uuid` | FK to `mail_threads` CASCADE; unique `(id, thread_id)` | |
+| `source` | `text` | `inbound`/`archive` | |
+| `inbound_mail_id` / `mail_import_id` | `uuid` | exactly one by source (`…_provenance`); no FK | Provenance only: the entry outlives both rows |
+| `message_id` | `text` | 1..998 | Dedupe index, not unique (a forger can take a genuine id first) |
+| `sent_at`, `received_at` | `timestamptz` | NOT NULL | `sent_at` clamped |
+| `heading` | `text` | 1..500, unique per thread | Never changes, so citations hold |
+| `in_reply_to_entry_id` | `uuid` | self-FK, `SET NULL` | |
+| `sender_address`, `sender_name`, `sender_domain`, `signer_domain` | `text` | lengths | |
+| `sender_trust` | `text` | the four inbound labels or `not_checked`; `not_checked` exactly for `archive` | |
+| `authentication_results` | `text` | ≤ 4096, no `spf=` | |
+| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0198. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. Another mail's forward of the same original is then filed as its forwarder's own message, never as the original's second section |
+| `participants` (≤ 50), `quoted` (≤ 50), `calendar` (≤ 20), `masked_spans` (≤ 1000 or NULL) | `jsonb` | arrays | `masked_spans` set when the person chose „Unkenntlich ablegen“ |
+| `own_text` | `text` | ≤ 524288 bytes | |
+| `first_version_id` | `uuid` | FK `(first_version_id, project_id)` → `document_versions (id, project_id)`, SET NULL on the one column | The first Fassung that holds it, whoever wrote that Fassung; always a Fassung of this project's |
+| `filed_by` | `text` | person-shaped | |
+| `filed_via` | `text` | `app`/`agent`/`agent_proposal`/`follow`/`archive_import`; `archive_import` exactly for `archive` | |
+| `filed_at`, `created_at` | | | |
+| `original_bucket`, `original_storage_key`, `original_sha256`, `original_bytes`, `original_scan_status` | | all five set or all NULL; none on `archive`; exact key `_mail-originals/<id>.eml`; 64-hex sha; 0..27262976 bytes; scan `pending`/`clean`/`infected`/`failed` | The original `.eml`: evidence, never a document |
+| `original_scanned_at` | `timestamptz` | only with a decided scan | |
+
+Indexes: `mail_thread_entries_message_id_idx` (project, message_id),
+`mail_thread_entries_author_message_id_idx` (project, author_message_id; set),
+`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`. Legal-hold
+trigger `mail_thread_entries_legal_hold_guard`.
+
+### mail_thread_entry_attachments (D36)
+
+One row per attachment a filed message carried, whatever became of it.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | | |
+| `entry_id` | `uuid` | FK to `mail_thread_entries` CASCADE; unique `(entry_id, position)` | |
+| `position` | `integer` | ≥ 0 | The part's position; a file never staged follows the staged ones |
+| `filename` | `text` | 1..500 or NULL | Shown only to a reader who may see the document it became; a `not_filed` row's name to nobody (`mail-thread-get` returns null) |
+| `disposition` | `text` | `filed`/`already_present`/`not_filed` | |
+| `not_filed_reason` | `text` | exactly when `not_filed`; 15 codes (`pending`, `dismissed`, `expired`, `infected`, `scan_failed`, `type_not_accepted`, `encrypted`, `archive`, `size`, `limit`, `empty`, `screened`, `access`, `name_taken`, `unreadable`) | A not-filed file's bytes live only in the original |
+| `document_id` | `uuid` | FK `(document_id, project_id)` → `documents`, `SET NULL (document_id)`; none when `not_filed` | |
+| `document_version_id` | `uuid` | FK `(document_version_id, document_id)` → `document_versions`, `SET NULL (document_version_id)` | The Fassung this mail brought |
+| `section_name`, `section_folder_path` | `text` | a name only when not `not_filed`; a folder only with a name | What the section prints, frozen at insert; NULL is counted, never named |
+| `created_at` | | | |
+
+Trigger `mail_thread_entry_attachments_guard` (`BEFORE UPDATE`): a row
+learns only its document or Fassung going (and nulls the version with the
+document, as the parts guard does), and, once, a `pending` attachment being
+decided later (`…_decided_once`); anything else is
+`mail_thread_entry_attachments_frozen`. Indexes on `document_id` and
+`document_version_id` (the document routes' `mailOrigins`). Legal-hold trigger.
+
+### mail_thread_message_ids
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id`, `thread_id` | | FK to `mail_threads` CASCADE | |
+| `message_id` | `text` | 1..998 | Normalized: no angle brackets, the domain lowercased |
+| `state` | `text` | `received`/`referenced` | |
+| `entry_id` | `uuid` | required for `received`; FK `(entry_id, thread_id)` → `mail_thread_entries` CASCADE, **ON UPDATE CASCADE** | An entry's ids move with it on a detach |
+
+Unique `NULLS NOT DISTINCT (thread_id, message_id, state, entry_id)`: a
+Message-ID received twice (a forger first) is two rows, and neither blocks the
+other. Index `(project_id, message_id)`. DELETE is not revoked here.
+
+### mail_thread_follows
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id`, `organization_id`, `project_id` | | | |
+| `thread_id` | `uuid` | FK to `mail_threads` CASCADE | |
+| `user_id` | `text` | person-shaped | The follower: every append is filed as them |
+| `created_at`, `expires_at` | | `expires_at` after `created_at` and at most 180 days later (`mail_thread_follows_window`) | 60 days by default |
+| `renewed_at` | `timestamptz` | not before `created_at` | |
+| `daily_cap` | `smallint` | 1..50, default 20 | |
+| `expiring_notified_at` | `timestamptz` | | Day 55, once |
+| `ended_at`, `ended_by`, `ended_reason` | | reason exactly with `ended_at`; `unfollowed`/`expired`/`access_lost`/`address_rotated`/`detached`/`document_gone`/`revoked_by_manager`/`project_closed` (`mail_thread_follows_ended_reason_known`, the vocabulary `MAIL_THREAD_FOLLOW_END_REASONS`); `unfollowed` only by the follower, `revoked_by_manager` only by someone else (`…_person_reason_attributed`) | `ended_by` NULL when the system noticed; for `project_closed` the person who closed the project, or NULL when sweep 12 ended it |
+
+Unique `(id, thread_id, user_id, organization_id)` (what a follow decision's
+key points at); one running follow per person and thread
+(`uniq_mail_thread_follows_active`, where `ended_at IS NULL`); expiry index for
+sweep 12.
+
+### mail_imports: the archive's Verlauf counts
+
+The Outlook archive import ([`mail-import.md`](../architecture/mail-import.md))
+renders into the same Verläufe. 0196 adds three counters to `mail_imports`,
+`threads_created`, `threads_appended` and `already_in_project` (integer, NOT
+NULL, default 0, CHECK `mail_imports_thread_counts_non_negative`), counted when
+the cursor passes a mail, so a retried mail counts once.
+
+### Reversing 0197
+
+`0197_sender_class.down.sql` **refuses** (`object_in_use`) while any decision
+says `via = 'sender'` or any entry `filed_via = 'sender'`: they are the record
+of a filing and are not rewritten. Otherwise it drops the verdict guard and
+0197's CHECKs, restores 0196's two guard functions and `via` lists, deletes the
+`inbound_mail_sender_file` jobs and the four inbox types 0197's build writes,
+and drops `sender_class`.
+
+### Reversing 0196
+
+`0196_inbound_mail.down.sql` **refuses** (`object_in_use`) while any row still
+names a staged object or a kept original: the rows are the only record of
+those keys. Its header lists the queries to find them; erase each object by its
+key, set the column NULL (as the platform role, with the feature paused), and
+run it again. It is lossy even then: addresses, waiting mail and decisions go;
+filed Verläufe stay as documents without their entries. It deletes the
+`inbound_mail.*` and `mail_thread.*` inbox rows and the `inbound_mail_*` job
+rows, drops the triggers, functions and tables in FK order, and the three
+`mail_imports` counters.
 
 ---
 
@@ -1166,11 +1591,13 @@ audit trail.
 
 ```typescript
 // apps/workspace/bff/db/schema/user-preferences.ts
-import { jsonb, pgTable, text } from 'drizzle-orm/pg-core'
+import { boolean, jsonb, pgTable, text } from 'drizzle-orm/pg-core'
 
 export const userPreferences = pgTable('user_preferences', {
   workosUserId: text('workos_user_id').primaryKey(),
   prefs: jsonb('prefs').notNull().default({}),
+  lastSeenReleaseWeek: text('last_seen_release_week'),
+  releaseSummaryNotice: boolean('release_summary_notice').notNull().default(true),
 })
 ```
 
@@ -1178,6 +1605,8 @@ export const userPreferences = pgTable('user_preferences', {
 |--------|------|-------------|-------|
 | `workos_user_id` | `text` | PK | Maps 1:1 to a WorkOS user |
 | `prefs` | `jsonb` | NOT NULL, DEFAULT `{}` | Arbitrary user preferences |
+| `last_seen_release_week` | `text` | NULL, CHECK ISO week id (`2026-W44`) | The newest weekly release-notes summary the person has seen; the app's "Neu diese Woche" notice shows a newer one once (0194, ADR-0156 amendment) |
+| `release_summary_notice` | `boolean` | NOT NULL, DEFAULT `true` | Whether the person wants that notice; "Nicht mehr anzeigen" turns it off, the profile page back on (0194) |
 
 ---
 
@@ -1241,7 +1670,7 @@ This PostgreSQL entrypoint script runs on first container startup and creates tw
 | `job_info` | Agent-runtime job-store metadata | `job_id` (PK), `status`, `config_file`, `error`, `output_path`, `created_at`, `updated_at`, `expiry_seconds`, `is_expired` |
 | `job_access` | Who may reach a job: its owner, and callers whose signed scope matches its organization and project or conversation (ADR-0084) | `job_id` (PK), `owner_auth_type`, `owner_subject`, `owner_email`, `conversation_id`, `project_collection`, `organization_id`, `created_at` |
 | `job_events` | SSE streaming event persistence | `id` (serial PK), `job_id`, `event_type`, `event_data`, `created_at` |
-| `document_metadata` | Per-document metadata (was `summaries`) | `collection` + `filename` (composite PK), `summary`, `tags` (`TEXT`, JSON list; nullable), `doc_class` (`TEXT`; nullable), `display_title` (`TEXT`; nullable), `folder_path` (`TEXT`; nullable — the BFF's materialised `project_folders.path`, ADR-0049), `provenance` (`TEXT`, JSON object; nullable — who wrote a published Piloti document and who released it, ADR-0054; deleted with the chunks by `unregister_summary`), `tags_set_by` (`TEXT`; nullable — `person` when a person chose the tags through the tag edit; ingest and the backfill then leave `tags` alone, and a re-ingest carries them to the new version), `topics` (`TEXT`, JSON list; nullable — open Themen the summary model recognised, or a person's; kept with the tags on the same `tags_set_by` marker), `capture` (`TEXT`, JSON object; nullable — what a camera wrote into a photo: `captured_at`, `latitude`, `longitude`, `camera`; the position is for the BFF and never rendered to a model), `superseded_by` (`TEXT`; nullable — on the OLDER document's row: the `filename` of the newer document in the same collection that a PERSON confirmed replaces it; written only by a person's confirmation (`PUT /v1/collections/{collection}/revision` or `revision_of` at upload, both through `link_revision`), kept across a re-ingest; a purge that can be undone leaves it and it reads as nothing until the newer row is back, a permanent delete of the newer document clears it; search leaves the file out of the ranking unless a call names it), `revision_suggestion` (`TEXT`, JSON object; nullable — on the NEWER document's row: Piloti's suggestion that it is a newer Fassung of another, `{of, confidence, reason, basis: title_block\|name\|content, dismissed, dismissed_of}`; advice only, links and hides nothing; `dismissed_of` lists every file a person refused, kept across every write so none is suggested again), `change_summary` (`TEXT`; nullable — German bullet lines on what changed against the Fassung `change_basis` names) `change_basis` (`TEXT`; nullable — the `filename` compared against: the document's own name for its previous upload, another name for a confirmed Fassung) and `revision_facts` (`TEXT`, JSON object; nullable — what the title block (Plankopf) of the document's first drawing page that has one says, read by the vision model during ingestion in the same call as the drawing analysis: `document_number` (Plannummer, as printed), `revision` (the Index as printed, letter or number), `revision_date` (ISO `YYYY-MM-DD`), `scale`, `title` (Planinhalt) and `page` (1-based, where it was read); present keys only, never guessed; replaced by a re-upload, so a re-upload without a title block clears it; decoded through `agent.knowledge.title_block.normalise_revision_facts`). `supersedes` (the files a document replaces) is derived on read, never stored |
+| `document_metadata` | Per-document metadata (was `summaries`) | `collection` + `filename` (composite PK), `summary`, `tags` (`TEXT`, JSON list; nullable), `doc_class` (`TEXT`; nullable), `display_title` (`TEXT`; nullable), `folder_path` (`TEXT`; nullable — the BFF's materialised `project_folders.path`, ADR-0049), `provenance` (`TEXT`, JSON object; nullable — who wrote a published the agent document and who released it, ADR-0054; deleted with the chunks by `unregister_summary`), `tags_set_by` (`TEXT`; nullable — `person` when a person chose the tags through the tag edit, or chose the document type when the file was filed (`document_type` on `POST /v1/ingest`, stored by the ingest job beside the classifier's discipline tags); ingest and the backfill then leave `tags` alone, and a re-ingest carries them to the new version), `topics` (`TEXT`, JSON list; nullable — open Themen the summary model recognised, or a person's; kept with the tags on the same `tags_set_by` marker), `capture` (`TEXT`, JSON object; nullable — what a camera wrote into a photo: `captured_at`, `latitude`, `longitude`, `camera`; the position is for the BFF and never rendered to a model), `superseded_by` (`TEXT`; nullable — on the OLDER document's row: the `filename` of the newer document in the same collection that a PERSON confirmed replaces it; written only by a person's confirmation (`PUT /v1/collections/{collection}/revision` or `revision_of` at upload, both through `link_revision`), kept across a re-ingest; a purge that can be undone leaves it and it reads as nothing until the newer row is back, a permanent delete of the newer document clears it; search leaves the file out of the ranking unless a call names it), `revision_suggestion` (`TEXT`, JSON object; nullable — on the NEWER document's row: The agent's suggestion that it is a newer Fassung of another, `{of, confidence, reason, basis: title_block\|name\|content, dismissed, dismissed_of}`; advice only, links and hides nothing; `dismissed_of` lists every file a person refused, kept across every write so none is suggested again), `change_summary` (`TEXT`; nullable — German bullet lines on what changed against the Fassung `change_basis` names) `change_basis` (`TEXT`; nullable — the `filename` compared against: the document's own name for its previous upload, another name for a confirmed Fassung) and `revision_facts` (`TEXT`, JSON object; nullable — what the title block (Plankopf) of the document's first drawing page that has one says, read by the vision model during ingestion in the same call as the drawing analysis: `document_number` (Plannummer, as printed), `revision` (the Index as printed, letter or number), `revision_date` (ISO `YYYY-MM-DD`), `scale`, `title` (Planinhalt) and `page` (1-based, where it was read); present keys only, never guessed; replaced by a re-upload, so a re-upload without a title block clears it; decoded through `agent.knowledge.title_block.normalise_revision_facts`), `page_count` (`INTEGER`; nullable), `mail_thread` (`TEXT`, JSON object; nullable — on a filed E-Mail-Verlauf (ADR-0137): `latest_sent_at` (RFC 3339 UTC, the newest message's clamped send time, which is the document's `document_date`), `message_count`, `locale`) and `mail_origin` (`TEXT`, JSON object; nullable — on a file a person filed from a mail: the message it came with, `sent_at`, `received_at`, `from_name`, `from_domain`, `signer_domain`, `sender_trust`, `thread_document_id`, `locale`; a display name and domains, never an address; both decoded through `agent.knowledge.mail_facts`, rewritten by every ingest of the name). `supersedes` (the files a document replaces) is derived on read, never stored |
 | `document_revision_retained` | The Fassung facts a person made, kept while a purge that can be undone has taken the `document_metadata` row away (archive, folder bin, a publish that re-reads) | `collection` + `filename` (composite PK), `superseded_by`, `revision_suggestion` (refusals only), `change_summary` + `change_basis` (only when the basis is another file). Written by `DocumentMetadataStore.unregister` without `permanent`; taken back and deleted by the next `register` of the name; a permanent delete removes it and clears `superseded_by` pointing at the file. Created by the store at init, like `document_metadata` |
 
 Indexes: `job_info(status)`, `job_info(created_at)`, `job_access(owner_auth_type, owner_subject)`, `job_events(job_id)`, `job_events(job_id, id)`, `document_metadata(collection)`.
@@ -1556,7 +1985,7 @@ bulk), then oldest, with `FOR UPDATE SKIP LOCKED`.
 | `status` | text | `queued`, `claimed` or `dead` (CHECK). A finished job is **deleted**; a job that failed every attempt is `dead` and stays, with its reason, until `BFF_JOBS_DEAD_RETENTION_DAYS` after `dead_at`. When a row goes dead its `payload` is reduced to `runId`, `projectId`, `documentId` and `taskRunId` (`KEPT_PAYLOAD_KEYS`): the sweeps match a dead job by them, and nothing else of the report, requester or storage keys outlives the attempt. |
 | `attempts` | integer | Claims spent. A drain or a cap gives a claim back without spending one. |
 | `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK). The holder is one attempt of a Hatchet run (`run/retry@worker`); a claim silent for `BFF_JOBS_STALE_SECONDS`, by the newer of `heartbeat_at` and `claimed_at`, is claimed again. |
-| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. |
+| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. A slice that is not done saves its progress without spending an attempt (`attempts` back to 0) and, when it waits, sets `not_before` to the time it asked; its next run is triggered for then (`saveJobProgress`, `bff/jobs-queue/task-run.ts`). |
 | `dead_at` | timestamptz | Migration 0104. Set when the row goes dead (CHECK `bff_job_queue_dead_stamped`: a dead row always has one), and what the retention counts from. |
 | `created_at`, `last_error` | timestamptz, text | |
 
@@ -1871,7 +2300,7 @@ Indexes: `uniq_inbox_items_recipient_group`;
 `idx_inbox_items_recipient_org_updated` (the list);
 `idx_inbox_items_target` (inert-marking + cascade); `idx_inbox_items_created_at`
 (retention prune); and the **partial** `idx_inbox_items_pending` — hand-written in
-the migration because the drizzle builder cannot express it — matching the badge
+the migration and not declared in the schema file — matching the badge
 predicate exactly (`archived_at IS NULL AND inert_at IS NULL AND (read_at IS NULL
 OR (actionable AND resolved_at IS NULL))`). Keep the predicate and
 `pendingPredicate()` in `lib/inbox/repository.ts` in step, or the badge silently
@@ -2068,3 +2497,58 @@ reaches every tenant) and the anonymization boundary.
   `docs/architecture/semantic-notes.md` for why the vector is a column rather
   than a second store, and where that stops being the right call.
   Schema: `apps/workspace/bff/db/schema/platform-lessons.ts`.
+
+## knowledge_records / knowledge_revisions / knowledge_*_revisions / knowledge_checks (migration 0202, ADR-0163)
+
+Base knowledge: one set of tables for the platform (`organization_id` NULL) and
+every office. `owner_key` (`coalesce(organization_id, '')`, generated) is the
+owner every composite foreign key carries, so a row never points at another
+owner's.
+
+| Table | What a row is | Rules the database holds |
+|---|---|---|
+| `knowledge_records` | A work, an edition or a copy (`type`), with `head_revision_id` (the confirmed revision; NULL while proposed) and, for an office copy, its office shelf `document_id` | One entry per document (`knowledge_records_document_type_key` on `(document_id, type)`); a platform row names no office document (`knowledge_records_document_is_office`); only `head_revision_id` changes (`knowledge_records_head_only`); the document's delete cascades |
+| `knowledge_revisions` | One version of a record's values: who, when, `provenance` (`reading`, `person`, `agent`) | Append-only (`knowledge_append_only`); goes only with its record |
+| `knowledge_work_revisions` | `kind` (`statute`, `technical_standard`, `guideline`, `commentary`, `authority_directive`), title, `identifiers` (`designation`, indexed; and the work's ids at its source by scheme, `ris_gesetzesnummer` and `eli` (ending with `/`, matched by path segment), read into the turn's `sourceRefs`), `territory_ids`, issuer, `addressees` | Append-only |
+| `knowledge_edition_revisions` | The edition's `label`, `issued_on`, `in_force_from`/`to`, `outline`, `transition` (0206), and `applies_when` (0221, ADR-0178): its scope, a boolean `decision_table.v1` over the building facts, null for every building | Append-only; dates ordered; `applies_when` is an object or null |
+| `knowledge_manifestation_revisions` | The copy: `form`, `language`, `text_status`, `licence_class` (`public_open`, `public_restricted`, `licensed`), `terms` (the office's statements and quote cap), `sha256` | Append-only; `licensed` only on an office row (`knowledge_manifestation_revisions_licensed_is_office`) |
+| `knowledge_checks` | That somebody checked a work, edition or copy is still in force, and the `result` | Append-only; target and owner checked by trigger (`knowledge_refuse_cross_owner`) |
+
+RLS: an office reads its own rows and, since 0205, a platform row only as below;
+writes are its own rows only (restrictive guards). `scripts/rls-test-db.sh`
+verifies 0202 and its down; `bff/base-knowledge/store/repository.integration.spec.ts`
+proves isolation with a positive control.
+
+## The platform's base knowledge (migration 0205, ADR-0165)
+
+The same records with `organization_id` NULL. `knowledge_records.country_id`
+(platform rows only, ISO 3166-1) is what an office is entitled to;
+`knowledge_revisions.change_request_id` is required on a platform revision and
+refused on an office one; `knowledge_manifestation_revisions.corpus_file` names a
+platform text's base-corpus file. `type` widens to `territory` and `authority`,
+platform only.
+
+| Table | What a row is | Rules the database holds |
+|---|---|---|
+| `knowledge_territory_revisions` | A territory: `kind`, `name`, `parents` (0219: `[{id, validFrom?, validTo?}]`, nearest first, half-open; `parent_ids` and `dated_parents` are written beside it for older builds until a contract migration drops them), `aliases`, `valid_from`/`to` | Append-only; platform only |
+| `knowledge_authority_revisions` | An authority: `name`, `function_codes`, `seat_territory_id`, `competence_territory_ids` (at least one), `identifiers` | Append-only; platform only |
+| `knowledge_change_requests` | One country's proposed change: `status` (`draft` → `submitted` → `approved`/`rejected` → `published` → `rolled_back`), `base_release_seq` | Platform-private (`secure_table(…, 'false')`); a platform revision goes only into a draft (`knowledge_revision_into_draft`) |
+| `knowledge_change_requests` (0212 columns) | `origin` (`operator`, `monitor`), and for a monitor's request `source_record_id` and `monitor_finding` (previous and current state, terms changed, `needs[]`) | At most one open (draft, submitted, approved) monitor request per source |
+| `knowledge_review_decisions` | A verdict (`accepted`, `edited`, `rejected`) on one claim (`claim_path`) of one revision; `source_checked` when the reviewer checked the cited capture against its source (0209) | Insert-only; names a revision of its own request |
+| `knowledge_citation_captures` | A page a platform record cites, as captured into a draft change request (0209, ADR-0170): `fetched` through a configured source (`source_id`) or `operator_supplied`; the bytes' `sha256` and `byte_size`, the `text` KC-6 checks quotes against, `retrieved_at`, `created_by`, `via_client` | Platform-private; insert-only; into a draft only; an approval waits while a revision cites an operator-supplied capture no verdict marked `source_checked`; the revision's author's own `source_checked` verdict is refused |
+| `knowledge_source_revisions` | A public source as a platform record (0212, ADR-0174): `config` (the record as `public_sources.source.Source` reads it, fixtures inline), and what the database decides on lifted out: `hosts` (exact names), `data_flow` (`public_only`, `site_keyed`), `monitor_kind`, `monitor_interval_hours`, `protocol`, `format` (no CHECK since 0219: their one list is `ACCESS_TYPES` and `ENGINES` in `packages/public-sources`, generated into `shared/vocabularies.generated.ts` and held by the record's schema on every write), `licence` | Platform-private; insert-only. A published source's hosts are active; a draft's are usable by its own open request for 24 hours (read from these rows, never kept beside them) |
+| `knowledge_source_credentials` | A source's key, write-only: Vault object id or a local AES-GCM envelope bound to the platform organization and the row id, `key_hint` (last four), who set it and how they said yes (0212) | Platform-private; one active (`replaced_at` NULL) per source; only a source record holds one |
+| `knowledge_source_monitor_states` | What a source's monitor saw last: `checked_at`, `ok_at`, `failure`, `etag`, `sha256`, `version`, `terms_sha256` (0212) | Platform-private; one row per source, updated by the `source-monitor` sweep |
+| `knowledge_approvals` | A person's yes (`role`, `decision_source` `app`/`elicitation`) | Insert-only; only on a submitted request; never by an author of one of its revisions (`knowledge_approval_four_eyes`) |
+| `knowledge_release_moves` | A publish or rollback of one record on `preview` or `stable`, `from`/`to` revision, who, how they said yes | Insert-only; a publish only of an approved request's own revision; a platform head moves only to where the newest stable move points (`knowledge_platform_head_follows_release`), and a platform record is born without a head |
+| `knowledge_index_runs` | The indexing of one published text: `requested`, `queued`, or `failed` with `failure` | Platform-private |
+| `organization_countries` | A country the platform entitled an office to (`entitled_by`, `decision_source`) | The office reads its own rows; only the platform writes (restrictive guards `false`) |
+
+Reads: an office reads a platform record once it has a head and
+`knowledge_country_entitled(country_id)` (its home country or an
+`organization_countries` row), and a platform revision or body once
+`knowledge_revision_released(revision_id)` (ever released to stable) and its
+record is readable. Both are `SECURITY DEFINER`. `scripts/rls-test-db.sh`
+verifies 0205's triggers and its down;
+`bff/base-knowledge/platform/platform.integration.spec.ts` proves entitlement,
+rollback and the guards with positive controls.

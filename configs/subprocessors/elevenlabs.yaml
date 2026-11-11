@@ -1,0 +1,40 @@
+id: elevenlabs
+kind: processor
+status: active
+order: 35
+name: ElevenLabs, Inc. (via OpenRouter)
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+via: openrouter
+data_classes: [voice_audio]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_retained
+  de: Jede Transkription läuft auf dem Schlüssel der Plattform mit Zero Data Retention; das Audio wird nicht gespeichert.
+  en: Every transcription runs on the platform's key with zero data retention; the audio is not stored.
+hosts: []
+env: [DICTATION_MODEL, DICTATION_FALLBACK_MODEL]
+# DICTATION_MODEL's default (agent_host/routes/dictation.py) names this vendor.
+model_vendors: [elevenlabs]
+evidence:
+  - apps/agent-host/src/agent_host/routes/dictation.py
+  - docs/architecture/voice-dictation.md
+copy:
+  name:
+    de: ElevenLabs (via OpenRouter; Ausweichmodell OpenAI Whisper)
+    en: ElevenLabs (via OpenRouter; fallback model OpenAI Whisper)
+  purpose:
+    de: Spracheingabe im Chat (Diktat in Text umwandeln); von der Plattform festgelegt, nicht von Ihrer Organisation gewählt
+    en: Voice input in the chat (turning dictation into text); fixed by the platform, not chosen by your organization
+  data:
+    de: Audioaufnahme des Diktats
+    en: The dictation's audio recording
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Nur wenn jemand diktiert
+    en: Only when someone dictates

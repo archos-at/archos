@@ -95,6 +95,14 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.reconcileBackgroundWork,
   },
   {
+    name: 'inbound-mail-sweep',
+    cron: '* * * * *',
+    reason:
+      'lists the project mail of every organization left half-done, running out or past its keep (ADR-0137); each row is ' +
+      'finished inside its own organization, and only the rows past their keep are deleted as the platform role',
+    run: sweeps.sweepProjectMail,
+  },
+  {
     name: 'upload-sweep',
     cron: '* * * * *',
     reason: 'lists the open upload batches and owed quarantine audits of every organization; each is settled inside its own organization',
@@ -111,6 +119,14 @@ const SWEEPS: SweepSpec[] = [
     cron: '* * * * *',
     reason: 'reads the deletion queue of every organization for erased chats whose Langfuse traces remain',
     run: sweeps.sweepConversationTraces,
+  },
+  {
+    name: 'source-monitor',
+    cron: '*/15 * * * *',
+    reason:
+      'reads the platform\'s published public sources whose monitor is due (ADR-0174); a changed source gets a draft ' +
+      'change request for a reviewer, never a publish. Off unless the platform has source-monitors on',
+    run: sweeps.sweepSourceMonitors,
   },
   {
     name: 'schedule-repair',

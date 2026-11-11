@@ -29,6 +29,7 @@ import { shelfSummaryUrl, type LevelPageRequest } from '@/lib/documents/level-cl
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { inferDocumentKind } from '../document-kind'
 import type { FileItem, FolderItem } from '../file-types'
 import { useDocParamSync, usePreviewChannel, type PreviewHandlers } from '../hooks/use-preview-channel'
@@ -40,6 +41,7 @@ import { useFileDragDrop, type DropInfo } from '../hooks/use-file-drag-drop'
 import { isInternalDragActive, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { useFileListing } from '../hooks/use-file-listing'
 import { useFileSearch } from '../hooks/use-file-search'
+import { useFilterEmptyNotice } from '../hooks/use-filter-empty-notice'
 import { useFolderParam } from '../hooks/use-folder-param'
 import { useRootSortParam } from '../hooks/use-root-sort-param'
 import { useFolderTree } from '../hooks/use-folder-tree'
@@ -51,8 +53,9 @@ import { useSettleTrackedUploads } from '../hooks/use-settle-tracked-uploads'
 import { useShelfLive, type ShelfChange } from '../hooks/use-shelf-live'
 import { useShelfSummary } from '../hooks/use-shelf-summary'
 import { useShelfUpload } from '../hooks/use-shelf-upload'
-import { useViewPreference } from '../hooks/use-view-preference'
+import { fileViewFor, useViewPreference } from '../hooks/use-view-preference'
 import { useBriefCollapsed } from '../hooks/use-brief-collapsed'
+import { useDocumentFindings } from '../hooks/use-document-findings'
 import { useBulkReingest } from '../hooks/use-bulk-reingest'
 import { useCompareParam } from '../hooks/use-compare-param'
 import { useMissingDocuments } from '../hooks/use-missing-documents'
@@ -69,7 +72,6 @@ import type { DocumentWireRow } from '../lib/file-item'
 import { LEVEL_SEARCH_DEBOUNCE_MS, levelSortOf, readFamiliesOf, readsWholeShelf } from '../lib/level-view'
 import {
   NO_FILE_FILTERS,
-  activeFilterCount,
   applyFileFilters,
   tagOptions as tagOptionsOf,
   type FileFilters,
@@ -83,6 +85,7 @@ import {
   type DocumentActionKind,
 } from './document-actions/action-entries'
 import { FileBrowserPane } from './file-browser-pane'
+import { InboundMailWaitingLine } from './inbound-mail-waiting-line'
 import { FileDropOverlay, useWindowDragGuard } from './file-drop-overlay'
 import { FileFilterMenu } from './file-filter-menu'
 import { FilePreviewDialog } from './file-preview-dialog'
@@ -94,6 +97,7 @@ import { SelectionBar } from './selection-bar'
 import { withoutOlderRevisions } from '../lib/revision-chain'
 import { sortedFolderDestinations } from '../lib/folder-path-label'
 import { FilesHeaderControls } from './files-header-controls'
+import { usePhoneRootTools } from './phone-root-tools'
 import { FolderAccessDialog } from './folder-access-dialog'
 import { FolderDescriptionDialog } from './folder-description-dialog'
 import { FilingSuggestionsProvider } from './filing-suggestion'
@@ -102,6 +106,7 @@ import type { ProposalListQuery } from '@/lib/proposals/types'
 import { FolderUploadDialog } from './folder-upload-dialog'
 import { ProjectUppyUpload } from './project-uppy-upload'
 import { UploadTray } from './upload-tray'
+import { UPLOAD_TRAY_SHEET } from './upload-tray-sheet'
 import { UploadProblemAlert } from './upload-anyway'
 
 /**
@@ -151,12 +156,6 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
-  /**
-   * What sits above the list and scrolls with it: a project's findings panel.
-   * `readyCount` is how many documents of the listing are read, so a panel
-   * derived from them re-reads when another one finishes.
-   */
-  aboveList?: (state: { readyCount: number }) => ReactNode
 }
 
 /** The ⋯ slot every card and row renders; the row's {@link DocumentObjectMenu} fills it. */
@@ -172,16 +171,9 @@ function mergeById(first: readonly FileItem[], second: readonly FileItem[]): Fil
 }
 
 /**
- * The file workspace of a shelf of documents — one component for a project's
- * Dateien and for the office Archiv.
- *
- * They were two components for as long as the Archiv was flat. Once it had
- * folders the choice was a second 1,600-line copy or one workspace that takes
- * its differences as data, and the copy would have been correct on the day it
- * was written and wrong a release later. Everything here is shared: one
- * loader, one folder tree, one move, one plan apply, one view/sort/filter
- * state, one search. Anything that must differ is a field of {@link FileShelf},
- * named and documented there.
+ * The file workspace of a shelf of documents: one component for a project's Dateien and for the office
+ * Archiv, sharing one loader, tree, move, plan apply, view/sort/filter state and search. Anything that must
+ * differ is a field of {@link FileShelf}, named and documented there (a second copy drifts in a release).
  */
 export function FileWorkspace({
   shelf,
@@ -192,14 +184,13 @@ export function FileWorkspace({
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
-  aboveList,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const { canManage, canCollaborate } = shelf
   const searchParams = useSearchParams()
 
-  const [view, selectView] = useViewPreference()
+  const [chosenView, selectView] = useViewPreference()
   const [selectedFolderId, selectFolder] = useFolderParam()
   const [filters, setFilters] = useState<FileFilters>(NO_FILE_FILTERS)
   /**
@@ -208,8 +199,7 @@ export function FileWorkspace({
    * to this same state.
    */
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
-  // The query lives here rather than in the browser pane: the field sits in the
-  // header beside the view toggles while the results are rendered below.
+  // The query lives here, not in the pane: the field sits in the header, the results below.
   const search = useFileSearch(shelf.endpoints)
   // The name search is asked of the server once the reader stops typing; the
   // pane narrows what it holds at every keystroke meanwhile.
@@ -678,7 +668,11 @@ export function FileWorkspace({
         : listedFiles.filter((file) => (file.folderId ?? null) === selectedFolderId),
     [listedFiles, selectedFolderId, tree.error]
   )
-  const tagOptions = useMemo(() => tagOptionsOf(paneFiles, locale), [paneFiles, locale])
+  const view = fileViewFor(chosenView, levelFiles.length) // the reader's choice, else the list above fifty documents
+  const tagOptions = useMemo(
+    () => tagOptionsOf(paneFiles, locale, (tag) => tagLabel(tag, t)),
+    [paneFiles, locale, t]
+  )
 
   // What the server counted for the whole shelf: the folder tiles, the header
   // count, the brief and the delete confirmation read it on a paged level.
@@ -794,6 +788,7 @@ export function FileWorkspace({
         folderId={selectedFolderId}
         onUpload={handleUpload}
         isUploading={isUploading}
+        onSendByMail={shelf.inboundMail?.openAddress}
         {...props}
       />
     ) : undefined
@@ -820,13 +815,22 @@ export function FileWorkspace({
       ]
     : undefined
 
+  // A phone's level tools are in its ⋯ at every level: inside a folder the header names it, so no row holds them.
+  const rootToolsInMenu = phone && !tree.error
+  const rootTools = usePhoneRootTools({
+    active: rootToolsInMenu,
+    onStartSelection: mayPick && !selection.active && !sliceOpen && !searchingNow && levelFiles.length > 0 ? () => startSelection() : undefined,
+    onCreateFolder: canManage && writableHere ? (name) => tree.create(name, selectedFolderId ?? undefined) : undefined,
+  })
+
   const controls = (
     <FilesHeaderControls
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.bin?.href}
-      openPointsHref={shelf.openPoints?.href}
+      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
+      inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
       renderFilter={(compact) => (
         <FileFilterMenu
           canCollaborate={canCollaborate}
@@ -855,6 +859,7 @@ export function FileWorkspace({
       // same control floats at the foot of the screen instead (`uploadFab`).
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}
+      levelEntries={rootTools.entries}
       advancedEntries={advancedEntries}
     />
   )
@@ -870,7 +875,7 @@ export function FileWorkspace({
    */
   const inSheet = shelf.source === 'office'
   const uploadFab =
-    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef }) : undefined
+    phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef, glyphOnly: true }) : undefined
 
   /*
    * One menu per card and row, built lazily (`DocumentObjectMenu`) and handed
@@ -942,31 +947,42 @@ export function FileWorkspace({
 
       {error && <UploadProblemAlert message={error} onDismiss={upload.clearError} />}
 
-      <UploadTray
-        files={activeUploads}
-        onRetry={upload.retryFile}
-        onCancel={upload.cancelFile}
-        onCancelAll={upload.cancelUpload}
-        onDismiss={upload.dismissFiles}
-        onOpenDocument={handlers.onOpenDocument}
-      />
+      <div className="listing-container shrink-0 px-4 md:px-8">
+        <UploadTray
+          files={activeUploads}
+          onRetry={upload.retryFile}
+          onCancel={upload.cancelFile}
+          onCancelAll={upload.cancelUpload}
+          onDismiss={upload.dismissFiles}
+          onOpenDocument={handlers.onOpenDocument}
+          className={UPLOAD_TRAY_SHEET}
+        />
+      </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Folder listing failed: say so once, above a browser that falls open
             to the whole corpus, instead of hiding every filed document. */}
         {tree.error && (
-          <div className="border-b px-4 py-2">
+          <div className={NOTICE_STRIP}>
             <PaneLoadError message={t('workspace.foldersLoadError')} onRetry={tree.load} inline />
           </div>
         )}
         {/* The drain hit its ceiling: say which documents are missing rather
             than let search, filters and the upload plan pretend to be whole. */}
         {!pagedView && listing.truncated && (
-          <div className="border-b px-4 py-2">
+          <div className={NOTICE_STRIP}>
             <Alert>
               <AlertCircle className="size-4" />
               <AlertDescription>{t('workspace.listTruncated', { count: listing.files.length })}</AlertDescription>
             </Alert>
+          </div>
+        )}
+
+        {/* Mail waiting in the E-Mail-Eingang, said once above the root of a shelf without Dateien's tabs: in a
+            project the E-Mail-Eingang tab carries the count, and a line here said it twice. */}
+        {shelf.source !== 'project' && shelf.inboundMail && selectedFolderId === null && (shelf.inboundMail.waiting ?? 0) > 0 && (
+          <div className={NOTICE_STRIP}>
+            <InboundMailWaitingLine href={shelf.inboundMail.href} count={shelf.inboundMail.waiting ?? 0} more={shelf.inboundMail.more} />
           </div>
         )}
 
@@ -983,7 +999,6 @@ export function FileWorkspace({
             uploadFab && (inSheet ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-24')
           )}
         >
-          {aboveList?.({ readyCount: files.filter((file) => file.status === 'completed').length })}
           {listingError ? (
             <PaneLoadError message={t('workspace.documentsLoadError')} onRetry={retryListing} />
           ) : (
@@ -1022,7 +1037,6 @@ export function FileWorkspace({
               onFileAim={setFileAim}
               onPickFiles={canManage ? () => pickFilesRef.current?.() : undefined}
               onPickFolder={canManage ? () => pickFolderRef.current?.() : undefined}
-              cardExtras={shelf.cardExtras}
               wrapFile={wrapFile}
               wrapFileRow={wrapFileRow}
               renderActions={renderDocumentActions}
@@ -1046,9 +1060,9 @@ export function FileWorkspace({
                 size: 'default',
                 label: t('workspace.uploadDocuments'),
               })}
-              uploadCard={uploader({ variant: 'dropcard' })}
               brief={briefSurface.brief}
               slice={briefSurface.slice}
+              rootToolsInMenu={rootToolsInMenu}
               selection={
                 mayPick
                   ? {
@@ -1075,6 +1089,7 @@ export function FileWorkspace({
         />
       )}
       {uploadFab && <UploadFab inSheet={inSheet}>{uploadFab}</UploadFab>}
+      {rootTools.dialog}
       <FolderPickerSheet
         open={moveSheetOpen}
         onOpenChange={setMoveSheetOpen}
@@ -1176,17 +1191,11 @@ export function FileWorkspace({
 }
 
 /**
- * The folder brief and the slice of the subtree it opens, for the level the
- * reader stands on.
- *
- * Built from the UNFILTERED shelf: the brief describes the folder, and a
- * filter that hides half of it must not make Piloti appear to know half as
- * much. The caller builds it (ADR-0102): from the drained shelf once it is in
- * (`buildFolderBrief`, one entry per document, ADR-0099), else from the shelf
- * summary (`buildFolderBriefFromSummary`, counts only and `partial`). A
- * partial brief offers to load what Piloti put on the documents, and a slice
- * it opens asks for the same, because a slice is drawn from the documents the
- * brief counted: a chip that says „Grundriss 12“ opens twelve documents.
+ * The folder brief and the slice of the subtree it opens, for the level the reader stands on. Built from
+ * the UNFILTERED shelf (a filter must not make Piloti appear to know less), by the caller (ADR-0102): from
+ * the drained shelf (`buildFolderBrief`, ADR-0099), else from the summary (`buildFolderBriefFromSummary`,
+ * `partial`). A partial brief and its slices load what Piloti put on the documents, so a chip that says
+ * „Grundriss 12“ opens twelve documents.
  */
 function useFolderBriefSurface({
   shelf,
@@ -1218,6 +1227,9 @@ function useFolderBriefSurface({
   const [selection, setSelection] = useState<{ folderId: string | null; selection: BriefSelection } | null>(null)
   const bulk = useBulkReingest(onReingested)
   const missing = useMissingDocuments(shelf.projectId)
+  // What the project's documents say about each other, as the root's brief shows it; read again as another document is read.
+  const findingsResponse = useDocumentFindings(shelf.projectId ?? undefined, { refreshKey: String(brief?.tally.readable ?? 0) })
+  const findings = shelf.projectId && findingsResponse ? { projectId: shelf.projectId, response: findingsResponse } : null
   const folderName = selectedFolderId
     ? (folders.find((folder) => folder.id === selectedFolderId)?.name ?? null)
     : null
@@ -1270,6 +1282,8 @@ function useFolderBriefSurface({
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
         missing={missing}
+        findings={findings}
+        hasSubfolders={folders.some((folder) => folder.parentId === selectedFolderId)}
         onLoadDetails={partial ? onRequestDetails : undefined}
         detailsLoading={detailsLoading}
       />
@@ -1286,14 +1300,9 @@ function useFolderBriefSurface({
 }
 
 /**
- * Who may write where on this shelf (ADR-0088), as the listing reported it.
- *
- * A project's folders carry an `access` per reader and the listing says what
- * the reader may do at the root; a level they may only read offers no upload,
- * no new folder and no write action on its documents. The Archiv has no
- * folder access lists (its folders are governed by `canManage`), so without
- * `shelf.folderAccess` every level is writable here and the shelf's own
- * `canManage` decides. The server decides every write again either way.
+ * Who may write where on this shelf (ADR-0088), as the listing reported it: a level the reader may only
+ * read offers no upload, no new folder and no write action. The Archiv has no folder access lists, so
+ * without `shelf.folderAccess` every level is writable and `canManage` decides. The server decides again.
  */
 function useFolderAccess(shelf: FileShelf, folders: readonly FolderItem[], treeRootAccess: FolderAccessLevel) {
   const { folderAccess } = shelf
@@ -1368,58 +1377,6 @@ function useErrorToast(error: string | null): void {
   }, [error])
 }
 
-/**
- * When a FILTER emptied the level rather than the folder being empty.
- *
- * The browser pane is handed already-filtered files and cannot tell the two
- * apart, so it drew "this folder is empty" over a folder full of documents the
- * moment a filter matched nothing. Authorship wins when several are on: it is
- * the narrower and the less obvious, so it is the one a reader needs explained.
- */
-function useFilterEmptyNotice({
-  filters,
-  setFilters,
-  canCollaborate,
-  search,
-  levelFiles,
-  levelOccupied,
-}: {
-  filters: FileFilters
-  setFilters: (next: FileFilters) => void
-  canCollaborate: boolean
-  search: ReturnType<typeof useFileSearch>
-  levelFiles: readonly FileItem[]
-  /**
-   * Whether the level holds documents before the browser's filters: the
-   * shelf summary's count on a paged level (ADR-0102), the drained rows else.
-   */
-  levelOccupied: boolean
-}) {
-  const t = useTranslations(filesCopy)
-  const { query } = search
-  const semanticActive = search.semantic.active
-  return useMemo(() => {
-    const clear = () => setFilters(NO_FILE_FILTERS)
-    if (activeFilterCount(filters, canCollaborate) === 0) return null
-    // The notice REPLACES the whole listing, so it may only exist when the
-    // listing is actually empty; a query or semantic search owns its own states.
-    if (query.trim() !== '' || semanticActive) return null
-    if (levelFiles.length > 0) return null
-    // An unfiltered-empty level is an empty folder, not a filter hiding anything.
-    if (!levelOccupied) return null
-    if (filters.agentAuthoredOnly) {
-      return { title: t('authorship.emptyTitle'), description: t('authorship.emptyDescription'), onClear: clear }
-    }
-    if (canCollaborate && filters.assignment !== 'all') {
-      const title = filters.assignment === 'mine' ? t('assignment.emptyMine') : t('assignment.emptyUnassigned')
-      return { title, description: t('assignment.emptyDescription'), onClear: clear }
-    }
-    // Type, status and tag say what they mean on the chip; what the reader needs
-    // is the fact that a filter, and not an empty folder, is why it is empty.
-    return { title: t('filters.emptyTitle'), description: t('filters.emptyDescription'), onClear: clear }
-  }, [filters, setFilters, canCollaborate, t, query, semanticActive, levelFiles, levelOccupied])
-}
-
 /** Inline pane-level load failure with a retry affordance. */
 function PaneLoadError({
   message,
@@ -1433,7 +1390,7 @@ function PaneLoadError({
 }) {
   const t = useTranslations(filesCopy)
   const retry = (
-    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onRetry} data-attr="files-pane-retry">
+    <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={onRetry} data-attr="files-pane-retry">
       <RotateCcw className="size-3.5" aria-hidden />
       {t('workspace.tryAgain')}
     </Button>
@@ -1447,3 +1404,6 @@ function PaneLoadError({
     </div>
   )
 }
+
+/** A notice above the listing, on the listing's edges and without a line under it (the design system draws none between sections). */
+const NOTICE_STRIP = 'listing-container px-4 pt-3 md:px-8'

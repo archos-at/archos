@@ -58,7 +58,7 @@ import { isNotRegulated, searchedSources } from '../../lib/answer-data'
 
 import { wireCitationNumbers, readSourceLabel } from './read-sources'
 
-import { answerRoleTab, StreamingCaret } from './answer-role'
+import { answerRole, StreamingCaret } from './answer-role'
 import { LEDE_CLASS, SUMMARY_GAP, NO_DOCUMENTS, opensWithProse } from './answer-prose'
 
 export function useAgentResponseController({
@@ -130,7 +130,6 @@ export function useAgentResponseController({
   // which renders the one consolidated block; the inline [N] markers left in the
   // prose become links to its rows. Answers without such a section are untouched.
   const fallbackId = useId()
-  const roleTabId = `${fallbackId}-role`
   const anchorPrefix = answerSourceAnchorPrefix(messageId ?? fallbackId)
   // The prose streams while the model writes it (ADR-0066), in bursts. It is
   // shown at a steady pace a beat behind what has arrived (`usePacedText`,
@@ -331,9 +330,9 @@ export function useAgentResponseController({
   // first word; a settled answer runs the same predicate, so a stored answer
   // looks as it did live. Not eased: font size is a layout property, and the
   // motion vocabulary animates none (`grid/motion-vocabulary`).
-  const roleTab = answerRoleTab(answerMeta?.kind, routingDecision, Boolean(answerMeta?.verdict))
+  const role = answerRole(answerMeta?.kind, routingDecision, Boolean(answerMeta?.verdict))
   const opener = opensWithProse(prose, !isStreaming)
-  const ledeNow = opener === true && roleTab !== 'note' && !effectiveSummary && !anatomy?.topic
+  const ledeNow = opener === true && role !== 'note' && !effectiveSummary && !anatomy?.topic
   const [frozenLede, setFrozenLede] = useState<boolean | null>(null)
   if (mountedLive && !retracted && frozenLede === null && opener !== null) setFrozenLede(ledeNow)
   // Retracted words decided nothing: once they have faded, the answer that
@@ -902,20 +901,21 @@ export function useAgentResponseController({
 
   // Inline variant - no box styling (for use inside containers like thinking process)
 
-  // Default variant — the click-dummy "Ergebnis" card: a role tab over a
-  // tinted shell whose white inner block carries the composed answer, then a
-  // "Belegt durch" provenance row and the feedback row, hairline-separated.
+  // Default variant: a tinted shell whose white inner block carries the
+  // composed answer, then a "Belegt durch" provenance row and the feedback
+  // row, hairline-separated. No role tab over it (Notion #38, topic 9).
   //
-  // Envelope `kind` names the document. `direct` swaps the ink tab for a quiet
-  // "Hinweis"; observed `meta` does the same when kind is absent and there is
-  // no legacy verdict. `walkthrough` keeps the ink shell but labels the tab
+  // Envelope `kind` names the document, for a screen reader (the article's
+  // name) and for the shell: `direct` is a quiet "Hinweis" on a muted
+  // surface; observed `meta` does the same when kind is absent and there is
+  // no legacy verdict. `walkthrough` keeps the card surface and is named
   // "Antwort". `ruling`, a legacy no-kind verdict, and any other routing
-  // (shallow/deep/error) keep "Ergebnis" (fail-open).
-  const isNote = roleTab === 'note'
-  const tabLabel =
-    roleTab === 'note'
+  // (shallow/deep/error) are named "Ergebnis" (fail-open).
+  const isNote = role === 'note'
+  const kindLabel =
+    role === 'note'
       ? t('roles.note')
-      : roleTab === 'answer'
+      : role === 'answer'
         ? t('roles.answer')
         : t('roles.result')
 
@@ -946,7 +946,6 @@ export function useAgentResponseController({
     stopped,
     failed,
     answerData,
-    roleTabId,
     anchorPrefix,
     mountedLive,
     paced,
@@ -983,7 +982,7 @@ export function useAgentResponseController({
     viewerActionRow,
     retractionLine,
     isNote,
-    tabLabel,
+    kindLabel,
     hasFeedback,
     inert,
     variant,

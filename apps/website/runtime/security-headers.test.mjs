@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { contentSecurityPolicy, securityHeaders } from './security-headers.mjs'
+import { cmsImageOrigins, contentSecurityPolicy, isPreviewPath, securityHeaders } from './security-headers.mjs'
 import { analyticsOrigins } from './web-analytics.mjs'
 
 const OFF = analyticsOrigins(null)
@@ -53,4 +53,26 @@ test('the full header set is present', () => {
   ]) {
     assert.ok(names.includes(name), name)
   }
+})
+
+test('the CMS origin is allowed for images only, and only with a CMS (ADR-0155)', () => {
+  const env = { CMS_URL: 'http://cms.cms.svc.cluster.local:3000', CMS_API_KEY: 't', CMS_PUBLIC_URL: 'https://cms.example.com/' }
+  assert.deepEqual(cmsImageOrigins(env), ['https://cms.example.com'])
+  assert.deepEqual(cmsImageOrigins({ ...env, CMS_API_KEY: '' }), [])
+  assert.deepEqual(cmsImageOrigins({}), [])
+  const csp = contentSecurityPolicy(OFF, cmsImageOrigins(env))
+  assert.match(csp, /img-src 'self' data: https:\/\/cms\.example\.com;/)
+  assert.doesNotMatch(csp.replace(/img-src[^;]*;/, ''), /cms\.example\.com/)
+})
+
+test('only the blog preview may be framed, and only by the CMS (ADR-0155)', () => {
+  const cms = ['https://cms.example.com']
+  const preview = Object.fromEntries(securityHeaders(OFF, cms, cms))
+  assert.match(preview['Content-Security-Policy'], /frame-ancestors https:\/\/cms\.example\.com/)
+  assert.equal(preview['X-Frame-Options'], undefined)
+  const page = Object.fromEntries(securityHeaders(OFF, cms))
+  assert.match(page['Content-Security-Policy'], /frame-ancestors 'none'/)
+  assert.equal(page['X-Frame-Options'], 'DENY')
+  assert.ok(isPreviewPath('/blog/preview/') && isPreviewPath('/en/blog/preview'))
+  assert.ok(!isPreviewPath('/blog/preview-post/') && !isPreviewPath('/blog/'))
 })

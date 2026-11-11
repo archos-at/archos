@@ -34,6 +34,7 @@ export default async function ProjectsPage({
       projects: rows,
       documentCounts: docCountByProject,
       viewerActivity,
+      mailWaiting,
     } = await getProjectsListData(session, 'newest')
 
     const autoOpenCreate = newParam === '1'
@@ -47,6 +48,7 @@ export default async function ProjectsPage({
           projects={rows}
           docCounts={docCountByProject}
           viewerActivity={viewerActivity}
+          mailWaiting={mailWaiting}
           autoOpenCreate={autoOpenCreate}
         />
 

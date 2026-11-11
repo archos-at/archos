@@ -105,7 +105,14 @@ def test_switch_serves_the_new_collection_and_switching_back_is_the_rollback(sto
     rebuild.copy_collection(store.client, schema.Physical.OFFICE, alias + "_v2", shards=2)
 
     previous = rebuild.switch_alias(store.client, schema.Physical.OFFICE, alias + "_v2")
-    hits = hybrid_search(store, ["proj_rebuild"], vector=records[0].embedding, lexical_text="Sprinkleranlage", limit=3)
+    hits = hybrid_search(
+        store,
+        ["proj_rebuild"],
+        vector=records[0].embedding,
+        lexical_text="Sprinkleranlage",
+        limit=3,
+        office_id="org_test",
+    )
 
     assert previous == alias + schema.FIRST_VERSION
     assert rebuild.current_collection(store.client, schema.Physical.OFFICE) == alias + "_v2"

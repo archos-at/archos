@@ -18,7 +18,6 @@ import type { FolderItem } from '../file-types'
 import { FileWorkspace } from './file-workspace'
 import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
-import { DocumentFindingsPanel } from './document-findings-panel'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 // The row and folder types live in `../file-types`; they are re-exported here
@@ -71,6 +70,14 @@ interface ProjectFileWorkspaceProps {
   initialRootAccess?: 'read' | 'write'
   /** Whether the Outlook archive import is offered (`isMailImportEnabled`, ADR-0085). Off by default. */
   mailImportEnabled?: boolean
+  /**
+   * The E-Mail-Eingang's entry, its count and „Per E-Mail senden …“, present
+   * only for a reader who may decide the project's held mail (ADR-0137). The
+   * route composes it (`app/app/(shell)/projects/[id]/files/project-files-client.tsx`),
+   * so the documents feature never imports the inbound-mail feature
+   * (docs/contributing/module-seams.md).
+   */
+  inboundMail?: FileShelf['inboundMail']
 }
 
 /**
@@ -96,6 +103,7 @@ export function ProjectFileWorkspace({
   canManageFolderAccess = false,
   initialRootAccess = 'write',
   mailImportEnabled = false,
+  inboundMail,
 }: ProjectFileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const router = useRouter()
@@ -118,6 +126,7 @@ export function ProjectFileWorkspace({
     folderAccess: { projectId, canManage: canManageFolderAccess, initialRootAccess },
     bin: { href: `/app/projects/${projectId}/files/bin` },
     openPoints: { href: `/app/projects/${projectId}/files/open-points` },
+    inboundMail,
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
@@ -175,9 +184,6 @@ export function ProjectFileWorkspace({
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}
         initialFolderId={initialFolderId}
-        aboveList={({ readyCount }) => (
-          <DocumentFindingsPanel projectId={projectId} refreshKey={String(readyCount)} className="px-4 pt-3" />
-        )}
       />
       {mailOffered && phone && <MailImportDialog projectId={projectId} open={mailOpen} onOpenChange={setMailOpen} />}
     </>

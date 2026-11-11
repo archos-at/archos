@@ -129,7 +129,7 @@ export function BaseKnowledge(): JSX.Element {
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   const docClassLabel = useDocClassLabel()
-  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.settingsManage)
+  const canManage = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite) // the corpus routes' permission
 
   const [status, setStatus] = useState<KnowledgeBaseStatus | null>(null)
   // Set only when there is nothing on screen to keep; a failed REFRESH keeps

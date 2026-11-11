@@ -37,6 +37,7 @@ import { CalendarOff, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-re
 import { SERIES_SLOT_COUNT } from '@/components/charts/palette'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
 import { jobsCopy } from '@/i18n/namespaces/jobs'
@@ -426,9 +427,9 @@ function WeekGrid({ timetable, locale, colorOf, nameOf, onSelect }: ShapeProps):
             style={{ top: `${gap.top}px`, height: `${BREAK_PX}px` }}
           >
             <span aria-hidden className="border-border flex-1 border-t border-dashed" />
-            <span className="text-muted-foreground shrink-0 text-[10px] uppercase tracking-wide">
+            <SectionLabel className="shrink-0">
               {t('timetable.gap', { hours: Math.round(gap.minutes / 60) })}
-            </span>
+            </SectionLabel>
             <span aria-hidden className="border-border flex-1 border-t border-dashed" />
           </div>
         ))}

@@ -1,0 +1,24 @@
+# Residency cells and zones (ADR-0167). Read by packages/agent/src/agent/common/residency.py.
+#
+# A cell is one deployment: one Pulumi stack holding every store. A deployment names its cell in
+# RESIDENCY_CELL; unset, residency is not enforced and nothing about routing changes. A zone is the set of
+# processing locations a cell's model calls may reach, as ISO 3166-1 codes ("EU" is the reserved code for the
+# Union). Where a request may be processed is read per host from the data-flow register
+# (configs/subprocessors/*.yaml, `endpoints`); a host the register does not place is in no zone.
+#
+# `rewrites` is how a zone keeps a call inside it without a second code path: a request to the key host is sent
+# to the value host instead, and the seam refuses whatever still lands outside the zone.
+
+zones:
+  eu:
+    # The EU (as a whole and per member state) and the three further EEA states.
+    locations: [EU, AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE, IS, LI, NO]
+    rewrites:
+      # OpenRouter's EU in-region routing: every upstream behind it runs in the EU (Business/Enterprise contract).
+      openrouter.ai: eu.openrouter.ai
+
+cells:
+  eu-at-1:
+    zone: eu
+    # Where the cell's stores rest (IPAX, Vienna).
+    country: AT

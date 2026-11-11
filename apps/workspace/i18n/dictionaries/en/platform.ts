@@ -20,6 +20,218 @@ export const platform = {
     required: 'Required.',
     range: 'Enter a value from {min} to {max}.',
   },
+  countryKnowledge: {
+    disabledTitle: 'No access to platform knowledge',
+    disabledBody: 'Countries, their records and the review queue are shown to members of the platform organization who may read platform knowledge.',
+    countriesTitle: 'Countries',
+    countriesDescription: 'What offices in each country read from the platform: released records, open change requests, entitled offices, and editions overdue for a check.',
+    noneReleased: 'nothing released yet',
+    queueTitle: 'Waiting for your review',
+    queueDescription: 'Platform knowledge changes only through a change request. Open one to check its entries against their sources.',
+    queueEmpty: 'Nothing waiting for review',
+    approval: {
+      single: 'Approved without a second review',
+    },
+    secondReview: {
+      due: 'Second review due',
+      confirmed: 'Second review confirmed',
+      disputed: 'Second review disputed',
+      void: 'No second review owed',
+    },
+    secondReviewDueIn: 'Second review due as: {roles}',
+    roles: {
+      domain_expert: 'domain expert',
+      counsel: 'counsel',
+      privacy_reviewer: 'privacy reviewer',
+    },
+    secondReviewNext: {
+      due: 'Approved without a second review. Check each entry against its source, then confirm or dispute the approval.',
+      disputed: 'The second review disputed the approval. The request is not published further: reject it, which also withdraws its preview, or roll it back if it is already published.',
+    },
+    aloneReason: 'Why can nobody else approve it?',
+    aloneReasonHint: 'At least 20 characters. The reason is kept on the request and in the audit trail.',
+    open: 'Review',
+    close: 'Close',
+    columns: {
+      country: 'Country',
+      released: 'Released',
+      open: 'Open requests',
+      offices: 'Offices',
+      overdue: 'Check overdue',
+      request: 'Change request',
+      records: 'Entries',
+    },
+    types: {
+      territory: 'territories',
+      authority: 'authorities',
+      work: 'works',
+      edition: 'editions',
+      manifestation: 'texts',
+    },
+    recordTypes: {
+      ruleset: 'Rule',
+      territory: 'Territory',
+      authority: 'Authority',
+      work: 'Law, standard or directive',
+      edition: 'Edition',
+      manifestation: 'Text',
+    },
+    kinds: {
+      technical_standard: 'Technical standard',
+      guideline: 'Guideline',
+      commentary: 'Commentary',
+      authority_directive: 'Authority directive',
+      statute: 'Law',
+      union: 'Union',
+      country: 'Country',
+      state: 'State',
+      district: 'District',
+      municipality: 'Municipality',
+      city_district: 'City district',
+    },
+    functions: {
+      building_permit: 'Building permits',
+      heritage: 'Heritage protection',
+      fire: 'Fire safety',
+    },
+    licences: {
+      public_open: 'Public, free to use',
+      public_restricted: 'Public, with conditions',
+      licensed: 'Licensed',
+    },
+    fields: {
+      name: 'Name',
+      title: 'Title',
+      kind: 'Kind',
+      identifiers: 'Designation',
+      label: 'Edition',
+      issuer: 'Issued by',
+      competenceTerritoryIds: 'Decides for',
+      seatTerritoryId: 'Seat',
+      functionCodes: 'Responsible for',
+      territoryIds: 'Applies in',
+      addressees: 'Addressed to',
+      parents: 'Lies in',
+      issuedOn: 'Issued on',
+      inForceFrom: 'In force from',
+      inForceTo: 'No longer in force from',
+      validFrom: 'Valid from',
+      validTo: 'No longer valid from',
+      workId: 'Edition of',
+      editionId: 'Text of edition',
+      form: 'Form',
+      language: 'Language',
+      licenceClass: 'Licence',
+      corpusFile: 'File',
+      aliases: 'Other codes',
+    },
+    status: {
+      draft: 'Draft',
+      submitted: 'Waiting for review',
+      approved: 'Approved, not yet published',
+      rejected: 'Rejected',
+      published: 'Published',
+      rolled_back: 'Rolled back',
+    },
+    rail: {
+      label: 'Steps of a change request',
+      progress: 'Step {current} of {total}',
+      check: 'Check entries',
+      approve: 'Approve',
+      preview: 'Check preview',
+      stable: 'Publish',
+    },
+    next: {
+      check: 'Check each entry against its source, and mark it correct or not correct.',
+      wrong: 'Some entries are not correct. Reject the request, so the proposer can correct them in a new one.',
+      approve: 'Every entry is checked. Approve the request; it then goes to the preview.',
+      preview: 'Approved. Publish it to the preview first: offices do not see it yet.',
+      stable: 'In the preview. Once it looks right, publish it: from then on, every office entitled to this country reads it.',
+      published: 'Published. Offices entitled to this country read it. If something is wrong, roll it back.',
+      draft: 'Still a draft: entries can be added. It appears here for review once it is submitted.',
+      rejected: 'Rejected. Nothing reached offices.',
+      rolled_back: 'Rolled back. Offices read the state from before this request.',
+    },
+    progressLabel: 'Entries checked',
+    progress: '{checked} of {total} entries checked',
+    wrongCount: 'not correct: {count}',
+    why: {
+      own: 'You wrote in this request, so another person approves it.',
+      ownUnchecked: 'You wrote in this request, so another person approves it. A page pasted rather than fetched is checked against its source by another person before you may approve alone.',
+      open: 'Entries still to check: {count}',
+      alone: 'You wrote in this request: a second person approves it, or you approve it alone with a reason.',
+      wrong: 'Entries not correct: {count}. A request with a wrong entry cannot be approved.',
+    },
+    acceptAll: 'All correct',
+    acceptChecked: 'Checked against the source, all correct',
+    pastedHint: 'This page was pasted, not fetched. Open the source and compare: “correct” here also says the text matches the source.',
+    operatorSupplied: 'pasted, not fetched',
+    checkAgainst: 'Check against',
+    noSource: 'No source given. Ask the proposer for one before you mark anything correct.',
+    unchecked: 'not checked',
+    verdicts: {
+      accepted: 'Correct',
+      edited: 'Edited',
+      rejected: 'Not correct',
+    },
+    failed: 'That did not work: {reason}',
+    cancel: 'Cancel',
+    rollbackReason: 'Rolled back in the platform view',
+    steps: {
+      approve: 'Approve',
+      reject: 'Reject request',
+      preview: 'Publish to preview',
+      stable: 'Publish',
+      rollback: 'Roll back',
+      alone: 'Approve without a second review',
+      confirm: 'Confirm second review',
+      dispute: 'Dispute',
+    },
+    done: {
+      approve: 'Approved.',
+      reject: 'Rejected.',
+      preview: 'Published to the preview.',
+      stable: 'Published. Entitled offices read it now.',
+      rollback: 'Rolled back. Offices read the previous state.',
+      alone: 'Approved without a second review. The second review stays due.',
+      confirm: 'Second review confirmed.',
+      dispute: 'Disputed. Roll it back if it is already published.',
+    },
+    confirm: {
+      approve: {
+        title: 'Approve this change request?',
+        body: 'You confirm every entry was checked against its source. You cannot approve a request you wrote an entry in.',
+      },
+      reject: {
+        title: 'Reject this change request?',
+        body: 'Nothing in it reaches offices. The proposer corrects the entries in a new request.',
+      },
+      preview: {
+        title: 'Publish to the preview?',
+        body: 'Nothing changes for offices yet. Check the preview, then publish.',
+      },
+      stable: {
+        title: 'Publish?',
+        body: 'Every office entitled to this country reads it from now on, and its texts are queued for indexing.',
+      },
+      rollback: {
+        title: 'Roll this change request back?',
+        body: 'Each entry returns to its state before this request. The history stays, so earlier answers still find their sources.',
+      },
+      alone: {
+        title: 'Approve without a second review?',
+        body: 'Only when nobody else can review it. The request is marked as approved without a second review, and a second review stays due until another person gives it.',
+      },
+      confirm: {
+        title: 'Confirm the second review?',
+        body: 'You confirm every entry was checked against its source. This closes the due second review.',
+      },
+      dispute: {
+        title: 'Dispute the approval?',
+        body: 'The request is marked as disputed and is not published further. What is already published stays until someone rolls it back.',
+      },
+    },
+  },
   orgUsage: {
     open: 'Spend of {name}',
     back: 'Platform overview',
@@ -153,19 +365,14 @@ export const platform = {
       'Add a PDF, or a ZIP holding many at once — every project grounds its answers on this corpus.',
   },
   norms: {
+    retired: "Norms now change only through a reviewed change request in the platform's country knowledge. This catalog is read-only.",
+    retiredLink: 'Open country knowledge',
     title: 'Norm catalog',
     description:
       'Curated pointers to Austrian building law that the agent cites — unlike base knowledge, which holds the full texts they are checked against.',
     entryCount: '{count} entries',
     entryCountOne: '1 entry',
-    readOnly: 'You can view the catalog, but you do not have permission to change it.',
     loadError: 'Could not load the norm catalog.',
-    add: 'New entry',
-    save: 'Save registry',
-    saved: 'Registry saved.',
-    saveError: 'Could not save the registry.',
-    invalid: 'Registry validation failed.',
-    unsaved: 'Unsaved',
     federal: 'Federal',
     empty: {
       title: 'No entries in the catalog yet',
@@ -174,13 +381,6 @@ export const platform = {
     noMatches: {
       title: 'No entry matches these filters',
       description: 'Clear the search, or pick a different rank or scope.',
-    },
-    conflict: {
-      title: 'The catalog changed elsewhere',
-      description:
-        'Someone saved a newer version while you were editing, so your changes were not written. Reload to continue from the current catalog — this discards them.',
-      reload: 'Discard and reload',
-      toast: 'The catalog changed elsewhere — reload before saving.',
     },
     search: {
       placeholder: 'Search title, short name, ID…',
@@ -276,12 +476,6 @@ export const platform = {
       advanced: 'Advanced',
       advancedHint:
         'Rarely needed. Every stored field stays editable here — including the ones the RIS search fills.',
-    },
-    delete: {
-      title: 'Delete entry?',
-      description: 'The entry leaves the catalog. It takes effect only once you save.',
-      confirm: 'Delete',
-      cancel: 'Cancel',
     },
     fields: {
       id: 'Catalog ID',
@@ -577,6 +771,56 @@ export const platform = {
       timing: 'The execution timeline of each turn: which step took how long and where it failed.',
     },
   },
+  /** Platform → Agents: connect your own assistant to the console and to the cluster's MCP servers. */
+  agents: {
+    urlLabel: 'MCP server address',
+    urlCode: 'MCP URL',
+    signIn:
+      'The client opens the WorkOS sign-in in your browser. Choose the platform organization there: with an office organization the server refuses.',
+    clients: {
+      claudeCode: { name: 'Claude Code', step: 'Add the server with this command, then pick it under /mcp:' },
+      cursor: { name: 'Cursor', step: 'Add the server to ~/.cursor/mcp.json:' },
+      other: {
+        name: 'Other clients',
+        step: 'Any client that speaks MCP over HTTP and signs in with OAuth can connect: add the address as a remote server.',
+      },
+    },
+    console: {
+      title: 'Operator console',
+      description:
+        'Your assistant works in this console as you do, through an MCP server of its own. Whatever the sections on the left can do, it can do.',
+      notConfiguredTitle: 'Not set up in this installation',
+      notConfiguredBody:
+        'The external sign-in for agents (WORKOS_AUTHKIT_DOMAIN) is missing here, so no assistant can connect.',
+      can: {
+        title: 'What your agent can do here',
+        organizations: 'Look at organizations and change their budgets, storage and upload limits',
+        models: 'Read and set default models, reasoning effort, retrieval settings and prices',
+        quality: 'Review answer quality, feedback, lessons and citation health',
+        knowledge: 'Maintain base knowledge, the norm catalog and skills',
+        maintenance: 'Maintenance: clean up the vector store, stop stuck research',
+      },
+      stays: {
+        title: 'What stays the same',
+        permissions: 'Your role decides: with Platform Support your agent only reads.',
+        confirm: 'A change that reaches every organization is one the client asks you to confirm first, each time.',
+        organization: 'Access is switched on for the platform organization only and works for no office organization.',
+      },
+    },
+    cluster: {
+      title: 'MCP servers in the cluster',
+      description:
+        "The team's services that run only inside the cluster, such as Langfuse, behind one gateway. The services stay private: your assistant signs in with WorkOS, and the gateway hands each service its own key, which you never see.",
+      serverLabel: 'Server {name}',
+      access:
+        'Only with the Platform owner role in the platform organization. Platform Support is refused, because the keys behind these servers also write, prompts in Langfuse for one.',
+      notDeployedTitle: 'Not rolled out in this environment',
+      notDeployedBody:
+        'The gateway does not run here (mcpGatewayEnabled is off). Until it is switched on, these servers are reached by port-forward only.',
+    },
+    runbook: 'Setup and checks',
+    runbookHint: 'For operations: WorkOS settings, stack keys and the checks after the first deploy.',
+  },
   nav: {
     label: 'Platform sections',
     scrollable: 'Platform sections, scrolls sideways',
@@ -596,8 +840,10 @@ export const platform = {
     cards: 'Cards',
     knowledge: 'Base knowledge',
     norms: 'Norm catalog',
+    countries: 'Countries',
     storage: 'Storage',
     maintenance: 'Maintenance',
+    agents: 'Agents',
   },
   answerFeedback: {
     title: 'Answer feedback',
@@ -830,6 +1076,10 @@ export const platform = {
       title: 'Base knowledge',
       subtitle: 'The shared OIB corpus every project grounds its answers on.',
     },
+    countries: {
+      title: 'Countries',
+      subtitle: 'Each country’s platform knowledge, and the review queue it changes through.',
+    },
     norms: {
       title: 'Norm catalog',
       subtitle: 'Which legal sources bind, how they are ranked, and where they live in RIS.',
@@ -843,6 +1093,10 @@ export const platform = {
       title: 'Maintenance',
       subtitle:
         'Two repairs that reach every organization: clean up the vector store and stop stuck research. Rarely needed.',
+    },
+    agents: {
+      title: 'Connect agents',
+      subtitle: 'Connect your own AI assistant to the operator console and to the MCP servers in the cluster.',
     },
   },
   /** Platform → lessons: the failure-learning register (bandage-framed). */
@@ -1180,7 +1434,7 @@ export const platform = {
     // Document types. The German dictionary mirrors the backend's
     // DOCUMENT_CLASS_LABELS (`lib/knowledge/doc-class.ts`).
     docClasses: {
-      oib_guideline: 'OIB directive (binding)',
+      oib_guideline: 'OIB directive',
       oib_guide: 'OIB guideline',
       oib_explanatory_note: 'OIB explanatory notes',
       oib_definitions: 'OIB definitions',
@@ -1376,7 +1630,7 @@ export const platform = {
     missingCited: '{turns} turn(s) · {organizations} org(s)',
     missingCaveat:
       'Each button opens the manager that owns the add flow and copies the identifier to your clipboard. A PDF has to come from you, and a norm-catalog entry needs its legal rank and Bundesland confirmed before {productName} may quote it as binding.',
-    missingReadOnly: 'Adding sources needs permission to manage platform settings.',
+    missingReadOnly: 'Adding sources needs permission to write platform knowledge, or to manage platform settings for the norm catalog.',
     shownOfTotal: 'Showing {shown} of {total}.',
     missingInventoryUnknown:
       'The platform inventory could not be checked, so it is unknown whether these sources are already held. Adding is hidden until the check works again.',

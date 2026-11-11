@@ -8,6 +8,7 @@ testpaths = [
     "evals",
     "packages/agent/tests",
     "packages/knowledge-layer/tests",
+    "packages/public-sources/tests",
     "packages/ris-adapter/tests",
     "packages/tavily-web-search/tests",
 ]
@@ -35,7 +36,7 @@ addopts = "--import-mode=importlib -m 'not live'"
 # The test-support packages come last: `<distribution>_testing`, one per suite
 # family, so a suite imports its helpers by a name that no directory move changes
 # (ADR-0145 row 5; tests/test_test_imports.py holds it).
-pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/agent/tests/testing"]
+pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/public-sources/testing", "packages/agent/tests/testing"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
@@ -66,7 +67,7 @@ target-version = "py314"
 [tool.ruff.per-file-target-version]
 "ci/**/*.py" = "py312"
 "scripts/check_*.py" = "py312"
-"scripts/release_notes.py" = "py312"
+"scripts/release_notes*.py" = "py312"
 "deploy/migration/**/*.py" = "py312"
 
 [tool.ruff.lint]
@@ -187,6 +188,9 @@ ignore_imports = [
   # The port: `agent.knowledge.factory` builds the BaseRetriever and
   # BaseIngestor the agent talks to, so it is the one module that should.
   "agent.knowledge.factory -> knowledge_layer.**",
+  # The licence port (ADR-0164): a document's licence, and a licensed passage's source
+  # for a later turn, read where the marks and the text live.
+  "agent.knowledge.licences -> knowledge_layer.estate",
   # Known bypasses of the port, from before this contract. Route each one
   # through the port and delete its line; a new one fails the build.
   "agent.agents.piloti.register -> knowledge_layer.chat_binding",
@@ -239,6 +243,7 @@ dev = [
     "agent",
     "tavily-web-search",
     "ris-adapter",
+    "public-sources",
     "knowledge-layer[all]",
     "agent-host",
     # The eval harness (evals/), so its tests and `task be:eval:*` import it
@@ -251,6 +256,8 @@ dev = [
     # Runs only the tests a pull request's change reaches (ci.yml `backend-affected`).
     "pytest-testmon>=2.2.0",
     "import-linter>=2.15",
+    # The oracle the German tax-ID check is held to (agent.common.de_numbers); tests only.
+    "python-stdnum>=1.20",
 ]
 
 [tool.uv]
@@ -284,6 +291,7 @@ members = [
     # pytest's testpaths and the Taskfile's PY_PACKAGES to one another.
     "packages/agent",
     "packages/knowledge-layer",
+    "packages/public-sources",
     "packages/ris-adapter",
     "packages/tavily-web-search",
     "apps/agent-host",
@@ -293,6 +301,7 @@ members = [
 agent = { workspace = true }
 tavily-web-search = { workspace = true }
 ris-adapter = { workspace = true }
+public-sources = { workspace = true }
 knowledge-layer = { workspace = true }
 agent-host = { workspace = true }
 oib-retrieval = { path = "evals/oib-retrieval", editable = true }

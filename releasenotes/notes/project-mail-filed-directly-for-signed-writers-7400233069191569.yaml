@@ -1,0 +1,34 @@
+---
+features:
+  - >
+    Mail you send to a project's address from your own office address is now
+    filed directly, as you, when your own domain signed it, it names the
+    project's address in To or Cc, and you may file in the project. Forward
+    the Behörde's letter and it is in the project, with anything lacking a
+    clear place or carrying a warning waiting for you in the E-Mail-Eingang.
+  - >
+    A mail carrying your address that could not be filed directly (your
+    domain did not confirm it, it is your Bcc copy, it reads as re-sent or
+    misdated, or it was sent automatically) waits for you alone, and the
+    Postfach asks whether you sent it. If your domain rejected
+    it outright, the E-Mail-Eingang says so in your own words.
+  - >
+    Your colleagues see such a mail under „Wartet auf andere“, with your name,
+    and can only dismiss it. The confirmation tells them that only you can
+    restore it.
+  - >
+    Each waiting mail says why it waits and what to do next, in the detail
+    and on its row. Mail from outside the office waits 14 days instead of 30,
+    then expires for good, and nobody outside the office is told anything.
+  - >
+    The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's
+    origin names who wrote it and who forwarded it. The project settings, the
+    address dialog and the guide on the website describe direct filing.
+  - >
+    The Postfach tells you when your own mail to a project waits, was filed,
+    was dismissed or expired, and tells everyone who may file in the project
+    when a mail waits for them.
+fixes:
+  - >
+    Filing an attachment the E-Mail-Eingang had suggested a folder for no
+    longer fails.

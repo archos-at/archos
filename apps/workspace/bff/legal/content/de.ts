@@ -12,7 +12,8 @@
  */
 
 import type { LegalContent } from '../types'
-import { PRODUCT_NAME } from '@/lib/brand'
+import { PRODUCT_NAME, withProductName } from '@/lib/brand'
+import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
 // Betreiber, Anschrift und Kontakt aus der einen Quelle der Marke (packages/brand/identity.json),
@@ -20,6 +21,9 @@ import identity from '@/shared/brand/identity.json'
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Österreich`
 const EMAIL = identity.email
+
+// Tabellen und Listen der Seite „Subunternehmer“, erzeugt aus configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
+const PAGE = withProductName(SUBPROCESSOR_PAGE.de)
 
 export const de: LegalContent = {
   imprint: {
@@ -63,7 +67,7 @@ export const de: LegalContent = {
 
   privacy: {
     title: 'Datenschutzerklärung',
-    updated: '2026-10-27',
+    updated: '2026-11-06',
     intro:
       'Diese Erklärung informiert gemäß Verordnung (EU) 2016/679 (DSGVO) darüber, wie personenbezogene Daten bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) verarbeitet werden.',
     sections: [
@@ -80,8 +84,9 @@ export const de: LegalContent = {
           'Konto- und Organisationsdaten: Name, E-Mail-Adresse, Organisationszugehörigkeit, Rollen und Berechtigungen. Die Identitätsverwaltung erfolgt über unseren Identitätsdienstleister WorkOS (AuthKit); wir führen bewusst keine eigene lokale Kopie Ihres Identitätsprofils.',
           'Inhaltsdaten: Ihre Chat-Fragen und die für Sie erzeugten Antworten, Rechercheberichte, von Ihnen hochgeladene Projektdokumente (Pläne, Bescheide, Spezifikationen — die selbst personenbezogene Daten enthalten können) sowie aus Ihren Interaktionen abgeleitete Projekt- und Organisationsnotizen (Memory).',
           'Nutzungs- und Abrechnungsdaten: ein Nutzungsledger, das je KI-Anfrage das angeforderte und das tatsächlich antwortende KI-Modell, Token-Zahlen und Kosten erfasst, zugeordnet zu Organisation, Projekt und Nutzer.',
-          'Audit-Daten: privilegierte administrative Aktionen (z. B. Modellkonfigurations-Änderungen, Budgetänderungen, Löschungen, Legal Holds) werden mit handelnder Person, Zeitstempel, IP-Adresse und User-Agent protokolliert.',
+          'Audit-Daten: privilegierte administrative Aktionen (z. B. Modellkonfigurations-Änderungen, Budgetänderungen, Löschungen, Legal Holds) werden mit handelnder Person, Zeitstempel, IP-Adresse und User-Agent protokolliert. Der Audit-Trail wird bei WorkOS gespeichert; Ereignisse zu Projekten und Dokumenten enthalten deren Namen, soweit die Ablage für alle Projektmitglieder sichtbar ist.',
           'Technische Daten: Server-Logs, Session-Cookie (Authentifizierung), Cookie für die Spracheinstellung.',
+          'E-Mails an Projektadressen (nur wenn Ihre Organisation die Funktion freigeschaltet hat): E-Mails, die jemand an die E-Mail-Adresse eines Projekts sendet, mit Absender, Empfängern, Betreff, Text, Anhängen und dem Ergebnis der Absenderprüfung (DKIM/DMARC). Sie warten im E-Mail-Eingang des Projekts, bis eine berechtigte Person sie ablegt oder verwirft; abgelegte E-Mails werden Teil der Projektunterlagen, und ihr Original (.eml) wird als Nachweis neben dem E-Mail-Verlauf aufbewahrt. Für diese E-Mails ist die Organisation, die die Adresse bereitstellt, verantwortlich.',
           'Nutzungs- und Gerätedaten (Produktanalyse): Ihre Nutzer-ID (die pseudonyme WorkOS-Kennung), die Kennung und der Name Ihrer Organisation sowie Ihre Rolle; aufgerufene Seiten, Klicks (ohne die Beschriftung der angeklickten Elemente) und Bedienereignisse (z. B. Frage gesendet, Dokument hochgeladen, Export); Browser-, Geräte- und Spracheinstellungen; Fehlermeldungen mit technischem Kontext; bei aufgezeichneten Sitzungen eine Wiedergabe Ihrer Bildschirmansicht, in der Texte und Eingaben maskiert sind und in der Bilder, die PDF-Ansicht und die IFC-Modellansicht nicht aufgezeichnet werden; Antworten auf Umfragen und Nachrichten an den Support, soweit Sie diese absenden. Ihre E-Mail-Adresse und Ihr Name werden nicht an die Produktanalyse übermittelt. Passwörter, API-Schlüssel und Zugangsdaten werden nie erfasst.',
         ],
       },
@@ -98,8 +103,9 @@ export const de: LegalContent = {
       {
         heading: '4. KI-Verarbeitung und Empfänger Ihrer Inhalte',
         paragraphs: [
-          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, relevante Auszüge Ihrer hochgeladenen Dokumente und abgerufene Vorschriftenpassagen über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt.',
+          'Zur Erzeugung von Antworten werden Ihre Chat-Nachrichten, die Inhalte Ihrer hochgeladenen Dokumente, die eine Frage braucht (gefundene Passagen, bei Bedarf ganze Seiten oder Abschnitte), und abgerufene Vorschriften über das API-Gateway OpenRouter, Inc. (USA) an externe KI-Modellanbieter übermittelt. Beim Einlesen eines Dokuments läuft jede Seite einmal durch ein KI-Modell (Texterkennung und Suchindex), stets bei Anbietern ohne Datenspeicherung. Aus Ihren Fragen abgeleitete Web-Recherche-Anfragen gehen an den Suchdienst Tavily. Identität und Anmeldung werden von WorkOS, Inc. (USA) abgewickelt. Wenn Sie im Chat diktieren, geht die Audioaufnahme über OpenRouter an ein Transkriptionsmodell (ElevenLabs, USA). Bei der Adresssuche geht die eingetippte Adresse an den öffentlichen Photon-Dienst der komoot GmbH (Deutschland).',
           'Für Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Umfragen und Support setzen wir PostHog ein (PostHog, Inc.; Datenspeicherung in der EU-Cloud, Frankfurt am Main). PostHog verarbeitet diese Daten in unserem Auftrag auf Grundlage eines Auftragsverarbeitungsvertrags (Art. 28 DSGVO). Zusätzlich übernimmt PostHog von unserem Tracing-System Langfuse Metadaten zu KI-Anfragen (Zeitpunkt, Modell, Dauer, Token-Zahlen, Kosten, Bezeichnung der Verarbeitungsschritte) und die Bewertungen, die Sie zu Antworten abgeben, einschließlich Ihres Kommentars. Chat-Nachrichten, Antworten und Dokumentinhalte gehören nicht dazu.',
+          'E-Mails an Projektadressen: Solange eine E-Mail im E-Mail-Eingang wartet, liest kein KI-Modell ihren Text oder ihre Anhänge. Für einen Ablagevorschlag erhält das KI-Modell nur Dateinamen der Anhänge, die die Namensprüfung bestanden haben, den Betreff (maskiert durch die Inhaltsprüfung Ihrer Organisation) und die Absender-Domain, dazu die Ordner, die alle Projektmitglieder sehen, und die Ablagegewohnheiten Ihrer Organisation; für E-Mails von nicht bestätigten Domains und automatische E-Mails gibt es keinen Vorschlag. Erst abgelegte E-Mails werden wie andere Projektdokumente verarbeitet. Das Original (.eml) einer E-Mail erhält kein KI-Modell. E-Mails erreichen ' + PRODUCT_NAME + ' über Cloudflare, Inc. (USA, Weiterleitung); Anhänge und Originale werden in unserer eigenen Infrastruktur auf Schadsoftware geprüft (ClamAV).',
         ],
         notice:
           'Wichtig: Welches KI-Modell — und damit welcher vorgelagerte Modellanbieter (z. B. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral und weitere im OpenRouter-Katalog gelistete Anbieter) — Ihre Anfragen verarbeitet, kann von den Administratorinnen und Administratoren Ihrer Organisation zur Laufzeit konfiguriert werden. Der gesamte KI-Verkehr läuft stets über OpenRouter und niemals über ein anderes Gateway; der tatsächliche nachgelagerte Anbieter — und damit der Ort dieser Verarbeitung (auch außerhalb der EU/des EWR möglich) — hängt jedoch vom Modell ab, das Ihre Organisation auswählt. Jede Modelländerung wird validiert, versioniert, der handelnden Administratorin bzw. dem Administrator zugeordnet und ist nachvollziehbar; das Modell, das eine Anfrage tatsächlich beantwortet hat, wird protokolliert. Die aktuelle Liste externer Dienste finden Sie auf der Seite „Subunternehmer".',
@@ -115,6 +121,7 @@ export const de: LegalContent = {
         heading: '6. Speicherung, Aufbewahrung und Löschung',
         paragraphs: [
           'Projektinhalte werden in unserer Anwendungsdatenbank, im Objektspeicher (hochgeladene Dokumente) und in einem Vektorindex (Dokument-Embeddings) gespeichert — alles in eigener Infrastruktur betrieben. Beim Löschen eines Projekts wird es zunächst als gelöscht markiert und ist während einer Karenzfrist wiederherstellbar; danach entfernt eine automatisierte Bereinigung es dauerhaft aus allen Speichern (Datenbank, Objektspeicher, Vektorindex und zugehörige Berechtigungsdatensätze). Die Löschung kann durch einen Legal Hold (Einschränkung nach Art. 18 DSGVO) ausgesetzt werden, den die Compliance-Rolle Ihrer Organisation setzt; jedes Setzen und Aufheben wird im Audit-Trail protokolliert.',
+          'Eine E-Mail an eine Projektadresse wartet höchstens 30 Tage im E-Mail-Eingang; verworfene oder abgelaufene Teile lassen sich 7 Tage wiederherstellen und werden danach gelöscht, ebenso das Original einer E-Mail, deren Text nicht abgelegt wurde. Das Original einer abgelegten E-Mail wird so lange aufbewahrt wie der E-Mail-Verlauf, zu dem sie gehört. Ein Legal Hold auf das Projekt oder etwas darin setzt diese Löschungen aus.',
           'Nutzungsledger- und Audit-Datensätze werden zu Rechenschafts- und Abrechnungszwecken so lange aufbewahrt, wie es der Vertrag der Organisation und gesetzliche Aufbewahrungsfristen erfordern.',
           'Bei PostHog werden Produktanalyse-Ereignisse (einschließlich Fehlerberichten, Umfrageantworten und den aus Langfuse übernommenen KI-Metadaten) bis zu 12 Monate und Sitzungsaufzeichnungen bis zu 30 Tage gespeichert. Nachrichten an den Support bleiben bis zu ihrer Löschung durch uns erhalten. Auf Ihren Wunsch löschen wir die zu Ihrer Nutzer-ID bei PostHog gespeicherten Daten.',
         ],
@@ -270,133 +277,41 @@ export const de: LegalContent = {
 
   subprocessors: {
     title: 'Externe Dienste & Subunternehmer',
-    updated: '2026-10-29',
+    updated: '2026-11-06',
     intro:
       'Alle externen Dienste, die bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) Daten verarbeiten können, sowie die vom Betreiber selbst betriebene Infrastruktur. Diese Seite setzt die in der Datenschutzerklärung genannte Transparenzzusage um.',
     sections: [
       {
         heading: 'Externe Auftragsverarbeiter',
-        table: {
-          headers: ['Dienst', 'Zweck', 'Verarbeitete Daten', 'Standort', 'Erforderlich?'],
-          rows: [
-            [
-              'WorkOS, Inc.',
-              'Identität & Anmeldung (SSO, MFA), Autorisierung, Audit-Log-Speicherung',
-              'Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse)',
-              'USA',
-              'Ja',
-            ],
-            [
-              'PostHog, Inc.',
-              'Produktanalyse, Sitzungsaufzeichnung, Fehlererfassung, Umfragen, Support',
-              'Nutzer-ID (WorkOS), Organisations-ID und -Name, Rolle, Sprache, Seitenaufrufe, Bedienereignisse, Geräte- und Browserangaben, Fehlerberichte, maskierte Sitzungsaufzeichnungen, Umfrageantworten und Support-Nachrichten; KI-Metadaten und Antwort-Bewertungen aus Langfuse. Keine E-Mail-Adresse, kein Name',
-              'EU (Frankfurt); Konzern mit Sitz in den USA',
-              'Ja (Produktanalyse, Fehlererfassung); Sitzungsaufzeichnung nur stichprobenweise und nur falls aktiviert; abschaltbar in den Profil-Einstellungen',
-            ],
-            [
-              'OpenRouter, Inc.',
-              'KI-Gateway für alle Sprachmodell-, Embedding- und Bildmodell-Anfragen',
-              'Chat-Nachrichten, Dokumentauszüge, abgerufene Vorschriftenpassagen, erzeugte Antworten',
-              'USA (Gateway); vorgelagerter Modellanbieter variiert — siehe Hinweis unten',
-              'Ja',
-            ],
-            [
-              'Vorgelagerte KI-Modellanbieter (via OpenRouter, z. B. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral)',
-              'Betrieb des von Ihrer Organisation gewählten KI-Modells',
-              'Gleiche Inhalte wie OpenRouter',
-              'Abhängig vom gewählten Modell (auch außerhalb EU/EWR möglich)',
-              'Jeweils eines, je Organisation gewählt',
-            ],
-            [
-              'Tavily',
-              'Websuche für Recherchefragen',
-              'Aus Ihren Fragen abgeleitete (KI-generierte) Suchanfragen',
-              'USA',
-              'Ja (für Web-Recherche)',
-            ],
-            [
-              'Weitere Suchdienste (Exa, Serper/Google Scholar, DuckDuckGo, Polymarket)',
-              'Alternative/optionale Suchwerkzeuge',
-              'Aus Ihren Fragen abgeleitete Suchanfragen',
-              'USA / verschieden',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              'Modal Labs',
-              'Isolierte Code-Ausführung bei Tiefenrecherchen',
-              'Code und Daten, die der Recherche-Agent ausführt',
-              'USA',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              'NVIDIA (integrate.api.nvidia.com)',
-              'Embeddings und Bild-/Tabellenextraktion aus Dokumenten (Standardkonfiguration; die Produktions-Referenzkonfiguration leitet dies stattdessen über OpenRouter)',
-              'Dokument-Textabschnitte und Seitenbilder',
-              'USA',
-              'Abhängig von der Deployment-Konfiguration',
-            ],
-            [
-              'Moonshot AI (Kimi)',
-              'Alternative KI-Modellkonfiguration',
-              'Chat-Nachrichten und Dokumentauszüge',
-              'China',
-              'Optional (Nicht-Standard-Konfiguration)',
-            ],
-            [
-              'OpenAI, Inc. (direkt)',
-              'Alternative Modellkonfiguration; Fallback für die Projekt-Zusammenfassung',
-              'Chat-Nachrichten, Dokumentauszüge, Projektprofil-Text',
-              'USA',
-              'Optional (nur falls konfiguriert)',
-            ],
-            [
-              // Anbieter und Ort wie auf der Website (apps/website/src/i18n/pages/security.ts) und in docs/deployment/kubernetes.md.
-              'IPAX (Hosting-Anbieter)',
-              'Betrieb der Anwendung, Datenbanken und des Objektspeichers',
-              'Alle Anwendungsdaten',
-              'Österreich (Wien)',
-              'Ja',
-            ],
-          ],
-        },
+        // Zeilen aus dem Datenfluss-Register (configs/subprocessors/*.yaml), nicht hier bearbeiten.
+        table: PAGE.processors,
         notice:
           'Dynamische Modellanbieter: Da Organisations-Administratorinnen und -Administratoren das KI-Modell zur Laufzeit wechseln können (siehe KI-Transparenzhinweis), ist der tatsächliche vorgelagerte Modellanbieter nicht fest. Der gesamte KI-Verkehr läuft stets über OpenRouter; die Menge möglicher vorgelagerter Anbieter ist auf den OpenRouter-Katalog beschränkt; die für Ihre Organisation aktive Auswahl ist für Ihre Administratorinnen und Administratoren einsehbar, jede Änderung wird audit-protokolliert, und das antwortende Modell wird je Anfrage festgehalten.',
       },
       {
         heading: 'Selbst betriebene Infrastruktur (keine Drittverarbeitung)',
-        table: {
-          headers: ['Komponente', 'Zweck', 'Gespeicherte Daten'],
-          rows: [
-            ['PostgreSQL', 'Anwendungsdatenbank', 'Projekte, Konversationen, Memory, Nutzungsledger, Konfiguration'],
-            ['SeaweedFS (S3-kompatibel)', 'Objektspeicher', 'Hochgeladene Dokumente'],
-            ['ChromaDB', 'Vektorindex', 'Embeddings von Dokumenten und Vorschriften'],
-            ['Dragonfly (Redis-kompatibel)', 'Cache, Rate-Limiting', 'Kurzlebige Betriebsdaten'],
-          ],
-        },
+        table: PAGE.selfHosted,
       },
       {
-        heading: 'Optionale Telemetrie (standardmäßig deaktiviert)',
+        heading: 'Öffentliche Rechtsquellen (keine Auftragsverarbeiter)',
         paragraphs: [
-          'Die Codebasis unterstützt optionale Tracing-/Monitoring-Integrationen, die inaktiv sind, solange der Betreiber sie nicht ausdrücklich konfiguriert. Wird eine davon für ein Deployment aktiviert, wird diese Seite entsprechend aktualisiert, denn sie würden die unten genannten Daten erhalten:',
+          'Für Antworten zum Baurecht ruft ' + PRODUCT_NAME + ' öffentliche Rechtsquellen ab. Diese Stellen erhalten Suchbegriffe und Kennungen von Vorschriften, keine Dokumente Ihrer Organisation:',
         ],
-        list: [
-          'LangSmith (LangChain, USA) — vollständige KI-Eingaben und -Antworten, falls Tracing aktiviert wird.',
-          'OpenTelemetry/Phoenix-Trace-Export — KI-Anfrage-Traces, nur an einen vom Betreiber konfigurierten Endpunkt.',
-          'Datadog RUM (USA) — Browser-Performance-/Nutzungstelemetrie, falls vom Deployment eingebunden.',
-          'Weights & Biases (USA) — Evaluierungsläufe; derzeit mit keinem Codepfad verbunden.',
+        list: PAGE.publicSources,
+      },
+      {
+        heading: 'Unterstützt, aber nicht in Gebrauch',
+        paragraphs: [
+          'Die Codebasis kann die folgenden Dienste ansprechen; keiner ist in Gebrauch. Ein Deployment, in dem sich Personen anmelden, startet nicht, solange einer davon konfiguriert ist, ohne zuvor oben als Auftragsverarbeiter gelistet zu sein. Sie würden die genannten Daten erhalten:',
         ],
+        list: PAGE.latent,
       },
       {
         heading: 'Entwicklungs- und Build-Dienste (keine Nutzerinhalte)',
         paragraphs: [
-          'Die folgenden Dienste werden für Entwicklung und Build von ' + PRODUCT_NAME + ' genutzt. Sie verarbeiten Quellcode und Build-Artefakte, niemals Ihre Eingaben, Dokumente oder Kontodaten:',
+          'Die folgenden Dienste werden für Entwicklung, Build und Betrieb von ' + PRODUCT_NAME + ' genutzt. Sie verarbeiten Quellcode, Build-Artefakte und Domainnamen, niemals Ihre Eingaben, Dokumente oder Kontodaten:',
         ],
-        list: [
-          'GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.',
-          'SonarSource / SonarQube Cloud (EU/CH) — statische Analyse des Quellcodes.',
-          'Paket-Registries und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build-Zeit geladen werden.',
-          'Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von ' + PRODUCT_NAME + ' niemals Google.',
-        ],
+        list: PAGE.build,
       },
       {
         heading: 'Änderungen dieser Liste',

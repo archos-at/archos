@@ -22,8 +22,8 @@ describe('DocumentTagsEditor', () => {
   it('renders the initial tags as removable chips', () => {
     render(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss', 'Brandschutz']} />)
 
-    expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeInTheDocument()
   })
 
   it('offers the add-tag input when there are no tags yet', () => {
@@ -50,7 +50,7 @@ describe('DocumentTagsEditor', () => {
 
     // Optimistic: the new chip is present immediately.
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeInTheDocument()
     )
 
     const call = tagsCall(fetchMock)
@@ -68,14 +68,43 @@ describe('DocumentTagsEditor', () => {
     render(<DocumentTagsEditor fileId="doc-1" initialTags={[]} />)
 
     await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'schall')
-    await user.click(await screen.findByRole('button', { name: 'Schallschutz' }))
+    await user.click(await screen.findByRole('button', { name: 'Sound protection' }))
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Schallschutz' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove tag Sound protection' })).toBeInTheDocument()
     )
     expect(JSON.parse((tagsCall(fetchMock)![1] as RequestInit).body as string)).toEqual({
       tags: ['Schallschutz'],
     })
+  })
+
+  it('shows a token by its label and stores the token when a person types the label', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse)
+
+    render(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss']} />)
+
+    // A person types what they read, never the stored token.
+    await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'Correspondence{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove tag Correspondence' })).toBeInTheDocument()
+    )
+    expect(screen.queryByText('correspondence')).toBeNull()
+    expect(JSON.parse((tagsCall(fetchMock)![1] as RequestInit).body as string)).toEqual({
+      tags: ['Grundriss', 'correspondence'],
+    })
+  })
+
+  it('narrows the suggestions by the label, not the token', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse)
+
+    render(<DocumentTagsEditor fileId="doc-1" initialTags={[]} />)
+
+    await user.type(screen.getByRole('textbox', { name: /add tag/i }), 'corresp')
+
+    expect(await screen.findByRole('button', { name: 'Correspondence' })).toBeInTheDocument()
   })
 
   it('does not add free-form values outside the controlled vocabulary', async () => {
@@ -96,10 +125,10 @@ describe('DocumentTagsEditor', () => {
 
     render(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss', 'Brandschutz']} />)
 
-    await user.click(screen.getByRole('button', { name: 'Remove tag Brandschutz' }))
+    await user.click(screen.getByRole('button', { name: 'Remove tag Fire safety' }))
 
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Remove tag Brandschutz' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()
     )
     const call = tagsCall(fetchMock)
     expect(call![1]).toMatchObject({ method: 'PATCH' })
@@ -143,19 +172,19 @@ describe('DocumentTagsEditor', () => {
     // (Query the chip via its remove affordance — the plain text also occurs
     // in the suggestion list while the input is focused.)
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Remove tag Brandschutz' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()
     )
-    expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeInTheDocument()
     expect(onTagsUpdated).not.toHaveBeenCalled()
   })
 
   it('adopts tags that arrive after it was rendered', () => {
     const { rerender } = render(<DocumentTagsEditor fileId="doc-1" initialTags={[]} />)
-    expect(screen.queryByRole('button', { name: 'Remove tag Brandschutz' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()
 
     rerender(<DocumentTagsEditor fileId="doc-1" initialTags={['Brandschutz']} />)
 
-    expect(screen.getByRole('button', { name: 'Remove tag Brandschutz' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove tag Fire safety' })).toBeInTheDocument()
   })
 
   it('does not let tags from a read replace a save that is still in flight', async () => {
@@ -169,17 +198,17 @@ describe('DocumentTagsEditor', () => {
     const { rerender } = render(
       <DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss', 'Brandschutz']} />
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Remove tag Brandschutz' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tag Fire safety' }))
 
     // A poll that read the row before the save landed.
     rerender(<DocumentTagsEditor fileId="doc-1" initialTags={['Grundriss', 'Brandschutz', 'Statik']} />)
 
-    expect(screen.queryByRole('button', { name: 'Remove tag Brandschutz' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove tag Fire safety' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Remove tag Statik' })).toBeNull()
 
     finishSave(okResponse)
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove tag Grundriss' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove tag Floor plan' })).toBeInTheDocument()
     )
   })
 })

@@ -1,6 +1,6 @@
 /**
  * The vocabulary of the BFF job queue (ADR-0079): which kinds of job exist, what
- * a job's payload holds, and who asked for it.
+ * a job's payload holds, and who asked for it (`./requester.ts`).
  *
  * A payload is the job's whole state. It carries what was asked for AND how far
  * the job has got, because a job outlives the process that started it: the
@@ -10,8 +10,8 @@
  */
 
 import { z } from 'zod'
-import type { AuthorizedSession } from '@/lib/auth/types'
 import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/db/schema/bff-job-queue'
+import { requesterSchema } from './requester'
 
 /**
  * The kinds a `bff-jobs` worker knows how to run. A new kind is added here, as a
@@ -53,9 +53,28 @@ import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/db/schema/bff-job-q
  * where they disagree. Sliced: the first slice starts the turn, the next ones
  * wait (`notBefore`) for its answer and leave what it found. Does nothing when
  * the organization's `piloti-notices` is off.
+ *
+ * The five `inbound_mail_*` kinds carry a mail sent to a project's address
+ * (ADR-0137), and who each runs as is the point of the design: nothing that
+ * runs as the system files. `inbound_mail_receive` is one step AS THE SYSTEM
+ * (`SYSTEM_ACTORS.inboundMail`): it reads, scans, labels and holds a mail for a
+ * person, and decides nothing a person would. `inbound_mail_suggest` is one
+ * step as the system too: The agent's placement suggestion from names and
+ * metadata, a proposal only. `inbound_mail_file` runs AS THE PERSON who decided
+ * (`requester`), resolved per slice, because filing is their upload, with their
+ * rights, quota and screening. `inbound_mail_follow` runs AS THE FOLLOWER: their
+ * standing decision to append a conversation's verified replies, re-checked as
+ * them before anything is written. `inbound_mail_sender_file` runs AS THE
+ * SENDER of a verified writer's mail (ADR-0137's amendment): the member whose
+ * domain signed it and who may write in the project, resolved and re-checked
+ * as them before their own mail is filed in their name.
+ *
  * `search_facets_sync` walks one shelf's documents a page per slice as the
  * system (ADR-0136): it rewrites their derived search rows from the reading the
  * agent stored, and decides nothing about who may read them.
+ * `platform_text_index` is one step as the system (ADR-0165): a published
+ * platform text handed to the base corpus, its run marked with the answer.
+ *
  * The other three are one bounded step each and run as the system, because the
  * person's permission was checked when the work was requested and what they do
  * afterwards takes no session: parsing a model, converting a file, rendering
@@ -80,7 +99,14 @@ export const BFF_JOB_KINDS = [
   'annotation_due_reminders',
   'revision_notice',
   'document_check',
+  'inbound_mail_receive',
+  'inbound_mail_suggest',
+  'inbound_mail_file',
+  'inbound_mail_follow',
+  'inbound_mail_sender_file',
   'search_facets_sync',
+  'platform_text_index',
+  'platform_text_deindex',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 
@@ -91,60 +117,7 @@ export function isBffJobKind(value: string): value is BffJobKind {
 export { BFF_JOB_PRIORITY }
 export type { BffJobPriority }
 
-/**
- * The person a job runs on behalf of, as the permission checks need them.
- *
- * The job is authorized when it is enqueued, by the route that took the request.
- * What travels here says WHO asked; the walks that run as a person
- * (`reindex_project`, `reingest_failed`, `restore_folder_bin`) do not trust
- * the rest of it: `handlers.ts` resolves the person's membership and role
- * again before every slice, so a role revoked while the job waited ends it. Only `file_research_report`, a one-step job a
- * reader's request authorizes up front, files on the snapshot. It is NOT a
- * session token. The worker has no access token and nothing here can be
- * replayed against WorkOS; a project or resource check asks WorkOS live, by the
- * membership id, as it does for a request.
- */
-export const requesterSchema = z.object({
-  userId: z.string().min(1),
-  email: z.string(),
-  organizationMembershipId: z.string().min(1),
-  role: z.string().min(1),
-  permissions: z.array(z.string()),
-  /**
-   * The feature flags the person's session carried, for the one kind that is
-   * gated on them when it files a document (`file_research_report`). Optional
-   * because a payload stored before it existed has none, and a job that does
-   * not file reads nothing from it.
-   */
-  featureFlags: z.array(z.string()).nullable().optional(),
-})
-export type JobRequester = z.infer<typeof requesterSchema>
-
-export function requesterOf(session: AuthorizedSession): JobRequester {
-  return {
-    userId: session.userId,
-    email: session.email,
-    organizationMembershipId: session.organizationMembershipId,
-    role: session.role,
-    permissions: session.permissions,
-    ...(session.featureFlags ? { featureFlags: session.featureFlags } : {}),
-  }
-}
-
-/** The session a slice runs as: the requester's identity in the job's organization, with no access token. */
-export function sessionOf(requester: JobRequester, organizationId: string): AuthorizedSession {
-  return {
-    userId: requester.userId,
-    email: requester.email,
-    name: null,
-    accessToken: '',
-    organizationId,
-    organizationMembershipId: requester.organizationMembershipId,
-    role: requester.role,
-    permissions: requester.permissions,
-    featureFlags: requester.featureFlags ?? null,
-  }
-}
+export { requesterOf, requesterSchema, sessionOf, type JobRequester } from './requester'
 
 /** One document-list keyset position (`documents/list-cursor.ts`). */
 const cursorSchema = z.object({ createdAt: z.string(), id: z.string() })
@@ -299,12 +272,28 @@ export const officeRenditionPayloadSchema = documentWorkPayloadSchema.extend({
     .optional(),
   /** The older file this upload was filed as the new Fassung of (ADR-0099); absent for every other. */
   revisionOf: z.string().nullable().optional(),
+  /** The older document's id beside `revisionOf`, recorded for a reviewer's release (`filing-choice`). */
+  revisionOfId: z.string().uuid().nullable().optional(),
   /**
    * The key a job queued before the rename carries (migration 0165 era). The queue
    * outlives a deploy, so a claimed job may still hold it; the consumer reads
    * `revisionOf ?? fassungOf`, and nothing writes this key again. Remove after one release.
    */
   fassungOf: z.string().nullable().optional(),
+  /**
+   * The document type the filing chose (`ShelfUploadInput.documentType`); absent for every other.
+   * A string here, read through the vocabulary by the consumer (`runOfficeRenditionJob`): a value
+   * a job queued before a vocabulary change still holds reads as no choice, so the classifier types
+   * the file, rather than failing the job's parse or sending a type `POST /v1/ingest` refuses.
+   */
+  documentType: z.string().nullable().optional(),
+  /**
+   * A filed mail's facts (`ShelfUploadInput.mailThread`, `.mailOrigin`, ADR-0137); absent for every other.
+   * Unknown here, parsed by the consumer against `lib/mail-thread/ingest-facts`: a record a job queued
+   * before a contract change reads as none rather than failing the job or the backend's 422.
+   */
+  mailThread: z.unknown().optional(),
+  mailOrigin: z.unknown().optional(),
 })
 export type OfficeRenditionPayload = z.infer<typeof officeRenditionPayloadSchema>
 
@@ -492,6 +481,82 @@ export const documentCheckPayloadSchema = z.object({
   waits: z.number().int().nonnegative(),
 })
 export type DocumentCheckPayload = z.infer<typeof documentCheckPayloadSchema>
+
+/**
+ * `inbound_mail_receive`: read, scan, label and hold one mail the webhook
+ * staged (ADR-0137, `lib/inbound-mail/receive-job.ts`). The job id is the
+ * mail's id, so the webhook's enqueue and the sweep's re-enqueue of a mail left
+ * `received` are one job. Ids only: everything else is on the row and in the
+ * staged message. `faults` counts the dependency faults it waited out, and
+ * `dkimFaults` the DNS faults of sender authentication, which have a smaller
+ * budget of their own (`lib/inbound-mail/receive-faults.ts`); both absent on
+ * the first run.
+ */
+export const inboundMailReceivePayloadSchema = z.object({
+  mailId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  faults: z.number().int().nonnegative().max(100).optional(),
+  dkimFaults: z.number().int().nonnegative().max(100).optional(),
+})
+export type InboundMailReceivePayload = z.infer<typeof inboundMailReceivePayloadSchema>
+
+/**
+ * `inbound_mail_suggest`: The agent's placement suggestion for a held mail's
+ * parts, from names and metadata only (D21). Job id uuid5 of the mail
+ * (`inboundMailJobId`). Ids only.
+ */
+export const inboundMailSuggestPayloadSchema = z.object({
+  mailId: z.string().uuid(),
+  projectId: z.string().uuid(),
+})
+export type InboundMailSuggestPayload = z.infer<typeof inboundMailSuggestPayloadSchema>
+
+/**
+ * `inbound_mail_file`: file the parts a person decided on, as that person
+ * (D26). What to do is on the decision rows the parts name, never here: the
+ * payload says only which mails and who. A run files only decisions its
+ * requester made, and, when `decisionIds` is given, only those (the follow
+ * job names its own): a decision another person made on the same mail is
+ * filed by that person's run.
+ */
+export const inboundMailFilePayloadSchema = z.object({
+  projectId: z.string().uuid(),
+  mailIds: z.array(z.string().uuid()).min(1).max(20),
+  decisionIds: z.array(z.string().uuid()).min(1).max(2_020).optional(),
+  requester: requesterSchema,
+})
+export type InboundMailFilePayload = z.infer<typeof inboundMailFilePayloadSchema>
+
+/**
+ * `inbound_mail_follow`: append a reply's text to a followed thread, as the
+ * follower (D31). Queued by the receive job only when conditions 1–6 held
+ * (`followEligibility`); the job re-checks all nine as the follower. Job id
+ * uuid5 of the mail. `followId` and `requester` are the follow and follower
+ * the receive job saw: the job resolves the follower of the follow that holds
+ * when it runs (`follow-job.ts`), so a follow ended in between appends nothing.
+ */
+export const inboundMailFollowPayloadSchema = z.object({
+  projectId: z.string().uuid(),
+  mailId: z.string().uuid(),
+  followId: z.string().uuid(),
+  requester: requesterSchema,
+})
+export type InboundMailFollowPayload = z.infer<typeof inboundMailFollowPayloadSchema>
+
+/**
+ * `inbound_mail_sender_file`: file a verified writer's mail as its sender
+ * (ADR-0137, amendment of 2026-11-03; `lib/inbound-mail/sender-file-job.ts`).
+ * Queued by the receive job only for `sender_class = 'verified_writer'`; the
+ * job reads the sender off the mail's frozen verdict, never from here. Job id
+ * uuid5 of the mail. `waits` counts the slices spent waiting for the agent's
+ * suggestion.
+ */
+export const inboundMailSenderFilePayloadSchema = z.object({
+  mailId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  waits: z.number().int().nonnegative(),
+})
+export type InboundMailSenderFilePayload = z.infer<typeof inboundMailSenderFilePayloadSchema>
 
 /** What a one-step job is told about the attempt it is running. */
 export interface JobAttempt {

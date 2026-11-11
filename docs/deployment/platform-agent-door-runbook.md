@@ -46,7 +46,7 @@ deletes) are marked destructive, so the client asks before each one.
 | Answer | Cause |
 |---|---|
 | 401 `invalid_token` | No token, an expired one, or a token for an office door (`/api/mcp`, `/api/a2a`). Sign in again to this URL |
-| 403 "takes tokens of the GRID Platform organization only" | The sign-in picked an office. Sign in again in GRID Platform |
+| 403 "not a member of the GRID Platform organization" | The person has no platform membership. The organization picked at sign-in does not matter (ADR-0126, amended 2026-11-05) |
 | 403 "not enabled" | `platform-agent-mcp` is off for the GRID Platform organization |
 | 403 "no platform permission" | The person holds no platform role |
 | 503 | WorkOS did not answer, or the platform organization is not provisioned. Retry; then check `PLATFORM_ORG_EXTERNAL_ID` |

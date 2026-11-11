@@ -5,7 +5,7 @@ ingestion time:
 
 1. A one-sentence summary (``summarize_document_text``) — surfaced in the Files
    metadata panel and in the per-turn ``available_documents`` prompt line.
-2. A controlled set of German document tags (``classify_document_tags``) —
+2. A controlled set of document tags (``classify_document_tags``) —
    document type + OIB discipline — stored alongside the summary.
 
 The ingestor supplies the extracted text; everything downstream of it — the
@@ -38,6 +38,15 @@ from collections.abc import Iterable
 from collections.abc import Sequence
 
 from agent.common.message_utils import response_text
+from agent.knowledge.doc_class_vocabulary import DEFAULT_DOC_CLASS  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASS_LABELS  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASS_LANES  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASSES  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import LEGACY_DOC_CLASSES  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import QDRANT_DOC_CLASSES  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import canonical_doc_class  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import is_valid_doc_class  # noqa: F401
+from agent.knowledge.doc_class_vocabulary import qdrant_doc_class  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +64,16 @@ CLASSIFY_MAX_INPUT_CHARS = 4000
 
 # 1–2 of these describe what the document *is*. Ordered + immutable so the
 # prompt renders deterministically and callers cannot mutate the vocabulary.
+#
+# A stored tag is a token, and a token is English: ``correspondence`` is the
+# first one, and a person reads it through i18n („Korrespondenz“, the UI's
+# ``files.documentTag`` dictionary). The German values beside it predate that
+# rule and are stored as such in the metadata database and in every vector
+# payload; their rename to English tokens, with a legacy read mapping like
+# ``LEGACY_DOC_CLASSES``, is one change of its own across both stores, the
+# prompts and the UI, not a side effect of adding a type.
+CORRESPONDENCE_TAG = "correspondence"
+
 DOCUMENT_TYPE_TAGS: tuple[str, ...] = (
     "Bebauungsplan",
     "Flächenwidmungsplan",
@@ -66,6 +85,7 @@ DOCUMENT_TYPE_TAGS: tuple[str, ...] = (
     "Bescheid",
     "Norm/Richtlinie",
     "Vertrag",
+    CORRESPONDENCE_TAG,
     "Foto",
     "Sonstiges",
 )
@@ -88,98 +108,6 @@ ALLOWED_TAGS: frozenset[str] = frozenset(DOCUMENT_TYPE_TAGS) | frozenset(DISCIPL
 
 # Hard cap on the number of tags stored per document.
 MAX_TAGS = 5
-
-# =============================================================================
-# Explicit per-document classification ("Dokumentart" / doc_class)
-# =============================================================================
-# Unlike the free-form ``tags`` above (document type + OIB discipline), the
-# doc_class is a SINGLE, human-settable label describing what role a document
-# plays in the norm hierarchy. It is the authoritative signal preferred over the
-# filename guess (``norm_registry.oib_doc_class``) everywhere: stored on the
-# summaries row, stamped into chunk metadata, shown to the LLM, and used by the
-# lane/SourceKind classifiers. Each doc_class maps to exactly one fine lane key
-# (see ``norm_registry._OIB_CLASS_LANES``/``_RANK_LANES`` and ADR-0026).
-#
-# Ordered + immutable so callers cannot mutate the vocabulary and any future
-# edit endpoint validates against the same closed set. Fail-open: an unknown
-# value validates to False and callers fall back to :data:`DEFAULT_DOC_CLASS`.
-
-# doc_class key -> German label (the "Dokumentart" the user picks / the LLM sees).
-DOCUMENT_CLASS_LABELS: dict[str, str] = {
-    "oib_guideline": "OIB-Richtlinie (verbindlich)",
-    "oib_guide": "OIB-Leitfaden",
-    "oib_explanatory_note": "OIB-Erläuterung",
-    "oib_definitions": "OIB-Begriffsbestimmungen",
-    "oib_reference": "OIB-Referenzdokument",
-    "oib_amendment": "OIB-Änderungsdokument",
-    "external_standard": "Norm (ÖNORM u.a.)",
-    "law": "Gesetz / Bauordnung",
-    "other": "Sonstiges Basisdokument",
-}
-
-# doc_class key -> fine lane key (``norm_registry`` stratum). The lane label is
-# looked up from the registry's lane tables so the two never drift.
-DOCUMENT_CLASS_LANES: dict[str, str] = {
-    "oib_guideline": "building_law_oib",
-    "oib_guide": "building_law_oib_guide",
-    "oib_explanatory_note": "building_law_oib_explanatory_note",
-    "oib_definitions": "building_law_oib_definitions",
-    "oib_reference": "building_law_oib_reference",
-    "oib_amendment": "building_law_oib_amendment",
-    "external_standard": "external_standard",
-    "law": "building_law_ris",
-    "other": "building_law_base",
-}
-
-# The ordered, immutable vocabulary (keys), the single source of truth.
-DOCUMENT_CLASSES: tuple[str, ...] = tuple(DOCUMENT_CLASS_LABELS.keys())
-
-# Neutral base class assigned when no human class is set and the filename gives
-# no OIB hint — a real value beats a null, and it lands in the neutral base lane.
-DEFAULT_DOC_CLASS = "other"
-
-
-def is_valid_doc_class(value: str | None) -> bool:
-    """Return whether ``value`` is a member of the closed doc_class vocabulary."""
-    return value in DOCUMENT_CLASS_LABELS
-
-
-#: The keys as they were stored before the English names, old -> current. The metadata database
-#: rewrites them on open (``DocumentMetadataStore._run_schema``); a queued ingest job, an older
-#: pod's request and a point in the vector store written before still carry them, so every place
-#: that accepts a class from outside passes it through :func:`canonical_doc_class`. Nothing writes
-#: an old key into the metadata database again. Remove after one release.
-LEGACY_DOC_CLASSES: dict[str, str] = {
-    "oib_richtlinie": "oib_guideline",
-    "oib_leitfaden": "oib_guide",
-    "oib_erlaeuterung": "oib_explanatory_note",
-    "oib_begriffe": "oib_definitions",
-    "oib_referenz": "oib_reference",
-    "oib_aenderung": "oib_amendment",
-    "norm_extern": "external_standard",
-    "gesetz": "law",
-    "sonstiges": "other",
-}
-
-#: How the vector store still spells each class, current -> old. Qdrant payloads are renamed with the
-#: vector store's own rebuild, not here, so ``doc_class`` and ``chunk_doc_class`` are written in this
-#: form and a ``doc_class`` filter is pushed down in it (:func:`qdrant_doc_class`). The one place the
-#: two vocabularies meet; the rebuild deletes this table.
-QDRANT_DOC_CLASSES: dict[str, str] = {current: legacy for legacy, current in LEGACY_DOC_CLASSES.items()}
-
-
-def canonical_doc_class(value: object) -> str | None:
-    """The current key for ``value`` (current or legacy); ``None`` for anything else, blank included."""
-    if not isinstance(value, str):
-        return None
-    key = LEGACY_DOC_CLASSES.get(value.strip(), value.strip())
-    return key if key in DOCUMENT_CLASS_LABELS else None
-
-
-def qdrant_doc_class(value: str) -> str:
-    """The spelling the vector store holds for ``value``; a value outside the vocabulary as given."""
-    return QDRANT_DOC_CLASSES.get(value, value)
-
 
 # The Dokumentart as a SUGGESTION (ADR-0064, use 8). A base-corpus file whose
 # name carries no OIB hint lands in ``other`` (the neutral lane) until a
@@ -343,6 +271,8 @@ def _build_tag_prompt(text: str, file_name: str) -> str:
         "wortgleich.\n"
         "- Maximal 5 Schlagwörter insgesamt.\n"
         "- Erfinde keine neuen Schlagwörter.\n"
+        f"- {CORRESPONDENCE_TAG} steht für Korrespondenz: ein Brief oder eine E-Mail "
+        "zwischen Beteiligten.\n"
         "- Antworte NUR mit einem JSON-Array von Strings, ohne weiteren Text.\n\n"
         'Beispiel: ["Grundriss", "Brandschutz"]\n\n'
         "Dokumentinhalt:\n"
@@ -391,7 +321,7 @@ def _parse_tags(raw: str) -> list[str] | None:
 # =============================================================================
 # Tags as a decision (ADR-0064): the closed vocabulary is the question
 # =============================================================================
-# Picking 1–2 of twelve types and 0–3 of six disciplines is a decision, not a
+# Picking 1–2 of thirteen types and 0–3 of six disciplines is a decision, not a
 # generation: a choice and six nouls over the same text, answered by the
 # decision model in well under a second for a fraction of what the generative
 # call costs, and unable by construction to return a tag outside the
@@ -418,8 +348,12 @@ DOCUMENT_TYPE_CRITERIA: dict[str, str] = {
     "Bescheid": "An official decision or notice by an authority (Bescheid, Baubewilligung, Auflagen).",
     "Norm/Richtlinie": "A standard, guideline, regulation or law text (OIB-Richtlinie, ÖNORM, Bauordnung).",
     "Vertrag": "A contract or agreement between parties.",
+    CORRESPONDENCE_TAG: (
+        "Correspondence: a letter or e-mail exchanged between parties (a Schreiben, an E-Mail, a reply, "
+        "an authority's letter that is not itself a Bescheid)."
+    ),
     "Foto": "A photograph of a building, a site or a situation.",
-    "Sonstiges": "Anything else: a letter, minutes, a list, a schedule, a form, a presentation.",
+    "Sonstiges": "Anything else: minutes, a list, a schedule, a form, a presentation.",
 }
 
 #: What each discipline tag covers.
@@ -517,7 +451,7 @@ def decide_document_tags(text: str, file_name: str, *, organization_id: str | No
 
 
 def classify_document_tags(text: str, file_name: str, llm, *, organization_id: str | None = None) -> list[str] | None:
-    """Classify document text into 0–5 controlled German tags.
+    """Classify document text into 0–5 controlled tags.
 
     The decision model first (:func:`decide_document_tags`); the generative
     call only when no decision ran. Fully fail-open: a missing LLM, an LLM

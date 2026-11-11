@@ -24,12 +24,6 @@ export type SourcePresetId = 'law' | 'project' | 'office'
 export interface LayoutState {
   /** Whether the sessions panel is open (left side) */
   isSessionsPanelOpen: boolean
-  /**
-   * Whether the global navigation drawer (AppSidebar's mobile drawer) is open.
-   * Lifted into the store so the chat's floating toolbar can open it on mobile —
-   * where the chat route hides the standalone global top bar to reclaim space.
-   */
-  isMobileNavOpen: boolean
   /** Active tab in the data sources panel */
   dataSourcesPanelTab: DataSourcesPanelTab
   /** IDs of enabled data sources (array for zustand serialization) */
@@ -75,8 +69,6 @@ export interface LayoutActions {
   toggleSessionsPanel: () => void
   /** Set sessions panel state */
   setSessionsPanelOpen: (open: boolean) => void
-  /** Open/close the global mobile navigation drawer */
-  setMobileNavOpen: (open: boolean) => void
   /** Set the active data sources panel tab */
   setDataSourcesPanelTab: (tab: DataSourcesPanelTab) => void
   /** Toggle a data source enabled/disabled by ID */

@@ -23,7 +23,7 @@ import { type Audience, isExposedTo } from './exposure'
 
 const ALL = [...AGENT_OPERATIONS, ...BACKEND_OPERATIONS]
 const NAMES = new Set(ALL.map((op) => op.name))
-const AUDIENCES: readonly Audience[] = ['external', 'piloti']
+const AUDIENCES: readonly Audience[] = ['external', 'agent']
 
 /** `from → to` for each reference an audience is offered but cannot follow. */
 function brokenReferences(): string[] {
@@ -45,11 +45,11 @@ function brokenReferences(): string[] {
  * Piloti's own door: the description tells Piloti to call an operation it may only propose.
  */
 const BASELINE: readonly string[] = [
-  'piloti: bim-model-get → bim-model-query',
-  'piloti: bim-model-list → bim-model-query',
-  'piloti: bim-model-source-get → bim-model-query',
-  'piloti: project-folder-access-get → project-folder-access-set',
-  'piloti: skill-list → task-create',
+  'agent: bim-model-get → bim-model-query',
+  'agent: bim-model-list → bim-model-query',
+  'agent: bim-model-source-get → bim-model-query',
+  'agent: project-folder-access-get → project-folder-access-set',
+  'agent: skill-list → task-create',
 ]
 
 describe('descriptions name only operations the door offers', () => {

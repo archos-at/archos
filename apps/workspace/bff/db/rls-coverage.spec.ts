@@ -1,4 +1,4 @@
-// @disk-inputs: ../../deploy/compose/init-db.sql, ../../deploy/postgres/rename-legacy-names.sh, ../../scripts/rls-test-db.sh, migrations/0031_row_level_security.sql, migrations/0032_messages_organization_id.sql, migrations/0034_bim_models.sql, migrations/0035_bim_check_confirmations.sql, migrations/0041_agent_skills.sql, migrations/0042_drop_workflows.sql, migrations/0043_jobs.sql, migrations/0046_curated_skill_activations.sql, migrations/0047_platform_skills.sql, migrations/0051_file_native_ownership.sql, migrations/0067_document_roles.sql, migrations/0068_platform_lessons.sql, migrations/0075_tasks.sql, migrations/0079_pricing_and_credits.sql, migrations/0082_document_versions.sql, migrations/0086_task_definitions.sql, migrations/0087_organization_instructions.sql, migrations/0089_skill_categories.sql, migrations/0100_product_feedback.sql, migrations/0102_archiv_folders.sql, migrations/0104_bff_job_queue.sql, migrations/0108_mail_imports.sql, migrations/0110_upload_batches.sql, migrations/0111_project_folder_grants.sql, migrations/0112_conversation_restricted_folders.sql, migrations/0114_document_access_log.sql, migrations/0117_project_steckbrief.sql, migrations/0119_document_quarantine_decisions.sql, migrations/0124_message_restricted_use.sql, migrations/0125_conversation_source_projects.sql, migrations/0126_permit_records.sql, migrations/0130_document_fassung_announcements.sql, migrations/0136_document_version_reviews.sql, migrations/0138_document_annotations.sql, migrations/0139_piloti_wakes.sql, migrations/0140_proposed_changes.sql, migrations/0142_piloti_changes.sql, migrations/0144_project_intakes.sql, migrations/0146_proposal_shelves.sql, migrations/0147_push_subscriptions.sql, migrations/0154_analytics_export_cursors.sql, migrations/0158_project_upload_screening.sql, migrations/0165_revision_names.sql, migrations/0173_root_sort_runs.sql, migrations/0179_piloti_asks.sql, migrations/0180_folder_cards.sql, migrations/0181_office_conventions.sql, migrations/0182_office_convention_decisions.sql, migrations/0185_document_search.sql, migrations/0186_saved_searches.sql, migrations/0189_agent_tables.sql, migrations/0191_brand_free_policies.sql
+// @disk-inputs: ../../deploy/compose/init-db.sql, ../../deploy/postgres/rename-legacy-names.sh, ../../scripts/rls-test-db.sh, migrations/*.sql
 /**
  * The guard that keeps the tenant boundary complete (ADR-0041).
  *
@@ -209,6 +209,46 @@ const BOUNDARY_MIGRATIONS = [
   // and redefines `secure_table` and `secure_platform_table` to grant through
   // `rls_role()`, ahead of the deploy renaming the roles (ADR-0145 rule 5).
   '0191_brand_free_policies.sql',
+  // Adds the E-Mail-Eingang and the E-Mail-Verlauf (ADR-0137): the project
+  // mail address, the mail a person files before any of it is a document, its
+  // parts and the decisions about them, and the thread of filed messages with
+  // its Message-IDs and follows. Eight tables keyed by their organization;
+  // composite foreign keys tie each to its project's, and DELETE is revoked
+  // from the runtime role on all but the Message-ID index.
+  '0196_inbound_mail.sql',
+  // Adds the base knowledge records (ADR-0163): works, editions and copies with
+  // their append-only revisions, typed bodies and checks, for the platform
+  // (organization_id NULL) and each office. Layered: an office reads its own rows
+  // and platform rows in force, writes only its own; history is never updated.
+  '0202_base_knowledge.sql',
+  // Adds organization_processing_policies (ADR-0167): what an office's data may
+  // be processed for, one row per organization, keyed by it.
+  '0203_residency.sql',
+  // Adds rulesets as a fourth base knowledge record type (ADR-0166): the ruleset
+  // body table, layered like 0202's (an office reads its own and platform rows in
+  // force, writes only its own), append-only, and the record type CHECK widened.
+  '0204_rulesets.sql',
+  '0205_platform_base_knowledge.sql',
+  '0209_knowledge_citation_captures.sql',
+  // Adds the official address registers hosted in the cell (ADR-0172): public
+  // data, the same for every office, so PLATFORM tables: every tenant reads,
+  // only the platform role writes (the importer).
+  '0210_address_register.sql',
+  // Adds relations as a base knowledge record type (ADR-0168): the relation body
+  // table, layered like 0202's and append-only; and re-secures knowledge_records,
+  // whose platform read now also follows a released relation across packs.
+  '0211_country_pack.sql',
+  // Adds public sources as platform records (ADR-0174): the source body, its
+  // write-only credential and its monitor state, platform-private like the
+  // change-request tables (`secure_table(t, 'false')`).
+  '0212_country_onboarding_tooling.sql',
+  // Adds message_edition_uses (the editions an answer used, E25) and
+  // project_base_confirmations (a confirmed Steckbrief), both keyed by their
+  // organization (ADR-0173).
+  '0213_knowledge_context.sql',
+  // Adds knowledge_second_reviews, one second review per role approved alone
+  // (ADR-0176), platform-private like the change-request tables.
+  '0214_knowledge_approve_alone.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>
@@ -347,6 +387,8 @@ describe('row-level security coverage', () => {
     // role; securing one with an organization predicate would silently make it
     // unreadable for every tenant instead.
     expect(platform).toEqual([
+      'address_register_entries',
+      'address_register_releases',
       'analytics_export_cursors',
       'platform_lesson_events',
       'platform_lesson_reports',

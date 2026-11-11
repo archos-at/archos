@@ -36,6 +36,9 @@ from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.schema import RetrievalResult
 from agent.knowledge.scoping import ScopedCollection
 
+# A search over a project or session scope reads as an office, as every request does (ADR-0163).
+pytestmark = pytest.mark.usefixtures("reads_as_an_office")
+
 PROJECT = "proj_prefilter"
 BASE = "oib_knowledge"
 TOP_K = 5
@@ -400,13 +403,13 @@ class TestTheReadingNarrowsTheSearch:
 
     def test_refers_to_a_norm_is_one_indexed_condition_on_references(self):
         pushdown = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to="ÖNORM B 1600")
-        assert {"references": {"$in": ["norm:önorm b 1600"]}} in pushdown.clauses(user_shelf=True)
+        assert {"references": {"$in": ["norm:önorm b 1600", "norm:önorm b1600"]}} in pushdown.clauses(user_shelf=True)
         assert "references" in pushdown.fields(user_shelves=True)
 
     def test_refers_to_a_plan_number_or_a_document_kind(self):
         plan = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to="EP 05")
         kind = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to="Brandschutzkonzept")
-        assert plan.references == ("plan:ep-05",)
+        assert plan.references == ("plan:ep-05", "plan:ep05", "plan:ep.05")
         assert kind.references == ("document:fire_safety_concept",)
 
     def test_document_type_is_a_condition_of_its_own(self):
@@ -419,3 +422,33 @@ class TestTheReadingNarrowsTheSearch:
         assert not any(
             "references" in clause or "document_type" in clause for clause in pushdown.clauses(user_shelf=True)
         )
+
+
+class TestASearchFindsEverySpelling:
+    """What a document stores (``extract_references``) against what a search asks for (``prefilter.plan``)."""
+
+    @pytest.mark.parametrize(
+        ("document", "asked"),
+        [
+            ("gemäß ÖNORM B1600", "ÖNORM B 1600"),
+            ("gemäß ÖNORM B 1600", "ÖNORM B1600"),
+            ("siehe Plan EP05", "EP-05"),
+            ("siehe EP-05", "EP05"),
+            ("siehe Plan EP.05", "EP 05"),
+            ("Detail 3/A501", "3/A-501"),
+        ],
+    )
+    def test_a_search_finds_a_document_that_spelled_the_reference_another_way(self, document, asked):
+        from knowledge_layer.references import extract_references
+        from knowledge_layer.vector_store import reference_value
+
+        stored = {reference_value(r["kind"], r["key"]) for r in extract_references([(document, 1)])}
+        searched = set(prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to=asked).references)
+        assert stored & searched
+
+    def test_a_series_letter_is_not_split_off_a_word(self):
+        from knowledge_layer.references import spellings
+
+        assert spellings("norm", "din en 1990") == ["din en 1990"]
+        assert spellings("norm", "oib-rl 2.1") == ["oib-rl 2.1"]
+        assert spellings("law", "§ 33 baybo") == ["§ 33 baybo"]

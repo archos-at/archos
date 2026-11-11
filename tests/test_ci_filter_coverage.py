@@ -20,6 +20,7 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,7 @@ FLAGS = glob.GLOBSTAR | glob.DOTGLOB
 #: The families that decide whether a test tier runs. `sast` is left out: it
 #: decides whether Semgrep has code to scan, and its `apps/**` would hide a
 #: UI directory that lost its `workspace:` line.
-TEST_TIERS = ("backend", "workspace", "site", "infra", "packages", "migrations")
+TEST_TIERS = ("backend", "workspace", "site", "cms", "infra", "packages", "migrations")
 
 #: Paths that belong to no tier on purpose, each with why no tier needs them.
 #: A file a tier's tests read is named in that tier even when a pattern here
@@ -49,6 +50,7 @@ UNFILTERED = {
     "docs/**": "documentation",
     "*.md": "root documentation (README, AGENTS, VISION, CONTEXT, CONTRIBUTING, CLAUDE)",
     "NOTICE": "licence notice",
+    ".gitattributes": "marks generated files for GitHub's diff view; nothing runs it",
     "data/oib/README.md": "says the corpus is operator-provided; nothing reads it",
     "skills/**": "agent skills; `task agents:audit` in Repo checks holds the lockfile to them",
     "apm.yml": "agent-skill manifest, audited by `task agents:audit`",
@@ -91,9 +93,22 @@ def _tracked() -> list[str]:
     return [path for path in out.split("\0") if path]
 
 
+def _matcher(patterns: list[str] | str) -> Callable[[str], bool]:
+    """`glob.globmatch` for many paths: the patterns are translated once, not once per path.
+
+    Against every tracked path a `globmatch` call per pair is most of this
+    file's time: 9.1s for 255 patterns on 9,683 paths, 0.7s compiled
+    (2026-11-10), with the same answer on every pair.
+    """
+    include, exclude = glob.translate(patterns, flags=FLAGS)
+    assert not exclude, f"an exclusion pattern is outside the shared grammar: {patterns}"
+    compiled = [re.compile(expression) for expression in include]
+    return lambda path: any(expression.match(path) for expression in compiled)
+
+
 def _uncovered(paths: list[str]) -> list[str]:
-    patterns = _tier_patterns() + list(UNFILTERED)
-    return [path for path in paths if not glob.globmatch(path, patterns, flags=FLAGS)]
+    covered = _matcher(_tier_patterns() + list(UNFILTERED))
+    return [path for path in paths if not covered(path)]
 
 
 def test_every_tracked_path_is_in_a_tier_or_listed_as_in_none():
@@ -122,7 +137,7 @@ def test_the_tiers_this_test_reads_exist():
 
 def test_every_unfiltered_entry_still_matches_something():
     paths = _tracked()
-    stale = [pattern for pattern in UNFILTERED if not any(glob.globmatch(p, pattern, flags=FLAGS) for p in paths)]
+    stale = [pattern for pattern in UNFILTERED if not any(map(_matcher(pattern), paths))]
     assert stale == [], f"UNFILTERED entries that match no tracked path; delete them: {stale}"
 
 
@@ -149,9 +164,15 @@ def test_patterns_stay_in_the_grammar_both_matchers_share():
 
 
 def _picomatch2() -> Path | None:
-    for candidate in sorted(ROOT.glob("apps/*/node_modules/**/picomatch/package.json")):
-        if json.loads(candidate.read_text(encoding="utf-8")).get("version", "").startswith("2."):
-            return candidate.parent
+    """A picomatch 2.x some app installed, at the top of its node_modules or one dependency down.
+
+    Two fixed depths, not `node_modules/**`: walking every package of every app
+    for it took 13 seconds (2026-11-10), longer than the comparison itself.
+    """
+    for depth in ("picomatch", "*/node_modules/picomatch", "@*/*/node_modules/picomatch"):
+        for candidate in sorted(ROOT.glob(f"apps/*/node_modules/{depth}/package.json")):
+            if json.loads(candidate.read_text(encoding="utf-8")).get("version", "").startswith("2."):
+                return candidate.parent
     return None
 
 
@@ -179,7 +200,8 @@ def test_wcmatch_agrees_with_picomatch():
     disagreements = [
         (pattern, path, want)
         for pattern, row in zip(patterns, expected, strict=True)
+        for matches in [_matcher(pattern)]
         for path, want in zip(paths, row, strict=True)
-        if glob.globmatch(path, pattern, flags=FLAGS) != want
+        if matches(path) != want
     ]
     assert disagreements == [], f"wcmatch and picomatch disagree (pattern, path, picomatch): {disagreements[:20]}"

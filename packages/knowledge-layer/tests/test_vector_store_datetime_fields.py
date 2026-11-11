@@ -55,6 +55,22 @@ class TestSchema:
         assert made == {name: models.PayloadSchemaType.DATETIME for name in schema.DATETIME_FIELDS}
 
 
+class TestLicenceMarkIndexes:
+    """``licence_class`` and ``knowledge_edition_id``: keyword fields, made on a collection that predates them."""
+
+    def test_both_fields_are_keyword_indexed(self):
+        for field in (schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD):
+            assert field in schema.KEYWORD_FIELDS
+            assert schema._field_schema(field) == models.PayloadSchemaType.KEYWORD
+
+    def test_ensure_payload_indexes_creates_them_on_a_collection_made_before_them(self):
+        new = {schema.LICENCE_CLASS_FIELD, schema.KNOWLEDGE_EDITION_FIELD}
+        client = MagicMock()
+        client.get_collection.return_value.payload_schema = {name: MagicMock() for name in schema.INDEXED_FIELDS - new}
+
+        assert schema.ensure_payload_indexes(client, "office_v1") == sorted(new)
+
+
 class TestCoercion:
     @pytest.mark.parametrize(
         ("raw", "expected"),
@@ -98,6 +114,20 @@ class TestFacts:
         facts = document_facts(_document(capture={"captured_at": "2025-07-01T09:00:00"}))
 
         assert facts["document_date"] == "2025-07-01T09:00:00Z"
+
+    def test_a_mail_thread_is_dated_by_its_newest_message(self):
+        """A filed E-Mail-Verlauf (ADR-0137): „the newest correspondence“ sorts by its last message."""
+        facts = document_facts(_document(mail_thread={"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5}))
+
+        assert facts["document_date"] == "2026-05-14T14:40:00Z"
+
+    def test_a_file_that_came_with_a_mail_keeps_its_own_date(self):
+        """The day it was mailed is where it came from, not when it was written: no date of its own, none."""
+        origin = {"sent_at": "2026-05-04T06:30:00Z", "sender_trust": "external_verified"}
+
+        assert document_facts(_document(mail_origin=origin))["document_date"] is None
+        dated = document_facts(_document(mail_origin=origin, revision_facts={"revision_date": "2026-03-05"}))
+        assert dated["document_date"] == "2026-03-05T00:00:00Z"
 
     def test_an_unknown_date_is_stated_as_none_so_a_removed_one_is_cleared(self):
         facts = document_facts(_document(revision_facts={"revision_date": "unleserlich"}))

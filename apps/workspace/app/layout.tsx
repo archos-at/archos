@@ -10,7 +10,6 @@
 
 import { type ReactNode } from 'react'
 import { type Metadata, type Viewport } from 'next'
-import { Geist_Mono } from 'next/font/google'
 import localFont from 'next/font/local'
 import { connection } from 'next/server'
 import { ChunkReloadGuard } from './chunk-reload-guard'
@@ -32,6 +31,7 @@ import './globals.css'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity } from '@/lib/analytics/posthog-config'
 import { getOrganizationDisplayName } from '@/lib/organizations/service'
+import { configuredPublicSiteOrigin } from '@/lib/public-site'
 
 /** The corporate design's face, served from the synced brand copy (packages/brand). */
 const bodySans = localFont({
@@ -47,12 +47,22 @@ const bodySans = localFont({
  * nothing on the first paint of the chat. Preloaded on every route, it was a
  * console warning on every route. It still loads the moment something uses it,
  * and `swap` shows the fallback stack (`--font-mono` in tokens.css) meanwhile.
+ *
+ * The full font from the vendor's `geist` package, not the Google Fonts copy:
+ * Geist Mono's default 0 is slashed, and only the full font carries the
+ * stylistic set (ss09) with the plain 0 that tokens.css switches on. The Google
+ * subset strips every stylistic set, so `Geist_Mono` from `next/font/google`
+ * brings the struck-through zero back (`tests/mono-plain-zero.spec.ts`).
+ * `adjustFontFallback: false` as in the package's own loader: the generated
+ * fallback is metric-matched to Arial, which is no stand-in for a monospace.
  */
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
+const geistMono = localFont({
+  src: '../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2',
+  weight: '100 900',
   variable: '--font-geist-mono',
   display: 'swap',
   preload: false,
+  adjustFontFallback: false,
 })
 
 /**
@@ -221,6 +231,8 @@ const getAppConfig = async (locale: string): Promise<AppConfig> => {
     // for the same reason as the host and token (`posthog-config.ts`).
     posthog,
     posthogIdentity: await getPosthogIdentity(posthog, locale),
+    // The website's origin for the help links into it (LANDING_URL, runtime).
+    publicSiteUrl: configuredPublicSiteOrigin(),
   }
 }
 

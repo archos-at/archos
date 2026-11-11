@@ -95,9 +95,10 @@ update.
   `mailto:` for now; Attio is the target (owner decision, 2026-10-29). The ADR
   that moves the forms records this check for Attio's API and MCP server, with
   the round trip, before anything is wired.
-- **The blog's CMS.** A consultant compared hosted and self-hosted CMSs against
-  this checklist; the decision is parked (owner decision, 2026-10-29) and has
-  no ADR yet. When it resumes, its ADR carries the check above.
+- **The blog's CMS.** Payload, self-hosted (Directus was built first and
+  dropped: its review permissions needed a licence), with Buffer for publishing
+  social posts: [ADR-0155](../adr/0155-the-website-blog-is-edited-in-a-self-hosted-payload.md)
+  carries the check for both.
 
 ## Existing tools
 

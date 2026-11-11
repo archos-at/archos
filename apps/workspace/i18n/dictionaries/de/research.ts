@@ -54,6 +54,8 @@ export const research: typeof en.research = {
       'Es kann keine neue Sitzung erstellt werden, solange die aktuelle Sitzung aktiv ist',
     newChat: 'Neuer Chat',
     toggleSessions: 'Chatverlauf',
+    /** The history door's visible word, beside its glyph at every width (one word with the rail's „Alle Chats“). */
+    historyDoor: 'Chats',
     signInToView: 'Melden Sie sich an, um Ihren Chatverlauf zu sehen',
     sessions: 'Sitzungen',
     addSources: 'Datenquellen hinzufügen',

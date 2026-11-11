@@ -6,7 +6,7 @@ import {
   archiveFolderName,
   attachmentFilename,
   mailFolderName,
-  mailNote,
+  archiveThreadName,
   mailTimestamp,
   numbered,
   numberedFilename,
@@ -80,32 +80,24 @@ describe('mail names', () => {
   })
 })
 
-describe('mailNote', () => {
-  const mail = {
-    subject: 'Brandschutzplan  Stiege 2',
-    sender: { name: 'Anna Berger', address: 'anna@buero.at' },
-    to: [{ name: 'Bauamt', address: 'bauamt@wien.gv.at' }],
-    cc: [],
-    sentAt: '2026-09-30T08:15:00Z',
-    receivedAt: null,
-    folderPath: ['Posteingang', 'Behörde'],
-    body: { text: 'Bitte um Prüfung.', truncated: false },
-  }
+describe('archiveThreadName', () => {
+  const at = new Date('2025-03-12T23:30:00Z')
 
-  it('carries the subject and headers, then the text', () => {
-    const note = mailNote(mail, ['2026-09-30 10.15 – Anna Berger – Plan.pdf'])
-    expect(note).toContain('# Brandschutzplan Stiege 2')
-    expect(note).toContain('- **Von:** Anna Berger <anna@buero.at>')
-    expect(note).toContain('- **An:** Bauamt <bauamt@wien.gv.at>')
-    expect(note).toContain('- **Gesendet:** 2026-09-30 10:15')
-    expect(note).toContain('- **Outlook-Ordner:** Posteingang / Behörde')
-    expect(note).toContain('- **Anhänge:** 2026-09-30 10.15 – Anna Berger – Plan.pdf')
-    expect(note).not.toContain('Cc')
-    expect(note.trimEnd().endsWith('Bitte um Prüfung.')).toBe(true)
+  it('names an archive Verlauf by its other party and the day, Vienna, never by subject (D33)', () => {
+    // 23:30 UTC is already the 13th in Vienna (UTC+1).
+    expect(archiveThreadName({ name: 'Statik Huber', address: 'office@statik-huber.at' }, at, 'Unbekannt')).toBe(
+      'Statik Huber 2025-03-13',
+    )
   })
 
-  it('says when a mail has no text, and when the text was cut', () => {
-    expect(mailNote({ ...mail, body: { text: '', truncated: false } }, [])).toContain('keinen Text')
-    expect(mailNote({ ...mail, body: { text: 'a', truncated: true } }, [])).toContain('gekürzt')
+  it('falls back to the address, then to the locale’s word for an unknown party', () => {
+    expect(archiveThreadName({ name: '', address: 'post@ma37.wien.gv.at' }, at, 'Unknown')).toBe('post@ma37.wien.gv.at 2025-03-13')
+    expect(archiveThreadName(null, at, 'Unknown')).toBe('Unknown 2025-03-13')
+  })
+
+  it('keeps a party name with a slash or a line break one segment, and bounds it', () => {
+    expect(archiveThreadName({ name: 'Bau/Amt\n## Frist', address: '' }, at, 'Unbekannt')).toBe('Bau-Amt## Frist 2025-03-13')
+    const long = archiveThreadName({ name: 'A'.repeat(400), address: '' }, at, 'Unbekannt')
+    expect(long).toBe(`${'A'.repeat(120)} 2025-03-13`)
   })
 })

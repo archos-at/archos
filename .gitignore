@@ -14,11 +14,18 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
+# Anchored, like every directory name below a source tree could also carry (a route,
+# a package): an unanchored `logs/` or `build/` matches at any depth and silently
+# hides a source directory of that name (the `coverage/` route did, see gotchas).
+/build/
+apps/*/build/
+packages/*/build/
 develop-eggs/
-dist/
+/dist/
+apps/*/dist/
+packages/*/dist/
 !packages/brand/dist/
-downloads/
+/downloads/
 eggs/
 .eggs/
 lib/
@@ -31,16 +38,14 @@ lib64/
 !apps/workspace/**/lib/
 !apps/workspace/tests/lib/
 !packages/brand/art/riso/lib/
+!apps/cms/scripts/lib/
 # The riso exporter's non-committed files (decks, social, postcards, separations).
 packages/brand/art/riso/out/
-parts/
-# `parts/` is buildout's, and like `lib/` above it matches at any depth: it hid
-# the mail import's `mail-imports/[importId]/parts/[partNumber]` route from the
-# first commit that wrote it. Source directories of that name are not artifacts.
-!apps/workspace/**/parts/
-!apps/*/src/**/parts/
+# `parts/` is buildout's, anchored: unanchored it hid the mail import's
+# `mail-imports/[importId]/parts/[partNumber]` route from the first commit that wrote it.
+/parts/
 sdist/
-var/
+/var/
 wheels/
 *.egg-info/
 .installed.cfg
@@ -51,7 +56,7 @@ MANIFEST
 .venv/
 venv/
 ENV/
-env/
+/env/
 
 # IDE
 .vscode/
@@ -67,7 +72,7 @@ env/
 .env.*.local
 # Logs
 *.log
-logs/
+/logs/
 
 # Testing
 .pytest_cache/
@@ -93,8 +98,8 @@ htmlcov/
 *.db-*
 
 # Temporary files
-tmp/
-temp/
+/tmp/
+/temp/
 *.tmp
 .worktrees/
 
@@ -118,7 +123,9 @@ evals/*/analysis/*.csv
 /config_*.yml
 
 
-# Node dependencies (never commit)
+# Node dependencies (never commit). No trailing slash: `node_modules/` matches
+# only a directory, and an agent worktree links the main checkout's install in
+# as a symlink, which then showed up as a new file and got committed.
 node_modules
 
 # Claude Code agent worktrees (transient, isolated checkouts)

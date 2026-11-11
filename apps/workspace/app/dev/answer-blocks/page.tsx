@@ -21,6 +21,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { I18nProvider } from '@/i18n'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const fence = (source: string) => '```mermaid\n' + source.trim() + '\n```'
 
@@ -195,9 +196,9 @@ function Blocks() {
       className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
     >
       <section className="flex flex-col gap-3">
-        <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+        <SectionLabel as="h2">
           Prosa — Tabelle mit Status, Aufgabenliste, Formel
-        </h2>
+        </SectionLabel>
         <MarkdownRenderer content={PROSE} />
       </section>
       {diagrams.map((diagram) => (
@@ -206,9 +207,9 @@ function Blocks() {
           data-grammar={diagram.label.split(' ')[0]}
           className="flex flex-col gap-3"
         >
-          <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          <SectionLabel as="h2">
             {diagram.label}
-          </h2>
+          </SectionLabel>
           <MarkdownRenderer content={fence(diagram.source)} />
         </section>
       ))}

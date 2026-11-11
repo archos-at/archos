@@ -51,6 +51,8 @@ describe('the registry', () => {
         'collaboration',
         'deep-research',
         'folder-cards',
+        'inbound-mail',
+        'licensed-seam',
         'mail-import',
         'office-conventions',
         'piloti-acts',
@@ -60,9 +62,22 @@ describe('the registry', () => {
         'platform-agent-mcp',
         'runtime-model-config',
         'skills',
+        // Not a cost or a widening: a sweep that fetches public sources and opens review work (ADR-0174).
+        'source-monitors',
         'task-automation',
       ].sort()
     )
+  })
+})
+
+describe('the switches the cut-over removed (ADR-0175)', () => {
+  // Which office reads which country is its entitlement rows, never a switch:
+  // a slug coming back would bring a second, silent answer to that question.
+  const RETIRED = ['knowledge-context', 'building-law-chain', 'time-editions', 'office-base-knowledge', 'platform-base-knowledge']
+
+  it.each(RETIRED)('%s is not in the registry', (slug) => {
+    expect(REGISTRY_FLAG_SLUGS as readonly string[]).not.toContain(slug)
+    expect(Object.keys(FLAG_KINDS)).not.toContain(slug)
   })
 })
 
@@ -112,19 +127,29 @@ describe('where people sign in (REQUIRE_AUTH=true): WorkOS decides, fail-closed'
     expect(isIfcModelsEnabled(none)).toBe(false)
   })
 
-  it('requireFeature returns a stable-coded 403', async () => {
-    const res = requireFeature({ featureFlags: [] }, FLAG)
-    expect(res).not.toBeNull()
+  it.each(REGISTRY_FLAG_SLUGS)('requireFeature refuses %s with the one feature-disabled problem (RFC 9457)', async (flag) => {
+    const res = requireFeature({ featureFlags: [] }, flag)
     expect(res?.status).toBe(403)
-    expect(await res?.json()).toEqual({ error: 'feature-disabled', feature: FLAG })
-    expect(requireFeature({ featureFlags: [FLAG] }, FLAG)).toBeNull()
+    expect(res?.headers.get('content-type')).toContain('application/problem+json')
+    const body = await res?.json()
+    expect(body).toEqual({
+      type: 'urn:problem-type:feature-disabled',
+      title: 'Forbidden',
+      status: 403,
+      code: 'feature_disabled',
+      detail: expect.stringContaining(`feature flag \`${flag}\``),
+      error: body.detail,
+      feature: flag,
+    })
+    expect(body.detail).toMatch(/switches it on per organization/)
+    expect(requireFeature({ featureFlags: [flag] }, flag)).toBeNull()
   })
 
   it('requireSkillsEnabled: null when allowed, stable-coded 403 when off', async () => {
     expect(requireSkillsEnabled({ featureFlags: [FEATURE_FLAGS.skills] })).toBeNull()
     const res = requireSkillsEnabled({ featureFlags: [] })
     expect(res?.status).toBe(403)
-    expect(await res?.json()).toEqual({ error: 'feature-disabled', feature: 'skills' })
+    expect(await res?.json()).toMatchObject({ code: 'feature_disabled', feature: 'skills' })
   })
 })
 

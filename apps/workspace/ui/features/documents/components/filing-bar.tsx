@@ -111,7 +111,7 @@ function FilingBarLine({
           <>
             {decision.error && <SuggestionNote tone="error">{decision.error}</SuggestionNote>}
             <SuggestionButton
-              variant="ghost"
+              variant="secondary"
               loading={decision.busy?.action === 'dismiss'}
               aria-disabled={decision.busy !== null}
               onClick={decision.dismiss}
@@ -120,7 +120,7 @@ function FilingBarLine({
               {t('filing.keep')}
             </SuggestionButton>
             <SuggestionButton
-              variant="outline"
+              variant="secondary"
               loading={decision.busy?.action === 'apply'}
               aria-disabled={decision.busy !== null}
               onClick={decision.apply}

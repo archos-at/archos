@@ -98,7 +98,13 @@ agent-browser close --all
 well as `prefers-color-scheme`. `set media dark` alone flips the media query and
 leaves the class behind, and you get a half-themed screenshot that looks like a
 bug in the component. Set both, in that order, and give the repaint a moment
-before capturing.
+before capturing. An axe run is a capture too: run within about a second of
+the switch, `color-contrast` reads a half-themed page (dark text tokens on a
+dark ground, 1.09:1, on the heavy `worst-case` previews) and reports
+violations that are not there. Wait about 2.5 s after switching the theme
+before `axe.run` (measured 2026-11-03 on `/dev/inbound-mail?variant=worst-case`
+and `/dev/mail-thread?variant=worst-case`: 85 findings at 400 ms, none at
+2.5 s).
 
 **Capture `--full` for anything taller than the viewport.** Before/after pairs
 are laid out side by side, and equal-height full-page captures are what keeps
@@ -107,6 +113,11 @@ their tops aligned.
 **The Next.js dev indicator is in the shot.** The floating badge in the bottom
 corner is dev-server chrome, not your component. Turn it off in
 `next.config.ts` (`devIndicators: false`) for a capture run, or crop it.
+Next 16.4's devtools also float an orange „1 Insight“ pill (request
+insights) that `devIndicators: false` does not hide; it lives in a
+`<nextjs-portal>` element, so remove it before each shot:
+`agent-browser eval "document.querySelectorAll('nextjs-portal').forEach((e)=>e.remove())"`
+(seen 2026-10-27 in the E-Mail-Eingang captures).
 
 ## Publish
 

@@ -26,6 +26,16 @@ oib_corpus_files
   failed_job_id          text null          -- the ingest job that ran for these bytes and gave up
 ```
 
+```
+oib_corpus_marks                            -- ADR-0173: the platform record a file is the text of
+  file_name    text pk
+  country_id   text null                    -- its pack's country (ISO 3166-1); ZZ for none
+  edition_id   text null                    -- its knowledge edition's record id
+  marked_at    timestamptz not null default now()
+```
+
+The platform's indexing job (`platform_text_index`, `bff/base-knowledge/platform/indexing.ts`) sends a published text's country and edition with its re-ingest (`marks` on `POST /v1/admin/oib/reingest`); every ingest job of the file carries them, and each chunk gets `country_id` and `knowledge_edition_id`. Every base-corpus read filters by the countries its request may see (`vector_store.scope.scope_filter`): the turn's gate, or the office's entitled countries signed onto the base corpus's scope entry. A chunk without `country_id` is read by nobody: a base-corpus ingest job that names no country stamps `ZZ`, and the first sync after the deploy marks the corpus that predates the field as Austrian, once (`backfill_legacy_marks`, recorded by a marker row). A rollback that leaves a text unreleased marks its chunks and its row `ZZ` (`platform_text_deindex`, through `PUT …/knowledge-mark` with `country_id` alone, which leaves the licence fields as they are), so a re-ingest keeps it unread until a re-release sends its country again.
+
 Without `SUMMARY_DB` the store fails with an error. It does not fall back to a local SQLite file, which would recreate the per-replica state it exists to remove.
 
 There are no files on the backend that matter. A replica that loses its cache downloads again what it needs; nothing is pulled speculatively. The backend image ships no PDFs and reads no bind mount.
@@ -130,7 +140,7 @@ What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 4
 | `inconsistent` | The table says ingested, the collection holds no chunks for it |
 | `removed` | The collection holds chunks for it, the table does not list it. Delete the document to clear them |
 
-The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`.
+The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`. `ingested_at` is the ingest job's completion while its record lasts (24 hours), then when the collection's chunks for the file were last written (`indexed_at`, `ingest/listing.py`), so it never goes blank on an older file.
 
 ---
 

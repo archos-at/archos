@@ -30,9 +30,11 @@ describe('the scheduling tasks', () => {
     expect(Object.fromEntries(sweeps.map((options) => [options.name, (options.on as { cron: string }).cron]))).toEqual({
       'runs-reconcile': '* * * * *',
       'reconcile-background-work': '* * * * *',
+      'inbound-mail-sweep': '* * * * *',
       'upload-sweep': '* * * * *',
       'folder-placement-sweep': '* * * * *',
       'conversation-trace-erasure': '* * * * *',
+      'source-monitor': '*/15 * * * *',
       'schedule-repair': '*/5 * * * *',
       'task-runs-prune': '41 * * * *',
       'usage-export': '*/10 * * * *',

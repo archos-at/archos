@@ -1,0 +1,13 @@
+Please file this.
+
+---------- Forwarded message ---------
+From: Jane Doe <jane.doe@contractor.example.com>
+Date: Mon, Nov 3, 2026 at 10:15 AM
+Subject: Site meeting minutes 2026-10-30
+To: Anna Bauer <a.bauer@architekten-bauer.de>
+Cc: Peter Schmidt <p.schmidt@architekten-bauer.de>, <site-office@contractor.example.com>
+
+
+Hi Anna,
+
+attached are the minutes.

@@ -8,7 +8,8 @@
  * row, a READ grouped row with `count: 0`, the OPERATIONAL storage-quota
  * warning (ADR-0042), a row whose type this build does not know (the runtime
  * fallback), an INERT row whose target is gone (IB-13), and the marks, Fassungen
- * and the agent's rows of the review.
+ * and the agent's rows of the review. `?variant=mail` serves the E-Mail-Eingang's seven
+ * types alone (ADR-0137).
  */
 
 import type { InboxItemView } from '@/lib/inbox/types'
@@ -719,6 +720,102 @@ export const ITEMS: InboxItemView[] = [
   },
 ]
 
+/**
+ * The E-Mail-Eingang's types (ADR-0137, DECISION §9, and the sender rule's), served alone under
+ * `?variant=mail`: what each row says, with the project's name and codes only
+ * (no sender, no subject, no file name ever reaches a row or a push).
+ */
+const mailRow = (
+  id: string,
+  type: InboxItemView['type'],
+  overrides: Partial<InboxItemView>,
+): InboxItemView => ({
+  id,
+  type,
+  state: 'unread',
+  read: false,
+  archived: false,
+  actionable: false,
+  resourceType: 'project',
+  resourceId: 'p1',
+  anchorId: null,
+  actorName: null,
+  actorUserId: null,
+  count: 1,
+  href: '/app/projects/p1/files/mail',
+  subject: 'Wohnbau Hietzing',
+  related: null,
+  excerpt: null,
+  mentions: [],
+  variant: null,
+  answerIn: null,
+  createdAt: ago(30),
+  updatedAt: ago(30),
+  ...overrides,
+})
+
+const MAIL_ITEMS: InboxItemView[] = [
+  mailRow('m-waiting', 'inbound_mail.waiting', { actionable: true, count: 3, variant: 'unconfirmed', updatedAt: ago(4) }),
+  mailRow('m-expiring', 'inbound_mail.expiring', { actionable: true, updatedAt: ago(60) }),
+  mailRow('m-failed', 'inbound_mail.filing_failed', {
+    actionable: true,
+    variant: 'quota',
+    anchorId: 'mail-2',
+    href: '/app/projects/p1/files/mail/mail-2',
+    updatedAt: ago(90),
+  }),
+  mailRow('m-cap', 'inbound_mail.cap_reached', { actionable: true, variant: 'nearly_full', updatedAt: ago(120) }),
+  mailRow('m-decided', 'inbound_mail.decided', {
+    actorName: 'Petra Huber',
+    actorUserId: 'u-petra',
+    related: 'Behörde/Bescheide',
+    href: '/app/projects/p1/files?folder=f-bescheide',
+    updatedAt: ago(150),
+  }),
+  // The sender rule's notices (ADR-0137, amendment of 2026-11-03), each to the member the From names.
+  mailRow('m-held', 'inbound_mail.held', { actionable: true, anchorId: 'mail-3', href: '/app/projects/p1/files/mail/mail-3', updatedAt: ago(2) }),
+  mailRow('m-held-done', 'inbound_mail.held', {
+    actionable: true,
+    state: 'resolved',
+    read: true,
+    anchorId: 'mail-4',
+    href: '/app/projects/p1/files/mail/mail-4',
+    updatedAt: ago(130),
+  }),
+  mailRow('m-held-writers', 'inbound_mail.held_for_writers', { anchorId: 'mail-5', href: '/app/projects/p1/files/mail/mail-5', updatedAt: ago(8) }),
+  mailRow('m-direct', 'inbound_mail.decided', {
+    variant: 'direct',
+    related: 'Behörde/Bescheide',
+    href: '/app/projects/p1/files?folder=f-bescheide',
+    updatedAt: ago(140),
+  }),
+  mailRow('m-rejected', 'inbound_mail.rejected', {
+    actorName: 'Petra Huber',
+    actorUserId: 'u-petra',
+    state: 'read',
+    href: '/app/projects/p1/files',
+    updatedAt: ago(170),
+  }),
+  mailRow('m-expired', 'inbound_mail.expired', { state: 'read', href: '/app/projects/p1/files/mail?status=handled', updatedAt: ago(180) }),
+  mailRow('m-appended', 'inbound_mail.appended', {
+    resourceType: 'document',
+    resourceId: 'd-verlauf',
+    count: 2,
+    href: '/app/projects/p1/files?doc=d-verlauf',
+    updatedAt: ago(200),
+  }),
+  mailRow('m-follow', 'mail_thread.follow_expiring', {
+    actionable: true,
+    resourceType: 'document',
+    resourceId: 'd-verlauf',
+    href: '/app/projects/p1/files?doc=d-verlauf',
+    updatedAt: ago(240),
+  }),
+]
+
+const isMailVariant = (): boolean =>
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('variant') === 'mail'
+
 /** Newest first, as the server orders a page. */
 const NEWEST_FIRST = [...withProjects(ITEMS)].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
 
@@ -777,7 +874,7 @@ export function installInboxShim(): void {
         }
         if (empty) return Response.json({ items: [], pending: 0, counts, hasMore: false, nextCursor: null })
         const params = new URL(url, window.location.origin).searchParams
-        const rows = BY_FILTER[params.get('filter') ?? 'all'] ?? NEWEST_FIRST
+        const rows = isMailVariant() ? MAIL_ITEMS : (BY_FILTER[params.get('filter') ?? 'all'] ?? NEWEST_FIRST)
         const start = Number(params.get('cursor') ?? 0)
         const items = rows.slice(start, start + PAGE)
         const hasMore = start + PAGE < rows.length

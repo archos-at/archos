@@ -14,9 +14,9 @@
  * would make the Python export impossible to build without a database.
  *
  * The dependency therefore points the other way, exactly as `document-authors.ts`
- * and `document-status.ts` do: this module is pure data, `db/schema/document-
- * versions.ts` imports the state tuple from it, and `@/lib/db/schema` re-exports
- * it so every existing caller is unchanged.
+ * and `document-status.ts` do: this module is pure data, and the tuples the
+ * database schema reads live in `./lifecycle-vocabulary.ts`, which
+ * `db/schema/document-versions.ts` imports and this module re-exports.
  *
  * ## Why the transitions are a frozen table and not a library
  *
@@ -35,47 +35,28 @@
  */
 
 import { z } from 'zod'
+import { DOCUMENT_LIFECYCLES, DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
+import { mailOriginViewSchema } from './mail-origin-schema'
 
-/**
- * The editorial states of one version.
- *
- * ```
- * draft → in_review → approved → published → superseded
- *           ├→ changes_requested → (edit, file again) → draft
- *           └→ rejected
- * ```
- *
- * `approved` and `published` stay distinct because approving a Befund on
- * Tuesday and issuing it with the Einreichung on Friday are two acts by two
- * people with two different consequences — and because a later `scheduled`
- * state attaches to publish without touching approval.
- *
- * A tuple, so the set is enumerable at runtime (the CHECK in migration 0082 is
- * generated from it) and the type is derived rather than restated.
- */
-export const DOCUMENT_VERSION_STATES = [
-  'draft',
-  'in_review',
-  'changes_requested',
-  'approved',
-  'published',
-  'superseded',
-  'rejected',
-] as const
-export type DocumentVersionState = (typeof DOCUMENT_VERSION_STATES)[number]
+export { mailOriginViewSchema } from './mail-origin-schema'
+export {
+  REVIEW_QUEUE_ROLES,
+  reviewQueueQuerySchema,
+  type ReviewQueueQuery,
+  type ReviewQueueResponse,
+} from './review-queue-types'
 
-/**
- * The states in which a version is still being worked on — at most ONE per
- * document, enforced by a partial unique index in migration 0082.
- *
- * Derived here rather than restated in SQL and in the service: the index's
- * predicate is generated from this list, so widening it is one edit.
- */
-export const OPEN_DOCUMENT_VERSION_STATES = [
-  'draft',
-  'in_review',
-  'changes_requested',
-] as const satisfies readonly DocumentVersionState[]
+export {
+  DOCUMENT_LIFECYCLES,
+  DOCUMENT_SUBMIT_ACTORS,
+  DOCUMENT_VERSION_ORIGINS,
+  DOCUMENT_VERSION_STATES,
+  OPEN_DOCUMENT_VERSION_STATES,
+  type DocumentLifecycle,
+  type DocumentSubmitActor,
+  type DocumentVersionOrigin,
+  type DocumentVersionState,
+} from './lifecycle-vocabulary'
 
 /** The operations a caller may ask for. One per row of the transition table. */
 export const DOCUMENT_VERSION_OPS = [
@@ -122,13 +103,11 @@ export const DOCUMENT_VERSION_EFFECTS = [
   /** A live hint on the event hub. Never authoritative; the client re-reads. */
   'eventHint',
   /**
-   * Dispatch the published bytes to `/v1/ingest` with provenance.
-   *
-   * A NO-OP in this slice, and deliberately present anyway. Slice 4 is the one
-   * that may turn it on, and it may do so only together with the labelled-
-   * citation work — the build spec's own condition on this seam. Naming the slot
-   * now is what makes that a registry entry rather than a new call site inside
-   * `publish`, which is where the no-ingest rule would quietly stop being true.
+   * Dispatch the published bytes to `/v1/ingest` with provenance. A person's
+   * upload is dispatched only when its content hash was not already screened;
+   * an agent-written document is purged of its superseded chunks first and indexed
+   * under `AGENT_DOCUMENT_NAMESPACE` (`ingestPublished` in `lifecycle.ts`). This is
+   * the only place an agent-authored version reaches the index.
    */
   'ingestPublished',
   /**
@@ -424,34 +403,6 @@ export const AGENT_REACHABLE_OPS: readonly DocumentVersionOp[] = DOCUMENT_VERSIO
   return rows.length > 0 && rows.every((row) => row.actor === 'either')
 })
 
-/**
- * Whose HAND made a submission (migration 0085).
- *
- * Not whose authority — that is `submitted_by`, and it is a person either way.
- * The distinction exists for exactly one guard: „der Einreichende darf nicht
- * freigeben" is about a person asserting their own work, and a report Piloti
- * filed in the commissioning human's session is not their own work.
- */
-export const DOCUMENT_SUBMIT_ACTORS = ['human', 'agent'] as const
-export type DocumentSubmitActor = (typeof DOCUMENT_SUBMIT_ACTORS)[number]
-
-/**
- * How a version began (migration 0137, ADR-0104).
- *
- * - `upload` — a person put the bytes there (`upload`, born `published`). The
- *   person is the assertion; nobody reviewed it unless somebody asked.
- * - `draft`  — it began as a draft (`create`, a fork), Piloti's or a person's
- *   revision, and becomes `published` only through an approval.
- *
- * `document_versions_published_is_approved` demands an approver of a published
- * `draft` and of nothing else, so an upload carries no approval nobody gave.
- */
-export const DOCUMENT_VERSION_ORIGINS = ['upload', 'draft'] as const
-export type DocumentVersionOrigin = (typeof DOCUMENT_VERSION_ORIGINS)[number]
-
-/** Whether a document is listed by default, or has left the working set. */
-export const DOCUMENT_LIFECYCLES = ['active', 'archived'] as const
-export type DocumentLifecycle = (typeof DOCUMENT_LIFECYCLES)[number]
 
 // ---------------------------------------------------------------------------
 // Wire schemas
@@ -679,6 +630,12 @@ export const documentVersionViewSchema = z.object({
    * readable, and the routes decide again either way.
    */
   bytesReadable: z.boolean().optional(),
+  /**
+   * The mails that brought THIS Fassung as an attachment (D36), oldest first,
+   * only through mail threads the reader may read. Only the version list
+   * carries it, and only for a Fassung a mail brought.
+   */
+  mailOrigins: z.array(mailOriginViewSchema).optional(),
 })
 
 export type DocumentVersionView = z.infer<typeof documentVersionViewSchema>
@@ -723,37 +680,6 @@ export const documentArchiveResponseSchema = z.object({
 })
 
 export type DocumentArchiveResponse = z.infer<typeof documentArchiveResponseSchema>
-
-export const REVIEW_QUEUE_ROLES = ['reviewer', 'submitter'] as const
-
-/** `GET /api/review/queue`: the versions in review that wait on the person, or that the person sent to review. */
-export const reviewQueueQuerySchema = z.object({
-  role: z
-    .enum(REVIEW_QUEUE_ROLES)
-    .default('reviewer')
-    .describe('`reviewer` (default): waiting for the person’s decision; `submitter`: sent by the person.'),
-  projectId: z.guid().optional().describe('Only this project’s documents.'),
-  limit: z.coerce.number().int().min(1).max(50).default(50).describe('Page size (default and most 50).'),
-  cursor: z.guid().optional().describe('The previous `nextCursor`.'),
-})
-
-export type ReviewQueueQuery = z.infer<typeof reviewQueueQuerySchema>
-
-export interface ReviewQueueResponse {
-  versions: {
-    documentId: string
-    documentName: string
-    projectId: string | null
-    projectName: string | null
-    versionId: string
-    versionNumber: number
-    /** The person who sent it to review. */
-    submittedBy: string | null
-    submittedByName: string | null
-    submittedAt: string | null
-  }[]
-  nextCursor: string | null
-}
 
 /**
  * The schemas exported to JSON Schema for the Python tier, by name.

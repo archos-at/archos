@@ -17,6 +17,218 @@ export const platform: typeof en.platform = {
     required: 'Pflichtfeld.',
     range: 'Geben Sie einen Wert von {min} bis {max} ein.',
   },
+  countryKnowledge: {
+    disabledTitle: 'Kein Zugriff auf das Plattformwissen',
+    disabledBody: 'Länder, ihre Einträge und die Prüfliste sehen Mitglieder der Plattform-Organisation mit der Berechtigung, Plattformwissen zu lesen.',
+    countriesTitle: 'Länder',
+    countriesDescription: 'Was die Büros eines Landes von der Plattform lesen: freigegebene Einträge, offene Änderungsanträge, berechtigte Büros und Ausgaben, deren Prüfung fällig ist.',
+    noneReleased: 'noch nichts freigegeben',
+    queueTitle: 'Wartet auf Ihre Prüfung',
+    queueDescription: 'Plattformwissen ändert sich nur über einen Änderungsantrag. Öffnen Sie einen, um seine Einträge mit den Quellen zu vergleichen.',
+    queueEmpty: 'Nichts wartet auf Prüfung',
+    approval: {
+      single: 'Ohne Zweitprüfung freigegeben',
+    },
+    secondReview: {
+      due: 'Zweitprüfung offen',
+      confirmed: 'Zweitprüfung bestätigt',
+      disputed: 'Zweitprüfung beanstandet',
+      void: 'Zweitprüfung entfällt',
+    },
+    secondReviewDueIn: 'Zweitprüfung offen als: {roles}',
+    roles: {
+      domain_expert: 'Fachprüfung',
+      counsel: 'Rechtsprüfung',
+      privacy_reviewer: 'Datenschutzprüfung',
+    },
+    secondReviewNext: {
+      due: 'Ohne Zweitprüfung freigegeben. Prüfen Sie jeden Eintrag gegen seine Quelle und bestätigen oder beanstanden Sie die Freigabe.',
+      disputed: 'Die Zweitprüfung hat die Freigabe beanstandet. Der Antrag wird nicht weiter veröffentlicht: Lehnen Sie ihn ab, das zieht auch seine Vorschau zurück, oder nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
+    },
+    aloneReason: 'Warum gibt niemand sonst frei?',
+    aloneReasonHint: 'Mindestens 20 Zeichen. Der Grund steht im Antrag und im Prüfprotokoll.',
+    open: 'Prüfen',
+    close: 'Schließen',
+    columns: {
+      country: 'Land',
+      released: 'Freigegeben',
+      open: 'Offene Anträge',
+      offices: 'Büros',
+      overdue: 'Prüfung fällig',
+      request: 'Änderungsantrag',
+      records: 'Einträge',
+    },
+    types: {
+      territory: 'Gebiete',
+      authority: 'Behörden',
+      work: 'Werke',
+      edition: 'Ausgaben',
+      manifestation: 'Texte',
+    },
+    recordTypes: {
+      ruleset: 'Regel',
+      territory: 'Gebiet',
+      authority: 'Behörde',
+      work: 'Gesetz, Norm oder Weisung',
+      edition: 'Ausgabe',
+      manifestation: 'Text',
+    },
+    kinds: {
+      technical_standard: 'Technische Norm',
+      guideline: 'Richtlinie',
+      commentary: 'Kommentar',
+      authority_directive: 'Behördliche Weisung',
+      statute: 'Gesetz',
+      union: 'Staatenverbund',
+      country: 'Staat',
+      state: 'Bundesland',
+      district: 'Bezirk',
+      municipality: 'Gemeinde',
+      city_district: 'Gemeindebezirk',
+    },
+    functions: {
+      building_permit: 'Baubewilligung',
+      heritage: 'Denkmalschutz',
+      fire: 'Brandschutz',
+    },
+    licences: {
+      public_open: 'Öffentlich, frei nutzbar',
+      public_restricted: 'Öffentlich, mit Auflagen',
+      licensed: 'Lizenziert',
+    },
+    fields: {
+      name: 'Name',
+      title: 'Titel',
+      kind: 'Art',
+      identifiers: 'Bezeichnung',
+      label: 'Ausgabe',
+      issuer: 'Herausgeber',
+      competenceTerritoryIds: 'Zuständig für',
+      seatTerritoryId: 'Sitz',
+      functionCodes: 'Aufgaben',
+      territoryIds: 'Gilt in',
+      addressees: 'Gerichtet an',
+      parents: 'Liegt in',
+      issuedOn: 'Herausgegeben am',
+      inForceFrom: 'In Kraft seit',
+      inForceTo: 'Außer Kraft ab',
+      validFrom: 'Gültig ab',
+      validTo: 'Nicht mehr gültig ab',
+      workId: 'Ausgabe von',
+      editionId: 'Text der Ausgabe',
+      form: 'Form',
+      language: 'Sprache',
+      licenceClass: 'Lizenz',
+      corpusFile: 'Datei',
+      aliases: 'Weitere Codes',
+    },
+    status: {
+      draft: 'Entwurf',
+      submitted: 'Wartet auf Prüfung',
+      approved: 'Freigegeben, noch nicht veröffentlicht',
+      rejected: 'Abgelehnt',
+      published: 'Veröffentlicht',
+      rolled_back: 'Zurückgenommen',
+    },
+    rail: {
+      label: 'Schritte eines Änderungsantrags',
+      progress: 'Schritt {current} von {total}',
+      check: 'Einträge prüfen',
+      approve: 'Freigeben',
+      preview: 'Vorschau prüfen',
+      stable: 'Veröffentlichen',
+    },
+    next: {
+      check: 'Vergleichen Sie jeden Eintrag mit seiner Quelle und markieren Sie ihn als richtig oder nicht richtig.',
+      wrong: 'Einige Einträge stimmen nicht. Lehnen Sie den Antrag ab, damit sie in einem neuen Antrag korrigiert werden.',
+      approve: 'Alle Einträge sind geprüft. Geben Sie den Antrag frei; danach kommt er in die Vorschau.',
+      preview: 'Freigegeben. Veröffentlichen Sie ihn zuerst in die Vorschau: Die Büros sehen ihn noch nicht.',
+      stable: 'In der Vorschau. Wenn alles passt, veröffentlichen Sie ihn: Ab dann lesen ihn alle für dieses Land berechtigten Büros.',
+      published: 'Veröffentlicht. Die für dieses Land berechtigten Büros lesen ihn. Stimmt etwas nicht, nehmen Sie ihn zurück.',
+      draft: 'Noch ein Entwurf: Es können Einträge dazukommen. Zur Prüfung erscheint er hier, sobald er eingereicht ist.',
+      rejected: 'Abgelehnt. Nichts davon hat die Büros erreicht.',
+      rolled_back: 'Zurückgenommen. Die Büros lesen wieder den Stand vor diesem Antrag.',
+    },
+    progressLabel: 'Geprüfte Einträge',
+    progress: '{checked} von {total} Einträgen geprüft',
+    wrongCount: 'nicht richtig: {count}',
+    why: {
+      own: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei.',
+      ownUnchecked: 'Sie haben in diesem Antrag geschrieben, daher gibt ihn eine andere Person frei. Eine eingefügte, nicht abgerufene Seite prüft eine andere Person gegen ihre Quelle, bevor Sie ohne Zweitprüfung freigeben können.',
+      open: 'Noch zu prüfen: {count}',
+      alone: 'Sie haben in diesem Antrag geschrieben: eine zweite Person gibt ihn frei, oder Sie geben ihn mit Grund ohne Zweitprüfung frei.',
+      wrong: 'Nicht richtig: {count}. Ein Antrag mit falschem Eintrag kann nicht freigegeben werden.',
+    },
+    acceptAll: 'Alle richtig',
+    acceptChecked: 'Mit der Quelle verglichen, alles richtig',
+    pastedHint: 'Diese Seite wurde eingefügt, nicht abgerufen. Öffnen Sie die Quelle und vergleichen Sie: „richtig“ heißt hier auch, dass der Text mit der Quelle übereinstimmt.',
+    operatorSupplied: 'eingefügt, nicht abgerufen',
+    checkAgainst: 'Vergleichen mit',
+    noSource: 'Keine Quelle angegeben. Fragen Sie nach einer, bevor Sie etwas als richtig markieren.',
+    unchecked: 'nicht geprüft',
+    verdicts: {
+      accepted: 'Richtig',
+      edited: 'Bearbeitet',
+      rejected: 'Nicht richtig',
+    },
+    failed: 'Das hat nicht geklappt: {reason}',
+    cancel: 'Abbrechen',
+    rollbackReason: 'In der Plattformansicht zurückgenommen',
+    steps: {
+      approve: 'Freigeben',
+      reject: 'Antrag ablehnen',
+      preview: 'In die Vorschau veröffentlichen',
+      stable: 'Veröffentlichen',
+      rollback: 'Zurücknehmen',
+      alone: 'Ohne Zweitprüfung freigeben',
+      confirm: 'Zweitprüfung bestätigen',
+      dispute: 'Beanstanden',
+    },
+    done: {
+      approve: 'Freigegeben.',
+      reject: 'Abgelehnt.',
+      preview: 'In der Vorschau veröffentlicht.',
+      stable: 'Veröffentlicht. Berechtigte Büros lesen ihn ab jetzt.',
+      rollback: 'Zurückgenommen. Die Büros lesen wieder den vorigen Stand.',
+      alone: 'Ohne Zweitprüfung freigegeben. Die Zweitprüfung bleibt offen.',
+      confirm: 'Zweitprüfung bestätigt.',
+      dispute: 'Beanstandet. Nehmen Sie ihn zurück, wenn er schon veröffentlicht ist.',
+    },
+    confirm: {
+      approve: {
+        title: 'Diesen Änderungsantrag freigeben?',
+        body: 'Sie bestätigen, dass jeder Eintrag mit seiner Quelle verglichen wurde. Einen Antrag, in dem Sie selbst einen Eintrag geschrieben haben, können Sie nicht freigeben.',
+      },
+      reject: {
+        title: 'Diesen Änderungsantrag ablehnen?',
+        body: 'Nichts davon erreicht die Büros. Die Einträge werden in einem neuen Antrag korrigiert.',
+      },
+      preview: {
+        title: 'In die Vorschau veröffentlichen?',
+        body: 'Für die Büros ändert sich noch nichts. Prüfen Sie die Vorschau, dann veröffentlichen Sie.',
+      },
+      stable: {
+        title: 'Veröffentlichen?',
+        body: 'Jedes für dieses Land berechtigte Büro liest ihn ab jetzt, und seine Texte werden zur Indexierung eingereiht.',
+      },
+      rollback: {
+        title: 'Diesen Änderungsantrag zurücknehmen?',
+        body: 'Jeder Eintrag kehrt zu seinem Stand vor diesem Antrag zurück. Die Historie bleibt, damit frühere Antworten ihre Quellen weiter finden.',
+      },
+      alone: {
+        title: 'Ohne Zweitprüfung freigeben?',
+        body: 'Nur wenn niemand sonst prüfen kann. Der Antrag wird als ohne Zweitprüfung freigegeben markiert, und eine Zweitprüfung bleibt offen, bis eine andere Person sie gibt.',
+      },
+      confirm: {
+        title: 'Zweitprüfung bestätigen?',
+        body: 'Sie bestätigen, dass jeder Eintrag mit seiner Quelle verglichen wurde. Damit ist die offene Zweitprüfung erledigt.',
+      },
+      dispute: {
+        title: 'Freigabe beanstanden?',
+        body: 'Der Antrag wird als beanstandet markiert und nicht weiter veröffentlicht. Was schon veröffentlicht ist, bleibt, bis jemand ihn zurücknimmt.',
+      },
+    },
+  },
   orgUsage: {
     open: 'Verbrauch von {name}',
     back: 'Plattform-Übersicht',
@@ -150,19 +362,14 @@ export const platform: typeof en.platform = {
       'Fügen Sie eine PDF hinzu oder ein ZIP mit vielen auf einmal — alle Projekte stützen ihre Antworten auf diesen Korpus.',
   },
   norms: {
+    retired: 'Normen ändern sich nur noch über einen geprüften Änderungsantrag im Länderwissen der Plattform. Dieser Katalog ist nur noch lesbar.',
+    retiredLink: 'Zum Länderwissen',
     title: 'Normenkatalog',
     description:
       'Kuratierte Zitierstellen des österreichischen Baurechts, die der Agent zitiert — im Unterschied zum Basiswissen, das die Volltexte enthält, gegen die geprüft wird.',
     entryCount: '{count} Einträge',
     entryCountOne: '1 Eintrag',
-    readOnly: 'Sie können den Katalog ansehen, aber nicht ändern.',
     loadError: 'Der Normenkatalog konnte nicht geladen werden.',
-    add: 'Neuer Eintrag',
-    save: 'Register speichern',
-    saved: 'Register gespeichert.',
-    saveError: 'Das Register konnte nicht gespeichert werden.',
-    invalid: 'Registry-Validierung fehlgeschlagen.',
-    unsaved: 'Ungespeichert',
     federal: 'Bund',
     empty: {
       title: 'Noch keine Einträge im Katalog',
@@ -171,13 +378,6 @@ export const platform: typeof en.platform = {
     noMatches: {
       title: 'Kein Eintrag passt zu diesen Filtern',
       description: 'Setzen Sie die Suche zurück oder wählen Sie einen anderen Rang bzw. Geltungsbereich.',
-    },
-    conflict: {
-      title: 'Der Katalog wurde parallel geändert',
-      description:
-        'Während Ihrer Bearbeitung wurde eine neuere Fassung gespeichert, Ihre Änderungen wurden daher nicht übernommen. Laden Sie neu, um auf dem aktuellen Katalog weiterzuarbeiten — dabei gehen sie verloren.',
-      reload: 'Verwerfen und neu laden',
-      toast: 'Der Katalog wurde parallel geändert — bitte vor dem Speichern neu laden.',
     },
     search: {
       placeholder: 'Titel, Kürzel, ID durchsuchen…',
@@ -275,12 +475,6 @@ export const platform: typeof en.platform = {
       advanced: 'Erweitert',
       advancedHint:
         'Selten nötig. Hier bleibt jedes gespeicherte Feld bearbeitbar — auch die von der RIS-Suche befüllten.',
-    },
-    delete: {
-      title: 'Eintrag löschen?',
-      description: 'Der Eintrag verlässt den Katalog. Wirksam erst nach dem Speichern.',
-      confirm: 'Löschen',
-      cancel: 'Abbrechen',
     },
     fields: {
       id: 'Katalog-ID',
@@ -582,6 +776,56 @@ export const platform: typeof en.platform = {
       timing: 'Der Ausführungsverlauf jedes Turns: welcher Schritt wie lange gedauert hat und wo es gescheitert ist.',
     },
   },
+  /** Plattform → Agenten: den eigenen Assistenten an die Konsole und an die MCP-Server im Cluster anschließen. */
+  agents: {
+    urlLabel: 'Adresse des MCP-Servers',
+    urlCode: 'MCP-URL',
+    signIn:
+      'Der Client öffnet die WorkOS-Anmeldung im Browser. Wählen Sie dort die Plattform-Organisation: mit einer Büro-Organisation lehnt der Server ab.',
+    clients: {
+      claudeCode: { name: 'Claude Code', step: 'Fügen Sie den Server mit diesem Befehl hinzu und wählen Sie ihn danach unter /mcp:' },
+      cursor: { name: 'Cursor', step: 'Tragen Sie den Server in ~/.cursor/mcp.json ein:' },
+      other: {
+        name: 'Andere Clients',
+        step: 'Jeder Client, der MCP über HTTP spricht und sich per OAuth anmeldet, kann sich verbinden: Fügen Sie die Adresse als entfernten Server hinzu.',
+      },
+    },
+    console: {
+      title: 'Betriebskonsole',
+      description:
+        'Ihr Assistent arbeitet in dieser Konsole wie Sie selbst, über einen eigenen MCP-Server. Alles, was die Bereiche links können, kann er auch.',
+      notConfiguredTitle: 'In dieser Installation nicht eingerichtet',
+      notConfiguredBody:
+        'Die externe Anmeldung für Agenten (WORKOS_AUTHKIT_DOMAIN) fehlt hier, deshalb kann sich kein Assistent verbinden.',
+      can: {
+        title: 'Was Ihr Agent hier kann',
+        organizations: 'Organisationen ansehen, ihre Budgets, Speicher- und Upload-Grenzen ändern',
+        models: 'Standardmodelle, Denkaufwand, Abruf-Einstellungen und Preise lesen und setzen',
+        quality: 'Antwortqualität, Feedback, Lektionen und Quellen-Gesundheit auswerten',
+        knowledge: 'Basiswissen, Normenkatalog und Skills pflegen',
+        maintenance: 'Wartung: Vektorspeicher bereinigen, festgefahrene Recherchen beenden',
+      },
+      stays: {
+        title: 'Was gleich bleibt',
+        permissions: 'Ihre Rolle entscheidet: Mit Plattform-Support liest Ihr Agent nur.',
+        confirm: 'Eine Änderung, die alle Organisationen trifft, lässt der Client Sie vorher einzeln bestätigen.',
+        organization: 'Der Zugang ist nur für die Plattform-Organisation eingeschaltet und gilt für keine Büro-Organisation.',
+      },
+    },
+    cluster: {
+      title: 'MCP-Server im Cluster',
+      description:
+        'Dienste des Teams, die nur im Cluster laufen, etwa Langfuse, über ein gemeinsames Gateway. Die Dienste selbst bleiben privat: Ihr Assistent meldet sich mit WorkOS an, und das Gateway legt dem Dienst dessen eigenen Schlüssel vor, den Sie nie sehen.',
+      serverLabel: 'Server {name}',
+      access:
+        'Nur mit der Rolle Plattform-Eigentümer in der Plattform-Organisation. Plattform-Support wird abgewiesen, weil die Schlüssel dahinter auch schreiben, etwa Prompts in Langfuse.',
+      notDeployedTitle: 'In dieser Umgebung nicht ausgerollt',
+      notDeployedBody:
+        'Das Gateway läuft hier nicht (mcpGatewayEnabled ist aus). Bis es eingeschaltet ist, erreicht man diese Server nur per Port-Forward.',
+    },
+    runbook: 'Einrichtung und Prüfung',
+    runbookHint: 'Für den Betrieb: WorkOS-Einstellungen, Stack-Schlüssel und die Prüfungen nach dem ersten Deploy.',
+  },
   nav: {
     label: 'Plattform-Bereiche',
     scrollable: 'Plattform-Bereiche, seitlich scrollbar',
@@ -601,8 +845,10 @@ export const platform: typeof en.platform = {
     cards: 'Karten',
     knowledge: 'Basiswissen',
     norms: 'Normenkatalog',
+    countries: 'Länder',
     storage: 'Speicher',
     maintenance: 'Wartung',
+    agents: 'Agenten',
   },
   answerFeedback: {
     title: 'Antwort-Feedback',
@@ -835,6 +1081,10 @@ export const platform: typeof en.platform = {
       title: 'Basiswissen',
       subtitle: 'Der gemeinsame OIB-Korpus, auf den jedes Projekt seine Antworten stützt.',
     },
+    countries: {
+      title: 'Länder',
+      subtitle: 'Das Plattformwissen jedes Landes und die Prüfliste, über die es sich ändert.',
+    },
     norms: {
       title: 'Normenkatalog',
       subtitle: 'Welche Rechtsquellen binden, wie sie eingestuft sind und wo sie im RIS liegen.',
@@ -848,6 +1098,10 @@ export const platform: typeof en.platform = {
       title: 'Wartung',
       subtitle:
         'Zwei Eingriffe über alle Organisationen: den Vektorspeicher bereinigen und festgefahrene Recherchen beenden. Selten nötig.',
+    },
+    agents: {
+      title: 'Agenten verbinden',
+      subtitle: 'Ihren eigenen KI-Assistenten an die Betriebskonsole und an die MCP-Server im Cluster anschließen.',
     },
   },
   /** Platform → Karten: das Darstellungsvokabular des Agenten, gerendert. */
@@ -1177,7 +1431,7 @@ export const platform: typeof en.platform = {
     // Dokumentarten. Deutsch identisch mit DOCUMENT_CLASS_LABELS im Backend
     // (`lib/knowledge/doc-class.ts`); base-knowledge.spec.tsx prüft das.
     docClasses: {
-      oib_guideline: 'OIB-Richtlinie (verbindlich)',
+      oib_guideline: 'OIB-Richtlinie',
       oib_guide: 'OIB-Leitfaden',
       oib_explanatory_note: 'OIB-Erläuterung',
       oib_definitions: 'OIB-Begriffsbestimmungen',
@@ -1374,7 +1628,7 @@ export const platform: typeof en.platform = {
     missingCited: '{turns} Turn(s) · {organizations} Org.',
     missingCaveat:
       'Jede Schaltfläche öffnet die zuständige Verwaltung und legt die Kennung in die Zwischenablage. Ein PDF muss von Ihnen kommen, und ein Eintrag im Normenkatalog braucht bestätigten Rechtsrang und Bundesland, bevor {productName} ihn als verbindlich zitieren darf.',
-    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattform-Einstellungen zu verwalten.',
+    missingReadOnly: 'Zum Ergänzen von Quellen braucht es die Berechtigung, Plattformwissen zu schreiben, oder für den Normenkatalog, Plattform-Einstellungen zu verwalten.',
     shownOfTotal: '{shown} von {total} angezeigt.',
     missingInventoryUnknown:
       'Der Bestand der Plattform konnte nicht geprüft werden. Ob diese Quellen schon vorhanden sind, ist offen; Ergänzen ist ausgeblendet, bis die Prüfung wieder klappt.',

@@ -38,8 +38,6 @@ const DATA: ProjectOverviewData = {
   createdAt: '2026-07-01T10:00:00Z',
   profileDisplay: { summary: 'Wohnbau GK4 in Wien.' },
   profile: null,
-  applicableStandards: [],
-  briefComplete: false,
   documentCount: 12,
   totalFileSize: 48_000_000,
   recentDocuments: [

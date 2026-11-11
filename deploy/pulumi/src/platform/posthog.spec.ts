@@ -3,7 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
-import { posthogEnv } from "../app/config";
+import { posthogEnv } from "../app/posthog-env";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import { BFF_SERVICE_NAME } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
@@ -98,11 +98,12 @@ describe("PostHog logs in the collector, enabled", () => {
     expect(collector).not.toMatch(/^\s+otlphttp\//m);
   });
 
-  it("puts it on its own logs pipeline behind a WARN filter, with no unfiltered logs pipeline beside it", () => {
+  it("puts it on its own logs pipeline behind a WARN filter and the text redaction, with no unfiltered logs pipeline beside it", () => {
     const { processors, service } = parseCollectorConfig(collector);
     expect(service.pipelines["logs/posthog"]).toEqual(
-      pipeline(["otlp_http/posthog"], { processors: ["filter/warn_and_above"] }),
+      pipeline(["otlp_http/posthog"], { processors: ["filter/warn_and_above", "transform/posthog_redact"] }),
     );
+    expect(processors["transform/posthog_redact"]).toMatchObject({ error_mode: "propagate" });
     expect(processors["filter/warn_and_above"]).toMatchObject({
       log_conditions: ["log.severity_number < SEVERITY_NUMBER_WARN"],
     });

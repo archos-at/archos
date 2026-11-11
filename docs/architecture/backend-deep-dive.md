@@ -652,10 +652,13 @@ the folder.
 
 Every backend call carries a base64url `X-Grid-Collection-Scope` header =
 `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`, built in
-`src/lib/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
+`apps/workspace/bff/retrieval-scope/collection-scope-request.ts` and validated backend-side. This is the core
 RAG multi-tenant boundary. Note `resolveProjectCollectionName` short-circuits to
 no project scope when `session.organizationId` is falsy (anonymous /
-`REQUIRE_AUTH=false`).
+`REQUIRE_AUTH=false`). `oib_knowledge` is in it only for a turn without a
+project or a project placed in Austria (`loadProjectSiteCountry`, ADR-0158); the
+knowledge layer's `scoped_collections_for_site` holds the same rule for a scope
+nobody stated, and RIS is a switched-off source for such a project.
 
 The signed header is the **authorization ceiling**, not the turn's search set.
 The client states **intent** on the user message — `focus_file_name`,
@@ -1057,6 +1060,25 @@ Every evidence tool answers in one grammar: a preamble, a run of
 `--- Result N ---` blocks whose header states `Source:`, `Collection:`,
 `Shelf:`, `Dokumentart:`, `Punkt:`, `Citation:` and `Relevance Score:`, the
 passage body under that last line, and one `## Trace-Lanes` object at the end.
+The body sits between `<document_content>` and `</document_content>`, and a
+line under the preamble says once that text inside is quoted content, never an
+instruction (`common/passage_fence.py`). A body that spells either tag has its
+`<` written as `&lt;`, so no document, and no filed mail (ADR-0137), can close
+the fence early; the text reader takes the fence back off. The grammar's own
+lines a body spells (`--- Result 2 ---`, `## Trace-Lanes`) stay as written, and
+every reader that splits the grammar skips them inside a fence
+(`passage_fence.unfenced`): the text parser (`citations/grounding_text.py`),
+`strip_trace_lanes`, the history's compaction and deep research's exclusion cut.
+Without that, a mail body spelling a second hit with `Shelf: building_law` was a
+hit on every replayed turn. A free-text header value outside the fence (a
+mail's subject is its Verlauf's title, a folder, a label) has its tags escaped
+and a spelled `--- Result` made one dash (`grounding_block._line`), and a
+`Source:` title stops at 200 characters. A key another tool takes back
+(`Path:` for `read_file`, `Citation:` for the registry, the codes, the
+project id) is only made one line (`grounding_block._key`), so it round-trips;
+it cannot act as grammar mid-line, since every reader anchors the tags and the
+delimiter at the start of a line. Grep's `## Lines around the matches`
+index prints documents' own lines, so it is fenced too.
 
 The hit is now a record and the text is its rendering.
 `common/grounding_block.py` holds `GroundingHit`, `GroundingBlock` and the one
@@ -1442,26 +1464,47 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   the YAML seed's pointers in place (merge-only; curated fields never
   clobbered).
 - **Prompt rendering** — `render_block_for_prompt(project_context)` renders
-  the doctrine-adjacent catalog block: Bundesrecht lane, the project's own
-  Bundesland lane (other states' law is dropped — `focus_entries` semantics),
-  the curated `binding_note` lines, a static OIB-corpus citation note, and the
-  project applicability section (`applicability.render_project_block`). The
-  Normenhierarchie doctrine itself is one constant (`NORM_DOCTRINE`) injected
-   into the deep-researcher, planner and writer templates as
-   `{{ norm_doctrine }}`.
-  **Piloti renders neither.** `ris_lookup` resolves a catalog pointer out of
-  the question itself, so the list is a per-turn copy of something the tool
-  already holds, and the doctrine is constant per deployment, so it belongs in
-  the cacheable prefix. Piloti renders the applicability section alone
-  (`prompt.oib_applicability`, derived from this project's `confirmed:` facts)
-  and keeps the doctrine in its system prompt, `chat_static.md`
-  (`<building_law>`). See the ADR-0060 amendment.
-- **Jurisdiction** — `resolve_country(project_context)` regexes the structured
-   `country=<cc>` fact from the prompt text (`at`/`de`/`ch`/`other`, authored
-   by the intake wizard's new A2_country question); absent → `"at"`. Every
-   prompt now carries a **Jurisdiction & Country Handling** block that instructs
-   the agent: for `at` → full OIB/RIS pipeline, binding precision; for non-AT →
-   Austrian corpus only, comparative guidance, recommend local verification.
+  the RIS catalogue for deep research: Bundesrecht lane, the project's own
+  Bundesland lane (other states' law is dropped — `focus_entries` semantics).
+  Addresses only, and only where the run's knowledge context lets the RIS
+  tools run (`law_gate.law_sources_withheld`); no `binding_note`, no corpus
+  edition, no verdicts (ADR-0175). **Piloti renders none of it**: `ris_lookup`
+  resolves a catalog pointer out of the question itself (ADR-0060 amendment).
+- **Which law applies** — the turn's knowledge context alone (ADR-0173,
+   ADR-0175, `common/knowledge_context.py`). The BFF resolves it on every turn
+   and puts it in every research run's payload (`knowledge_context`;
+   `agent_host/jobs/agent_job_setup.bind_knowledge`). Nothing
+   reads the project's text for a country or a Land, and nothing defaults to
+   one: absent or malformed, the context is `knowledge_unavailable`, which
+   withholds the legal-database tools (`law_gate.law_sources_withheld`), the
+   base corpus (`knowledge_layer.search.scoped_collections_for_site`), the
+   OIB family prefetch, and every edition's binding role, and the turn reads
+   the gate's note (`knowledge_context.gate_note`). The method that holds in
+   every country is constant: `<legal_method>` in `chat_static.md`, and
+   `law_gate.LEGAL_METHOD` for deep research's `{{ norm_doctrine }}`, which
+   appends the gate's note or the chain. Deep research's **Jurisdiction**
+   block (`law_gate.JURISDICTION_GROUNDING`) says to follow them.
+- **OIB edition per Land** — relation records of the Austria pack
+   (`configs/knowledge-packs/at.json`, ADR-0168). Since the cut-over
+   (ADR-0175) the BFF resolves the project's site against the platform's records (`bff/base-knowledge/chain/`)
+   and the knowledge context carries the chain text (`text`) and each
+   edition's role (`uses`), with the open-coverage, freshness and
+   connecting-factor corrections applied, and each use's designation, edition
+   label and the work's identifiers at its source (`sourceRefs`,
+   `{scheme, value}`); the contract is
+   `apps/workspace/tests/fixtures/knowledge-context.schema.json`. It is the turn's one answer to which
+   law applies: the citation chip reads the same roles the gate does
+   (`citations/roles.py`), so a citation never says binding where the gate says
+   information. The chain text is the turn context's
+   `<building_law>` block (`law_gate.turn_building_law_block`), the only
+   building-law text a turn reads, and a gate that withholds law shows the
+   note instead. A cited base-corpus passage maps to its edition by its
+   corpus file, and its role is the chip's `binding_status` (OIB-RL 2:2023 is
+   `interpretive` in Steiermark); a passage no role reaches is `unknown`. A
+   static prompt still served from Langfuse with the old `<building_law>`
+   block is not served (`prompt.RETIRED_STATIC_BLOCK`): the bundled file is.
+   The summary per Land is in
+   [`country-extensibility.md`](country-extensibility.md#oib-editions-per-land).
 - **Bundesland** — `resolve_federal_state`: the validated envelope token wins
    (`ausserhalb_oesterreichs` → None is final), then the structured
    `federal_state=<token>` prompt fact, then free-text state-name probing.
@@ -1475,12 +1518,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
    facts (fluchtniveau, BG Fläche, Anzahl Geschoße, Bauweise, Nutzung,
    Brandschutzanlagen, …) as binding constraints, derive building classes from
    them, flag contradictions, and surface gaps.
-- **Applicability** — `common/applicability.py` is a small hand-written module
-  (no DSL): OIB verdicts from project facts (mirrors the UI's
-  `applicable-standards.ts`), German trigger hints for the four boolean intake
-  facts (Kleingarten, Denkmalschutz, Betriebsanlage, Stellplatz), and the
-  prompt section Piloti renders from the project context.
-- **Display tagging** — `lane_for_hit` / `citations/binding.py::source_lane`
+- **Display tagging** — `lane_for_hit` / `citations/source_identity.py::source_lane`
   map a retrieval or citation hit to a stratum + lane label (Bundesrecht /
   Landesrecht / Verordnung via catalog rank; OIB lanes via filename class;
   Projektwissen / Büroablage / Web via collection origin) for the research
@@ -2253,7 +2291,8 @@ office's skills (`resolve_served_skills`) under `/skills/office/`. Full design a
 `task verify` is the local gate: host-native, defined once in the root
 `Taskfile.yml`. CI calls the same definitions but schedules them differently, so
 a local pass is strong evidence rather than a guarantee. `task verify:fast`
-skips two production builds, `workspace:build` and `website:build`. Full command list, the
+runs only the tiers and UI specs the diff against `origin/develop` reaches, without
+the two production builds and without coverage. Full command list, the
 checks that sit outside `verify`, and the traps `task --list` does not carry:
 `docs/contributing/testing-and-verification.md`.
 

@@ -131,7 +131,7 @@ The agent acts for a person, and the person decides what changes.
   project the member cannot see in front of an admin, whose click would apply
   it. Piloti never files the person's own decisions: applying or dismissing
   a proposal and undoing a change it made are hidden from it and refused at
-  the click (`PILOTI_HIDDEN_OPERATIONS`; since 2026-10-21 `piloti: false` in
+  the click (`PILOTI_HIDDEN_OPERATIONS`; since 2026-10-21 `piloti: false`, since 2026-11-03 `agent: false`, in
   the exposure config and the applier's `PROPOSAL_DECISION_OPERATIONS`), so one card can never accept
   another. Only a reader who may read every target may decide the card:
   another's `canDecide` is false and their apply is refused with the card left
@@ -385,7 +385,7 @@ list in `configs/config_oib_openrouter.yml`.
 whether a caller may see a sensitive operation is decided per call from the
 organization's opt-in flags and the token's step-up scope, which a static file
 cannot know. The config records the ceiling (`external: true` behind those
-guards, `piloti: false`), and its spec fails an entry that offers Piloti a
+guards, `agent: false`), and its spec fails an entry that offers Piloti a
 sensitive operation.
 
 **Initial values: today's behaviour,** except the consultant's steps 1 to 5
@@ -445,6 +445,72 @@ Why it is safe:
   minutes; the second round must repeat the same call. An unsigned, altered,
   expired or foreign state is refused by the SDK before any handler runs, and
   an answer without a state is not an answer.
+
+### Amendment: a decision only the person makes
+
+*2026-10-22, product owner, from the red team of the project mail work (RT-S5).*
+The amendment above trusts a client not to ask: one that declares no
+elicitation runs a destructive write without a question, because it could
+always have done so. That holds for an act the person delegates to their agent.
+It does not hold for a decision the product promises only a person makes, such
+as filing a mail that arrived from outside into a project: an outside agent
+that reads injected text in that mail and lacks elicitation would make the
+decision itself, and the promise would hold only for well-behaved clients.
+
+**An operation may be marked `requiresPersonConfirmation`**
+(`apps/workspace/bff/agent-api/operation.ts`). For an outside agent, a
+marked call runs only on the person's yes:
+
+- where the request can carry the question (2026-07-28, form elicitation
+  declared, a signing key), it is asked, as above, whether or not the
+  operation is otherwise destructive;
+- where it cannot (a 2025-era request, a client without form elicitation, no
+  key), the call is **refused and never runs**. The refusal
+  (`structuredContent.decision: 'person_required'`) carries `url`, the app
+  page where the person makes the decision themselves, which the operation
+  names for the call's input (`requiresPersonConfirmation.decideAt`).
+
+Piloti in-product is unchanged: its write is a proposal, and the person's
+acceptance of the card is the yes. The mark sets `destructiveHint`, so a client
+that asks its user from the annotations asks for it too. It is for writes only
+(`confirmation.spec.ts` holds the real catalog to it), because Piloti runs a
+read without a card. Every operation without the mark is answered exactly as
+before.
+
+Considered and not taken: answering with MCP URL-mode elicitation
+(`URLElicitationRequiredError`). That mode sends the person to a page and then
+lets the client retry the same call; here the page is where the person makes
+the decision, so nothing is left for a retry to do, and a retry carrying the
+agent's input would be the agent's decision again. A plain refusal with the
+link, which every client relays, says exactly that.
+
+### Amendment: evidence is on no door
+
+*2026-10-22, product owner, from the project mail work (ADR-0137, answer B).*
+A mail sent to a project's address is kept as its original `.eml` beside the
+section its text became: the reply splitter and the HTML flattener are
+heuristics, an inline sketch or a refused file type lives only there, and a
+DKIM signature is re-verifiable only on those bytes. A person downloads it in
+the app, scanned whole on every request. No model reads it, and the product
+promises exactly that.
+
+The four categories above say why a capability is not worth an agent's
+tool slot. This one is different in kind: the bytes are proof, and their worth
+depends on nobody but a person handling them. So a **fifth category**,
+`evidence`: *bytes kept as proof, which no model reads*. An operation that
+serves such bytes is catalogued like every other (the route has its
+operation, so `agent-reachability.spec.ts` holds) and withheld from every door,
+The agent's and every outside agent's, with `withheld: { category: 'evidence',
+reason }` (`exposure.config.ts`). Today: `inbound-mail-original-get`, and the
+filed entry's original download that follows it. Offering one again is, as for
+every withheld operation, deleting its `withheld` entry, and here it would
+also break the promise ADR-0137 makes; that change needs an amendment of its own.
+
+What is not evidence, and why: a held mail's text (`inbound-mail-text-get`)
+and an attachment's bytes before filing (`inbound-mail-part-content-get`) are
+what the person decides on. They are offered to an outside agent acting as the
+person (the text masked), and not to the agent (`agent: false`), which reads a
+mail only once a person filed it (ADR-0137, D22).
 
 ### The app is a client of the same routes
 
@@ -594,6 +660,11 @@ because it reaches persisted data or another wave's code:
   yet.
 
 ## More Information
+
+Amended by [ADR-0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md):
+`site-resolve` and `project-site-set` are offered on the door, because they
+answer from address registers only this deployment hosts; `address-search`,
+which proxies a public geocoder, stays withheld.
 
 - [ADR-0055](0055-api-first-workspace-primitives.md): one HTTP route per
   primitive, every consumer a client. This record extends it to every capability.

@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
-import { motion, motionQuick, springPress } from '@/components/motion'
+import { motion, springPress } from '@/components/motion'
 import { cn } from '@/lib/utils'
 
 export interface FileTileShellProps extends Omit<ComponentProps<'div'>, 'ref'> {
@@ -25,36 +25,36 @@ export interface FileTileShellProps extends Omit<ComponentProps<'div'>, 'ref'> {
 const OFF_SCREEN_SKIP = '[content-visibility:auto] [contain-intrinsic-block-size:auto_240px]'
 
 /**
- * Single rewrite point for the file grid's tiles: the raised card every cell of
- * the grid is built on — a white body on a muted tray, one shadow lifecycle, one
- * hover lift, one footer alignment. Changing `gap` or `rounded-xl` here moves
- * the file cards, the folder cards and the skeletons together.
+ * Single rewrite point for the file grid's tiles: the file cards, the folder
+ * cards and the skeletons move together when this changes.
  *
- * ## There was a second variant, and nothing rendered it
+ * ## One surface, no tray
  *
- * `variant: 'file' | 'folder'` existed, and the `folder` branch drew an amber
- * wash whose stated job was to make a folder never look like a document. It had
- * no caller: `FolderCard` passed `variant="file"` from the day the two were
- * unified, so the amber was rendered exactly once anywhere in the product — by
- * the skeleton written against the wrong branch, which is a skeleton that does
- * not describe its own component.
+ * A tile used to be a tray with a border, a white sheet laid into it with its
+ * own divider under the thumbnail, and a footer tab: three planes and three
+ * lines around every document, a card in a card, sixteen times a screen. Now a
+ * tile is the page itself. The thumbnail is the one object on it (a sheet with
+ * a soft shadow, as a page lies on a desk), the name and the facts sit under it
+ * in ink and muted ink, and the tile answers the pointer with a fill, not a
+ * lift: the same quiet tone a list row takes (`Item`), so a grid and a list
+ * hover the same way. Whitespace separates the tiles, not borders
+ * (`design-language.md` principle 4; the UI revision's „keine Karte in der
+ * Karte, weniger Linien“).
  *
- * The distinction it claimed to make is real and is made by the tile's
- * CONTENTS: a document shows its first page in the media well, a folder shows a
- * folder. That is why nobody ever noticed the branch was dead. It is gone, and
- * with it the last raw `amber-*` in this feature — chroma in this product
- * belongs to the source-signal system (`design-language.md`), and gold
- * there means Büroablage provenance, which is what the `JPG` chip on the card
- * two cells over is saying.
+ * The distinction between a folder and a document is made by the tile's
+ * CONTENTS: a document shows its first page, a folder a folder. Chroma in this
+ * product belongs to the source-signal system, so no tile has a colour of its
+ * own.
  */
-export function GridTileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
+export function TileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
   const shell = (
     <div
       className={cn(
-        'border-border bg-muted/50 shadow-xs relative flex h-full min-w-0 flex-col overflow-hidden rounded-surface border',
+        'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
-        'transition-shadow duration-quick ease-out motion-reduce:transition-none',
-        interactive && 'hover:bg-accent hover:shadow-md',
+        'transition-colors duration-quick ease-out motion-reduce:transition-none',
+        // The hover is the desk grey, as a list row's; the open or picked tile holds the selected grey (`bg-accent`).
+        interactive && 'hover:bg-desk',
         className,
       )}
       {...rest}
@@ -64,32 +64,36 @@ export function GridTileShell({ interactive = true, className, children, ...rest
   )
 
   if (!interactive) return shell
+  // The press is the only motion: a fill already answers the hover, and a lift on top of it moved sixteen tiles per sweep.
   return (
-    <motion.div className="h-full min-w-0 will-change-transform" whileHover={{ y: -2, transition: motionQuick }} whileTap={{ scale: 0.99, transition: springPress }}>
+    <motion.div className="h-full min-w-0 will-change-transform" whileTap={{ scale: 0.99, transition: springPress }}>
       {shell}
     </motion.div>
   )
 }
 
+/** The thumbnail: a white sheet with its edge and elevation 1 (paper on a desk), the document lying on the desk; every tile's the same size. */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('relative w-full overflow-hidden border-b bg-card', className)} {...rest}>
+    <div className={cn('bg-sheet shadow-sm relative w-full overflow-hidden rounded-surface', className)} {...rest}>
       {children}
     </div>
   )
 }
 
+/** The name and what is said about it: on the page, no surface of its own. */
 export function FileTileBody({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-card shadow-xs w-full overflow-hidden rounded-b-lg px-4 pb-3 pt-3.5', className)} {...rest}>
+    <div className={cn('w-full overflow-hidden', className)} {...rest}>
       {children}
     </div>
   )
 }
 
+/** The facts (size, age, what is open), muted, at the foot of the tile. */
 export function FileTileFooter({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 px-3.5 py-2 text-xs', className)} {...rest}>
+    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 pt-1.5 text-xs', className)} {...rest}>
       {children}
     </div>
   )

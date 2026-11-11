@@ -59,6 +59,9 @@ test('an AI-generated image needs the AI tag in its own frame', () => {
   assert.deepEqual(aiTagFindings(ok), [])
   assert.equal(aiTagFindings(missing).length, 1)
   assert.deepEqual(aiTagFindings('<div><img src="/media/product-model-check.webp"></div>'), [])
+  // As Astro's <Image> builds it: hashed under /_astro/, with a srcset.
+  const built = '<div class="ui-duo-card"><img src="/_astro/planner-design-photo.Dp2-1NEX_Z1frIXw.webp" srcset="/_astro/planner-design-photo.Dp2-1NEX_2aRG4B.webp 320w" alt=""><div class="ui-duo-text"><h3>t</h3></div></div>'
+  assert.equal(aiTagFindings(built).length, 1)
 })
 
 test('retracted claims stay out (ported from the retired site)', () => {

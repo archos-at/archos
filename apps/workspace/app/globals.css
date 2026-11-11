@@ -12,6 +12,8 @@
 @import '../shared/brand/tokens.vars.css';
 @import '../ui/styles/tokens.css';
 @import '../ui/styles/data-palette.css';
+/* The status screens' line drawing (not found, no access, an error): ui/components/brand/status-drawing.tsx. */
+@import '../ui/styles/status-drawing.css' layer(components);
 @import 'tw-animate-css';
 
 /* The wordmark's face (packages/brand: the logo is the one element set in
@@ -113,6 +115,9 @@ body {
 
 body {
   font-family: var(--font-sans);
+  /* The light end, raised (`--font-weight-normal` in tokens.css): unstyled
+     text inherits it, so running text is never thinner than `font-normal`. */
+  font-weight: var(--font-weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -201,7 +206,10 @@ body {
      drew a second box inside it.
    - A row of a bordered list (`data-focus-inset`, the inbox's rows under j/k)
      keeps the outline, inside its own edge: drawn outside, the list's rounded,
-     clipped frame cut it to two black bars along the dividers. */
+     clipped frame cut it to two black bars along the dividers.
+   A text field switches it off itself (`FIELD_FOCUS_RING`, an important
+   utility): its focus is its border turning ink, and a click into a field is a
+   focus-visible too, so the outline was drawn on every click (Notion #38). */
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -314,6 +322,40 @@ body {
   }
   to {
     box-shadow: 0 -1px 0 0 transparent;
+  }
+}
+
+/* A bar pinned (sticky) over the foot of the content it sits in (the E-Mail-Eingang's decision bar): a faint
+   shadow upward instead of a line, and only while content is left beneath it; at the end of the scroll, and in a
+   pane that does not scroll (an inactive timeline), it draws none. Guarded like `scroll-edge-bottom`. A bar below
+   a list rather than over it (a selection bar) is a band of the one grey and needs neither. */
+@keyframes pinned-foot-reveal {
+  from {
+    box-shadow: 0 -8px 16px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@utility shadow-pinned-foot {
+  @supports (animation-timeline: scroll(nearest block)) {
+    animation: pinned-foot-reveal linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: calc(100% - 24px) 100%;
+  }
+}
+
+/* The design system's 1280px content container, for every listing of a project's section (Dateien and its
+   tabs). It keeps the section's left edge, which beside the app rail is the rail's edge, and centres once its
+   section is at least 1440px wide: the page cannot ask whether a rail is shown, but a 1440px section has none
+   beside it at a laptop's width and is a wide screen otherwise, where 192px of paper on one side read as a
+   page that had slid. The section frame names the container (`@container/section`). */
+@utility listing-container {
+  width: 100%;
+  max-width: 1280px;
+  @container section (min-width: 90rem) {
+    margin-inline: auto;
   }
 }
 
@@ -648,13 +690,14 @@ body {
   outline-color: var(--border-color-brand);
 }
 
-@utility tracking-display {
-  letter-spacing: -0.04em;
+/* The same hairline drawn inset all round a row: the selected row of a list
+   whose detail is open beside it (`Item`'s current state). Inset, because
+   `ItemList` clips its first and last row; an inset ring, not `ring`, so the
+   keyboard's focus ring still composes over it. */
+@utility inset-ring-strong {
+  --tw-inset-ring-color: var(--border-color-brand);
 }
 
-@utility tracking-label {
-  letter-spacing: 0.24em;
-}
 
 @utility scale-press {
   transform: scale(0.98);
@@ -695,12 +738,16 @@ body {
      CalloutCard, whose eyebrow carries the tone's ink instead.
      Deliberately sets NO line-height: `SectionLabel` has ~39 call sites across
      the product that inherit theirs today, and a step here would move all of
-     them. */
+     them.
+     Sentence case, no tracking: the wordmark is the only element in capitals
+     (brand design system), and the wide tracking existed only to make capitals
+     readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
-    font-size: 10.5px;
+    /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
+       read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
+    font-size: 12px;
+    line-height: 16px; /* the label step of the type scale, 12/16/500 (paper on a desk) */
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* Meta — ordinals, chips, units, ± bands, counts. */
@@ -715,19 +762,22 @@ body {
   .card-caption {
     font-size: 12px;
     line-height: 1.625;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Body — every row of every list. The default. */
+  /* Body — every row of every list. The default. The answer's one text size
+     (`--text-answer`, tokens.css): a card's row reads at the size of the prose
+     around it, because a smaller row said nothing about rank (Notion #38). */
   .card-body {
-    font-size: 13.5px;
+    font-size: var(--text-answer);
     line-height: 1.55;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Title — the card title, and nothing else. */
+  /* Title — the card title, and nothing else. The body's size: the title's
+     rank is its weight (500, content weight) and its ink, not a 0.5px step. */
   .card-title {
-    font-size: 14px;
+    font-size: var(--text-answer);
     line-height: 1.35;
     font-weight: 500;
   }
@@ -740,16 +790,16 @@ body {
     font-size: 17px;
     line-height: 1.3;
     font-weight: 500;
-    letter-spacing: -0.04em;
   }
 
-  /* Figure — the one thing the card exists to say, and the only element a card
-     may carry above 14px. Four sizes because the charter spends four: 15px
-     inside a dense list (a takeaway, a tally, an outcome row), 20px for a value
-     standing on its own, 24px for a computed result, 30px for a verdict.
+  /* Figure — the one thing the card exists to say, and with the headline the
+     only element a card may set larger than its body. Four sizes because the charter spends four: 16px
+     inside a dense list (a takeaway, a tally, an outcome row: the body's size,
+     set apart by weight and tabular figures), 20px for a value standing on its
+     own, 24px for a computed result, 30px for a verdict.
      Named by their size so `grep card-figure-` finds every figure in the set
      and a fifth size cannot appear without appearing here first. */
-  .card-figure-15,
+  .card-figure-16,
   .card-figure-20,
   .card-figure-24,
   .card-figure-30 {
@@ -757,27 +807,24 @@ body {
     font-variant-numeric: tabular-nums;
   }
 
-  .card-figure-15 {
-    font-size: 15px;
+  .card-figure-16 {
+    font-size: var(--text-answer);
     line-height: 1.35;
   }
 
   .card-figure-20 {
     font-size: 20px;
     line-height: 1.25;
-    letter-spacing: -0.01em;
   }
 
   .card-figure-24 {
     font-size: 24px;
     line-height: 1.2;
-    letter-spacing: -0.02em;
   }
 
   .card-figure-30 {
     font-size: 30px;
     line-height: 1.15;
-    letter-spacing: -0.02em;
   }
 }
 
@@ -1207,29 +1254,35 @@ body {
   z-index: 100;
 }
 
-/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--background-color-accent-gray) transparent;
-}
+/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like).
+   In `@layer base`, so a utility can override them. Unlayered, `* { scrollbar-width:
+   thin }` beat `scrollbar-hide` (a utility, so layered) on every element: the
+   transcript kept a 10px scrollbar the composer below it does not have, and the
+   answer stood 5px left of the input it should share a column with (#38). */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--background-color-accent-gray) transparent;
+  }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background: transparent;
-}
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  background-color: var(--background-color-accent-gray);
-  border-radius: 9999px;
-}
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--background-color-accent-gray);
+    border-radius: 9999px;
+  }
 
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--background-color-accent-gray-hover);
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--background-color-accent-gray-hover);
+  }
 }
 
 /* The chart and meter palette (spend, usage, storage) lives in ui/styles/data-palette.css. */

@@ -60,6 +60,9 @@ import { registerAppTool } from '@modelcontextprotocol/ext-apps/server'
 import { UI_EXTENSION, VIEW_TOOL_NOTE, appHostOf, offersAppViews, registerAppViews, viewMetaOf } from './mcp-apps'
 import type { McpCallContext, McpMode } from './telemetry'
 
+import { IDEMPOTENCY_KEY_DESCRIPTION } from './door-idempotency'
+import { ONBOARDING_GUIDE_URI, offersOnboardingGuide, registerOnboardingGuide } from './door/platform-guide'
+
 export const MODE_HEADER = 'x-piloti-mcp-mode'
 
 /** What the agent reads once, at connect time, on an office door. */
@@ -69,14 +72,19 @@ export const MCP_INSTRUCTIONS = [
   'Read the resource piloti://guide once: how the workspace fits together and how ids flow; piloti://catalog lists every operation you may run, piloti://glossary the office\'s German words.',
   'Start with project-list to see which projects exist, then search-operations to find what you need and call-operation to run it (describe-operation shows an input you do not know).',
   'Ask the person before a destructive operation. If nothing fits what they asked for, say so and call report-missing-operation.',
+  IDEMPOTENCY_KEY_DESCRIPTION,
 ].join(' ')
 
 /** What the agent reads once, at connect time, on the platform door (ADR-0126). */
 export const PLATFORM_MCP_INSTRUCTIONS = [
   `This is the ${PRODUCT_NAME} platform console: the platform operator runs ${PRODUCT_NAME} for every planning office here, and you act for a platform operator with exactly the platform permissions they hold.`,
   'Settings, prices, models and the base knowledge corpus here apply to every organization at once; nothing of an office\'s own workspace is here.',
+  'Nor is anything an office wrote (conversations, feedback, ratings, lessons): platform staff read that in the platform console in the browser, never through an agent.',
   'Start with platform-overview-get for the organizations, then search-operations to find what you need and call-operation to run it (describe-operation shows an input you do not know).',
   'Ask the person before every destructive operation: here one reaches every tenant. If nothing fits, say so and call report-missing-operation.',
+  `To onboard a country's knowledge, read the resource ${ONBOARDING_GUIDE_URI} first.`,
+  IDEMPOTENCY_KEY_DESCRIPTION,
+  'A refusal carries an RFC 9457 problem in structuredContent.problem; branch on its code.',
 ].join(' ')
 
 /** The server's name and instructions on each door. */
@@ -278,6 +286,7 @@ function capabilitiesFor(ctx: McpCallContext, era: McpEra) {
     ...(offersDoorGuide(ctx)
       ? { prompts: { listChanged: false }, resources: live ? { listChanged: true, subscribe: true } : { listChanged: false } }
       : {}),
+    ...(offersOnboardingGuide(ctx) ? { resources: { listChanged: false } } : {}),
   }
 }
 
@@ -315,6 +324,7 @@ export function buildMcpServer(
   if (mode === 'tools') registerOperationTools(server, ctx, era)
   else registerMetaTools(server, ctx, era)
   registerDoorGuide(server, ctx)
+  registerOnboardingGuide(server, ctx)
   // MCP Apps: the views, their app-only tools, and in `search` mode the tool that links to a view (ADR-0142).
   registerAppViews(server, ctx, (op) => {
     if (findVisibleOperation(principal, op.name)) registerOperationTool(server, ctx, era, op)
@@ -374,7 +384,7 @@ function acceptingJson(request: Request): Request {
  */
 async function serveLegacyAsJson(request: Request, authInfo: AuthInfo | undefined, onerror: (error: Error) => void): Promise<Response> {
   const { principal, mode } = authInfo?.extra as unknown as AgentDoorRequest
-  const server = buildMcpServer(principal, mode)
+  const server = buildMcpServer(principal, mode, 'legacy')
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
   transport.onerror = onerror
   await server.connect(transport)

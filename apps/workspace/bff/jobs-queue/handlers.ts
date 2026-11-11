@@ -41,6 +41,11 @@ import { runInboxPush } from '@/lib/push/inbox-push-job'
 import { runDueRemindersSlice } from '@/lib/annotations/due-reminders'
 import { runDocumentCheckSlice } from '@/lib/document-check/job'
 import { runRevisionNotice } from '@/lib/revision-notice/job'
+import { runInboundMailFiling } from '@/lib/inbound-mail/file-job'
+import { runInboundMailFollow } from '@/lib/inbound-mail/follow-job'
+import { runInboundMailReceive } from '@/lib/inbound-mail/receive-job'
+import { runInboundMailSenderFile } from '@/lib/inbound-mail/sender-file-job'
+import { runInboundMailSuggest } from '@/lib/inbound-mail/suggest-job'
 import { runSearchFacetsSyncSlice } from '@/lib/search/shelf-projection'
 import { isLastAttempt } from './attempts'
 import {
@@ -61,6 +66,11 @@ import {
   restoreFolderBinPayloadSchema,
   revisionNoticePayloadSchema,
   documentCheckPayloadSchema,
+  inboundMailFilePayloadSchema,
+  inboundMailFollowPayloadSchema,
+  inboundMailSenderFilePayloadSchema,
+  inboundMailReceivePayloadSchema,
+  inboundMailSuggestPayloadSchema,
   rootSortPayloadSchema,
   searchFacetsSyncPayloadSchema,
   type BffJobKind,
@@ -68,6 +78,12 @@ import {
   type JobRequester,
   type JobSliceResult,
 } from './types'
+import {
+  platformTextDeindexPayloadSchema,
+  platformTextIndexPayloadSchema,
+  runPlatformTextDeindex,
+  runPlatformTextIndex,
+} from '@/lib/base-knowledge/platform/indexing'
 
 /**
  * One bounded step of a job: the state it was saved with in, the state to save out.
@@ -203,5 +219,25 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   revision_notice: systemHandler(revisionNoticePayloadSchema, runRevisionNotice),
   // Sliced: start the turn, then wait for its answer; the person is resolved in each slice.
   document_check: systemSliceHandler(documentCheckPayloadSchema, runDocumentCheckSlice),
+  // As the system: it reads, scans, labels and holds; it never files (`review-first.spec.ts`). Sliced only to
+  // wait out a dependency that does not answer without spending an attempt (`inbound-mail/receive-faults.ts`).
+  inbound_mail_receive: systemSliceHandler(inboundMailReceivePayloadSchema, runInboundMailReceive),
+  // As the system, metadata only (D21): it fails open, and it imports no filing code (`review-first.spec.ts`).
+  inbound_mail_suggest: systemHandler(inboundMailSuggestPayloadSchema, runInboundMailSuggest),
+  // As the person who decided: what a person decided, filed through their own
+  // upload path; never anything a decision row does not name (`file-job.ts`).
+  inbound_mail_file: handler(inboundMailFilePayloadSchema, runInboundMailFiling),
+  // As the follower, resolved by the job itself (`follow-job.ts`): the follower
+  // is whoever's follow holds NOW, and one who left ends the follow
+  // (`access_lost`) instead of ending the job quietly.
+  inbound_mail_follow: systemSliceHandler(inboundMailFollowPayloadSchema, (organizationId, payload) =>
+    runInboundMailFollow(organizationId, payload),
+  ),
+  // As the sender of a verified writer's mail, resolved by the job itself from the
+  // mail's frozen verdict (`sender-file-job.ts`): a sender who left files nothing.
+  inbound_mail_sender_file: systemSliceHandler(inboundMailSenderFilePayloadSchema, runInboundMailSenderFile),
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
+  platform_text_index: systemHandler(platformTextIndexPayloadSchema, runPlatformTextIndex),
+  // A rolled-back text's chunks, marked so no office reads them (ADR-0173).
+  platform_text_deindex: systemHandler(platformTextDeindexPayloadSchema, runPlatformTextDeindex),
 }

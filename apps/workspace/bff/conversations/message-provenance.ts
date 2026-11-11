@@ -214,15 +214,14 @@ export type StepDetailValue = string | number | boolean | string[]
  *
  * - `ungrounded`              nothing verified and nothing measured.
  * - `quote_unverified`        a quoted span matched no source passage.
+ * - `law_unsettled`           cites building law the turn's records do not settle.
  * - `normative_claim_uncited` the answer WAS measurement-grounded but also
  *   asserts something normative with no verified citation, so it is held at
  *   'low' rather than riding out on the measurement's evidence.
  * - `measurement_only`        measured and purely descriptive, so 'high' was
  *   reduced to 'medium' (measurement grounding never reaches 'high').
- * - `citation_fallback`       nothing the model cited survived verification, so
- *   the agent attached the one source in the session registry — real, but not a
- *   citation the answer made, and possibly captured on an earlier turn. It
- *   lifts the answer no further than a measurement does.
+ * - `citation_fallback`       stored before ADR-0125 retired the single-source
+ *   fallback, which attached a source the answer did not cite.
  *
  * Exported so the chip, the stored provenance and the wire mapper share one
  * list instead of three copies that can drift apart.
@@ -406,6 +405,7 @@ const CONFIDENCES = ['low', 'medium', 'high'] as const
 export const CAPPED_REASONS = [
   'ungrounded',
   'quote_unverified',
+  'law_unsettled',
   'normative_claim_uncited',
   'measurement_only',
   'citation_fallback',

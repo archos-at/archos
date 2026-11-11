@@ -11,7 +11,7 @@
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
-import { AlertCircle, Download, FileText, Maximize2, X } from 'lucide-react'
+import { AlertCircle, FileText } from 'lucide-react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { useIsMobile } from '@/hooks/use-is-mobile'
@@ -19,13 +19,12 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Spinner } from '@/components/ui/spinner'
-import { ButtonGroup } from '@/components/ui/button-group'
-import { ToolbarIconButton } from '@/components/ui/floating-toolbar'
 import { useFileFacts } from '../hooks/use-file-facts'
 import { FileExtChip } from './file-ext-chip'
 import { DockedSplit } from '@/components/ui/docked-split'
 import { useSettlingRefresh } from '../hooks/use-settling-refresh'
-import { useDocumentActions, type DocumentScope } from './document-actions'
+import type { DocumentScope } from './document-actions'
+import { PeekActions } from './file-preview-peek-actions'
 import { failedWithPreviousVersion, isCitableStatus, isFailedStatus, isSettlingStatus } from './document-status'
 import { FilePreviewPane } from './file-preview-pane'
 import { fileItemFromStatus } from '../lib/document-question'
@@ -564,8 +563,8 @@ function PeekToolbar({
   onHide: () => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const actions = useDocumentActions({ document: file, scope })
   const facts = useFileFacts(file)
+  const showDetails = useFilePreviewStore((state) => state.setPeekDetails)
   return (
     <>
     {/* Held 10px off the top, the band the chat's own pills occupy
@@ -575,7 +574,7 @@ function PeekToolbar({
       <FileExtChip filename={file.filename} size="sm" fallback={<FileText className="size-3.5" />} />
       <div className="min-w-0 flex-1">
         <p
-          className="text-foreground truncate text-sm font-medium leading-tight tracking-[-0.01em]"
+          className="text-foreground truncate text-sm font-medium leading-tight"
           // The pane is 280px at its narrowest and a plan's filename is not.
           title={name}
         >
@@ -590,34 +589,7 @@ function PeekToolbar({
           </p>
         )}
       </div>
-      <ButtonGroup className="border-base bg-card/60 shrink-0 gap-0.5 shadow-none">
-        <ToolbarIconButton
-          onClick={() => void actions.download()}
-          disabled={actions.isDownloading}
-          aria-label={t('preview.download')}
-          title={t('preview.download')}
-        >
-          {/* A signed URL for a 40 MB plan is not instant, and a button that
-              only dims tells the reader their click may not have landed — so
-              they click again. The spinner is the acknowledgement, in the
-              place the icon was. */}
-          {actions.isDownloading ? <Spinner size="xs" aria-hidden /> : <Download aria-hidden />}
-        </ToolbarIconButton>
-        <ToolbarIconButton
-          onClick={onExpand}
-          aria-label={t('assignment.expandFile')}
-          title={t('assignment.expandFile')}
-        >
-          <Maximize2 aria-hidden />
-        </ToolbarIconButton>
-        <ToolbarIconButton
-          onClick={() => dismissPeek(onHide)}
-          aria-label={t('preview.closePreview')}
-          title={t('preview.closePreview')}
-        >
-          <X aria-hidden />
-        </ToolbarIconButton>
-      </ButtonGroup>
+      <PeekActions file={file} scope={scope} onExpand={onExpand} onClose={() => dismissPeek(onHide)} />
     </div>
     {/* A STRIP, not a chip beside the name.
         The status has to be here at all: a peek exists because this file is
@@ -683,15 +655,15 @@ function PeekToolbar({
         {/* NO DEAD ENDS. "Piloti cannot cite this file" was a statement with
             nothing after it — the worst kind of message, because it tells the
             reader the question they are about to ask is already compromised
-            and then leaves them holding it. The enlarged view is where this
+            and then leaves them holding it. The details are where this
             document's own account of the failure lives: the ingestion error in
-            full, and the retry for whoever may run it. So the strip opens it.
+            full, and the retry for whoever may run it. So the strip opens them, as ⓘ does.
             The indexing case needs no control — it resolves itself, and the
             poll above is what makes that visible. */}
         {isFailedStatus(file.status) && (
           <button data-attr="files-expand"
             type="button"
-            onClick={onExpand}
+            onClick={() => showDetails(true)}
             className={cn(
               // A real hit area, not a text run: this is the only way out of
               // the one state on this surface that does not resolve itself,

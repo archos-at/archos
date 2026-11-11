@@ -15,6 +15,9 @@ from knowledge_layer.revision_series import find_revision_series
 from knowledge_layer.revision_series import revision_label
 
 from agent.common.source_kinds import canonical_shelf_value
+from agent.knowledge.mail_facts import mail_thread_date
+from agent.knowledge.mail_facts import normalise_mail_origin
+from agent.knowledge.mail_facts import normalise_mail_thread
 from agent.knowledge.page_count import page_number
 from agent.knowledge.title_block import display_date
 from agent.knowledge.title_block import document_key
@@ -82,6 +85,11 @@ class FileRow:
     #: The newer file a PERSON confirmed replaces this one, and the files this one replaces.
     superseded_by: str | None = None
     supersedes: tuple[str, ...] = ()
+    #: The document's licence (``agent.common.licensed_text.LICENCE_CLASSES``) and its quote cap, as the
+    #: office layer records them at upload; ``None`` for a document nobody marked.
+    licence_class: str | None = None
+    quote_max_chars: int | None = None
+    ai_processing_attested: bool = False
     #: What changed against the Fassung it replaced, and the file name that was compared against.
     change_summary: str | None = None
     change_basis: str | None = None
@@ -98,16 +106,23 @@ class FileRow:
     pages_not_read: int = 0
     #: What the facts say differently from the Fassung this one replaced: ``key before → after``.
     fact_changes: tuple[str, ...] = ()
+    #: On a filed E-Mail-Verlauf: its newest message and count (``agent.knowledge.mail_facts``).
+    mail_thread: Mapping[str, Any] | None = field(default=None, compare=False)
+    #: On a file filed from a mail: the message it came with, sender trust included.
+    mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
 
     @property
     def document_date(self) -> str | None:
-        """The document's OWN date (ISO day): the title block's Stand, else the day a photo was taken.
+        """The document's OWN date (ISO day): the title block's Stand, else the day a photo was taken,
+        else a mail thread's newest message.
 
         The same rule as the ``document_date`` payload field (``vector_store/payload.py``), read from the
-        facts the row already carries. None for a document that prints none; never the upload date.
+        facts the row already carries. None for a document that prints none; never the upload date,
+        and never the day an attachment was mailed (that is its origin, not its date).
         """
-        stamp = str((self.revision_facts or {}).get("revision_date") or self.captured_at or "").strip()
-        return stamp[:10] or None
+        thread_date = mail_thread_date(self.mail_thread)
+        stamp = str((self.revision_facts or {}).get("revision_date") or self.captured_at or thread_date or "")
+        return stamp.strip()[:10] or None
 
     @property
     def searchable(self) -> str:
@@ -148,6 +163,8 @@ def file_row(row: Any) -> FileRow | None:
         change_basis=(str(_attr(row, "change_basis") or "").strip() or None),
         revision_facts=revision_facts if isinstance(revision_facts, dict) and revision_facts else None,
         page_count=page_number(_attr(row, "page_count")),
+        mail_thread=normalise_mail_thread(_attr(row, "mail_thread")),
+        mail_origin=normalise_mail_origin(_attr(row, "mail_origin")),
         **_reading_fields(row),
     )
 

@@ -262,7 +262,9 @@ class _Store:
         original = retrieval.get_store
         retrieval.get_store = lambda *a, **k: fake
         try:
-            hits = retrieval.find_text(collection_name, pattern, filters, limit, user_regex=user_regex)
+            hits = retrieval.find_text(
+                collection_name, pattern, filters, limit, user_regex=user_regex, office_id="org_test"
+            )
         finally:
             retrieval.get_store = original
         by_id = {c.chunk_id: c for c in self.points}
@@ -317,6 +319,9 @@ class TestThroughTheTool:
         snippets = text[text.index("## Lines around the matches") :]
         assert "›" not in snippets
         assert snippets.count("> 3 Rettungswege und Aufzug") == 1
+        # The documents' own lines sit in the passages' fence.
+        opened, closed = snippets.index("<document_content>\n"), snippets.index("\n</document_content>")
+        assert opened < snippets.index("> 3 Rettungswege und Aufzug") < closed < snippets.index("This is an index")
 
     async def test_a_regex_counts_each_distinct_string_once_per_place(self, search_with):
         search_with(_Store(_as_chunks(PROTOCOL)))

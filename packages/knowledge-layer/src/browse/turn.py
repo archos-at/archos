@@ -34,10 +34,10 @@ def _session_collection() -> str | None:
 
 def _scope_entries(search_config: Any) -> list[Any]:
     from knowledge_layer.search import resolve_base_collection
-    from knowledge_layer.search import resolve_scoped_collections
+    from knowledge_layer.search import scoped_collections_for_site
 
     return list(
-        resolve_scoped_collections(search_config, _session_collection(), resolve_base_collection(search_config))
+        scoped_collections_for_site(search_config, _session_collection(), resolve_base_collection(search_config))
     )
 
 

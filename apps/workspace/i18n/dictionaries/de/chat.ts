@@ -125,11 +125,6 @@ export const chat: typeof en.chat = {
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
-    scopeAria: 'Suchbereich: {project}',
-    scopeFallback: 'Dieses Projekt',
-    scopeCurrent: 'Aktuelles Projekt',
-    scopeAll: 'Alle Projekte',
-    scopeAllSoon: 'Bald verfügbar – projektübergreifende Suche ist noch nicht möglich.',
     // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
     // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',
@@ -215,7 +210,8 @@ export const chat: typeof en.chat = {
     projectWrites:
       '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Wessen Zug eine Nachricht ist, nur für den Screenreader: am Bildschirm
+  // sagen es Blase und Antwortkarte, kein Rollen-Tab (Notion #38, Thema 9).
   roles: {
     input: 'Eingabe',
     result: 'Ergebnis',
@@ -719,6 +715,8 @@ export const chat: typeof en.chat = {
       // Was Piloti von der Seite abgelesen hat, nie eine Messung (ADR-0125).
       reading: 'Gelesen: {reading}',
       readingNote: 'Von {productName} abgelesen, nicht gemessen.',
+      // Klappt auf, wonach {productName} gesucht und was es abgelesen hat.
+      explanation: 'Erläuterung',
       embeddedImage: 'Bild {index}',
       open: '{document}, S. {page} öffnen',
     },
@@ -906,6 +904,8 @@ export const chat: typeof en.chat = {
         upload_batch: 'Upload {name}',
         proposal: 'Vorschlag {name}',
         member: 'Person {name}',
+        inbound_mail: 'E-Mail {name}',
+        mail_thread: 'E-Mail-Verlauf {name}',
       },
       applied: 'Die Aktion wurde ausgeführt.',
       dismissed: 'Verworfen. Die Aktion wurde nicht ausgeführt.',
@@ -2092,6 +2092,8 @@ export const chat: typeof en.chat = {
       ungrounded: 'Geringe Sicherheit: Antwort nicht durch Quellen belegt.',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+      lawUnsettled:
+        'Mittlere Sicherheit: die Antwort stützt sich auf Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
       // Die Messung belegt die Zahl, nicht die Rechtsaussage daneben — deshalb
       // bleibt die gemischte Antwort auf „gering", und der Tooltip sagt warum.
       normativeClaimUncited:
@@ -2123,6 +2125,8 @@ export const chat: typeof en.chat = {
       noSource: 'keine Quelle',
       quoteUnverified:
         'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist deshalb begrenzt.',
+      lawUnsettled:
+        'Welche Fassung hier verbindlich ist, steht für diesen Standort noch nicht geprüft fest; die Einschätzung ist deshalb höchstens mittel.',
       unavailable: 'Belegprüfung nicht verfügbar',
       unavailableTooltip:
         'Die Belegprüfung konnte für diese Antwort nicht laufen. {productName} zeigt deshalb keine Einschätzung; die Antwort selbst ist unverändert.',
@@ -2142,6 +2146,8 @@ export const chat: typeof en.chat = {
         ungrounded: 'Begrenzt durch eine tragende Aussage, hinter der kein Beleg steht.',
         quoteUnverified:
           'Ein Zitat konnte nicht wörtlich in der Quelle bestätigt werden; die Einschätzung ist entsprechend begrenzt.',
+        lawUnsettled:
+          'Begrenzt durch Baurecht, dessen verbindliche Fassung für diesen Standort noch nicht geprüft feststeht.',
         // Ein Eintrag im Arbeitsbereich oder eine Messung belegt Fakten über
         // das Büro und das Gebäude, nie eine Aussage über das Recht.
         normativeClaimUncited:
@@ -2206,6 +2212,9 @@ export const chat: typeof en.chat = {
     iban: '{count, plural, one {eine IBAN} other {# IBANs}}',
     at_svnr:
       '{count, plural, one {eine Sozialversicherungsnummer} other {# Sozialversicherungsnummern}}',
+    de_svnr:
+      '{count, plural, one {eine Rentenversicherungsnummer} other {# Rentenversicherungsnummern}}',
+    de_tax_id: '{count, plural, one {eine Steuer-ID} other {# Steuer-IDs}}',
     credit_card: '{count, plural, one {eine Kartennummer} other {# Kartennummern}}',
     term: 'den Begriff „{term}“',
     withSample: '{item} {sample}',

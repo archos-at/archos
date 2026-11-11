@@ -79,7 +79,7 @@ describe('/api/organization/llm-credentials', () => {
     session.featureFlags = ['deep-research']
     const res = await GET(get())
     expect(res.status).toBe(403)
-    expect((await res.json()).error).toBe('feature-disabled')
+    expect((await res.json()).code).toBe('feature_disabled')
   })
 
   it('allows the route when the org holds the flag', async () => {

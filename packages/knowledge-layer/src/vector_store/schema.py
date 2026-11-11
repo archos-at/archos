@@ -119,6 +119,22 @@ def effective_bm25_length(length: dict[str, float] | None) -> dict[str, float]:
 
 #: Payload field holding the logical collection a point belongs to.
 SCOPE_FIELD = "scope"
+#: Payload field holding the organization whose office wrote the point; every tenant-scope search filters on it.
+OFFICE_FIELD = "office_id"
+#: Payload field holding how a point's source may be used: one of :data:`LICENCE_CLASSES`.
+LICENCE_CLASS_FIELD = "licence_class"
+#: The licence classes a point may carry: openly published, published with restrictions, or licensed.
+LICENCE_CLASSES = ("public_open", "public_restricted", "licensed")
+#: Payload field holding the id of the knowledge edition a point's source belongs to.
+KNOWLEDGE_EDITION_FIELD = "knowledge_edition_id"
+#: Payload field holding the country (ISO 3166-1) whose pack a base-corpus point belongs to (ADR-0173):
+#: a turn reads only the countries its office is entitled to. A point written before it lacks it and is Austrian.
+COUNTRY_FIELD = "country_id"
+#: Payload field holding whether the office stated its licence covers processing by the hosted AI services
+#: (a bool). The licensed seam (ADR-0159) lists a licensed point without its text until it is true.
+AI_PROCESSING_FIELD = "ai_processing_attested"
+#: Payload field holding the longest quote of a licensed point's text a model may see (a positive int).
+QUOTE_MAX_CHARS_FIELD = "quote_max_chars"
 #: Payload field holding the chunk text: what BM25 reads, what the full-text
 #: index serves phrase queries from, and what a hit's content is.
 TEXT_FIELD = "text"
@@ -237,9 +253,13 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "content_type",
     "doc_class",
     "guideline",
-    "office_id",
+    OFFICE_FIELD,
     "project_id",
     "grid_document_id",
+    # The licence mark (``PUT /v1/collections/{c}/knowledge-mark``, ``writes.enrichment``).
+    LICENCE_CLASS_FIELD,
+    KNOWLEDGE_EDITION_FIELD,
+    COUNTRY_FIELD,
     "folder_path",
     # Every folder a document is filed in or beneath, case-folded: "this
     # folder and below" is one exact match (``prefilter.folder_ancestors``).
@@ -267,6 +287,9 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "authored_by",
     "approved_by",
     "producer",
+    # The document's format when it states one (``mail``: a filed E-Mail-Verlauf), so
+    # "only the correspondence" is one exact filter.
+    "source_format",
     # What the ingest read of the whole document (``payload.reading_facts``), on every chunk:
     # one condition finds the passages of a fire safety concept, of a document citing
     # ÖNORM B 1600 (``norm:önorm b 1600``), stating Gebäudeklasse 4 (``building_class=4``),
@@ -311,7 +334,8 @@ INTEGER_FIELDS: tuple[str, ...] = (
     "pages_not_read",
 )
 #: Payload field holding the document's own date: the title block's ``revision_date``, else the
-#: photo's ``capture.captured_at``, else absent. Copied from the metadata row (``payload.document_facts``).
+#: photo's ``capture.captured_at``, else a mail thread's newest message (``mail_thread.latest_sent_at``),
+#: else absent. Copied from the metadata row (``payload.document_facts``).
 DOCUMENT_DATE_FIELD = "document_date"
 #: Payload field holding when the document was first indexed under its name (the row's ``added_at``).
 ADDED_AT_FIELD = "added_at"

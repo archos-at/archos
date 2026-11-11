@@ -583,7 +583,7 @@ function ChangesButton({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
       aria-haspopup="dialog"
       aria-expanded={open}

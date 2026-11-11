@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Calculator, MapPin, UserRound } from 'lucide-react'
 import { Chip, ChipLabel } from '@/components/ui/chip'
 import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
@@ -47,9 +48,11 @@ function OtherSource({ evidence, more }: { evidence: Exclude<ProfileEvidence, Do
   const [Icon, text, title] =
     evidence.kind === 'geocoder'
       ? [MapPin, t('source.geocoder'), evidence.label]
-      : evidence.kind === 'derivation'
-        ? [Calculator, t('source.derivation'), evidence.citation]
-        : [UserRound, t('source.person'), undefined]
+      : evidence.kind === 'register'
+        ? [MapPin, t('source.register'), evidence.label]
+        : evidence.kind === 'derivation'
+          ? [Calculator, t('source.derivation'), evidence.citation]
+          : [UserRound, t('source.person'), undefined]
   return (
     <Chip variant="muted" className={CHIP_CLASS} title={title}>
       <Icon aria-hidden />
@@ -102,7 +105,7 @@ function DocumentSource({
           <p className="text-muted-foreground px-0.5 text-xs leading-relaxed">„{lead.quote}“</p>
           {pinned ? (
             <div className="space-y-1.5 px-0.5">
-              <p className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">{t('source.open')}</p>
+              <SectionLabel as="p">{t('source.open')}</SectionLabel>
               <EvidenceChips evidence={documents} />
             </div>
           ) : (

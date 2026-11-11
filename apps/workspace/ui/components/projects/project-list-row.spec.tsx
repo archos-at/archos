@@ -2,8 +2,16 @@ import { render, screen } from '@/test-utils'
 import { describe, expect, test } from 'vitest'
 
 import { ItemList } from '@/components/ui/item'
+import type { Project } from '@/lib/db/schema/projects'
 import { makeProject } from '@/test-utils/db-fixtures'
 import { ProjectListRow } from './project-list-row'
+
+const withSiteAddress = (address: string): Project['profile'] => ({
+  facts: { site_address: { value: address, confidence: 'confirmed', source: 'onboarding', updatedAt: '2026-07-01T00:00:00Z' } },
+  goals: {},
+  unknowns: [],
+  assumptions: {},
+})
 
 // The list the projects page draws the row in, so the row is tested in place.
 const renderRow = (props: Partial<Parameters<typeof ProjectListRow>[0]> = {}) =>
@@ -54,22 +62,15 @@ describe('ProjectListRow', () => {
   })
 
   /**
-   * The card's fallback brief is an invitation. Repeated verbatim down a list it
-   * stops being one — it becomes the longest line on the page, on the rows that
-   * carry the least. A row with no brief shows no second line instead.
+   * The second line is where the project is, not the brief cut to one line: the
+   * summary broke mid-sentence and told nobody which project this was.
    */
-  test('leaves the brief line out entirely when the project has none', () => {
-    renderRow()
-    expect(
-      screen.queryByText('OIB/RIS building-compliance workspace. Add documents and a brief to ground Piloti.'),
-    ).not.toBeInTheDocument()
-  })
-
-  test('shows the brief when the project has one', () => {
+  test('shows the site address as the second line, never the brief', () => {
     renderRow({
       project: makeProject({
         id: 'p1',
         name: 'Wohnbau Seestadt',
+        profile: withSiteAddress('Janis-Joplin-Promenade 12, 1220 Wien'),
         profileDisplay: {
           title: 'Wohnbau Seestadt',
           summary: 'Wohnbau · 214 Wohneinheiten · GK 5 · Wien',
@@ -78,7 +79,14 @@ describe('ProjectListRow', () => {
         },
       }),
     })
-    expect(screen.getByText('Wohnbau · 214 Wohneinheiten · GK 5 · Wien')).toBeInTheDocument()
+    expect(screen.getByTestId('project-location')).toHaveTextContent('Janis-Joplin-Promenade 12, 1220 Wien')
+    expect(screen.queryByText('Wohnbau · 214 Wohneinheiten · GK 5 · Wien')).not.toBeInTheDocument()
+  })
+
+  /** A placeholder repeated down the list would be the loudest line on the rows that carry the least. */
+  test('leaves the second line out entirely when the project has no address', () => {
+    renderRow()
+    expect(screen.queryByTestId('project-location')).not.toBeInTheDocument()
   })
 
   /**

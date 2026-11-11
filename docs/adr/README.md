@@ -150,7 +150,7 @@ Consequences, where a reader looks for them.
 | [0082](0082-backend-roles-are-split-by-job-and-named-after-it.md) | Backend roles are split by job, and named after it | Accepted |
 | [0083](0083-postgres-connections-go-through-a-transaction-pooler.md) | Postgres connections go through a transaction pooler; session features take a direct connection | Proposed |
 | [0084](0084-the-backend-authorizes-a-job-by-the-scope-the-bff-signed.md) | The backend authorizes a job by the scope the BFF signed | Proposed |
-| [0085](0085-outlook-archives-are-read-by-range-and-filed-as-the-person-per-mail.md) | Outlook archives are read by range and filed as the person, one folder per mail | Proposed |
+| [0085](0085-outlook-archives-are-read-by-range-and-filed-as-the-person-per-mail.md) | Outlook archives are read by range and filed as the person, one folder per mail | Accepted |
 | [0086](0086-uploads-are-screened-locally-and-matches-wait-in-quarantine.md) | Uploads are screened locally before any model sees them, and matches wait in quarantine | Accepted |
 | [0087](0087-folder-access-follows-workos-roles-and-a-restricted-folder-is-its-own-collection.md) | Folder access follows WorkOS roles, and a restricted folder is its own retrieval collection (partly superseded by 0088) | Accepted |
 | [0088](0088-folder-access-is-read-write-per-role.md) | Folder access is read/write per role | Accepted |
@@ -178,7 +178,7 @@ Consequences, where a reader looks for them.
 | [0110](0110-live-channels-are-one-module-over-dragonfly.md) | Live channels are one module of our own over Dragonfly | Proposed |
 | [0111](0111-piloti-sets-a-project-up-from-its-documents.md) | Piloti sets a project up from its documents, as an agent of its own writing suggestions onto the profile | Proposed |
 | [0112](0112-web-push-for-the-inbox.md) | Web Push for the inbox: VAPID and `web-push`, a worker that caches nothing, minimal encrypted payloads, queued from the inbox write path | Proposed |
-| [0113](0113-a-held-files-reason-is-a-typed-verdict-stored-as-data.md) | A held file's reason is a typed verdict, stored as data | Proposed |
+| [0113](0113-a-held-files-reason-is-a-typed-verdict-stored-as-data.md) | A held file's reason is a typed verdict, stored as data | Accepted |
 | [0115](0115-qdrant-replaces-chroma-reached-through-qdrant-client.md) | Qdrant replaces Chroma as the vector store, reached through qdrant-client | Accepted |
 | [0116](0116-retrieval-scope-is-a-payload-filter-compiled-in-one-place.md) | Retrieval scope is a payload filter compiled in one place, not a collection | Accepted |
 | [0117](0117-a-document-is-parsed-on-one-worker-in-a-bounded-page-pipeline.md) | A document is parsed on one worker, in a bounded page pipeline | Proposed |
@@ -193,14 +193,16 @@ Consequences, where a reader looks for them.
 | [0126](0126-the-operator-console-has-its-own-mcp-door.md) | The operator console has its own MCP door: a second server for platform staff, its own audience | Accepted |
 | [0127](0127-search-finds-list-orients-read-reads.md) | Search finds, list orients, read reads: the office's files become navigable beside RAG, and a folder is a card | Proposed |
 | [0128](0128-one-look-in-every-turn-shown-where-it-looked.md) | One look in every turn: Piloti looks at a region of a page in chat, canvas and door alike, and the reader sees where | Proposed |
-| [0129](0129-piloti-learns-the-office-conventions.md) | Piloti learns the office's conventions: folder skeleton, where each Dokumentart is filed, Plannummer, Index and date patterns, counted from the office's projects and stated as "usually" | Proposed |
-| [0130](0130-piloti-notices-a-new-fassung.md) | Piloti notices a new Fassung: it compares it unasked and leaves proposed marks where it changed | Proposed |
+| [0129](0129-piloti-learns-the-office-conventions.md) | Piloti learns the office's conventions: folder skeleton, where each Dokumentart is filed, Plannummer, Index and date patterns, counted from the office's projects and stated as "usually" | Accepted |
+| [0130](0130-piloti-notices-a-new-fassung.md) | Piloti notices a new Fassung: it compares it unasked and leaves proposed marks where it changed | Accepted |
 | [0131](0131-the-agent-api-speaks-one-dialect.md) | The agent API speaks one dialect: one word, one id slot, lean pages, views not rows | Accepted |
 | [0132](0132-the-herleitung-shows-the-work-one-row-per-call.md) | The Herleitung shows the work: one row per call, grouped by round, with what it found | Proposed |
 | [0133](0133-piloti-reads-the-estate-through-standard-filesystem-tools.md) | Piloti reads the office's documents through ls, glob, grep and read_file over its own backend, beside ranked search | Accepted |
 | [0134](0134-extracted-page-text-is-stored-per-version.md) | Extracted page text is stored per version, and the index is derived from it | Proposed |
 | [0135](0135-skills-run-on-deep-agents-skills-middleware.md) | Skills run on Deep Agents' SkillsMiddleware, in chat and in deep research | Proposed |
 | [0136](0136-search-is-one-query-over-a-projection-beside-the-index.md) | Search is one query over a projection beside the index: the dossier's facts are filtered where authorization lives | Proposed |
+| [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Proposed |
+| [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Proposed |
 | [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered | Accepted |
 | [0140](0140-a-turn-that-needs-the-person-pauses-and-a-new-run-resumes-it.md) | A turn that needs the person pauses, and a new run resumes it: LangGraph `interrupt()` with the checkpointer, as AG-UI 1.0's interrupt outcome | Proposed |
 | [0141](0141-a-person-reworks-piloti-drawing-as-an-excalidraw-sketch.md) | A person reworks Piloti's drawing as an Excalidraw sketch; the model still writes mermaid | Accepted |
@@ -216,6 +218,31 @@ Consequences, where a reader looks for them.
 | [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
 | [0152](0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) | DXF drawings are viewed through a PDF the backend draws to scale with ezdxf, with a text layer and a title block | Accepted |
 | [0153](0153-a-dxf-drawing-is-a-site-the-agent-measures.md) | A DXF drawing is a site the agent measures: `dxf_measure` for parcels, setbacks and what remains buildable, and `dxf-measure` on the agent door | Accepted |
+| [0154](0154-platform-staff-reach-in-cluster-mcp-servers-through-agentgateway.md) | Platform staff reach the cluster's MCP servers through one gateway: agentgateway behind Envoy, signed in with WorkOS | Accepted |
+| [0155](0155-the-website-blog-is-edited-in-a-self-hosted-payload.md) | The website's blog is written in a self-hosted Payload and read on request; social posts are drafted there and published through Buffer | Proposed |
+| [0156](0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md) | Release notes have three tiers: the public changelog shows the weekly summaries only, members read every note by week and area in the app, internal notes reach neither | Accepted |
+| [0157](0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md) | Attachments from outside are scanned in the cluster by ClamAV before anyone can file or download them | Proposed |
+| [0158](0158-a-projects-site-decides-its-law-the-offices-home-its-clock.md) | A project's site decides its law, and the office's home country only its own defaults; no project is placed by default | Accepted |
+| [0159](0159-address-search-is-off-until-a-deployment-opts-in.md) | Address search is off until a deployment opts in; amends 0151 | Accepted |
+| [0160](0160-an-operators-agent-reaches-platform-content-never-tenant-content.md) | An operator's agent reaches the platform's own content, never what offices wrote: tenant-content console operations are on no door, and the platform MCP gateway allowlists each server's tools | Proposed |
+| [0161](0161-every-outbound-flow-is-a-row-in-one-data-flow-register.md) | Every outbound flow is a row in one data-flow register, and the legal page and DPA annex are generated from it | Proposed |
+| [0162](0162-public-sources-are-configured-records-over-protocol-access-types.md) | Public sources are configured records over protocol access types and format engines, fetched from a sandbox | Proposed |
+| [0163](0163-office-base-knowledge-shares-the-platform-records.md) | An office's own standards, commentaries and directives are base knowledge records with an owner, the same records the platform will hold | Proposed |
+| [0164](0164-licensed-text-is-a-reference-outside-the-model-call.md) | Licensed text is a reference everywhere but inside the model call, and leaves it only as capped quotes | Proposed |
+| [0165](0165-platform-knowledge-changes-through-reviewed-change-requests.md) | The platform's own base knowledge lives in the office layer's records and changes only through a reviewed change request | Proposed |
+| [0166](0166-country-rules-are-rulesets-run-by-one-three-valued-evaluator.md) | Country rules are rulesets, decision tables in the base knowledge records, run by one three-valued evaluator | Proposed |
+| [0167](0167-residency-is-decided-at-the-model-seam-per-cell.md) | Residency is decided at the model seam, per cell, and every generation records where it ran | Proposed |
+| [0168](0168-which-edition-binds-is-a-route-through-relation-records.md) | Which edition binds where is a route through relation records, and Austria is the first pack | Proposed |
+| [0169](0169-setup-facts-are-country-records.md) | Setup facts are country records: what a project's setup asks, derives and requests comes from its site's records | Proposed |
+| [0170](0170-the-platform-door-is-agent-grade-for-onboarding-a-country.md) | The platform door is agent-grade for onboarding a country: captured citations, dry runs, idempotent writes, problem details and the person's yes | Proposed |
+| [0171](0171-the-law-of-a-procedure-is-the-edition-its-reference-date-and-transitions-name.md) | The law of a procedure is the edition its node's reference-date rule and the amending editions' transitions name | Proposed |
+| [0172](0172-a-site-address-resolves-against-official-registers-in-the-cell.md) | A site address resolves against official registers hosted in the cell, and stays unverified without a register hit; amends 0122, 0151 and 0159 | Proposed |
+| [0173](0173-a-turn-learns-its-country-coverage-and-editions-from-one-knowledge-context.md) | A turn learns its country, coverage and editions from one knowledge context resolved in the BFF | Proposed |
+| [0174](0174-public-sources-are-platform-records-kept-current-by-monitors.md) | Public sources are platform records, kept current by monitors that open change requests | Proposed |
+| [0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md) | The cut-over removes the Austria-only paths and their switches | Proposed |
+| [0176](0176-a-platform-change-request-may-be-approved-alone-with-its-second-review-deferred.md) | A platform change request may be approved alone, with its second review deferred | Proposed |
+| [0177](0177-what-the-project-and-the-office-set-goes-at-the-head-of-a-chat-request.md) | What the project and the office set goes at the head of a chat request, and history is edited in steps | Accepted |
+| [0178](0178-an-edition-states-which-buildings-it-applies-to.md) | An edition states which buildings it applies to, and the chain runs that scope per building | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
@@ -229,17 +256,14 @@ Consequences, where a reader looks for them.
 
 ### Numbers with no record
 
-The index skips five numbers. None names a merged decision; each was drawn by
-a branch that has not landed (checked 2026-10-27 against `develop` and the
+The index skips two numbers. None names a merged decision; each was drawn by
+a branch that has not landed (checked 2026-11-03 against `develop` and the
 pull requests that cite the number):
 
 | Number | What happened to it |
 |--------|---------------------|
 | 0075 | Taken by the project mail inbox ADR on open PR #831 (and again on #1069). #833 moved its ingestion ADR from 0075 to 0076 to keep clear of it. Never merged. |
 | 0114 | Held for a while by the Qdrant scope ADR on PR #1019, which moved to 0115 and 0116 when `develop` took 0113 first. Never merged. |
-| 0137 | Taken by the inbound-mail ADR on open PR #1188. Never merged. |
-| 0138 | Taken by the Cloudflare email routing ADR on open PR #1188. Never merged. |
-| 0139 | Taken by the ClamAV attachment scanning ADR on open PR #1188, and by the claim-confidence ADR on open PR #1231. Never merged. |
 
 `--next` answers one past the highest number on disk, so it never hands
 these out again. A branch that lands with one keeps it; a second branch holding

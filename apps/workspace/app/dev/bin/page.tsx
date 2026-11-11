@@ -15,14 +15,20 @@
  * Not linked from anywhere and 404s outside development.
  */
 
+import { FIXTURE_NOW } from '../inbound-mail/fixture-base'
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import type { FolderBinListing } from '@/adapters/api/folder-bin-client'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
+import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
+import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { FolderBinPanel } from '@/features/documents/components/folder-bin-panel'
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 
 const PROJECT = 'dev-project'
+// Relative to today, as the E-Mail-Eingang's fixture: a „bleibt bis“ already past read as a broken Papierkorb.
+const BIN_DAYS = 14
+const daysAgo = (days: number): string => new Date(FIXTURE_NOW - days * 86_400_000).toISOString()
 
 const LISTING: FolderBinListing = {
   canPurge: true,
@@ -33,9 +39,9 @@ const LISTING: FolderBinListing = {
       folderId: 'f-grundriss',
       name: 'Grundriss EG Index C.pdf',
       path: 'Pläne/Grundriss EG Index C.pdf',
-      deletedAt: '2026-10-06T10:05:00Z',
+      deletedAt: daysAgo(1),
       deletedBy: { userId: 'user_gf', name: 'Gerda Fischer' },
-      purgeAfter: '2026-10-20T10:05:00Z',
+      purgeAfter: daysAgo(1 - BIN_DAYS),
       status: 'pending',
       documents: 1,
       folders: 1,
@@ -46,9 +52,9 @@ const LISTING: FolderBinListing = {
       folderId: 'f-vertraege',
       name: 'Verträge',
       path: 'Verwaltung/Verträge',
-      deletedAt: '2026-10-04T09:12:00Z',
+      deletedAt: daysAgo(3),
       deletedBy: { userId: 'user_gf', name: 'Gerda Fischer' },
-      purgeAfter: '2026-10-18T09:12:00Z',
+      purgeAfter: daysAgo(3 - BIN_DAYS),
       status: 'pending',
       documents: 14,
       folders: 2,
@@ -59,9 +65,9 @@ const LISTING: FolderBinListing = {
       folderId: 'f-alt',
       name: 'Alt',
       path: 'Pläne/Alt',
-      deletedAt: '2026-10-05T15:40:00Z',
+      deletedAt: daysAgo(2),
       deletedBy: { userId: 'user_pl', name: 'Paul Lechner' },
-      purgeAfter: '2026-10-19T15:40:00Z',
+      purgeAfter: daysAgo(2 - BIN_DAYS),
       status: 'pending',
       documents: 3,
       folders: 1,
@@ -72,22 +78,23 @@ const LISTING: FolderBinListing = {
       folderId: 'f-honorare',
       name: 'Honorare',
       path: 'Honorare',
-      deletedAt: '2026-09-30T08:00:00Z',
+      deletedAt: daysAgo(7),
       deletedBy: { userId: null, name: null },
-      purgeAfter: '2026-10-14T08:00:00Z',
+      purgeAfter: daysAgo(7 - BIN_DAYS),
       status: 'pending',
       documents: 6,
       folders: 0,
       canRestore: false,
+      restoreBlocked: 'folder_read_only',
       document: null,
     },
     {
       folderId: 'f-statik',
       name: 'Statik-Vorabzug',
       path: 'Statik/Statik-Vorabzug',
-      deletedAt: '2026-09-22T11:30:00Z',
+      deletedAt: daysAgo(13),
       deletedBy: { userId: 'user_st', name: 'Sabine Thaler' },
-      purgeAfter: '2026-10-06T11:30:00Z',
+      purgeAfter: daysAgo(13 - BIN_DAYS),
       status: 'purging',
       documents: 21,
       folders: 4,
@@ -145,9 +152,18 @@ export default function BinDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
+  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
+  primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-10 pb-12" data-testid="bin-preview">
-      <FolderBinPanel projectId={PROJECT} initial={{ ...LISTING, entries: state.entries }} />
+    <main className="flex flex-col gap-10 pb-12" data-testid="bin-preview">
+      {/* In the section frame, as the project's Papierkorb tab draws it: its head, its tabs, its container. */}
+      <div className="h-dvh">
+        <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files/bin`} inboundMail>
+          <div className="h-full overflow-y-auto">
+            <FolderBinPanel projectId={PROJECT} initial={{ ...LISTING, entries: state.entries }} />
+          </div>
+        </ProjectSectionFrame>
+      </div>
       <section className="flex flex-col gap-3 px-4 sm:px-6">
         <h2 className="text-sm font-semibold">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>
         <DeletedFolderContentCard canEdit />
@@ -155,9 +171,9 @@ export default function BinDevPage(): JSX.Element {
       <section className="flex flex-col gap-2 px-4 sm:px-6">
         <h2 className="text-sm font-semibold">„Quelle gelöscht am …“ unter abgeleiteten Inhalten</h2>
         <p className="text-sm">Laut Werkvertrag ist die Abnahme bis 30. November vorgesehen. [1]</p>
-        <SourceDeletedNote at="2026-10-18T09:12:00Z" />
+        <SourceDeletedNote at={daysAgo(3 - BIN_DAYS)} />
         <p className="mt-3 text-sm">Notiz: Honorarzone III vereinbart.</p>
-        <SourceDeletedNote at="2026-10-18T09:12:00Z" />
+        <SourceDeletedNote at={daysAgo(3 - BIN_DAYS)} />
       </section>
     </main>
   )

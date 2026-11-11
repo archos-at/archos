@@ -107,7 +107,11 @@ describe('control primitives carry a coarse-pointer touch size', () => {
 
   it('gives Button a floor on both axes — height alone leaves icon buttons narrow', () => {
     const source = readFileSync(srcJoin('components', 'ui', 'button.tsx'), 'utf8')
-    expect(source).toMatch(/pointer-coarse:h-11/)
+    // The height floor lives in the shared control height the button reads
+    // (search fields take the same one), so both the import and the floor count.
+    const heights = readFileSync(srcJoin('components', 'ui', 'control-height.ts'), 'utf8')
+    expect(source).toMatch(/CONTROL_HEIGHT\.(default|sm)/)
+    expect(heights.match(/pointer-coarse:h-11/g)?.length).toBe(2)
     expect(source).toMatch(/pointer-coarse:size-11/)
     expect(source).toMatch(/pointer-coarse:min-w-11/)
   })

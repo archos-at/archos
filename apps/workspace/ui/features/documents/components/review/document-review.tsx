@@ -54,6 +54,7 @@ import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
 import { isAgentPeer, ReviewPageLayer } from './review-page-layer'
 import { ReviewPanel, type OpenMark } from './review-panel'
+import { useReviewList } from './review-list'
 import { ReviewAnnouncer } from './review-announcer'
 import { ReviewExportMenu } from './review-export-menu'
 import type { ProtocolFilingTarget } from '../../lib/protocol-filing'
@@ -151,9 +152,9 @@ function ReviewTools({
             aria-label={name}
             onClick={(event) => {
               if (tool === 'chat') return onChat()
-              review.setTool(tool)
-              // `detail` is 0 for a click the keyboard made (Enter, Space).
-              if (tool !== 'select' && event.detail === 0) onAim?.()
+              // Picked again, the tool in hand is put down. `detail` is 0 for a click the keyboard made (Enter, Space).
+              review.setTool(pressed ? 'select' : tool)
+              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
             }}
             className={cn(
               // The tool in hand is filled in ink: what the pointer will do is never a guess.
@@ -494,7 +495,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     const button = (
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="h-8 gap-1.5"
         data-testid="review-with-agent"
@@ -534,7 +535,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     <div
       role="status"
       data-testid="review-agent-status"
-      className="border-border/70 bg-muted/40 flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
+      className="border-border/70 bg-muted flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
     >
       <AgentGlyph working={working} />
       {working ? (
@@ -689,10 +690,10 @@ export function DocumentReviewMode({
     setFocus({ page, y, key: `jump:${state.peer.peerId}:${Date.now()}` })
   }, [])
   const openAsk = piloti.asks.find((ask) => ask.id === piloti.openId) ?? null
-  // From `lg` the list is a column beside the sheet; below it, a sheet from the
-  // bottom edge behind a header button (a phone on its side is 852px, under `lg`).
-  const listBeside = useMediaQuery('(min-width: 1024px)')
-  const [listOpen, setListOpen] = useState(false)
+  // From `lg` the list is a column beside the sheet, folded while it is empty; below it, a sheet
+  // from the bottom edge (a phone on its side is 852px, under `lg`). One header button for both.
+  const list = useReviewList(review)
+  const { beside: listBeside, sheetOpen: listOpen, setSheetOpen: setListOpen } = list
   // On a phone a card beside its mark runs off the screen: it comes up from the bottom edge instead.
   const docked = useMediaQuery(DOCKED_CARDS)
 
@@ -1157,26 +1158,24 @@ export function DocumentReviewMode({
                 </Button>
               </span>
             )}
-            {!listBeside && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 pointer-coarse:h-11"
-                aria-haspopup="dialog"
-                aria-expanded={listOpen}
-                // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
-                aria-label={t('review.listOpen', {
-                  marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
-                })}
-                data-testid="review-list-open"
-                onClick={() => setListOpen(true)}
-              >
-                <MessagesSquare className="size-3.5" aria-hidden />
-                {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
-                <span className="font-mono tabular-nums">{review.counts.open}</span>
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-8 gap-1.5 pointer-coarse:h-11"
+              aria-haspopup={listBeside ? undefined : 'dialog'}
+              aria-expanded={list.expanded}
+              // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
+              aria-label={t('review.listOpen', {
+                marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
+              })}
+              data-testid="review-list-open"
+              onClick={list.toggle}
+            >
+              <MessagesSquare className="size-3.5" aria-hidden />
+              {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
+              <span className="font-mono tabular-nums">{review.counts.open}</span>
+            </Button>
             {listBeside && exportMenu}
             {piloti.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
           </div>
@@ -1274,7 +1273,9 @@ export function DocumentReviewMode({
               />
               <ReviewToaster foot={foot} />
             </div>
-            <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />
+            <div hidden={!list.columnOpen} className="flex shrink-0" data-testid="review-list-column">
+              <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />
+            </div>
           </div>
         </ReviewStageContext.Provider>
         {docked && (

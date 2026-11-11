@@ -51,11 +51,14 @@ ADAPTERS = re.compile(
     r"request_body\(|PLATFORM_FIXED\.apply\(|\.apply\(\{|openai_client\(|pinned_(?:async_)?http_client\("
 )
 
+#: A client the residency guard sits on (ADR-0167): the seam's transports, or the guard called by hand.
+ROUTED = re.compile(r"limited_async_http_client\(|pinned_(?:async_)?http_client\(|openai_client\(|residency\.enforce\(")
+
 #: Mentions of a model endpoint that send no tenant content, with the reason.
 NO_TENANT_CONTENT = {
     "apps/agent-host/src/agent_host/context_envelope.py": "our own route path, in a docstring",
     "scripts/turn_census/census.py": "parses recorded request paths",
-    "scripts/release_notes.py": "sends the changelog, which is public",
+    "scripts/release_notes_translate.py": "sends the release notes, which are product news, not tenant content",
     "scripts/smoke_card_generation.py": "a dev smoke test on fixed sample text",
 }
 
@@ -106,6 +109,23 @@ def test_every_model_endpoint_call_goes_through_an_adapter(path: Path):
         "Send the body through ResolvedCredential.request_body (an organization's call) or "
         "PLATFORM_FIXED.apply (a platform-fixed model). If it truly sends no tenant content, add it to "
         "NO_TENANT_CONTENT with the reason."
+    )
+
+
+@pytest.mark.parametrize("path", _python_files(), ids=_rel)
+def test_every_model_endpoint_call_is_routed_by_residency(path: Path):
+    """The body adapter pins retention; the client decides where the request goes. Both must be the seam's."""
+    rel = _rel(path)
+    if rel in NO_TENANT_CONTENT:
+        return
+    text = path.read_text(encoding="utf-8")
+    endpoint = MODEL_ENDPOINT.search(text)
+    if endpoint is None:
+        return
+    assert ROUTED.search(text), (
+        f"{rel} talks to a model endpoint ({endpoint.group(0)!r}) on a client the residency guard does not "
+        "sit on. Send it through limited_async_http_client, pinned_http_client or openai_client, or call "
+        "residency.enforce on the URL first, so a residency cell routes it into its zone (ADR-0167)."
     )
 
 

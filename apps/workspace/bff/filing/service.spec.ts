@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
-import type { UploadBatch } from '@/lib/db/schema/upload-batches'
+import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/upload-batches'
 import type { ProjectFolderRow } from '@/lib/projects/folder-service'
 import { makeDocument, makeProject } from '@/test-utils/db-fixtures'
 
@@ -67,6 +67,7 @@ const batch = (overrides: Partial<UploadBatch> = {}): UploadBatch => ({
   sealedAt: new Date('2026-10-01T10:00:00Z'),
   completedAt: null,
   createdAt: new Date('2026-10-01T09:59:00Z'),
+  ...DEFAULT_UPLOAD_BATCH_EFFECTS,
   ...overrides,
 })
 

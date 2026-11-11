@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
+import { CONTROL_HEIGHT } from '@/components/ui/control-height'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -52,7 +53,16 @@ const buttonVariants = cva(
         // to accent (a filled-to-accent outline reads as secondary).
         outline:
           'border border-input bg-transparent hover:bg-card hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
+        // The press (paper on a desk, „white with an edge means you can touch
+        // it; its shape says what happens“): white, its 1px edge at 12% ink and
+        // no drop shadow at rest, the 1px shadow under the pointer, the pressed
+        // grey while down. A track's thumb keeps the shadow at rest and a
+        // sheet is elevation 1 at radius 10, so the three never share a look.
+        // Replaces the tonal secondary (D4, 2026-11-10). In dark only a sheet or a thumb is lighter than its plane:
+        // a press is its plane's own fill with the 16% edge, a white wash one step up under the pointer. Round 3's
+        // dark press was the sheet's fill, and a press, a folder sheet and a chip were one filled box.
+        secondary:
+          'bg-sheet text-foreground shadow-press hover:shadow-xs active:bg-pressed active:shadow-press dark:bg-transparent dark:hover:bg-foreground/[0.06] dark:hover:shadow-press dark:active:bg-foreground/[0.1]',
         // Ghost is the quietest action: one step to secondary, not accent.
         ghost: 'hover:bg-secondary hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',
@@ -75,8 +85,8 @@ const buttonVariants = cva(
       // viewport width, so a touch tablet past `md` is covered too and a
       // narrow desktop window is left at its intended density.
       size: {
-        default: 'h-9 px-5 py-2 pointer-coarse:h-11',
-        sm: 'h-8 px-3.5 text-xs pointer-coarse:h-11',
+        default: `${CONTROL_HEIGHT.default} px-5 py-2`,
+        sm: `${CONTROL_HEIGHT.sm} px-3.5 text-xs`,
         lg: 'h-11 px-6 text-base',
         icon: 'size-9 pointer-coarse:size-11',
       },

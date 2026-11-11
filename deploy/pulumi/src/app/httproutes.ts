@@ -3,6 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 // Compile-time spec typing from the upstream CRD schemas (see gateway.ts).
 import type { IHTTPRouteSpec } from "@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/HTTPRouteSpec";
 import type { IBackendTrafficPolicySpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/BackendTrafficPolicySpec";
+import type { IHTTPRouteFilterSpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/HTTPRouteFilterSpec";
 import { DeployConfig } from '../config'
 import { commonLabels } from "../platform/namespaces";
 import type { ICompression } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/Compression";
@@ -11,6 +12,7 @@ import type { IRateLimitRule } from "@kubernetes-models/envoy-gateway/gateway.en
 import type { IRateLimitSpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/RateLimitSpec";
 import { GATEWAY_NAME } from "../platform/gateway";
 import { EDGE_RATE_LIMIT, EDGE_RETRY, EDGE_TIMEOUT, PORT } from "../constants";
+import { SIGNED_INTERNAL_ROUTE } from "../signed-route-constants";
 import { logicalName, objectName } from "../names";
 import { formerDomainRedirects, formerDomainRouteSpec } from "./former-domain";
 
@@ -37,7 +39,7 @@ import { formerDomainRedirects, formerDomainRouteSpec } from "./former-domain";
  * entirely would mean no retries, and setting only `numRetries` would inherit
  * the unsafe default triggers.
  */
-const edgeRetry: IRetry = {
+export const edgeRetry: IRetry = {
   numRetries: EDGE_RETRY.numRetries,
   retryOn: { triggers: ["connect-failure", "refused-stream", "reset-before-request"] },
   perRetry: {
@@ -119,7 +121,7 @@ function perClientIpRule(
  * 2 replicas behind one LoadBalancer, so a "30/min" local limit is really
  * 60/min — and changes meaning the moment the fleet scales.
  */
-function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?: IRateLimitSpec } {
+export function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?: IRateLimitSpec } {
   if (!cfg.rateLimit.enabled) return {};
   return { rateLimit: { type: "Global", global: { rules } } };
 }
@@ -137,7 +139,7 @@ function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?
  * rule simply never fires — a few unused descriptors, and no way to be silently
  * uncovered the day the cluster gains an IPv6 address.
  */
-function perClientRules(
+export function perClientRules(
   cfg: DeployConfig,
   requestsPerMinute: number,
   pathPrefix?: string,
@@ -149,14 +151,141 @@ function perClientRules(
 }
 
 /**
+ * An RE2 pattern matching exactly the decimal integers from 0 to `max`, written
+ * without leading zeros: what a `Content-Length` header may say for the edge
+ * to forward it (`SIGNED_INTERNAL_ROUTE`). Gateway API can match a header by
+ * regular expression but not by number, so the bound is spelled out digit by
+ * digit: every shorter number, then every number of `max`'s length that is
+ * smaller at its first differing digit, then `max` itself.
+ */
+export function decimalAtMost(max: number): string {
+  if (!Number.isSafeInteger(max) || max < 0) throw new Error(`decimalAtMost: ${max} is not a non-negative integer`);
+  const digits = String(max);
+  const alternatives = ["0"];
+  if (digits.length > 1) alternatives.push(`[1-9][0-9]{0,${digits.length - 2}}`);
+  for (let i = 0; i < digits.length; i++) {
+    const low = i === 0 ? 1 : 0;
+    const high = Number(digits[i]) - 1;
+    if (high < low) continue;
+    const rest = digits.length - i - 1;
+    alternatives.push(`${digits.slice(0, i)}[${low}-${high}]${rest > 0 ? `[0-9]{${rest}}` : ""}`);
+  }
+  if (max > 0) alternatives.push(digits);
+  return `^(?:${alternatives.join("|")})$`;
+}
+
+/**
+ * The signed internal routes (`SIGNED_INTERNAL_ROUTE`, where the reasons are):
+ * a route of their own on the app host, which wins over the app route's `/`
+ * for every path under the prefix (Gateway API's longest-prefix precedence).
+ *
+ * Two rules. The first forwards a request whose `Content-Length` is at most
+ * the ceiling; it has a header match, so it takes precedence over the second
+ * (Gateway API: more header matches first), which answers everything else
+ * under the prefix with a 413 from Envoy itself (an `HTTPRouteFilter` direct
+ * response). The 413 carries no `x-inbound-verdict`, so the Worker retries;
+ * Cloudflare's 25 MiB inbound cap means a real mail never meets it.
+ *
+ * Its policy has no rate limit and no hour-long budget, and it is the only
+ * policy that applies: the app route's catch-all bucket attaches to the app route
+ * and so never sees these requests.
+ */
+function installSignedInternalRoute(
+  cfg: DeployConfig,
+  provider: k8s.Provider,
+  namespace: pulumi.Input<string>,
+  dependsOn: pulumi.Resource[],
+): k8s.apiextensions.CustomResource {
+  const { routeName, pathPrefix, maxBodyBytes, requestTimeout, refusalFilterName } = SIGNED_INTERNAL_ROUTE;
+  const refusalSpec: IHTTPRouteFilterSpec = {
+    directResponse: {
+      statusCode: 413,
+      contentType: "text/plain",
+      body: {
+        type: "Inline",
+        inline: `A signed internal route takes a fixed-length body of at most ${maxBodyBytes} bytes.\n`,
+      },
+    },
+  };
+  const refusal = new k8s.apiextensions.CustomResource(
+    "signed-body-limit-filter",
+    {
+      apiVersion: "gateway.envoyproxy.io/v1alpha1",
+      kind: "HTTPRouteFilter",
+      metadata: { name: refusalFilterName, namespace, labels: commonLabels("frontend") },
+      spec: refusalSpec,
+    },
+    { provider, dependsOn },
+  );
+
+  const path = { type: "PathPrefix" as const, value: pathPrefix };
+  const routeSpec: IHTTPRouteSpec = {
+    parentRefs: [{ name: GATEWAY_NAME, sectionName: "https-app" }],
+    hostnames: [cfg.ingress.appDomain],
+    rules: [
+      {
+        matches: [
+          {
+            path,
+            headers: [{ type: "RegularExpression", name: "content-length", value: decimalAtMost(maxBodyBytes) }],
+          },
+        ],
+        backendRefs: [{ name: "frontend", port: PORT.frontend }],
+      },
+      {
+        matches: [{ path }],
+        filters: [
+          {
+            type: "ExtensionRef",
+            extensionRef: { group: "gateway.envoyproxy.io", kind: "HTTPRouteFilter", name: refusalFilterName },
+          },
+        ],
+      },
+    ],
+  };
+  const route = new k8s.apiextensions.CustomResource(
+    "app-signed-route",
+    {
+      apiVersion: "gateway.networking.k8s.io/v1",
+      kind: "HTTPRoute",
+      metadata: { name: routeName, namespace, labels: commonLabels("frontend") },
+      spec: routeSpec,
+    },
+    { provider, dependsOn: [...dependsOn, refusal] },
+  );
+
+  const policySpec: IBackendTrafficPolicySpec = {
+    targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: routeName }],
+    timeout: { http: { requestTimeout } },
+    // Never-dispatched failures only, as on the app route: a retry cannot
+    // deliver one mail twice (and the BFF would answer a duplicate anyway).
+    retry: edgeRetry,
+  };
+  new k8s.apiextensions.CustomResource(
+    "app-signed-backend-traffic-policy",
+    {
+      apiVersion: "gateway.envoyproxy.io/v1alpha1",
+      kind: "BackendTrafficPolicy",
+      metadata: { name: `${routeName}-timeouts`, namespace, labels: commonLabels("frontend") },
+      spec: policySpec,
+    },
+    { provider, dependsOn: route },
+  );
+  return route;
+}
+
+/**
  * Gateway API HTTPRoutes (replacing the legacy Ingress resources):
  *   - appDomain → frontend:3000 (UI + BFF + WebSocket chat upgrades)
+ *   - appDomain `/api/internal/signed/*` → frontend:3000, with its own body
+ *     ceiling, timeout and no rate limit (`installSignedInternalRoute`)
  *   - s3Domain  → seaweedfs:8333 (browser presigned preview/download URLs)
  *   - webDomain → web:4321 (the public website + blog, apps/website)
  *
  * Each route attaches to its dedicated HTTPS listener on the shared Gateway.
  * WebSocket upgrades pass through natively; Envoy Gateway streams large bodies
- * with no request-size cap.
+ * with no request-size cap, except on the signed routes, whose ceiling is a
+ * header match rather than a buffer.
  */
 export function installHttpRoutes(
   cfg: DeployConfig,
@@ -165,6 +294,7 @@ export function installHttpRoutes(
   dependsOn: pulumi.Resource[],
 ): {
   app: k8s.apiextensions.CustomResource;
+  signed: k8s.apiextensions.CustomResource;
   s3: k8s.apiextensions.CustomResource;
   web: k8s.apiextensions.CustomResource;
   httpsRedirect: k8s.apiextensions.CustomResource;
@@ -184,6 +314,7 @@ export function installHttpRoutes(
     },
     { provider, dependsOn },
   );
+  const signed = installSignedInternalRoute(cfg, provider, namespace, dependsOn);
 
   // Envoy's default per-request timeout (15s) would cut long streaming chat
   // responses and WS sessions on the app route. Give upstream requests the same
@@ -204,6 +335,8 @@ export function installHttpRoutes(
     //   - everything else gets a deliberately loose catch-all: a chat session is
     //     chatty (inbox polling, presence, conversation reads) and this rule
     //     exists to stop a runaway client, not to shape normal traffic.
+    // The signed internal routes are not on this route and none of these
+    // budgets reach them (`installSignedInternalRoute`).
     ...edgeRateLimit(cfg, [
       ...perClientRules(cfg, cfg.rateLimit.limits.appAuth, EDGE_RATE_LIMIT.paths.auth),
       ...perClientRules(cfg, cfg.rateLimit.limits.appWsUpgrade, EDGE_RATE_LIMIT.paths.ws),
@@ -326,8 +459,28 @@ export function installHttpRoutes(
     { provider, dependsOn },
   );
 
-  // A domain move: the former apex and app host redirect to the new ones (off by default).
+  // A domain move: the former apex and app host redirect to the new ones (off by default),
+  // except the agent doors, which the former app host keeps serving.
   for (const redirect of formerDomainRedirects(cfg.ingress)) {
+    if (redirect.serves.length > 0) {
+      // The served paths reach the frontend through this route, so they get the
+      // app route's budget: its timeout, its retry and its per-client limit.
+      new k8s.apiextensions.CustomResource(
+        logicalName(`${redirect.route}-traffic-policy`),
+        {
+          apiVersion: "gateway.envoyproxy.io/v1alpha1",
+          kind: "BackendTrafficPolicy",
+          metadata: { name: objectName("formerAppTimeouts"), namespace, labels: commonLabels("frontend") },
+          spec: {
+            targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: redirect.route }],
+            timeout: { http: { requestTimeout: EDGE_TIMEOUT } },
+            retry: edgeRetry,
+            ...edgeRateLimit(cfg, perClientRules(cfg, cfg.rateLimit.limits.app)),
+          } satisfies IBackendTrafficPolicySpec,
+        },
+        { provider, dependsOn },
+      );
+    }
     new k8s.apiextensions.CustomResource(
       logicalName(`grid-${redirect.route.replace(/^grid-/, "")}-route`),
       {
@@ -340,5 +493,5 @@ export function installHttpRoutes(
     );
   }
 
-  return { app, s3, web, httpsRedirect };
+  return { app, signed, s3, web, httpsRedirect };
 }

@@ -82,6 +82,14 @@ class TestContent:
         assert [hit.citation_key for hit in collected] == [hit.citation_key for hit in result.hits]
         assert len({hit.page for hit in result.hits}) == len(result.hits), "one block per page"
 
+    async def test_the_lines_around_the_matches_are_fenced_as_data(self) -> None:
+        """The index prints the documents' own lines: they sit in the passages' fence."""
+        result = await _backend(Retriever({COLLECTION: _chunks()})).grep("Fluchtweg", output_mode="content", context=1)
+        index = result.text[result.text.index("## Lines around the matches") :]
+        opened, closed = index.index("<document_content>\n"), index.index("\n</document_content>")
+        assert opened < index.index("#page=") < index.index("> ") < closed
+        assert index.index("Cite the passages above") > closed
+
 
 class TestNeverASilentNo:
     async def test_a_failed_collection_makes_it_incomplete_not_no(self) -> None:

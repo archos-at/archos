@@ -1,5 +1,6 @@
 """Tests for the flat norm registry (agent.common.norm_registry)."""
 
+import json
 import os
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 from agent.common import norm_registry as nr
+from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -291,7 +293,8 @@ class TestRenderPromptBlock:
         assert "ASchG" in block
         assert "State law (Landesrecht) — Wien:" in block
         assert "State law (Landesrecht) — Tirol:" in block
-        assert "OIB corpus" in block  # static corpus pointer always present
+        # ADR-0175: no corpus edition is asserted here; the chain text names what binds.
+        assert "Ausgabe Mai 2023" not in block
 
     def test_focused_state_drops_other_states(self):
         block = nr.render_prompt_block(_render_registry(), federal_state="Wien")
@@ -300,14 +303,15 @@ class TestRenderPromptBlock:
         assert "State law (Landesrecht) — Wien:" in block
         assert "Tirol" not in block  # other state's law entirely absent
 
-    def test_binding_note_rendered(self):
+    def test_no_binding_note_is_rendered(self):
+        """ADR-0175: which edition binds is the records' chain text, not the catalogue's prose."""
         block = nr.render_prompt_block(_render_registry(), federal_state="Wien")
 
-        assert "Legal notes (curated):" in block
-        assert "Macht die OIB-Richtlinien in Wien verbindlich." in block
+        assert "Legal notes (curated):" not in block
+        assert "Macht die OIB-Richtlinien in Wien verbindlich." not in block
 
     def test_render_block_for_prompt_none_when_missing(self, tmp_path):
-        assert nr.render_block_for_prompt(None, norms_dir=str(tmp_path / "nope")) is None
+        assert nr.render_block_for_prompt(norms_dir=str(tmp_path / "nope")) is None
 
 
 # ---------------------------------------------------------------------------
@@ -508,6 +512,38 @@ class TestLaneForAgentAuthoredHit:
             assert nr.lane_for_hit(shelf="office_shelf", authored_by=authored_by) == ("office", "Büroablage")
 
 
+class TestLaneForMailHit:
+    """A chunk of a filed E-Mail-Verlauf (``source_format: mail``) is in the mail lane of its shelf."""
+
+    def test_a_project_thread_is_project_mail(self):
+        assert nr.lane_for_hit(shelf="project", collection="proj_abc", source_format="mail") == (
+            "project_mail",
+            "E-Mail",
+        )
+
+    def test_an_office_thread_is_office_mail(self):
+        assert nr.lane_for_hit(shelf="office_shelf", source_format="mail") == ("office_mail", "E-Mail")
+
+    def test_an_authority_domain_on_a_mail_never_reaches_the_authority_lane(self):
+        """MA 37's domain makes a URL the curated authority lane; on a mail it makes nothing."""
+        lane = nr.lane_for_hit(shelf="project", source_url="https://www.wien.gv.at/ma37", source_format="mail")
+        assert lane == ("project_mail", "E-Mail")
+
+    def test_it_outranks_a_doc_class_a_person_set(self):
+        """A thread a person classed as law is still a conversation: each section is one sender's message."""
+        assert nr.lane_for_hit(doc_class="law", shelf="project", source_format="mail")[0] == "project_mail"
+
+    def test_the_stated_author_still_outranks_it(self):
+        assert nr.lane_for_hit(shelf="project", authored_by="agent", source_format="mail")[0] == AGENT_AUTHORED_LANE
+
+    def test_any_other_format_changes_nothing(self):
+        for source_format in (None, "", "pdf", "MAIL "):
+            assert nr.lane_for_hit(shelf="project", source_format=source_format) == ("project", "Projektwissen")
+
+    def test_the_knowledge_hit_variant_passes_it_through(self):
+        assert nr.lane_for_knowledge_hit(shelf="project", source_format="mail") == ("project_mail", "E-Mail")
+
+
 class TestLaneForKnowledgeHit:
     """A retrieved document is something we hold — it can never be Web."""
 
@@ -659,7 +695,7 @@ class TestParcelNote:
         assert "Bebauungsplan: bplan_7602.pdf" in note
         assert "Flächenwidmungsplan: fwp_wien.pdf" in note
         # The heading names what these documents govern; that is the whole claim.
-        assert "authoritative for zoning, building class, building height, building lines" in note
+        assert "authoritative for zoning, building height, building lines" in note
         assert "gutachten.pdf" not in note
 
     def test_the_note_is_the_file_list_and_not_the_doctrine(self):
@@ -1074,12 +1110,48 @@ PUBLISHED_OIB_2023 = [
 ]
 
 
+#: The Richtlinien of the 2019, 2025 and 2015 editions as oib.or.at publishes them (read 2026-11-10 from
+#: https://www.oib.or.at/richtlinien/oib-richtlinien-<year>/oib-richtlinie-<n>): each item page's PDF.
+PUBLISHED_OIB_OTHER_EDITIONS = [
+    ("richtlinie_1_12.04.19_0.pdf", "1", "OIB-Richtlinie 1, Ausgabe April 2019"),
+    ("oib-rl-2-brandschutz-2019.pdf", "2", "OIB-Richtlinie 2, Ausgabe April 2019"),
+    ("oib-rl-2.1-brandschutz-bei-betriebsbauten-2019.pdf", "2.1", "OIB-Richtlinie 2.1, Ausgabe April 2019"),
+    (
+        "oib-rl-2.2-brandschutz-bei-garagen-ueberdachten-stellplaetzen-und-parkdecks-2019.pdf",
+        "2.2",
+        "OIB-Richtlinie 2.2, Ausgabe April 2019",
+    ),
+    (
+        "oib-rl-2.3-brandschutz-bei-gebaeuden-mit-einem-fluchtniveau-von-mehr-als-22-m-2019.pdf",
+        "2.3",
+        "OIB-Richtlinie 2.3, Ausgabe April 2019",
+    ),
+    ("oib-rl-3-hygiene-gesundheit-und-umweltschutz-2019.pdf", "3", "OIB-Richtlinie 3, Ausgabe April 2019"),
+    ("oib-rl-4-nutzungssicherheit-und-barrierefreiheit-2019.pdf", "4", "OIB-Richtlinie 4, Ausgabe April 2019"),
+    ("oib-rl-5-schallschutz-2019.pdf", "5", "OIB-Richtlinie 5, Ausgabe April 2019"),
+    ("oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf", "6", "OIB-Richtlinie 6, Ausgabe April 2019"),
+    ("oib-rl_6_september_2025.pdf", "6", "OIB-Richtlinie 6, Ausgabe September 2025"),
+    ("oib-rl-6-energieeinsparung-und-waermeschutz-2015.pdf", "6", "OIB-Richtlinie 6, Ausgabe März 2015"),
+]
+
+
 class TestPublishedOibFilenames:
     @pytest.mark.parametrize(("file_name", "doc_class", "member", "title"), PUBLISHED_OIB_2023)
     def test_each_published_name_parses(self, file_name, doc_class, member, title):
         assert nr.oib_doc_class(file_name) == doc_class
         assert nr.oib_family_member(file_name) == member
         assert nr.guess_display_title(file_name) == title
+
+    @pytest.mark.parametrize(("file_name", "member", "title"), PUBLISHED_OIB_OTHER_EDITIONS)
+    def test_each_published_name_of_another_edition_parses(self, file_name, member, title):
+        assert nr.oib_doc_class(file_name) == "guideline"
+        assert nr.oib_family_member(file_name) == member
+        assert nr.guess_display_title(file_name) == title
+
+    def test_every_published_name_has_its_manifestation_in_the_austria_pack(self):
+        pack = json.loads((REPO_ROOT / "configs" / "knowledge-packs" / "at.json").read_text(encoding="utf-8"))
+        corpus = {r["corpusFile"] for r in pack["records"] if r["type"] == "manifestation"}
+        assert {name for name, *_ in PUBLISHED_OIB_OTHER_EDITIONS} <= corpus
 
     def test_oib_2_family_holds_all_four_parts_under_published_names(self):
         families = nr.oib_families(name for name, *_ in PUBLISHED_OIB_2023)
@@ -1113,12 +1185,34 @@ class TestPublishedOibFilenames:
             "erlaeuterungen-zu-bauordnung.pdf",  # a role prefix without an OIB stem
             "oib-richtlinien-uebersicht.pdf",  # no separator after the stem
             "zu-oib-richtlinie_2.2.pdf",
+            "richtlinie_2_01.02.20.pdf",  # a dated name the table does not list
+            "oib-rl-2-brandschutz-2023.pdf",  # a titled name the table does not list
+            # The diffs published beside the 2019 Richtlinien: each once read as the 2015 Richtlinie.
+            *(
+                f"oib-rl-{n}-aenderungen-gegenueber-version-2015.pdf"
+                for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
+            ),
+            "oib-rl-6-aenderungen-gegenueber-version-2011.pdf",
+            "oib-rl_6_normaussentemperaturen.pdf",  # a table beside RL 6 2025, under the Richtlinie's stem
+            "pfd_normaussentemperaturen_2015.pdf",  # a table published beside RL 6
         ],
     )
     def test_near_misses_stay_unrecognised(self, file_name):
         assert nr.oib_doc_class(file_name) is None
         assert nr.oib_family_member(file_name) is None
         assert nr.guess_display_title(file_name) is None
+
+    def test_every_diff_published_beside_another_edition_is_excluded_from_retrieval(self):
+        config = yaml.safe_load((REPO_ROOT / "configs" / "config_oib_openrouter.yml").read_text(encoding="utf-8"))
+        excluded = set(config["functions"]["knowledge_search"]["exclude_file_names"])
+        diffs = {
+            f"oib-rl-{n}-aenderungen-gegenueber-version-2015.pdf"
+            for n in ("1", "2", "2.1", "2.2", "2.3", "3", "4", "5", "6")
+        }
+        assert (
+            diffs | {"oib-rl-6-aenderungen-gegenueber-version-2011.pdf", "aenderungen_oib-rl_6_september_2025.pdf"}
+            <= excluded
+        )
 
     def test_every_published_amendments_file_is_excluded_from_retrieval(self):
         config = yaml.safe_load((REPO_ROOT / "configs" / "config_oib_openrouter.yml").read_text(encoding="utf-8"))

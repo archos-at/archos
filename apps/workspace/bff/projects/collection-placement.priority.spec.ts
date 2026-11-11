@@ -108,7 +108,7 @@ let fetchSpy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job_id: 'ingest-1' }) })
   vi.stubGlobal('fetch', fetchSpy)
-  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', settings: {} })
+  vi.mocked(getOrgSettings).mockResolvedValue({ displayName: null, defaultLocale: 'de', homeCountry: null, settings: {} })
   vi.mocked(findProjectInOrg).mockResolvedValue(makeProject({ id: PROJECT, collectionName: COLLECTION }))
   // "Honorare" is restricted to one role: its documents belong in its own collection.
   vi.mocked(listProjectFolderTree).mockResolvedValue([

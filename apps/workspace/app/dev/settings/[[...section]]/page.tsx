@@ -25,6 +25,7 @@ import { SectionNav } from '@/components/shell/section-nav'
 import { Brain, FileStack, Gauge, GitCompareArrows, LayoutDashboard, Users } from 'lucide-react'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
 import { ProjectOverview } from '@/features/projects/components/overview/project-overview'
+import { InboundMailAddressTile } from '@/features/inbound-mail/components/inbound-mail-address'
 import { MembersSettings } from '@/features/projects/components/settings/members-settings'
 import { MemorySettings } from '@/features/projects/components/settings/memory-settings'
 import {
@@ -35,13 +36,15 @@ import {
   visibleSettingsSections,
   type ProjectSettingsSectionKey,
 } from '@/features/projects/lib/settings-sections'
-import { getApplicableStandards } from '@/lib/oib/applicable-standards'
 import type { ProjectProfile } from '@/lib/project-profile/types'
 import { FIXTURE_PROJECT_ID, FIXTURE_USER_ID, HISTORY } from '../../_fixtures/upload-batches'
 import { SIMILAR_PAGE } from '../../_fixtures/similar-projects'
 import { SimilarProjects } from '@/features/references/components/similar-projects'
 import { SimilarProjectsTile } from '@/features/projects/components/overview/similar-projects-tile'
 import { answerProjectRecord, useDevProjectRecord } from '../../_fixtures/project-record'
+import { ADDRESS_VARIANTS, fixtureAddressClient } from '../../inbound-mail/fixtures'
+
+const ADDRESS_CLIENT = fixtureAddressClient(ADDRESS_VARIANTS.manager)
 
 const PROJECT_ID = FIXTURE_PROJECT_ID
 
@@ -81,8 +84,6 @@ const PROFILE_DATA = {
       'Wohngebäude der Gebäudeklasse 4 in Wien Mariahilf mit oberstem Fluchtniveau bei 9,8 m; Neubau, offene Bauweise, 14 Wohneinheiten.',
     summaryLocale: 'de',
   },
-  applicableStandards: getApplicableStandards(PROFILE),
-  briefComplete: true,
 }
 
 const usage = (blocked: string | null): ProjectUsageView => ({
@@ -264,7 +265,7 @@ export default function SettingsDevPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8" data-testid="settings-preview">
-      <h1 className="mb-6 text-xl font-semibold tracking-tight">Overview</h1>
+      <h1 className="mb-6 text-xl font-medium">Overview</h1>
       <div className="flex flex-col gap-6">
         <div>
           <SectionNav
@@ -289,6 +290,10 @@ export default function SettingsDevPage({
                 manageMembers: admin,
               }}
               projectRecord={{ ...projectRecord, canEdit: admin, canErase: admin }}
+              // The project's mail address, as a reader who may decide its mail sees it (here: whoever administers).
+              inboundMailAddress={
+                admin ? <InboundMailAddressTile projectId={OVERVIEW_DATA.id} projectName="Wohnbau Mariahilf" client={ADDRESS_CLIENT} /> : undefined
+              }
               similar={
                 <SimilarProjectsTile
                   page={SIMILAR_PAGE}

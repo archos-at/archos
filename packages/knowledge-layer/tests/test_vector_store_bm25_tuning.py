@@ -150,7 +150,9 @@ class TestOnQdrant:
 
         [late] = _records([60])
         fresh.upsert(SCOPE, [late])
-        hits = hybrid_search(fresh, [SCOPE], vector=records[1].embedding, lexical_text="Sprinkleranlage", limit=2)
+        hits = hybrid_search(
+            fresh, [SCOPE], vector=records[1].embedding, lexical_text="Sprinkleranlage", limit=2, office_id="org_test"
+        )
 
         assert fresh.bm25_length(SCOPE) == {"k": 1.2, "b": 0.75, "avg_len": 90.0}
         assert rebuild.length_from_weight(min(_weights(fresh, alias, late.chunk_id)), fresh.bm25_length(SCOPE)) == (

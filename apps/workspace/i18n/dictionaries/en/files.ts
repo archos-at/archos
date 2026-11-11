@@ -6,7 +6,7 @@ export const files = {
     /** `size` is formatted with its unit ("100 MB"); the limit is per file. */
     maxSize: 'Up to {size} per file',
     accepts: 'Accepts: {types}',
-    dragOrBrowse: 'Drag files here or browse',
+    dropAnywhere: 'Or drop files anywhere on this page.',
     maxSizeShort: 'max. {size} per file',
   },
   // The upload tray. Wording follows the surface's one rule: a number is
@@ -24,14 +24,14 @@ export const files = {
       processingOther: '{productName} is reading {count} documents',
       doneOne: '1 document added',
       doneOther: '{count} documents added',
-      mixed: '{ready} added · {failed} failed',
+      mixed: '{ready} added\u00A0· {failed} failed',
       failedOne: '1 document could not be added',
       failedOther: '{count} documents could not be added',
       // Held back by the content check (ADR-0086): not a failure, nothing to
       // retry. Never "release", which collides with approving a revision.
       heldOne: '1 document held back',
       heldOther: '{count} documents held back',
-      mixedHeld: '{ready} added · {held} held back',
+      mixedHeld: '{ready} added\u00A0· {held} held back',
       canceled: 'Upload canceled',
     },
     detail: {
@@ -95,7 +95,7 @@ export const files = {
     unknown: 'Unknown',
     // Only the office's own uploads: inside one office the queue reads in
     // order, across offices it takes turns (ADR-0076).
-    queuedAhead: '{count, plural, one {Waiting · # file ahead} other {Waiting · # files ahead}}',
+    queuedAhead: '{count, plural, one {Waiting\u00A0· # file ahead} other {Waiting\u00A0· # files ahead}}',
   },
   toast: {
     // Fired the instant async ingestion finishes and the document becomes
@@ -109,6 +109,32 @@ export const files = {
   thumbnail: {
     image: 'Image',
     unavailable: 'Preview unavailable',
+  },
+  /**
+   * The Dokumentart where it is stored as an English token (`LABELLED_TAGS` in
+   * lib/documents/tag-vocabulary.ts). The older types are still stored as a
+   * German word and read as themselves.
+   */
+  documentTag: {
+    correspondence: 'Correspondence',
+    developmentPlan: 'Development plan',
+    zoningPlan: 'Zoning plan',
+    floorPlan: 'Floor plan',
+    section: 'Section',
+    elevation: 'Elevation',
+    detail: 'Detail',
+    expertReport: 'Expert report',
+    officialDecision: 'Official decision',
+    standard: 'Standard or guideline',
+    contract: 'Contract',
+    photo: 'Photo',
+    other: 'Other',
+    structuralSafety: 'Structural safety',
+    fireSafety: 'Fire safety',
+    hygieneHealthEnvironment: 'Hygiene, health and environment',
+    safetyInUse: 'Safety in use and accessibility',
+    soundProtection: 'Sound protection',
+    energyEconomy: 'Energy economy and heat retention',
   },
   preview: {
     closePreview: 'Close preview',
@@ -349,10 +375,8 @@ export const files = {
     retryingIngestion: 'Retrying…',
     retryIngestionError: "Reading couldn't be restarted. Please try again.",
     dialogLabel: 'File preview: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'File view',
-      document: 'Document',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -423,6 +447,7 @@ export const files = {
     reasonTerm: '“{term}” in the text',
     reasonIban: 'IBAN {sample}',
     reasonSvnr: 'Social security number {sample}',
+    reasonTaxId: 'Tax ID {sample}',
     reasonCard: 'Card number {sample}',
     reasonPages: '{count, plural, one {page {pages}} other {pages {pages}}}',
     // Spreadsheets and text files have no pages, so a finding has no place to open.
@@ -437,6 +462,10 @@ export const files = {
       'The number is laid out like an IBAN and its check digits are valid, so it is no random string of digits. Your office marked account numbers as sensitive.',
     basisSvnr:
       'The number is laid out like an Austrian social security number and its check digit is valid. Your office marked it as sensitive.',
+    basisDeSvnr:
+      'The number is laid out like a German social insurance number (Rentenversicherungsnummer) and its check digit is valid. Your office marked it as sensitive.',
+    basisTaxId:
+      'The number is laid out like a German tax identification number, its check digit is valid, and the page names a tax ID. Your office marked it as sensitive.',
     basisCard:
       'The number is laid out like a card number and its check digit is valid. Your office marked card numbers as sensitive.',
     basisOther: 'The content check applied a rule not described here.',
@@ -456,7 +485,12 @@ export const files = {
   },
   browser: {
     folderEmptyTitle: 'This folder is empty',
-    folderEmptyDescription: 'Upload documents here, or pick another folder from the sidebar.',
+    folderEmptyDescription: 'Upload documents here, or drop them anywhere on this page.',
+    /** A finger cannot drop on a page. */
+    folderEmptyDescriptionTouch: 'Upload documents here.',
+    /** The title while the field filters the files: the query is where the reader is. */
+    searchTitle: 'Search: “{query}”',
+    searchCount: '{count, plural, one {# match} other {# matches}}',
     noDocumentsTitle: 'No documents yet',
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
@@ -470,7 +504,7 @@ export const files = {
     clearSearch: 'Clear search',
     clearFilters: 'Clear filters',
     resetSearch: 'Reset search',
-    recentlyUploaded: 'Recently uploaded',
+    recentlyUploaded: 'Files',
     /** Empty search when the search matches names only (the folder loads page by page, ADR-0102). */
     noMatchNamesDescription:
       'The search looks at file names. Press Enter to search the contents too, or clear the search to see every file.',
@@ -520,13 +554,14 @@ export const files = {
     // The way up, named. The breadcrumb says where you ARE, which is a map,
     // and three levels deep the parent is a truncated word mid-row.
     backTo: 'Back to {name}',
-    newFolder: 'New folder',
-    newInside: 'New folder inside',
+    newFolder: 'Create folder',
+    newInside: 'Create folder inside',
     open: 'Open',
     move: 'Move to folder',
     items: '{count, plural, one {# item} other {# items}}',
     openFolder: 'Open folder “{name}”',
     breadcrumb: 'Folder path',
+    hiddenLevels: '{count, plural, one {# more level} other {# more levels}}',
     movedFolder: '“{name}” moved to “{parent}”.',
     moveFolderError: 'The folder could not be moved. Please try again.',
     /** Folder access (ADR-0088, ADR-0097): restricting a folder to people. */
@@ -628,19 +663,27 @@ export const files = {
   /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Bin',
-    subtitle:
-      'Deleted folders with their subfolders and documents. Until they are permanently deleted they can be restored with their access.',
-    back: 'Back to files',
     empty: 'The bin is empty.',
     emptyHint: 'Deleted folders appear here and can be restored.',
-    deletedBy: 'Deleted by {name} on {date}',
-    deletedOn: 'Deleted on {date}',
-    contents:
-      '{documents, plural, one {# document} other {# documents}} · {folders, plural, one {# folder} other {# folders}}',
-    purgeOn: 'Permanently deleted on {date}',
-    purging: 'Being permanently deleted',
-    failed: 'The permanent deletion has stopped. An admin is looking into it.',
+    deletedBy: 'deleted by {name} on {date}',
+    deletedOn: 'deleted on {date}',
+    contentsDocuments: '{count, plural, one {# document} other {# documents}}',
+    contentsFolders: '{count, plural, one {# folder} other {# folders}}',
+    purgeOn: 'kept until {date}',
+    purging: 'being permanently deleted',
+    failed: 'permanent deletion stopped, an admin is looking into it',
     restore: 'Restore',
+    restoreBlocked: {
+      folder_read_only: 'Cannot be restored: you may only read this folder.',
+      project_closed: 'Cannot be restored: the project is closed.',
+      no_write: 'Cannot be restored: you may not file in this project.',
+    },
+    // The same as a clause of a phone's second line („stays until … · read only“); the whole sentence is in the title.
+    restoreBlockedShort: {
+      folder_read_only: 'read only',
+      project_closed: 'project closed',
+      no_write: 'no right to file',
+    },
     restored: '“{name}” is restored. Its documents are being read again.',
     restoredToRoot: '“{name}” is restored at the top of the project, because its parent folder is deleted.',
     restoreNameTaken: 'A folder named “{name}” already exists there. Rename it, then restore again.',
@@ -656,7 +699,7 @@ export const files = {
     cancel: 'Cancel',
     loadError: 'The bin could not be loaded.',
     retry: 'Try again',
-    document: 'Document · goes back to its folder when restored',
+    document: 'Document',
     loadMore: 'Load more',
   },
   workspace: {
@@ -703,8 +746,9 @@ export const files = {
   // Explorer detail view — column headings for the sortable listing.
   selection: {
     start: 'Select',
+    nothingToPick: 'No file here to select',
     done: 'Done',
-    all: 'All',
+    all: 'Select all',
     move: 'Move',
     column: 'Selected',
     count: '{count} selected',
@@ -936,11 +980,22 @@ export const files = {
    * The Outlook archive import (ADR-0085): a .pst or .ost sent in parts, then
    * filed by a background job, one folder per mail.
    */
+  // The way into the E-Mail-Eingang from Dateien (ADR-0137): the header entry,
+  // its count, the upload menu's address entry and the quiet line above the shelf.
+  inboundMail: {
+    open: 'Project mail',
+    waitingAria: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
+    sendByMail: 'Send by mail …',
+    sendByMailHint: 'Forward mail to the project mail address',
+    waitingLine: '{count, plural, one {# mail waits to be filed} other {# mails wait to be filed}}',
+    waitingLineMore: 'More than {count} mails wait to be filed',
+    view: 'View',
+  },
   mailImport: {
     action: 'Import Outlook archive',
     title: 'Import an Outlook archive',
     description:
-      'Choose a .pst or .ost file. Each email becomes a folder under “E-Mail-Import” with its attachments and a note holding its text and headers.',
+      'Choose a .pst or .ost file. Each email’s attachments go into a folder under “E-Mail-Import”, its text into the project’s mail threads. Emails the project already has are not filed twice.',
     privacy:
       'An archive holds the correspondence of everyone who wrote to this mailbox. Import what the project needs, not a whole mailbox.',
     choose: 'Choose archive…',
@@ -991,6 +1046,8 @@ export const files = {
     progress: '{done} of {total} items',
     filed: '{mails, plural, one {# email} other {# emails}}, {files, plural, one {# attachment} other {# attachments}}',
     skipped: '{count, plural, one {# skipped} other {# skipped}}',
+    threads: '{created, plural, one {# new mail thread} other {# new mail threads}}, {appended, plural, one {# added to} other {# added to}}',
+    alreadyInProject: '{count, plural, one {# email already in the project} other {# emails already in the project}}',
     skippedItem: '{file} in {mail}: {reason}',
     skippedMail: '{mail}: {reason}',
     status: {
@@ -1099,10 +1156,13 @@ export const files = {
    */
   // The folder brief: what Piloti knows about a folder and everything under it.
   brief: {
-    scopeFolder: 'in “{name}” and its subfolders',
+    scopeFolder: 'in this folder',
+    scopeFolderTree: 'in this folder and its subfolders',
     scopeProject: 'in this project',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
+    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
+    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',
@@ -1116,7 +1176,7 @@ export const files = {
     allRead: 'All read',
     unplacedShort: '{count} without a document type',
     /** Beside the legend: documents Piloti never reads. Not part of the headline's “of N”. */
-    unindexedAside: 'plus {count} not in the knowledge base',
+    unindexedAside: '{count} more not in the knowledge base',
     /** Run-in labels of the two chip families under “What this is about”. */
     typesLabel: 'Document type',
     disciplinesLabel: 'Discipline',
@@ -1127,7 +1187,9 @@ export const files = {
     showState: 'Show “{state}” documents across all subfolders',
     showTag: 'Show every “{tag}” document in this folder and its subfolders',
     pages: '{count, plural, one {{formatted} page read} other {{formatted} pages read}}',
+    pagesCount: '{count, plural, one {{formatted} page} other {{formatted} pages}}',
     aboutTitle: 'What this is about',
+    aboutMore: '+{count}',
     noTypes: '{productName} has not recognized a document type here yet.',
     /** "What this is about" while only the folder's counts are loaded (ADR-0102). */
     aboutDeferred: 'Document types, disciplines and topics',
@@ -1139,6 +1201,7 @@ export const files = {
     needsTitle: 'Needs your attention',
     failedLine: '{count, plural, one {{productName} could not read # document.} other {{productName} could not read # documents.}}',
     readAgainAll: '{count, plural, one {Read again} other {Read all # again}}',
+    readAgainBoth: 'Read both again',
     readAgainProgress: 'Starting {done} of {count}…',
     readAgainDone: '{count, plural, one {# document is being read again} other {# documents are being read again}}',
     readAgainPartial: '{count, plural, one {# document could not be restarted} other {# documents could not be restarted}}',
@@ -1501,7 +1564,7 @@ export const files = {
   assignment: {
     unassigned: 'Unassigned',
     assign: 'Assign',
-    edit: 'Edit',
+    edit: 'Change',
     assignToMe: 'Assign to me',
     filterAll: 'All',
     filterMine: 'Mine',
@@ -1581,7 +1644,7 @@ export const files = {
     listedOpenIn: '{marks} in “{name}”',
     // What the chip itself says, short enough for a card; the tooltip carries the whole sentence.
     listedOpenShort: '{count} open',
-    listedOpenShortForYou: '{count} open · {mine} for you',
+    listedOpenShortForYou: '{count} open\u00A0· {mine} for you',
     // Piloti's proposals nobody took over: counted apart from “open”, as Offene Punkte and the minutes count them.
     listedProposedShort: '{count, plural, one {# proposal} other {# proposals}}',
   },
@@ -1589,11 +1652,9 @@ export const files = {
   openPoints: {
     open: 'Open points',
     title: 'Open points',
-    subtitle: 'What is open in this project’s documents, across all of them: the list for the site meeting.',
-    back: 'Back to files',
     filters: {
-      assignee: 'Assignee',
-      due: 'Due',
+      label: 'Filters',
+      // No filter picked: every open point. A chip, so „all“ is a state you can see and press back to.
       all: 'All',
       // The same predicate as „For you“ in the review and in Files (`isForReader`), so the same words.
       me: 'For you',

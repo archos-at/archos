@@ -55,6 +55,14 @@ const BADGE_VARIANT: Record<DocumentBadgeState, 'secondary' | 'outline'> = {
   archived: 'outline',
 }
 
+/**
+ * The settled end of a review, said as a muted word with no ground under it:
+ * „Veröffentlicht“ beside „Entwurf“ were the same grey chip, and the one that
+ * still asks for work did not stand out (Von Restorff). Weight, not colour:
+ * a draft is the normal middle of a review, not a warning.
+ */
+const SETTLED: ReadonlySet<DocumentBadgeState> = new Set(['approved', 'published'])
+
 /** The i18n leaf per state. A map, so `tsc` fails on a state with no wording. */
 const LABEL_KEY: Record<DocumentBadgeState, string> = {
   draft: 'lifecycle.states.draft',
@@ -105,7 +113,7 @@ export function DocumentVersionStateBadge({
   return (
     <Badge
       variant={BADGE_VARIANT[state]}
-      className={cn('shrink-0 font-medium', className)}
+      className={cn('shrink-0 font-medium', SETTLED.has(state) && 'text-muted-foreground border-transparent bg-transparent px-0 font-normal', className)}
       data-testid={testId}
       data-state={state}
       title={t('lifecycle.badgeTitle', { state: documentVersionStateLabel(state, t) })}

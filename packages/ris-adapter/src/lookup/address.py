@@ -311,14 +311,14 @@ def federal_state_sentence(address: Address) -> str:
 def _federal_state_from_brief() -> tuple[str, str]:
     """The project brief's structured jurisdiction, or ``("", "")``.
 
-    ``resolve_federal_state(None)`` reads the validated token off the signed
-    request envelope and probes no text — with no live request (tests, the
-    adapter standalone) there simply is no project, which is not an error.
+    ``resolve_federal_state()`` reads the Land of the turn's site from its knowledge context and probes
+    no text (ADR-0175); with no placed site (or no turn: tests, the adapter standalone) there is none,
+    which is not an error.
     """
     try:
         from agent.common.norm_registry import resolve_federal_state
 
-        federal_state = resolve_federal_state(None)
+        federal_state = resolve_federal_state()
     except Exception:  # noqa: BLE001 — no request context is the normal case off-request
         logger.debug("ris_lookup: no project-brief jurisdiction available", exc_info=True)
         return "", ""

@@ -15,5 +15,5 @@ export const DELETE = platformApiRoute<{ fileName: string }>(
     await deleteKnowledgeBaseDocument(fileName)
     return NextResponse.json({ success: true, fileName })
   },
-  { permission: PLATFORM_PERMISSIONS.settingsManage }
+  { permission: PLATFORM_PERMISSIONS.knowledgeWrite }
 )

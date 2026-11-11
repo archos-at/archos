@@ -7,6 +7,9 @@
  */
 
 import { AGENT_DOMAINS, type AgentOperation, type OperationExample } from '../operation'
+import { baseKnowledgeOperations } from './base-knowledge'
+import { baseKnowledgeTimeOperations } from './base-knowledge-time'
+import { knowledgeContextOperations } from './knowledge-context'
 import { bimOperations } from './bim'
 import { collaborationOperations } from './collaboration'
 import { consultOperations } from './consult'
@@ -14,9 +17,14 @@ import { conversationsOperations } from './conversations'
 import { documentsOperations } from './documents'
 import { foldersOperations } from './folders'
 import { knowledgeOperations } from './knowledge'
+import { mailOperations } from './mail'
 import { organizationOperations } from './organization'
 import { platformOperations } from './platform'
+import { platformKnowledgeOperations } from './platform-knowledge'
+import { platformSkillOperations } from './platform-skills'
+import { platformSourceOperations } from './platform-sources'
 import { projectsOperations } from './projects'
+import { releaseNotesOperations } from './release-notes'
 import { reviewOperations } from './review'
 import { savedSearchOperations } from './saved-searches'
 import { skillsOperations } from './skills'
@@ -31,6 +39,7 @@ export type OperationName = (
   | typeof documentsOperations
   | typeof savedSearchOperations
   | typeof foldersOperations
+  | typeof mailOperations
   | typeof reviewOperations
   | typeof conversationsOperations
   | typeof consultOperations
@@ -38,9 +47,16 @@ export type OperationName = (
   | typeof tasksOperations
   | typeof skillsOperations
   | typeof knowledgeOperations
+  | typeof baseKnowledgeOperations
+  | typeof baseKnowledgeTimeOperations
+  | typeof knowledgeContextOperations
   | typeof bimOperations
   | typeof organizationOperations
+  | typeof releaseNotesOperations
   | typeof platformOperations
+  | typeof platformKnowledgeOperations
+  | typeof platformSkillOperations
+  | typeof platformSourceOperations
 )[number]['name']
 
 const unordered: readonly AgentOperation[] = [
@@ -48,6 +64,7 @@ const unordered: readonly AgentOperation[] = [
   ...documentsOperations,
   ...savedSearchOperations,
   ...foldersOperations,
+  ...mailOperations,
   ...reviewOperations,
   ...conversationsOperations,
   ...consultOperations,
@@ -55,9 +72,16 @@ const unordered: readonly AgentOperation[] = [
   ...tasksOperations,
   ...skillsOperations,
   ...knowledgeOperations,
+  ...baseKnowledgeOperations,
+  ...baseKnowledgeTimeOperations,
+  ...knowledgeContextOperations,
   ...bimOperations,
   ...organizationOperations,
+  ...releaseNotesOperations,
   ...platformOperations,
+  ...platformKnowledgeOperations,
+  ...platformSkillOperations,
+  ...platformSourceOperations,
 ]
 
 /**

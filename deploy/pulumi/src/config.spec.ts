@@ -2,7 +2,18 @@ import { describe, it, expect } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from './config'
 import { RETIRED_VECTOR_KEYS } from './config/qdrant'
+import { LEGACY_PROJECT } from './names'
 import { baseStackConfig } from "./test-support/stack-config";
+import {
+  APP_ZONE,
+  APP_ZONE_ID,
+  appZoneStackConfig,
+  MAIL_ZONE_ID,
+  OPERATOR_ADDRESS,
+  mailStackConfig,
+  SIGNING_KEY_ID,
+  SIGNING_SECRET,
+} from "./test-support/app-zone-config";
 
 // `new pulumi.Config()` (config.ts:873) namespaces every key by the PROJECT
 // name, which the runtime reads from the mock context. Without this the keys
@@ -55,6 +66,12 @@ function loadWith(values: Record<string, string>, omit: string[] = []): Error | 
   } catch (error) {
     return error as Error;
   }
+}
+
+/** `loadWith`, for a config that loads: the resolved values. */
+function loadValues(values: Record<string, string>) {
+  pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...values });
+  return loadConfig();
 }
 
 describe("tenant bucket prefix", () => {
@@ -158,11 +175,16 @@ describe("the bff-jobs pool's floor", () => {
   });
 });
 
-describe("the geocoder URL (ADR-0151)", () => {
+describe("the geocoder URL (ADR-0151, ADR-0159)", () => {
   const key = `${pulumi.getProject()}:geocoderUrl`;
 
-  it("defaults to komoot's public Photon", () => {
+  it("is off by default: no address keystroke leaves the cell unless a stack opts in", () => {
     pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().geocoderUrl).toBe("");
+  });
+
+  it("takes komoot's public Photon when a stack names it", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "https://photon.komoot.io" });
     expect(loadConfig().geocoderUrl).toBe("https://photon.komoot.io");
   });
 
@@ -304,8 +326,8 @@ describe("Qdrant's dashboard at the edge", () => {
       "grid-oib:qdrantDashboardDomain": "qdrant.elsewhere.test",
       "grid-oib:loadBalancerIp": "203.0.113.10",
       "grid-oib:dnsEnabled": "true",
-      "grid-oib:dnsZoneId": "zone-abc123",
-      "grid-oib:dnsZoneName": "example.test",
+      "grid-oib:dnsZoneId": "00000000000000000000000000abc123",
+      [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
       "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
     });
     expect(error?.message).toMatch(/qdrant\.elsewhere\.test is not inside it/);
@@ -496,5 +518,273 @@ describe("chat tier scale-out (ADR-0080)", () => {
     // so the first socket the Service hands to the wrong replica hangs silently.
     const error = loadWith({ "grid-oib:chatAffinity": "false", "grid-oib:conversationBus": "false" });
     expect(error?.message).toMatch(/needs grid-oib:conversationBus=true/);
+  });
+});
+
+/**
+ * The malware scanner (ADR-0157). Off by default; on, it runs an image that
+ * parses every hostile file strangers send, so the image is a digest, and the
+ * URL the BFF gets is always this stack's own clamd.
+ */
+describe("malwareScan", () => {
+  function cfgWith(values: Record<string, string>) {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...values });
+    return loadConfig();
+  }
+
+  it("is off by default, on a digest-pinned image", () => {
+    const { malwareScan } = cfgWith({});
+    expect(malwareScan.enabled).toBe(false);
+    expect(malwareScan.image).toMatch(/^clamav\/clamav:1\.\d+\.\d+@sha256:[0-9a-f]{64}$/);
+  });
+
+  it("switches on per stack", () => {
+    expect(cfgWith({ [`${LEGACY_PROJECT}:malwareScanEnabled`]: "true" }).malwareScan.enabled).toBe(true);
+  });
+
+  it.each(["clamav/clamav:1.5.4", "clamav/clamav:latest", "clamav/clamav@sha256:abc"])(
+    "refuses an image without a full digest: %s",
+    (image) => {
+      expect(loadWith({ [`${LEGACY_PROJECT}:malwareScanImage`]: image })?.message).toMatch(/malwareScanImage .* pin it by digest/);
+    },
+  );
+
+  it.each(["fake://", "fake:", "tcp://clamd.elsewhere:3310"])(
+    "refuses a scanner URL on any stack, the development fake above all: %s",
+    (url) => {
+      expect(loadWith({ [`${LEGACY_PROJECT}:malwareScanUrl`]: url })?.message).toMatch(/malwareScanUrl .* is refused/);
+    },
+  );
+});
+
+describe("project mail (ADR-0138)", () => {
+  const mail = {
+    ...mailStackConfig(),
+    [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.post.example.test",
+    [`${LEGACY_PROJECT}:inboundMailZoneId`]: MAIL_ZONE_ID,
+  };
+  const keys = (map: Record<string, unknown>) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: JSON.stringify(map) });
+
+  it("is off, and asks for nothing, while the domain is unset", () => {
+    expect(loadWith({})).toBeNull();
+    const values = loadValues({}).inboundMail;
+    expect(values).toMatchObject({ configured: false, enabled: false, signingKeyId: "" });
+  });
+
+  it("loads with the domain, the zone, the scanner, a key and the token", () => {
+    expect(loadWith(mail)).toBeNull();
+    expect(loadValues(mail).inboundMail).toMatchObject({
+      configured: true,
+      enabled: true,
+      paused: false,
+      domain: "inbox.post.example.test",
+      localPart: "project",
+      signingKeyId: SIGNING_KEY_ID,
+    });
+  });
+
+  it("refuses the domain while the malware scanner is off", () => {
+    // Mail from anyone is scanned before it can be filed; without clamd every
+    // scan fails closed and nothing that arrives could ever be filed.
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:malwareScanEnabled`]: "false" });
+    expect(error?.message).toMatch(/inboundMailDomain needs malwareScanEnabled=true/);
+  });
+
+  // A domain without a usable key map deploys a Worker whose every delivery
+  // gets a 503: the sender's server retries for days, then bounces.
+  it.each([`${LEGACY_PROJECT}:inboundMailSigningKeys`, `${LEGACY_PROJECT}:cloudflareApiToken`])("refuses the domain without %s", (key) => {
+    expect(loadWith(mail, [key])?.message).toContain(key);
+  });
+
+  it.each([
+    ["not JSON", "mi-2026-10=abc", /not JSON/],
+    ["an array", "[]", /not an object/],
+    ["no keys", "{}", /it has 0/],
+    ["three keys", JSON.stringify({ a: SIGNING_SECRET, b: SIGNING_SECRET, c: SIGNING_SECRET }), /it has 3/],
+    ["a keyid with a space", JSON.stringify({ "mi 2026": SIGNING_SECRET }), /keyid "mi 2026"/],
+    ["a short secret", JSON.stringify({ k: Buffer.alloc(16, 1).toString("base64") }), /secret of "k"/],
+    ["a hex secret", JSON.stringify({ k: "ab".repeat(32) + "!" }), /secret of "k"/],
+    [
+      "the development secret",
+      JSON.stringify({ k: Buffer.from("internal-dev-signing-secret-0032").toString("base64") }),
+      /well-known development secret/,
+    ],
+  ])("refuses a key map that is %s, as the BFF would", (_label, raw, message) => {
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: raw });
+    expect(error?.message).toMatch(message);
+    // Only key names reach a message, never a secret.
+    expect(error?.message).not.toContain(SIGNING_SECRET);
+  });
+
+  it("requires the Worker's keyid while two keys are held", () => {
+    const two = keys({ old: SIGNING_SECRET, new: Buffer.alloc(32, 3).toString("base64") });
+    expect(loadWith(two)?.message).toMatch(/inboundMailSigningKeyId must name the key/);
+    expect(loadWith({ ...two, [`${LEGACY_PROJECT}:inboundMailSigningKeyId`]: "new" })).toBeNull();
+    expect(loadWith({ ...two, [`${LEGACY_PROJECT}:inboundMailSigningKeyId`]: "gone" })?.message).toMatch(/got "gone"/);
+  });
+
+  it("switches off without keys, but keeps the zone checks", () => {
+    const off = { ...mail, [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false" };
+    delete (off as Record<string, string>)[`${LEGACY_PROJECT}:inboundMailSigningKeys`];
+    expect(loadWith(off)).toBeNull();
+    expect(loadValues(off).inboundMail).toMatchObject({ configured: true, enabled: false });
+    expect(loadWith({ ...off, [`${LEGACY_PROJECT}:inboundMailZoneId`]: "" }, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(
+      /inboundMailZoneId is required/,
+    );
+  });
+
+  it("reads the pause", () => {
+    expect(loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailPaused`]: "true" }).inboundMail.paused).toBe(true);
+  });
+
+  it("reads the direct-filing switch, on by default, and hands it to the app", async () => {
+    expect(loadValues(mail).inboundMail.directFiling).toBe(true);
+    const off = loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailDirectFiling`]: "false" }).inboundMail;
+    expect(off.directFiling).toBe(false);
+    const { inboundMailAppEnv } = await import("./config/inbound-mail");
+    expect(inboundMailAppEnv(off).find((e) => e.name === "INBOUND_MAIL_DIRECT_FILING")?.value).toBe("false");
+    expect(inboundMailAppEnv({ ...off, enabled: false })).toEqual([]);
+  });
+
+  it("refuses the domain without the zone to enable routing on", () => {
+    expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(/inboundMailZoneId is required/);
+  });
+
+  it("reads the local part, lowercased", () => {
+    expect(loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailLocalPart`]: "Projekt" }).inboundMail.localPart).toBe("projekt");
+  });
+
+  it.each(["p+x", "p.x", "-p", "p-", "ä", "a".repeat(33)])("refuses %s as a local part, which no address could match", (localPart) => {
+    expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailLocalPart`]: localPart })?.message).toMatch(
+      /inboundMailLocalPart must be/,
+    );
+  });
+
+  it.each(["https://post.example.test", "inbox@post.example.test", "post"])("refuses %s as a domain", (domain) => {
+    expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailDomain`]: domain })?.message).toMatch(
+      /must be a bare domain name/,
+    );
+  });
+
+  it("refuses the DNS zone's id for a domain outside that zone", () => {
+    const error = loadWith({
+      ...mail,
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.example.org",
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "d".repeat(32),
+      [`${LEGACY_PROJECT}:dnsZoneId`]: "d".repeat(32),
+      [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
+    });
+    expect(error?.message).toMatch(/is not in its zone \("example\.test"\)/);
+  });
+
+  it.each([
+    ["a subdomain of it (the recommended setup)", `inbox.${APP_ZONE}`],
+    ["its apex", APP_ZONE],
+  ])("takes the app zone when the domain is %s and no zone is given", (_label, domain) => {
+    const values = { ...appZoneStackConfig(), ...mailStackConfig(), [`${LEGACY_PROJECT}:inboundMailDomain`]: domain };
+    expect(loadWith(values)).toBeNull();
+    expect(loadValues(values).inboundMail.zoneId).toBe(APP_ZONE_ID);
+  });
+
+  it.each([
+    [`${LEGACY_PROJECT}:dnsZoneBaseline`, "false"],
+    [`${LEGACY_PROJECT}:dnsEnabled`, "false"],
+  ])("refuses project mail on the app zone unless this stack owns it (%s=%s)", (key, value) => {
+    // Email Routing's enablement and subaddressing are zone-level: a second
+    // stack would fight over them.
+    const error = loadWith({
+      ...appZoneStackConfig(),
+      ...mail,
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: `inbox.${APP_ZONE}`,
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: APP_ZONE_ID,
+      // The apex-serving stack must itself be the baseline; serve a subdomain
+      // so that the only refusal left is project mail's.
+      [`${LEGACY_PROJECT}:baseDomain`]: `www2.${APP_ZONE}`,
+      [key]: value,
+    });
+    expect(error?.message).toMatch(/inboundMailDomain on the app zone needs dnsEnabled/);
+  });
+
+  it.each(["<the zone id of archos.tech>", "zone-mail-1", "0123456789ABCDEF0123456789ABCDEF", "a".repeat(31)])(
+    "refuses %s as inboundMailZoneId, so the stack file's placeholder cannot deploy",
+    (zoneId) => {
+      expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailZoneId`]: zoneId })?.message).toMatch(
+        /inboundMailZoneId must be a Cloudflare zone id, 32 hex digits/,
+      );
+    },
+  );
+
+  it("requires the operator's mailbox for the RFC 2142 forwards, switched off too", () => {
+    expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`])?.message).toMatch(
+      /inboundMailOperatorAddress is required when inboundMailDomain is set.*postmaster@inbox\.post\.example\.test/,
+    );
+    const off = { ...mail, [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false" };
+    expect(loadWith(off, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`])?.message).toMatch(/is required/);
+    expect(loadValues(mail).inboundMail.operatorAddress).toBe(OPERATOR_ADDRESS);
+  });
+
+  it.each(["mail-ops", "Ops <ops@company.example>", "a@b@company.example", "ops@company.example, abuse@company.example"])(
+    "refuses %s as the operator's mailbox",
+    (address) => {
+      expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`]: address })?.message).toMatch(
+        /inboundMailOperatorAddress must be one mailbox address/,
+      );
+    },
+  );
+
+  it("refuses an operator mailbox on the receiving domain, where its forwards would bounce", () => {
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`]: "ops@inbox.post.example.test" });
+    expect(error?.message).toMatch(/is on the receiving domain/);
+  });
+
+  const dmarc = (value: string) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailDmarc`]: value });
+  const RECOMMENDED = `v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:${OPERATOR_ADDRESS}`;
+
+  it("reads inboundMailDmarc, unset by default", () => {
+    expect(loadValues(mail).inboundMail.dmarc).toBeUndefined();
+    expect(loadWith(dmarc(RECOMMENDED))).toBeNull();
+    expect(loadValues(dmarc(` ${RECOMMENDED} `)).inboundMail.dmarc).toBe(RECOMMENDED);
+  });
+
+  it.each([
+    ["no version tag", "p=none; sp=none", /must start with "v=DMARC1;"/],
+    ["an SPF record", "v=spf1 include:_spf.google.com ~all", /must start with "v=DMARC1;"/],
+    ["no policy", "v=DMARC1; rua=mailto:ops@company.example", /no "p=" policy/],
+    ["a typo in a tag", "v=DMARC1; p=none; sp-none", /"sp-none" is not a DMARC tag/],
+    ["a policy that does not exist", "v=DMARC1; p=monitor", /"p=monitor" is not a valid value/],
+  ])("refuses an inboundMailDmarc with %s", (_label, value, message) => {
+    const error = loadWith(dmarc(value));
+    expect(error?.message).toMatch(/inboundMailDmarc is not a DMARC record/);
+    expect(error?.message).toMatch(message);
+  });
+
+  it("refuses inboundMailDmarc without the domain, whose zone it is published on", () => {
+    expect(loadWith({ [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED })?.message).toMatch(
+      /inboundMailDmarc is set without inboundMailDomain/,
+    );
+  });
+
+  it("refuses inboundMailDmarc beside dnsDmarc on the app zone, which would be two DMARC records", () => {
+    const both = {
+      ...appZoneStackConfig(),
+      ...mailStackConfig(),
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: `inbox.${APP_ZONE}`,
+      [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED,
+      [`${LEGACY_PROJECT}:dnsDmarc`]: "v=DMARC1; p=quarantine",
+    };
+    expect(loadWith(both)?.message).toMatch(new RegExp(`inboundMailDmarc and dnsDmarc both publish _dmarc\\.${APP_ZONE}`));
+    // Either one alone is the zone's one record.
+    expect(loadWith(both, [`${LEGACY_PROJECT}:dnsDmarc`])).toBeNull();
+    expect(loadWith(both, [`${LEGACY_PROJECT}:inboundMailDmarc`])).toBeNull();
+  });
+
+  it("allows inboundMailDmarc on a mail zone of its own beside a dnsDmarc on the app zone", () => {
+    const values = {
+      ...appZoneStackConfig(),
+      ...mail,
+      [`${LEGACY_PROJECT}:dnsDmarc`]: "v=DMARC1; p=quarantine",
+      [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED,
+    };
+    expect(loadWith(values)).toBeNull();
   });
 });

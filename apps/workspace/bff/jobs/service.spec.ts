@@ -9,6 +9,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// A run carries its project's law (ADR-0175); its reads are `background-run.spec.ts`'s.
+vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn().mockResolvedValue({ role: 'project-admin' }),
 }))
@@ -44,6 +46,7 @@ vi.mock('@/lib/model-config/service', () => ({
 vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectPromptView: vi.fn(),
   loadProjectFederalState: vi.fn(),
+  loadProjectSiteCountry: vi.fn(async () => 'at'),
 }))
 
 vi.mock('@/lib/retrieval-scope/collection-scope', () => ({

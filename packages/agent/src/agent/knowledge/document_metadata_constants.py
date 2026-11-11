@@ -62,6 +62,8 @@ _OPTIONAL_COLUMNS: tuple[str, ...] = (
     "dossier",
     "doc_references",
     "coverage",
+    "mail_thread",
+    "mail_origin",
 )
 
 
@@ -90,7 +92,7 @@ SUGGESTION_BASES = ("title_block", "name", "content")
 _DOCUMENT_COLUMNS = (
     "filename, summary, tags, doc_class, display_title, folder_path, created_at, "
     "topics, capture, superseded_by, revision_suggestion, change_summary, change_basis, revision_facts, "
-    "page_count, dossier, doc_references, coverage"
+    "page_count, dossier, doc_references, coverage, mail_thread, mail_origin"
 )
 
 

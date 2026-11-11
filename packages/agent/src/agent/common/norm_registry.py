@@ -6,8 +6,8 @@ legal norm, three jobs:
 
 1. Pointer index: topic -> exact RIS location (application, document number, URLs),
    so the agent fetches the right law instead of blind-searching.
-2. Prose facts the knowledge base cannot answer: ``binding_note`` (e.g. how the WBTV
-   makes the OIB-Richtlinien binding in Vienna) rendered into researcher prompts.
+2. ``binding_note``, kept for the platform admin UI; no prompt or citation reads it since
+   ADR-0175: which edition binds where is the records' chain text (``citations/roles.py``).
 3. Open verification questions: ``review_note`` — surfaced as a TODO queue in the
    platform admin UI, never rendered into prompts as fact.
 
@@ -42,8 +42,14 @@ from pydantic import Field
 from pydantic import ValidationError
 from pydantic import field_validator
 
+from agent.common.family_query import family_query_number  # noqa: F401  (re-exported)
+from agent.common.oib_file_names import canonical_oib_file_name
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
+from agent.common.source_kinds import MAIL_LANE
+from agent.common.source_kinds import MAIL_LANE_LABEL
+from agent.common.source_kinds import MAIL_SOURCE_FORMAT
+from agent.common.source_kinds import OFFICE_MAIL_LANE
 from agent.profile_names import normalize_profile_token
 
 logger = logging.getLogger(__name__)
@@ -127,92 +133,6 @@ _STRUCTURED_FEDERAL_STATE_RE = re.compile(r"\b(?:federal_state|bundesland)=([a-z
 # Terms shorter than this never match (guards against noise words).
 _MIN_TOPIC_LENGTH = 4
 
-# The Normenhierarchie doctrine, injected into researcher/planner/writer prompts as
-# {{ norm_doctrine }} — ONE copy, rendered by the prompt factories. Reasoning rules
-# belong in the prompt; data (pointers, notes) belongs in the registry entries.
-NORM_DOCTRINE = """## Norm hierarchy & document roles
-
-**Order of authority ≠ order of retrieval.** Which source ANSWERS a question (federal law >
-state law/ordinance > OIB guideline > guide/explanatory note) is not the same order in which sources are
-RETRIEVED (knowledge base — project documents AND base knowledge — → RIS → web). The knowledge base comes
-first, even when the question sounds like one about a guideline: its binding text is there, citable with
-page. RIS comes when the knowledge base does not carry the level (law, ordinance, case law).
-
-**Respect document roles:**
-- Requirements („muss", „darf nicht", minimum values) come exclusively from NORMATIVE documents (law,
-  ordinance, OIB guideline, norm declared binding).
-- Guides (Leitfäden) describe the APPLICATION of a guideline — they establish no new requirements.
-- Explanatory notes (Erläuterungen) provide RATIONALES and aids to interpretation — likewise no new requirements.
-- Authority information (e.g. MA 37) shows authority practice — never cite it as a new norm.
-- Legal commentaries are not available. When asked for them, say so openly — do not simulate knowledge of
-  commentaries.
-
-**Discipline on deviations:** An OIB guideline applies only in the edition the Bundesland has declared binding, and only
-without deviations in state law. Check that as far as the sources allow — otherwise flag it expressly as
-open. Cite the edition declared binding, never automatically the newest.
-
-**Parcel questions: settle them at the plot first.** Zoning (Widmung), building class (Bauklasse), building
-height, building lines (Fluchtlinien) and the like are answered by the plot's zoning plan and development
-plan (Flächenwidmungs- und Bebauungsplan) — not by OIB or the building code in general. If the plan is not in
-the knowledge base, say so openly (wien.gv.at/flaechenwidmung/public) instead of answering generically.
-**Terms follow the level of the question.** The same term can be defined differently in OIB, state law and federal
-law (example: „Gebäudehöhe"). Always name the definition level used.
-
-**ÖNORM honesty:** ÖNORMs are reference norms without full text in the available sources. Name them only as a
-reference (as far as known from other documents) and disclose that the full text is not available — never
-reproduce ÖNORM content from memory.
-
-**Existing buildings/transitional law:** If the project is not a new build (refurbishment, extension,
-alteration), point out that grandfathering (Bestandsschutz) and transitional provisions may apply and that
-this must be checked under building law."""
-# The jurisdiction + project-hard-limits grounding, injected into every deep-research
-# prompt as {{ jurisdiction_grounding }} — ONE copy, rendered by the prompt factories
-# (same pattern as NORM_DOCTRINE). Keep the rendered prompts long and specific; only
-# the authorship is deduplicated here so the four prompts cannot drift apart.
-JURISDICTION_GROUNDING = """## Jurisdiction & Country Handling
-
-The project context (injected at the bottom of this prompt) carries a `country=<cc>` line: an ISO-2 country
-code (e.g. `at`, `de`, `ch`) or the sentinel `other` for any country without a dedicated pipeline. When the
-line is absent the country is UNCONFIRMED: default to the Austrian pipeline but treat it as provisional (see
-below), never as a confirmed `country=at`. For Austrian projects there is also a `federal_state=<token>` line
-naming the state.
-
-- **country=at (confirmed)**: Full Austrian building-regulation pipeline applies. OIB-Richtlinien,
-  Landesbauordnung, and RIS are authoritative; cite ÖNORM only as a reference unless its binding incorporation
-  and applicable text are verified; never reproduce ÖNORM full text as binding. Answer with binding-law
-  precision, name the exact regulation/edition/Punkt, and state the applicable Bundesland.
-- **country != at** (any other ISO-2 code, or the `other` sentinel): The OIB corpus and RIS tools are
-  Austrian-only. Provide general/comparative guidance based on available sources, but clearly state that the
-  answer draws on Austrian law and may not be binding in the project's jurisdiction. Always recommend local
-  verification by a qualified professional. Do NOT cite OIB/RIS findings as binding for a non-AT jurisdiction.
-- **country absent (unconfirmed)**: Use the Austrian pipeline provisionally, but do NOT present
-  OIB/RIS/Landesbauordnung findings as binding. State that the jurisdiction is unconfirmed, ask for (or
-  explicitly flag the assumption of) `country=at`, and add the same local-verification disclaimer as for a
-  non-AT project.
-- The `federal_state=outside_austria` token means the project is outside Austria (functionally the same
-  as `country != at`), even when no explicit non-AT country line is present.
-
-## Project Hard Limits & Grounding
-
-The project context includes confirmed facts (hard constraints), unknowns (gaps), and assumptions
-(provisional). Use them as follows:
-
-- **Confirmed facts** are binding — never contradict them. If research sources conflict with a confirmed
-  fact, flag the conflict and explain.
-- **Unknowns** are known gaps — if a critical fact for the answer (especially building-class relevant:
-  escape_level_m, storeys, gfa, uses, federal_state) is flagged unknown, the answer must either ask for
-  it or state the gap clearly.
-- **Assumptions** are provisional estimates — treat as likely but note the uncertainty.
-- Wizard facts that constrain building-regulation outputs: **escape_level_m** → Gebäudeklasse per OIB-RL 2;
-  **storeys_above_ground / storeys_below_ground**; **max_building_height**; **gfa_above_ground**;
-  **work_type** (new_build/extension/conversion/refurbishment/...); **uses** (residential/office/retail/...);
-  **construction_method**; **elevator**; **conditioning**; **fireplaces**; **public_access**; **hazard_zones**;
-  **fire_safety_systems**; **heat_supply**; **further_technology** (pv/ventilation/cooling/infiltration).
-- Keys with `@bldgN` suffix apply to a specific building; keys with `@zone` suffix to a use zone.
-- When the plan or synthesis concerns a building-regulation question, cross-check the projected output
-  against the project's hard limits. If the research produces a requirement that contradicts a confirmed
-  fact, note the contradiction in the output rather than blindly repeating both."""
-
 
 class VerifySeed(BaseModel):
     """Live-verification seed for scripts/build_ris_catalog.py (and the admin verify API)."""
@@ -282,8 +202,7 @@ class NormsFile(BaseModel):
 
     version: int = 1
     corpus_collection: str = "oib_knowledge"
-    # Optional CountryProfile data overrides (empty = code defaults win; see
-    # agent.common.country_profile). Admin-editable through the norms store.
+    # Profile fields the norms store still writes; nothing reads them since ADR-0175 (the packs do).
     language: str = ""
     states: dict[str, str | None] = Field(default_factory=dict)
 
@@ -524,76 +443,24 @@ def extract_federal_state(text: str | None) -> str | None:
     return None
 
 
-def resolve_federal_state(text: str | None) -> str | None:
-    """The Bundesland to focus/rank the catalog on, structured-first.
+#: The Länder as the knowledge records name their territories (ISO 3166-2:AT, AT-1 to AT-9).
+_STATES_IN_CODE_ORDER = ("Burgenland", "Kärnten", "Niederösterreich", "Oberösterreich", "Salzburg", "Steiermark")
+STATE_OF_TERRITORY: dict[str, str] = {
+    f"AT-{n}": state for n, state in enumerate((*_STATES_IN_CODE_ORDER, "Tirol", "Vorarlberg", "Wien"), 1)
+}
 
-    Precedence (jurisdiction is a cross-cutting request fact and must travel
-    STRUCTURED, not be re-parsed from prompt text):
 
-    1. ``RequestContext.from_context().federal_state`` — the validated token
-       carried on the signed ``X-Grid-Request-Context`` envelope. ``None``
-       (``outside_austria``) is FINAL — no fall-through to probing.
-    2. ``extract_federal_state(text)`` — the structured prompt-text line, then
-       free-text state-name probing (no live request context).
+def resolve_federal_state() -> str | None:
+    """The Bundesland to focus the catalog on: the Land of the turn's site, from its knowledge context alone.
+
+    The first Land on the site's chain, as the BFF resolved it (ADR-0175); the leaf may be a municipality
+    (``AT:gkz:40101``). No placed site, or one outside Austria, is None, and None is final: every Land's lane
+    renders. No text is read: "Wiener Straße … Grundstück in Linz" never narrows it to Wien.
     """
-    from agent.project_context import RequestContext
+    from agent.common.knowledge_context import turn_knowledge_context
 
-    structured_token = RequestContext.from_context().federal_state
-    if structured_token is not None:
-        return FEDERAL_STATE_TOKENS.get(structured_token)
-    return extract_federal_state(text)
-
-
-_STRUCTURED_COUNTRY_RE = re.compile(r"\bcountry=([a-z]{2})\b")
-
-
-def resolve_country(text: str | None) -> str:
-    """ISO country code for the project: structured `country=<cc>` fact, else 'at'.
-
-    Austria-only intake today; the structured fact ships with the first second
-    country. Consumer: CountryProfile selection (doctrine, corpus note, parcel
-    tags, retrieval base collection).
-    """
-    if text:
-        match = _STRUCTURED_COUNTRY_RE.search(text.lower())
-        if match:
-            return match.group(1)
-    return "at"
-
-
-def load_norms_file(country: str = "at") -> NormsFile | None:
-    """The raw NormsFile for a country (store-first for the default country).
-
-    Used by CountryProfile to apply admin-edited data overrides. The admin
-    store currently keys the default country; other countries read their YAML
-    seed directly (the store grows a country column with country #2).
-    """
-    if country == "at" and _db_loader is not None:
-        try:
-            stored = _db_loader()
-        except Exception:  # noqa: BLE001
-            stored = None
-        if stored is not None and stored.entries:
-            return stored
-    path = _norms_dir(None) / country / "registry.yml"
-    try:
-        mtime = path.stat().st_mtime_ns
-    except OSError:
-        return None
-    return _load_yaml_cached(str(path), mtime)
-
-
-def doctrine_for(project_context: str | None) -> str:
-    """The Normenhierarchie doctrine for the project's country (fail-open to AT)."""
-    try:
-        from agent.common.country_profile import get_country_profile
-
-        profile = get_country_profile(resolve_country(project_context))
-        if profile is not None:
-            return profile.doctrine
-    except Exception:  # noqa: BLE001 — prompt building must never break on profile lookup
-        logger.warning("norm_registry: doctrine profile lookup failed", exc_info=True)
-    return NORM_DOCTRINE
+    chain = next(iter(turn_knowledge_context().chains.values()), ())
+    return next((STATE_OF_TERRITORY[node] for node in chain if node in STATE_OF_TERRITORY), None)
 
 
 def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[NormEntry]:
@@ -610,7 +477,7 @@ def focus_entries(entries: list[NormEntry], federal_state: str | None) -> list[N
 
 
 # ---------------------------------------------------------------------------
-# Prompt rendering: doctrine lives in NORM_DOCTRINE; this block is the data —
+# Prompt rendering: the method lives in ``law_gate.LEGAL_METHOD``; this block is the data —
 # federal lane, the project's own state lane (other states are dropped), prose
 # binding notes, and a static pointer at the OIB corpus in the knowledge base.
 # ---------------------------------------------------------------------------
@@ -620,14 +487,6 @@ _BLOCK_HEADER = (
     "The RIS tools know this catalogue and resolve a reference themselves; an entry here\n"
     "is an address that can be named in the call, not a source location."
 )
-
-OIB_CORPUS_NOTE = (
-    "OIB corpus (already in the knowledge base, no RIS query needed): OIB guidelines 1–6\n"
-    "with guides, explanatory notes, definitions and cited norms, edition May 2023.\n"
-    'Cite as "OIB-RL <N>, Pkt <x>, Ausgabe Mai 2023". Requirements only from the guideline\n'
-    "itself — guide/explanatory note are aids to interpretation."
-)
-
 
 _LAW_RANKS = ("federal_law", "state_law", "ordinance")
 
@@ -651,13 +510,13 @@ def _render_entry_line(entry: NormEntry) -> str:
     return line
 
 
-def render_prompt_block(
-    registry: NormRegistry, federal_state: str | None = None, corpus_note: str | None = None
-) -> str:
+def render_prompt_block(registry: NormRegistry, federal_state: str | None = None) -> str:
     """Compact catalog block: federal lane, then the focused state lane.
 
     Other states' law is dropped entirely (same rule as ``focus_entries``) —
-    with no known Bundesland, all state lanes render, grouped by state.
+    with no known Bundesland, all state lanes render, grouped by state. Addresses only: no
+    entry's ``binding_note`` and no corpus edition, because which edition binds is the chain
+    text's to say (ADR-0175).
     """
     lines = [_BLOCK_HEADER, ""]
     focused = focus_entries(registry.entries, federal_state)
@@ -684,41 +543,24 @@ def render_prompt_block(
         lines.append("")
         lines.append("External standards (referenced standards — full text usually unavailable, say so plainly):")
         lines.extend(_render_entry_line(entry) for entry in sorted(extern, key=lambda e: e.short.lower()))
-    notes = [entry for entry in focused if entry.binding_note]
-    if notes:
-        lines.append("")
-        lines.append("Legal notes (curated):")
-        for entry in notes:
-            lines.append(f"- {entry.short}: {entry.binding_note}")
-    lines.append("")
-    lines.append(corpus_note or OIB_CORPUS_NOTE)
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
-def render_block_for_prompt(project_context: str | None, norms_dir: str | None = None) -> str | None:
-    """Prompt-ready catalog block, Bundesland-aware when detectable; None when unavailable."""
+def render_block_for_prompt(norms_dir: str | None = None) -> str | None:
+    """The RIS catalogue as research prompts read it: addresses the RIS tools resolve, or None.
+
+    Only where the run's knowledge context lets the RIS tools run (``law_gate.law_sources_withheld``,
+    ADR-0175): the catalogue is a tool aid, and a gate that withholds Austrian law withholds it too. It
+    says nothing about which edition binds; the chain text does (``law_gate.research_doctrine``).
+    """
+    from agent.common.law_gate import law_sources_withheld
+
+    if "ris" in law_sources_withheld():
+        return None
     registry = load_registry(norms_dir)
     if registry is None or not registry.entries:
         return None
-    corpus_note = None
-    try:
-        from agent.common.country_profile import get_country_profile
-
-        profile = get_country_profile(resolve_country(project_context))
-        corpus_note = profile.corpus_note if profile else None
-    except Exception:  # noqa: BLE001
-        logger.warning("norm_registry: corpus-note profile lookup failed", exc_info=True)
-    block = render_prompt_block(registry, federal_state=resolve_federal_state(project_context), corpus_note=corpus_note)
-    try:
-        from agent.common.applicability import render_project_block
-
-        section = render_project_block(project_context or "")
-    except Exception:  # noqa: BLE001 — applicability must never break prompt building
-        logger.warning("norm_registry: applicability block failed — omitted", exc_info=True)
-        section = None
-    if section:
-        return block.rstrip() + "\n\n" + section
-    return block
+    return render_prompt_block(registry, federal_state=resolve_federal_state())
 
 
 # ---------------------------------------------------------------------------
@@ -731,19 +573,7 @@ def render_block_for_prompt(project_context: str | None, norms_dir: str | None =
 _PARCEL_TAGS = ("Bebauungsplan", "Flächenwidmungsplan")
 
 
-def _parcel_tags_for(country: str | None) -> tuple[str, ...]:
-    try:
-        from agent.common.country_profile import get_country_profile
-
-        profile = get_country_profile(country)
-        if profile is not None:
-            return tuple(profile.parcel_tags)
-    except Exception:  # noqa: BLE001
-        logger.warning("norm_registry: parcel-tag profile lookup failed", exc_info=True)
-    return _PARCEL_TAGS
-
-
-def parcel_note(available_documents: list[dict] | None, country: str | None = None) -> str | None:
+def parcel_note(available_documents: list[dict] | None) -> str | None:
     """Prompt note naming the project's parcel documents as the governing source.
 
     ``available_documents`` are the per-turn document dicts (file_name/summary/
@@ -752,13 +582,13 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
     applies unchanged.
 
     The note is the FILE LIST and nothing else. What to do with a parcel
-    question is standing doctrine and lives in the system prompt
-    (``prompts/chat_static.md``, ``<building_law>``), so the per-turn
+    question is standing method and lives in the system prompt
+    (``prompts/chat_static.md``, ``<legal_method>``), so the per-turn
     block carries only what varies: which documents this project has.
     """
     if not available_documents:
         return None
-    parcel_tags = _parcel_tags_for(country)
+    parcel_tags = _PARCEL_TAGS
     by_tag: dict[str, list[str]] = {}
     for doc in available_documents:
         tags = doc.get("tags") or []
@@ -770,9 +600,7 @@ def parcel_note(available_documents: list[dict] | None, country: str | None = No
                 by_tag.setdefault(tag, []).append(name)
     if not by_tag:
         return None
-    lines = [
-        "## Parcel sources of this project (authoritative for zoning, building class, building height, building lines)"
-    ]
+    lines = ["## Parcel sources of this project (authoritative for zoning, building height, building lines)"]
     for tag in parcel_tags:
         if tag in by_tag:
             files = ", ".join(sorted(by_tag[tag]))
@@ -822,34 +650,10 @@ _LANE_LABELS: dict[str, str] = {
     # Reachable only through stated PROVENANCE (``authored_by: agent``), never
     # through a doc_class — see :data:`~agent.common.source_kinds.AGENT_AUTHORED_LANE`.
     AGENT_AUTHORED_LANE: AGENT_AUTHORED_LANE_LABEL,
+    # Reachable only through the chunk's ``source_format`` (a filed mail thread).
+    MAIL_LANE: MAIL_LANE_LABEL,
+    OFFICE_MAIL_LANE: MAIL_LANE_LABEL,
 }
-
-
-# The OIB does not publish its corpus under one spelling. Most 2023 files are
-# ``oib-rl_<n>_…``, ``erlaeuterungen_oib-rl_<n>_…`` and
-# ``aenderungen_oib-rl_<n>_…``, but OIB-RL 2.2 ships as
-# ``oib-richtlinie_2.2_…``, ``erlaeuterungen-zu-oib-richtlinie_2.2_…`` and
-# ``aenderungen_oib-richtlinie_2.2_…`` (oib.or.at, Ausgabe Mai 2023). Every
-# filename reader below parses the canonical form this rewrites to, so a
-# spelling variant is one alternation here rather than a branch in each reader.
-# Anchored at the start and bound to the ``oib-`` stem, so only a name that
-# already says it is an OIB-Richtlinie is rewritten.
-_OIB_PUBLISHED_STEM_RE = re.compile(r"^(?:(erlaeuterungen|aenderungen)(?:_|-zu-))?oib-(?:rl|richtlinie)_")
-
-
-def canonical_oib_file_name(file_name: str) -> str:
-    """Lower-cased ``file_name`` with a published OIB spelling rewritten to ``oib-rl_``.
-
-    ``oib-richtlinie_2.2_ausgabe_mai_2023.pdf`` -> ``oib-rl_2.2_ausgabe_mai_2023.pdf``;
-    ``erlaeuterungen-zu-oib-richtlinie_2.2_…`` -> ``erlaeuterungen_oib-rl_2.2_…``.
-    Any other name comes back lower-cased and otherwise unchanged.
-    """
-    low = file_name.lower()
-    match = _OIB_PUBLISHED_STEM_RE.match(low)
-    if not match:
-        return low
-    role = f"{match.group(1)}_" if match.group(1) else ""
-    return f"{role}oib-rl_{low[match.end() :]}"
 
 
 def oib_doc_class(file_name: str) -> str | None:
@@ -1076,157 +880,6 @@ def oib_families(file_names: Iterable[str]) -> list[NormFamily]:
     return families
 
 
-# ---------------------------------------------------------------------------
-# Family-shaped queries: a question that names a Richtlinie and nothing else.
-#
-# "Was weißt du über die OIB 2?" asks for the family, not for a passage inside
-# it. Semantic search answers it with whatever two documents ranked highest,
-# and the model then opens the rest one at a time. Detected here, the retrieval
-# layer can answer it with every member the corpus holds in ONE round.
-#
-# Detection is pure and lives beside :func:`oib_families`, which turns the
-# number this returns into the members. It reads the anchor vocabulary the
-# requery gate reads (``knowledge_layer.search.requery._NARROW_ANCHOR_PATTERNS``) and
-# adds the bare ``OIB 2`` spelling, which is how the question is usually asked.
-# ---------------------------------------------------------------------------
-
-#: An OIB Richtlinie named by number, however a question spells it: ``OIB 2``,
-#: ``OIB-RL 2``, ``OIB-Richtlinie 2.1``, ``Richtlinie 2``, ``RL 4``. The number
-#: is captured; :func:`family_query_number` reduces ``2.1`` to its family.
-_FAMILY_ANCHOR_RE = re.compile(
-    r"\b(?:oib[-\s]*(?:rl|richtlinie)?|rl|richtlinie)[-\s]*(\d+(?:\.\d+)?)\b",
-    re.IGNORECASE,
-)
-
-#: A second family key joined to an anchor without repeating it: the ``und 4``
-#: in "OIB 2 und 4", the ``, 4`` in "OIB 2, 4". One or two digits (or a part
-#: number), so a printing year ("OIB 2 2023", "OIB 2, 2023") is never read as a
-#: key. A full stop after the key ends the sentence, not the number: only a
-#: digit after it continues one. Matched right after an anchor, never on its own.
-_FAMILY_JOINED_KEY_RE = re.compile(
-    r"\s*(?:,|/|&|\bund\b|\boder\b|\bbzw\.?)\s*(\d{1,2}(?:\.\d+)?)(?!\d|\.\d)",
-    re.IGNORECASE,
-)
-
-#: What makes a query a LOCATOR rather than a question about the whole
-#: Richtlinie. A Punkt, a paragraph, a page or a table is addressed inside one
-#: document, and a file name names one file: each is already answered better by
-#: the ordinary path, and none of them wants four documents back.
-_FAMILY_BLOCKER_RE = re.compile(
-    "|".join(
-        (
-            r"\bpkt\.?\s*\d",
-            r"\bpunkt\w*\s*\d",
-            r"§",
-            r"\babs\.?\s*\d",
-            r"\bseite\s*\d",
-            r"\bpage\s*\d",
-            r"\btabelle",
-            r"\banhang",
-            r"\.pdf\b",
-            r"oib-rl_",
-            r"oib-richtlinie_",
-        )
-    ),
-    re.IGNORECASE,
-)
-
-#: Every word a family-shaped question may hold BESIDES its anchor: question
-#: words, articles, pronouns, the verbs that ask what a document is for, the
-#: overview nouns, and the edition words that name a printing rather than a
-#: topic. A token outside this set is a TOPIC, and a topic question is an
-#: ordinary search. "OIB 2 Fluchtweglänge GK 4" must come back as passages.
-#:
-#: Casefolded spellings: ``str.casefold`` writes "weißt" as "weisst", so that is
-#: the form listed here.
-_FAMILY_QUERY_STOPWORDS = frozenset(
-    """
-    was wer wie wo welche welcher welches welchem welchen warum wieso weshalb worum wofuer wofür
-    wozu ob der die das den dem des ein eine einer eines einem einen und oder aber in im zu zum
-    zur von vom ueber über um an am auf aus bei fuer für mit nach es ich du mir mich dir dich sie
-    man sich bitte mal denn noch schon alles etwas mehr kurz genau eigentlich ueberhaupt überhaupt
-    gibt gibts gib ist sind war waren hat haben habe hast kannst kann koennen können sagen sagst
-    sag sage erzaehl erzähl erzaehle erzähle zeig zeige zeigen weisst weiss wissen kennst kennen
-    lies lesen geht gehts handelt steht regelt regeln behandelt enthaelt enthält umfasst
-    beinhaltet beschreibt bedeutet sagt drin darin dazu davon nenn nenne liste fasse fass zusammen
-    erklaer erklär erklaere erkläre brauche moechte möchte will
-    ueberblick überblick uebersicht übersicht inhalt inhalte inhalts gliederung aufbau struktur
-    thema themen punkte kapitel teil teile teilen zusammenfassung zusammenfassen allgemein
-    allgemeine allgemeines
-    ausgabe ausgaben edition fassung version aktuell aktuelle aktueller aktuellen gueltige gültige
-    geltende stand rev revision
-    jaenner jänner januar februar maerz märz april mai juni juli august september oktober november
-    dezember
-    oib rl richtlinie richtlinien
-    what do you know about the tell me is of on a an and give show summarize summarise please it
-    its overview summary contents scope
-    """.split()
-)
-
-#: A word or a number, with punctuation and separators dropped.
-_FAMILY_TOKEN_RE = re.compile(r"[^\W\d_]+|\d+(?:[.,]\d+)?")
-
-
-def _is_topic_free(text: str) -> bool:
-    """True when nothing in ``text`` names a topic.
-
-    Digits pass: what is left of "OIB 2 Ausgabe Mai 2023" once the anchor and
-    the edition words are gone is a year, and a year is a printing.
-    """
-    return all(
-        token.isdigit() or token in _FAMILY_QUERY_STOPWORDS for token in _FAMILY_TOKEN_RE.findall(text.casefold())
-    )
-
-
-def _joined_keys(text: str, start: int) -> list[re.Match[str]]:
-    """The further keys chained onto the anchor ending at ``start``, in order.
-
-    "OIB 2 und 4" names two families as surely as "OIB 2 und OIB 4"; without
-    this the bare ``4`` falls into the leftover, where a number passes as a
-    printing and the query came back as family 2 alone.
-    """
-    found: list[re.Match[str]] = []
-    while (joined := _FAMILY_JOINED_KEY_RE.match(text, start)) is not None:
-        found.append(joined)
-        start = joined.end()
-    return found
-
-
-def family_query_number(query: str) -> str | None:
-    """The Richtlinien-family a query asks about AS A WHOLE, or ``None``.
-
-    ``"was weißt du über die OIB 2"`` and ``"OIB-Richtlinie 2.1"`` both answer
-    ``"2"``: the family key, which :func:`oib_families` turns into the members
-    the corpus holds. A part number resolves to its family on purpose: a
-    reader who asks about 2.1 is asking inside a Richtlinie whose other parts
-    they are unlikely to know exist.
-
-    ``None`` for everything else, and that is the common answer. A query that
-    still names a topic once the anchor is removed is an ordinary search; so is
-    one that addresses a Punkt, a paragraph, a page, a table or a file; and so
-    is one naming two families, because a single overview cannot be both,
-    including when the second key is chained on without its anchor ("OIB 2
-    und 4", "OIB 2, 4").
-    """
-    text = (query or "").strip()
-    if not text or _FAMILY_BLOCKER_RE.search(text):
-        return None
-    keys: set[str] = set()
-    rest: list[str] = []
-    cursor = 0
-    for match in _FAMILY_ANCHOR_RE.finditer(text):
-        keys.add(match.group(1).split(".")[0])
-        rest.append(text[cursor : match.start()])
-        cursor = match.end()
-        for joined in _joined_keys(text, cursor):
-            keys.add(joined.group(1).split(".")[0])
-            cursor = joined.end()
-    rest.append(text[cursor:])
-    if len(keys) != 1 or not _is_topic_free(" ".join(rest)):
-        return None
-    return keys.pop()
-
-
 def _host_matches(source_url: str | None, domain: str) -> bool:
     """True when *source_url*'s host is ``domain`` or a subdomain of it.
 
@@ -1256,6 +909,7 @@ def lane_for_hit(
     registry: NormRegistry | None = None,
     shelf: object = None,
     authored_by: str | None = None,
+    source_format: str | None = None,
 ) -> tuple[str, str]:
     """(stratum_key, human label) for a retrieval/citation hit — display tagging only.
 
@@ -1282,6 +936,14 @@ def lane_for_hit(
     miss; and a doc_class stamped on it by ingest would place it in the norm
     hierarchy, in law blue, under the ``"Baurecht"`` label fallback. Who wrote
     a document is not a guess any of those signals can overturn.
+
+    ``source_format`` comes next: ``mail`` is a filed E-Mail-Verlauf
+    (:data:`~agent.common.source_kinds.MAIL_SOURCE_FORMAT`), and it
+    outranks the doc_class and every URL rule for the same reason. A mail from
+    ``ma37.wien.gv.at`` is a clerk's message, never the curated authority lane,
+    and a doc_class a person set on the thread names what the thread is about,
+    not who wrote each section. The kind stays the shelf's
+    (``project_mail`` is Projektwissen, ``office_mail`` Büroablage).
     """
     from agent.common.provenance import is_agent_author
     from agent.common.source_kinds import Shelf
@@ -1291,6 +953,8 @@ def lane_for_hit(
     if is_agent_author(authored_by):
         return (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
     known_shelf = parse_shelf(shelf) or legacy_shelf_for_collection_name(collection)
+    if source_format == MAIL_SOURCE_FORMAT:
+        return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)
     users_shelf = known_shelf in (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
     if doc_class:
         from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
@@ -1308,11 +972,23 @@ def lane_for_hit(
         return ("project", "Projektwissen")
     if known_shelf is Shelf.SESSION:
         return ("project", "Private Sitzung")
+    return _lane_for_source(file_name=file_name, source_url=source_url, collection=collection, registry=registry)
+
+
+def _lane_for_source(
+    *, file_name: str | None, source_url: str | None, collection: str | None, registry: NormRegistry | None
+) -> tuple[str, str]:
+    """:func:`lane_for_hit`'s fallback once no provenance, doc_class or shelf placed the hit.
+
+    What is left is where the document came from: an OIB corpus filename, a RIS
+    or wien.gv.at URL, a named base-corpus collection, else Web (fail-open).
+    """
     if file_name:
         doc_class = oib_doc_class(Path(file_name).name)
         if doc_class:
             return _OIB_CLASS_LANES[doc_class]
     if _host_matches(source_url, "ris.bka.gv.at"):
+        registry = registry if registry is not None else load_registry()  # loaded only for a RIS page
         if registry:
             for entry in registry.entries:
                 if entry.document_number and entry.document_number in source_url:
@@ -1320,7 +996,7 @@ def lane_for_hit(
         return ("building_law_ris", "Rechtsquelle (RIS)")
     # wien.gv.at is the curated MA-37 (Baupolizei Wien) registry pointer —
     # official municipal building information, Baurecht family, never Web.
-    # Mirrors the frontend laneForHitClient so both render paths agree.
+    # The frontend renders the lane sent; only its kind is derived (kindForLane).
     if _host_matches(source_url, "wien.gv.at"):
         return ("authority", "Behördliche Information")
     if collection:  # a named KB collection that is not project/office_shelf: the base corpus
@@ -1337,6 +1013,7 @@ def lane_for_knowledge_hit(
     registry: NormRegistry | None = None,
     shelf: object = None,
     authored_by: str | None = None,
+    source_format: str | None = None,
 ) -> tuple[str, str]:
     """:func:`lane_for_hit` for a hit that came from the KNOWLEDGE LAYER.
 
@@ -1347,7 +1024,7 @@ def lane_for_knowledge_hit(
     collection prefix, no OIB filename). Those land in Projektwissen.
 
     This exists so the two consumers of the rule cannot drift: the citation
-    chips (``citations.binding.source_lane``) and the Herleitung fan-out
+    chips (``citations.source_identity.source_lane``) and the Herleitung fan-out
     (``knowledge_layer.search.trace_lanes.trace_lanes_for_hits``) used to apply it
     separately, and only the former actually did — so the same document showed
     as "Projektwissen" on a chip and "Web" in the fan-out of the same answer.
@@ -1360,5 +1037,6 @@ def lane_for_knowledge_hit(
         registry=registry,
         shelf=shelf,
         authored_by=authored_by,
+        source_format=source_format,
     )
     return ("project", "Projektwissen") if lane == ("web", "Web") else lane

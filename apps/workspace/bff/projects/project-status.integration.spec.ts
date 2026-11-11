@@ -49,9 +49,6 @@ vi.mock('@/lib/authz/project-membership', () => ({
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      check: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
-        authorized: PROJECT_MEMBERS.has(organizationMembershipId),
-      })),
       // A project member holds every project permission; anyone else none.
       listEffectivePermissionsByExternalId: vi.fn(async ({ organizationMembershipId }: { organizationMembershipId: string }) => ({
         autoPagination: async () =>

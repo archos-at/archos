@@ -66,7 +66,8 @@ export const QUESTIONS_TYPED_ADDRESS: IntakeView = {
   location: null,
   questions: [],
   openQuestions: [OPEN_PHASE],
-  locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf' }), null),
+  // Placed in Austria, the Land still open: a project nothing places gets no document until it is (ADR-0169).
+  locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf', country: 'at' }), null),
 }
 
 /** The agent still reads: the round says so and takes what is already known. */

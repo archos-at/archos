@@ -151,6 +151,29 @@ def plan_key(token: str) -> str:
     return re.sub(r"[\s_]+", "-", token).casefold()
 
 
+#: A lone series letter against its number in a norm key: ``b 1600`` / ``b1600``, ``trvb n 115``.
+_NORM_LETTER_NUMBER = re.compile(r"(?<![^\W\d_])([^\W\d_]) ?(?=\d)")
+#: A plan key's letter prefix against its first digit: ``ep05`` / ``ep-05`` / ``ep.05``.
+_PLAN_PREFIX = re.compile(r"^((?:\d{1,3}/)?[^\W\d_]{1,4})[-.]?(?=\d)")
+
+
+def spellings(kind: str, key: str) -> list[str]:
+    """Every key a document can have stored the same reference under, ``key`` first. Pure.
+
+    A stored key keeps the document's own spacing ("ÖNORM B1600" and "ÖNORM B 1600",
+    "EP05" and "EP-05"), and the index holds what each document wrote. A search
+    therefore asks for each spelling, so it finds the documents that wrote it either
+    way, the ones already indexed included.
+    """
+    if kind == "norm":
+        variants = [_NORM_LETTER_NUMBER.sub(r"\1", key), _NORM_LETTER_NUMBER.sub(r"\1 ", key)]
+    elif kind == "plan":
+        variants = [_PLAN_PREFIX.sub(rf"\g<1>{separator}", key) for separator in ("", "-", ".")]
+    else:
+        variants = []
+    return list(dict.fromkeys([key, *variants]))
+
+
 def _document_type(word: str) -> str | None:
     folded = _spaced(word)
     return next((key for pattern, key in _DOCUMENT_KEYS if pattern.match(folded)), None)

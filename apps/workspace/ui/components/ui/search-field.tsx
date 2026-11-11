@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react'
 import { Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { CONTROL_HEIGHT, type ControlSize } from '@/components/ui/control-height'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,8 @@ export interface SearchFieldProps {
   className?: string
   inputClassName?: string
   clearClassName?: string
+  /** The height of the row it sits in, the same `size` the buttons beside it take. */
+  size?: ControlSize
   /**
    * Default `text` so existing `role="textbox"` queries keep working
    * (DataToolbar, admin filters). Pass `search` only when the field is a
@@ -70,6 +73,7 @@ export function SearchField({
   className,
   inputClassName,
   clearClassName,
+  size = 'default',
   type = 'text',
   inputRef,
   trailing,
@@ -127,15 +131,8 @@ export function SearchField({
         autoCorrect="off"
         spellCheck={false}
         className={cn(
-          'h-9 pl-8 [&::-webkit-search-cancel-button]:hidden',
-          // Focus is the field's own: its border turns ink, and nothing more.
-          // The global keyboard outline drew a second ink box 2px outside it,
-          // and `FIELD_FOCUS_RING`'s halo a third band, and a search field
-          // takes focus on arrival (⌘K, autofocus) and keeps it while the
-          // arrows walk the results, so that frame was the loudest thing on a
-          // page whose job is reading what it found. The ink border alone is
-          // well over 3:1 on paper and charcoal.
-          'focus-visible:outline-none! focus-visible:ring-0',
+          CONTROL_HEIGHT[size],
+          'pl-8 [&::-webkit-search-cancel-button]:hidden',
           // Reserve the clear gutter even when empty so typing does not shift text.
           // Under a finger the clear grows to 44px (the Button's own
           // `pointer-coarse:size-11`), so the gutter grows with it and the end

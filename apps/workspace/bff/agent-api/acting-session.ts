@@ -35,6 +35,27 @@ export type ActingReader = 'agent' | 'person'
 interface ActingCall {
   readonly session: AuthorizedSession
   readonly reader: ActingReader
+  /** The agent's proposal the person accepted, when the call is that acceptance applied (ADR-0105). */
+  readonly proposalId?: string
+  /** How the door got the person's yes for this call, when it got one (`confirmation.ts`, `mcp-apps.ts`). */
+  readonly decisionSource?: ActingDecisionSource
+  /** The OAuth client the call came through, for attribution (`via_client`, ADR-0170). */
+  readonly clientId?: string
+}
+
+/**
+ * How the door says the person answered an agent's call (`DecisionSource` in
+ * `telemetry.ts`, spelled here so this module stays a leaf): `elicitation`,
+ * `app`, or `app-unverified`, which `person-decision.ts` never counts as the
+ * person's yes (a client that declared nothing may be its model).
+ */
+export type ActingDecisionSource = 'elicitation' | 'app' | 'app-unverified'
+
+/** What else the call carries besides the person: the proposal it applies, or the yes it carries. */
+export interface ActingOrigin {
+  readonly proposalId?: string
+  readonly decisionSource?: ActingDecisionSource
+  readonly clientId?: string
 }
 
 const acting = new AsyncLocalStorage<ActingCall>()
@@ -44,8 +65,18 @@ export function runAsActingSession<T>(
   session: AuthorizedSession,
   fn: () => Promise<T>,
   reader: ActingReader = 'person',
+  origin: ActingOrigin = {},
 ): Promise<T> {
-  return acting.run({ session, reader }, fn)
+  return acting.run(
+    {
+      session,
+      reader,
+      ...(origin.proposalId ? { proposalId: origin.proposalId } : {}),
+      ...(origin.decisionSource ? { decisionSource: origin.decisionSource } : {}),
+      ...(origin.clientId ? { clientId: origin.clientId } : {}),
+    },
+    fn,
+  )
 }
 
 /** The session bound by {@link runAsActingSession}, or `undefined` outside one. */
@@ -56,4 +87,32 @@ export function currentActingSession(): AuthorizedSession | undefined {
 /** Whether the call in flight is an agent's, whose answer a model reads ({@link ActingReader}). */
 export function actingReaderIsAgent(): boolean {
   return acting.getStore()?.reader === 'agent'
+}
+
+/**
+ * The agent's proposal whose acceptance the call in flight applies, or
+ * `undefined`. A route that records HOW a person decided (an E-Mail-Eingang
+ * decision's `via`, ADR-0137) reads it: a card the agent worded may not carry an
+ * acknowledgement or a release, which the person gives only in the app or as
+ * themselves (RT-S5). Set only by the proposal applier, through `callOperation`.
+ */
+export function actingProposalId(): string | undefined {
+  return acting.getStore()?.proposalId
+}
+
+/**
+ * Whether a call is in flight under an acting session, and the yes it carries:
+ * `undefined` outside one (a person's own request), else the call's proposal
+ * and decision source, either of which may be absent. Read only by
+ * `person-decision.ts`.
+ */
+export function actingDecision(): { proposalId?: string; decisionSource?: ActingDecisionSource } | undefined {
+  const call = acting.getStore()
+  if (!call) return undefined
+  return { proposalId: call.proposalId, decisionSource: call.decisionSource }
+}
+
+/** The OAuth client of the door call in flight, or `undefined` (a person's own request, or a client that named none). */
+export function actingClientId(): string | undefined {
+  return acting.getStore()?.clientId
 }

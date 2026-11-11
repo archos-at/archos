@@ -54,6 +54,8 @@ from agent.common.estate_paths import EstatePath
 from agent.common.estate_paths import Mount
 from agent.common.estate_paths import PathRefused
 from agent.common.estate_paths import parse_estate_path
+from agent.common.licensed_text import licensed_body
+from agent.common.passage_fence import fence
 
 from .backend import EstateFile
 from .backend import ToolOutput
@@ -62,6 +64,7 @@ from .backend import _render
 from .backend import estate_file
 from .backend import glob_files
 from .backend import pages_label
+from .render import file_licence
 
 logger = logging.getLogger(__name__)
 
@@ -612,32 +615,33 @@ def _content(
     return _render(tuple(hits), preamble="\n".join(lines), notices=[], trailer=trailer, tool="grep")
 
 
+def _around(doc: DocumentMatches, page: int | None, query: Query, context: int) -> list[str]:
+    """``doc``'s matching lines on ``page`` with ``context`` lines around each, headed by where they stand."""
+    lines = doc.texts.get(page, "").split("\n")
+    where = f"{_display_path(doc)}#page={page}" if page is not None else _display_path(doc)
+    out: list[str] = []
+    for number, line in enumerate(lines):
+        if _count(query, line):
+            out.append(f"{where}:")
+            out.extend(f"> {item}" for item in lines[max(0, number - context) : number + context + 1])
+    return out
+
+
 def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: Query, context: int) -> str:
     """``<path>#page=N`` lines with each match and ``context`` lines around it: an index under the passages."""
     out: list[str] = []
     for doc, page in picked:
-        text = doc.texts.get(page, "")
-        if not text:
-            continue
-        lines = text.split("\n")
-        for number, line in enumerate(lines):
-            if not _count(query, line):
-                continue
-            start, end = max(0, number - context), min(len(lines), number + context + 1)
-            where = f"{_display_path(doc)}#page={page}" if page is not None else _display_path(doc)
-            out.append(f"{where}:")
-            out.extend(f"> {item}" for item in lines[start:end])
-            if len(out) >= MAX_CONTEXT_INDEX_LINES:
-                break
         if len(out) >= MAX_CONTEXT_INDEX_LINES:
             break
+        lines = _around(doc, page, query, context) if doc.texts.get(page) else []
+        licence = file_licence(doc.file.row) if lines and doc.file is not None else None
+        # A licensed document's lines are its text: a reference, expanded only inside the model call (ADR-0164).
+        out.extend([licensed_body("\n".join(lines), licence)] if licence is not None and licence.licensed else lines)
     if not out:
         return ""
-    return (
-        "## Lines around the matches\n"
-        + "\n".join(out[:MAX_CONTEXT_INDEX_LINES])
-        + "\nCite the passages above, not these lines."
-    )
+    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
+    body = fence("\n".join(out[:MAX_CONTEXT_INDEX_LINES]))
+    return f"## Lines around the matches\n{body}\nCite the passages above, not these lines."
 
 
 def mount_label(mount: Mount | None) -> str:

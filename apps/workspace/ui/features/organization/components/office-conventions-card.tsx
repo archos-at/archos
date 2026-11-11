@@ -21,6 +21,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
+import { filesCopy } from '@/i18n/namespaces/files'
 import type {
   ConventionLine,
   ConventionLineView,
@@ -29,11 +31,19 @@ import type {
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** One line as a German sentence; the Dokumentart, folder and shape are the office's own words. */
-export function conventionSentence(t: Translate, line: ConventionLine): string {
+/**
+ * One line as a sentence; the folder and shape are the office's own words. The
+ * Dokumentart is a stored tag, read through `labelOf` (`tagLabel` with the
+ * `files` translator) so a token such as `correspondence` reads as its label.
+ */
+export function conventionSentence(
+  t: Translate,
+  line: ConventionLine,
+  labelOf: (tag: string) => string = (tag) => tag
+): string {
   switch (line.kind) {
     case 'filing':
-      return t('officeConventions.line.filing', { docType: line.docType, path: line.path })
+      return t('officeConventions.line.filing', { docType: labelOf(line.docType), path: line.path })
     case 'folder':
       return t('officeConventions.line.folder', { path: line.path })
     case 'document_number':
@@ -53,12 +63,13 @@ interface LineRowProps {
 
 const LineRow: FC<LineRowProps> = ({ view, busy, onDecide }) => {
   const t = useTranslations(organizationCopy)
+  const tFiles = useTranslations(filesCopy)
   const { line, decision } = view
   return (
     <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4" data-testid="office-convention-line">
       <div className="min-w-0 flex-1">
         <p className={decision === 'declined' ? 'text-sm text-muted-foreground line-through' : 'text-sm'}>
-          {conventionSentence(t, line)}
+          {conventionSentence(t, line, (tag) => tagLabel(tag, tFiles))}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {view.counted

@@ -1,0 +1,563 @@
+import type { en } from '../en'
+
+/**
+ * inboundMail namespace: der E-Mail-Eingang (ADR-0137, DECISION §9).
+ *
+ * Ein Wort je Begriff (DECISION §3): „E-Mail-Eingang“ ist der Ort, „ablegen“
+ * bringt einen Teil ins Projekt, „verwerfen“ sagt Nein zur ganzen E-Mail,
+ * „wiederherstellen“ macht beides sieben Tage lang rückgängig, der
+ * „E-Mail-Verlauf“ ist das Dokument der Korrespondenz, und seine Stände sind
+ * „Fassung N“. Die Absenderangabe nennt eine Domain, nie eine Person. Nie
+ * „Projektadresse“ (dort steht das Gebäude), nie „Durchsicht“, nie
+ * „Nachricht“ für eine E-Mail, nie „Abgelegt“ als Zustand einer E-Mail.
+ */
+export const inboundMail: typeof en.inboundMail = {
+  title: 'E-Mail-Eingang',
+  subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
+  back: 'Dateien',
+  addressButton: 'Adresse',
+  noSelection: 'Wählen Sie eine E-Mail, um zu sehen, was sie enthält.',
+
+  filters: {
+    label: 'Anzeigen',
+    waiting: 'Wartet auf Ablage',
+    handled: 'Bearbeitet',
+  },
+
+  empty: {
+    neverTitle: 'Noch keine E-Mails an dieses Projekt',
+    neverText:
+      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben.',
+    neverNoAddress:
+      'Dieses Projekt hat noch keine E-Mail-Adresse. Mit ihr landet die Korrespondenz mit Behörde, Statik und Bauherrschaft im Projekt, ohne dass jemand sie von Hand abspeichert.',
+    neverNoAddressMember:
+      'Dieses Projekt hat noch keine E-Mail-Adresse. Bitten Sie jemanden, der das Projekt verwaltet, sie zu erzeugen.',
+    doneTitle: 'Nichts wartet auf Ablage',
+    doneText: 'Neue E-Mails an die E-Mail-Adresse des Projekts erscheinen hier.',
+    showHandled: 'Bearbeitete anzeigen',
+    handledTitle: 'Noch nichts bearbeitet',
+    handledText: 'Abgelegte, verworfene und abgelaufene E-Mails stehen hier noch {days, plural, one {# Tag} other {# Tage}} nach ihrem letzten Teil.',
+  },
+
+  loadError: 'Der E-Mail-Eingang konnte nicht geladen werden.',
+  detailLoadError: 'Diese E-Mail konnte nicht geladen werden.',
+  retry: 'Erneut versuchen',
+  loadMore: 'Weitere laden',
+
+  closed: {
+    title: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
+    text: 'E-Mails kommen weiterhin an und lassen sich verwerfen.',
+    dismiss: 'Hinweis ausblenden',
+  },
+
+  row: {
+    noSubject: '(ohne Betreff)',
+    attachments: '{count, plural, one {# Anhang} other {# Anhänge}}',
+    automatic: 'Automatisch',
+    thread: 'E-Mail-Verlauf „{name}“\u00A0· wird Fassung {version}',
+    select: '„{subject}“ auswählen',
+    impersonation: 'Gibt sich als {name} aus\u00A0· nicht ablegen',
+    // Die eigene Adresse des Lesers, von seiner Domain abgelehnt: an ihn selbst, nie „gibt sich als Sie aus“.
+    impersonationOwn: 'Mit Ihrer Adresse, von Ihrer Domain abgelehnt\u00A0· prüfen',
+    /** Wer eine E-Mail ablegt, die ein Mitglied nennt, ohne dass seine Domain sie bestätigt hat. */
+    claim: {
+      own: 'Haben Sie sie gesendet? Bestätigen Sie es',
+      colleague: 'Wartet auf {name}',
+    },
+    // A no-break space: „bis 13.11.2026“ alone on a line read as a stray date.
+    restorableUntil: 'wiederherstellbar bis {date}',
+    outcome: {
+      filed: '{count, plural, one {# Teil abgelegt} other {# Teile abgelegt}}',
+      dismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}}',
+      expired: '{count, plural, one {# Teil ohne Entscheidung abgelaufen} other {# Teile ohne Entscheidung abgelaufen}}',
+    },
+    textFollowed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
+    // Die Domain eines Mitglieds, das im Projekt ablegen darf, hat sie bestätigt, die direkte Ablage hat sie trotzdem nicht abgelegt (`not_filed`).
+    notFiled: 'Nicht direkt abgelegt\u00A0· {need}',
+    filing: 'Wird abgelegt …',
+    notFiledReady: 'Nicht direkt abgelegt',
+    fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
+    /** Was eine E-Mail braucht, bevor sie wie vorgeschlagen abgelegt werden kann, in wenigen Worten (`incompleteReason`). */
+    needs: {
+      not_waiting: 'Schon bearbeitet',
+      project_closed: 'Projekt ist abgeschlossen',
+      sender: 'Absender prüfen',
+      scanning: 'Anhang wird noch geprüft …',
+      needs_person: 'Anhang prüfen',
+      no_thread: 'Kein passender E-Mail-Verlauf',
+      folder_missing: 'Ordner wählen',
+    },
+  },
+
+  /** Die zwei Hälften der wartenden E-Mails: was ein Klick ablegt, und was eine Entscheidung braucht. */
+  readiness: {
+    ready: 'Bereit',
+    needs_you: 'Braucht Sie',
+    others: 'Wartet auf andere',
+    othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
+    readyHint: 'Absender bestätigt, für jeden Teil ein Ziel vorgeschlagen, nichts zu prüfen.',
+    fileAll: 'Alle {count} wie vorgeschlagen ablegen',
+    fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
+  },
+
+  group: {
+    thread: 'E-Mail-Verlauf „{name}“\u00A0· {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
+    threadLine: '„{name}“',
+    threadAction: '{count, plural, one {Als Fassung {first} ablegen} other {Als Fassung {first}–{last} ablegen}}',
+    threadActionFirst: 'Die ersten {count} als Fassung {first}–{last} ablegen',
+    reviewInOrder: 'Ansehen',
+    quiet: 'Domain nicht bestätigt oder automatisch ({count})',
+    quietHint: 'Sie stehen vollständig hier. {productName} macht für sie keine Vorschläge, und keine davon wird direkt abgelegt.',
+  },
+
+  trust: {
+    verified: 'Domain bestätigt: {domain}',
+    bccOwn: 'Ihre eigene E-Mail (Bcc)',
+    memberUnverified: 'Mitglied\u00A0· Domain nicht bestätigt',
+    impersonation: 'Gibt sich als {name} aus',
+    impersonationOwn: 'Ihre Adresse\u00A0· von Ihrer Domain abgelehnt',
+    unverified: 'Domain nicht bestätigt',
+    explain: {
+      verified:
+        'Die Domain des Absenders hat diese E-Mail signiert (DKIM). Das belegt die Domain, nicht die Person, die sie geschrieben hat.',
+      bccOwn: 'Eine Kopie einer E-Mail, die Sie an andere geschickt haben, mit diesem Projekt in Bcc. Ihre Domain hat sie signiert.',
+      memberUnverified:
+        'Die Adresse gehört einem Mitglied, aber dessen Domain hat diese E-Mail nicht signiert. Zum Ablegen braucht es Ihre Bestätigung.',
+      memberUnverifiedOwn: 'Die Adresse ist Ihre, aber Ihre Domain hat diese E-Mail nicht signiert. Legen Sie sie nur ab, wenn Sie sie selbst gesendet haben.',
+      memberUnverifiedClaimed: 'Die Adresse gehört {name}, aber die Domain hat diese E-Mail nicht signiert. Nur {name} kann sie ablegen; Sie können sie verwerfen.',
+      impersonation:
+        'Die Domain hat diese E-Mail abgelehnt: Die DKIM-Prüfung ist fehlgeschlagen, oder die Richtlinie der Domain verbietet sie. Möglicherweise verwendet jemand diesen Namen. Zum Ablegen braucht es Ihre Bestätigung.',
+      impersonationOwn:
+        'Die E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt (DKIM oder ihre Richtlinie). Haben Sie sie nicht selbst gesendet, verwendet jemand Ihre Adresse.',
+      impersonationMemberName:
+        'Der angezeigte Name ist der eines Mitglieds, die Adresse gehört aber nicht zu ihm. So sehen E-Mails aus, die eine Zahlung umleiten wollen. {productName} schlägt dafür nichts vor, und zum Ablegen braucht es Ihre Bestätigung.',
+      unverified:
+        'Die Domain des Absenders hat diese E-Mail nicht signiert. {productName} schlägt dafür nichts vor und wählt keinen E-Mail-Verlauf vor.',
+    },
+  },
+
+  // Warum eine E-Mail wartet, nach ihrem Absender (die direkte Ablage gilt nur für E-Mails, die die Domain von Personen bestätigt, die im Projekt ablegen dürfen).
+  // Ein Satz je Grund, der mit dem endet, was der Leser tun kann. „Own“: an das Mitglied, das sie nennt. Ohne „Own“ (signature, replay, automatic): an alle anderen, die
+  // nur verwerfen können; das sagt ihnen die Leiste darunter (`bar.claimed.line`), deshalb nennt die Zeile nur, auf wen sie wartet und warum.
+  waitReason: {
+    signature: 'Wartet auf {name}: Die Domain hat diese E-Mail nicht bestätigt.',
+    signatureOwn: 'Haben Sie diese E-Mail gesendet? Ihre Domain hat sie nicht bestätigt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    replay:
+      'Wartet auf {name}: Die Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus.',
+    replayOwn:
+      'Haben Sie diese E-Mail an das Projekt gesendet? Ihre Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    automatic: 'Wartet auf {name}: Die E-Mail wurde automatisch versandt.',
+    automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
+    // Eine E-Mail, die die Domain eines Mitglieds, das im Projekt ablegen darf, bestätigt hat und die trotzdem wartet: die direkte Ablage hat sie (ganz oder teilweise) nicht abgelegt.
+    not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht direkt abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
+    // Information, not an instruction, and one cause: under „Bereit“ one press files it; „nicht freigegeben“ was Freigabe's word (CONTEXT.md) and read against „Domain bestätigt“.
+    no_write_rights: 'Wartet auf Ihre Ablage, weil der Absender in diesem Projekt nicht ablegen darf.',
+    outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Legen Sie ab, was ins Projekt gehört; legt sie niemand ab, läuft sie nach {days} Tagen ab und lässt sich danach nicht wiederherstellen.',
+    sender_unchecked: 'Wartet: Beim Eingang ließ sich nicht prüfen, wer der Absender im Büro ist. Prüfen Sie Adresse und Domain oben, bevor Sie ablegen.',
+  },
+
+  flags: {
+    not_addressed_to_project: 'An andere Empfänger adressiert',
+    stale_date: 'Datum liegt mehr als {days, plural, one {# Tag} other {# Tage}} vor dem Eingang',
+    date_out_of_range: 'Datum liegt außerhalb des erwarteten Zeitraums; es gilt der Eingang',
+    already_filed: 'Liegt schon in einem E-Mail-Verlauf',
+  },
+
+  header: {
+    addressMenu: 'E-Mail-Adresse des Projekts',
+    addressMore: 'Mehr zur Adresse',
+    addressCopy: 'Adresse kopieren',
+    addressCopied: 'Adresse kopiert',
+    details: 'Details',
+    sentLabel: 'Gesendet',
+    receivedLabel: 'Eingegangen',
+    waitsLabel: 'Wartet',
+    waitsUntil: 'bis {date}, danach läuft sie ab',
+    expiresSoon: 'Wartet nur noch bis {date}',
+    to: 'An',
+    cc: 'Cc',
+    replyTo: 'Antwort an',
+    // Dieselben Worte wie der E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
+    forwardedFrom: 'Von {who}\u00A0· Domain nicht bestätigt\u00A0· weitergeleitet von {forwarder}',
+    forwardedExplain: 'Aus dem weitergeleiteten Text gelesen. Die Domain bestätigt nur die Weiterleitung, nicht, wer die E-Mail ursprünglich geschrieben hat.',
+    original: 'Original (.eml) herunterladen',
+    originalHint: 'Öffnet sich im Mailprogramm; Bilder von außen werden dort geladen.',
+    originalNotClean: 'Das Original enthält Schadsoftware und kann nicht heruntergeladen werden.',
+    originalScanning: 'Das Original wird auf Schadsoftware geprüft.',
+  },
+
+  findings: {
+    title: 'Die Inhaltsprüfung hat im Text etwas gefunden: {kinds}',
+    kinds: {
+      iban: 'IBAN',
+      at_svnr: 'Sozialversicherungsnummer',
+      de_svnr: 'Sozialversicherungsnummer (DE)',
+      de_tax_id: 'Steuer-ID',
+      credit_card: 'Kreditkartennummer',
+      term: 'ein Begriff der Inhaltsprüfung',
+    },
+    choiceLabel: 'Wie der Text abgelegt wird',
+    masked: 'Unkenntlich ablegen',
+    maskedHint: 'Die Fundstellen werden im E-Mail-Verlauf unkenntlich gemacht. Das Original bleibt unverändert.',
+    own_thread: 'Getrennt ablegen (eigener E-Mail-Verlauf)',
+    own_threadHint: 'Der ganze Text kommt in einen neuen E-Mail-Verlauf, getrennt vom bestehenden.',
+    full: 'Ungekürzt in den E-Mail-Verlauf',
+    fullHint: 'Der ganze E-Mail-Verlauf wird zurückgehalten, bis jemand ihn prüft.',
+  },
+
+  text: {
+    label: 'E-Mail-Text',
+    loading: 'Text wird geladen …',
+    loadError: 'Der Text konnte nicht geladen werden.',
+    showAll: 'Ganze E-Mail anzeigen',
+    showLess: 'Weniger anzeigen',
+    showQuoted: 'Zitierten Text anzeigen ({count})',
+    hideQuoted: 'Zitierten Text ausblenden',
+    masked: 'Was die Inhaltsprüfung gefunden hat, ist unkenntlich gemacht.',
+    truncated: 'Der Text ist gekürzt. Das Original enthält ihn vollständig.',
+    unreadable: 'Der Text dieser E-Mail konnte nicht gelesen werden. Das Original enthält ihn.',
+    empty: 'Diese E-Mail hat keinen eigenen Text.',
+    calendar: 'Termin: {summary}',
+    calendarWhen: '{start} – {end}',
+    calendarAllDay: '{date}, ganztägig',
+    calendarLocation: 'Ort: {location}',
+    linkTitle: 'Link auf {domain}, als Text gezeigt und nicht geöffnet',
+  },
+
+  message: {
+    label: 'E-Mail-Text',
+    file: 'Den E-Mail-Text mit ablegen',
+    append: 'In E-Mail-Verlauf „{name}“ ablegen (wird Fassung {version})',
+    create: 'Als neuen E-Mail-Verlauf ablegen',
+    nameLabel: 'Name des E-Mail-Verlaufs',
+    folderLabel: 'Ordner',
+    full: 'Dieser E-Mail-Verlauf ist voll. Legen Sie den Text als neuen E-Mail-Verlauf ab.',
+    hidden:
+      '{count, plural, one {# möglicher E-Mail-Verlauf in einem Ordner, den Sie nicht sehen} other {# mögliche E-Mail-Verläufe in Ordnern, die Sie nicht sehen}}',
+    acknowledge: 'Gehört trotzdem zu diesem E-Mail-Verlauf',
+    alreadyFiled: 'Dieser Text liegt schon in einem E-Mail-Verlauf.',
+    unreadable: 'Der Text konnte nicht gelesen werden und lässt sich daher nicht ablegen. Das Original enthält ihn.',
+    /** Warum der Text nicht abgelegt werden kann, solange die Prüfung der ganzen E-Mail nicht bestanden ist (`scan_not_clean`). */
+    rawScan: {
+      pending: 'Die E-Mail wird noch auf Schadsoftware geprüft. Der Text lässt sich ablegen, sobald die Prüfung bestanden ist.',
+      failed: 'Die Prüfung der E-Mail auf Schadsoftware ist fehlgeschlagen und wird wiederholt. Der Text lässt sich ablegen, sobald sie bestanden ist.',
+      infected: 'Die E-Mail enthält Schadsoftware, daher lässt sich ihr Text nicht ablegen.',
+    },
+    followed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
+    filed: 'In einem E-Mail-Verlauf abgelegt',
+    filedTo: 'In E-Mail-Verlauf „{name}“ abgelegt',
+    followedTo: 'Dem E-Mail-Verlauf „{name}“ angefügt (Verlauf folgen)',
+    nameStop: 'Namensprüfung: „{terms}“',
+    releaseName: 'Trotzdem ablegen',
+    blocks: {
+      weak_match: 'Gehört vermutlich dazu: nur der Betreff stimmt überein',
+      sender_not_verified: 'Verweist auf den E-Mail-Verlauf, aber die Domain des Absenders ist nicht bestätigt',
+      header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht von der Domain signiert',
+      not_addressed_to_project: 'Die E-Mail ist an andere Empfänger adressiert',
+      stale_date: 'Das Datum der E-Mail liegt mehr als {days, plural, one {# Tag} other {# Tage}} zurück',
+      date_out_of_range: 'Das Datum der E-Mail ist nicht plausibel',
+      claims_member_name: 'Der Name gehört einem Mitglied, die Adresse nicht',
+    },
+  },
+
+  attachments: {
+    label: 'Anhänge',
+    unnamed: 'Anhang {position}',
+    file: '{name} ablegen',
+    facts: '{type}\u00A0· {size}',
+    open: 'Öffnen',
+    change: 'Ändern',
+    preview: '{name} ansehen',
+    status: {
+      scan_pending: 'Wird auf Schadsoftware geprüft …',
+      scan_failed: 'Prüfung fehlgeschlagen, wird wiederholt',
+      scan_infected: 'Schadsoftware gefunden\u00A0· lässt sich nicht ablegen',
+      not_offered: 'Dateityp wird in diesem Büro nicht abgelegt\u00A0· im Original enthalten',
+      filing: 'Wird abgelegt …',
+      filed: 'In Dateien abgelegt',
+      filedTo: 'Abgelegt in {folder}',
+      version: 'Fassung {version}',
+      dismissed: 'Verworfen',
+      expired: 'Abgelaufen',
+    },
+    notes: {
+      duplicate: 'Liegt schon im Projekt: {path}',
+      revision: 'wird Fassung {version} von {name}',
+      revisionUnverified: 'könnte Fassung {version} von {name} sein\u00A0· Domain nicht bestätigt',
+      revisionHidden: 'Eine mögliche frühere Fassung liegt in einem Ordner, den Sie nicht sehen',
+      nameStop: 'Namensprüfung: „{terms}“',
+      releaseName: 'Trotzdem ablegen',
+      macro: 'Enthält Makros. Öffnen Sie die Datei nur, wenn Sie dem Absender vertrauen.',
+      type_mismatch: 'Dateiname und Inhalt passen nicht zusammen.',
+      acknowledgeRisk: 'Ich habe die Warnung gelesen. Trotzdem ablegen',
+      acknowledgeRevision: 'Trotzdem als nächste Fassung ablegen',
+      encrypted: 'Verschlüsselt – {productName} kann den Inhalt nicht lesen',
+      forwarded_inner: 'Aus einer weitergeleiteten E-Mail',
+      image_in_mail: 'Bild in der E-Mail',
+      lastFailure: 'Konnte nicht abgelegt werden: {reason}',
+    },
+    notStaged: {
+      tnef: '{name}\u00A0· Outlook-eigener Anhang, nicht geöffnet\u00A0· im Original enthalten',
+      encrypted: '{name}\u00A0· verschlüsselt\u00A0· im Original enthalten',
+      archive: '{name}\u00A0· Archivdatei, nicht entpackt\u00A0· im Original enthalten',
+      calendar: '{name}\u00A0· Termin, im Text angezeigt',
+      size: '{name}\u00A0· zu groß zum Ablegen\u00A0· im Original enthalten',
+      limit: '{name}\u00A0· über der Anzahl an Anhängen, die eine E-Mail haben darf\u00A0· im Original enthalten',
+      layoutImages: '{count, plural, one {# Bild aus der Signatur} other {# Bilder aus der Signatur}}\u00A0· im Original enthalten',
+    },
+  },
+
+  suggestion: {
+    label: 'Vorschlag von {productName}',
+    newFolder: 'neu',
+    noFolder: 'Kein Vorschlag – wählen Sie einen Ordner.',
+    pending: '{productName} liest noch …',
+    none: 'Für nicht bestätigte oder automatische E-Mails gibt es keinen Vorschlag.',
+    root: 'Dateien (oberste Ebene)',
+    documentType: 'Dokumentart',
+  },
+
+  target: {
+    title: 'Wohin {name} kommt',
+    name: 'Name',
+    folder: 'Ordner',
+    chooseFolder: 'Ordner wählen',
+    folderPickerTitle: 'Ablegen in',
+    folderNote: 'Nur Ordner, in die Sie ablegen dürfen.',
+    documentType: 'Dokumentart',
+    noDocumentType: 'Keine',
+    revision: 'Fassung',
+    newDocument: 'Ein neues Dokument',
+    revisionOf: 'Fassung {version} von {name}',
+    apply: 'Übernehmen',
+    cancel: 'Abbrechen',
+  },
+
+  /** Die Warnung über einer E-Mail, die sich als jemand anderes ausgibt (`riskLevel: 'impersonation'`). */
+  impersonationWarning: {
+    rejectedSignature: 'Vorsicht: Diese E-Mail gibt sich als {name} aus. Die Domain hat sie abgelehnt.',
+    // An das Mitglied, dessen Adresse sie trägt: eine Frage an es selbst, keine Warnung über es.
+    own: 'Diese E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt.',
+    ownConsequence:
+      'Haben Sie sie nicht selbst gesendet, verwerfen Sie sie: So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt.',
+    memberName: 'Vorsicht: Der Name {name} gehört einem Mitglied, die Adresse {address} nicht.',
+    consequence:
+      'So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt. Prüfen Sie Zahlungs- oder Kontoänderungen telefonisch, nicht per Antwort.',
+    fileAnyway: 'Trotzdem ablegen …',
+    fileAnywayHint: 'Nur wenn Sie telefonisch geprüft haben, dass die E-Mail echt ist.',
+    fileAnywayHintOwn: 'Nur wenn Sie diese E-Mail selbst gesendet haben.',
+    fileAnywayClose: 'Ablage schließen',
+  },
+  bar: {
+    file: 'Ablegen',
+    dismiss: 'Verwerfen',
+    dismissBusy: 'Wird verworfen …',
+    fileBoth: '{count, plural, one {# Datei und den E-Mail-Text ablegen} other {# Dateien und den E-Mail-Text ablegen}}',
+    fileFiles: '{count, plural, one {# Datei ablegen} other {# Dateien ablegen}}',
+    fileText: 'E-Mail-Text ablegen',
+    fileThread: 'In E-Mail-Verlauf „{name}“ ablegen (wird Fassung {version})',
+    fileNothing: 'Nichts ablegen',
+    busy: 'Wird abgelegt …',
+    acknowledgeImpersonation: 'Ich habe geprüft, dass die E-Mail echt ist. Trotzdem ablegen',
+    acknowledgeSender: 'Domain nicht bestätigt. Trotzdem ablegen',
+    acknowledgeOwnMail: 'Ja, ich habe diese E-Mail gesendet. Ablegen',
+    originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
+    /** Für alle außer dem Mitglied, dessen Adresse die E-Mail trägt: nur verwerfen, nie ablegen (`onlySenderReleases`). */
+    claimed: {
+      line: 'Nur {name} kann diese E-Mail ablegen oder wiederherstellen. Sie können sie verwerfen.',
+      dismiss: 'Verwerfen …',
+      confirmTitle: 'E-Mail verwerfen?',
+      confirmText:
+        'Danach kann nur {name} ‹{address}› sie wiederherstellen, {days} Tage lang. Gehört {name} nicht mehr zum Büro, legt sie niemand mehr ab: Laden Sie vorher unter „Details“ das Original herunter, wenn Sie es brauchen.',
+      confirm: 'Verwerfen',
+      cancel: 'Abbrechen',
+    },
+    blockers: {
+      project_closed: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
+      sender_only: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen.',
+      folder_missing: '{count, plural, one {Wählen Sie für # Anhang einen Ordner.} other {Wählen Sie für # Anhänge einen Ordner.}}',
+      name_stop: '{count, plural, one {Bestätigen Sie die Namensprüfung bei # Anhang.} other {Bestätigen Sie die Namensprüfung bei # Anhängen.}}',
+      risk: '{count, plural, one {Bestätigen Sie die Warnung bei # Teil.} other {Bestätigen Sie die Warnung bei # Teilen.}}',
+      thread_name_missing: 'Geben Sie dem neuen E-Mail-Verlauf einen Namen.',
+    },
+  },
+
+  state: {
+    filing: 'Wird abgelegt …',
+    decidedByOther: 'Jemand anderes hat diese E-Mail inzwischen bearbeitet.',
+    partialFailure: '{failed} von {total} Dateien konnten nicht abgelegt werden.',
+    partialFailureAll: '{failed, plural, one {Die Datei konnte nicht abgelegt werden.} other {Keine der # Dateien konnte abgelegt werden.}}',
+    partialFailureHint: 'Sie warten wieder hier. Wählen Sie einen anderen Namen oder Ordner und legen Sie sie erneut ab.',
+    quotaFull: 'Der Speicher des Büros ist voll. Es wurde nichts abgelegt; die E-Mail wartet weiter.',
+    expired: 'Ohne Entscheidung abgelaufen\u00A0· wiederherstellbar bis {date}',
+    dismissed: 'Verworfen\u00A0· wiederherstellbar bis {date}',
+    partsExpired: '{count, plural, one {# Teil ohne Entscheidung abgelaufen} other {# Teile ohne Entscheidung abgelaufen}}\u00A0· wiederherstellbar bis {date}',
+    partsDismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}}\u00A0· wiederherstellbar bis {date}',
+    restore: 'Wiederherstellen',
+    restoreBusy: 'Wird wiederhergestellt …',
+    settled: 'Alles an dieser E-Mail ist bearbeitet.',
+    filedOutcome: 'Ins Projekt abgelegt',
+  },
+
+  toast: {
+    filed: '{count, plural, one {# Datei abgelegt} other {# Dateien abgelegt}}',
+    filedBoth: '{count, plural, one {# Datei und der E-Mail-Text abgelegt} other {# Dateien und der E-Mail-Text abgelegt}}',
+    textFiled: 'E-Mail-Text abgelegt',
+    lineFile: '{name} → {folder}',
+    lineText: 'E-Mail-Text → „{name}“',
+    filing: 'Wird abgelegt …',
+    view: 'Ansehen',
+    dismissed: 'E-Mail verworfen',
+    dismissedMany: '{count, plural, one {# E-Mail verworfen} other {# E-Mails verworfen}}',
+    undo: 'Rückgängig',
+    restored: 'E-Mail wiederhergestellt',
+    filedAsSuggested: '{count, plural, one {# E-Mail wird wie vorgeschlagen abgelegt} other {# E-Mails werden wie vorgeschlagen abgelegt}}',
+    failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
+  },
+
+  bulk: {
+    selected: '{count} ausgewählt',
+    paneHint: 'Die Leiste unter der Liste gilt für alle ausgewählten E-Mails.',
+    clear: 'Auswahl aufheben',
+    fileSuggested: 'Wie vorgeschlagen ablegen',
+    fileSuggestedBusy: 'Wird abgelegt …',
+    dismiss: 'Verwerfen',
+    blocked: {
+      not_waiting: 'Ein Teil der Auswahl ist schon bearbeitet.',
+      project_closed: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen.',
+      sender:
+        '{count, plural, one {Bei # E-Mail muss der Absender bestätigt werden. Öffnen Sie sie einzeln.} other {Bei # E-Mails muss der Absender bestätigt werden. Öffnen Sie sie einzeln.}}',
+      no_thread:
+        '{count, plural, one {# E-Mail hat keinen E-Mail-Verlauf, in den sie gehört. Öffnen Sie sie einzeln.} other {# E-Mails haben keinen E-Mail-Verlauf, in den sie gehören. Öffnen Sie sie einzeln.}}',
+      needs_person:
+        '{count, plural, one {# E-Mail braucht eine Entscheidung von Ihnen. Öffnen Sie sie einzeln.} other {# E-Mails brauchen eine Entscheidung von Ihnen. Öffnen Sie sie einzeln.}}',
+      scanning:
+        '{count, plural, one {# E-Mail wird noch auf Schadsoftware geprüft.} other {# E-Mails werden noch auf Schadsoftware geprüft.}}',
+      folder_missing: '{count, plural, one {Bei # E-Mail fehlt ein Ordner.} other {Bei # E-Mails fehlt ein Ordner.}}',
+      too_many: 'Höchstens {max} E-Mails lassen sich auf einmal ablegen.',
+    },
+    confirmTitle: '{count, plural, one {# E-Mail wie vorgeschlagen ablegen?} other {# E-Mails wie vorgeschlagen ablegen?}}',
+    confirmSummary: '{files, plural, one {# Datei} other {# Dateien}} und {texts, plural, one {# E-Mail-Text} other {# E-Mail-Texte}}',
+    destination: {
+      folder: 'In „{label}“: {count}',
+      root: 'In Dateien (oberste Ebene): {count}',
+      new_folder: 'In den neuen Ordner „{label}“: {count}',
+      thread: 'In E-Mail-Verlauf „{label}“: {count}',
+      new_thread: 'Als neuer E-Mail-Verlauf „{label}“',
+    },
+    confirm: 'Ablegen',
+    cancel: 'Abbrechen',
+    dismissTitle: '{count, plural, one {# E-Mail verwerfen?} other {# E-Mails verwerfen?}}',
+    dismissText:
+      'Verworfene E-Mails lassen sich {days, plural, one {# Tag} other {# Tage}} lang wiederherstellen, außer E-Mails von außerhalb des Büros, deren Domain nicht bestätigt ist.',
+    dismissConfirm: 'Verwerfen',
+  },
+
+  refusals: {
+    stale: 'Diese E-Mail hat sich inzwischen geändert. Sie wurde neu geladen; bitte prüfen und erneut entscheiden.',
+    part_not_waiting: 'Ein Teil dieser E-Mail wartet nicht mehr. Sie wurde neu geladen.',
+    part_unknown: 'Ein Teil dieser E-Mail ist nicht mehr da. Sie wurde neu geladen.',
+    scan_not_clean: 'Ein Anhang hat keine saubere Prüfung auf Schadsoftware.',
+    type_not_accepted: 'Dieser Dateityp wird in diesem Büro nicht abgelegt.',
+    name_stop:
+      'Die Namensprüfung hat einen Namen angehalten. Bestätigen Sie ihn mit „Trotzdem ablegen“ oder wählen Sie einen anderen Namen.',
+    risk_not_acknowledged: 'Bestätigen Sie die Warnung vor dem Ablegen.',
+    sender_not_acknowledged: 'Bestätigen Sie die nicht bestätigte Domain vor dem Ablegen.',
+    sender_only:
+      'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen oder wiederherstellen; Sie können sie verwerfen. Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
+    acknowledgement_in_bulk: 'Diese E-Mail braucht Ihre Bestätigung. Öffnen Sie sie einzeln.',
+    card_carries_acknowledgement: 'Dafür braucht es eine Bestätigung, die nur Sie geben können. Öffnen Sie die E-Mail.',
+    name_taken:
+      'Ein Dokument dieses Namens liegt schon im Projekt. Legen Sie die Datei als seine nächste Fassung ab oder benennen Sie sie um.',
+    target_unknown: 'Der Ordner oder E-Mail-Verlauf ist nicht mehr da.',
+    thread_full: 'Der E-Mail-Verlauf ist voll. Legen Sie den Text als neuen E-Mail-Verlauf ab.',
+    unreadable: 'Der Text konnte nicht gelesen werden und lässt sich daher nicht ablegen.',
+    nothing_to_mask: 'In diesem Text gibt es nichts unkenntlich zu machen.',
+    not_restorable: 'Diese E-Mail lässt sich nicht mehr wiederherstellen.',
+    gone: 'Die Datei ist nicht mehr da.',
+    original_not_clean: 'Das Original hat die Prüfung auf Schadsoftware nicht bestanden und lässt sich nicht herunterladen.',
+    mail_not_received_here: 'Der E-Mail-Empfang ist hier nicht eingerichtet. Laden Sie Dateien direkt hoch.',
+    legal_hold: 'Diese Datei wird wegen einer Aufbewahrungspflicht gehalten und nicht an einen Agenten gegeben.',
+    unknown: 'Das hat nicht geklappt. Bitte erneut versuchen.',
+  },
+
+  failures: {
+    screened: 'von der Inhaltsprüfung zurückgehalten',
+    type: 'der Dateityp ist nicht erlaubt',
+    size: 'die Datei ist zu groß',
+    quota: 'der Speicher des Büros ist voll',
+    access: 'Sie dürfen in diesen Ordner nicht ablegen',
+    name_taken: 'der Name ist schon vergeben',
+    unreadable: 'die Datei konnte nicht gelesen werden',
+    digest_mismatch: 'die Datei hat sich beim Ablegen verändert',
+    unavailable: 'der Speicher war nicht erreichbar',
+    thread_document_gone: 'der E-Mail-Verlauf ist nicht mehr da',
+    scan_not_clean: 'die Prüfung auf Schadsoftware ist nicht bestanden',
+    project_closed: 'das Projekt ist abgeschlossen',
+    type_not_accepted: 'dieser Dateityp wird in diesem Büro nicht abgelegt',
+  },
+
+  address: {
+    dialogTitle: 'E-Mail-Adresse des Projekts',
+    dialogDescription: 'So landet die Korrespondenz im Projekt, ohne dass jemand sie aus dem Mailprogramm herunterlädt und wieder hochlädt.',
+    label: 'E-Mail-Adresse des Projekts',
+    copy: 'Kopieren',
+    saveContact: 'Als Kontakt sichern',
+    contactName: '{productName}\u00A0· {project}',
+    contactNote:
+      'Ihre eigenen E-Mails an diese Adresse, die Ihre Domain bestätigt, legt {productName} direkt ab, wenn Sie im Projekt ablegen dürfen; andere warten, bis jemand sie ablegt.',
+    usesLabel: 'Wofür die Adresse da ist',
+    uses: {
+      cc: 'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im E-Mail-Eingang.',
+      forward: 'Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie weiter.',
+      held: 'Was jemand, der im Projekt ablegen darf, von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros {days} Tage lang.',
+    },
+    tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
+    openInbox: 'Zum E-Mail-Eingang',
+    guide: 'Anleitung',
+    newTab: '(öffnet in neuem Tab)',
+    none: 'Dieses Projekt hat noch keine E-Mail-Adresse.',
+    noneMember: 'Bitten Sie jemanden, der das Projekt verwaltet, sie in den Projekteinstellungen zu erzeugen.',
+    create: 'Adresse erzeugen',
+    createBusy: 'Wird erzeugt …',
+    unavailable: 'Der E-Mail-Empfang ist hier nicht eingerichtet. Laden Sie Dateien direkt hoch.',
+    loadError: 'Die E-Mail-Adresse des Projekts konnte nicht geladen werden.',
+    lastReceived: 'Zuletzt eingegangen {time}',
+    nothingReceived: 'Noch keine E-Mail eingegangen',
+    sizeLimit: 'Anhänge bis etwa {attachments} MB pro E-Mail.',
+    uploadInstead: 'Größere Dateien direkt hochladen',
+    dropped:
+      '{count, plural, one {# automatische Antwort oder Zustellbericht in den letzten {days} Tagen, nicht angezeigt} other {# automatische Antworten oder Zustellberichte in den letzten {days} Tagen, nicht angezeigt}}',
+    rotate: 'Neue Adresse erzeugen …',
+    rotateTitle: 'Neue Adresse erzeugen?',
+    rotateText:
+      'Die bisherige Adresse funktioniert ab sofort nicht mehr; E-Mails an sie werden abgewiesen. Wer einem E-Mail-Verlauf dieses Projekts folgt, folgt ihm danach nicht mehr. Geben Sie die neue Adresse an alle weiter, die Unterlagen an dieses Projekt senden.',
+    rotateConfirm: 'Neue Adresse erzeugen',
+    switchOff: 'Ausschalten …',
+    switchOffTitle: 'E-Mail-Adresse des Projekts ausschalten?',
+    switchOffText: 'E-Mails an diese Adresse werden ab sofort abgewiesen. Was schon im E-Mail-Eingang wartet, bleibt dort.',
+    switchOffConfirm: 'Ausschalten',
+    cancel: 'Abbrechen',
+    rotated: 'Neue Adresse erzeugt',
+    switchedOff: 'E-Mail-Adresse des Projekts ausgeschaltet',
+    created: 'E-Mail-Adresse des Projekts erzeugt',
+    ownDomain: {
+      share: '{percent} % der E-Mails Ihres Büros der letzten {days} Tage waren von Ihrer Domain bestätigt',
+      missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
+      explain:
+        'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn ihr Absender im Projekt ablegen darf. Eine E-Mail mit der Adresse eines Mitglieds, die dessen Domain nicht bestätigt, kann nur dieses Mitglied selbst ablegen.',
+    },
+  },
+
+  follow: {
+    offer: 'Folgen',
+    thread: 'E-Mail-Verlauf „{name}“',
+    explain:
+      'Antworten von bestätigten Domains, die schon im E-Mail-Verlauf schreiben, werden ohne Klick angefügt. Anhänge warten weiter hier.',
+    busy: 'Wird eingerichtet …',
+    following: 'Sie folgen „{name}“',
+    undo: 'Rückgängig',
+    failed: 'Das Folgen hat nicht geklappt. Bitte erneut versuchen.',
+  },
+}

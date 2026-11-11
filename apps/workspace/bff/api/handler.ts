@@ -10,7 +10,9 @@
  *                           `./platform-handler` so that AuthKit stays out
  *                           of the module every route imports.
  *   - `internalApiRoute`  — service-to-service routes guarded by
- *                           `INTERNAL_API_TOKEN`.
+ *                           `INTERNAL_API_TOKEN`, or, with
+ *                           `auth: { signature }`, by an RFC 9421 request
+ *                           signature (routes under `/api/internal/signed/`).
  *   - `publicApiRoute`    — the rare intentionally unauthenticated route
  *                           (health checks). Using it is an explicit,
  *                           grep-able decision.
@@ -55,7 +57,8 @@ import { NextResponse } from 'next/server'
 import { ZodError, type ZodType, type output } from 'zod'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
 import { hasPermission, type KnownPermission } from '@/lib/authz/permissions'
-import { requireInternalToken, type InternalTokenEnv } from '@/lib/internal-auth'
+import { requireInternalToken, type InternalTokenEnv, type VerifiedSignature } from '@/lib/internal-auth'
+import { verifySignedRequest, type SignedInternalApiContext, type SignedInternalRouteOptions } from './signed-route'
 import { runWithTenantSlot, withPlatformAccess } from '@/lib/db/tenant-context'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { DEFAULT_MUTATION_LIMIT } from '@/lib/limits/catalog'
@@ -85,6 +88,8 @@ import {
 import { FOLDER_DELETED_REASON, FOLDER_DELETED_SQLSTATE } from '@/lib/projects/folder-bin-codes'
 
 /** Context passed to session-authenticated handlers. */
+export { SIGNED_INTERNAL_PREFIX, type SignedInternalApiContext, type SignedInternalRouteOptions } from './signed-route'
+
 export interface ApiContext<TParams = Record<string, never>> {
   request: Request
   session: AuthorizedSession
@@ -217,6 +222,7 @@ export interface InternalRouteOptions extends FixedAuthzRouteOptions {
   readonly tenancy: InternalTenancy
   /** The secret this route checks; the shared service token when omitted. */
   readonly tokenEnv?: InternalTokenEnv
+  readonly auth?: never
 }
 
 /** Options for the intentionally unauthenticated routes. */
@@ -296,6 +302,11 @@ function logUpstreamError(error: UpstreamError, requestId: string): void {
 /** Seconds a client should wait before retrying a request the database outage refused. */
 const DATABASE_RETRY_AFTER_S = 5
 
+/** An RFC 9457 problem object: a `type` URI and a `status`. */
+function isProblem(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string' && typeof (value as { status?: unknown }).status === 'number'
+}
+
 export function errorResponse(error: unknown, request: Request): Response {
   if (isNextControlFlowError(error)) throw error
   const requestId = resolveRequestId(request)
@@ -304,6 +315,11 @@ export function errorResponse(error: unknown, request: Request): Response {
   // for no organization (see `SessionRequiredError`).
   if (error instanceof SessionRequiredError || error instanceof NoOrganizationError) {
     return errorPayload({ error: 'Forbidden', code: 'FORBIDDEN' }, 403, requestId)
+  }
+  // An error that carries its RFC 9457 problem (a switched-off feature found in a service, `FeatureDisabledError`)
+  // answers with it, as `requireFeature` does. Read by shape, so the handler imports no feature module.
+  if (error instanceof ApiError && isProblem((error as { problem?: unknown }).problem)) {
+    return errorPayload((error as unknown as { problem: Record<string, unknown> }).problem, error.status, requestId, { 'Content-Type': 'application/problem+json' })
   }
   if (error instanceof ApiError) {
     const body: Record<string, unknown> = { error: error.message, code: error.code }
@@ -450,25 +466,52 @@ export function apiRoute<TParams = Record<string, string | string[]>>(
   }
 }
 
+type InternalRouteHandler = (request: Request, context?: NextRouteContext) => Promise<Response>
+
 /**
  * Declare an internal service-to-service route guarded by
- * `INTERNAL_API_TOKEN` (fail-closed; see `@/lib/internal-auth`).
+ * `INTERNAL_API_TOKEN` (fail-closed; see `@/lib/internal-auth`), or, with
+ * `auth: { signature: { keysEnv } }`, by an RFC 9421 signature verified before
+ * the handler runs and before a byte of the body is read.
  */
+export function internalApiRoute<TParams = Record<string, string | string[]>>(
+  label: string,
+  handler: (ctx: SignedInternalApiContext<TParams>) => Promise<unknown>,
+  options: SignedInternalRouteOptions
+): InternalRouteHandler
 export function internalApiRoute<TParams = Record<string, string | string[]>>(
   label: string,
   handler: (ctx: InternalApiContext<TParams>) => Promise<unknown>,
   options: InternalRouteOptions
-) {
+): InternalRouteHandler
+export function internalApiRoute<TParams = Record<string, string | string[]>>(
+  label: string,
+  handler: (ctx: SignedInternalApiContext<TParams>) => Promise<unknown>,
+  options: InternalRouteOptions | SignedInternalRouteOptions
+): InternalRouteHandler {
+  const signature = options.auth?.signature ?? null
   return async (request: Request, context?: NextRouteContext): Promise<Response> => {
-    const denied = requireInternalToken(request, label, options.tokenEnv)
-    if (denied) return denied
+    let verified: VerifiedSignature | null = null
+    if (signature) {
+      try {
+        verified = await verifySignedRequest(request, label, signature)
+      } catch (error) {
+        return errorResponse(error, request)
+      }
+    } else {
+      const denied = requireInternalToken(request, label, options.tokenEnv)
+      if (denied) return denied
+    }
     // The slot matters most here: these routes carry no session, so a
     // `fromPayload` handler that forgot its scope MUST fail closed rather than
     // silently inherit whatever tenant last used this socket.
     return runWithTenantSlot(async () => {
       try {
         const params = (await resolveParams(context)) as TParams
-        const run = () => handler({ request, params })
+        // The overloads pair a signed context with signed options only; a token
+        // route's handler is typed without `signature` and never reads it.
+        const ctx = (verified ? { request, params, signature: verified } : { request, params }) as SignedInternalApiContext<TParams>
+        const run = () => handler(ctx)
         // `fromPayload` routes establish their own scope once they have parsed the
         // organization out of the body; until they do, any query throws
         // MissingTenantContextError rather than reading across tenants.

@@ -83,6 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
   process.env.MCP_RESOURCE_URL = RESOURCE
+  delete process.env.MCP_FORMER_ORIGINS
   process.env.INTERNAL_API_TOKEN = SECRET
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
@@ -178,6 +179,53 @@ describe('external agent (bearer token)', () => {
       )
     }
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
+  })
+
+  describe('after a domain move (MCP_FORMER_ORIGINS)', () => {
+    const FORMER = 'https://app.old.test'
+    /** A request on the former host, as Envoy forwards it: the pod's address, the client's host in `Host`. */
+    const onFormerHost = (path: string, jwt?: string) =>
+      new Request(`http://10.0.0.7:3000${path}`, {
+        method: 'POST',
+        headers: { host: 'app.old.test', ...(jwt ? { authorization: `Bearer ${jwt}` } : {}) },
+      })
+
+    beforeEach(() => {
+      process.env.MCP_FORMER_ORIGINS = FORMER
+    })
+
+    it('takes a token an old connector holds for the former host, on either host', async () => {
+      const old = await token({}, { aud: `${FORMER}/api/mcp` })
+      expect(isChallenge(await resolvePrincipal(onFormerHost('/api/mcp', old), { jwks }))).toBe(false)
+      expect(isChallenge(await resolvePrincipal(bearer(old), { jwks }))).toBe(false)
+      expect(isChallenge(await resolvePrincipal(onFormerHost('/api/a2a', await token({}, { aud: `${FORMER}/api/a2a` })), { jwks }))).toBe(false)
+    })
+
+    it('takes a token for the current host on the former one', async () => {
+      expect(isChallenge(await resolvePrincipal(onFormerHost('/api/mcp', await token()), { jwks }))).toBe(false)
+    })
+
+    it('points a client on the former host at that host’s metadata, so its resource matches the URL it holds', async () => {
+      const { response } = challengeOf(await resolvePrincipal(onFormerHost('/api/mcp'), { jwks }))
+      expect(response.status).toBe(401)
+      expect(response.headers.get('www-authenticate')).toContain(
+        `resource_metadata="${FORMER}/.well-known/oauth-protected-resource/api/mcp"`,
+      )
+    })
+
+    it('still keeps the platform door apart: a former office token is refused there, a former platform token accepted', async () => {
+      const platform = tokenVerifier(DOMAIN, ISSUER, { jwks }, 'platform')
+      await expect(platform.verifyAccessToken(await token({}, { aud: `${FORMER}/api/mcp` }))).rejects.toThrow()
+      const accepted = await platform.verifyAccessToken(await token({}, { aud: `${FORMER}/api/platform/mcp` }))
+      expect(accepted.resource?.href).toBe(`${FORMER}/api/platform/mcp`)
+    })
+
+    it('ignores an entry that is not an origin, and a host it was not told about', async () => {
+      process.env.MCP_FORMER_ORIGINS = `not a url, ftp://x.test, ${FORMER}/ignored-path`
+      expect(isChallenge(await resolvePrincipal(onFormerHost('/api/mcp', await token({}, { aud: `${FORMER}/api/mcp` })), { jwks }))).toBe(false)
+      const stray = await token({}, { aud: 'https://app.elsewhere.test/api/mcp' })
+      expect(isChallenge(await resolvePrincipal(bearer(stray), { jwks }))).toBe(true)
+    })
   })
 
   it('refuses an expired token', async () => {

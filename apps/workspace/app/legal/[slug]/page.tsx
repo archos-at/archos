@@ -10,6 +10,7 @@
 import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { SectionLabel } from '@/components/ui/section-label'
 import { getLegalDocument, legalNavEntries } from '@/lib/legal'
 import { isLegalSlug } from '@/lib/legal/types'
 import { getLocale, getTranslations } from '@/i18n/server'
@@ -29,7 +30,7 @@ const LegalPage = async ({ params }: LegalPageProps): Promise<ReactNode> => {
 
   return (
     <article>
-      <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">{doc.title}</h1>
+      <h1 className="text-2xl font-medium sm:text-3xl">{doc.title}</h1>
       <p className="mt-2 text-xs text-muted-foreground">
         {t('updatedLabel')} {doc.updated}
       </p>
@@ -40,7 +41,7 @@ const LegalPage = async ({ params }: LegalPageProps): Promise<ReactNode> => {
       {doc.sections.map((section, index) => (
         <section key={section.heading ?? index} className="mt-8">
           {section.heading ? (
-            <h2 className="text-lg font-medium tracking-tight">{section.heading}</h2>
+            <h2 className="text-lg font-medium">{section.heading}</h2>
           ) : null}
           {section.paragraphs?.map((paragraph) => (
             <p key={paragraph} className="mt-3 text-sm leading-relaxed">
@@ -89,9 +90,7 @@ const LegalPage = async ({ params }: LegalPageProps): Promise<ReactNode> => {
       ))}
 
       <nav aria-label={t('nav.otherDocuments')} className="mt-12 border-t border-border pt-6">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {t('nav.otherDocuments')}
-        </p>
+        <SectionLabel as="p">{t('nav.otherDocuments')}</SectionLabel>
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           {legalNavEntries(locale)
             .filter((entry) => entry.slug !== slug)

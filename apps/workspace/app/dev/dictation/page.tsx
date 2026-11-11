@@ -88,7 +88,7 @@ export default function DictationPreviewPage() {
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">↓ in the real composer</div>
-            <InputArea isAuthenticated connectionMode="sse" projectName="Stadthaus Wien 1090" />
+            <InputArea isAuthenticated connectionMode="sse" />
           </div>
         </div>
       </main>

@@ -38,6 +38,7 @@ import { I18nProvider } from '@/i18n'
 import { InboxBadge, InboxList } from '@/features/collaboration/components'
 import { installInboxShim, isEmptyVariant } from '../_fixtures/inbox-items'
 import { VIEWER_ID } from '../_fixtures/inbox-rows'
+import { SectionLabel } from '@/components/ui/section-label'
 
 installInboxShim()
 
@@ -68,7 +69,7 @@ export default function InboxDevPage(): JSX.Element {
         className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-8 text-foreground md:px-8"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Postfach</h1>
+          <h1 className="text-xl font-semibold">Postfach</h1>
           <p className="mt-1 text-sm text-muted-foreground">Anfragen und Neuigkeiten aus Ihrem Team.</p>
         </div>
 
@@ -78,9 +79,9 @@ export default function InboxDevPage(): JSX.Element {
 
         {!empty && (
           <section className="space-y-3">
-            <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+            <SectionLabel as="h2">
               Badge
-            </h2>
+            </SectionLabel>
             <div className="flex flex-wrap items-center gap-6">
               {[1, 4, 128].map((count) => (
                 <div key={count} className="flex items-center gap-2">

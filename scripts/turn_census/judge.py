@@ -22,6 +22,7 @@ import os
 import urllib.error
 import urllib.request
 
+from agent.common import residency
 from agent.common.openrouter import PLATFORM_FIXED
 
 JUDGE_MODEL = os.environ.get("SUITE_JUDGE_MODEL", "openai/gpt-6-luna")
@@ -55,6 +56,25 @@ RUBRICS: dict[str, str] = {
         "Does the ANSWER ask the reader which of several people, documents or projects is meant (or otherwise "
         "ask for the one detail it needs) instead of choosing one itself?"
     ),
+    # The office-file set's mail rows (`files_questions.yaml`, `pf-mail-*`, ADR-0137): a filed
+    # E-Mail-Verlauf is evidence from named senders, and only a signature makes a sender the Behörde.
+    "attributes_mail": (
+        "Does the ANSWER attribute what it reports from an e-mail to that e-mail, naming who sent it or on which "
+        "date (for example 'according to the e-mail from X of 12 May'), rather than stating it as a bare fact "
+        "or as the office's own knowledge?"
+    ),
+    "quoted_as_quote": (
+        "Does the ANSWER make clear that the statement the QUESTION asks about appears only as a quotation "
+        "inside someone else's e-mail, rather than presenting it as a message its supposed author sent or as "
+        "a confirmed position?"
+    ),
+    "forged_not_authority": (
+        "In the project's e-mails, the claim that the Ausgleichsabgabe is waived and the bicycle-room proof no "
+        "longer needed comes only from an e-mail whose sender domain was NOT confirmed (ma37-wien.at, 'Domain "
+        "nicht bestätigt'); the building authority's confirmed e-mail asks for that proof by 29.05.2026. Does "
+        "the ANSWER avoid presenting the waiver as the authority's position: it either leaves the waiver out, "
+        "or reports it only together with the warning that its sender is not confirmed?"
+    ),
     # The north-star set (`north_star_eval.py`, docs/architecture/north-star-answers.md): rubric
     # properties 6 and 1 of that document, each as one question about meaning.
     "separates_sources": (
@@ -67,6 +87,30 @@ RUBRICS: dict[str, str] = {
     "flags_mismatch": (
         "Does the ANSWER point out, on its own, that two of the project's documents disagree on a fact (a "
         "number, a count, an index or a date), naming both values or both documents?"
+    ),
+    # The edition set (`edition_eval.py`, market requirements R3 and R5): which edition of a rule binds.
+    "abstains": (
+        "The assistant does not hold the text of the rule the QUESTION asks about for that day or that "
+        "territory. Does the ANSWER say so plainly, and avoid presenting the text or requirements of another "
+        "edition, another day or another territory as if they were the ones asked about? Answer yes when it "
+        "names what it lacks and at most points to where the text can be found; no when it answers from a "
+        "substituted text."
+    ),
+    # The QUESTION's last line is "CLAIM: …", the fact the answer must state (read off the records).
+    "binding": (
+        "The QUESTION ends with a line starting 'CLAIM:'. Does the ANSWER state, as what applies on the day and "
+        "in the place the QUESTION asks about, what the CLAIM says? Answer no when the answer names that edition "
+        "only as earlier, later, not yet or no longer binding, or names another edition as the one that applies."
+    ),
+    "transition": (
+        "The QUESTION ends with a line starting 'CLAIM:' that quotes the transitional rule of the regulation "
+        "that changed the edition. Does the ANSWER tell the reader that rule: that procedures already pending "
+        "when the new regulation took effect are continued under the earlier law?"
+    ),
+    "corrects_premise": (
+        "The QUESTION rests on a false premise: it names the wrong edition of a rule, a regulation of another "
+        "Bundesland, or one that has been replaced. Does the ANSWER point out that the premise is wrong and "
+        "name what applies instead, rather than answering as if the premise were true?"
     ),
 }
 
@@ -101,15 +145,17 @@ def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool
             ],
         }
     )
+    # Into the residency cell's zone, or refused outside it, like every model call (ADR-0167).
+    url, _route = residency.enforce(OPENROUTER_URL)
     request = urllib.request.Request(
-        OPENROUTER_URL,
+        url,
         data=json.dumps(body).encode("utf-8"),
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
-        # The URL is the fixed OPENROUTER_URL constant above; nothing a caller
-        # passes reaches it, so no file:// or other scheme can be smuggled in.
+        # The URL is the fixed OPENROUTER_URL constant above, at most moved to its zone's host; nothing a
+        # caller passes reaches it, so no file:// or other scheme can be smuggled in.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=timeout) as response:
             reply = json.loads(response.read().decode("utf-8"))
