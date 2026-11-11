@@ -231,6 +231,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
         <EntryPage
           entry={openEntry}
           onBack={() => location.go({ entryId: null })}
+          onOpenEdition={(entryId) => location.go({ entryId })}
           canManage={canManage}
           rootId={folders.rootId}
           folders={folders.folders}

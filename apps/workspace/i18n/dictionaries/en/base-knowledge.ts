@@ -44,7 +44,7 @@ export const baseKnowledge = {
     clearFilters: 'Reset filters',
   },
   folders: {
-    all: 'All standards',
+    all: 'Office standards',
     elsewhere: 'Filed in Office filing outside this place',
   },
 
@@ -100,6 +100,11 @@ export const baseKnowledge = {
     removeBody: 'The standards and their files are removed from Office filing. {productName} no longer quotes them. This cannot be undone.',
   },
   detail: {
+    editions: 'Editions',
+    editionsWhy: 'Answers take the edition in force on the project’s reference date: for a project filed earlier the one of that time, otherwise the current one.',
+    editionLine: 'Edition {label}',
+    startsOn: 'in force from {date}',
+    inForceToday: 'In force today',
     back: 'Back to office standards',
     file: 'File',
     folder: 'Folder',

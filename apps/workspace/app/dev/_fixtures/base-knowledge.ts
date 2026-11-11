@@ -88,7 +88,8 @@ function entry(
     textUse: 'used',
     aiProcessingAttestedAt: '2026-10-01T00:00:00.000Z',
     folderId: FOLDER_IDS.access,
-    edition: null,
+    workId: `work_${id}`,
+    editions: [],
     createdAt: '2026-10-01T08:00:00.000Z',
     values: {
       kind: 'technical_standard',
@@ -116,7 +117,7 @@ function entry(
 
 const NEVER = { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true }
 
-export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = [
+const ENTRIES: BaseKnowledgeEntry[] = [
   entry(
     'oenorm-b-1300',
     {
@@ -197,11 +198,17 @@ export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = [
     { textUse: 'metadata_only', aiProcessingAttestedAt: null }
   ),
   entry(
+    'oenorm-b-3806-2023',
+    { designation: 'ÖNORM B 3806:2023', title: 'Anforderungen an das Brandverhalten von Bauprodukten', editionLabel: '2023-03-01', issuedOn: '2023-03-01' },
+    { workId: 'work_oenorm-b-3806', folderId: FOLDER_IDS.fire },
+  ),
+  entry(
     'oenorm-b-3806',
     {
       designation: 'ÖNORM B 3806:2005',
       title: 'Anforderungen an das Brandverhalten von Bauprodukten',
       editionLabel: '2005-04-01',
+      issuedOn: '2005-04-01',
     },
     {
       folderId: FOLDER_IDS.fire,
@@ -256,3 +263,21 @@ export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = [
     { folderId: null, fileName: 'Leitfaden_Abweichungen_Brandschutz.pdf' }
   ),
 ]
+
+/** Each entry with the editions of its work, as the service answers (`office/work-editions.ts`): newest start first. */
+export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = ENTRIES.map((entry) => {
+  const siblings = ENTRIES.filter((other) => other.workId === entry.workId).sort((a, b) =>
+    (b.values.inForceFrom ?? b.values.issuedOn ?? '').localeCompare(a.values.inForceFrom ?? a.values.issuedOn ?? ''),
+  )
+  const current = siblings.find((other) => other.status === 'confirmed')
+  return {
+    ...entry,
+    editions: siblings.map((other) => ({
+      id: other.id,
+      editionLabel: other.values.editionLabel,
+      startsOn: other.values.inForceFrom ?? other.values.issuedOn,
+      status: other.status,
+      inForceToday: other === current,
+    })),
+  }
+})

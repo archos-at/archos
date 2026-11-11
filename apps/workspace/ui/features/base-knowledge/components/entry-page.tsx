@@ -39,6 +39,7 @@ import { BackControl } from '@/components/shell/back-link'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { EntryValues } from '@/lib/base-knowledge/wire'
+import { Chip } from '@/components/ui/chip'
 import { day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
 
@@ -401,7 +402,49 @@ function SheetBody({
  * The standard as a page of its own, in place of the list (`?entry=<id>`): the
  * way back names where it leads, and the URL can be sent to a colleague.
  */
-export function EntryPage({ entry, onBack, ...rest }: Omit<EntryPageProps, 'onClose'> & { entry: BaseKnowledgeEntry; onBack: () => void }): JSX.Element {
+/**
+ * The editions of this standard the office holds, when it holds more than one:
+ * which applies today, which were superseded, which still await confirming.
+ * Answers take the one in force on the project's reference day, by the same
+ * rule the platform's editions follow, so an earlier edition keeps serving the
+ * projects filed under it.
+ */
+function Editions({ entry, onOpen }: { entry: BaseKnowledgeEntry; onOpen: (entryId: string) => void }): JSX.Element | null {
+  const t = useTranslations(baseKnowledgeCopy)
+  const { locale } = useLocale()
+  if (entry.editions.length < 2) return null
+  return (
+    <section className="space-y-2" data-testid="base-knowledge-editions">
+      <SectionLabel as="h3">{t('detail.editions')}</SectionLabel>
+      <p className="text-sm text-muted-foreground">{t('detail.editionsWhy')}</p>
+      <ul className="divide-y rounded-surface border">
+        {entry.editions.map((edition) => (
+          <li key={edition.id} className="flex items-center justify-between gap-3 px-3 py-2">
+            <button
+              type="button"
+              className="min-w-0 truncate text-left text-sm font-medium hover:underline disabled:no-underline"
+              disabled={edition.id === entry.id}
+              onClick={() => onOpen(edition.id)}
+            >
+              {t('detail.editionLine', { label: edition.editionLabel })}
+              {edition.startsOn && <span className="font-normal text-muted-foreground"> · {t('detail.startsOn', { date: day(edition.startsOn, locale) })}</span>}
+            </button>
+            <Chip size="sm" variant={edition.status === 'proposed' ? 'info' : edition.inForceToday ? 'success' : 'muted'}>
+              {edition.status === 'proposed' ? t('status.proposed') : edition.inForceToday ? t('detail.inForceToday') : t('status.superseded')}
+            </Chip>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+export function EntryPage({
+  entry,
+  onBack,
+  onOpenEdition,
+  ...rest
+}: Omit<EntryPageProps, 'onClose'> & { entry: BaseKnowledgeEntry; onBack: () => void; onOpenEdition: (entryId: string) => void }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-4" data-testid="base-knowledge-entry-page">
@@ -411,6 +454,7 @@ export function EntryPage({ entry, onBack, ...rest }: Omit<EntryPageProps, 'onCl
         {entry.values.designation && <p className="text-muted-foreground">{entry.values.title}</p>}
         <Provenance entry={entry} />
       </header>
+      <Editions entry={entry} onOpen={onOpenEdition} />
       {/* Keyed by id and state, so a saved change or another entry starts a fresh form. */}
       <SheetBody key={`${entry.id}:${entry.status}:${entry.freshness.lastCheck?.checkedAt ?? ''}:${entry.textUse}`} entry={entry} {...rest} />
     </article>

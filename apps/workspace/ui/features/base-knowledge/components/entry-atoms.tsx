@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
+import { isSuperseded, needs } from '@/lib/base-knowledge/office/listing'
 
 export const day = (iso: string, locale: string) =>
   new Date(iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
@@ -22,9 +23,11 @@ export const day = (iso: string, locale: string) =>
     year: 'numeric',
   })
 
-/** Whether the entry needs a check: confirmed and overdue (never checked, too old, or found not current). */
-export const checkDue = (entry: BaseKnowledgeEntry) =>
-  entry.status === 'confirmed' && entry.freshness.overdue
+/** Whether the entry needs a check: confirmed, overdue (never checked, too old, or found not current), and not superseded. */
+export const checkDue = (entry: BaseKnowledgeEntry) => needs(entry, 'check_due')
+
+/** A confirmed edition another edition of the same standard replaced today (`listing.ts`). */
+export const superseded = isSuperseded
 
 export function EntryName({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
   const { designation, title } = entry.values
@@ -58,7 +61,7 @@ export function StatusChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Elemen
       </Chip>
     )
   }
-  if (entry.edition && !entry.edition.inForce) {
+  if (superseded(entry)) {
     return (
       <Chip size="sm" variant="muted" data-testid="base-knowledge-status">
         {t('status.superseded')}

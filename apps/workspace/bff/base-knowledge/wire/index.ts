@@ -152,16 +152,16 @@ export interface Freshness {
   overdue: boolean
 }
 
-/** One confirmed entry among the editions of its standard the office holds. */
-export interface EditionStanding {
-  /** Kind and designation without its edition (or title): what makes editions one standard. */
-  seriesKey: string
-  /** How many confirmed editions of it the office holds. */
-  editions: number
-  /** The edition in force today; the turn picks by the project's reference date instead. */
-  inForce: boolean
-  /** The entry of the next edition, when one followed this. */
-  supersededBy: string | null
+/** One edition of a standard the office holds (an edition record of its work, ADR-0163 amendment). */
+export interface EntryEdition {
+  /** The entry of that edition. */
+  id: string
+  editionLabel: string
+  /** When it starts: its in-force date, else its issue date; null when neither is known. */
+  startsOn: string | null
+  status: 'proposed' | 'confirmed'
+  /** The edition the platform's rule (`newestInForce`) puts in force today; answers pick by the project's reference date. */
+  inForceToday: boolean
 }
 
 export interface BaseKnowledgeEntry {
@@ -186,8 +186,10 @@ export interface BaseKnowledgeEntry {
   /** The user who confirmed the values in force, or last changed them; null while proposed or for an entry confirmed before this was kept. */
   confirmedBy: string | null
   freshness: Freshness
-  /** Where it stands among the office's editions of the same standard (`office/editions.ts`); null for a proposal. */
-  edition: EditionStanding | null
+  /** The work this edition belongs to: `base-knowledge-edition-as-of` takes it. */
+  workId: string
+  /** Every edition of the work the office holds, this one included, newest first (`office/work-editions.ts`). */
+  editions: EntryEdition[]
   /** The office shelf folder its document is filed in; null at the shelf root. */
   folderId: string | null
   /** The display name of `confirmedBy`; null when nobody confirmed or the directory cannot be read. */

@@ -20,7 +20,7 @@ function renderSheet(entry: BaseKnowledgeEntry, onChanged = vi.fn()) {
   render(
     <I18nProvider initialLocale="de" fixedLocale>
       <TooltipProvider>
-        <EntryPage entry={entry} onBack={vi.fn()} canManage rootId={BASE_KNOWLEDGE_FOLDERS.rootId} folders={BASE_KNOWLEDGE_FOLDERS.folders} territories={BASE_KNOWLEDGE_TERRITORIES} onChanged={onChanged} />
+        <EntryPage entry={entry} onBack={vi.fn()} onOpenEdition={vi.fn()} canManage rootId={BASE_KNOWLEDGE_FOLDERS.rootId} folders={BASE_KNOWLEDGE_FOLDERS.folders} territories={BASE_KNOWLEDGE_TERRITORIES} onChanged={onChanged} />
       </TooltipProvider>
     </I18nProvider>,
   )

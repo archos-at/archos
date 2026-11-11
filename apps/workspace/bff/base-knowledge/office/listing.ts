@@ -7,11 +7,20 @@
 
 import type { BaseKnowledgeEntry, EntryAttention, EntryCounts, ListEntriesQuery } from '../wire'
 
+/**
+ * A confirmed edition another of the office's editions of the same standard
+ * replaced today: it still serves projects filed under it, but nobody needs to
+ * check it again, since the newer one is what a check would find.
+ */
+export function isSuperseded(entry: BaseKnowledgeEntry): boolean {
+  return entry.status === 'confirmed' && entry.editions.length > 1 && entry.editions.find((edition) => edition.id === entry.id)?.inForceToday === false
+}
+
 /** Whether an entry needs this kind of attention. */
 export function needs(entry: BaseKnowledgeEntry, attention: EntryAttention): boolean {
   if (attention === 'proposed') return entry.status === 'proposed'
   if (attention === 'metadata_only') return entry.status === 'confirmed' && entry.textUse === 'metadata_only'
-  return entry.status === 'confirmed' && entry.freshness.overdue
+  return entry.status === 'confirmed' && entry.freshness.overdue && !isSuperseded(entry)
 }
 
 export function countEntries(entries: readonly BaseKnowledgeEntry[]): EntryCounts {

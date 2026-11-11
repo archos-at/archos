@@ -2,7 +2,7 @@
  * One change to many entries (`bulk.ts`) and a newer edition (`new-edition.ts`)
  * over the mocked single-entry service: each entry runs on its own, a refusal
  * names the entry and the rest still run, a move lands only in a base-knowledge
- * folder, and a newer edition keeps the earlier one with a check that says so.
+ * folder, and a newer edition joins the earlier one's work and keeps it, with a check that says so.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +13,7 @@ vi.mock('./service', () => ({
   recordBaseKnowledgeCheck: vi.fn(),
   removeBaseKnowledge: vi.fn(),
   uploadBaseKnowledge: vi.fn(async () => ({ id: 'work_new' })),
+  storedEntryOf: vi.fn(),
 }))
 vi.mock('./folders', () => ({ isStandardsFolder: vi.fn(async (_s: unknown, id: string) => id === 'folder-brandschutz') }))
 vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: vi.fn(async () => ({ ok: true })) }))
@@ -24,7 +25,7 @@ import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import type { BaseKnowledgeEntry } from '../wire'
 import { bulkBaseKnowledge } from './bulk'
 import { addBaseKnowledgeEdition } from './new-edition'
-import { getBaseKnowledgeEntry, recordBaseKnowledgeCheck, removeBaseKnowledge, uploadBaseKnowledge } from './service'
+import { getBaseKnowledgeEntry, recordBaseKnowledgeCheck, removeBaseKnowledge, storedEntryOf, uploadBaseKnowledge } from './service'
 
 const MANAGER = {
   userId: 'user-1',
@@ -86,17 +87,12 @@ describe('bulk', () => {
 })
 
 describe('a newer edition', () => {
-  it('is proposed with the earlier values in its folder, and the earlier one stays with a check that found it', async () => {
-    vi.mocked(getBaseKnowledgeEntry).mockResolvedValue(ENTRY)
+  it('joins the earlier entry’s work in its folder, and the earlier one stays with a check that found it', async () => {
+    const stored = { workId: 'work_1', editionId: 'work_1' }
+    vi.mocked(storedEntryOf).mockResolvedValue({ stored, entry: ENTRY } as unknown as Awaited<ReturnType<typeof storedEntryOf>>)
     const file = new File(['%PDF'], 'ÖNORM B 1600_2023.pdf')
     await addBaseKnowledgeEdition(MANAGER, 'work_1', file, request)
-    expect(uploadBaseKnowledge).toHaveBeenCalledWith(
-      MANAGER,
-      file,
-      request,
-      expect.objectContaining({ folderId: 'folder-brandschutz', kind: 'technical_standard', title: 'Barrierefreies Bauen', licenceClass: 'licensed' }),
-    )
-    expect(vi.mocked(uploadBaseKnowledge).mock.calls[0][3]).not.toHaveProperty('editionLabel')
+    expect(uploadBaseKnowledge).toHaveBeenCalledWith(MANAGER, file, request, { folderId: 'folder-brandschutz', editionOf: stored })
     expect(recordBaseKnowledgeCheck).toHaveBeenCalledWith(MANAGER, 'work_1', { result: 'newer_known', note: 'ÖNORM B 1600_2023.pdf' })
     expect(removeBaseKnowledge).not.toHaveBeenCalled()
   })

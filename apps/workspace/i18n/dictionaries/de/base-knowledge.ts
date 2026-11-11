@@ -44,7 +44,7 @@ export const baseKnowledge = {
     clearFilters: 'Filter zurücksetzen',
   },
   folders: {
-    all: 'Alle Grundlagen',
+    all: 'Grundlagen des Büros',
     elsewhere: 'Liegt in der Büroablage außerhalb dieses Bereichs',
   },
 
@@ -100,6 +100,11 @@ export const baseKnowledge = {
     removeBody: 'Die Grundlagen und ihre Dateien werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Das lässt sich nicht rückgängig machen.',
   },
   detail: {
+    editions: 'Ausgaben',
+    editionsWhy: 'Antworten nehmen die Ausgabe, die am Stichtag des Projekts galt: für ein früher eingereichtes Projekt die damalige, sonst die aktuelle.',
+    editionLine: 'Ausgabe {label}',
+    startsOn: 'gilt ab {date}',
+    inForceToday: 'Gilt heute',
     back: 'Zurück zu den Grundlagen',
     file: 'Datei',
     folder: 'Ordner',
@@ -128,7 +133,7 @@ export const baseKnowledge = {
     neverChecked: 'Noch nie geprüft.',
     checkCurrent: 'Ist noch aktuell',
     newEdition: 'Neuere Ausgabe hochladen',
-    newEditionHint: 'Die neue Ausgabe kommt dazu; die bisherige bleibt für Projekte mit früherem Stichtag nutzbar.',
+    newEditionHint: 'Die neue Ausgabe kommt als weitere Ausgabe derselben Norm dazu. Projekte, die vor ihrem Inkrafttreten eingereicht wurden, nutzen weiter die bisherige.',
     newEditionDone: 'Neue Ausgabe hochgeladen: bitte bestätigen',
     checkResult: {
       current: 'aktuell',
