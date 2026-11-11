@@ -3627,8 +3627,18 @@
       "type": "object"
     },
     "SiteBinding": {
-      "description": "Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).\n\nThe card judges a bound only where the edition its values come from is the one that binds here and the\ngate is settled; everywhere else it shows the value against the bound as a hint, with the reason.",
+      "description": "Which editions bind at the turn's site, stamped by the server on every formula card (never the model's).\n\nThe card judges a bound only where the edition its values come from is the one that binds here and the\ncoverage is settled; everywhere else it shows the value against the bound as a hint, with the reason.",
       "properties": {
+        "coverage": {
+          "enum": [
+            "settled",
+            "unsettled",
+            "site_unknown",
+            "unavailable"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
         "editions": {
           "items": {
             "$ref": "#/$defs/SiteEdition"
@@ -3637,14 +3647,15 @@
           "title": "Editions",
           "type": "array"
         },
-        "settled": {
-          "description": "The turn's gate is settled (core or full): the records decide what binds",
-          "title": "Settled",
+        "truncated": {
+          "default": false,
+          "description": "More works bind than the stamp names",
+          "title": "Truncated",
           "type": "boolean"
         }
       },
       "required": [
-        "settled"
+        "coverage"
       ],
       "title": "SiteBinding",
       "type": "object"
@@ -3666,7 +3677,14 @@
             }
           ],
           "default": null,
+          "description": "The edition that binds; None where the binding uses name none, or more than one",
           "title": "Edition Label"
+        },
+        "scope_unsettled": {
+          "default": false,
+          "description": "A binding edition's own scope is still open here",
+          "title": "Scope Unsettled",
+          "type": "boolean"
         }
       },
       "required": [
