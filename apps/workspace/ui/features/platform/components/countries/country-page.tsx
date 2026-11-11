@@ -82,10 +82,18 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
   if (overview.load.state === 'error' && overview.load.status === 403) {
     return <EmptyState icon={Globe2} title={t('countryKnowledge.disabledTitle')} description={t('countryKnowledge.disabledBody')} />
   }
+  // The map reads the change requests, not the overview: it stays one click away while the overview loads or fails.
+  const mapLink = (
+    <Button asChild variant="outline" size="sm">
+      <Link href={lawMapHref(countryId)} data-testid="open-law-map">
+        {tMap('open')}
+      </Link>
+    </Button>
+  )
   if (overview.load.state !== 'ready') {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader crumb={crumb} title={name} />
+        <PageHeader crumb={crumb} title={name} action={mapLink} />
         <SectionCard loading={overview.load.state === 'loading'} error={overview.load.state === 'error'} onRetry={overview.reload} />
       </div>
     )
@@ -115,11 +123,7 @@ export function CountryPage({ countryId }: { countryId: string }): JSX.Element {
         action={
           <span className="flex items-center gap-2">
             <StageBadge stage={countryStage(coverage, value.queue)} />
-            <Button asChild variant="outline" size="sm">
-              <Link href={lawMapHref(countryId)} data-testid="open-law-map">
-                {tMap('open')}
-              </Link>
-            </Button>
+            {mapLink}
           </span>
         }
       />
