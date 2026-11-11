@@ -18,6 +18,7 @@ import { files } from './files'
 import { dossier } from './dossier'
 import { officeShelf } from './office-shelf'
 import { baseKnowledge } from './base-knowledge'
+import { lawMap } from './law-map'
 import { bim } from './bim'
 import { knowledge } from './knowledge'
 import { research } from './research'
@@ -71,6 +72,7 @@ export const en = {
   dossier,
   officeShelf,
   baseKnowledge,
+  lawMap,
   bim,
   knowledge,
   research,
