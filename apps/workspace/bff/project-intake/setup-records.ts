@@ -2,18 +2,18 @@
  * The setup records an office reads (ADR-0169): the released `fact_definitions`,
  * `fact_sources` and `classification` rulesets of the countries it is entitled
  * to, through the same knowledge read path and entitlement predicate every
- * other base-knowledge read takes (`store/visibility.ts`), and for a country
- * and purpose with no released record, the record compiled into the build
- * (`rulesets/shipped.ts`).
+ * other base-knowledge read takes (`store/visibility.ts`). Nothing ships with
+ * the build: a country whose records are not published (or not entitled) gives
+ * an empty list, and every reader answers "not yet published" from it, never a
+ * default of another country.
  *
- * An incomplete read (more than the store's bound, or a stored body the
- * current wire cannot read) uses no released record at all, so a half-read
- * country never decides a class: the build's records answer as before.
+ * Fail closed: a read that is incomplete (more than the store's bound, or a
+ * stored body the current wire cannot read) gives nothing at all, so a
+ * half-read country never decides a class.
  */
 
 import 'server-only'
 import { cache } from 'react'
-import { withShippedFallback } from '@/lib/base-knowledge/rulesets/shipped'
 import { readSetupRulesetsInForce } from '@/lib/base-knowledge/store/rulesets'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 
@@ -30,7 +30,7 @@ export const readSetupRecords = cache(async (organizationId: string): Promise<re
       truncated: read.truncated,
       unreadable: read.unreadable,
     })
-    return withShippedFallback([])
+    return []
   }
-  return withShippedFallback(read.rulesets)
+  return read.rulesets
 })

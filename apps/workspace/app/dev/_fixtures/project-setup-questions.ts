@@ -5,6 +5,10 @@
  * Aufstockung in Wien the other fixtures describe, a project whose address was
  * typed without a geocoder (no Bundesland yet), a reading still running, a
  * past project, and a round with everything settled.
+ *
+ * The registers are a snapshot (`project-setup-questions.registers.json`) of what the real register
+ * computes from `REGISTER_INPUTS` and Austria's records: the build holds no country's records, and
+ * `project-setup-questions.spec.ts` fails when the snapshot drifts (run it with UPDATE_SNAPSHOT=1).
  */
 
 import { computeNeeds } from '@/lib/project-intake/needs'
@@ -13,8 +17,9 @@ import type { IntakeMode, IntakeView, LocationRegisterView } from '@/lib/project
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
 import { emptyProjectProfile } from '@/lib/project-profile/patch-engine'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
-import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import { FIXTURE_LOCATION, INTAKE_CLOSING, INTAKE_READING, INTAKE_READY, OPEN_PHASE } from './project-intake'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
+import registerSnapshot from './project-setup-questions.registers.json'
 
 const AT = '2026-10-20T08:00:00.000Z'
 
@@ -34,16 +39,19 @@ function profileOf(
   return profile
 }
 
-function registerOf(
-  profile: ProjectProfile,
-  location: LocationRegisterInput['location'],
-  mode: IntakeMode = 'active'
-): LocationRegisterView {
-  // The build's records, as an office whose country is not published yet reads them.
-  const records = SHIPPED_SETUP_RECORDS
+interface RegisterInput {
+  profile: ProjectProfile
+  location: LocationRegisterInput['location']
+  mode?: IntakeMode
+}
+
+/** The real register for one input, from the records it is handed. */
+export function registerOf({ profile, location, mode = 'active' }: RegisterInput, records: readonly StoredRuleset[]): LocationRegisterView {
   const needs = computeNeeds(profile, projectIntakeDefinitionV1, { mode, dismissed: [], records })
   return locationRegisterFor({ profile, location, mode, needs, records })
 }
+
+const snapshotOf = (name: keyof typeof REGISTER_INPUTS): LocationRegisterView => registerSnapshot[name] as LocationRegisterView
 
 /** The Aufstockung in Wien: a Bestand with Wohnungen, Zubau and Umbau; the reading found the Widmung. */
 const VIENNA_STOREY_ADDITION = {
@@ -55,10 +63,23 @@ const VIENNA_STOREY_ADDITION = {
   'uses@bldg1': ['residential'],
 }
 
-const REGISTER_READY = registerOf(
-  profileOf(VIENNA_STOREY_ADDITION, { zoning: 'residential', development_plan: 'yes' }),
-  FIXTURE_LOCATION
-)
+/** What each fixture's register is computed from. */
+export const REGISTER_INPUTS = {
+  ready: { profile: profileOf(VIENNA_STOREY_ADDITION, { zoning: 'residential', development_plan: 'yes' }), location: FIXTURE_LOCATION },
+  // Placed in Austria, the Land still open: a project nothing places gets no document until it is (ADR-0169).
+  typedAddress: { profile: profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf', country: 'at' }), location: null },
+  closing: { profile: profileOf({ work_type: ['new_build'] }), location: null, mode: 'closing' },
+  done: {
+    profile: profileOf(
+      { ...VIENNA_STOREY_ADDITION, plot_register_number: 'EZ 1234, KG Hernals', 'heritage_protection@bldg1': 'no' },
+      { zoning: 'residential', development_plan: 'yes', hazard_zones: ['none'], noise_situation: 'road' },
+      ['plot_area']
+    ),
+    location: FIXTURE_LOCATION,
+  },
+} as const satisfies Record<string, RegisterInput>
+
+const REGISTER_READY = snapshotOf('ready')
 
 /** The review after the reading: decisive questions and the location's documents. */
 export const QUESTIONS_READY: IntakeView = { ...INTAKE_READY, locationRegister: REGISTER_READY }
@@ -69,8 +90,7 @@ export const QUESTIONS_TYPED_ADDRESS: IntakeView = {
   location: null,
   questions: [],
   openQuestions: [OPEN_PHASE],
-  // Placed in Austria, the Land still open: a project nothing places gets no document until it is (ADR-0169).
-  locationRegister: registerOf(profileOf({ site_address: 'Hauptstraße 4, 3420 Kritzendorf', country: 'at' }), null),
+  locationRegister: snapshotOf('typedAddress'),
 }
 
 /** The agent still reads: the round says so and takes what is already known. */
@@ -80,7 +100,7 @@ export const QUESTIONS_READING: IntakeView = { ...INTAKE_READING, locationRegist
 export const QUESTIONS_CLOSING: IntakeView = {
   ...INTAKE_CLOSING,
   location: null,
-  locationRegister: registerOf(profileOf({ work_type: ['new_build'] }), null, 'closing'),
+  locationRegister: snapshotOf('closing'),
 }
 
 /** Everything settled: every request has its values, every decisive question an answer. */
@@ -89,14 +109,7 @@ export const QUESTIONS_DONE: IntakeView = {
   contradictions: [],
   questions: [],
   openQuestions: [],
-  locationRegister: registerOf(
-    profileOf(
-      { ...VIENNA_STOREY_ADDITION, plot_register_number: 'EZ 1234, KG Hernals', 'heritage_protection@bldg1': 'no' },
-      { zoning: 'residential', development_plan: 'yes', hazard_zones: ['none'], noise_situation: 'road' },
-      ['plot_area']
-    ),
-    FIXTURE_LOCATION
-  ),
+  locationRegister: snapshotOf('done'),
 }
 
 export const QUESTIONS_FIXTURES = {

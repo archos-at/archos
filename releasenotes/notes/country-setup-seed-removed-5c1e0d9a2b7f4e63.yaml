@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    The build no longer carries Austria's setup records or a time zone table:
+    a project's setup, building class, address placement and the day an open
+    procedure is read in come from released country records alone. Publish a
+    country's setup records and its territory time zone before relying on them.
