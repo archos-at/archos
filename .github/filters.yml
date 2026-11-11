@@ -419,6 +419,10 @@ hatchet:
   - 'packages/agent/src/agent/knowledge/ingest_*.py'
   - 'packages/agent/tests/knowledge/test_ingest_workflow_engine.py'
   - 'packages/agent/tests/testing/agent_testing/orchestrator_engine_worker.py'
+  # The folder card builder's tasks, which the standard ingest worker serves.
+  - 'packages/agent/src/agent/knowledge/folder_cards/**'
+  - 'packages/agent/tests/knowledge/folder_cards/test_folder_card_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/folder_cards_engine_worker.py'
   # The research run: submit, the worker, cancel, and the job store it shares.
   - 'apps/agent-host/src/agent_host/jobs/**'
   - 'apps/agent-host/src/agent_host/routes/job_kill.py'

@@ -247,7 +247,7 @@ export async function reconcileRunWithEnding(
   if (decision.kind === 'wait') return { verdict: 'waiting' }
 
   await settleRunMessage(run, decision)
-  // The sweep's counts are the log line: the scheduler prints them whenever a
+  // The sweep's counts are the log line: the `runs-reconcile` task prints them whenever a
   // sweep closed or failed something.
   const recorded = await recordRunOutcome(run, decision.outcome, { onlyIfActive: true })
   return recorded.closed ? { verdict: 'closed', ending: decision.outcome.status } : { verdict: 'already-closed' }

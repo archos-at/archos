@@ -39,6 +39,7 @@ vi.mock('@/lib/bim/service', async (importOriginal) => ({
 // leaves a job, and `runQueuedJob` is the `bff-jobs` worker that picks it up.
 vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJob: vi.fn().mockResolvedValue({ jobId: 'bff-job-1' }) }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn().mockResolvedValue(null) }))
+vi.mock('./shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 
 vi.mock('./repository', () => ({
   markDocumentProcessing: vi.fn().mockResolvedValue(undefined),
@@ -90,6 +91,7 @@ import {
   setDocumentIngestJob,
   markDocumentNotIndexed,
 } from './repository'
+import { publishShelfChanged } from './shelf-live'
 import { makeDocument } from '@/test-utils/db-fixtures'
 import { internalRead } from '@/lib/documents/document-reader'
 import { DOCUMENT_TYPE_TAGS } from './tag-vocabulary'
@@ -393,6 +395,21 @@ describe('dispatchDocument', () => {
       expect.objectContaining({ documentId: 'doc-1', filename: 'haus.ifc' }),
     )
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('tells the project’s shelf once the model is ready, and nobody for a model outside a project or one that failed', async () => {
+    await dispatchDocument(input('haus.ifc'))
+    await runQueuedJob()
+    expect(publishShelfChanged).toHaveBeenCalledTimes(1)
+    expect(publishShelfChanged).toHaveBeenCalledWith('org-1', { kind: 'project', projectId: 'proj-1' })
+
+    vi.mocked(publishShelfChanged).mockClear()
+    await dispatchDocument({ ...input('haus.ifc'), projectId: null })
+    await runQueuedJob()
+    vi.mocked(runBimExtraction).mockResolvedValueOnce({ modelId: 'm-1', status: 'failed', elementCount: 0, error: 'unreadable' })
+    await dispatchDocument(input('haus.ifc'))
+    await runQueuedJob()
+    expect(publishShelfChanged).not.toHaveBeenCalled()
   })
 
   it('queues a reindex’s model behind the people who are waiting', async () => {

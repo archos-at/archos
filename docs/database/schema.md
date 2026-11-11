@@ -41,10 +41,9 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `document-quarantine-decisions.ts` | `document_quarantine_decisions` (the content gate's decisions owed to the audit trail) |
 | `document-revision-announcements.ts` | `document_revision_announcements` (which new Fassungen `document.new_revision` has announced, once each) |
 | `project-memory.ts` | `project_memory` (documented in [`project-memory-design.md`](../architecture/project-memory-design.md); the restricted-memory column below; `evidence` (0127, `jsonb`, CHECK array or NULL): the file names and pages a source-grounded decision was read from, set by the closing extraction) |
-| `jobs.ts` | `skills`, `jobs`, `job_runs` — the last two LEGACY since 0086; they are not written or read after the cutover and migration 0087 drops them |
-| `tasks.ts` | `tasks` — LEGACY since 0086, same |
-| `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086) |
-| `bff-job-queue.ts` | `bff_job_queue`, `bff_job_lane_turns` — the BFF's durable background work (migration 0104, ADR-0079) |
+| `jobs.ts` | `skills`, and the `JOB_OUTPUTS` vocabulary. Named for the `jobs` and `job_runs` tables it declared until migration 0226 dropped them |
+| `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086), and the `TaskPlan` both carry |
+| `bff-job-queue.ts` | `bff_job_queue` — the record of each BFF job (migration 0104, ADR-0079, ADR-0150). `bff_job_lane_turns`, the claim queue's lane order, was dropped by 0226 |
 | `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0196, ADR-0137) |
 | `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0196, ADR-0137) |
 | `mail-imports.ts` | `mail_imports` — the Outlook archive import ([`mail-import.md`](../architecture/mail-import.md); its Verlauf counts below) |
@@ -243,7 +242,8 @@ the degraded reason `basis_unread`; and the card fields `staging_area`,
 plan: the `plan_json` fence of a plan preview and the `approve {…}` reply
 (`basis`, `excluded`, `documents`; genre `inspection_report` \| `file_note` \|
 `comparison` \| `checklist` \| `report`; depth `quick_check` \| `expert_report`),
-`plan.documents` on `tasks`, `task_definitions` and `task_runs`, and
+`plan.documents` on `task_definitions` and `task_runs` (and on `tasks`, dropped
+since by 0226), and
 `proposed_changes.payload.operations[].source`, with the CHECK that reads it.
 Both have a `.down.sql`. The readers keep one table per vocabulary for the old
 spellings (`LEGACY_*`, listed in each migration's header) for one release.
@@ -553,7 +553,7 @@ the chat conversation a version was filed from, written at the internal filing
 route out of the VERIFIED request-context envelope and never off a request body
 (ADR-0054 §4), so it is a fact this tier asserted. NULL for a human upload, a
 scheduled deep-research report, and every version forked from the Files pane.
-`text` with no foreign key, as `job_runs.conversation_id` is: the honest
+`text` with no foreign key: the honest
 constraint would be the composite `(conversation_id, organization_id)`, which is
 worth its cost on a row that decides access and not on one that decides prose.
 
@@ -571,7 +571,7 @@ presses „Änderungen anfordern":
 is partial on `origin_conversation_id IS NOT NULL` and lives only in the
 migration, like the two unique indexes above.
 
-**RLS:** tenant table, secured the way `tasks` is, widened by a NULL arm for the
+**RLS:** tenant table, secured the way `task_runs` is, widened by a NULL arm for the
 two shelves with no project. Listed in `rls-coverage.spec.ts`
 `BOUNDARY_MIGRATIONS`. Migration `0084` adds a column and does NOT move the
 boundary, so it is deliberately not in that list.
@@ -605,50 +605,18 @@ upload, which was never submitted, has no round, because its approval was the
 synthetic one ADR-0104 stops recording.
 
 
-## tasks (migration 0075, ADR-0051) — LEGACY since 0086
+## jobs, job_runs, tasks (dropped by migration 0226)
 
-**Superseded by `task_definitions` + `task_runs` (migration 0086, next section).
-Kept in this document while migration 0087 has not yet dropped the table; the
-0086 backfill reads every row described here.**
-
-The durable unit of delegated work: one row per attempt, with the requester
-pinned, the plan frozen, and review as an axis of its own.
-
-**Columns:** `id`, `organization_id`, `project_id`, `kind`, `title`, `plan`
-(jsonb), `requester_user_id` + `requester_email`, `status`, `error`,
-`budget_usd`, `deadline_at`, `job_id` + `job_run_id` + `backend_job_id`,
-`conversation_id`, `filed_document_id` + `filing_status` + `filing_detail`,
-`review` + `review_reason` + `reviewed_by` + `reviewed_at`, `created_at`,
-`started_at`, `finished_at`, `updated_at`.
-
-**`kind` has no CHECK, deliberately** (see migration `0075`'s own header), which
-is why the vocabulary lives in one place — `TASK_KINDS` in
-`lib/tasks/task-vocabulary.ts` — rather than in a column and a tuple that can disagree.
-It holds six members: `deep-research` and `chat` are `jobs.output` and describe
-how a JOB delivers its result; `compliance_check`, `submission_check`, `document`
-and `revision` are what a person DELEGATES (`DELEGATABLE_TASK_KINDS`, generated
-from the agent's `TaskKind` in `cards/models.py` by `scripts/generate_vocabularies.py`). `status`, `review` and `filing_status`
-DO carry CHECKs naming their members.
-
-**`plan` is the frozen statement of what was asked:** `prompt` (as submitted,
-skill body included), `skill` (the snapshot, `{}` for a plain prompt),
-`dataSources`, and — for a delegated task — `goal`, the requester's own sentence,
-plus `subject` for a `revision`: the `{documentId, versionId, comment}` a
-reviewer sent back. On the plan rather than in three columns, because it is part
-of what was asked and it exists for exactly one kind.
-
-**A delegated task has no `job_runs` row.** `job_runs.schedule_id` is NOT NULL
-and its RLS predicate requires the row to name a `jobs` row (migration `0043`),
-so giving every „@Piloti prüf das" a hidden job row would have put a
-scheduled-job entry in the project's Aufträge list for a sentence somebody typed
-once. The task row IS the record: `uniq_tasks_backend_job_id` is what the
-worker's outcome callback looks it up by, and
-`POST /api/internal/jobs/[jobId]/outcome` tries the run first and falls back to
-the task.
-
-**RLS:** the organization AND the project's organization, so a row cannot be
-planted under another tenant's project. Listed in `rls-coverage.spec.ts`
-`BOUNDARY_MIGRATIONS`.
+The model before migration 0086: `jobs` and `job_runs` (0041, renamed by 0043)
+were a prompt on a timer and its fires, `tasks` (0075, ADR-0051) the delegated
+work. 0086 copied every row into `task_definitions` and `task_runs` (next
+section) under the same ids and repointed `conversations.job_id`. Its header
+said a migration 0087 would drop the three; 0087 became
+`organization_instructions`, and the tables stayed, written and read by
+nothing, until `0226_drop_dead_scheduler_schema` dropped them together with
+`bff_job_lane_turns`. Its down recreates all four empty and secured; the rows
+are not restored, because they live on in the task model. What the columns
+were is in migrations 0043 and 0075.
 
 ---
 
@@ -694,7 +662,21 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   (`task_definitions_cron_only_when_scheduled`, `task_definitions_due_only_when_once`,
   `task_definitions_trigger_known`) and the run lifecycle honest
   (`task_runs_status_known`, `task_runs_trigger_known`, plus the review/filing
-  constraints copied from 0075). `kind` has NO check, deliberately, as in 0075.
+  constraints copied from 0075). **`kind` has NO check, deliberately**: the
+  vocabulary lives in one place, `TASK_KINDS` in `lib/tasks/task-vocabulary.ts`,
+  rather than in a column and a tuple that can disagree. Six members:
+  `deep-research` and `chat` are a job's output (`JOB_OUTPUTS`) and describe how
+  a JOB delivers its result; `compliance_check`, `submission_check`, `document`
+  and `revision` are what a person DELEGATES (`DELEGATABLE_TASK_KINDS`,
+  generated from the agent's `TaskKind` in `cards/models.py` by
+  `scripts/generate_vocabularies.py`).
+- **`plan` is the frozen statement of what was asked** (`TaskPlan`,
+  `bff/db/schema/task-model.ts`): `prompt` (as submitted, skill body included),
+  `skill` (the snapshot, `{}` for a plain prompt), `dataSources`, and for a
+  delegated task `goal`, the requester's own sentence, plus `subject` for a
+  `revision`: the `{documentId, versionId, comment}` a reviewer sent back. On
+  the plan rather than in three columns, because it is part of what was asked
+  and it exists for exactly one kind.
 - **Indexes:** `idx_task_definitions_project_created`,
   `idx_task_definitions_organization_id`, and the PARTIAL `idx_task_definitions_due`
   on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scan of the
@@ -718,14 +700,16 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   `task_definitions_id_organization_id_project_id_key` — a UNIQUE on that column
   set, redundant with the primary key and required by the FK, the
   `conversations_id_organization_id_key` arrangement.
-- **RLS:** both secured like `jobs`/`tasks`: the organization AND the project's
-  organization.
-- **Ids are reused by the backfill:** a job's definition id is the job's id, and
-  a job-spawned run keeps the `job_runs` id, so conversations, filed documents
-  and inbox anchors keep their uuids. `conversations.job_id` was repointed to
+- **RLS:** the organization AND the project's organization, so a row cannot
+  be planted under another tenant's project. Listed in `rls-coverage.spec.ts`
+  `BOUNDARY_MIGRATIONS`.
+- **Ids are reused by the backfill:** a job's definition id is the job's id,
+  a job-spawned run keeps the `job_runs` id, and a delegated task's definition
+  and run both have the task's id, so conversations, filed documents and inbox
+  anchors keep their uuids. `conversations.job_id` was repointed to
   `task_definitions` in the same migration.
-- **0087 (held):** migration `0087` drops `jobs`, `job_runs` and `tasks` in a
-  separate release, after several real scheduled fires have run on the new model.
+- **The three old tables are gone** (migration 0226, section above). 0086's
+  header promised the drop for 0087, which became something else.
 - **`run_message_id` (uuid, nullable, migration `0091`, ADR-0062):** the ONE
   assistant message this run writes into, in the conversation the work was
   commissioned in — its ledger lives in that message's
@@ -1800,22 +1784,15 @@ LLM budgets and the usage ledger (ADR-0015).
   migration 0107's `llm_usage_events_dictation_unbilled_check` refuses a
   dictation row with a non-zero `price_usd` or `credits`.
 
-## skills / jobs / job_runs (migrations 0041, 0043, 0044) — jobs and job_runs LEGACY since 0086
+## skills (migration 0041)
 
-**`jobs` and `job_runs` are superseded by `task_definitions` + `task_runs`
-(migration 0086, next section); `skills` is unchanged.** Kept in this document
-while migration 0087 has not yet dropped them; the 0086 backfill reads every row
-described here.
-
-Jobs and Agent Skills (ADR-0046, `docs/architecture/agent-skills.md`) — the
-successor to the removed Workflows tables. Schema:
-`apps/workspace/bff/db/schema/jobs.ts`.
-
-**A job is a prompt on a timer**; a skill may be attached on top, exactly as
-typing `/name` before a message would attach it. 0041 created these as
-`skill_schedules`/`skill_runs`, where the skill was the subject and the prompt
-was derived from it; 0043 renamed them and inverted that relationship (see
-"migration 0043" below).
+Agent Skills (ADR-0046, `docs/architecture/agent-skills.md`), the successor to
+the removed Workflows tables. Schema: `apps/workspace/bff/db/schema/jobs.ts`.
+0041 created `skills` beside `skill_schedules`/`skill_runs`, which 0043 renamed
+to `jobs`/`job_runs` and 0226 dropped (see "jobs, job_runs, tasks" above). A
+job is a `task_definitions` row with a schedule; a skill may be attached to it,
+exactly as typing `/name` before a message would attach it, and its snapshot
+is kept in the definition's `plan.skill`.
 
 - `skills`: the org toolbox — denormalized `organization_id`, the SKILL.md
   contract (`name`, `description`, `body`, `metadata` jsonb with the reserved
@@ -1825,48 +1802,6 @@ was derived from it; 0043 renamed them and inverted that relationship (see
   `(organization_id, name)`: one skill per name per org, and the point query
   the fire/resolve paths make. Platform-authored skills are **not** rows — they
   ship as files under `packages/agent/src/agent/skills/builtin/<collection>/`.
-- `jobs`: a project-scoped prompt on a timer — `project_id` (cascade FK) +
-  denormalized `organization_id`, `name`, `prompt` (**NOT NULL** — the message
-  the job fires; the attached skill's body is appended to it), the optional
-  skill pair `skill_name` + `skill_snapshot` jsonb (`{name, description, body,
-  metadata, origin}` copied at save time, so a run is a deterministic copy that
-  cannot drift when the skill is edited), `output` (`chat` | `deep-research` —
-  the user's choice on the job; it picks the agent and decides whether the
-  finished run becomes a conversation or a report), `data_sources` jsonb
-  (NULL = all; `knowledge_layer` always included otherwise), `enabled`,
-  `schedule_cron` (5-field, NULL = manual-only) + `schedule_timezone` (IANA),
-  `next_run_at`/`last_run_at`, author columns. CHECK `jobs_skill_pair_check`
-  enforces `(skill_name IS NULL) = (skill_snapshot IS NULL)`: the skill is
-  optional as a pair, never half-present. Partial index `idx_jobs_due` on
-  `next_run_at` (WHERE scheduled AND enabled) serves the scheduler's
-  FOR UPDATE SKIP LOCKED due-scan.
-- `job_runs`: append-only submission history — `schedule_id` (cascade FK to
-  `jobs`; **not** renamed to `job_id`, because `job_id` on this table already
-  means the backend async job id), denormalized `project_id`/`organization_id`,
-  `job_id` (backend async job; NULL when skipped/error), `trigger`
-  (`manual`/`schedule`), `status` (`submitted`/`skipped`/`error`), `detail`,
-  `conversation_id` (the conversation an `output='chat'` run was materialised
-  into; NULL otherwise — composite FK to `conversations (id, organization_id)`
-  per the 0032 pattern, `ON DELETE SET NULL (conversation_id)` so a deleted
-  conversation does not take run history with it), its own `skill_snapshot`
-  copy so history stays self-describing, `triggered_by`. Live job
-  progress/results stay in the backend job store. `idx_job_runs_created_at`
-  serves the scheduler's retention prune, `idx_job_runs_job_created` on
-  `(schedule_id, created_at DESC)` the newest-first history.
-
-**Migration 0043** renames rather than recreates, so every scheduled row keeps
-its id, its cron and its attached skill. It renames the tables, their indexes
-and their PK/FK constraints (a table rename renames none of those), renames
-`execution` -> `output`, backfills `prompt` from each row's pinned
-`skill_snapshot->>'body'` (through a COALESCE chain — nothing guaranteed that
-key was present, and one malformed row would have failed the subsequent
-`SET NOT NULL` and aborted the migration), drops the NOT NULL from the skill
-pair, and re-secures both tables under the new names. The re-securing is not
-belt-and-braces: `job_runs`' RLS predicate names its parent table in an EXISTS
-subquery, and the stored form of that policy was written against
-`skill_schedules`; re-emitting it is what makes the catalog and the migration
-history provably say the same thing, and `rls-coverage.spec.ts` reads
-`secure_table` calls as the definition of "inside the tenant boundary".
 
 **Migration 0044** adds `conversations.job_id` (see the `conversations` section
 above) — the other direction of the link, answering "who is this thread" rather
@@ -1953,16 +1888,19 @@ split is stated explicitly).
 
 ---
 
-## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079; kept until the cutover drains them)
+## bff_job_queue (migration 0104, ADR-0079; each BFF job's record, ADR-0150)
 
 The BFF's background work runs on Hatchet (ADR-0150): one `bff-job` run per
 job, the kind in its input, fair across offices by a `GROUP_ROUND_ROBIN`
 concurrency key on `input.organization_id` and ordered inside an office by run
-priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). These two
-tables are the claim queue it replaced. Nothing new is written to them; they are
-kept until the cutover drains them (hatchet.md, "Cutover from the claim
-queues"), and a later migration drops them. What follows describes the rows
-still in them.
+priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). Hatchet
+decides when a job runs and where; the row is what the run reads and leaves
+behind (payload, attempts, holder, the wait before a retry), and every query on
+it is in `apps/workspace/bff/jobs-queue/repository.ts`. Why the row and Hatchet
+both hold a retry's wait and count attempts: ADR-0150, "The row and the run
+after a failed attempt". The claim queue's own lane order,
+`bff_job_lane_turns`, had no reader once the claim SQL left and was dropped by
+migration 0226.
 
 Under the claim queue, one row was one job a `bff-jobs` replica
 claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
@@ -1970,10 +1908,11 @@ claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's
 `placement_reingest`; and, one step each,
 IFC extraction `bim_extract`, office conversion `office_rendition` and research
 report filing `file_research_report`). The claim is SQL in
-`apps/workspace/workers/job-queue.js`, in the order ADR-0076 proved for
-ingestion: the lane with the fewest live claims, then the lane served longest
-ago (`bff_job_lane_turns`), then inside a lane `priority` (0 interactive, 1
-bulk), then oldest, with `FOR UPDATE SKIP LOCKED`.
+`apps/workspace/workers/job-queue.js` until ADR-0150 removed it, in the order
+ADR-0076 proved for ingestion: the lane with the fewest live claims, then the
+lane served longest ago (`bff_job_lane_turns`, dropped by 0226), then inside a
+lane `priority` (0 interactive, 1 bulk), then oldest, with
+`FOR UPDATE SKIP LOCKED`.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -1999,9 +1938,9 @@ index `ix_task_runs_filing_queued` the filing sweep reads.
 
 Indexes: `(lane, priority, created_at)` over the rows that are not dead (the
 claim's second step), `(heartbeat_at)` over claimed rows (the stale test and
-the reaper) and `(dead_at)` over dead rows (the retention purge). `bff_job_lane_turns` is one row per lane with `last_claimed_at`.
+the reaper) and `(dead_at)` over dead rows (the retention purge).
 
-RLS: both are tenant tables whose predicate compares `lane` (not an
+RLS: a tenant table whose predicate compares `lane` (not an
 `organization_id` column) to `current_org()`, so a request enqueues and
 reads only its own organization's jobs. The runner is cross-tenant by nature
 and steps up to `app_platform` per transaction

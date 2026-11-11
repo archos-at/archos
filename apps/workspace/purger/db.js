@@ -20,6 +20,12 @@ const { withPlatformScope } = require('../workers/platform-scope')
 // (`bff/db/schema/deletion-queue.ts`, `DELETION_LIFECYCLE`), which this process
 // cannot import: it runs unbuilt. `deletion-lifecycle.spec.mjs` holds every
 // status literal and every move in this file to that declaration.
+//
+// A `pending` row always has an attempt left: `markFailed` and the request
+// side's release leave a row at the cap `failed`, a hold's release refunds its
+// attempt, and the database refuses anything else
+// (`deletion_queue_pending_has_attempts`, migration 0227). So nothing here
+// looks for a `pending` row the claim below can never take.
 const MAX_ATTEMPTS = 10
 const STALE_CLAIM_MINUTES = 15
 
@@ -283,34 +289,6 @@ async function reapStranded(sql) {
   return rows.length
 }
 
-/**
- * Give a `pending` row that has no attempts left its last one back.
- *
- * claimNext never takes a row at MAX_ATTEMPTS, so such a row reads as waiting
- * and is never purged. No writer leaves one any more: a request-side release
- * („Endgültig löschen" failing, `releaseBinEntry`) used to, when it had claimed
- * a row the purger had already given up on, or spent the last attempt itself.
- * Rows stranded before that was fixed are still there, and this is what brings
- * them back: one more purge, which ends them `purged` or `failed`. Returns the
- * number re-offered.
- */
-/**
- * @param {Sql} sql
- * @returns {Promise<number>}
- */
-async function reofferExhausted(sql) {
-  const rows = /** @type {{ id: string }[]} */ (
-    await withPlatformScope(sql, (tx) => tx`
-    UPDATE deletion_queue
-    SET attempts = ${MAX_ATTEMPTS - 1}
-    WHERE status = 'pending'
-      AND attempts >= ${MAX_ATTEMPTS}
-    RETURNING id
-  `)
-  )
-  return rows.length
-}
-
 module.exports = {
   claimNext,
   closeErased,
@@ -319,7 +297,6 @@ module.exports = {
   markFailedPermanent,
   markPurged,
   reapStranded,
-  reofferExhausted,
   releaseHeld,
   MAX_ATTEMPTS,
 }

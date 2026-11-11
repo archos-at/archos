@@ -907,7 +907,7 @@ jobs:
         run: task pkg:test:py
 
   # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
-  # research run and the BFF's `bff-job`, each end to end, with its retries,
+  # folder card tasks, the research run and the BFF's `bff-job`, each end to end, with its retries,
   # cancel and per-organization cap. Every suite here skips without an engine,
   # so until this job none of them had ever run. Its own job rather than a step
   # of the backend or workspace ones: it needs both toolchains and an engine
@@ -945,6 +945,14 @@ jobs:
           .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           packages/agent/tests/knowledge/test_ingest_workflow_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-ingest.xml"
+      # Its first test waits for the engine's own cron, up to a minute.
+      - name: Folder card tasks on the engine (Python)
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        timeout-minutes: 8
+        run: >-
+          .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=300
+          packages/agent/tests/knowledge/folder_cards/test_folder_card_workflow_engine.py
+          --junitxml="$RUNNER_TEMP/hatchet-folder-cards.xml"
       - name: Research run on the engine (Python, worker subprocesses)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
         timeout-minutes: 8

@@ -11,6 +11,8 @@ import { findDocumentInOrg, markDocumentIngestFailed } from './repository'
 import { runBimExtraction } from '@/lib/bim/service'
 import type { BimExtractPayload, JobAttempt, OfficeRenditionPayload } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
+import { projectShelf } from './shelf'
+import { publishShelfChanged } from './shelf-live'
 import { localWorkOwnsRow, type LocalWorkOwnership } from './local-work-ownership'
 import { documentTypeOf } from './tag-vocabulary'
 import { mailOriginIngestFactsSchema, mailThreadIngestFactsSchema } from '@/lib/mail-thread/ingest-facts'
@@ -73,6 +75,12 @@ export async function runBimExtractJob(
       const reason = outcome.error ?? 'IFC extraction failed'
       await markDocumentIngestFailed(input.documentId, organizationId, reason, ownershipOf(input, attempt))
     }
+    // The model can be opened and asked from now on: tell the project's shelf,
+    // so a surface waiting for it reads its models again instead of asking
+    // every few seconds (`useProjectBimModels`). The failure above announces
+    // itself (`markDocumentIngestFailed`); a model outside a project has no
+    // shelf this job knows without reading the row again, and stays on the poll.
+    if (outcome.status === 'ready' && input.projectId) publishShelfChanged(organizationId, projectShelf(input.projectId))
   })
 }
 

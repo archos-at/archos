@@ -10,9 +10,8 @@
  *   - `prompt`: REQUIRED, 1–8000 chars, trimmed. It is what the job IS; the old
  *     shape derived it from the pinned skill, which made "ask this question
  *     every Monday" unexpressible without first inventing a skill for it.
- *   - `skillName`: OPTIONAL/nullable. Absent means no skill, and then
- *     `skillSnapshot` is NULL as well — the pair is enforced in the database by
- *     `jobs_skill_pair_check`, so no writer may produce one without the other.
+ *   - `skillName`: OPTIONAL/nullable. Absent means no skill, and then the
+ *     definition's `plan.skill` is `{}` (`emptySkillSnapshot`).
  *   - `output`: a plain enum over `JOB_OUTPUTS`. It is the USER's choice on the
  *     job, not something derived from skill metadata: `grid-execution` (and
  *     `grid-schedulable`) no longer exist.
@@ -95,12 +94,13 @@ export function withAlwaysOnSources(dataSources: string[] | null): string[] | nu
 }
 
 /**
- * What a skill-less job's run records in `job_runs.skill_snapshot`.
+ * What a skill-less job's run records in `task_runs.skill_snapshot`, and its
+ * definition in `plan.skill`.
  *
- * That column is NOT NULL even though `jobs.skill_snapshot` is nullable, so
- * run history keeps ONE shape to read: `{}` is the documented value for "no
- * skill was attached" (see the column comment in `schema/jobs.ts`). The cast is
- * the honest expression of that — an empty object really is what the row holds.
+ * The column is NOT NULL, so run history keeps ONE shape to read: `{}` is the
+ * documented value for "no skill was attached" (`schema/task-model.ts`). The
+ * cast is the honest expression of that — an empty object really is what the
+ * row holds.
  */
 export function emptySkillSnapshot(): SkillSnapshot {
   return {} as SkillSnapshot

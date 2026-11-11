@@ -1,0 +1,17 @@
+---
+# area: general
+fixes:
+  - >
+    Notifications in the inbox are now removed once they are older than the
+    longest keeping period of any notification type. This clean-up was planned
+    from the start but had never run.
+  - >
+    A notice that a document has a new version under another name can no
+    longer be lost when it could not be prepared at that moment.
+  - >
+    A mail sent to a project address whose original could not be read or
+    scanned now waits visibly for a decision, instead of being tried again in
+    the background every two weeks without anyone seeing it.
+  - >
+    The reminder for marks whose deadline is near is sent at 06:45 Vienna time
+    all year, also across the change to and from summer time.

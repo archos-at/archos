@@ -1054,25 +1054,19 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       expect(await claimable()).toContain(folder.plans)
     })
 
-    it('the purger gives a row stranded pending at the cap its last attempt back, and then claims it', async () => {
-      // What the release wrote before it was fixed, still in a database.
+    it('the database refuses a pending row at the cap, so no row waits for a claim that never comes (migration 0227)', async () => {
+      // What the release wrote before it was fixed. The purger's claim asks
+      // `attempts < 10`, so such a row would read as waiting for ever.
       await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
       await giveUpOn(folder.plans)
-      await withPlatformAccess('test: stranded by the old release', () =>
-        db.execute(sql`UPDATE deletion_queue SET status = 'pending', attempts = 11 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
-      )
-      expect(await claimable()).not.toContain(folder.plans)
 
-      const { reofferExhausted } = await import('../../purger/db.js')
-      const client = postgres(url as string, { prepare: false, max: 1 })
-      try {
-        expect(await reofferExhausted(client as never)).toBe(1)
-      } finally {
-        await client.end()
-      }
+      await expect(
+        withPlatformAccess('test: strand the row as the old release did', () =>
+          db.execute(sql`UPDATE deletion_queue SET status = 'pending', attempts = 11 WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
+        )
+      ).rejects.toThrow()
 
-      expect(await attemptsOf(folder.plans)).toEqual({ status: 'pending', attempts: 9 })
-      expect(await claimable()).toContain(folder.plans)
+      expect(await attemptsOf(folder.plans)).toEqual({ status: 'failed', attempts: 10 })
     })
 
     it('a purge finished in a request is not pulled back by the late answer of a second holder', async () => {

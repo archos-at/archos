@@ -1,4 +1,4 @@
-"""The dirty-folder queue: ancestors in one mark, the debounce, deepest first, one winner per claim, the budget."""
+"""The dirty set: ancestors in one mark, the debounce, deepest first, what a build leaves behind, the budget."""
 
 from __future__ import annotations
 
@@ -46,67 +46,95 @@ class TestMark:
         queue.mark("proj", ["A"], "org_1", now=T0, url=url)
         queue.mark("proj", ["A"], None, now=T0 + 1, url=url)
 
-        (claimed,) = queue.claim(5, now=T0 + queue.QUIET_SECONDS + 10, url=url)
-        assert claimed.organization_id == "org_1"
+        (folder,) = queue.due(now=T0 + queue.QUIET_SECONDS + 10, url=url)
+        assert folder.organization_id == "org_1"
 
 
-class TestClaim:
+def _due(url, now, collection=None):
+    return [folder.folder_path for folder in queue.due(collection, now=now, url=url)]
+
+
+class TestDue:
     def test_nothing_is_due_before_the_folder_went_quiet(self, url):
         queue.mark("proj", ["A"], now=T0, url=url)
 
-        assert queue.claim(5, now=T0 + queue.QUIET_SECONDS - 1, url=url) == []
-        assert [c.folder_path for c in queue.claim(5, now=T0 + queue.QUIET_SECONDS, url=url)] == ["A"]
+        assert _due(url, T0 + queue.QUIET_SECONDS - 1) == []
+        assert _due(url, T0 + queue.QUIET_SECONDS) == ["A"]
 
     def test_a_folder_that_never_goes_quiet_is_due_after_the_hard_cap(self, url):
         for minute in range(0, 61, 5):
             queue.mark("proj", ["A"], now=T0 + minute * 60, url=url)
 
-        assert [c.folder_path for c in queue.claim(5, now=T0 + queue.MAX_DIRTY_SECONDS, url=url)] == ["A"]
+        assert _due(url, T0 + queue.MAX_DIRTY_SECONDS) == ["A"]
 
-    def test_deepest_first_and_never_a_parent_while_a_child_is_queued(self, url):
+    def test_deepest_first_and_never_a_parent_while_a_child_is_dirty(self, url):
         queue.mark("proj", ["A/B/C", "D"], now=T0, url=url)
-        later = T0 + queue.QUIET_SECONDS + 1
 
-        first = [claim.folder_path for claim in queue.claim(10, now=later, url=url)]
-
-        assert first == ["A/B/C", "D"]
+        assert _due(url, T0 + queue.QUIET_SECONDS + 1) == ["A/B/C", "D"]
 
     def test_the_parent_follows_once_its_child_is_built(self, url):
         queue.mark("proj", ["A/B"], now=T0, url=url)
         later = T0 + queue.QUIET_SECONDS + 1
-        (child,) = queue.claim(10, now=later, url=url)
 
-        queue.finish(child, url=url)
+        queue.finish("proj", "A/B", later, url=url)
 
-        assert [claim.folder_path for claim in queue.claim(10, now=later + 1, url=url)] == ["A"]
+        assert _due(url, later + 1) == ["A"]
 
-    def test_a_claimed_row_is_claimed_once(self, url):
+    def test_one_collection_is_asked_for_its_own_folders(self, url):
+        queue.mark("proj", ["A"], now=T0, url=url)
+        queue.mark("other", ["B"], now=T0, url=url)
+        later = T0 + queue.QUIET_SECONDS + 1
+
+        assert _due(url, later, "other") == ["B"]
+        assert sorted(folder.collection for folder in queue.due(now=later, url=url)) == ["other", "proj"]
+
+    def test_reading_what_is_due_takes_nothing_however_long_the_build_runs(self, url):
+        """No claim, so nothing to go stale: a folder is due until its build says it is built.
+
+        The claim queue handed a folder out again 900 s after a claim, built or not. Who
+        builds is the engine's business now (one live run per collection, ``workflow``).
+        """
         queue.mark("proj", ["A"], now=T0, url=url)
         later = T0 + queue.QUIET_SECONDS + 1
 
-        assert len(queue.claim(5, now=later, url=url)) == 1
-        assert queue.claim(5, now=later + 1, url=url) == []
-        assert len(queue.claim(5, now=later + queue.CLAIM_STALE_SECONDS + 1, url=url)) == 1
+        assert _due(url, later) == _due(url, later + 3600) == ["A"]
+        queue.finish("proj", "A", later + 3600, url=url)
+        assert _due(url, later + 7200) == []
 
-    def test_a_folder_marked_while_it_was_built_stays_queued_with_a_new_quiet_period(self, url):
+    def test_a_folder_marked_while_it_was_built_stays_dirty_with_a_new_quiet_period(self, url):
         queue.mark("proj", ["A"], now=T0, url=url)
-        (claim,) = queue.claim(5, now=T0 + queue.QUIET_SECONDS + 1, url=url)
-        queue.mark("proj", ["A"], now=T0 + queue.QUIET_SECONDS + 30, url=url)
+        started = T0 + queue.QUIET_SECONDS + 1
+        queue.mark("proj", ["A"], now=started + 30, url=url)
 
-        queue.finish(claim, url=url)
+        queue.finish("proj", "A", started, url=url)
 
-        assert queue.queued("proj", url=url) == [("A", T0 + queue.QUIET_SECONDS + 30, T0 + queue.QUIET_SECONDS + 30)]
+        assert queue.queued("proj", url=url) == [("A", started + 30, started + 30)]
 
-    def test_a_failing_folder_is_retried_after_a_quiet_period_and_given_up_after_its_attempts(self, url):
-        queue.mark("proj", ["A"], now=T0, url=url)
-        now = T0
-        for attempt in range(1, queue.MAX_ATTEMPTS + 1):
-            now += queue.QUIET_SECONDS + 1
-            (claim,) = queue.claim(5, now=now, url=url)
-            assert claim.attempts == attempt
-            given_up = queue.fail(claim, now=now, url=url)
-            assert given_up is (attempt == queue.MAX_ATTEMPTS)
+    def test_a_folder_given_up_leaves_whatever_marked_it(self, url):
+        queue.mark("proj", ["A/B"], now=T0, url=url)
+
+        assert queue.drop("proj", "A/B", url=url) == 1
+        assert _paths(url) == ["A"]
+        assert queue.drop("proj", url=url) == 1
         assert _paths(url) == []
+
+    def test_a_deferred_collection_waits_out_a_quiet_period_again(self, url):
+        queue.mark("proj", ["A"], now=T0, url=url)
+        queue.mark("other", ["B"], now=T0, url=url)
+        failed_at = T0 + queue.MAX_DIRTY_SECONDS + 5
+
+        assert queue.defer("proj", now=failed_at, url=url) == 1
+
+        assert _due(url, failed_at + 1) == ["B"]
+        assert _due(url, failed_at + queue.QUIET_SECONDS, "proj") == ["A"]
+
+    def test_a_table_of_the_release_before_still_takes_marks(self, url):
+        """Its dead ``attempts`` column is ``NOT NULL`` with no database default: a mark must still fill it."""
+        from sqlalchemy import text
+
+        queue.mark("proj", ["A"], now=T0, url=url)
+        with queue._engine(url).begin() as conn:
+            assert conn.execute(text("SELECT attempts, claimed_at FROM folder_card_queue")).fetchall() == [(0, None)]
 
 
 class TestBudget:

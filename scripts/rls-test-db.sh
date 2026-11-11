@@ -4001,3 +4001,97 @@ check_in tf_0224 "SELECT count(*) FROM pg_proc WHERE proname IN ('knowledge_sour
 apply_in tf_0224 0224_knowledge_text_four_eyes.sql
 check_in tf_0224 "SELECT (pg_get_functiondef('knowledge_sources_unchecked(uuid)'::regprocedure) LIKE '%knowledge_text_counts_as_fetched%')::text" "true" "0224 applies again after its down"
 echo "==> 0224 text four eyes and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0226: what two retired schedulers left behind is dropped. The lane order of
+# the BFF claim queue (`bff_job_lane_turns`) has no reader since Hatchet
+# (ADR-0150); `jobs`, `job_runs` and `tasks` have none since 0086 copied their
+# rows into `task_definitions` and `task_runs` under the same ids. The rows
+# below are a job with its fire and its task, and the definition and run 0086
+# made of them: 0226 takes the old three and leaves the copies, the
+# conversation's link to the definition included. `bff_job_queue` stays. The
+# down gives the four tables back empty, with their policies, checks, foreign
+# keys and the partial due index, and 0226 applies again.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0226 dead scheduler schema and its down migration on dead_0226"
+migrate_before dead_0226 0226_drop_dead_scheduler_schema
+TABLES_0226="SELECT count(*) FROM pg_class WHERE relkind = 'r' AND relname IN ('bff_job_lane_turns', 'jobs', 'job_runs', 'tasks')"
+COPIES_0226="SELECT (SELECT count(*) FROM task_definitions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000226') || ':' || (SELECT count(*) FROM task_runs WHERE id = 'cccccccc-0000-4000-8000-000000000226') || ':' || (SELECT job_id FROM conversations WHERE id = 's_0226')"
+sql_in dead_0226 <<SQL
+INSERT INTO bff_job_lane_turns (lane, last_claimed_at) VALUES ('org_0226', now());
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'Dead 0226', 'user_1', 'proj_0226');
+INSERT INTO jobs (id, project_id, organization_id, name, prompt, output, schedule_cron, created_by)
+VALUES ('bbbbbbbb-0000-4000-8000-000000000226', 'aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'Montags', 'Was ist offen?', 'chat', '0 8 * * 1', 'user_1');
+INSERT INTO job_runs (id, schedule_id, project_id, organization_id, job_id, trigger, status, skill_snapshot)
+VALUES ('cccccccc-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226', 'aaaaaaaa-0000-4000-8000-000000000226', 'org_0226', 'backend-0226', 'schedule', 'submitted', '{}');
+INSERT INTO tasks (organization_id, project_id, kind, title, plan, requester_user_id, status, job_id, job_run_id, backend_job_id)
+VALUES ('org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'chat', 'Montags', '{"prompt": "Was ist offen?"}', 'user_1', 'succeeded',
+  'bbbbbbbb-0000-4000-8000-000000000226', 'cccccccc-0000-4000-8000-000000000226', 'backend-0226');
+INSERT INTO task_definitions (id, organization_id, project_id, kind, title, plan, requester_user_id, trigger, schedule_cron)
+VALUES ('bbbbbbbb-0000-4000-8000-000000000226', 'org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'chat', 'Montags', '{"prompt": "Was ist offen?"}', 'user_1', 'schedule', '0 8 * * 1');
+INSERT INTO task_runs (id, organization_id, project_id, definition_id, kind, title, plan, requester_user_id, trigger, status, skill_snapshot, backend_job_id)
+VALUES ('cccccccc-0000-4000-8000-000000000226', 'org_0226', 'aaaaaaaa-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226', 'chat', 'Montags',
+  '{"prompt": "Was ist offen?"}', 'user_1', 'schedule', 'succeeded', '{}', 'backend-0226');
+INSERT INTO conversations (id, organization_id, created_by, project_id, job_id)
+VALUES ('s_0226', 'org_0226', 'user_1', 'aaaaaaaa-0000-4000-8000-000000000226', 'bbbbbbbb-0000-4000-8000-000000000226');
+SQL
+check_in dead_0226 "$TABLES_0226" "4" "before 0226 the lane table and the three legacy tables exist"
+check_in dead_0226 "SELECT count(*) FROM pg_constraint WHERE confrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND conrelid NOT IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass)" "0" "no other table references the legacy three"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.sql
+check_in dead_0226 "$TABLES_0226" "0" "0226 drops the lane table and the three legacy tables"
+check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('idx_jobs_due', 'uniq_tasks_backend_job_id', 'idx_job_runs_backend_job_id')" "0" "0226 takes their indexes with them"
+check_in dead_0226 "SELECT count(*) FROM pg_class WHERE relname IN ('bff_job_queue', 'task_definitions', 'task_runs') AND relkind = 'r'" "3" "0226 leaves bff_job_queue and the task model"
+check_in dead_0226 "$COPIES_0226" "1:1:bbbbbbbb-0000-4000-8000-000000000226" "0226 leaves the definition, its run and the conversation's link"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.down.sql
+check_in dead_0226 "$TABLES_0226" "4" "0226 down gives the four tables back"
+check_in dead_0226 "SELECT (SELECT count(*) FROM jobs) + (SELECT count(*) FROM job_runs) + (SELECT count(*) FROM tasks) + (SELECT count(*) FROM bff_job_lane_turns)" "0" "0226 down gives them back empty"
+check_in dead_0226 "SELECT string_agg(c.relname || '=' || c.relrowsecurity::text || '/' || (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation'), ',' ORDER BY c.relname) FROM pg_class c WHERE c.relkind = 'r' AND c.relname IN ('bff_job_lane_turns', 'jobs', 'job_runs', 'tasks')" "bff_job_lane_turns=true/1,job_runs=true/1,jobs=true/1,tasks=true/1" "0226 down secures all four again"
+check_in dead_0226 "SELECT string_agg(conrelid::regclass || '.' || conname, ',' ORDER BY conrelid::regclass::text, conname) FROM pg_constraint WHERE conrelid IN ('jobs'::regclass, 'job_runs'::regclass, 'tasks'::regclass) AND contype IN ('c', 'f')" "job_runs.job_runs_conversation_id_organization_id_fkey,job_runs.job_runs_schedule_id_fkey,jobs.jobs_project_id_fkey,jobs.jobs_skill_pair_check,tasks.tasks_filing_status_known,tasks.tasks_job_id_fkey,tasks.tasks_job_run_id_fkey,tasks.tasks_project_id_fkey,tasks.tasks_review_complete,tasks.tasks_review_known,tasks.tasks_status_known" "0226 down gives the checks and foreign keys their names back"
+check_in dead_0226 "SELECT (pg_get_indexdef('idx_jobs_due'::regclass) LIKE '%(next_run_at) WHERE ((schedule_cron IS NOT NULL) AND enabled)')::text" "true" "0226 down gives the due index its predicate back"
+check_in dead_0226 "SELECT count(*) FROM pg_indexes WHERE tablename IN ('jobs', 'job_runs', 'tasks')" "15" "0226 down gives every index back"
+check_in dead_0226 "$COPIES_0226" "1:1:bbbbbbbb-0000-4000-8000-000000000226" "0226 down touches no copy"
+apply_in dead_0226 0226_drop_dead_scheduler_schema.sql
+check_in dead_0226 "$TABLES_0226" "0" "0226 applies again after its down"
+echo "==> 0226 dead scheduler schema and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# 0227: a `pending` deletion always has an attempt left (ADR-0179). The purger
+# claims a row only below its cap of ten, so a `pending` row at the cap waits
+# for ever; the purger used to repair one on every tick (`reofferExhausted`).
+# The migration repairs the rows from before it once, as that did, and adds the
+# CHECK NOT VALID; a row in any other status keeps its attempts. The down
+# removes the constraint, and 0227 applies again over a row stranded meanwhile.
+# `deletion-queue.spec.ts` holds the definition below to `DELETION_MAX_ATTEMPTS`.
+# ---------------------------------------------------------------------------
+echo "==> verifying 0227 pending deletions keep an attempt and its down migration on dq_0227"
+migrate_before dq_0227 0227_deletion_queue_pending_has_attempts
+DQ_0227="INSERT INTO deletion_queue (entity_type, entity_id, display_name, organization_id, requested_by, purge_after, status, attempts) VALUES ('folder'"
+DQ_0227_REST="'Ordner', 'org_0227', 'user_0227', now()"
+STATE_0227="SELECT string_agg(entity_id || '=' || status || '/' || attempts, ',' ORDER BY entity_id) FROM deletion_queue"
+sql_in dq_0227 <<SQL
+$DQ_0227, 'f-a-stranded', $DQ_0227_REST, 'pending', 11);
+$DQ_0227, 'f-b-waiting', $DQ_0227_REST, 'pending', 3);
+$DQ_0227, 'f-c-failed', $DQ_0227_REST, 'failed', 10);
+$DQ_0227, 'f-d-retried', $DQ_0227_REST, 'purging', 11);
+SQL
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
+check_in dq_0227 "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'deletion_queue_pending_has_attempts'" "CHECK (((status <> 'pending'::text) OR (attempts < 10))) NOT VALID" "0227: a pending row is below the attempt cap"
+check_in dq_0227 "$STATE_0227" "f-a-stranded=pending/9,f-b-waiting=pending/3,f-c-failed=failed/10,f-d-retried=purging/11" "0227 gives a stranded row its last attempt back and touches no other"
+refused_in dq_0227 "$DQ_0227, 'f-e-new', $DQ_0227_REST, 'pending', 10)" "deletion_queue_pending_has_attempts" "a pending row inserted at the cap"
+refused_in dq_0227 "UPDATE deletion_queue SET attempts = attempts + 1 WHERE entity_id = 'f-a-stranded'" "deletion_queue_pending_has_attempts" "a pending row counted up to the cap"
+refused_in dq_0227 "UPDATE deletion_queue SET status = 'pending' WHERE entity_id = 'f-d-retried'" "deletion_queue_pending_has_attempts" "a claim at the cap released as pending"
+sql_in dq_0227 <<SQL
+UPDATE deletion_queue SET status = 'purging', attempts = attempts + 1 WHERE entity_id = 'f-a-stranded';
+UPDATE deletion_queue SET status = 'failed' WHERE entity_id IN ('f-a-stranded', 'f-d-retried');
+UPDATE deletion_queue SET status = 'pending', attempts = 0 WHERE entity_id = 'f-d-retried';
+SQL
+check_in dq_0227 "$STATE_0227" "f-a-stranded=failed/10,f-b-waiting=pending/3,f-c-failed=failed/10,f-d-retried=pending/0" "0227 takes the last claim, its failure, and a hand-over that starts the attempts again"
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.down.sql
+check_in dq_0227 "SELECT count(*) FROM pg_constraint WHERE conname = 'deletion_queue_pending_has_attempts'" "0" "0227 down removes the constraint"
+sql_in dq_0227 <<SQL
+UPDATE deletion_queue SET status = 'pending', attempts = 12 WHERE entity_id = 'f-c-failed';
+SQL
+apply_in dq_0227 0227_deletion_queue_pending_has_attempts.sql
+check_in dq_0227 "SELECT status || '/' || attempts FROM deletion_queue WHERE entity_id = 'f-c-failed'" "pending/9" "0227 applies again after its down, repairing a row stranded meanwhile"
+echo "==> 0227 pending deletions keep an attempt and its down migration verified"

@@ -1,14 +1,16 @@
-"""The folder card queue: which folders changed, when they went quiet, and who builds them (ADR-0127).
+"""The folder card builder's state: which folders are dirty, and what it keeps per collection and card (ADR-0127).
 
-Three small tables in the agent database, beside ``document_metadata``:
+Four small tables in the agent database, beside ``document_metadata``. This module
+creates them at first use (``ensure_schema``); no migration owns them.
 
-* ``folder_card_queue``: one row per dirty folder, ``(collection, folder_path)``.
-  :func:`mark` writes a folder and every ancestor in one statement; a second mark
-  moves ``marked_at`` and keeps ``dirty_since``, so a burst of 200 uploads is one
-  row per folder, not 200. :func:`claim` hands out rows that have been quiet for
-  :data:`QUIET_SECONDS`, or dirty for :data:`MAX_DIRTY_SECONDS` whatever happens,
-  deepest first, and never a folder while a folder below it is still queued: a
-  card is built from its children's cards, so the children go first.
+* ``folder_card_queue``: the dirty set, one row per dirty folder,
+  ``(collection, folder_path)``. :func:`mark` writes a folder and every ancestor in
+  one statement; a second mark moves ``marked_at`` and keeps ``dirty_since``, so a
+  burst of 200 uploads is one row per folder, not 200. :func:`due` names the
+  folders that have been quiet for :data:`QUIET_SECONDS`, or dirty for
+  :data:`MAX_DIRTY_SECONDS` whatever happens, deepest first, and never a folder
+  while a folder below it is still dirty: a card is built from its children's
+  cards, so the children go first.
 * ``folder_card_collections``: the organization each collection belongs to, as the
   builder learned it, and when the collection was last reconciled. The BFF route
   takes the organization in its body; a mark made outside an ingest (a folder
@@ -21,10 +23,25 @@ Three small tables in the agent database, beside ``document_metadata``:
   card row: it is the builder's bookkeeping, nothing a reader needs, and no BFF
   migration is needed for it. Lost, it costs one full rebuild.
 
-A claim is optimistic: a conditional ``UPDATE`` that only one worker wins, so
-several ingest workers can run the loop at once. A worker that dies leaves its
-claim to go stale after :data:`CLAIM_STALE_SECONDS`. Plain SQL both SQLite (the
-tests) and PostgreSQL speak; times are epoch seconds.
+**This is no job queue any more** (ADR-0150). Until November 2026 the dirty set
+was also one: a claim (``claimed_at``), a reclaim of claims older than 900 s with
+no heartbeat, an attempt counter and a polling loop in every ingest worker.
+Hatchet does that now (``workflow``): it holds the run, retries it and counts its
+attempts, and one live run per collection is its idempotency key.
+
+Why the dirty set stays ours: it is a record three rules read, and none of them
+is an engine feature. The debounce (two clocks per folder, moved by every mark),
+the order (a parent waits for every dirty folder below it), and the dedupe of a
+burst into one row. A folder path is also a name a person chose, which Hatchet's
+database must never hold; the run carries the collection and the organization.
+
+``claimed_at`` and ``attempts`` are dead columns nothing reads. A table made
+before this change has them (``attempts`` is ``NOT NULL`` without a database
+default, so :func:`mark` still writes its zero), and a pod of the release before
+still claims with them while a rollout lasts. They go with a later ``ALTER TABLE``
+(``docs/deployment/hatchet.md``, "Folder cards").
+
+Plain SQL both SQLite (the tests) and PostgreSQL speak; times are epoch seconds.
 """
 
 from __future__ import annotations
@@ -51,25 +68,19 @@ MANIFEST_TABLE = "folder_card_manifests"
 QUIET_SECONDS = 600
 #: ... or once it has been dirty this long, however busy it stays.
 MAX_DIRTY_SECONDS = 3600
-#: A claim whose worker has not finished in this long is handed out again.
-CLAIM_STALE_SECONDS = 900
-#: Claims of one row before it is given up (the card, if any, is marked ``failed``).
-MAX_ATTEMPTS = 3
 
 _lock = threading.Lock()
 _ensured: set[str] = set()
 
 
 @dataclass(frozen=True)
-class Claim:
-    """One folder a worker now builds."""
+class Due:
+    """One folder that is due: quiet long enough, and nothing below it still dirty."""
 
     collection: str
     folder_path: str
     organization_id: str | None
     depth: int
-    claimed_at: float
-    attempts: int
 
 
 def ancestors(folder_path: str) -> list[str]:
@@ -135,6 +146,7 @@ def _create_tables(conn) -> None:
         Column("depth", Integer, nullable=False),
         Column("dirty_since", Float, nullable=False),
         Column("marked_at", Float, nullable=False),
+        # Dead since the build runs on Hatchet (the module docstring); nothing reads them.
         Column("claimed_at", Float, nullable=True),
         Column("attempts", Integer, nullable=False, default=0),
         Index("ix_folder_card_queue_marked", "marked_at"),
@@ -164,7 +176,7 @@ def _create_tables(conn) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Marks and claims
+# The dirty set
 # ---------------------------------------------------------------------------
 
 
@@ -216,75 +228,60 @@ def _has_queued_descendant(path: str, queued: Sequence[str]) -> bool:
     return any(other.startswith(prefix) for other in queued)
 
 
-def claim(limit: int, *, now: float | None = None, url: str | None = None) -> list[Claim]:
-    """Up to ``limit`` folders that are due, deepest first; each claimed by this call alone."""
+def due(collection: str | None = None, *, now: float | None = None, url: str | None = None) -> list[Due]:
+    """The folders that are due, of ``collection`` or of every collection: deepest first, then longest dirty.
+
+    Reading changes nothing: a folder stays in the set until :func:`finish` or
+    :func:`drop`. Who builds it, and that nobody else does meanwhile, is the
+    run's business (``workflow``: one live run per collection).
+    """
     from sqlalchemy import text
 
     stamp = time.time() if now is None else now
-    engine = _engine(url or db_url())
-    with engine.begin() as conn:
-        due = conn.execute(
+    scope = "AND collection = :collection " if collection else ""
+    with _engine(url or db_url()).begin() as conn:
+        rows = conn.execute(
             # Only module constants are interpolated; every value is bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
-                f"SELECT collection, folder_path, organization_id, depth, attempts FROM {QUEUE_TABLE} "
-                "WHERE (claimed_at IS NULL OR claimed_at < :stale) "
-                "AND (marked_at <= :quiet OR dirty_since <= :overdue) "
-                "ORDER BY depth DESC, dirty_since ASC LIMIT :scan"
+                f"SELECT collection, folder_path, organization_id, depth FROM {QUEUE_TABLE} "
+                f"WHERE (marked_at <= :quiet OR dirty_since <= :overdue) {scope}"
+                "ORDER BY depth DESC, dirty_since ASC, folder_path ASC"
             ),
-            {
-                "stale": stamp - CLAIM_STALE_SECONDS,
-                "quiet": stamp - QUIET_SECONDS,
-                "overdue": stamp - MAX_DIRTY_SECONDS,
-                "scan": max(1, limit) * 4,
-            },
+            {"quiet": stamp - QUIET_SECONDS, "overdue": stamp - MAX_DIRTY_SECONDS, "collection": collection},
         ).fetchall()
-        collections = sorted({row[0] for row in due})
-        queued: dict[str, list[str]] = {name: [] for name in collections}
-        for name in collections:
-            queued[name] = [
-                row[0]
-                for row in conn.execute(
-                    # Only module constants are interpolated; every value is bound.
-                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                    text(f"SELECT folder_path FROM {QUEUE_TABLE} WHERE collection = :collection"),
-                    {"collection": name},
-                ).fetchall()
-            ]
-    claims: list[Claim] = []
-    for collection, path, organization_id, depth, attempts in due:
-        if len(claims) >= limit:
-            break
-        if _has_queued_descendant(path, queued.get(collection, [])):
-            continue
-        with engine.begin() as conn:
-            won = conn.execute(
-                # Only module constants are interpolated; every value is bound.
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                text(
-                    f"UPDATE {QUEUE_TABLE} SET claimed_at = :now, attempts = attempts + 1 "
-                    "WHERE collection = :collection AND folder_path = :path "
-                    "AND (claimed_at IS NULL OR claimed_at < :stale)"
-                ),
-                {"now": stamp, "collection": collection, "path": path, "stale": stamp - CLAIM_STALE_SECONDS},
-            ).rowcount
-        if won == 1:
-            claims.append(Claim(collection, path, organization_id, int(depth), stamp, int(attempts or 0) + 1))
-    return claims
+        dirty = {name: _dirty_paths(conn, name) for name in sorted({row[0] for row in rows})}
+    return [
+        Due(name, path, organization_id, int(depth))
+        for name, path, organization_id, depth in rows
+        if not _has_queued_descendant(path, dirty[name])
+    ]
 
 
-def finish(claim_: Claim, *, url: str | None = None) -> None:
-    """The folder is built: the row goes, unless it was marked again while it was built."""
+def _dirty_paths(conn, collection: str) -> list[str]:
     from sqlalchemy import text
 
-    keys = {"collection": claim_.collection, "path": claim_.folder_path, "claimed_at": claim_.claimed_at}
+    rows = conn.execute(
+        # Only module constants are interpolated; every value is bound.
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        text(f"SELECT folder_path FROM {QUEUE_TABLE} WHERE collection = :collection"),
+        {"collection": collection},
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
+def finish(collection: str, folder_path: str, started: float, *, url: str | None = None) -> None:
+    """The folder is built from what it held at ``started``: the row goes, unless it was marked since."""
+    from sqlalchemy import text
+
+    keys = {"collection": collection, "path": folder_path, "started": started}
     with _engine(url or db_url()).begin() as conn:
         gone = conn.execute(
             # Only module constants are interpolated; every value is bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(
                 f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection AND folder_path = :path "
-                "AND marked_at <= :claimed_at"
+                "AND marked_at <= :started"
             ),
             keys,
         ).rowcount
@@ -294,38 +291,46 @@ def finish(claim_: Claim, *, url: str | None = None) -> None:
                 # Only module constants are interpolated; every value is bound.
                 # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(
-                    f"UPDATE {QUEUE_TABLE} SET claimed_at = NULL, attempts = 0, dirty_since = marked_at "
+                    f"UPDATE {QUEUE_TABLE} SET dirty_since = marked_at "
                     "WHERE collection = :collection AND folder_path = :path"
                 ),
                 keys,
             )
 
 
-def fail(claim_: Claim, *, now: float | None = None, url: str | None = None) -> bool:
-    """The build failed; whether the row was given up (out of attempts) rather than kept for a retry."""
+def drop(collection: str, folder_path: str | None = None, *, url: str | None = None) -> int:
+    """Take a folder out of the set whatever marked it, or every folder of ``collection``; how many went.
+
+    For a folder given up after its run's last attempt, and for a collection
+    whose organization lost the flag or cannot be named.
+    """
     from sqlalchemy import text
 
-    keys = {"collection": claim_.collection, "path": claim_.folder_path, "now": time.time() if now is None else now}
+    scope = "" if folder_path is None else " AND folder_path = :path"
     with _engine(url or db_url()).begin() as conn:
-        if claim_.attempts >= MAX_ATTEMPTS:
-            conn.execute(
-                # Only module constants are interpolated; every value is bound.
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                text(f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection AND folder_path = :path"),
-                keys,
-            )
-            return True
-        # A retry waits out a quiet period, so a provider outage is not a tight loop.
-        conn.execute(
+        return conn.execute(
             # Only module constants are interpolated; every value is bound.
             # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-            text(
-                f"UPDATE {QUEUE_TABLE} SET claimed_at = NULL, marked_at = :now "
-                "WHERE collection = :collection AND folder_path = :path"
-            ),
-            keys,
-        )
-    return False
+            text(f"DELETE FROM {QUEUE_TABLE} WHERE collection = :collection{scope}"),
+            {"collection": collection, "path": folder_path},
+        ).rowcount
+
+
+def defer(collection: str, *, now: float | None = None, url: str | None = None) -> int:
+    """Start both clocks of every dirty folder of ``collection`` again; how many rows.
+
+    What a run that failed for good leaves behind: its folders wait out a quiet
+    period before the next run, so a build that cannot pass is no tight loop.
+    """
+    from sqlalchemy import text
+
+    with _engine(url or db_url()).begin() as conn:
+        return conn.execute(
+            # Only module constants are interpolated; every value is bound.
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+            text(f"UPDATE {QUEUE_TABLE} SET marked_at = :now, dirty_since = :now WHERE collection = :collection"),
+            {"collection": collection, "now": time.time() if now is None else now},
+        ).rowcount
 
 
 def queued(collection: str, *, url: str | None = None) -> list[tuple[str, float, float]]:

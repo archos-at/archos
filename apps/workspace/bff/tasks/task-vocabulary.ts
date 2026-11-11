@@ -1,7 +1,7 @@
 /**
  * The task vocabularies, free of drizzle.
  *
- * `db/schema/tasks.ts` is where these belong by subject and the wrong place to
+ * `db/schema/task-model.ts` is where these belong by subject and the wrong place to
  * import them FROM: a client component that wants to label a status must not
  * drag the schema — and therefore the database — into the browser bundle
  * (`server-component-db-access.spec.ts` is what fails when it does). Same

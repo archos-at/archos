@@ -18,8 +18,9 @@ counts.
 
 From boot on it also moves what the retired claim queue holds onto Hatchet
 (``agent.knowledge.ingest_cutover``), every minute while that table has jobs,
-since API pods on the old release write it until the rollout ends; and it runs
-the folder card builder beside the task.
+since API pods on the old release write it until the rollout ends. The standard
+pool also serves the folder card builder's tasks (``agent.knowledge.folder_cards.workflow``),
+on durable slots of their own.
 
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
@@ -96,7 +97,6 @@ async def ingestor_lifespan() -> AsyncIterator:
         boot_timing.flush()
         stop = asyncio.Event()
         loops = [
-            _start_folder_cards(stop),
             asyncio.create_task(_liveness(stop), name="liveness"),
             asyncio.create_task(_cutover_loop(stop), name="ingest-cutover"),
         ]
@@ -147,17 +147,20 @@ async def _liveness(stop: asyncio.Event) -> None:
             await asyncio.wait_for(stop.wait(), timeout=_LIVENESS_EVERY_SECONDS)
 
 
-def _start_folder_cards(stop: asyncio.Event) -> asyncio.Task:
-    """The folder card builder's loop, beside the task.
+def _folder_cards(pool: str) -> dict:
+    """What the standard pool serves beside ingestion: the folder card builder, on durable slots of its own.
 
-    It always runs: whether an organization has cards is its ``folder-cards`` WorkOS
-    flag, which the builder asks the BFF per claimed folder (ADR-0127), so a
-    deployment where no organization has the flag finds an empty queue.
+    Always: whether an organization has cards is its ``folder-cards`` WorkOS flag,
+    which the builder asks the BFF per run (ADR-0127), so a deployment where no
+    organization has the flag finds nothing due. The high-memory pool serves none
+    of it: its one slot is a whole worker.
     """
-    from agent.knowledge.folder_cards import worker
+    if pool == ingest_workflow.HEAVY_POOL:
+        return {}
+    from agent.knowledge.folder_cards import workflow
 
-    logger.info("Ingest worker builds folder cards")
-    return asyncio.create_task(worker.loop(stop), name="folder-cards")
+    logger.info("Ingest worker serves the folder card tasks")
+    return {"also": workflow.workflows(), "durable_slots": workflow.WORKER_SLOTS}
 
 
 def main() -> None:
@@ -169,7 +172,8 @@ def main() -> None:
     require_direct_dsns(listen=False)
     assert_no_latent_vendor()
     assert_residency()  # no model call outside the cell's zone (ADR-0167)
-    ingest_workflow.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=_pool())
+    pool = _pool()
+    ingest_workflow.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=pool, **_folder_cards(pool))
 
 
 if __name__ == "__main__":

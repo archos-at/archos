@@ -3,12 +3,11 @@ import { integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzl
 /**
  * The BFF's durable background-work queue (ADR-0079, migration 0104).
  *
- * One row is one job a `bff-jobs` replica claims and runs. The claim itself
- * (fair across lanes, `FOR UPDATE SKIP LOCKED`, heartbeat, release, dead rows)
- * is SQL in `workers/job-queue.js`, because the runner is a plain Node process
- * with no build step and the BFF must not carry a second copy of it. This file
- * is the typed shape of the rows for the BFF's own side: enqueueing, and
- * reading a job's state back.
+ * One row is one job's record: what was asked, how far it got, and who holds
+ * it. A `bff-job` run on Hatchet takes the row and runs one slice (ADR-0150);
+ * every query on it is in `bff/jobs-queue/repository.ts`. The fair claim that
+ * used to order the lanes, and its `bff_job_lane_turns` table, are gone
+ * (migration 0226): Hatchet's concurrency key is the fairness.
  *
  * `lane` is the organization id: the unit of fairness AND of tenancy, which is
  * why the table's policy compares it to `current_org()`.
@@ -43,12 +42,6 @@ export const bffJobQueue = pgTable('bff_job_queue', {
   notBefore: timestamp('not_before', { withTimezone: true }),
   /** When the job went dead, which its retention counts from; set exactly when `status = 'dead'`. */
   deadAt: timestamp('dead_at', { withTimezone: true }),
-})
-
-/** When each lane was last served: the claim's second ordering key. */
-export const bffJobLaneTurns = pgTable('bff_job_lane_turns', {
-  lane: text('lane').primaryKey(),
-  lastClaimedAt: timestamp('last_claimed_at', { withTimezone: true }),
 })
 
 export type BffJobRow = typeof bffJobQueue.$inferSelect

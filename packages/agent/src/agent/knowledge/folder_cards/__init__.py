@@ -7,9 +7,10 @@ Tier 0 (counts, Dokumentart mix, current Fassung) is computed live by
   calls them where every change to a document's facts already arrives
   (``_mirror_facts``, so ``register_summary`` and every retag, reclassification and
   move; the folder rewrite; the delete). Each marks the folder and its ancestors in
-  ``queue``, and never raises.
-* ``worker.run_once`` claims the folders that went quiet, deepest first, and builds
-  each card (``inputs`` → ``build`` → the BFF route through ``client``), skipping a
+  ``queue`` (the dirty set), and never raises.
+* ``workflow`` runs the builder on Hatchet: a sweep every minute starts one run per
+  collection with a folder that went quiet, and ``worker.build_collection`` builds
+  each card, deepest first (``inputs`` → ``build`` → the BFF route through ``client``), skipping a
   folder whose input hash did not change and stopping the climb when the new abstract
   is the old one. A card that exists is updated from the diff of its inputs against
   the manifest it was written from (``incremental``), with a full rebuild as the
@@ -18,7 +19,7 @@ Tier 0 (counts, Dokumentart mix, current Fassung) is computed live by
 
 All of it is behind the ``folder-cards`` WorkOS flag, per organization (an
 entitlement, off until an operator targets the organization; :mod:`.gate` asks the
-BFF). Off, a hook marks nothing, the builder drops what is queued and the listing
+BFF). Off, a hook marks nothing, the builder drops what is dirty and the listing
 makes no read.
 """
 

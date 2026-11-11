@@ -258,7 +258,10 @@ Verläufe. Each batch is:
 `mail-import-list`) is a keyset page, newest first: 20 by default, at most 50
 (`MAIL_IMPORT_LIST_PAGE_SIZE`, `MAIL_IMPORT_LIST_PAGE_MAX` in
 `lib/mail-import/types.ts`), with `nextCursor` for the next. The import dialog
-reads the first page. Each import shows `threadsCreated`, `threadsAppended`
+reads the first page, and while an import runs reads it again when the
+project's shelf says `shelf.changed` (the job announces each slice and its
+end, `announceToShelf` in `lib/mail-import/job.ts`) and once a minute otherwise
+(`useMailImports`). Each import shows `threadsCreated`, `threadsAppended`
 (Verläufe that existed before the import and took at least one of its mails)
 and `alreadyInProject` (`MailImportView`, columns of `mail_imports`, migration
 0196). Whether the person already has an import open is asked

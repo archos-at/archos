@@ -28,7 +28,6 @@ const {
   markFailedPermanent,
   markPurged,
   reapStranded,
-  reofferExhausted,
   releaseHeld,
 } = require('./db')
 const { createSql } = require('../workers/app-database')
@@ -172,16 +171,6 @@ function createPurger({ sql, deps, streak }) {
       })
       if (reaped > 0) {
         console.warn(`[purger] reaped ${reaped} row(s) stranded in 'purging' → 'failed' (see last_error)`)
-      }
-      // A 'pending' row with no attempts left is one the claim below never
-      // takes: it would wait for ever while reading as waiting.
-      const reoffered = await reofferExhausted(sql).catch((e) => {
-        outage = outage ?? databaseOutage(e)
-        if (!databaseOutage(e)) console.error('[purger] failed to re-offer exhausted rows:', e)
-        return 0
-      })
-      if (reoffered > 0) {
-        console.warn(`[purger] re-offered ${reoffered} 'pending' row(s) that had no attempts left, for one more purge`)
       }
       // Drain everything due, one at a time.
       //

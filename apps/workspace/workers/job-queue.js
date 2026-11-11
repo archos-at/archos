@@ -64,7 +64,6 @@ async function eraseProject(tx, lane, projectId) {
  */
 async function eraseLane(tx, lane) {
   const rows = await tx`DELETE FROM bff_job_queue WHERE lane = ${lane} RETURNING job_id`
-  await tx`DELETE FROM bff_job_lane_turns WHERE lane = ${lane}`
   return rows.length
 }
 

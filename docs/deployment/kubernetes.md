@@ -760,7 +760,7 @@ Record of runs: none yet.
   (`rereads: … deferred <n>` in its log line counts those left for the next). Alert on the warning
   rate, and on any `sender_unchecked` or `reader_fault_at` row
   (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
-- **Retention sweeps** run in the scheduler's background-work call, one log
+- **Retention sweeps** run in the `inbound-mail-sweep` cron task, one log
   line per sweep that acted (§6.3c).
 - **The scanner's image.** The ClamAV pin lives in `deploy/pulumi/src/config.ts`
   (and the Compose service); read it there rather than from a doc. trivy's

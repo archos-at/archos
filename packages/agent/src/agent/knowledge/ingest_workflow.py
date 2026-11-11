@@ -69,6 +69,7 @@ import os
 import threading
 import time
 from collections.abc import Callable
+from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC
 from datetime import datetime
@@ -535,8 +536,14 @@ def serve(
     *,
     slots: int,
     pool: str = STANDARD_POOL,
+    also: Sequence[Any] = (),
+    durable_slots: int | None = None,
 ) -> None:
     """Run the ingest worker of ``pool``: ``slots`` steps at once, until SIGTERM has drained them. Blocks.
+
+    ``also`` are further workflows the worker serves beside ingestion, and
+    ``durable_slots`` the slots their durable tasks share, counted apart from
+    ``slots`` (the folder card builder: ``folder_cards.workflow``).
 
     The standard pool serves ``ingest-document``, the high-memory pool (``HEAVY_POOL``)
     ``ingest-document-heavy``, labelled ``pool=highmem`` so the heavy ``index``
@@ -563,7 +570,8 @@ def serve(
         f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,
         slots=heavy_worker_slots() if heavy else max(1, slots),
         labels={POOL_LABEL: pool},
-        workflows=[ingest_workflow(heavy)],
+        durable_slots=durable_slots,
+        workflows=[ingest_workflow(heavy), *also],
         lifespan=worker_lifespan,
     )
     worker.start()

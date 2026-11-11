@@ -38,7 +38,9 @@ export const DELETION_MAX_ATTEMPTS = 10
  * with no traces owed (`closeErased`, `purger/db.js`).
  *
  * Attempts are not a state: a `pending` row always has attempts left, and the
- * one that has none is `failed`.
+ * one that has none is `failed`. The database refuses the other reading
+ * (`deletion_queue_pending_has_attempts`, migration 0227): the purger claims a
+ * row only below the cap, so a `pending` row at it would wait for ever.
  */
 export const DELETION_LIFECYCLE = defineLifecycle<
   DeletionStatus,
@@ -78,6 +80,11 @@ export const deletionQueue = pgTable(
     statusKnown: check(
       'deletion_queue_status_known',
       sql`${table.status} IN (${sql.raw(DELETION_STATUSES.map((status) => `'${status}'`).join(', '))})`
+    ),
+    // Migration 0227; the cap comes from the constant so the CHECK and the writers cannot drift.
+    pendingHasAttempts: check(
+      'deletion_queue_pending_has_attempts',
+      sql`${table.status} <> 'pending' OR ${table.attempts} < ${sql.raw(String(DELETION_MAX_ATTEMPTS))}`
     ),
   })
 )

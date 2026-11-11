@@ -1,0 +1,43 @@
+-- 0226: drop what two retired schedulers left behind. None of it has a reader
+-- or a writer anywhere in the repository (TypeScript, the plain-JS workers and
+-- purger, Python, scripts, raw SQL).
+--
+-- `bff_job_lane_turns` (0104) was the second ordering key of the BFF claim
+-- queue's fair claim: when each lane was last served. The claim SQL left with
+-- the runner when the BFF's jobs moved to Hatchet (ADR-0150), whose
+-- concurrency key is the fairness. Since then nothing has written a row and
+-- nothing has read one; the only statement left was a DELETE in `eraseLane`
+-- (`workers/job-queue.js`), which no caller reaches. `bff_job_queue` stays: it
+-- is each job's record.
+--
+-- `jobs`, `job_runs` (0041, renamed by 0043) and `tasks` (0075) were the
+-- model before 0086: a timer, its fires, and the delegated work. 0086 copied
+-- every row into `task_definitions` and `task_runs`, reusing the ids (a job's
+-- definition has the job's id, a job-spawned run the `job_runs` id, a
+-- delegated task's definition and run the task's id), and repointed
+-- `conversations.job_id` to `task_definitions`. Its text promised that "0087
+-- drops the old tables"; 0087 became something else and no migration did.
+-- Since the release that shipped 0086 nothing has written or read them; the
+-- last code that named one was a lookup with no caller. This is that drop.
+--
+-- What 0086 did not carry is nothing a writer ever produced: `tasks.budget_usd`
+-- was never written, `tasks.deadline_at` only by a delegated task (it is the
+-- definition's `due_at`), and `job_runs.detail` is the run's `error` wherever
+-- no task recorded one. A conversation link the stricter composite foreign key
+-- on `task_runs` could not validate was dropped by 0086 itself.
+--
+-- No other table references the three (the foreign keys among them go with
+-- them; `tasks` first, then `job_runs`, then `jobs`). The data migrations that
+-- kept rewriting their rows after 0086 (0164, 0167, 0169, 0187) still apply:
+-- they run before this one.
+--
+-- Lossy: the down recreates the four tables empty, secured as they were. The
+-- lane turns were scheduling state of a claim that is gone; the rows of the
+-- other three live on in `task_definitions` and `task_runs`.
+DROP TABLE IF EXISTS "bff_job_lane_turns";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "tasks";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "job_runs";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "jobs";

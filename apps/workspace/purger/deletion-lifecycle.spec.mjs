@@ -57,7 +57,6 @@ const WRITERS = {
   markFailedPermanent: (sql) => queue.markFailedPermanent(sql, CLAIM, 'boom'),
   closeErased: (sql) => queue.closeErased(sql),
   reapStranded: (sql) => queue.reapStranded(sql),
-  reofferExhausted: (sql) => queue.reofferExhausted(sql),
 }
 
 describe('the purger’s queue writes follow the declared deletion lifecycle', () => {

@@ -507,9 +507,11 @@ confirms per folder. Every control below is that proposal
 Langfuse score. A decided entry says what happened („In „Bescheide“
 verschoben.“, „Bleibt, wo es ist.“) until the shelf re-reads it away.
 
-While an upload is on screen the shelf asks for its open suggestions every
-4 seconds (`useFilingSuggestions`); otherwise when the shelf is shown and after
-a change.
+While an upload is on screen the shelf reads its open suggestions again when
+its live channel says so (`useFilingSuggestions`): the filing job publishes
+`shelf.changed` once it has proposed or withdrawn something
+(`reviewUploadFiling`), and a poll once a minute stays under it for a lost
+hint. Otherwise they are read when the shelf is shown and after a change.
 
 **The chip, on the file.** The suggestion reaches the person where the file is:
 a small pill on the left of the card's footer, right after the name in the list
@@ -1024,6 +1026,31 @@ never drains the shelf for the default view.
   `lib/documents/shelf-live.spec.ts` fails a module that writes `documents` or
   `project_folders` without announcing it, unless it is listed with the module
   that does.
+- **Waiting for background work listens to the same channel.** A surface that
+  waits for work on a shelf does not ask on a fast clock; it opens the shelf's
+  channel while something is in flight (`useShelfLive` with `enabled`), reads
+  its own route again on the hint, and keeps a poll once a minute because a
+  hint can be lost (a dropped stream, a pod without Dragonfly). The route stays
+  the only source of what is shown and the only place access is decided: the
+  hint names nothing, and reaches exactly the people who may read the shelf
+  (`project:view`, which is also the gate of each route below).
+
+  | Waiting for | The server says `shelf.changed` when | The surface |
+  |---|---|---|
+  | An upload's read (project or office shelf) | a read settles: `reconcileDocumentStatuses`, reached at once by the ingest worker's settle push | `useUploadOrchestrator` → `UploadOrchestrator.askNow()`: the job's status and the watched rows are read at once |
+  | A filing suggestion | the filing job proposed or withdrew one (`reviewUploadFiling`) | `useFilingSuggestions` |
+  | A project's IFC model | its extraction is ready (`runBimExtractJob`) or failed (`markDocumentIngestFailed`) | `useProjectBimModels` |
+  | A mail import | a slice filed its mails, and the import ended (`lib/mail-import/job.ts`) | `useMailImports`, while the dialog is open |
+
+  Four waits still run on a clock, each for a reason. A chat's attachments
+  (`pollSessionDocuments`, 5 s) are on no shelf, so no channel carries their
+  settle. One document's model (`useDocumentBimModel`, 4 s) knows its document
+  and not its shelf. The Projekterfassung (`useIntake`, 5 s while reading) and
+  the E-Mail-Eingang's count (`useInboundMailWaiting`, once a minute) change
+  with the project, not the shelf: the server already says so to the agent
+  door (`publishProjectChanged`), and no browser channel carries that yet. One
+  `project:<id>` hint channel fed by `publishProjectChanged` would serve both;
+  it is a new channel, so a new authorization decision (`realtime/registry.ts`).
 - **Folder reads cross safely.** Only the newest read of the folder tree
   commits, and a re-read that fails keeps the tree on screen; before, an older
   answer landing last took a just-made folder off the screen, and one failed

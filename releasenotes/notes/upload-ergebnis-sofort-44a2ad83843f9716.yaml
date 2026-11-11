@@ -1,0 +1,7 @@
+---
+improvements:
+  - >
+    An upload to a project or the office shelf now shows as read the moment
+    reading finishes, instead of up to five seconds later. The same holds for
+    a filing suggestion on a fresh upload, an IFC model becoming ready in a
+    project, and the progress of a mail import while its dialog is open.
