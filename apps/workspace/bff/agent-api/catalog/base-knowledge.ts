@@ -89,10 +89,10 @@ export const baseKnowledgeOperations = [
     domain: 'knowledge',
     summary: 'Upload a newer edition of a base-knowledge entry',
     description:
-      'Uploads the newer edition into the entry’s folder and proposes it with the entry’s kind, title, territory, ' +
-      'authorities and licence class; its edition is read from the file name. The earlier entry stays (a project may ' +
-      'still need it) and gets a check that found a newer edition. Send `body.files[0]` as { name, mimeType, ' +
-      'contentBase64 }. Needs org:office_shelf:manage.',
+      'Uploads the newer edition into the entry’s folder as a second edition of the same work (its edition read from ' +
+      'the file name), proposed until a person confirms it. Answers then take the edition in force on the project’s ' +
+      'reference day; the earlier entry stays for projects filed before, with a check that found a newer edition. ' +
+      'Send `body.files[0]` as { name, mimeType, contentBase64 }. Needs org:office_shelf:manage.',
     method: 'POST',
     path: '/api/base-knowledge/[entryId]/editions',
     params: entryParamsSchema,
