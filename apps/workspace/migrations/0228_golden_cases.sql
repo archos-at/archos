@@ -26,13 +26,23 @@
 --
 -- ## RLS
 --
--- All three are platform-private. A case's body is a platform row
+-- All of it is platform-private. A case's body is a platform row
 -- (`organization_id` NULL by CHECK), which no tenant's `current_org()` meets;
 -- the run tables are `false` for the runtime role, as the change-request tables
 -- are. A run names the organization it asked in as `asked_in`, never as
 -- `organization_id`: no tenant reads a run, the platform organization included.
 --
--- Expand-only: two CHECKs widened by one word, three tables added.
+-- The case's record and revision rows are the exception that needed work:
+-- `knowledge_records` and `knowledge_revisions` carry 0205/0211's layered read,
+-- under which a released platform row is readable by any office entitled to the
+-- country, so an office would have read `golden_case:<key>`, its provenance
+-- notes and `created_by`. Both policies are restated below with
+-- `type <> 'golden_case'` in the platform branch. The platform's own access is
+-- the BYPASSRLS platform role (`withPlatformAccess`), which the policy does not
+-- touch.
+--
+-- Expand-only: two CHECKs widened by one word, three tables added, two read
+-- policies narrowed to the types an office was never meant to see.
 
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 --> statement-breakpoint
@@ -127,3 +137,13 @@ SELECT secure_table('knowledge_golden_case_revisions', 'organization_id = curren
 SELECT secure_table('knowledge_golden_runs', 'false');
 --> statement-breakpoint
 SELECT secure_table('knowledge_golden_run_cases', 'false');
+--> statement-breakpoint
+-- 0211's layered read of records, minus the platform-private type.
+SELECT secure_table('knowledge_records',
+  'organization_id = current_org() OR (organization_id IS NULL AND type <> ''golden_case'' AND head_revision_id IS NOT NULL '
+  'AND (knowledge_country_entitled(country_id) OR knowledge_reached_by_relation(id)))');
+--> statement-breakpoint
+-- 0205's layered read of revisions, minus the same type (named here too: the record subquery alone would hide it only through the record policy above).
+SELECT secure_table('knowledge_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id AND r.type <> ''golden_case''))');

@@ -35,10 +35,13 @@ import { approvedRequest, publishedRequest } from '../platform/testing/lifecycle
 
 const fixed = vi.hoisted(() => ({ platformOrg: `org_platform_golden_${Date.now().toString(36)}` }))
 /** The asks the stand-in answer path holds, by ask id. */
+/** The ask door's switch for the platform organization, which a run needs. */
+const askSwitch = vi.hoisted(() => ({ on: true }))
 const asks = vi.hoisted(() => ({ byId: new Map<string, Record<string, unknown>>(), refuse: null as string | null }))
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: async () => true }))
+vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()), isAgentAskEnabled: () => askSwitch.on }))
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: async () => undefined }))
 vi.mock('@/lib/authz/platform', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/authz/platform')>()
@@ -138,6 +141,15 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
     )
   })
 
+  it('refuses a run while the ask door is off for the platform organization, before asking anything', async () => {
+    askSwitch.on = false
+    try {
+      await expect(run.startGoldenRun(operator, { countryId: COUNTRY })).rejects.toMatchObject({ status: 409, details: { reason: 'golden-run-ask-off' } })
+    } finally {
+      askSwitch.on = true
+    }
+  })
+
   it('does not run a country the platform organization is not entitled to', async () => {
     await expect(run.startGoldenRun(operator, { countryId: COUNTRY })).rejects.toMatchObject({ status: 409, details: { reason: 'golden-run-not-entitled' } })
   })
@@ -225,5 +237,22 @@ describe.skipIf(!url)('golden cases as records, and the golden run', () => {
       const platform = await context.withPlatformAccess('golden spec', () => db.execute<{ n: string }>(sql`SELECT count(*) AS n FROM ${sql.identifier(table)}`))
       expect(Number(platform[0]?.n), table).toBeGreaterThan(0)
     }
+  })
+
+  it('shows an entitled office no golden case row in the record or revision tables', async () => {
+    const office = `org_golden_office_${RUN}`
+    await entitlements.setEntitlement(office, COUNTRY, true, { by: expert.userId, decisionSource: 'app' })
+    const count = (query: ReturnType<typeof sql>) => db.execute<{ n: string }>(query).then((rows) => Number(rows[0]?.n))
+    const records = sql`SELECT count(*) AS n FROM knowledge_records WHERE type = 'golden_case'`
+    const revisions = sql`SELECT count(*) AS n FROM knowledge_revisions WHERE record_id IN (SELECT id FROM knowledge_records WHERE type = 'golden_case')`
+    const direct = sql`SELECT count(*) AS n FROM knowledge_revisions rev WHERE rev.record_id LIKE 'golden_case:%'`
+    const platformRecords = await context.withPlatformAccess('golden spec', () => count(records))
+    expect(platformRecords, 'the cases exist').toBeGreaterThan(0)
+    // The office is entitled: it reads the country's other platform records, and no golden case of them.
+    for (const query of [records, revisions, direct]) {
+      expect(await context.withTenant({ organizationId: office }, () => count(query))).toBe(0)
+    }
+    const heads = sql`SELECT count(*) AS n FROM knowledge_revisions WHERE record_id IN (SELECT id FROM knowledge_records WHERE type = 'golden_case')`
+    expect(await context.withPlatformAccess('golden spec', () => count(heads))).toBeGreaterThan(0)
   })
 })

@@ -29,6 +29,17 @@ def test_scores_a_recorded_answer_as_the_door_does(entry: dict) -> None:
     assert golden_eval.score(CASES[entry["case"]], entry["answer"]) == entry["expect"]
 
 
+def test_a_case_nothing_decides_is_unverified_not_passed() -> None:
+    case = {
+        "expected": {"values": [{"label": "distance", "anyOf": ["40 m"], "grounding": "unconfirmed"}]},
+        "mustNot": [],
+    }
+    scored = golden_eval.score(case, {"text": "At most 40 m.", "sources": []})
+    assert scored["unverified"] is True
+    assert scored["passed"] is False
+    assert scored["scores"]["golden-case-passed"] is False
+
+
 @pytest.mark.parametrize("baseline", ["B1", "B9", "B10", "B11"])
 def test_sees_high_confidence_with_an_open_point(baseline: str) -> None:
     entry = next(entry for entry in PARITY["answers"] if entry["baseline"] == baseline)

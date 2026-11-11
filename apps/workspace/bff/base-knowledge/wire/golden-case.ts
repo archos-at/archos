@@ -174,6 +174,8 @@ export interface GoldenCaseResult {
   scores: GoldenScores
   /** Expectations a reviewer has not confirmed yet. */
   unconfirmed: number
+  /** Nothing decided the case (every expectation unconfirmed, no must-not): it is neither passed nor failed. */
+  unverified?: boolean
   confidence: AnswerConfidenceLevel | null
   /** Server seconds from the ask to its answer. */
   seconds: number | null
@@ -219,7 +221,7 @@ export interface GoldenRunView {
   startedAt: string
   finishedAt: string | null
   /** Cases by state, and how many passed; `unconfirmed` counts expectations no reviewer confirmed. */
-  summary: { cases: number; pending: number; asked: number; settled: number; passed: number; failed: number; unanswered: number; unconfirmed: number }
+  summary: { cases: number; pending: number; asked: number; settled: number; passed: number; failed: number; unverified: number; unanswered: number; unconfirmed: number }
   /** Median over the settled cases; null while none has one. */
   medianSeconds: number | null
   medianCostUsd: number | null

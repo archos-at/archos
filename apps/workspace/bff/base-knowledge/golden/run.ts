@@ -26,6 +26,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { askAgent, getAsk } from '@/lib/agent-asks/service'
 import { isTerminalAskState, type AskView } from '@/lib/agent-asks/ask-wire'
 import type { AuthorizedSession, UserSession } from '@/lib/auth/types'
+import { isAgentAskEnabled } from '@/lib/authz/feature-flags'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import { findMessageInConversation } from '@/lib/conversations/repository'
@@ -79,6 +80,12 @@ async function casesFor(body: { countryId: string; changeRequestId?: string }): 
 /** Open a run of a country's golden cases and ask the first of them. */
 export async function startGoldenRun(session: UserSession | null, body: { countryId: string; changeRequestId?: string; caseKeys?: string[] }): Promise<GoldenRunView> {
   const operator = await requireOperator(session)
+  // Every case is asked as an agent ask: with the switch off each would settle as unanswered, so refuse the run instead.
+  if (!isAgentAskEnabled(operator)) {
+    throw new ConflictError('A golden run asks through the ask door, which is off for your organization (the agent-ask feature flag). Switch it on for the platform organization, then run again.', {
+      reason: 'golden-run-ask-off',
+    })
+  }
   const countries = await readOrganizationCountries(operator.organizationId)
   if (!countries.entitled.some((entry) => entry.countryId === body.countryId)) {
     throw new ConflictError(`Your organization is not entitled to ${body.countryId}, so its turns read none of that law. Entitle it with platform-org-country-entitle, then run again.`, {
@@ -222,6 +229,7 @@ async function settle(operator: AuthorizedSession, state: GoldenRunState, entry:
     checks: scored.checks,
     scores: { ...scored.scores, ...(seconds === null ? {} : { 'golden-seconds': seconds }), ...(costUsd === null ? {} : { 'golden-cost-usd': costUsd }) },
     unconfirmed: scored.unconfirmed,
+    unverified: scored.unverified,
     confidence: view.answer.confidence?.level ?? null,
     seconds,
     costUsd,
@@ -271,7 +279,8 @@ export function viewOf(state: GoldenRunState): GoldenRunView {
       asked: cases.filter((entry) => entry.state === 'asked').length,
       settled: settled.length,
       passed: settled.filter((entry) => entry.passed === true).length,
-      failed: settled.filter((entry) => entry.passed === false).length,
+      failed: settled.filter((entry) => entry.passed === false && !entry.result?.unverified).length,
+      unverified: settled.filter((entry) => entry.result?.unverified === true).length,
       unanswered: settled.filter((entry) => entry.failure !== null).length,
       unconfirmed: results.reduce((sum, result) => sum + result.unconfirmed, 0),
     },

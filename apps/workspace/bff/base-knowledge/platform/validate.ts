@@ -304,6 +304,10 @@ function goldenCaseProblems(record: ProposedRecord): Problem[] {
   if (values.length === 0 && !edition && citations.length === 0 && record.mustNot.length === 0) {
     found.push(kitProblem('KC-1', record, '/expected', 'states nothing an answer is held to.', hint))
   }
+  const decides = [...values.map((value) => value.grounding), ...(edition ? [edition.grounding] : []), ...citations.map((citation) => citation.grounding)].some((grounding) => grounding !== 'unconfirmed')
+  if (!decides && record.mustNot.length === 0 && values.length + citations.length + (edition ? 1 : 0) > 0) {
+    found.push(kitProblem('KC-1', record, '/expected', 'has only unconfirmed expectations and no must-not, so no run could pass or fail it.', 'Confirm one expectation against its source (grounding records or text), or add a must-not.'))
+  }
   const ids = record.mustNot.map((rule) => rule.id)
   const twice = ids.findIndex((id, index) => ids.indexOf(id) !== index)
   if (twice >= 0) found.push(kitProblem('KC-1', record, `/mustNot/${twice}/id`, `the must-not "${ids[twice]}" is named twice.`, hint))

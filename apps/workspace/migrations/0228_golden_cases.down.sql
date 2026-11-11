@@ -15,3 +15,10 @@ ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_platform_types
 ALTER TABLE "knowledge_records" DROP CONSTRAINT IF EXISTS knowledge_records_type_known;
 ALTER TABLE "knowledge_records" ADD CONSTRAINT knowledge_records_type_known
   CHECK ("type" IN ('work', 'edition', 'manifestation', 'ruleset', 'territory', 'authority', 'relation', 'source'));
+-- Put back the layered reads of 0211 (records) and 0205 (revisions).
+SELECT secure_table('knowledge_records',
+  'organization_id = current_org() OR (organization_id IS NULL AND head_revision_id IS NOT NULL '
+  'AND (knowledge_country_entitled(country_id) OR knowledge_reached_by_relation(id)))');
+SELECT secure_table('knowledge_revisions',
+  'organization_id = current_org() OR (organization_id IS NULL AND knowledge_revision_released(revision_id) '
+  'AND EXISTS (SELECT 1 FROM knowledge_records r WHERE r.id = record_id))');

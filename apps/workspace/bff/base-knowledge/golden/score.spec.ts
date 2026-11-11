@@ -122,8 +122,17 @@ describe('scoreGoldenCase', () => {
     const golden: GoldenCase = { ...base, expected: { ...base.expected, values: [{ label: 'distance', anyOf: ['35 m'], grounding: 'unconfirmed' }] } }
     const scored = scoreGoldenCase(golden, good)
     expect(scored.passed).toBe(true)
+    expect(scored.unverified).toBe(false)
     expect(scored.unconfirmed).toBe(1)
     expect(scored.scores['golden-expected-values']).toBe(0)
+  })
+
+  it('reports a case nothing decides as unverified, never as passed', () => {
+    const golden: GoldenCase = { ...base, expected: { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'unconfirmed' }], citations: [] }, mustNot: [] }
+    const scored = scoreGoldenCase(golden, good)
+    expect(scored.unverified).toBe(true)
+    expect(scored.passed).toBe(false)
+    expect(scored.scores['golden-case-passed']).toBe(false)
   })
 })
 
@@ -162,7 +171,7 @@ describe('Austria’s golden cases', () => {
 
 interface ParityFile {
   $comment: string
-  answers: { baseline: string; case: string; seconds: number; answer: GoldenAnswer; expect: { passed: boolean; failed: string[]; scores: Record<string, number | boolean>; unconfirmed: number } | null }[]
+  answers: { baseline: string; case: string; seconds: number; answer: GoldenAnswer; expect: { passed: boolean; failed: string[]; scores: Record<string, number | boolean>; unconfirmed: number; unverified: boolean } | null }[]
 }
 
 describe('the recorded before-baseline', () => {
@@ -175,7 +184,7 @@ describe('the recorded before-baseline', () => {
   const verdicts = parity.answers.map((entry) => {
     const scored = scoreGoldenCase(goldenOf(entry.case), entry.answer)
     const failedChecks = scored.checks.filter((check) => !check.passed).map((check) => `${check.kind}:${check.id}`)
-    return { ...entry, expect: { passed: scored.passed, failed: failedChecks, scores: scored.scores, unconfirmed: scored.unconfirmed } }
+    return { ...entry, expect: { passed: scored.passed, failed: failedChecks, scores: scored.scores, unconfirmed: scored.unconfirmed, unverified: scored.unverified } }
   })
 
   it('scores as the committed verdicts say, the ones the Python mirror is held to', () => {

@@ -123,16 +123,19 @@ export interface ScoredCase {
   scores: GoldenScores
   /** Expectations no reviewer confirmed yet. */
   unconfirmed: number
+  /** No check decides: every expectation is unconfirmed and the case has no must-not. It proves nothing, so it does not pass. */
+  unverified: boolean
 }
 
-/** Every check of the case against the answer, and the scores they make. A case passes when every deciding check does. */
+/** Every check of the case against the answer, and the scores they make. A case passes when every deciding check does, and at least one decides. */
 export function scoreGoldenCase(golden: GoldenCase, answer: GoldenAnswer): ScoredCase {
   const values = valueChecks(golden, answer)
   const edition = editionChecks(golden, answer)
   const citations = citationChecks(golden, answer)
   const mustNot = mustNotChecks(golden, answer)
   const checks = [...values, ...edition, ...citations, ...mustNot]
-  const passed = checks.every((check) => check.passed || !check.decides)
+  const unverified = !checks.some((check) => check.decides)
+  const passed = !unverified && checks.every((check) => check.passed || !check.decides)
   const scores: GoldenScores = {
     'golden-case-passed': passed,
     'golden-must-not-violations': mustNot.filter((check) => !check.passed).length,
@@ -144,5 +147,5 @@ export function scoreGoldenCase(golden: GoldenCase, answer: GoldenAnswer): Score
     // The case says where its law is cited from: a web page among the sources is law taken from the web.
     scores['law-cited-from-web'] = answer.sources.some((source) => source.kind === 'web')
   }
-  return { passed, checks, scores, unconfirmed: checks.filter((check) => !check.decides).length }
+  return { passed, checks, scores, unconfirmed: checks.filter((check) => !check.decides).length, unverified }
 }

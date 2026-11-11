@@ -43,7 +43,8 @@
           "claim-citation-resolves": false,
           "law-cited-from-web": false
         },
-        "unconfirmed": 0
+        "unconfirmed": 0,
+        "unverified": false
       }
     },
     {
@@ -98,7 +99,8 @@
           "claim-citation-resolves": true,
           "law-cited-from-web": true
         },
-        "unconfirmed": 0
+        "unconfirmed": 0,
+        "unverified": false
       }
     },
     {
@@ -130,7 +132,8 @@
           "claim-citation-resolves": true,
           "law-cited-from-web": false
         },
-        "unconfirmed": 3
+        "unconfirmed": 3,
+        "unverified": false
       }
     },
     {
@@ -174,7 +177,8 @@
           "claim-citation-resolves": true,
           "law-cited-from-web": false
         },
-        "unconfirmed": 2
+        "unconfirmed": 2,
+        "unverified": false
       }
     },
     {
@@ -210,7 +214,8 @@
           "claim-citation-resolves": false,
           "law-cited-from-web": false
         },
-        "unconfirmed": 0
+        "unconfirmed": 0,
+        "unverified": false
       }
     },
     {
@@ -254,7 +259,8 @@
           "claim-citation-resolves": true,
           "law-cited-from-web": false
         },
-        "unconfirmed": 2
+        "unconfirmed": 2,
+        "unverified": false
       }
     },
     {
@@ -299,7 +305,8 @@
           "claim-citation-resolves": true,
           "law-cited-from-web": true
         },
-        "unconfirmed": 0
+        "unconfirmed": 0,
+        "unverified": false
       }
     }
   ]

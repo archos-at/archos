@@ -94,7 +94,8 @@ def _violated(rule: dict[str, Any], answer: dict[str, Any]) -> bool:
 
 
 def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
-    """Every check of ``case`` against ``answer`` and the scores they make; it passes when every deciding check does.
+    """Every check of ``case`` against ``answer`` and the scores they make; it passes when every deciding check does
+    and at least one decides (none: ``unverified``).
 
     ``answer`` is ``{text, confidence: {level, reason} | None, sources: [{name, kind, url, clause, documentId}],
     recordsReleased}``, as ``GoldenAnswer`` in ``wire/golden-case.ts``.
@@ -124,7 +125,8 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
     ]
     must_not = [_check("must_not", rule["id"], not _violated(rule, answer)) for rule in case.get("mustNot") or []]
     checks = [*values, *editions, *citations, *must_not]
-    passed = all(check["passed"] or not check["decides"] for check in checks)
+    unverified = not any(check["decides"] for check in checks)
+    passed = not unverified and all(check["passed"] or not check["decides"] for check in checks)
     scores: dict[str, Any] = {
         "golden-case-passed": passed,
         "golden-must-not-violations": sum(1 for check in must_not if not check["passed"]),
@@ -141,6 +143,7 @@ def score(case: dict[str, Any], answer: dict[str, Any]) -> dict[str, Any]:
         "failed": [f"{check['kind']}:{check['id']}" for check in checks if not check["passed"]],
         "scores": scores,
         "unconfirmed": sum(1 for check in checks if not check["decides"]),
+        "unverified": unverified,
     }
 
 

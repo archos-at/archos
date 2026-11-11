@@ -295,6 +295,12 @@ describe('validateProposal', () => {
       expect(pointers([golden({ expected: {} })])).toEqual(['KC-1 /expected: states nothing an answer is held to.'])
     })
 
+    it('names a case whose every expectation is unconfirmed and that has no must-not: no run could pass or fail it', () => {
+      const unconfirmed = { values: [{ label: 'distance', anyOf: ['40 m'], grounding: 'unconfirmed' }] }
+      expect(pointers([golden({ expected: unconfirmed })])).toEqual([expect.stringMatching(/^KC-1 \/expected: has only unconfirmed expectations and no must-not/)])
+      expect(pointers([golden({ expected: unconfirmed, mustNot: [{ kind: 'source', id: 'no-web', sourceKinds: ['web'] }] })])).toEqual([])
+    })
+
     it('names a must-not id used twice, an edition nobody proposed and a site that is not imported', () => {
       const twice = [
         { kind: 'phrase', id: 'gap', anyOf: ['offen'] },
