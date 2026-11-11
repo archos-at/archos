@@ -12,7 +12,7 @@
  * Nothing here names a country. Pure.
  */
 
-import type { ContextUse, KnowledgeContext } from '@/lib/base-knowledge/context/wire'
+import { MAX_CONTEXT_USES, type ContextUse, type KnowledgeContext } from '@/lib/base-knowledge/context/wire'
 import type { GateState } from '@/lib/base-knowledge/wire/vocab'
 
 /** A rule's source: the work's designation and the edition's label, as the records hold them. */
@@ -50,6 +50,8 @@ export function ruleBasis(rule: RuleEdition, context: KnowledgeContext | null): 
   if (!context) return unsettled('site_unknown')
   const gate = context.gate.state
   if (gate !== 'core' && gate !== 'full') return unsettled(gate)
+  // A full list may have cut a second binding edition of this work: no verdict on part of the law.
+  if (context.uses.length >= MAX_CONTEXT_USES) return hint(`am Standort gilt mehr Recht, als hier gelesen wurde, daher kein Urteil — Schwellwerte aus ${source}`)
   const binding = context.uses.filter((use) => use.designation === rule.designation && use.role === 'binding')
   if (binding.length === 0) {
     return hint(`${rule.designation} ist am Standort nicht als verbindlich ausgewiesen, daher kein Urteil — Schwellwerte aus ${source}`)

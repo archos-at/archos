@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { ruleBasis } from './rule-basis'
+import { MAX_CONTEXT_USES } from '@/lib/base-knowledge/context/wire'
 import { contextAt, contextUse } from './rule-basis.fixtures'
 
 const DOOR = { designation: 'OIB-Richtlinie 4', edition: 'Ausgabe Mai 2023' }
@@ -57,6 +58,16 @@ describe('ruleBasis', () => {
       kind: 'hint',
       reason: 'Hinweis: Schwellwerte aus Ausgabe Mai 2023; am Standort gilt Ausgabe April 2019 über StBTV',
     })
+  })
+
+  it('is a hint where the context is full, since the cut may have dropped a second binding edition', () => {
+    const filler = Array.from({ length: MAX_CONTEXT_USES - 1 }, (_, n) => contextUse(`Gesetz ${n}`, 'Fassung 1'))
+    const full = contextAt('AT-9', 'core', [contextUse('OIB-Richtlinie 4', 'Ausgabe Mai 2023'), ...filler])
+    expect(ruleBasis(DOOR, full)).toEqual({
+      kind: 'hint',
+      reason: 'Hinweis: am Standort gilt mehr Recht, als hier gelesen wurde, daher kein Urteil — Schwellwerte aus OIB-Richtlinie 4, Ausgabe Mai 2023',
+    })
+    expect(ruleBasis(DOOR, contextAt('AT-9', 'core', full.uses.slice(0, -1)))).toEqual({ kind: 'verdict' })
   })
 
   it("is a hint where the edition's scope waits on a fact", () => {
