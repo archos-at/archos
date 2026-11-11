@@ -15,6 +15,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
  * type error at the call site, which is where it was always meant to be caught.
  */
 import type { RenderOptions } from '@ifc-lite/renderer'
+import type { GeometryProcessor } from '@ifc-lite/geometry'
 import { useLocale, useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
 
@@ -167,10 +168,6 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
   const overlaySvgRef = useRef<SVGSVGElement | null>(null)
   const overlayLabelsRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<RendererLike | null>(null)
-  // The geometry kernel is a WASM instance with its own heap, and it outlives
-  // the parse: `processAdaptive` returns but the module stays resident. Only
-  // the renderer used to be disposed, so every viewport mount leaked a kernel.
-  const geometryRef = useRef<{ dispose(): void } | null>(null)
   const [ready, setReady] = useState(false)
   /** Over pickable geometry — drives the cursor, and nothing else. */
   const [hovering, setHovering] = useState(false)
@@ -454,6 +451,10 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
 
     const run = async () => {
       const startedAt = performance.now()
+      // The geometry kernel is freed on `run`'s way out, never by the cleanup:
+      // wasm-bindgen's `free()` throws on a handle that an in-flight call still
+      // borrows, and a call that failed inside the kernel can leave one behind.
+      let geometry: GeometryProcessor | null = null
       report({ phase: 'downloading', percent: 0, meshCount: 0 })
       try {
         // Aborted on unmount. Without a signal, leaving the page mid-download
@@ -483,8 +484,7 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
         ])
         if (cancelled) return
 
-        const geometry = new GeometryProcessor()
-        geometryRef.current = geometry
+        geometry = new GeometryProcessor()
         // No cast: `RendererLike` is now built out of `Renderer`'s own member
         // types, so the real class satisfies it and a package change that
         // renames a method lands here as a type error rather than as a
@@ -622,6 +622,10 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
           meshCount: 0,
           message: error instanceof Error ? error.message : 'unknown error',
         })
+      } finally {
+        try {
+          geometry?.dispose()
+        } catch {}
       }
     }
 
@@ -639,8 +643,6 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
       // whole arena per mount; a handful of navigations exhausts VRAM.
       rendererRef.current?.destroy()
       rendererRef.current = null
-      geometryRef.current?.dispose()
-      geometryRef.current = null
       setReady(false)
       setHovering(false)
     }
@@ -1581,7 +1583,6 @@ export function useIfcViewerCanvasController(props: IfcViewerCanvasProps) {
     frameAt,
     frameOptions,
     frameRef,
-    geometryRef,
     handleDoubleClick,
     handleKeyDown,
     handlePointerCancel,

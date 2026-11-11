@@ -49,6 +49,8 @@ const BOUNDS = { min: { x: -10, y: -3, z: -10 }, max: { x: 10, y: 9, z: 10 } }
 
 const renders: RecordedRender[] = []
 const disposed = { renderer: 0, geometry: 0 }
+/** A stream in flight borrows the kernel; `hold` keeps it in flight. */
+const kernel: { streaming: boolean; hold: Promise<void> | null } = { streaming: false, hold: null }
 
 /**
  * The order the load path did things in.
@@ -164,9 +166,17 @@ vi.mock('@ifc-lite/geometry', () => ({
   GeometryProcessor: class {
     async init(): Promise<void> {}
     async *processAdaptive(): AsyncGenerator<{ type: string; meshes: unknown[] }> {
-      yield { type: 'batch', meshes: [{}, {}] }
+      kernel.streaming = true
+      try {
+        if (kernel.hold) await kernel.hold
+        yield { type: 'batch', meshes: [{}, {}] }
+      } finally {
+        kernel.streaming = false
+      }
     }
     dispose(): void {
+      // wasm-bindgen's `free()` refuses a handle that a call still borrows.
+      if (kernel.streaming) throw new Error('attempted to take ownership of Rust value while it was borrowed')
       disposed.geometry += 1
     }
   },
@@ -190,6 +200,8 @@ beforeEach(() => {
   capturedFrame = -1
   disposed.renderer = 0
   disposed.geometry = 0
+  kernel.streaming = false
+  kernel.hold = null
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({
@@ -638,6 +650,20 @@ describe('lifecycle', () => {
     unmount()
     expect(disposed.renderer).toBe(1)
     expect(disposed.geometry).toBe(1)
+  })
+
+  it('frees the geometry kernel when the reader leaves while the model is still streaming', async () => {
+    let release = () => {}
+    kernel.hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const { unmount } = render(<IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />)
+    await waitFor(() => expect(kernel.streaming).toBe(true))
+
+    expect(() => unmount()).not.toThrow()
+    expect(disposed.renderer).toBe(1)
+    release()
+    await waitFor(() => expect(disposed.geometry).toBe(1))
   })
 
   it('reports a failed download as an error rather than an empty canvas', async () => {
