@@ -402,5 +402,14 @@ export const resolveCitationTarget = (
     }
   }
 
+  // Nothing here holds the document, but its producer or its records name where it is published: a
+  // law read at its source and cited by its key (no `url`, no file). Open that, in the reader when the
+  // host is one it serves. Last, so a corpus or office copy the reader may open always wins.
+  const publicUrl = doc.line?.public_url
+  if (publicUrl && isHttpUrl(publicUrl)) {
+    const url = publicUrl
+    return isRisUrl(url) ? { kind: 'ris', title: doc.title, url, snippet } : { kind: 'url', url }
+  }
+
   return { kind: 'info', title: doc.title, snippet }
 }

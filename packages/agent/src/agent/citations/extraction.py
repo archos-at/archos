@@ -208,9 +208,10 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     convention: ``""`` and ``None`` mean the same thing to every reader
     downstream, and the entry states ``None``.
 
-    ``url`` stays unset: a hit states no URL, and a RIS passage is cited by its
+    ``url`` stays unset: a passage read at a legal database is cited by its
     key, not by its link. Giving it one would move it onto the registry's URL
-    identity and out of the document dedup.
+    identity and out of the document dedup. The address the producer states
+    travels as ``public_url``, which is no identity.
     """
     _keep_licensed_text(hit)
     return SourceEntry(
@@ -236,6 +237,11 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         project_name=hit.project.name if hit.project else None,
         project_status=hit.project.status if hit.project else None,
         project_federal_state_note=hit.project.federal_state_note if hit.project else None,
+        work_id=(hit.work_id or "").strip() or None,
+        edition_id=(hit.edition_id or "").strip() or None,
+        public_url=(hit.public_url or "").strip() or None,
+        revision_index=hit.revision.index if hit.revision else None,
+        revision_date=hit.revision.date if hit.revision else None,
     )
 
 

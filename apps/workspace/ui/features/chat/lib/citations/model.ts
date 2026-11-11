@@ -32,6 +32,10 @@
 
 import { mergePageRegions, type PageRegion } from '@/features/knowledge/lib/page-region'
 import type { CitationProject, CitationSource } from '../../types'
+import type { CitationLineWire } from '@/shared/citation-line'
+import { hostnameOf, isHttpUrl, normalizeUrl, stripOriginToken } from './text'
+
+export { hostnameOf, isHttpUrl, normalizeUrl, stripOriginToken }
 import {
   KIND_TO_SIGNAL,
   accentForLane,
@@ -183,6 +187,12 @@ export interface CitedDocument {
    * undefined upstream so it renders as no badge.
    */
   bindingStatus?: string
+  /**
+   * What the document's citation line states, from the knowledge records
+   * (`@/shared/citation-line`): edition, role, route, dates, the text read and
+   * its public address. One per document: every locus of an edition shares it.
+   */
+  line?: CitationLineWire
   /** The other project a cross-project lookup found it in (ADR-0094); the chip names it. */
   project?: CitationProject
   /** Backend origin token, when one was stamped. */
@@ -292,8 +302,6 @@ const isBaseOrUnknownShelf = (shelf: Shelf | undefined): boolean =>
   shelf === undefined || shelf === 'base'
 
 
-/** URL reduced to a comparison form (scheme/host lowercased, trailing slash dropped). */
-export const normalizeUrl = (url: string): string => url.trim().toLowerCase().replace(/\/+$/, '')
 
 /**
  * Filename reduced to a comparison form: trimmed, lowercased, separators
@@ -491,21 +499,6 @@ export const locusKey = (page: number | undefined, citationKey?: string): string
 // Presentation — derived once, here
 // ---------------------------------------------------------------------------
 
-const ORIGIN_TOKEN_RE = /^\s*\[(KB|Web|RIS)\]\s*/i
-
-/** Strip a leading `[KB]`/`[RIS]`/`[Web]` token from display text. */
-export const stripOriginToken = (text: string): string => text.replace(ORIGIN_TOKEN_RE, '').trim()
-
-export const isHttpUrl = (url: string | undefined | null): boolean =>
-  !!url && /^https?:\/\//i.test(url)
-
-export const hostnameOf = (url: string): string | null => {
-  try {
-    return new URL(url).hostname.replace(/^www\./i, '')
-  } catch {
-    return null
-  }
-}
 
 /**
  * Coarse kind for a source, canonical wire value first.
@@ -768,6 +761,7 @@ export class CitationAccumulator {
     laneLabel?: string | null
     bindingNote?: string | null
     bindingStatus?: string | null
+    line?: CitationLineWire
     project?: CitationProject
     origin?: string | null
     tool?: string | null
@@ -841,6 +835,7 @@ export class CitationAccumulator {
     doc.tool = doc.tool ?? (observation.tool?.trim() || undefined)
     doc.bindingNote = doc.bindingNote ?? (observation.bindingNote?.trim() || undefined)
     doc.bindingStatus = doc.bindingStatus ?? (observation.bindingStatus?.trim() || undefined)
+    doc.line = doc.line ?? observation.line
     doc.project = doc.project ?? observation.project
     doc.snippet = doc.snippet ?? (observation.snippet?.trim() || undefined)
     doc.laneLabel = doc.laneLabel ?? (observation.laneLabel?.trim() || undefined)

@@ -52,7 +52,9 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    (`country_name`, `legal_source_tools`) when country #2 ships.
 7. Corpus filenames: `agent/common/oib_file_names.py` and the OIB readers in
    `norm_registry` (`oib_doc_class`, `oib_family_member`, `guess_display_title`)
-   parse the OIB's filenames and tie a passage to its edition by name, from
+   parse the OIB's filenames for a file's lane, class and title (a passage's
+   edition and role no longer read them: `citations/roles.py` resolves by the
+   record id the hit carries), from
    `agent/common/`, which should be country-neutral. Country #2's texts get their
    class and edition from the pack's manifestations instead, which is also the
    fix the name mapping bridges to (retrieval reading the chunk's `edition_id`).

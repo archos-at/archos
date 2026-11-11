@@ -18,6 +18,10 @@ hosts:
   - www.ris.bka.gv.at
   - ris.bka.gv.at
 data_flow: public_only
+# How a work's identifier (the knowledge records' `identifiers`) is read from a
+# passage's address here: what gives a cited passage its work, and so its role.
+identifiers:
+  ris_gesetzesnummer: {query: Gesetzesnummer}
 terms:
   url: https://www.ris.bka.gv.at/RisInfo/OGD-FAQ.pdf
   licence: public_open

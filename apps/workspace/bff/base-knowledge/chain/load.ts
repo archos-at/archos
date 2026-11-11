@@ -22,7 +22,7 @@ import { getDb } from '@/lib/db'
 import { sqlTextArray } from '@/lib/db/sql-list'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { RelationAnchor, TerritoryParent } from '@/lib/db/schema/knowledge-platform'
-import type { BindingMode, ConnectingFactor, CoverageLevel, KnowledgeWorkKind, RelationEndType, RelationType, TerritoryKind } from '../wire/vocab'
+import { TEXT_STATUSES, type BindingMode, type ConnectingFactor, type CoverageLevel, type KnowledgeWorkKind, type RelationEndType, type RelationType, type TerritoryKind, type TextStatus } from '../wire/vocab'
 import { recordReadable } from '../store/visibility'
 import { walkSeeds } from './territory-chain'
 import type { GraphEdition, GraphOwner, GraphRelation, GraphTerritory, GraphWork, KnowledgeGraph } from './graph'
@@ -87,10 +87,14 @@ interface EditionRow extends Record<string, unknown> {
   in_force_to: string | null
   corpus_files: string[] | null
   source_url: string | null
+  text_language: string | null
+  text_status: string | null
   applies_when: unknown
   checked_at: string | Date | null
   check_result: string | null
 }
+
+const isTextStatus = (value: string | null): value is TextStatus => (TEXT_STATUSES as readonly string[]).includes(value ?? '')
 
 const dateText = (value: unknown): string | null => (value === null || value === undefined ? null : String(value).slice(0, 10))
 
@@ -164,6 +168,13 @@ async function editionsOf(organizationId: string, workIds: readonly string[]): P
          JOIN knowledge_revisions kr ON kr.revision_id = mr.head_revision_id
          WHERE mr.organization_id IS NULL AND m.edition_id = r.id AND kr.provenance -> 'citations' -> 0 ->> 'url' IS NOT NULL
          ORDER BY mr.id LIMIT 1) AS source_url,
+      -- The platform manifestation that holds its text: which language, and whether it is the authentic text.
+      (SELECT m.language
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id ORDER BY mr.id LIMIT 1) AS text_language,
+      (SELECT m.text_status
+         FROM knowledge_records mr JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+         WHERE mr.organization_id IS NULL AND m.edition_id = r.id ORDER BY mr.id LIMIT 1) AS text_status,
       e.applies_when,
       c.checked_at, c.result AS check_result
     FROM knowledge_records r JOIN knowledge_edition_revisions e ON e.revision_id = r.head_revision_id
@@ -236,6 +247,7 @@ function toEdition(row: EditionRow): GraphEdition {
     inForceTo: dateText(row.in_force_to),
     corpusFiles: row.corpus_files ?? [],
     sourceUrl: row.source_url,
+    text: row.text_language && isTextStatus(row.text_status) ? { language: row.text_language, status: row.text_status } : null,
     // A stored scope the wire cannot read narrows nothing: too much law shows, never too little.
     appliesWhen: row.applies_when ? (appliesWhenTableSchema.safeParse(row.applies_when).data ?? null) : null,
     lastCheck: row.checked_at && row.check_result ? { checkedAt: new Date(row.checked_at).toISOString(), result: row.check_result } : null,
