@@ -76,10 +76,12 @@ organization memory (Office).
   in the conversation reads, so a personal note never rides it
   (`stages/memory_reflection.py`). Until a channel reaches only the asker, a
   note the stage kept after the answer is invisible to them.
-- The gaps ADR-0180 lists under Confirmation: the deep-research worker's
-  reflection, a memory card confirmed in a temporary conversation, a project
-  write that names no conversation, and erasing a person's notes when they
-  leave.
+- The gaps ADR-0180 lists under Confirmation: the model's choice between
+  personal and project, a personal finding on a research run, a project write
+  that names no conversation, and erasing a person's notes when they leave
+  (the person can clear their own with „Alle Notizen entfernen“). Closed since:
+  a memory card accepted in a temporary conversation is refused, and a run
+  submitted from a temporary conversation skips its reflection.
 
 **Later.**
 

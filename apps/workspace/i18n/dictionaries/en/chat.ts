@@ -791,6 +791,8 @@ export const chat = {
       failed: 'Nothing could be applied. Nothing was changed.',
       applyError: 'Could not be applied.',
       dismissError: 'Could not be discarded.',
+      temporaryConversation:
+        'Not kept: this chat is temporary, so {productName} keeps nothing from it. The note can be applied once “Temporary” is switched off.',
       decidedBy: {
         applied: 'Applied by {name} · {when}',
         partially_applied: 'Applied by {name} · {when}',
@@ -1205,6 +1207,8 @@ export const chat = {
     savedProject: 'Saved to this project’s memory.',
     dismissed: 'Not saved.',
     error: 'Could not save the finding',
+    temporaryConversation:
+      'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
     kind: {
       decision: 'Decision',
       constraint: 'Constraint',
@@ -2029,19 +2033,47 @@ export const chat = {
   memory: {
     noted: '{productName} noted',
     notedAria: '{productName} noted {count, plural, one {# item} other {# items}}',
-    addedToMemory: 'Added to project memory',
+    // The panel's title names the memory the turn's notes went into; `mixed`
+    // when they went into more than one.
+    addedTo: {
+      project: 'Added to project memory',
+      organization: 'Added to office memory',
+      personal: 'Added to your memory',
+      mixed: 'Added to memory',
+    },
     updated: 'Memory updated',
     updatedAria:
       '{productName} updated its memory: {count, plural, one {# item} other {# items}}, {corrected} of them corrected',
-    updatedInMemory: 'Project memory updated',
+    updatedIn: {
+      project: 'Project memory updated',
+      organization: 'Office memory updated',
+      mixed: 'Memory updated',
+    },
     correctedLabel: 'Corrected',
     replaced: 'Replaces:',
-    manageHint: 'You can manage and delete these entries in the project memory.',
+    manageHint: 'You can manage and delete these entries in a project’s memory.',
     // The hint as a door: leads to the project's memory (Settings → Memory).
     manageLink: 'Manage in project memory',
-    // Who reads a note follows from where it is kept (ADR-0180): project or office.
+    // The same door for the reader's own notes („My memory“).
+    manageLinkPersonal: 'Manage in My memory',
+    // Taking a note back where it is shown (ADR-0180). It deletes the note.
+    remove: 'Remove',
+    removeAria: 'Remove note: {note}',
+    removing: 'Removing …',
+    removed: 'Removed. The note is deleted.',
+    // The note was already removed, dismissed or replaced somewhere else.
+    gone: 'No longer in memory.',
+    removeFailed: 'Could not be removed.',
+    removeRetry: 'Try again',
+    // A note that replaced an earlier one is not taken back here: the earlier one would stay retired.
+    replacedNotRemovable: 'Replaced an earlier note, so it cannot be taken back here.',
+    openMemory: 'Open memory',
+    // Who reads a note follows from where it is kept (ADR-0180): mine, project or office.
     audience: {
+      personal: 'Only you',
       project: 'Read by the project team',
+      // Project memory that draws on a restricted folder (ADR-0087).
+      restricted: 'Read by those who may read the folder',
       organization: 'Read by everyone in the office',
     },
     kinds: {
@@ -2050,6 +2082,8 @@ export const chat = {
       open_question: 'Open question',
       derived_fact: 'Fact',
       preference: 'Preference',
+      // A personal note about who the reader is at work (ADR-0180).
+      profile: 'Role and topics',
     },
     provenance: {
       distillation: 'added after the response',

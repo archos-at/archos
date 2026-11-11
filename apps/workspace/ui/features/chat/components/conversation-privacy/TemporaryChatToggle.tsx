@@ -52,11 +52,14 @@ export function TemporaryChatToggleView({
       title={pressed ? t('temporary.switchOffTitle') : t('temporary.switchOnTitle')}
       aria-busy={pending || undefined}
       data-testid="temporary-chat-toggle"
-      className={cn('gap-1 px-2.5 text-xs', className)}
+      className={cn('gap-1 px-2.5 text-xs max-sm:px-1.5', className)}
     >
-      <MessageCircleDashed className="size-3.5" aria-hidden="true" />
-      {/* The word, wherever there is room for it: a glyph alone is not found. */}
-      <span className="max-sm:sr-only">{t('temporary.label')}</span>
+      {/* The word at every width: a glyph alone is not found, and a pressed
+          glyph does not say what is on. On a phone the composer row is 294px
+          for five controls, so there the glyph goes and the word stays (the
+          effort dial beside it gives up its chevron the same way). */}
+      <MessageCircleDashed className="size-3.5 max-sm:hidden" aria-hidden="true" data-testid="temporary-chat-glyph" />
+      <span data-testid="temporary-chat-word">{t('temporary.label')}</span>
     </Toggle>
   )
 }

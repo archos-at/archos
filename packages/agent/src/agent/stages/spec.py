@@ -31,6 +31,7 @@ from pydantic import BaseModel
 
 from agent.common.bff_http import SignedEnvelope
 from agent.common.model_overrides import AgentGroup
+from agent.knowledge.project_memory import TurnMemoryNote
 from agent.memory.restriction import RestrictionEvidence
 
 #: Terminal states a stage run can end in. Every one of them is recorded, so
@@ -84,6 +85,10 @@ class TurnFacts:
     #: What the ``remember`` tool wrote DURING the turn, after that digest was
     #: built. Reflection must treat these as already recorded.
     remembered_this_turn: tuple[str, ...] = ()
+    #: The project and organization notes those writes created, with their ids:
+    #: what the answer's noted chip shows as written during the answer. Never a
+    #: personal note (ADR-0180).
+    noted_this_turn: tuple[TurnMemoryNote, ...] = ()
     #: What the turn could have taken from restricted folders (ADR-0087): the
     #: restricted collections in its scope, the ones it cited or read, and the
     #: restricted documents its prompt listed. Memory written from the turn is

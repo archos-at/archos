@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import {
   addPersonalMemoryNote,
+  clearPersonalMemory,
   listPersonalMemory,
   removePersonalMemoryNote,
   updatePersonalMemoryNote,
@@ -73,6 +74,9 @@ export function PersonalMemoryPanel(): JSX.Element {
   /** Why the open editor's last save was refused; it stays open with the text. */
   const [editError, setEditError] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  /** The confirmation for removing every note is open; `clearing` while its request is out. */
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
   const [adding, setAdding] = useState(false)
   const [addKind, setAddKind] = useState<PersonalMemoryKind>('preference')
@@ -170,6 +174,23 @@ export function PersonalMemoryPanel(): JSX.Element {
     } finally {
       setBusyId(null)
       setRemovingId(null)
+    }
+  }
+
+  const clear = async (): Promise<void> => {
+    setClearing(true)
+    try {
+      // The server removes every note the person holds, also one kept since this
+      // list was read, so the count that is said afterwards is the server's.
+      const { removed } = await clearPersonalMemory()
+      setNotes([])
+      setEditingId(null)
+      toast.success(t('removedAll', { count: removed }))
+    } catch {
+      toast.error(t('errors.removeAllFailed'))
+    } finally {
+      setClearing(false)
+      setConfirmingClear(false)
     }
   }
 
@@ -329,6 +350,18 @@ export function PersonalMemoryPanel(): JSX.Element {
         </ItemList>
       )}
 
+      {/* Under the list it empties, and quiet: tonal like „Notiz hinzufügen“, its
+          glyph in red. The confirmation is where the red press is, with the
+          number of notes and that it cannot be undone. */}
+      {!loadFailed && notes !== null && notes.length > 0 && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setConfirmingClear(true)} disabled={clearing}>
+            <Trash2 className="text-destructive size-4" aria-hidden />
+            {t('removeAll')}
+          </Button>
+        </div>
+      )}
+
       <ConfirmDialog
         open={removingId !== null}
         onOpenChange={(open) => {
@@ -343,6 +376,20 @@ export function PersonalMemoryPanel(): JSX.Element {
         onConfirm={() => {
           if (removingId) return remove(removingId)
         }}
+      />
+
+      <ConfirmDialog
+        open={confirmingClear}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingClear(false)
+        }}
+        tone="destructive"
+        title={t('removeAllConfirmTitle')}
+        description={t('removeAllConfirmDescription', { count: notes?.length ?? 0 })}
+        confirmLabel={t('removeAll')}
+        cancelLabel={t('cancel')}
+        pending={clearing}
+        onConfirm={clear}
       />
     </section>
   )

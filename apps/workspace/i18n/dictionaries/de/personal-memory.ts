@@ -29,6 +29,10 @@ export const personalMemory: typeof en.personalMemory = {
   removeTitle: 'Aus meinem Gedächtnis entfernen',
   removeConfirmTitle: 'Notiz entfernen?',
   removeConfirmDescription: '{productName} berücksichtigt sie dann nicht mehr. Das lässt sich nicht rückgängig machen.',
+  removeAll: 'Alle Notizen entfernen',
+  removeAllConfirmTitle: 'Alle Notizen entfernen?',
+  removeAllConfirmDescription:
+    '{count, plural, one {# Notiz wird} other {# Notizen werden}} aus Ihrem Gedächtnis entfernt, angeheftete eingeschlossen. {productName} berücksichtigt sie dann nicht mehr. Das lässt sich nicht rückgängig machen.',
   provenance: {
     user: 'von Ihnen hinzugefügt',
     agent: 'von {productName} notiert',
@@ -40,11 +44,13 @@ export const personalMemory: typeof en.personalMemory = {
   added: 'Notiz hinzugefügt.',
   updated: 'Notiz gespeichert.',
   removed: 'Notiz entfernt.',
+  removedAll: '{count, plural, one {# Notiz} other {# Notizen}} entfernt.',
   errors: {
     loadTitle: 'Die Notizen konnten nicht geladen werden',
     loadDescription: 'Versuchen Sie es noch einmal.',
     conflict: 'Eine andere Notiz sagt das bereits.',
     saveFailed: 'Die Notiz wurde nicht gespeichert. Versuchen Sie es noch einmal.',
     removeFailed: 'Die Notiz wurde nicht entfernt. Versuchen Sie es noch einmal.',
+    removeAllFailed: 'Die Notizen wurden nicht entfernt. Versuchen Sie es noch einmal.',
   },
 }

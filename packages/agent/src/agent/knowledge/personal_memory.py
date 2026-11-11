@@ -21,6 +21,7 @@ from agent.knowledge.project_memory import VALID_PROVENANCES
 from agent.knowledge.project_memory import TemporaryConversationError
 from agent.knowledge.project_memory import looks_like_secret
 from agent.knowledge.project_memory import record_turn_memory_write
+from agent.knowledge.project_memory import turn_answer_message
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,12 @@ def insert_personal_memory_item(
     }
     if conversation_id:
         payload["sourceConversationId"] = conversation_id
+    answer_message_id = turn_answer_message()
+    if answer_message_id:
+        # The answer this note was saved under. The note itself is never put on
+        # that message (other people read it): the owner's browser asks for
+        # their notes of the conversation and shows each under its answer.
+        payload["sourceMessageId"] = answer_message_id
     try:
         body = bff_http.post_json(
             INTERNAL_PERSONAL_MEMORY_PATH, payload, timeout=_REQUEST_TIMEOUT_SECONDS, headers=envelope.headers()

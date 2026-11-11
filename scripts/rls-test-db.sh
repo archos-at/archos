@@ -4013,3 +4013,26 @@ check_in tc_0226 "SELECT count(*) FROM conversations WHERE id = 's_0226'" "1" "0
 apply_in tc_0226 0226_conversation_temporary.sql
 check_in tc_0226 "SELECT temporary::text FROM conversations WHERE id = 's_0226'" "false" "0226 applies again after its down, and no conversation is temporary"
 echo "==> 0226 temporary flag and its down migration verified"
+
+# ---------------------------------------------------------------------------
+# Migration 0227: a personal note knows the answer it was saved under
+# (ADR-0180: every save is visible on the answer that caused it). A note that
+# existed belongs to no answer, and the column takes an answer's id (a uuid)
+# or nothing. The policy still names the person. The down drops the column
+# and leaves the notes; which answer each was saved under is forgotten.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0227 source message column and its down migration on pm_0227"
+migrate_before pm_0227 0227_personal_memory_source_message
+sql_in pm_0227 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content) VALUES ('org_0227', 'user_a', 'preference', 'Answers in short paragraphs.')"
+apply_in pm_0227 0227_personal_memory_source_message.sql
+apply_in pm_0227 0227_personal_memory_source_message.sql   # up twice: idempotent
+check_in pm_0227 "SELECT coalesce(source_message_id::text, 'none') FROM personal_memory WHERE organization_id = 'org_0227'" "none" "0227: a note that existed belongs to no answer"
+sql_in pm_0227 <<<"INSERT INTO personal_memory (organization_id, user_id, kind, content, source_message_id) VALUES ('org_0227', 'user_a', 'profile', 'Leads the fire safety reviews.', '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f')"
+refused_in pm_0227 "INSERT INTO personal_memory (organization_id, user_id, kind, content, source_message_id) VALUES ('org_0227', 'user_a', 'profile', 'Signs the submissions.', 'not-an-answer-id')" "invalid input syntax for type uuid" "an answer id that is no uuid was accepted"
+check_in pm_0227 "SELECT (pg_get_expr(polqual, polrelid) LIKE '%current_user_id()%')::text FROM pg_policy WHERE polrelid = 'personal_memory'::regclass AND polname = 'tenant_isolation'" "true" "0227: the policy still names the person"
+apply_in pm_0227 0227_personal_memory_source_message.down.sql
+check_in pm_0227 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'personal_memory' AND column_name = 'source_message_id'" "0" "0227 down drops the column"
+check_in pm_0227 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0227'" "2" "0227 down leaves the notes"
+apply_in pm_0227 0227_personal_memory_source_message.sql
+check_in pm_0227 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0227' AND source_message_id IS NULL" "2" "0227 applies again after its down, and no note belongs to an answer"
+echo "==> 0227 source message column and its down migration verified"

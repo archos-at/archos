@@ -19,12 +19,14 @@ import { normalizeContent } from '@/lib/knowledge/consolidation'
 import { formatBoundedDigestWithKept } from '@/lib/knowledge/digest-format'
 import { maskChatText } from '@/lib/upload-screening/service'
 import {
+  deleteAllPersonalMemory,
   deletePersonalMemory,
   findPersonalMemoryByNormalizedContent,
   insertPersonalMemory,
   selectPersonalMemory,
   touchPersonalMemory,
   updatePersonalMemory,
+  type PersonalMemoryFilter,
   type PersonalMemoryOwner,
 } from './repository'
 import type { PersonalMemoryKind, PersonalMemoryProvenance } from './vocabulary'
@@ -44,6 +46,8 @@ export interface NewPersonalNote {
   provenanceType: PersonalMemoryProvenance
   pinned?: boolean
   sourceConversationId?: string | null
+  /** The answer the agent saved the note under (its message id); null for a note that belongs to none. */
+  sourceMessageId?: string | null
 }
 
 /** A note's text as it may be stored and served: the office's screening applied (ADR-0086). */
@@ -51,12 +55,18 @@ async function masked(organizationId: string, content: string): Promise<string> 
   return (await maskChatText(organizationId, content)).text
 }
 
-/** One page of the person's notes, pinned first then newest (ADR-0131 rule 3: a list is a lean page). */
+/**
+ * One page of the person's notes, pinned first then newest (ADR-0131 rule 3: a
+ * list is a lean page). `filter.sourceConversationId` keeps the notes saved
+ * from one conversation, which is how an answer shows its owner what was kept
+ * about them under it: the note is never stored on the message.
+ */
 export async function listPersonalMemory(
   owner: PersonalMemoryOwner,
-  page: OffsetPage = { limit: DEFAULT_PAGE_LIMIT, offset: 0 }
+  page: OffsetPage = { limit: DEFAULT_PAGE_LIMIT, offset: 0 },
+  filter: PersonalMemoryFilter = {}
 ): Promise<PageOf<PersonalMemoryItem>> {
-  const rows = await selectPersonalMemory(owner, page.limit + 1, page.offset)
+  const rows = await selectPersonalMemory(owner, page.limit + 1, page.offset, filter)
   return { items: rows.slice(0, page.limit), nextCursor: nextOffsetCursor(page, rows.length) }
 }
 
@@ -82,6 +92,7 @@ export async function createPersonalMemoryItem(
       provenanceType: note.provenanceType,
       pinned: note.pinned ?? false,
       sourceConversationId: note.sourceConversationId ?? null,
+      sourceMessageId: note.sourceMessageId ?? null,
     })
     return { item, created: true }
   } catch (error) {
@@ -110,6 +121,16 @@ export async function editPersonalMemoryItem(
 
 export async function removePersonalMemoryItem(owner: PersonalMemoryOwner, id: string): Promise<boolean> {
   return deletePersonalMemory(owner, id)
+}
+
+/**
+ * Remove every note of the person in this organization, for good; answers how
+ * many went. The person's own „clear my memory“ (`DELETE /api/user/memory`),
+ * and what a member-removal or account-erasure path must call once the product
+ * has one (ADR-0180, „Erasure of a person's notes“).
+ */
+export async function clearPersonalMemory(owner: PersonalMemoryOwner): Promise<number> {
+  return deleteAllPersonalMemory(owner)
 }
 
 /**

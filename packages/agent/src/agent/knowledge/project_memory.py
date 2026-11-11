@@ -81,6 +81,38 @@ _REQUEST_TIMEOUT_SECONDS = 5
 _DIGEST_TIMEOUT_SECONDS = 2.5
 
 
+@dataclass(frozen=True)
+class TurnMemoryNote:
+    """One project or organization note a write created, as the answer's noted chip shows it.
+
+    Never a personal note (ADR-0180): this record rides the reflection stage's
+    frame, which is stored on a message other people read.
+    """
+
+    id: str
+    kind: str
+    content: str
+    #: ``project`` or ``organization``: the shelf, and so who reads the note.
+    scope: str
+    #: The earlier note this one retired, quoted, when the BFF confirmed the retirement.
+    supersedes: str | None = None
+    #: Stored as restricted memory (ADR-0087): shown only to people cleared for its folders.
+    restricted: bool = False
+
+    def frame_item(self, *, in_turn: bool) -> dict[str, object]:
+        """The note as an item of the ``memory_reflection`` frame; absent keys are the defaults."""
+        item: dict[str, object] = {"id": self.id, "kind": self.kind, "content": self.content}
+        if in_turn:
+            item["provenance"] = "agent"
+        if self.scope == "organization":
+            item["scope"] = "organization"
+        if self.supersedes:
+            item["supersedes"] = self.supersedes
+        if self.restricted:
+            item["restricted"] = True
+        return item
+
+
 @dataclass
 class _TurnMemoryLog:
     """The turn's memory ledger: the digest it was shown and what it wrote."""
@@ -89,6 +121,9 @@ class _TurnMemoryLog:
     #: ``restricted`` lines are restricted content in the prompt).
     digest: str | None = None
     writes: list[str] = field(default_factory=list)
+    #: The project and organization notes those writes CREATED, with their ids
+    #: (a restated note the BFF refreshed in place is in ``writes`` only).
+    notes: list[TurnMemoryNote] = field(default_factory=list)
     #: The subset of ``writes`` stored as restricted memory.
     restricted_writes: list[str] = field(default_factory=list)
     #: The conversation is temporary (ADR-0180): nothing from it is kept, so
@@ -99,6 +134,14 @@ class _TurnMemoryLog:
     #: state is checkpointed with the conversation and handed to deep research,
     #: and both are read by people the notes are not for.
     personal_memory: str | None = None
+    #: The id of the answer the writes under this log belong to
+    #: (``turn.response.answer_message_id``), which the browser holds as that
+    #: answer's message id. A personal note is stored with it, so the answer's
+    #: chip can show the note to its owner; None off the WebSocket path.
+    answer_message_id: str | None = None
+    #: Ids the route answered for a write that created nothing: a restated
+    #: note, refreshed in place.
+    refreshed: list[str] = field(default_factory=list)
 
 
 #: What the ``remember`` tool wrote during THIS turn, per turn. The
@@ -111,7 +154,11 @@ _turn_memory_log: ContextVar[_TurnMemoryLog | None] = ContextVar("turn_memory_lo
 
 
 def begin_turn_memory_log(
-    digest: str | None = None, *, temporary: bool = False, personal_memory: str | None = None
+    digest: str | None = None,
+    *,
+    temporary: bool = False,
+    personal_memory: str | None = None,
+    answer_message_id: str | None = None,
 ) -> Token:
     """Start recording this turn's memory writes; reset with the token.
 
@@ -119,8 +166,14 @@ def begin_turn_memory_log(
     ``remember`` tool can tell which restricted notes were in its prompt.
     ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180):
     whether the conversation keeps nothing, and the asker's personal notes.
+    ``answer_message_id`` names the answer the writes belong to. The reflection
+    stage binds a log of its own for its writes, after the turn's is gone.
     """
-    return _turn_memory_log.set(_TurnMemoryLog(digest=digest, temporary=temporary, personal_memory=personal_memory))
+    return _turn_memory_log.set(
+        _TurnMemoryLog(
+            digest=digest, temporary=temporary, personal_memory=personal_memory, answer_message_id=answer_message_id
+        )
+    )
 
 
 def end_turn_memory_log(token: Token) -> None:
@@ -134,6 +187,57 @@ def record_turn_memory_write(content: str, *, restricted: bool = False) -> None:
         log.writes.append(content)
         if restricted:
             log.restricted_writes.append(content)
+
+
+def turn_memory_notes() -> tuple[TurnMemoryNote, ...]:
+    """The project and organization notes created under the bound log, in write order."""
+    log = _turn_memory_log.get()
+    return tuple(log.notes) if log is not None else ()
+
+
+def turn_refreshed_memory_ids() -> frozenset[str]:
+    """Ids of the notes a write under the bound log only refreshed (it created no row)."""
+    log = _turn_memory_log.get()
+    return frozenset(log.refreshed) if log is not None else frozenset()
+
+
+def turn_answer_message() -> str | None:
+    """The id of the answer the bound log's writes belong to; None outside a turn or off the WebSocket path."""
+    log = _turn_memory_log.get()
+    return log.answer_message_id if log is not None else None
+
+
+def _record_write(body: object, payload: Mapping[str, object]) -> str | None:
+    """Enter a stored write in the bound log and answer its id; None when the route named no item.
+
+    The note is kept for the answer's chip only when the route created a row
+    (``created``; an older BFF does not say, and is believed) and the earlier
+    note counts as replaced only when the route retired one (``supersededId``).
+    """
+    answer = body if isinstance(body, dict) else {}
+    item = answer.get("item")
+    item_id = item.get("id") if isinstance(item, dict) else None
+    if not item_id:
+        return None
+    content = str(payload["content"])
+    restricted = bool(payload.get("restrictedCollections"))
+    record_turn_memory_write(content, restricted=restricted)
+    log = _turn_memory_log.get()
+    if log is not None and answer.get("created") is False:
+        log.refreshed.append(str(item_id))
+    elif log is not None:
+        retired = str(payload.get("supersedesContent") or "") if answer.get("supersededId") else ""
+        log.notes.append(
+            TurnMemoryNote(
+                id=str(item_id),
+                kind=str(payload["kind"]),
+                content=content,
+                scope=str(payload["scope"]),
+                supersedes=retired or None,
+                restricted=restricted,
+            )
+        )
+    return str(item_id)
 
 
 def turn_memory_digest() -> str | None:
@@ -408,11 +512,11 @@ def insert_memory_item(
             return None
         _raise_named_refusal(exc)
         raise
-    item = body.get("item") if isinstance(body, dict) else None
-    item_id = item.get("id") if isinstance(item, dict) else None
-    if item_id:
-        record_turn_memory_write(content, restricted=bool(restricted_collections))
-    return item_id
+    # The ledger entry, and the note the answer's chip shows, are made of what
+    # was SENT and what the route answered: the stored text is the payload's
+    # (stripped and capped), and only the route knows whether a row was created
+    # or an earlier note retired.
+    return _record_write(body, payload)
 
 
 def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:

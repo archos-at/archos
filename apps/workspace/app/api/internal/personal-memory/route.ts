@@ -4,7 +4,9 @@
  * stage. The owner is ALWAYS the person of the verified request envelope,
  * never a body field: the body is strict and has no place to name one. The
  * write runs as that person, so row-level security on `personal_memory` holds
- * it too. A temporary conversation keeps nothing and is refused.
+ * it too. A temporary conversation keeps nothing and is refused. The body may
+ * name the answer the note was saved under (`sourceMessageId`); the note is
+ * stored with it and never on that message, which other people read.
  */
 
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
@@ -34,6 +36,7 @@ export const POST = internalApiRoute(
         content: input.content,
         provenanceType: input.provenanceType,
         sourceConversationId,
+        sourceMessageId: input.sourceMessageId ?? null,
       })
     })
   },

@@ -103,3 +103,36 @@ def test_an_answer_without_an_id_is_not_a_write(route):
     route({"created": True})
     with pytest.raises(bff_http.BffMalformedResponseError):
         _write()
+
+
+ANSWER = "4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f"
+
+
+def test_a_note_saved_in_a_turn_names_the_answer_it_was_saved_under(route):
+    """So the owner's browser can show it under that answer; the note itself never rides the message."""
+    seen = route({"item": {"id": "note-1"}, "created": True})
+    token = pm.begin_turn_memory_log(answer_message_id=ANSWER)
+    try:
+        _write()
+    finally:
+        pm.end_turn_memory_log(token)
+    assert seen["payload"]["sourceMessageId"] == ANSWER
+
+
+def test_a_note_saved_outside_a_turn_names_no_answer(route):
+    seen = route({"item": {"id": "note-1"}, "created": True})
+    _write()
+    assert "sourceMessageId" not in seen["payload"]
+
+
+def test_a_personal_note_never_enters_the_ledger_the_stage_frame_is_made_of(route):
+    """The frame is stored on a message other people read (ADR-0180): its ledger holds shared notes only."""
+    route({"item": {"id": "note-1"}, "created": True})
+    token = pm.begin_turn_memory_log(answer_message_id=ANSWER)
+    try:
+        _write()
+        assert pm.turn_memory_notes() == ()
+        # Still a write of the turn: the reflection pass must not file it again.
+        assert pm.turn_memory_writes() == (" Leads the permit phase. ",)
+    finally:
+        pm.end_turn_memory_log(token)

@@ -342,6 +342,7 @@ export const EXPOSURE = {
   'sharing-grant-update': SENSITIVE,
   'sharing-visibility-set': SENSITIVE,
   // personal memory (ADR-0180): the person's own notes, acted on as the person
+  'personal-memory-clear': OFFERED,
   'personal-memory-create': { external: true, agent: 'native:remember', reason: PERSONAL_MEMORY },
   'personal-memory-delete': OFFERED,
   'personal-memory-list': OFFERED,

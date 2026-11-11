@@ -83,6 +83,13 @@ export const updatePersonalMemoryNote = async (
   return (await response.json()) as { item: PersonalMemoryNote }
 }
 
+/** Remove every note of the person for good. Answers how many went. */
+export const clearPersonalMemory = async (): Promise<{ removed: number }> => {
+  const response = await fetch(MEMORY_PATH, { method: 'DELETE' })
+  if (!response.ok) throw new ApiRequestError(`Failed to clear personal memory: ${response.status}`, response.status)
+  return (await response.json()) as { removed: number }
+}
+
 /** Remove a note for good. */
 export const removePersonalMemoryNote = async (itemId: string): Promise<void> => {
   const response = await fetch(notePath(itemId), { method: 'DELETE' })

@@ -11,6 +11,7 @@ vi.mock('./repository', () => ({
   touchPersonalMemory: vi.fn(),
   updatePersonalMemory: vi.fn(),
   deletePersonalMemory: vi.fn(),
+  deleteAllPersonalMemory: vi.fn(),
 }))
 // The office's screening (ADR-0086): here, a stand-in that masks one number.
 vi.mock('@/lib/upload-screening/service', () => ({
@@ -22,6 +23,7 @@ import { UNIQUE_VIOLATION } from '@/lib/db/errors'
 import type { PersonalMemoryItem } from '@/lib/db/schema/personal-memory'
 import { maskChatText } from '@/lib/upload-screening/service'
 import {
+  deleteAllPersonalMemory,
   deletePersonalMemory,
   findPersonalMemoryByNormalizedContent,
   insertPersonalMemory,
@@ -34,6 +36,7 @@ import {
   PERSONAL_DIGEST_MAX_ITEMS,
   PERSONAL_MEMORY_DIGEST_HEADER,
   buildPersonalMemoryDigest,
+  clearPersonalMemory,
   createPersonalMemoryItem,
   editPersonalMemoryItem,
   listPersonalMemory,
@@ -51,6 +54,7 @@ function note(overrides: Partial<PersonalMemoryItem> = {}): PersonalMemoryItem {
     content: 'Answers in short paragraphs.',
     provenanceType: 'agent',
     sourceConversationId: null,
+    sourceMessageId: null,
     pinned: false,
     createdAt: new Date('2026-11-01T10:00:00Z'),
     updatedAt: new Date('2026-11-01T10:00:00Z'),
@@ -88,7 +92,40 @@ describe('createPersonalMemoryItem', () => {
       provenanceType: 'distillation',
       pinned: false,
       sourceConversationId: 's_1',
+      sourceMessageId: null,
     })
+  })
+
+  it('stores the answer the agent saved the note under, and none for a note that belongs to no answer', async () => {
+    vi.mocked(insertPersonalMemory).mockImplementation(async (values) => note(values as Partial<PersonalMemoryItem>))
+    const answer = '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f'
+
+    const kept = await createPersonalMemoryItem(OWNER, {
+      kind: 'preference',
+      content: 'Wants the sources first.',
+      provenanceType: 'agent',
+      sourceConversationId: 's_1',
+      sourceMessageId: answer,
+    })
+
+    expect(kept.item.sourceMessageId).toBe(answer)
+    expect(insertPersonalMemory).toHaveBeenLastCalledWith(expect.objectContaining({ sourceMessageId: answer }))
+  })
+
+  it('leaves a restated note under the answer it was first saved under', async () => {
+    const first = note({ sourceMessageId: '11111111-2222-5333-8444-555555555555' })
+    vi.mocked(findPersonalMemoryByNormalizedContent).mockResolvedValue(first)
+    vi.mocked(touchPersonalMemory).mockResolvedValue(first)
+
+    const again = await createPersonalMemoryItem(OWNER, {
+      kind: 'preference',
+      content: first.content,
+      provenanceType: 'agent',
+      sourceMessageId: '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f',
+    })
+
+    expect(again).toEqual({ item: first, created: false })
+    expect(insertPersonalMemory).not.toHaveBeenCalled()
   })
 
   it('refreshes the existing note when the text says the same once case and punctuation are folded', async () => {
@@ -194,13 +231,29 @@ describe('editPersonalMemoryItem', () => {
   })
 })
 
+describe('clearPersonalMemory', () => {
+  it('removes every note of the owner handed in, in one statement, and answers how many went', async () => {
+    vi.mocked(deleteAllPersonalMemory).mockResolvedValue(7)
+
+    expect(await clearPersonalMemory(OWNER)).toBe(7)
+    expect(deleteAllPersonalMemory).toHaveBeenCalledTimes(1)
+    expect(deleteAllPersonalMemory).toHaveBeenCalledWith(OWNER)
+    expect(deletePersonalMemory).not.toHaveBeenCalled()
+  })
+
+  it('answers 0 for a person who holds no note', async () => {
+    vi.mocked(deleteAllPersonalMemory).mockResolvedValue(0)
+    expect(await clearPersonalMemory(OWNER)).toBe(0)
+  })
+})
+
 describe('listPersonalMemory and removePersonalMemoryItem', () => {
   it('reads and removes for the owner handed in, never a wider scope', async () => {
     vi.mocked(selectPersonalMemory).mockResolvedValue([note()])
     vi.mocked(deletePersonalMemory).mockResolvedValue(true)
 
     expect(await listPersonalMemory(OWNER)).toEqual({ items: [note()], nextCursor: null })
-    expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, 51, 0)
+    expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, 51, 0, {})
     expect(await removePersonalMemoryItem(OWNER, 'note-1')).toBe(true)
     expect(deletePersonalMemory).toHaveBeenCalledWith(OWNER, 'note-1')
   })
@@ -210,9 +263,17 @@ describe('listPersonalMemory and removePersonalMemoryItem', () => {
 
     const page = await listPersonalMemory(OWNER, { limit: 2, offset: 4 })
 
-    expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, 3, 4)
+    expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, 3, 4, {})
     expect(page.items.map((item) => item.id)).toEqual(['a', 'b'])
     expect(page.nextCursor).toBe('6')
+  })
+
+  it('narrows the list to one conversation’s notes, still for the owner handed in', async () => {
+    vi.mocked(selectPersonalMemory).mockResolvedValue([note({ sourceConversationId: 's_1' })])
+
+    await listPersonalMemory(OWNER, { limit: 200, offset: 0 }, { sourceConversationId: 's_1' })
+
+    expect(selectPersonalMemory).toHaveBeenCalledWith(OWNER, 201, 0, { sourceConversationId: 's_1' })
   })
 })
 

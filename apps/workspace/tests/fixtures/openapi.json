@@ -17935,6 +17935,46 @@
       }
     },
     "/api/user/memory": {
+      "delete": {
+        "operationId": "personal-memory-clear",
+        "summary": "Delete all personal memory notes",
+        "description": "Removes every personal note of the person for good, pinned ones included; it cannot be undone. Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed (0 when there were none). To remove one note use personal-memory-delete.",
+        "tags": [
+          "collaboration"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete all personal memory notes",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
       "post": {
         "operationId": "personal-memory-create",
         "summary": "Add a personal memory note",
@@ -18037,6 +18077,18 @@
               "type": "string",
               "maxLength": 64
             }
+          },
+          {
+            "name": "sourceConversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "description": "Only the notes saved from this conversation. Each note names the answer it was saved under in `sourceMessageId`."
           }
         ],
         "responses": {

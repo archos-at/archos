@@ -2123,6 +2123,16 @@
    "withheld": null,
    "reason": null
   },
+  "personal-memory-clear": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "personal-memory-create": {
    "kind": "catalog",
    "domain": "collaboration",

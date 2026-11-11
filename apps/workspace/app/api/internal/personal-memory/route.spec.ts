@@ -68,7 +68,20 @@ describe('POST /api/internal/personal-memory', () => {
       content: 'Answers in short paragraphs.',
       provenanceType: 'distillation',
       sourceConversationId: 's_conversation',
+      sourceMessageId: null,
     })
+  })
+
+  it('stores the answer the note was saved under, and refuses one that is no answer id or an owner in the body', async () => {
+    const answer = '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f'
+
+    expect((await call({ ...BODY, sourceMessageId: answer })).status).toBe(201)
+    expect(createPersonalMemoryItem).toHaveBeenCalledWith(OWNER, expect.objectContaining({ sourceMessageId: answer }))
+
+    vi.mocked(createPersonalMemoryItem).mockClear()
+    expect((await call({ ...BODY, sourceMessageId: 'the-first-answer' })).status).toBe(400)
+    expect((await call({ ...BODY, sourceMessageId: answer, userId: 'user_2' })).status).toBe(400)
+    expect(createPersonalMemoryItem).not.toHaveBeenCalled()
   })
 
   it('defaults the provenance to agent and the conversation to the envelope’s, and says when the note already existed', async () => {

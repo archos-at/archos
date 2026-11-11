@@ -14,12 +14,13 @@ vi.mock('@/lib/auth/require-auth', () => ({
 vi.mock('@/lib/personal-memory/service', () => ({
   listPersonalMemory: vi.fn(),
   createPersonalMemoryItem: vi.fn(),
+  clearPersonalMemory: vi.fn(),
 }))
 
 import { SessionRequiredError } from '@/lib/api/errors'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
-import { createPersonalMemoryItem, listPersonalMemory } from '@/lib/personal-memory/service'
-import { GET, POST } from './route'
+import { clearPersonalMemory, createPersonalMemoryItem, listPersonalMemory } from '@/lib/personal-memory/service'
+import { DELETE, GET, POST } from './route'
 
 const OWNER = { organizationId: 'org_1', userId: 'user_1' }
 const NOTE = { id: '11111111-1111-4111-8111-111111111111', kind: 'preference', content: 'Answers in short paragraphs.', pinned: false }
@@ -48,7 +49,20 @@ describe('GET /api/user/memory', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ items: [NOTE], nextCursor: null })
-    expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 50, offset: 0 })
+    expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 50, offset: 0 }, { sourceConversationId: undefined })
+  })
+
+  it('narrows the list to the notes saved from one conversation, still the session’s person’s', async () => {
+    vi.mocked(listPersonalMemory).mockResolvedValue({ items: [NOTE], nextCursor: null } as never)
+
+    const response = await GET(
+      new Request('https://grid.test/api/user/memory?sourceConversationId=s_1&limit=200&userId=user_2'),
+      context
+    )
+
+    expect(response.status).toBe(200)
+    expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 200, offset: 0 }, { sourceConversationId: 's_1' })
+    expect((await GET(new Request(`https://grid.test/api/user/memory?sourceConversationId=${'x'.repeat(256)}`), context)).status).toBe(400)
   })
 
   it('pages by limit and the previous nextCursor, and refuses a cursor it did not hand out', async () => {
@@ -57,7 +71,7 @@ describe('GET /api/user/memory', () => {
     const response = await GET(new Request('https://grid.test/api/user/memory?limit=10&cursor=10'), context)
 
     expect((await response.json()).nextCursor).toBe('20')
-    expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 10, offset: 10 })
+    expect(listPersonalMemory).toHaveBeenCalledWith(OWNER, { limit: 10, offset: 10 }, { sourceConversationId: undefined })
     expect((await GET(new Request('https://grid.test/api/user/memory?cursor=abc'), context)).status).toBe(400)
     expect((await GET(new Request('https://grid.test/api/user/memory?limit=201'), context)).status).toBe(400)
   })
@@ -106,5 +120,35 @@ describe('POST /api/user/memory', () => {
 
     expect(response.status).toBe(400)
     expect(createPersonalMemoryItem).not.toHaveBeenCalled()
+  })
+})
+
+describe('DELETE /api/user/memory', () => {
+  const clear = (url = 'https://grid.test/api/user/memory') => DELETE(new Request(url, { method: 'DELETE' }), context)
+
+  it('removes every note of the session’s person and answers how many went', async () => {
+    vi.mocked(clearPersonalMemory).mockResolvedValue(3)
+
+    const response = await clear()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ removed: 3 })
+    expect(clearPersonalMemory).toHaveBeenCalledWith(OWNER)
+  })
+
+  it('takes the owner from the session, never from the address', async () => {
+    vi.mocked(clearPersonalMemory).mockResolvedValue(0)
+
+    const response = await clear('https://grid.test/api/user/memory?userId=user_2&organizationId=org_2')
+
+    expect(await response.json()).toEqual({ removed: 0 })
+    expect(clearPersonalMemory).toHaveBeenCalledWith(OWNER)
+  })
+
+  it('is refused without a session and removes nothing', async () => {
+    vi.mocked(requireAuthorizedSession).mockRejectedValueOnce(new SessionRequiredError())
+
+    expect((await clear()).status).toBe(403)
+    expect(clearPersonalMemory).not.toHaveBeenCalled()
   })
 })

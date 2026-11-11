@@ -43,6 +43,7 @@ import {
 import { MemoryNotedChip } from '../MemoryNotedChip'
 import { ViewerActionRow } from '../ViewerActionRow'
 import { turnMemoryItems } from '../../lib/turn-memory'
+import { usePersonalTurnNotes } from '../../stores/turn-notes-store'
 import { answerMetaToAnatomy, summaryDuplicatesBody } from '../../lib/answer-meta-cards'
 import { AnatomyBlock, AnatomyMasthead, mastheadShows } from '../AnswerAnatomy'
 
@@ -492,12 +493,12 @@ export function useAgentResponseController({
   // item — turn one's answer read „Piloti hat sich 5 gemerkt" after turn five.
   // The reflection stage now delivers a frame addressed to the turn it belongs
   // to, so the chip can finally be what it always claimed to be.
-  // A memory card with a `proposal_id` is decided on the server and writes no
-  // `cardInteractions`: its receipt tells the tab how it ended.
+  // A `proposal_id` card is decided on the server: its receipt says how it ended. A personal note is read per person.
   const decidedProposals = useDecidedProposals((state) => state.byId)
+  const personalNotes = usePersonalTurnNotes(conversationId, messageId)
   const memoryItems = useMemo(
-    () => turnMemoryItems({ stages, cards, cardInteractions, decidedProposals }),
-    [stages, cards, cardInteractions, decidedProposals]
+    () => turnMemoryItems({ stages, cards, cardInteractions, decidedProposals, personalNotes }),
+    [stages, cards, cardInteractions, decidedProposals, personalNotes]
   )
 
   // What the merged footer's meta row would actually hold. The chip renders

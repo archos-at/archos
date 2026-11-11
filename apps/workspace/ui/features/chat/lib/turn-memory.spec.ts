@@ -70,8 +70,101 @@ describe('turnMemoryItems', () => {
         provenance: 'distillation',
         // The stage writes the project's memory only, and its frame leaves a personal note out.
         audience: 'project',
+        // The row it wrote: what taking the note back deletes.
+        noteId: 'row-1',
       },
     ])
+  })
+
+  describe('every save of the turn, with its shelf (ADR-0180)', () => {
+    const frame = {
+      memoryReflection: {
+        items: [
+          { id: 'n-1', kind: 'decision', content: 'Die Bauherrschaft will ein Flachdach.', provenance: 'agent' as const },
+          {
+            id: 'n-2',
+            kind: 'preference',
+            content: 'Brandschutzkonzepte werden vorabgestimmt.',
+            provenance: 'agent' as const,
+            scope: 'organization' as const,
+          },
+          { id: 'n-3', kind: 'constraint', content: 'Die Statik ist freigegeben.', restricted: true as const },
+          {
+            id: 'n-4',
+            kind: 'derived_fact',
+            content: 'OIB-RL 2.1 gilt.',
+            supersedes: 'OIB-RL 2.1 gilt nicht.',
+          },
+        ],
+      },
+    }
+    const mine = [
+      { id: 'p-1', kind: 'profile', content: 'Leitet die Einreichplanung.', provenanceType: 'distillation' },
+      { id: 'p-2', kind: 'preference', content: 'Will kurze Antworten.', provenanceType: 'agent' },
+    ]
+
+    it('shows a note the tool saved on its own, with no card, as written during the answer', () => {
+      const [project, office] = turnMemoryItems({ stages: frame })
+      expect(project).toEqual({
+        id: 'n-1',
+        noteId: 'n-1',
+        kind: 'decision',
+        content: 'Die Bauherrschaft will ein Flachdach.',
+        provenance: 'inTurn',
+        audience: 'project',
+      })
+      expect(office).toMatchObject({ noteId: 'n-2', provenance: 'inTurn', audience: 'organization' })
+    })
+
+    it('says a restricted note is read by fewer people than the project, and carries what a note replaced', () => {
+      const items = turnMemoryItems({ stages: frame })
+      expect(items.find((item) => item.id === 'n-3')).toMatchObject({ audience: 'restricted', provenance: 'distillation' })
+      expect(items.find((item) => item.id === 'n-4')?.supersedes).toBe('OIB-RL 2.1 gilt nicht.')
+      expect(items.find((item) => item.id === 'n-1')).not.toHaveProperty('supersedes')
+    })
+
+    it('adds the reader’s own personal notes of this answer, read by nobody else', () => {
+      const items = turnMemoryItems({ stages: frame, personalNotes: mine })
+      const personal = items.filter((item) => item.audience === 'personal')
+      expect(personal).toEqual([
+        { id: 'p-2', noteId: 'p-2', kind: 'preference', content: 'Will kurze Antworten.', provenance: 'inTurn', audience: 'personal' },
+        { id: 'p-1', noteId: 'p-1', kind: 'profile', content: 'Leitet die Einreichplanung.', provenance: 'distillation', audience: 'personal' },
+      ])
+    })
+
+    it('shows another reader of the same message no personal row: it is not on the message', () => {
+      // The colleague's browser holds the same message and an empty list of their own.
+      const theirs = turnMemoryItems({ stages: frame, personalNotes: [] })
+      expect(theirs.map((item) => item.audience)).toEqual(['project', 'organization', 'restricted', 'project'])
+      expect(JSON.stringify(frame)).not.toContain('Einreichplanung')
+    })
+
+    it('lists everything written during the answer ahead of everything added after it', () => {
+      const items = turnMemoryItems({ stages: frame, personalNotes: mine })
+      expect(items.map((item) => [item.id, item.provenance])).toEqual([
+        ['n-1', 'inTurn'],
+        ['n-2', 'inTurn'],
+        ['p-2', 'inTurn'],
+        ['n-3', 'distillation'],
+        ['n-4', 'distillation'],
+        ['p-1', 'distillation'],
+      ])
+    })
+
+    it('names the note an accepted server proposal created, and none for a card the browser decided', () => {
+      const cards = [serverProposal('Die Fluchtwegbreite ist mit 1,20 m vorgegeben.')]
+      const decided: DecidedProposals = {
+        [PROPOSAL_ID]: {
+          id: PROPOSAL_ID,
+          kind: 'memory',
+          status: 'applied',
+          results: [{ label: 'Notiz', ok: true, scope: 'project', itemId: 'created-1' }],
+        } as ProposedChangeView,
+      }
+      expect(turnMemoryItems({ cards, decidedProposals: decided })[0]?.noteId).toBe('created-1')
+      const older = turnMemoryItems({ cards: [proposal('Alt.')], cardInteractions: answered('savedProject') })
+      expect(older[0]).not.toHaveProperty('noteId')
+    })
   })
 
   it('reports an ACCEPTED memory proposal, marked as during the answer', () => {

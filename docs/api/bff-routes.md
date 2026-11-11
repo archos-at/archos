@@ -758,6 +758,7 @@ below under the internal endpoints.
 | `POST` | `/api/user/memory` | Required | Keep one note as the person's own (`provenanceType: 'user'`). `kind` is `preference` (how the person wants the agent to work) or `profile` (role, responsibilities, recurring topics); `content` is 1 to 2,000 characters, stored as the office's screening leaves it (ADR-0086). A note that says what an existing one says, once case and punctuation are folded, is that note, returned again with its `updatedAt` moved. | `{ kind, content, pinned? }` | `{ item }` (201) |
 | `PATCH` | `/api/user/memory/{itemId}` | Required | Change any of `kind`, `content`, `pinned`; an empty patch is a 400. 409 when another note of the person already says the new content. 404 for a note the caller does not hold and for an id that is no UUID. | `{ kind?, content?, pinned? }` | `{ item }` |
 | `DELETE` | `/api/user/memory/{itemId}` | Required | Remove the note for good. 404 as above. | — | 204 |
+| `DELETE` | `/api/user/memory` | Required | **New 2026-11-11.** Remove every note of the caller in this organization for good, pinned ones included („Alle Notizen entfernen“, operation `personal-memory-clear`). The owner is the session's person; nothing in the request names one. A person without notes gets 200 with 0. | — | `{ removed }` |
 
 Source: `apps/workspace/app/api/user/memory/route.ts`, `apps/workspace/app/api/user/memory/[itemId]/route.ts`, `apps/workspace/bff/personal-memory/{service,repository,wire}.ts`
 

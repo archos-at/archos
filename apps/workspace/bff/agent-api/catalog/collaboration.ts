@@ -506,6 +506,19 @@ export const collaborationOperations = [
     destructive: true,
     load: () => import('@/app/api/user/memory/[itemId]/route'),
   },
+  {
+    name: 'personal-memory-clear',
+    domain: 'collaboration',
+    summary: 'Delete all personal memory notes',
+    description:
+      'Removes every personal note of the person for good, pinned ones included; it cannot be undone. ' +
+      'Notes of the project and of the organization are not touched. Answers `{ removed }`, the number of notes removed ' +
+      '(0 when there were none). To remove one note use personal-memory-delete.',
+    method: 'DELETE',
+    path: '/api/user/memory',
+    destructive: true,
+    load: () => import('@/app/api/user/memory/route'),
+  },
 
   // Files attached to a chat
   {

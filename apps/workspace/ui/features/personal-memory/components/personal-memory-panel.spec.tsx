@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@/test-utils'
+import { toast } from 'sonner'
 import { PersonalMemoryPanel } from './personal-memory-panel'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -206,5 +207,60 @@ describe('PersonalMemoryPanel', () => {
     await waitFor(() => expect(screen.queryByText('Flächen in Quadratmetern.')).not.toBeInTheDocument())
     expect(fetchMock).toHaveBeenCalledWith('/api/user/memory/n-older', { method: 'DELETE' })
     expect(screen.getByText('Leitet die Einreichplanung.')).toBeInTheDocument()
+  })
+
+  test('offers „remove all“ only where there are notes', async () => {
+    serve([])
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('No notes yet')
+    expect(screen.queryByRole('button', { name: 'Remove all notes' })).not.toBeInTheDocument()
+  })
+
+  test('removes every note only after a confirmation that says how many and that it cannot be undone', async () => {
+    serve([PINNED, NEWER, OLDER], () => Response.json({ removed: 3 }))
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Flächen in Quadratmetern.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove all notes' }))
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/user/memory', { method: 'DELETE' })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Remove all notes?')
+    expect(dialog).toHaveTextContent('3 notes are removed from your memory, pinned ones included.')
+    expect(dialog).toHaveTextContent('This cannot be undone.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove all notes' }))
+
+    expect(await screen.findByText('No notes yet')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/memory', { method: 'DELETE' })
+    expect(screen.queryAllByTestId('personal-memory-note')).toHaveLength(0)
+    expect(toast.success).toHaveBeenCalledWith('3 notes removed.')
+  })
+
+  test('one note is counted in the singular, and cancelling removes nothing', async () => {
+    serve([NEWER])
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Leitet die Einreichplanung.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove all notes' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('1 note is removed from your memory')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/user/memory', { method: 'DELETE' })
+    expect(screen.getByText('Leitet die Einreichplanung.')).toBeInTheDocument()
+  })
+
+  test('a refused „remove all“ keeps the list and says so', async () => {
+    serve([NEWER, OLDER], () => new Response('down', { status: 502 }))
+    render(<PersonalMemoryPanel />)
+    await screen.findByText('Flächen in Quadratmetern.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove all notes' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove all notes' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The notes were not removed. Try again.'))
+    expect(rows()).toHaveLength(2)
   })
 })

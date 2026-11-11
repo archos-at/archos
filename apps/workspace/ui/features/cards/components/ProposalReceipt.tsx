@@ -86,7 +86,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
 }: ProposalReceiptProps<K>) {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
-  const { proposal, problem, busy, overtaken, decide } = server
+  const { proposal, problem, refusalCode, busy, overtaken, decide } = server
 
   if (proposal && proposal.status !== 'proposed') {
     const { status } = proposal
@@ -135,10 +135,18 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
         </p>
       )}
 
-      {(problem === 'apply' || problem === 'dismiss') && (
-        <p className="text-destructive text-sm">
-          {problem === 'apply' ? t('cards.proposalReceipt.applyError') : t('cards.proposalReceipt.dismissError')}
+      {/* A refusal the server named is said in its own words, in ink: it is a
+          rule holding (a temporary chat keeps nothing), not something that broke. */}
+      {problem === 'apply' && refusalCode === 'TEMPORARY_CONVERSATION' ? (
+        <p className="text-foreground text-sm" role="status" data-testid="proposal-refused" data-code={refusalCode}>
+          {t('cards.proposalReceipt.temporaryConversation')}
         </p>
+      ) : (
+        (problem === 'apply' || problem === 'dismiss') && (
+          <p className="text-destructive text-sm">
+            {problem === 'apply' ? t('cards.proposalReceipt.applyError') : t('cards.proposalReceipt.dismissError')}
+          </p>
+        )
       )}
 
       {/* THE DECISION ROW. „Übernehmen“ comes FIRST, in the DOM and on screen:

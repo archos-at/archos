@@ -221,6 +221,23 @@ describe('POST /api/internal/memory', () => {
     )
   })
 
+  it('says whether the write created a row or refreshed a note that was already held', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
+    const written = new Date('2026-11-11T09:00:00Z')
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-new', projectId: PROJECT_ID, createdAt: written, updatedAt: written })
+    )
+    const created = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(created.created).toBe(true)
+
+    // A restated note is refreshed in place: its `updated_at` moved, its row did not.
+    vi.mocked(createProjectMemoryItemForProject).mockResolvedValueOnce(
+      makeMemoryItem({ id: 'item-old', projectId: PROJECT_ID, createdAt: written, updatedAt: new Date('2026-11-12T09:00:00Z') })
+    )
+    const refreshed = await (await POST(makeRequest(validProjectPayload, REAL_TOKEN))).json()
+    expect(refreshed).toMatchObject({ item: { id: 'item-old' }, created: false })
+  })
+
   it('threads the provenanceType through (distillation from the reflection stage)', async () => {
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(createProjectMemoryItemForProject).mockResolvedValue(makeMemoryItem({ id: 'item-d' }))

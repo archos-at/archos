@@ -123,14 +123,19 @@ Four rules complete the decision:
   until the person asks in a conversation of their own.
 * Bad, because nothing erases a person's notes when the person leaves the
   office or asks for erasure. The product has no account-erasure and no
-  member-removal path at all: the deletion queue's entity types include
+  member-removal path of its own: people are removed in the WorkOS Users
+  Management widget (`ui/features/organization/components/people-directory.tsx`),
+  which talks to WorkOS from the browser, and no WorkOS webhook route tells
+  the application. The deletion queue's entity types include
   `user`, but nothing enqueues one and the purger has no handler for it
   (ADR-0011 lists it as a follow-up), and `user_preferences` has no delete
   either. `deleteAllPersonalMemory` (`bff/personal-memory/repository.ts`)
   removes every note of one person in one statement and is tested under
-  row-level security, but no production path calls it. Until one does, a
-  person's notes outlive their membership, readable by nobody the application
-  serves and still in the database.
+  row-level security. The person's own „Alle Notizen entfernen“ calls it
+  (`clearPersonalMemory`, `DELETE /api/user/memory`); nothing calls it for a
+  person who leaves. Until something does, their notes outlive their
+  membership, readable by nobody the application serves and still in the
+  database.
 
 ### Confirmation
 
@@ -167,6 +172,18 @@ What holds rule 2, a temporary conversation keeps nothing:
   agent-side skips. `packages/agent/tests/knowledge/test_personal_memory.py`
   maps the refusal to the named error.
 
+* `app/api/proposals/[id]/route.spec.ts` holds that accepting a `memory`
+  proposal made in a temporary conversation is refused with the same 403,
+  writes nothing and leaves the proposal open (`applyMemory` in
+  `bff/proposals/appliers.ts` calls `requireConversationKeepsMemory`), and
+  `ui/features/cards/components/ProposalReceipts.spec.tsx` that the card says
+  why.
+* `bff/jobs/background-run.spec.ts` holds that a run submitted from a
+  temporary conversation says so to the worker (`temporary_conversation`), and
+  `apps/agent-host/tests/test_agent_job_phases.py` and `test_skill_submit.py`
+  that the worker then skips the reflection before any model call, names the
+  skip in its log and marks the run's workflow span.
+
 What holds rule 4, the block only where the asker alone reads the answer:
 
 * `app/api/internal/turn-context/route.spec.ts` delivers the block in a solo
@@ -189,23 +206,31 @@ Nothing enforces these yet:
   and the reflection prompt say which is which; no eval case checks what the
   model does with them. Review and the person's own eye are the gate. An eval
   case belongs in the answer suite.
-* **The deep-research worker's reflection.** `_reflect` in
+* **A personal finding on a research run.** `_reflect` in
   `apps/agent-host/src/agent_host/jobs/runner.py` calls the reflection pass
-  with no envelope and without the turn's `temporary` flag. A finding about
-  the person is therefore dropped on a research run, and the run's project
-  findings from a temporary conversation are stopped only by the BFF's
-  refusal, after the model call was paid for.
-* **A memory card a person confirms in a temporary conversation.** Accepting
-  a `memory` proposal writes through the person's own session
-  (`bff/proposals/appliers.ts`), which does not ask whether the origin
-  conversation is temporary. The `remember` tool offers no card in a
-  conversation it knows is temporary, so this needs a card shown before the
-  switch.
+  with no envelope, so a finding about the person is dropped on a research
+  run.
+* **A run whose conversation becomes temporary after its submit.** The worker
+  knows the flag as of the submit (see Confirmation). A conversation switched
+  to temporary while the run is going is reflected on, and its writes are
+  stopped only by the BFF's refusal, after the model call was paid for, with
+  one warning per finding from `_record_findings`
+  (`packages/agent/src/agent/memory/reflection.py`), which swallows the named
+  refusal.
+* **The browser-written memory card, on the server.** A `memory_proposal` card
+  without a `proposal_id` (an answer older than server proposals, or a
+  proposal the agent could not store) posts to `/api/organization/memory` or
+  `/api/projects/{id}/memory`, the memory panels' own routes, which are not
+  told the conversation. The card refuses in a temporary conversation
+  (`MemoryProposalCard.test.tsx`); a request that does not come from the card
+  is a person's manual note and is kept.
 * **`POST /api/internal/memory` without `sourceConversationId`.** The route
   judges the flag on the conversation the body names. A project or
   organization write that names none is kept. The personal route does not
   have this gap: it also judges the envelope's conversation.
-* **Erasure of a person's notes**, as said under Consequences.
+* **Erasure of a person's notes when they leave**, as said under
+  Consequences. The person can remove their own (`DELETE /api/user/memory`,
+  „Alle Notizen entfernen“); nothing does it for them.
 
 ## More Information
 

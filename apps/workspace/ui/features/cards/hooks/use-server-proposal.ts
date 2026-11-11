@@ -40,6 +40,8 @@ export interface ServerProposal<K extends ProposedChangeKind> {
   /** The object, once read; null before. A card draws its own copy of the payload until then. */
   proposal: ProposalOfKind<K> | null
   problem: ProposalProblem | null
+  /** The server's own code for a refused click (`TEMPORARY_CONVERSATION`), so the card can say why. Null when it named none. */
+  refusalCode: string | null
   busy: ProposalBusy | null
   /** The click arrived after a colleague decided: their decision is what is shown. */
   overtaken: boolean
@@ -49,6 +51,12 @@ export interface ServerProposal<K extends ProposedChangeKind> {
 /** A refusal because the proposal is no longer `proposed`: somebody decided it first. */
 const isConflict = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 409
+
+/** The code a refusal carries (`ProposalRequestError.code`), through either transport. */
+const refusalCodeOf = (error: unknown): string | null => {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null
+  return typeof code === 'string' ? code : null
+}
 
 const isKind = <K extends ProposedChangeKind>(kind: K, proposal: ProposedChangeView): proposal is ProposalOfKind<K> =>
   proposal.kind === kind
@@ -61,6 +69,7 @@ export function useServerProposal<K extends ProposedChangeKind>(
 ): ServerProposal<K> {
   const [proposal, setProposal] = useState<ProposalOfKind<K> | null>(null)
   const [problem, setProblem] = useState<ProposalProblem | null>(null)
+  const [refusalCode, setRefusalCode] = useState<string | null>(null)
   const [busy, setBusy] = useState<ProposalBusy | null>(null)
   const [overtaken, setOvertaken] = useState(false)
   // Piloti's HTTP client, or the MCP door inside another assistant's chat (ADR-0142).
@@ -153,6 +162,7 @@ export function useServerProposal<K extends ProposedChangeKind>(
       if (inFlight.current || live.current.busy) return
       inFlight.current = true
       setProblem(null)
+      setRefusalCode(null)
       setBusy({ action, withBody: body !== undefined })
       try {
         const response = await (action === 'dismiss' ? transport.dismiss(proposalId) : transport.apply(proposalId, body))
@@ -161,6 +171,7 @@ export function useServerProposal<K extends ProposedChangeKind>(
         else setProblem(action)
       } catch (failure) {
         if (!isConflict(failure)) {
+          setRefusalCode(refusalCodeOf(failure))
           setProblem(action)
           return
         }
@@ -181,5 +192,5 @@ export function useServerProposal<K extends ProposedChangeKind>(
     [proposalId, accept, settle, transport]
   )
 
-  return { proposal, problem, busy, overtaken, decide }
+  return { proposal, problem, refusalCode, busy, overtaken, decide }
 }

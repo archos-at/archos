@@ -14,7 +14,7 @@ import { resetTemporarySettling } from '../../lib/temporary-conversation'
 import { resetCreatedTemporary } from '../../lib/temporary-created'
 import { useChatStore } from '../../store'
 import type { Conversation } from '../../types'
-import { TemporaryChatToggle } from './TemporaryChatToggle'
+import { TemporaryChatToggle, TemporaryChatToggleView } from './TemporaryChatToggle'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -141,6 +141,20 @@ describe('TemporaryChatToggle', () => {
     act(() => publishThreadRole('c-1', role))
     render(<TemporaryChatToggle conversationId="c-1" />)
     expect(screen.queryByTestId('temporary-chat-toggle')).not.toBeInTheDocument()
+  })
+
+  test('says its word at every width, on and off: the word is never screen-reader-only, and only the glyph leaves on a phone', () => {
+    open(conversation())
+    const { rerender } = render(<TemporaryChatToggleView pressed={false} onPressedChange={() => undefined} />)
+    for (const pressed of [false, true]) {
+      rerender(<TemporaryChatToggleView pressed={pressed} onPressedChange={() => undefined} />)
+      const word = screen.getByTestId('temporary-chat-word')
+      expect(word).toHaveTextContent('Temporary')
+      expect(word.className).not.toMatch(/sr-only|hidden/)
+      expect(screen.getByTestId('temporary-chat-glyph')).toHaveClass('max-sm:hidden')
+      // The name a screen reader hears is the action, not the bare word.
+      expect(toggle()).toHaveAccessibleName(pressed ? 'Turn off temporary chat' : 'Turn on temporary chat')
+    }
   })
 
   test('is not pressable while the composer may not contribute', () => {

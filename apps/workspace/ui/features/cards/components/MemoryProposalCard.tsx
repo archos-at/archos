@@ -85,6 +85,10 @@ function BrowserWrittenMemoryCard({
   const t = useTranslations(chatCopy)
   // Same source as ProjectProfilePatchCard's projectId: the active chat store.
   const projectId = useChatStore((s) => s.projectId)
+  // A temporary chat keeps nothing (ADR-0180 rule 2). The routes this card
+  // writes through are the memory panels' own and are not told the
+  // conversation, so the card itself holds the rule for its own chat.
+  const temporary = useChatStore((s) => s.currentConversation?.temporary === true)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
@@ -98,6 +102,10 @@ function BrowserWrittenMemoryCard({
     // Ignored while a save is in flight, rather than refused by `disabled`:
     // see the buttons below.
     if (isSubmitting) return
+    if (temporary) {
+      setError(t('memoryProposal.temporaryConversation'))
+      return
+    }
     setError(null)
     setSavingTo(savedDecision === 'savedProject' ? 'project' : 'org')
     setIsSubmitting(true)

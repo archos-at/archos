@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiRequestError } from './api-error'
 import {
+  clearPersonalMemory,
   addPersonalMemoryNote,
   listPersonalMemory,
   removePersonalMemoryNote,
@@ -118,5 +119,20 @@ describe('removePersonalMemoryNote', () => {
     fetchMock.mockResolvedValueOnce(new Response('gone', { status: 404 }))
 
     await expect(removePersonalMemoryNote('n-9')).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('clearPersonalMemory', () => {
+  it('deletes the whole collection and answers how many notes went', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ removed: 4 }))
+
+    await expect(clearPersonalMemory()).resolves.toEqual({ removed: 4 })
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/memory', { method: 'DELETE' })
+  })
+
+  it('throws the typed error with the status when the server refuses', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('no', { status: 403 }))
+
+    await expect(clearPersonalMemory()).rejects.toMatchObject({ status: 403 })
   })
 })

@@ -213,7 +213,13 @@ export const POST = internalApiRoute(
 
         // `supersededId` is null when the quote resolved to nothing, or to an entry
         // the agent may not retire — the caller can then be honest about what it did.
-        return { item, supersededId: outcome.supersededId }
+        // `created` is false when the write restated a note and that row was
+        // refreshed in place: a new row's two timestamps are one statement's
+        // `now()`, a refreshed row's `updated_at` is later. The agent then
+        // leaves it off the answer's noted chip, whose remove action would
+        // delete a note this turn did not write.
+        const created = item.createdAt.getTime() === item.updatedAt.getTime()
+        return { item, supersededId: outcome.supersededId, created }
       }
     )
   },

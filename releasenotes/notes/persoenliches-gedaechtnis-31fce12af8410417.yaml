@@ -22,3 +22,15 @@ features:
   - >
     A project's memory now says that every member of the project reads its
     notes, and a private chat says that you have not shared it with anyone.
+  - >
+    "Mein Gedächtnis" has "Alle Notizen entfernen": after a confirmation that
+    says how many notes go, everything the assistant keeps about you is removed
+    in one step.
+  - >
+    A temporary chat is marked in the chat history, and the switch beside the
+    message field shows its word on a phone too. A note the assistant proposed
+    cannot be saved from a chat that is temporary; the card says why.
+  - >
+    Every note the assistant saves while answering now appears under that
+    answer, with who can read it and "Entfernen" to take it back on the spot.
+    Notes on your own shelf are shown there to you alone.

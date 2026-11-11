@@ -160,6 +160,42 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(await visibleTo(A)).toEqual(['Wants answers in short paragraphs.'])
   })
 
+  it('answers a conversation’s notes, each with its answer, to their owner and to nobody else (migration 0227)', async () => {
+    // The answer's chip asks for the notes saved from the conversation it is
+    // in. A colleague reading the SAME shared conversation asks the same
+    // question with the same conversation id and is answered nothing.
+    const answer = '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f'
+    const shared = { sourceConversationId: 's_shared_0227' }
+    const { item } = await as(A, () =>
+      service.createPersonalMemoryItem(A, {
+        kind: 'profile',
+        content: 'Leads the fire safety reviews.',
+        provenanceType: 'distillation',
+        sourceConversationId: shared.sourceConversationId,
+        sourceMessageId: answer,
+      })
+    )
+    expect(item.sourceMessageId).toBe(answer)
+
+    const mine = await as(A, () => service.listPersonalMemory(A, { limit: 200, offset: 0 }, shared))
+    expect(mine.items.map((row) => [row.id, row.sourceMessageId])).toEqual([[item.id, answer]])
+    // The filter narrows: A's note from the other conversation is not in this list.
+    expect((await as(A, () => service.listPersonalMemory(A))).items.length).toBeGreaterThan(1)
+
+    for (const other of [B, ELSEWHERE, A_ELSEWHERE]) {
+      const theirs = await as(other, () => service.listPersonalMemory(other, { limit: 200, offset: 0 }, shared))
+      expect(theirs.items, `list as ${other.userId} in ${other.organizationId}`).toEqual([])
+      // Not even with the owner named and the answer's id in hand.
+      expect((await as(other, () => service.listPersonalMemory(A, { limit: 200, offset: 0 }, shared))).items).toEqual([])
+      const byAnswer = await as(other, () =>
+        db.execute(sql`select id from personal_memory where source_message_id = ${answer}::uuid`)
+      )
+      expect([...byAnswer], `select by answer as ${other.userId}`).toEqual([])
+    }
+
+    expect(await as(A, () => service.removePersonalMemoryItem(A, item.id))).toBe(true)
+  })
+
   it('refuses a row written for somebody else, or into another organization', async () => {
     const insertFor = (connection: Owner, organizationId: string, userId: string) =>
       as(connection, () =>

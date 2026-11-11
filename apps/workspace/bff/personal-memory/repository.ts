@@ -15,6 +15,11 @@ export interface PersonalMemoryOwner {
   userId: string
 }
 
+/** Narrows a list to the notes saved from one conversation. */
+export interface PersonalMemoryFilter {
+  sourceConversationId?: string
+}
+
 /** The most notes one page answers: the page limit of `@/lib/api/offset-page`. */
 export const PERSONAL_MEMORY_LIST_LIMIT = 200
 
@@ -34,12 +39,14 @@ const normalizedContent = sql`btrim(regexp_replace(lower(${personalMemory.conten
 export async function selectPersonalMemory(
   owner: PersonalMemoryOwner,
   limit: number = PERSONAL_MEMORY_LIST_LIMIT,
-  offset: number = 0
+  offset: number = 0,
+  filter: PersonalMemoryFilter = {}
 ): Promise<PersonalMemoryItem[]> {
+  const from = filter.sourceConversationId
   return getDb()
     .select()
     .from(personalMemory)
-    .where(ownedBy(owner))
+    .where(from ? and(ownedBy(owner), eq(personalMemory.sourceConversationId, from)) : ownedBy(owner))
     .orderBy(desc(personalMemory.pinned), desc(personalMemory.updatedAt), desc(personalMemory.id))
     .limit(Math.min(limit, PERSONAL_MEMORY_LIST_LIMIT + 1))
     .offset(offset)

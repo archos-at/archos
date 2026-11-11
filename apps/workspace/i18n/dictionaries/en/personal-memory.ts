@@ -27,6 +27,10 @@ export const personalMemory = {
   removeTitle: 'Remove from my memory',
   removeConfirmTitle: 'Remove note?',
   removeConfirmDescription: '{productName} no longer takes it into account. This cannot be undone.',
+  removeAll: 'Remove all notes',
+  removeAllConfirmTitle: 'Remove all notes?',
+  removeAllConfirmDescription:
+    '{count, plural, one {# note is} other {# notes are}} removed from your memory, pinned ones included. {productName} no longer takes them into account. This cannot be undone.',
   provenance: {
     user: 'added by you',
     agent: 'noted by {productName}',
@@ -38,11 +42,13 @@ export const personalMemory = {
   added: 'Note added.',
   updated: 'Note saved.',
   removed: 'Note removed.',
+  removedAll: '{count, plural, one {# note} other {# notes}} removed.',
   errors: {
     loadTitle: 'The notes could not be loaded',
     loadDescription: 'Try again.',
     conflict: 'Another note already says this.',
     saveFailed: 'The note was not saved. Try again.',
     removeFailed: 'The note was not removed. Try again.',
+    removeAllFailed: 'The notes were not removed. Try again.',
   },
 }

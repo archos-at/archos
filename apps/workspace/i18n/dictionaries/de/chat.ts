@@ -796,6 +796,8 @@ export const chat: typeof en.chat = {
       failed: 'Nichts konnte übernommen werden. Es wurde nichts geändert.',
       applyError: 'Konnte nicht übernommen werden.',
       dismissError: 'Konnte nicht verworfen werden.',
+      temporaryConversation:
+        'Nicht gemerkt: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Die Notiz lässt sich übernehmen, sobald „Temporär“ ausgeschaltet ist.',
       decidedBy: {
         applied: 'Übernommen von {name} · {when}',
         partially_applied: 'Übernommen von {name} · {when}',
@@ -1207,6 +1209,8 @@ export const chat: typeof en.chat = {
     savedProject: 'Im Gedächtnis dieses Projekts gespeichert.',
     dismissed: 'Nicht gespeichert.',
     error: 'Erkenntnis konnte nicht gespeichert werden',
+    temporaryConversation:
+      'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
     kind: {
       decision: 'Entscheidung',
       constraint: 'Vorgabe',
@@ -2052,21 +2056,49 @@ export const chat: typeof en.chat = {
   memory: {
     noted: '{productName} hat sich gemerkt',
     notedAria: '{productName} hat sich {count, plural, one {# Notiz} other {# Notizen}} gemerkt',
-    addedToMemory: 'In das Projektgedächtnis aufgenommen',
+    // Die Überschrift nennt das Gedächtnis, in das die Notizen kamen; „mixed“,
+    // wenn sie in mehr als eines kamen.
+    addedTo: {
+      project: 'In das Projektgedächtnis aufgenommen',
+      organization: 'In das Gedächtnis des Büros aufgenommen',
+      personal: 'In Ihr Gedächtnis aufgenommen',
+      mixed: 'In das Gedächtnis aufgenommen',
+    },
     // Mindestens eine Notiz hat eine frühere ersetzt (`supersedes`): das
     // wichtigere Ereignis, daher eigenes Wort und eigenes Symbol am Chip.
     updated: 'Gedächtnis aktualisiert',
     updatedAria:
       '{productName} hat das Gedächtnis aktualisiert: {count, plural, one {# Notiz} other {# Notizen}}, davon {corrected} korrigiert',
-    updatedInMemory: 'Projektgedächtnis aktualisiert',
+    updatedIn: {
+      project: 'Projektgedächtnis aktualisiert',
+      organization: 'Gedächtnis des Büros aktualisiert',
+      mixed: 'Gedächtnis aktualisiert',
+    },
     correctedLabel: 'Korrigiert',
     replaced: 'Ersetzt:',
-    manageHint: 'Diese Einträge können Sie im Projektgedächtnis verwalten und löschen.',
+    manageHint: 'Diese Einträge können Sie im Gedächtnis eines Projekts verwalten und löschen.',
     // Der Hinweis als Tür: führt zum Gedächtnis des Projekts (Einstellungen → Gedächtnis).
     manageLink: 'Im Projektgedächtnis verwalten',
-    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): Projekt oder Büro.
+    // Dieselbe Tür für die eigenen Notizen („Mein Gedächtnis“).
+    manageLinkPersonal: 'In „Mein Gedächtnis“ verwalten',
+    // Eine Notiz dort zurücknehmen, wo sie gezeigt wird (ADR-0180). Das löscht sie.
+    remove: 'Entfernen',
+    removeAria: 'Notiz entfernen: {note}',
+    removing: 'Wird entfernt …',
+    removed: 'Entfernt. Die Notiz ist gelöscht.',
+    // Die Notiz wurde bereits an anderer Stelle entfernt, verworfen oder ersetzt.
+    gone: 'Nicht mehr im Gedächtnis.',
+    removeFailed: 'Konnte nicht entfernt werden.',
+    removeRetry: 'Erneut versuchen',
+    // Eine Notiz, die eine frühere ersetzt hat, wird hier nicht zurückgenommen: die frühere bliebe ersetzt.
+    replacedNotRemovable: 'Hat eine frühere Notiz ersetzt und lässt sich hier nicht zurücknehmen.',
+    openMemory: 'Gedächtnis öffnen',
+    // Wer eine Notiz liest, folgt aus ihrem Ort (ADR-0180): eigenes Gedächtnis, Projekt oder Büro.
     audience: {
+      personal: 'Nur Sie',
       project: 'Liest das Projektteam',
+      // Projektgedächtnis, das auf einem eingeschränkten Ordner beruht (ADR-0087).
+      restricted: 'Liest, wer den Ordner lesen darf',
       organization: 'Lesen alle im Büro',
     },
     kinds: {
@@ -2075,6 +2107,8 @@ export const chat: typeof en.chat = {
       open_question: 'Offene Frage',
       derived_fact: 'Fakt',
       preference: 'Präferenz',
+      // Eine persönliche Notiz darüber, wer die lesende Person im Büro ist (ADR-0180).
+      profile: 'Rolle und Themen',
     },
     provenance: {
       distillation: 'nach der Antwort ergänzt',
