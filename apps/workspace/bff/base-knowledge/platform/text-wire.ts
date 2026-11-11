@@ -23,13 +23,17 @@ export const corpusFileNameSchema = z
   .trim()
   .regex(/^[^/\\]{1,200}\.pdf$/, 'a PDF file name without a path, e.g. "oib-rl-1-2019.pdf"')
 
+/**
+ * The name a text is kept under in the base corpus: its manifestation's key and the first twelve hex digits of
+ * its sha256. Content-addressed, so the bytes under a name never change: another text is another name. The api
+ * tier names a fetched text the same way (`corpus_text_name`).
+ */
+export const textFileName = (manifestationKey: string, sha256: string): string => `${manifestationKey}-${sha256.slice(0, 12)}.pdf`
+
 export const importTextBodySchema = z.object({
   manifestationKey: manifestationKeySchema.describe(MANIFESTATION_KEY),
   sourceId: sourceIdSchema.describe('The configured public source whose hosts the PDF is on, e.g. "at-oib".'),
   url: z.url().max(2000).describe('The PDF; fetched and read by the public-source fetcher, GET only.'),
-  fileName: corpusFileNameSchema
-    .optional()
-    .describe('The name the base corpus keeps it under; by default "<manifestationKey>.pdf". A text that replaces a released one takes a new name.'),
 })
 export type ImportTextBody = z.infer<typeof importTextBodySchema>
 

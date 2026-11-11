@@ -18,7 +18,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import { CAPTURE_REFUSAL_CODES, CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
-import { checksOutsideKit } from './text-checks'
+import { checksOutsideKit, textChecksOf } from './text-checks'
 import { otherRecordNaming, pinnedTexts } from './text-store'
 import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
@@ -134,6 +134,18 @@ export async function requestSourceChecks(requestId: string): Promise<Map<string
     pinned: await pinnedTexts(tx, requestId),
   }))
   return (await checksOutsideKit(records, pinned)).checks
+}
+
+/**
+ * KC-1 on the texts a request holds, alone: each file the corpus keeps with the bytes its revision names. What an
+ * approval runs, so nobody approves a request whose text is no longer the one that was proposed and reviewed.
+ */
+export async function requestTextProblems(requestId: string): Promise<Problem[]> {
+  const { records, pinned } = await platformTransaction(async (tx) => ({
+    ...(await storedProposals(tx, requestId)),
+    pinned: await pinnedTexts(tx, requestId),
+  }))
+  return [...(await textChecksOf(records, pinned)).checks.values()].flat()
 }
 
 /** The kit on everything a request holds: what submit runs, and what an agent runs before it. */

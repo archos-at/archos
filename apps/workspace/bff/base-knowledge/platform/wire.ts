@@ -161,7 +161,7 @@ const manifestationRecord = z.object({
     .nullable()
     .default(null)
     .describe(
-      'The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it. A file another record names is refused, and the revision keeps the hash of the bytes named.',
+      'The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it to a name of the text’s own. A file another record names is refused, and the revision keeps the hash of the bytes named.',
     ),
   ...common,
 })

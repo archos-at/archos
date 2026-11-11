@@ -126,31 +126,34 @@ def _page_facts(page) -> dict:
 class CorpusTextRequest(CaptureRequest):
     """A PDF of a configured source to keep as a base-corpus file (ADR-0165, "Texts are attached in the request")."""
 
-    fileName: str = Field(..., pattern=r"^[^/\\]{1,200}\.pdf$", description="The name the base corpus keeps it under.")
-    #: Whether a different file kept under this name may be replaced; the BFF says so when nothing but the draft
-    #: asking names it. A file a release marked with a country is never replaced, whatever this says.
-    replace: bool = False
+    #: What the file is named after: its manifestation's key. The name itself carries the bytes' hash.
+    fileStem: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]{0,99}$", description="The manifestation's key.")
 
 
-def _keep_corpus_text(name: str, content: bytes, sha256: str, replace: bool) -> str:
-    """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``."""
+def corpus_text_name(stem: str, sha256: str) -> str:
+    """The name a text is kept under: its manifestation's key and the first twelve hex digits of its sha256.
+
+    Content-addressed, so the bytes under a name never change: other bytes are another name. The BFF names an
+    uploaded text the same way (``textFileName`` in ``text-wire.ts``).
+    """
+    return f"{stem}-{sha256[:12]}.pdf"
+
+
+def _keep_corpus_text(name: str, content: bytes, sha256: str) -> str:
+    """Store the bytes under ``name`` and queue their ingestion: ``stored``, ``unchanged`` or ``name_taken``.
+
+    Nothing is ever replaced: a name that holds other bytes (somebody put a file there by hand, or twelve hex
+    digits collided) is refused.
+    """
     from agent import corpus_store
     from agent import oib_sync
-    from agent.common.knowledge_context import UNRELEASED_COUNTRY
     from agent.common.norm_registry import guess_doc_class
 
     from ..jobs.ingest_dispatch import enqueue_only
 
     row = corpus_store.get_file(name)
-    if row is not None and row.sha256 == sha256:
-        return "unchanged"
-    if row is not None and not replace:
-        return "name_taken"
-    # A file a release marked with a country is read by that country's offices: other bytes under its name would
-    # go live before any review, whatever the caller says (a replaced file keeps its mark). A new text is a new name.
-    mark = corpus_store.get_mark(name) if row is not None else None
-    if mark is not None and mark.country_id not in (None, UNRELEASED_COUNTRY):
-        return "name_taken"
+    if row is not None:
+        return "unchanged" if row.sha256 == sha256 else "name_taken"
     oib_sync.store_and_request(name, content, guess_doc_class(name), enqueue=enqueue_only)
     return "stored"
 
@@ -173,15 +176,16 @@ async def import_public_source_text(
     if page.pages is None or not is_pdf(page.content, page.content_type):
         detail = "the URL answers no PDF; a text kept in the base corpus is a PDF"
         return JSONResponse(status_code=422, content={"detail": detail, "code": "not_a_pdf"})
+    name = corpus_text_name(body.fileStem, page.sha256)
     try:
-        outcome = await asyncio.to_thread(_keep_corpus_text, body.fileName, page.content, page.sha256, body.replace)
+        outcome = await asyncio.to_thread(_keep_corpus_text, name, page.content, page.sha256)
     except Exception as exc:
         logger.exception("a fetched text could not be kept in the base corpus")
         raise HTTPException(status_code=502, detail="the base corpus did not take the file") from exc
     if outcome == "name_taken":
-        detail = f"the base corpus keeps a different file as {body.fileName}"
+        detail = f"the base corpus keeps a different file as {name}"
         return JSONResponse(status_code=409, content={"detail": detail, "code": "name_taken"})
-    return {**_page_facts(page), "fileName": body.fileName, "stored": outcome == "stored"}
+    return {**_page_facts(page), "fileName": name, "stored": outcome == "stored"}
 
 
 async def check_public_source(body: SourceRequest, _: None = Depends(_require_internal_token)) -> dict:

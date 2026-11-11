@@ -149,23 +149,22 @@ export interface ImportedText extends Omit<FetchedPage, 'text'> {
 
 /**
  * Fetch the PDF at `url` as the source allows it and keep it in the base
- * corpus as `fileName`. The fetch and the PDF read are the fetcher's, as for
- * a capture; nothing is parsed in this tier or in the api tier. `replace` lets
- * other bytes already kept under the name be replaced. Fails closed like
- * {@link fetchSourcePage}; a name taken is a 409 with `name_taken`.
+ * corpus. The fetch and the PDF read are the fetcher's, as for a capture;
+ * nothing is parsed in this tier or in the api tier. The api tier names the
+ * file after `fileStem` and the bytes' hash (`corpus_text_name`), so it never
+ * replaces anything: other bytes are another name. Fails closed like
+ * {@link fetchSourcePage}; a name that holds other bytes is a 409 with `name_taken`.
  */
-export async function importSourceText(
-  text: { sourceId: string; url: string; fileName: string; replace: boolean },
-  configured?: ConfiguredSource,
-): Promise<ImportedText> {
+export async function importSourceText(text: { sourceId: string; url: string; fileStem: string }, configured?: ConfiguredSource): Promise<ImportedText> {
   const body = await guardedFetch(
     '/v1/public-sources/corpus-text',
-    { source: text.sourceId, url: text.url, fileName: text.fileName, replace: text.replace, ...(configured ?? {}) },
+    { source: text.sourceId, url: text.url, fileStem: text.fileStem, ...(configured ?? {}) },
     'upload the PDF with platform-knowledge-text-upload',
   )
   const page = pageOf(body)
   const { text: _text, ...facts } = page
-  return { ...facts, fileName: text.fileName, stored: isRecord(body) && body.stored === true }
+  if (!isRecord(body) || typeof body.fileName !== 'string') throw new CaptureFetchError('The public-source reader kept the text without naming its file.', 502)
+  return { ...facts, fileName: body.fileName, stored: body.stored === true }
 }
 
 /** One guarded fetch on the api tier: its answer's body, or a {@link CaptureFetchError}; `otherwise` is what the caller can do instead. */

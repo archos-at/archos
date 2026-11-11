@@ -121,7 +121,7 @@ describe('the reviewed bytes are the published bytes', () => {
     corpus.files = [{ fileName: 'oib-rl-1-2019.pdf', state: 'ingested', currentSha256: OTHER }]
     for (const pinNew of [true, false]) {
       expect((await textChecksOf(text, pinnedTo(SHA), pinNew)).checks.get(ID)).toMatchObject([
-        { code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('other bytes'), hint: expect.stringContaining('new file name') },
+        { code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('other bytes'), hint: expect.stringContaining('file name of its own') },
       ])
     }
   })

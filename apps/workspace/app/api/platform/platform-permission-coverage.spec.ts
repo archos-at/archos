@@ -56,6 +56,7 @@ const EXPECTED: Record<string, string> = {
   'knowledge/change-requests/[changeRequestId]/records/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/territories/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/captures/route.ts POST': 'knowledgeWrite',
+  'knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]/route.ts GET': 'settingsView',
   'knowledge/change-requests/[changeRequestId]/texts/route.ts POST': 'knowledgeWrite',
   'knowledge/change-requests/[changeRequestId]/texts/upload/route.ts POST': 'knowledgeWrite',
   'knowledge/texts/route.ts GET': 'settingsView',

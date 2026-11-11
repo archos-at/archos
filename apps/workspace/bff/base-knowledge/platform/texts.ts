@@ -12,11 +12,11 @@
  * goes through the corpus's own upload. One file is one record's text: a name
  * another record uses is never replaced or removed under it.
  *
- * A draft never changes what is live or what somebody reviewed. Other bytes go
- * under a name only while nothing but this draft's own revision names it and
- * no release marked the file with a country: a released file keeps its country
- * mark when its bytes change, so they would be read before any review. A text
- * that replaces a released one takes a new file name.
+ * The bytes under a file name never change once a revision names it. A text
+ * is kept as `<manifestationKey>-<12 hex of its sha256>.pdf`, so another text
+ * is another file and nothing is replaced: not by an attach, not by a fetch,
+ * not by the plain corpus upload. What a reviewer opens is served only while
+ * its bytes are the ones the revision names (`readPlatformText`).
  *
  * Writes take `platform:knowledge:write`, the read `platform:settings:view`.
  */
@@ -28,16 +28,15 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import type { KnowledgeProvenance, KnowledgeTextProvenance } from '@/lib/db/schema/knowledge-records'
-import { getKnowledgeBaseStatus, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatus, streamKnowledgeBaseDocument, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
 import { CaptureFetchError, type ConfiguredSource, importSourceText } from './capture-fetch'
 import { configuredSource, runKit } from './onboarding'
 import { requirePlatform } from './service-gate'
 import { usableSource } from './sources'
 import { insertProposedRecords, lockChangeRequest, platformTransaction } from './store'
 import { checksOutsideKit } from './text-checks'
-import { UNRELEASED_COUNTRY } from './indexing'
-import { draftManifestation, namedOutsideDraft, otherRecordNaming, pinsOfFiles, textPlacements } from './text-store'
-import { type AttachTextResult, corpusFileNameSchema, type ImportTextBody, type ListTextsQuery, TEXT_PLACEMENT_PAGE, type TextPlacementList } from './text-wire'
+import { draftManifestation, otherRecordNaming, pinsOfFiles, type TextPin, textPlacements } from './text-store'
+import { type AttachTextResult, corpusFileNameSchema, type ImportTextBody, type ListTextsQuery, TEXT_PLACEMENT_PAGE, textFileName, type TextPlacementList } from './text-wire'
 import { type ProposedRecord, proposedRecordSchema } from './wire'
 
 type Manifestation = Extract<ProposedRecord, { type: 'manifestation' }>
@@ -46,7 +45,7 @@ type ProposedBy = NonNullable<KnowledgeProvenance['proposedBy']>
 const recordIdOfKey = (key: string) => `manifestation:${key}`
 
 const NAME_TAKEN_HINT =
-  'Give the file another name (fileName for a URL, the upload’s own name), one no record uses: a text that replaces a released one is a new file.'
+  'The base corpus keeps other bytes under the name this text would take. Remove that file from the base corpus if no record names it, then attach again.'
 
 /** What an agent does about each named refusal of a fetched text. */
 const REFUSAL_HINTS: Readonly<Record<string, string>> = {
@@ -77,17 +76,6 @@ async function manifestationInDraft(
     return { record: parsed.data, configured: source ? await configuredSource(tx, source) : undefined }
   })
 }
-
-/**
- * Whether this draft may put other bytes under `fileName`: nothing names the file but the draft's own revision of
- * this manifestation. A release that names it (this record's own included) or another request's revision holds it.
- */
-async function mayReplace(fileName: string, manifestationKey: string, requestId: string): Promise<boolean> {
-  return (await platformTransaction((tx) => namedOutsideDraft(tx, fileName, { recordId: recordIdOfKey(manifestationKey), requestId }))) === null
-}
-
-/** Whether a release marked the file with a country whose offices read it; `ZZ` (a rollback's mark) is read by nobody. */
-const isLive = (countryId: string | null | undefined): boolean => Boolean(countryId) && countryId !== UNRELEASED_COUNTRY
 
 /** Re-propose the manifestation with the stored file as its text; the kit runs on it as on any proposal. */
 async function nameTheText(
@@ -121,12 +109,6 @@ async function nameTheText(
   })
 }
 
-/**
- * The file name a fetched text is kept under when none is given: the manifestation's key. The corpus is keyed by
- * name across all countries, and two publishers both serve a `richtlinie-1.pdf`; a key is one record's.
- */
-const defaultFileName = (manifestationKey: string): string => `${manifestationKey}.pdf`
-
 function refusedText(error: CaptureFetchError): ApiError {
   if (error.code) {
     const hint = REFUSAL_HINTS[error.code] ?? 'Find another copy of the document, or upload the PDF with platform-knowledge-text-upload.'
@@ -147,13 +129,16 @@ export async function importPlatformText(
 ): Promise<AttachTextResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
   const { record, configured } = await manifestationInDraft(requestId, body.manifestationKey, body.sourceId)
-  const fileName = body.fileName ?? defaultFileName(body.manifestationKey)
-  // The api tier refuses a file a release marked with a country whatever this says (`_keep_corpus_text`).
-  const replace = await mayReplace(fileName, body.manifestationKey, requestId)
-  // Fetched outside any transaction: a slow source must not hold the request's lock.
-  const imported = await importSourceText({ sourceId: body.sourceId, url: body.url, fileName, replace }, configured).catch((error: unknown) => {
+  // Fetched outside any transaction: a slow source must not hold the request's lock. The api tier names the file
+  // after the key and the bytes' hash, so a fetch that outlives the draft leaves a file no record names, not other
+  // bytes under one that a record does.
+  const imported = await importSourceText({ sourceId: body.sourceId, url: body.url, fileStem: body.manifestationKey }, configured).catch((error: unknown) => {
     throw error instanceof CaptureFetchError ? refusedText(error) : error
   })
+  const fileName = imported.fileName
+  if (fileName !== textFileName(body.manifestationKey, imported.sha256)) {
+    throw new UpstreamError(`The fetched text was kept as ${fileName}, which is not the name of its bytes; nothing was named.`)
+  }
   const text: KnowledgeTextProvenance = {
     origin: 'url',
     fileName,
@@ -177,22 +162,19 @@ export async function uploadPlatformText(
   proposedBy: ProposedBy = 'person',
 ): Promise<AttachTextResult> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  const named = corpusFileNameSchema.safeParse(file.name)
-  if (!named.success) throw new UnprocessableError('A text is one PDF: upload a .pdf file whose name has no path.')
-  const fileName = named.data
+  if (!corpusFileNameSchema.safeParse(file.name).success) throw new UnprocessableError('A text is one PDF: upload a .pdf file whose name has no path.')
   const { record } = await manifestationInDraft(requestId, manifestationKey)
   const bytes = Buffer.from(await file.arrayBuffer())
   if (bytes.length === 0) throw new UnprocessableError('The uploaded file is empty.')
   const sha256 = createHash('sha256').update(bytes).digest('hex')
+  // Named after the key and the bytes, whatever the upload was called: another text is another file.
+  const fileName = textFileName(manifestationKey, sha256)
   const held = (await getKnowledgeBaseStatus()).files.find((entry) => entry.fileName === fileName && entry.state !== 'removed')
-  const stored = held?.currentSha256 !== sha256
+  if (held && held.currentSha256 !== sha256) {
+    throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps other bytes as ${fileName}; nothing is replaced.`, { hint: NAME_TAKEN_HINT })
+  }
+  const stored = !held
   if (stored) {
-    if (held && isLive(held.countryId)) {
-      throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps a different file as ${fileName}, released for ${held.countryId}: its offices read it.`, { hint: NAME_TAKEN_HINT })
-    }
-    if (held && !(await mayReplace(fileName, manifestationKey, requestId))) {
-      throw new ApiError(409, 'NAME_TAKEN', `The base corpus keeps a different file as ${fileName}, and a record names it outside this draft.`, { hint: NAME_TAKEN_HINT })
-    }
     const result = await uploadKnowledgeBaseDocument(new File([bytes], fileName, { type: 'application/pdf' }))
     if (result.status !== 'pending' && result.status !== 'success') throw new UpstreamError(`The base corpus did not take ${fileName}: ${result.message}`)
   }
@@ -211,21 +193,45 @@ export async function listPlatformTexts(session: UserSession | null, query: List
 }
 
 /**
- * Refuse a plain corpus upload that would put other bytes under a file a record names, released or on its way to
- * a release: the bytes a reviewer read are the bytes a publish indexes. `files` is what the upload holds, by name:
- * the one PDF, or the PDFs of a ZIP. The same bytes again, and a file no record names, pass.
+ * The text of a manifestation of a change request, for whoever reads the request: the corpus's file, served only
+ * when its bytes are the ones the revision names. The bytes that go out are hashed here, so what a reviewer reads
+ * is what the revision pins, the kit checked and the publish indexes; anything else is a 409, never another text.
+ */
+export async function readPlatformText(session: UserSession | null, requestId: string, manifestationKey: string): Promise<Response> {
+  await requirePlatform(session, PLATFORM_PERMISSIONS.settingsView)
+  const found = await platformTransaction((tx) => draftManifestation(tx, requestId, recordIdOfKey(manifestationKey)))
+  if (!found?.text) throw new NotFoundError(`No manifestation ${manifestationKey} with a text in this change request.`)
+  const { corpusFile, sha256 } = found.text
+  const upstream = await streamKnowledgeBaseDocument(corpusFile)
+  const bytes = Buffer.from(await upstream.arrayBuffer())
+  if (!sha256 || createHash('sha256').update(bytes).digest('hex') !== sha256) {
+    throw new ApiError(409, 'TEXT_CHANGED', `The base corpus keeps other bytes as ${corpusFile} than the ones this change request names; the text is not shown.`, {
+      hint: 'Attach the text to this manifestation again in a draft change request; a request already submitted is rejected and proposed again.',
+    })
+  }
+  return new Response(bytes, { status: 200, headers: upstream.headers })
+}
+
+/**
+ * Refuse a plain corpus upload that would change the bytes under a file a revision names. Once any manifestation
+ * revision names a file, released or not, its bytes never change: the upload passes only as a no-op (the bytes
+ * the corpus keeps) or, for a file the corpus lost, as the bytes a revision names. `files` is what the upload
+ * holds, by name: the one PDF, or the PDFs of a ZIP. A file no revision ever named passes.
  */
 export async function refuseReplacingNamedTexts(files: ReadonlyMap<string, string>): Promise<void> {
   const pins = await platformTransaction((tx) => pinsOfFiles(tx, [...files.keys()]))
   if (pins.length === 0) return
-  // A revision written before revisions kept a hash is held to what the corpus keeps now; no answer refuses the upload.
-  const held = pins.some((pin) => pin.sha256 === null)
-    ? new Map((await getKnowledgeBaseStatus()).files.map((file) => [file.fileName, file.currentSha256]))
-    : new Map<string, string | null>()
-  const swapped = pins.find((pin) => files.get(pin.corpusFile) !== (pin.sha256 ?? held.get(pin.corpusFile) ?? null))
+  // A revision names one of them, so the corpus has to say what it keeps; no answer refuses the upload.
+  const held = new Map((await getKnowledgeBaseStatus()).files.filter((file) => file.state !== 'removed').map((file) => [file.fileName, file.currentSha256]))
+  const changes = (pin: TextPin & { recordId: string }) => {
+    const sha256 = files.get(pin.corpusFile)
+    if (held.has(pin.corpusFile)) return sha256 !== held.get(pin.corpusFile)
+    return !pins.some((other) => other.corpusFile === pin.corpusFile && other.sha256 === sha256)
+  }
+  const swapped = pins.find(changes)
   if (swapped) {
-    throw new ApiError(409, 'NAME_TAKEN', `${swapped.corpusFile} is the text of ${swapped.recordId}; other bytes are not put under its name.`, {
-      hint: 'Attach the new text to that manifestation in a draft change request, under a new file name, with platform-knowledge-text-upload or platform-knowledge-text-import.',
+    throw new ApiError(409, 'NAME_TAKEN', `${swapped.corpusFile} is the text of ${swapped.recordId}; the bytes under its name never change.`, {
+      hint: 'Attach the new text to that manifestation in a draft change request with platform-knowledge-text-upload or platform-knowledge-text-import: it gets a file name of its own.',
     })
   }
 }

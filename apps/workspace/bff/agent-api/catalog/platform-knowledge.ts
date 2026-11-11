@@ -146,10 +146,10 @@ export const platformKnowledgeOperations = [
       'Into a draft change request: the PDF at `url`, on a host of the configured source `sourceId`, becomes the text of ' +
       'the manifestation `manifestationKey` (proposed before with platform-knowledge-records-propose, corpusFile null). ' +
       'Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is ' +
-      'published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same PDF again ' +
-      'changes nothing. A URL that answers no PDF is refused with NOT_A_PDF, a file name a record names outside this draft, or ' +
-      'one already released, with NAME_TAKEN (pass another `fileName`; the default is "<manifestationKey>.pdf"), and a PDF the ' +
-      'fetcher cannot read with its PDF code. A fetched text needs no source check. Then platform-knowledge-validate.',
+      'published as "<manifestationKey>-<12 hex of its sha256>.pdf", and set as the manifestation’s `corpusFile`. Returns the ' +
+      'text with its `sha256`; the same PDF again changes nothing, and another PDF is another file: nothing is replaced. A URL ' +
+      'that answers no PDF is refused with NOT_A_PDF and a PDF the fetcher cannot read with its PDF code. A fetched text ' +
+      'needs no source check. Then platform-knowledge-validate.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts',
     params: requestParams,
@@ -170,11 +170,11 @@ export const platformKnowledgeOperations = [
     description:
       'Into a draft change request, when no configured source serves the PDF; otherwise use platform-knowledge-text-import, ' +
       `which sends no bytes through the tool call. Send \`body.files[0]\` as { name, mimeType, contentBase64 } (one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) ` +
-      'and `body.fields.manifestationKey`. The file is kept in the base corpus under its name, where nobody reads it until the ' +
-      'request is published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same file ' +
-      'again changes nothing. A name a record names outside this draft, or one already released, is refused with NAME_TAKEN: ' +
-      'rename the file. Nobody fetched an uploaded text, so another person checks it against its source (`sourceChecked`) ' +
-      'before anyone approves, alone or not.',
+      'and `body.fields.manifestationKey`. The file is kept in the base corpus as "<manifestationKey>-<12 hex of its sha256>.pdf", ' +
+      'whatever the upload was called, where nobody reads it until the request is published, and set as the manifestation’s ' +
+      '`corpusFile`. Returns the text with its `sha256`; the same file again changes nothing, and another file is another ' +
+      'name: nothing is replaced. Nobody fetched an uploaded text, so another person checks it against its source ' +
+      '(`sourceChecked`) before anyone approves, alone or not.',
     method: 'POST',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload',
     params: requestParams,
@@ -182,6 +182,21 @@ export const platformKnowledgeOperations = [
     bodyEncoding: 'multipart',
     idempotent: true,
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload/route'),
+  },
+  {
+    name: 'platform-knowledge-text-get',
+    domain: 'platform',
+    summary: 'Read the text of a manifestation of a change request',
+    description:
+      'The PDF a manifestation of the change request names as its text, returned as an attached resource up to 5 MiB: what ' +
+      'a reviewer compares with its source before `sourceChecked`. Served only while the base corpus keeps the bytes the ' +
+      'manifestation’s revision names (`sha256` on platform-knowledge-change-request-get); other bytes under the file ' +
+      'name are refused with TEXT_CHANGED and no text.',
+    method: 'GET',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]',
+    params: requestParams.extend({ manifestationKey: z.string().describe('The manifestation’s key, as it was proposed.') }),
+    binaryResponse: ['application/pdf'],
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/[manifestationKey]/route'),
   },
   {
     name: 'platform-knowledge-text-list',

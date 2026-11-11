@@ -80,7 +80,7 @@ async function releasedTextOf(revisionId: string): Promise<{ mark: CorpusFileMar
   return row ? { mark: { countryId: row.country_id, editionId: row.edition_id }, sha256: row.sha256 } : null
 }
 
-const REATTACH = 'attach the text again in a new change request for this manifestation, under a new file name'
+const REATTACH = 'attach the text again in a new change request for this manifestation'
 
 /** Why the corpus's file is not the one the released revision names; null when it is. Throws when the corpus does not answer. */
 async function otherBytes(corpusFile: string, reviewed: string | null | undefined): Promise<string | null> {

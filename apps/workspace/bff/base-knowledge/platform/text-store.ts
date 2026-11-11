@@ -118,27 +118,17 @@ export async function otherRecordNaming(tx: Tx, fileName: string, exceptRecordId
 }
 
 /**
- * A record that names `fileName` anywhere but in this draft's own revision of
- * `recordId`: a release (this record's own included), or a revision on its way
- * in another request. Only when there is none may the draft put other bytes
- * under the name: what was released, or reviewed elsewhere, keeps its bytes.
+ * Every hash a manifestation revision was ever written with for each of `fileNames`: superseded, rejected and
+ * rolled-back revisions included. Once any revision names a file its bytes never change, so the plain upload
+ * asks this, not only what is released or on its way.
  */
-export async function namedOutsideDraft(tx: Tx, fileName: string, draft: { recordId: string; requestId: string }): Promise<string | null> {
-  const [row] = await tx.execute<{ record_id: string }>(sql`
-    SELECT m.record_id ${NAMING} AND m.corpus_file = ${fileName}
-      AND (${RELEASED}
-        OR (${ON_ITS_WAY} AND NOT (m.record_id = ${draft.recordId} AND v.change_request_id = ${draft.requestId}::uuid)))
-    LIMIT 1`)
-  return row?.record_id ?? null
-}
-
-/** Which of `fileNames` a record names, released or on its way, each with the hash it was proposed with. */
 export async function pinsOfFiles(tx: Tx, fileNames: readonly string[]): Promise<(TextPin & { recordId: string })[]> {
   if (fileNames.length === 0) return []
   const rows = await tx.execute<{ record_id: string; corpus_file: string; sha256: string | null }>(sql`
-    SELECT m.record_id, m.corpus_file, m.sha256 ${NAMING}
+    SELECT DISTINCT m.record_id, m.corpus_file, m.sha256
+    FROM knowledge_manifestation_revisions m
+    WHERE m.organization_id IS NULL
       AND m.corpus_file IN (SELECT jsonb_array_elements_text(${JSON.stringify(fileNames)}::text::jsonb))
-      AND (${RELEASED} OR ${ON_ITS_WAY})
     LIMIT 5000`)
   return rows.map((row) => ({ recordId: row.record_id, corpusFile: row.corpus_file, sha256: row.sha256 }))
 }

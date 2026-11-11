@@ -16,8 +16,10 @@
  * manifestation revision keeps the sha256 of the file it names, and the check
  * compares the corpus's current file with it. A first naming pins the hash the
  * corpus holds then; from there on other bytes under the name are a problem,
- * on propose, validate and submit, and the indexing job compares once more
- * before it marks the file with a country (`indexing.ts`).
+ * on propose, validate, submit and approve, and the indexing job compares once
+ * more before it marks the file with a country (`indexing.ts`). No path of the
+ * product changes a named file's bytes (`texts.ts`); the comparison is what
+ * holds when something else did.
  *
  * Unknown fails closed: a corpus that cannot answer, a file without a hash and
  * a stored revision without one are problems on the manifestation, never a pass.
@@ -39,7 +41,7 @@ const ATTACH_HINT =
 
 const REATTACH_HINT =
   'Attach the text to this manifestation again in a draft, with platform-knowledge-text-import or platform-knowledge-text-upload: ' +
-  'the revision then names the bytes the corpus keeps. A text that replaces a released one takes a new file name.'
+  'the text is kept under a file name of its own, and the revision names those bytes.'
 
 /** What the kit's outside checks answer: each record's problems, and for each clean text the hash its revision keeps. */
 export interface OutsideChecks {

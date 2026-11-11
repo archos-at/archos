@@ -167,7 +167,7 @@ def kept(monkeypatch):
     from agent import corpus_store
     from agent import oib_sync
 
-    calls: dict = {"stored": [], "existing": {}, "marks": {}}
+    calls: dict = {"stored": [], "existing": {}}
 
     def get_file(name: str):
         sha = calls["existing"].get(name)
@@ -178,11 +178,6 @@ def kept(monkeypatch):
         return True
 
     monkeypatch.setattr(corpus_store, "get_file", get_file)
-    monkeypatch.setattr(
-        corpus_store,
-        "get_mark",
-        lambda name: corpus_store.FileMark(country_id=calls["marks"][name]) if name in calls["marks"] else None,
-    )
     monkeypatch.setattr(oib_sync, "store_and_request", store_and_request)
     return calls
 
@@ -227,11 +222,11 @@ async def test_a_text_from_a_url_is_fetched_and_read_by_the_fetcher_and_never_pa
     answer = await client.post(
         "/v1/public-sources/corpus-text",
         headers=HEADERS,
-        json={"source": "at-ris", "url": PDF_URL, "fileName": "richtlinie_1.pdf"},
+        json={"source": "at-ris", "url": PDF_URL, "fileStem": "richtlinie-1"},
     )
 
     assert answer.status_code == 200, answer.text
-    assert answer.json()["fileName"] == "richtlinie_1.pdf"
+    assert answer.json()["fileName"] == f"richtlinie-1-{hashlib.sha256(PDF_BYTES).hexdigest()[:12]}.pdf"
     assert answer.json()["stored"] is True
     assert answer.json()["sha256"] == hashlib.sha256(PDF_BYTES).hexdigest()
     assert answer.json()["pages"] == 1
@@ -239,7 +234,7 @@ async def test_a_text_from_a_url_is_fetched_and_read_by_the_fetcher_and_never_pa
     # Both the bytes and their read came from the fetcher, and nothing else was requested.
     paths = [str(request.url).removeprefix(FETCHER).split("?")[0] for request in fetcher]
     assert paths == ["/v1/fetch", "/v1/extract"]
-    assert kept["stored"] == [("richtlinie_1.pdf", PDF_BYTES)]
+    assert kept["stored"] == [(answer.json()["fileName"], PDF_BYTES)]
 
 
 async def test_without_a_fetcher_nothing_is_fetched_parsed_or_kept(client, kept, monkeypatch):
@@ -249,7 +244,7 @@ async def test_without_a_fetcher_nothing_is_fetched_parsed_or_kept(client, kept,
     answer = await client.post(
         "/v1/public-sources/corpus-text",
         headers=HEADERS,
-        json={"source": "at-ris", "url": PDF_URL, "fileName": "richtlinie_1.pdf"},
+        json={"source": "at-ris", "url": PDF_URL, "fileStem": "richtlinie-1"},
     )
 
     assert answer.status_code == 403
@@ -267,7 +262,7 @@ async def test_a_page_that_is_no_pdf_is_refused_and_not_kept(client, kept, monke
     answer = await client.post(
         "/v1/public-sources/corpus-text",
         headers=HEADERS,
-        json={"source": "at-ris", "url": "https://www.ris.bka.gv.at/x", "fileName": "x.pdf"},
+        json={"source": "at-ris", "url": "https://www.ris.bka.gv.at/x", "fileStem": "x"},
     )
 
     assert answer.status_code == 422
@@ -275,46 +270,32 @@ async def test_a_page_that_is_no_pdf_is_refused_and_not_kept(client, kept, monke
     assert kept["stored"] == []
 
 
-async def test_a_name_the_corpus_keeps_for_other_bytes_is_refused_unless_it_may_be_replaced(
+async def test_a_text_is_kept_under_a_name_that_carries_its_hash_and_nothing_is_ever_replaced(
     client, kept, fetcher, monkeypatch
 ):
+    """Content-addressed names: the bytes under a name never change, whatever the caller sends."""
     import hashlib
 
     monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", FETCHER)
-    body = {"source": "at-ris", "url": PDF_URL, "fileName": "richtlinie_1.pdf"}
-    kept["existing"]["richtlinie_1.pdf"] = "b" * 64
+    sha = hashlib.sha256(PDF_BYTES).hexdigest()
+    name = f"richtlinie-1-{sha[:12]}.pdf"
+    body = {"source": "at-ris", "url": PDF_URL, "fileStem": "richtlinie-1"}
 
-    taken = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
-    assert taken.status_code == 409
-    assert taken.json()["code"] == "name_taken"
-    assert kept["stored"] == []
-
-    replaced = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json={**body, "replace": True})
-    assert replaced.status_code == 200
-    assert kept["stored"] == [("richtlinie_1.pdf", PDF_BYTES)]
+    first = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
+    assert first.status_code == 200
+    assert first.json()["fileName"] == name
+    assert kept["stored"] == [(name, PDF_BYTES)]
 
     # The same bytes again are kept already: nothing is stored or queued twice.
-    kept["existing"]["richtlinie_1.pdf"] = hashlib.sha256(PDF_BYTES).hexdigest()
+    kept["existing"][name] = sha
     again = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
     assert again.status_code == 200
     assert again.json()["stored"] is False
     assert len(kept["stored"]) == 1
 
-
-async def test_a_file_a_release_marked_with_a_country_is_never_replaced(client, kept, fetcher, monkeypatch):
-    """A released file keeps its country mark, so other bytes under its name would be read before any review."""
-    monkeypatch.setenv("PUBLIC_SOURCE_FETCHER_URL", FETCHER)
-    body = {"source": "at-ris", "url": PDF_URL, "fileName": "richtlinie_1.pdf", "replace": True}
-    kept["existing"]["richtlinie_1.pdf"] = "b" * 64
-    kept["marks"]["richtlinie_1.pdf"] = "AT"
-
-    live = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
-    assert live.status_code == 409
-    assert live.json()["code"] == "name_taken"
-    assert kept["stored"] == []
-
-    # Positive control: a file a rollback left unreleased (ZZ) is read by nobody, and its draft may replace it.
-    kept["marks"]["richtlinie_1.pdf"] = "ZZ"
-    unreleased = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json=body)
-    assert unreleased.status_code == 200
-    assert kept["stored"] == [("richtlinie_1.pdf", PDF_BYTES)]
+    # Other bytes under that name are never replaced, also when the caller asks for it as it once could.
+    kept["existing"][name] = "b" * 64
+    taken = await client.post("/v1/public-sources/corpus-text", headers=HEADERS, json={**body, "replace": True})
+    assert taken.status_code == 409
+    assert taken.json()["code"] == "name_taken"
+    assert len(kept["stored"]) == 1

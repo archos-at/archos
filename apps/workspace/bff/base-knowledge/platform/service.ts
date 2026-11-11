@@ -39,7 +39,7 @@ import { enqueueDeindex, enqueueIndexRuns, readIndexStatus } from './indexing'
 import { readOverview } from './overview'
 import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
 import { readOrganizationPlacements } from './organization-countries'
-import { requestSourceChecks, runKit, validateRequest } from './onboarding'
+import { requestSourceChecks, requestTextProblems, runKit, validateRequest } from './onboarding'
 import { checksOutsideKit } from './text-checks'
 import { pinnedTexts } from './text-store'
 import { requirePlatform } from './service-gate'
@@ -232,6 +232,13 @@ export async function decidePlatformChangeRequest(
   if (body.override) await requirePlatformPermission(person, PLATFORM_PERMISSIONS.knowledgeApproveAlone)
   const verb = body.override ? 'Approving a change request alone, without a second person' : `${body.decision === 'approve' ? 'Approving' : 'Rejecting'} a change request`
   const decisionSource = requirePersonDecision(verb)
+  if (body.decision === 'approve') {
+    // KC-1 once more: an approval is given for the bytes the revisions name, or not at all.
+    const problems = await requestTextProblems(requestId)
+    if (problems.length > 0) {
+      throw new ConflictError(`A text of this change request is not the one that was proposed (${problems.length} problem(s)); it is not approved.`, { problems })
+    }
+  }
   const outcome = await platformTransaction((tx) => decideInTransaction(tx, requestId, { ...body, role }, { by: person.userId, decisionSource }))
   await audit(person, auditOfDecision(requestId, body, role, decisionSource, outcome))
   return {

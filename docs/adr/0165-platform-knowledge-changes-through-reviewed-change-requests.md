@@ -141,8 +141,8 @@ page groups its files by country and names, per file, the edition and the
 change request; a file no record names is in a group that says so.
 
 **The decision.** The storage and the country filter stay as they are, and no
-table is added. Six rules do the work; the last three came out of the review of
-the first three (see "What the review found" below):
+table is added. Seven rules do the work; the last four came out of two reviews
+of the first three (see "What the reviews found" below):
 
 - **Attach stores the file and names it in one step.** `text-import` and
   `text-upload` put the bytes in the base corpus (where they are ingested for
@@ -161,27 +161,32 @@ the first three (see "What the review found" below):
   corpus's delete). So a file that was there at submit is there at publish.
   A plain proposal that names a file another record names, released, on its way
   or in the same batch, fails the kit too (KC-1, `NAME_TAKEN` in its detail):
-  the second record's publish would mark the file with its own country. A
-  fetched text is kept as `<manifestationKey>.pdf` unless a `fileName` is given,
-  so two publishers' `richtlinie-1.pdf` do not meet.
+  the second record's publish would mark the file with its own country.
+- **A text's file is named after its bytes, and its bytes never change.** An
+  attached text is kept as `<manifestationKey>-<first 12 hex of its sha256>.pdf`,
+  whatever the upload was called or the URL ended in. Another text is another
+  file, so nothing is replaced: the upload and the fetch have no `replace`, the
+  api tier names a fetched text itself (`corpus_text_name`) and refuses a name
+  that holds other bytes, and the BFF names nothing the api tier kept under
+  another name. Once any revision names a file, released, superseded or
+  rejected, the plain corpus upload (a ZIP's members included) passes for it
+  only as a no-op: the bytes the corpus keeps, or, for a file the corpus lost,
+  the bytes a revision names. So a fetch that finishes after its draft was
+  submitted leaves a file no record names, never other bytes under one that a
+  record does, and what was released cannot be changed by a draft.
 - **The reviewed bytes are the published bytes.** A manifestation revision
   keeps the `sha256` of the file it names: the attached text's, or, for a
   record that only names a file, the hash the corpus held when it was first
-  named. KC-1 compares the corpus's current file with it on propose, validate
-  and submit, and fails closed on other bytes, on a corpus that gives no hash
-  and on a stored revision that keeps none. The indexing job compares once
-  more before it marks the file with a country; on other bytes its run fails
-  and nothing is indexed. The plain corpus upload refuses other bytes under a
-  file a record names (409 `NAME_TAKEN`), a ZIP's members included.
-- **A draft replaces nothing that is released.** Other bytes go under a name
-  only while nothing but the draft's own revision of that manifestation names
-  it: not a release (the same record's included), not another request's
-  revision, and not while a release marked the file with a country. The corpus
-  keeps a file's country mark when its bytes change, so replaced bytes would be
-  read by that country's offices before any review. A text that replaces a
-  released one takes a new file name. The api tier refuses a marked file
-  whatever the BFF says (`_keep_corpus_text`); `ZZ`, a rollback's mark, is read
-  by nobody and does not count.
+  named. Three things are bound to that hash. The reviewer: the request's text
+  is read through `GET …/change-requests/[id]/texts/[manifestationKey]`
+  (`platform-knowledge-text-get`), which hashes the bytes it is about to send
+  and answers 409 `TEXT_CHANGED` instead of any others. The approval: KC-1
+  compares the corpus's current file with the hash on propose, validate, submit
+  and approve, and fails closed on other bytes, on a corpus that gives no hash
+  and on a stored revision that keeps none. The index: the indexing job
+  compares once more before it marks the file with a country; on other bytes
+  its run fails and nothing is indexed. The rule above keeps the product from
+  changing a named file; this one holds when something else did.
 - **A text nobody fetched is held to four eyes.** A text from a URL was fetched
   by the product from a configured source. An uploaded one, and a file a record
   only names, came from a person, who could upload their own PDF as "OIB-RL 6
@@ -213,22 +218,39 @@ before anything is kept.
   rejected only once its second review disputed it, so a publish gate would
   leave it approved and stuck. The indexing job fails instead: the records are
   released, the text is read by nobody, and a new request attaches it again.
-- *A content-addressed corpus (the hash as the key).* It would make a swap
-  impossible by construction, and it is the right end state. It changes the
-  corpus's key, its object keys and every chunk's `filename`, which is a
-  migration of the store; the hash on the revision gets the guarantee now.
+- *One mutable file per manifestation, with the hash checked at the gates.*
+  This was the first fix for swapped bytes, and the second review broke it: the
+  bytes could be B while the reviewer read and A again at every gate. A check
+  at a point in time says nothing about what a person saw between two points.
+- *A content-addressed corpus (the hash as the whole key).* The same guarantee
+  for every corpus file, legacy ones included. It changes the corpus's key, its
+  object keys and every chunk's `filename`, which is a migration of the store.
+  The hash in a text's name gets it for every text attached from now on.
 
-**What the review found.** The first version of this amendment compared names
+**What the reviews found.** The first version of this amendment compared names
 only. Three things followed, each reproduced: the bytes under an attached file
 could be swapped by the plain upload, and validation stayed green and the
 publish indexed them; a draft could replace the bytes of a released file, which
 went live under its country mark before any review; and one person could upload
-a PDF, approve alone and publish. Rules four to six close them, each with a test
-that fails when its rule is reverted.
+a PDF, approve alone and publish.
+
+The first fix kept one mutable name per text and compared hashes on propose,
+validate, submit and index. The second review walked through it with one
+author: attach their own PDF A (pinned), start a URL import of the publisher's
+PDF B to the same name, submit while the fetch is in flight (KC-1 passes on
+A), let B land (the import answers 409, the bytes stay), let the reviewer read
+B and approve, plain-upload A again (equal to the pin, so allowed), publish A.
+The root cause was that bytes under a name were mutable and the hash was
+checked at points, not bound to what the reviewer saw. Rules four and five are
+the answer by design: the name carries the hash and its bytes never change,
+and the reviewer, the approval and the index each read the pinned bytes or
+nothing. That scenario is a test (`texts.integration.spec.ts`, "the reviewed
+race").
 
 **Operations.** `platform-knowledge-text-import` (a URL),
-`platform-knowledge-text-upload` (multipart) and `platform-knowledge-text-list`
-(where each file belongs), all on the platform door. `platform-knowledge-document-upload`
+`platform-knowledge-text-upload` (multipart), `platform-knowledge-text-get`
+(the text a manifestation names, or `TEXT_CHANGED`) and
+`platform-knowledge-text-list` (where each file belongs), all on the platform door. `platform-knowledge-document-upload`
 stays for the corpus itself, and says that no country reads what it adds.
 
 **Deleted.** The advice "upload it, then publish again", and with it the state
@@ -245,16 +267,24 @@ hours before it is released (ADR-0174).
 
 - The corpus is keyed by file name across all countries. `NAME_TAKEN` keeps two
   records from sharing a name; it does not give a country its own namespace.
-- The guards on a named file's bytes read first and store second, in two tiers.
-  Two writers racing on one name can both pass the read. The hash on the
-  revision catches the loser at validate, submit and index time for a file not
-  yet released; nothing re-checks a released file's bytes after its indexing.
+- The plain upload's guard reads the revisions first and stores second, in two
+  tiers. An upload under a name racing the first revision that names it can
+  pass. The file then holds other bytes than its pin for good: the reviewer is
+  shown nothing, KC-1 refuses the submit and the approval, and the way out is a
+  new proposal of the manifestation, since the same text would take the same
+  name. Nothing re-checks a released file's bytes after its indexing; no path
+  of the product changes them.
+- A text's name carries twelve hex digits of its hash, 48 bits. Two texts of
+  one manifestation that collide are refused (`NAME_TAKEN`), never merged.
+- A file a record only names (proposed with `corpusFile` set by hand) keeps the
+  name it had. Its bytes are as immutable as an attached text's from the
+  moment a revision names it.
 - A manifestation revision written before revisions kept a hash names a file
   with no `sha256`. In a draft it fails KC-1 until its text is attached again;
   published without one, its indexing run fails with that reason.
-- A legacy file marked `AT` at the cut-over that no record names is still
-  replaced by the plain upload: that is how the corpus is maintained as files.
-  An attach never replaces it.
+- A legacy file marked `AT` at the cut-over that no revision ever named is
+  still replaced by the plain upload: that is how the corpus is maintained as
+  files. An attach never replaces it.
 - A file uploaded and published within minutes can still be indexed by the job
   its upload queued, which carries no country (`oib_sync.mark_for_reingest`
   leaves a waiting job alone). The file is then read by nobody (`ZZ`) while
@@ -273,13 +303,17 @@ without a database) and `texts.integration.spec.ts` under `task db:test:rls`
 (a file nobody uploaded is never written; an attached text is published with
 an indexing run the corpus accepts, marked with the request's country; a URL
 goes to `corpus-text` and nowhere else; a name is one record's; the corpus
-page's read; other bytes under a named file fail validate and submit, are
-refused by the plain upload and are never indexed; a released file, a file a
-country reads and a file under review elsewhere are not replaced; an uploaded
-or merely named text refuses every approval until another person's
-`sourceChecked`, and a fetched one is approved alone).
+page's read; another text of a manifestation is another file and the released
+one is untouched; a name that holds other bytes is not replaced; the plain
+upload changes no file any revision names, the pinned bytes included; the
+reviewed race, step by step; the reviewer is served the pinned bytes or
+`TEXT_CHANGED`; other bytes under a named file fail validate, submit and the
+approval and are never indexed; an uploaded or merely named text refuses every
+approval until another person's `sourceChecked`, and a fetched one is approved
+alone).
 `scripts/rls-test-db.sh` (migration 0222 and its down).
 `upload-hashes.spec.ts` (a ZIP's members by base name).
 `apps/agent-host/tests/test_public_source_capture_route.py` (the
 bytes and their read both come from the fetcher, without a fetcher nothing
-is fetched, parsed or kept, and a file a release marked is never replaced).
+is fetched, parsed or kept, and a text is kept under the name of its bytes
+and never replaced).

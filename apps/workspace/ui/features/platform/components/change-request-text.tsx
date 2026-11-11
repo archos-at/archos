@@ -94,7 +94,7 @@ export function ManifestationText({ requestId, countryId, recordId, text, canAtt
         {text ? (
           <>
             <a
-              href={`/api/knowledge-base/documents/${encodeURIComponent(text.corpusFile)}`}
+              href={`${base}/${encodeURIComponent(manifestationKey)}`}
               target="_blank"
               rel="noreferrer"
               className="text-foreground inline-flex items-center gap-1 underline underline-offset-2"

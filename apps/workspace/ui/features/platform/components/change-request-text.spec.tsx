@@ -94,7 +94,7 @@ describe('a manifestation’s text on its change request', () => {
     render(review([...WRITE, PLATFORM_PERMISSIONS.knowledgeReview]))
 
     const text = await screen.findByTestId('manifestation-text')
-    expect(within(text).getByRole('link', { name: /oib-rl-1-2019\.pdf/ })).toHaveAttribute('href', '/api/knowledge-base/documents/oib-rl-1-2019.pdf')
+    expect(within(text).getByRole('link', { name: /oib-rl-1-2019\.pdf/ })).toHaveAttribute('href', expect.stringMatching(/^\/api\/platform\/knowledge\/change-requests\/[^/]+\/texts\/at-oib-rl-1-2019-text$/))
     expect(within(text).getByRole('link', { name: 'fetched from www.oib.or.at' })).toHaveAttribute('href', TEXT.url)
     expect(within(text).getByText('12 pages')).toBeInTheDocument()
     // Submitted: no more records or texts go in.
