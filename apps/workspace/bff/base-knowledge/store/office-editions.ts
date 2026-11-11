@@ -23,6 +23,7 @@ import { isUniqueViolation } from '@/lib/db/errors'
 import { ConflictError } from '@/lib/api/errors'
 import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 import type { EntryValues } from '../wire'
+import { workDesignation } from '../office/work-editions'
 import { appendRevision, bodiesOf, newRecordId, type EntryRecordIds, type StoredEntry, type Tx, type WriteContext } from './repository'
 
 async function moveHead(tx: Tx, recordId: string, revisionId: string): Promise<void> {
@@ -36,9 +37,16 @@ async function moveHead(tx: Tx, recordId: string, revisionId: string): Promise<v
  */
 async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContext): Promise<string> {
   if (earlier.workStandsAlone) return earlier.workId
+  // Two newer editions at once must end in one work: the first to lock the edition makes it, the second finds it.
+  await tx.execute(sql`SELECT 1 FROM knowledge_records WHERE id = ${earlier.editionId} FOR UPDATE`)
+  const made = await tx.execute<{ work_id: string }>(sql`
+    SELECT e.work_id FROM knowledge_edition_revisions e JOIN knowledge_records w ON w.id = e.work_id
+    WHERE e.record_id = ${earlier.editionId} AND w.type = 'work' AND w.document_id IS NULL LIMIT 1`)
+  const existing = Array.from(made)[0]?.work_id
+  if (existing) return existing
   const workId = newRecordId('work')
   const ids = { workId, editionId: earlier.editionId, copyId: earlier.copyId }
-  const bodies = bodiesOf(earlier.values, ids, earlier.terms)
+  const bodies = bodiesOf({ ...earlier.values, designation: workDesignation(earlier.values.designation) }, ids, earlier.terms)
   const common = { organizationId: context.organizationId, createdBy: context.createdBy, provenance: earlier.provenance }
   await tx.insert(knowledgeRecords).values({ id: workId, type: 'work', organizationId: context.organizationId, documentId: null, createdBy: context.createdBy })
   const workRevision = await appendRevision(tx, { ...common, recordId: workId, type: 'work' }, bodies.work)
@@ -53,7 +61,8 @@ async function standaloneWork(tx: Tx, earlier: StoredEntry, context: WriteContex
 /**
  * A newer edition of `earlier`'s work for one office shelf document: its edition
  * and copy records, proposed (no heads), under the work made to stand alone.
- * The work's values are the work's; the edition and the copy are the new one's.
+ * The work's values are the work's, its designation among them (the new
+ * edition's own date is its label); the edition and the copy are the new one's.
  */
 export async function insertEditionOfWork(
   documentId: string,

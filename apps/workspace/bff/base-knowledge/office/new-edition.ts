@@ -26,7 +26,12 @@ export async function addBaseKnowledgeEdition(
   const folderId = earlier.folderId && (await isStandardsFolder(session, earlier.folderId)) ? earlier.folderId : null
   const added = await uploadBaseKnowledge(session, file, request, { folderId, editionOf: stored })
   if (earlier.status === 'confirmed') {
-    await recordBaseKnowledgeCheck(session, earlier.id, { result: 'newer_known', note: file.name.slice(0, 1000) })
+    // The edition is stored; a check that does not land costs only the earlier edition's note, never the upload.
+    try {
+      await recordBaseKnowledgeCheck(session, earlier.id, { result: 'newer_known', note: file.name.slice(0, 1000) })
+    } catch (error) {
+      console.warn('[base-knowledge] newer edition stored, check on the earlier one not recorded', { entryId: earlier.id, error })
+    }
   }
   return added
 }

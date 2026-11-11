@@ -24,8 +24,10 @@ import {
 } from '@/components/ui/dialog'
 import { SearchField } from '@/components/ui/search-field'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadError } from '@/components/ui/load-error'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 
 interface ShelfPickerDialogProps {
   open: boolean
@@ -46,26 +48,27 @@ export function ShelfPickerDialog({
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
 
+  // The shelf searches itself by name, so an older file is found as surely as one of the newest.
+  const query = useDebouncedValue(search, 250)
+  // A load that failed is said as such, with a retry, and never shown as an empty shelf.
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    listShelfCandidates()
+    setFailed(false)
+    listShelfCandidates(query)
       .then((list) => !cancelled && setCandidates(list))
-      .catch(() => !cancelled && setCandidates([]))
+      .catch(() => !cancelled && setFailed(true))
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, query, attempt])
 
-  const shown = useMemo(() => {
-    const wanted = search.trim().toLocaleLowerCase()
-    return (candidates ?? [])
-      .filter(
-        (candidate) =>
-          !recorded.has(candidate.id) && candidate.name.toLocaleLowerCase().includes(wanted)
-      )
-      .slice(0, 50)
-  }, [candidates, recorded, search])
+  const shown = useMemo(
+    () => (candidates ?? []).filter((candidate) => !recorded.has(candidate.id)).slice(0, 50),
+    [candidates, recorded],
+  )
 
   const take = async (candidate: ShelfCandidate) => {
     setBusy(candidate.id)
@@ -95,7 +98,9 @@ export function ShelfPickerDialog({
           label={t('shelfPicker.search')}
           clearLabel={t('filter.clear')}
         />
-        {candidates === null ? (
+        {failed ? (
+          <LoadError title={t('shelfPicker.loadError')} onRetry={() => setAttempt((n) => n + 1)} />
+        ) : candidates === null ? (
           <Skeleton className="h-24 w-full" />
         ) : shown.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('shelfPicker.none')}</p>

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { StoredEntry } from '../store/repository'
-import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { editionOnDay, editionsByWork, editionsOf, workDesignation } from './work-editions'
 
 function edition(editionId: string, issuedOn: string | null, rest: Partial<StoredEntry> = {}, values: Partial<StoredEntry['values']> = {}): StoredEntry {
   return {
@@ -61,11 +61,30 @@ describe('the edition in force on a day', () => {
     expect(editionOnDay([undated], '2026-11-11')).toBe(undated)
   })
 
+  it('puts no dated edition in force before it starts or after it ends', () => {
+    const future = edition('e2027', '2027-01-01')
+    expect(editionOnDay([future], '2026-11-11')).toBeNull()
+    const expired = edition('e2017', '2017-04-01', {}, { inForceTo: '2020-12-31' })
+    expect(editionOnDay([expired], '2026-11-11')).toBeNull()
+    const undated = edition('e-undated', null)
+    expect(editionOnDay([future, undated], '2026-11-11')).toBe(undated)
+  })
+
   it('lists every edition of the work, newest first, the one in force today marked', () => {
     const works = editionsByWork([OLD, NEW])
     expect(editionsOf(OLD, works, '2026-11-11')).toEqual([
       { id: 'e2023', editionLabel: '2023-02-01', startsOn: '2023-02-01', status: 'confirmed', inForceToday: true },
       { id: 'e2017', editionLabel: '2017-04-01', startsOn: '2017-04-01', status: 'confirmed', inForceToday: false },
     ])
+  })
+})
+
+describe('a work’s designation', () => {
+  it('drops one edition’s date, as a standards body cites the edition', () => {
+    expect(workDesignation('ÖNORM B 1600:2017')).toBe('ÖNORM B 1600')
+    expect(workDesignation('EN 1991-1-1:2002-04')).toBe('EN 1991-1-1')
+    expect(workDesignation('ÖNORM B 1600 : 2023-02-01')).toBe('ÖNORM B 1600')
+    expect(workDesignation('OIB-Richtlinie 2')).toBe('OIB-Richtlinie 2')
+    expect(workDesignation(null)).toBeNull()
   })
 })

@@ -79,21 +79,34 @@ function useLocation(): { folderId: string | null; entryId: string | null; go: (
   return { folderId, entryId, go }
 }
 
-/** The open standard: from the page on screen, else read by id (a link sent by a colleague). */
-function useOpenEntry(entryId: string | null, entries: readonly BaseKnowledgeEntry[]): [BaseKnowledgeEntry | null, (entry: BaseKnowledgeEntry | null) => void] {
+/**
+ * The open standard: from the page on screen, else read by id (a link sent by a
+ * colleague). A read that fails says so and can be tried again, rather than
+ * waiting on a skeleton for as long as the link stays open.
+ */
+function useOpenEntry(
+  entryId: string | null,
+  entries: readonly BaseKnowledgeEntry[],
+): { entry: BaseKnowledgeEntry | null; failed: boolean; retry: () => void; set: (entry: BaseKnowledgeEntry | null) => void } {
   const [fetched, setFetched] = useState<BaseKnowledgeEntry | null>(null)
+  const [failedId, setFailedId] = useState<string | null>(null)
   const listed = entryId ? (entries.find((entry) => entry.id === entryId) ?? null) : null
   useEffect(() => {
-    if (!entryId || listed || fetched?.id === entryId) return
+    if (!entryId || listed || fetched?.id === entryId || failedId === entryId) return
     let cancelled = false
     getBaseKnowledgeEntry(entryId)
       .then((entry) => !cancelled && setFetched(entry))
-      .catch(() => !cancelled && setFetched(null))
+      .catch(() => !cancelled && setFailedId(entryId))
     return () => {
       cancelled = true
     }
-  }, [entryId, listed, fetched?.id])
-  return [listed ?? (fetched?.id === entryId ? fetched : null), setFetched]
+  }, [entryId, listed, fetched?.id, failedId])
+  return {
+    entry: listed ?? (fetched?.id === entryId ? fetched : null),
+    failed: !listed && entryId !== null && failedId === entryId,
+    retry: () => setFailedId(null),
+    set: setFetched,
+  }
 }
 
 export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspaceProps): JSX.Element {
@@ -108,7 +121,8 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const fileInput = useRef<HTMLInputElement>(null)
   const canManage = list?.canManage ?? false
   const entries = useMemo(() => list?.entries ?? [], [list])
-  const [openEntry, setOpenEntry] = useOpenEntry(location.entryId, entries)
+  const open = useOpenEntry(location.entryId, entries)
+  const openEntry = open.entry
 
   // The URL leads; the filters follow a back or forward step.
   useEffect(() => {
@@ -226,6 +240,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     if (state.failed && !list) return <LoadError title={t('loadError')} onRetry={() => reload()} />
     if (!list || !folders) return <Skeleton className="h-64 w-full" />
     if (location.entryId) {
+      if (open.failed) return <LoadError title={t('entryLoadError')} onRetry={open.retry} />
       if (!openEntry) return <Skeleton className="h-64 w-full" />
       return (
         <EntryPage
@@ -237,8 +252,9 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           folders={folders.folders}
           territories={list.territories}
           onChanged={(entry) => {
-            setOpenEntry(entry)
+            open.set(entry)
             if (!entry) location.go({ entryId: null })
+            else if (entry.id !== location.entryId) location.go({ entryId: entry.id })
             void reload()
           }}
         />

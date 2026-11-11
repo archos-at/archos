@@ -171,6 +171,10 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   the work is made to stand alone (a new work record with no document, a new revision of the first edition
   naming it; revisions are only appended), and a standalone work is deleted with its last edition
   (`bff/base-knowledge/store/office-editions.ts`, its Postgres spec). An entry's id is its edition's.
+  Two editions added at once lock the first edition's record and end in one work. A shared work is cited
+  without one edition's date (`ÖNORM B 1600`, not `…:2017`; `workDesignation`), each edition's date being
+  its label. A dated edition is in force on no day before it starts or after it ends; only an undated one
+  answers when the rule finds none. An edition's history shows only the editions the reader may see.
 - **Which edition an answer uses** is the platform's rule for a standard, guideline or commentary
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the

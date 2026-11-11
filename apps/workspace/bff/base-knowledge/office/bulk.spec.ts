@@ -35,6 +35,11 @@ const MANAGER = {
 } as unknown as AuthorizedSession
 const request = new Request('http://localhost/api/base-knowledge/bulk')
 
+const REMOVED: Awaited<ReturnType<typeof removeBaseKnowledge>> = {
+  removed: true,
+  stores: { database: 'removed', search: 'removed', objects: 'removed', records: 'removed', caches: 'removed' },
+}
+
 const ENTRY = {
   id: 'work_1',
   documentId: 'doc-1',
@@ -81,12 +86,29 @@ describe('bulk', () => {
   })
 
   it('removes through the single-entry removal', async () => {
-    await bulkBaseKnowledge(MANAGER, { entryIds: ['work_1'], action: { type: 'remove' } }, request)
+    vi.mocked(removeBaseKnowledge).mockResolvedValue(REMOVED)
+    const answer = await bulkBaseKnowledge(MANAGER, { entryIds: ['work_1'], action: { type: 'remove' } }, request)
     expect(removeBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'work_1', request)
+    expect(answer.results).toEqual([{ entryId: 'work_1', ok: true, error: null }])
+  })
+
+  it('reports a removal some store could not finish as failed, naming the store', async () => {
+    vi.mocked(removeBaseKnowledge).mockResolvedValue({ removed: false, stores: { ...REMOVED.stores, objects: 'partial' } })
+    const answer = await bulkBaseKnowledge(MANAGER, { entryIds: ['work_1'], action: { type: 'remove' } }, request)
+    expect(answer.results[0]).toMatchObject({ entryId: 'work_1', ok: false })
+    expect(answer.results[0].error).toContain('objects')
   })
 })
 
 describe('a newer edition', () => {
+  it('is kept when the check on the earlier edition does not land', async () => {
+    vi.mocked(storedEntryOf).mockResolvedValue({ stored: {}, entry: ENTRY } as unknown as Awaited<ReturnType<typeof storedEntryOf>>)
+    vi.mocked(uploadBaseKnowledge).mockResolvedValue(ENTRY)
+    vi.mocked(recordBaseKnowledgeCheck).mockRejectedValueOnce(new Error('database gone'))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await expect(addBaseKnowledgeEdition(MANAGER, 'work_1', new File(['%PDF'], 'n.pdf'), request)).resolves.toBe(ENTRY)
+  })
+
   it('joins the earlier entry’s work in its folder, and the earlier one stays with a check that found it', async () => {
     const stored = { workId: 'work_1', editionId: 'work_1' }
     vi.mocked(storedEntryOf).mockResolvedValue({ stored, entry: ENTRY } as unknown as Awaited<ReturnType<typeof storedEntryOf>>)

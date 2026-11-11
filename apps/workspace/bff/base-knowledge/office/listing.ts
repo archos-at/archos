@@ -5,7 +5,18 @@
  * read for the session, so the counts and the page come from one read.
  */
 
-import type { BaseKnowledgeEntry, EntryAttention, EntryCounts, ListEntriesQuery } from '../wire'
+import type { BaseKnowledgeEntry, EntryAttention, EntryCounts, EntryEdition, ListEntriesQuery } from '../wire'
+
+/**
+ * Whether the edition `id` was replaced: it is not in force today and a later
+ * edition of the same standard is. An edition that has not yet come into force
+ * is not replaced, only upcoming.
+ */
+export function editionReplaced(editions: readonly EntryEdition[], id: string): boolean {
+  const own = editions.find((edition) => edition.id === id)
+  if (!own || own.inForceToday) return false
+  return editions.some((edition) => edition.inForceToday && (edition.startsOn ?? '') > (own.startsOn ?? ''))
+}
 
 /**
  * A confirmed edition another of the office's editions of the same standard
@@ -13,7 +24,7 @@ import type { BaseKnowledgeEntry, EntryAttention, EntryCounts, ListEntriesQuery 
  * check it again, since the newer one is what a check would find.
  */
 export function isSuperseded(entry: BaseKnowledgeEntry): boolean {
-  return entry.status === 'confirmed' && entry.editions.length > 1 && entry.editions.find((edition) => edition.id === entry.id)?.inForceToday === false
+  return entry.status === 'confirmed' && editionReplaced(entry.editions, entry.id)
 }
 
 /** Whether an entry needs this kind of attention. */

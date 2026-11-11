@@ -467,8 +467,10 @@ export async function documentsWithEntries(organizationId: string, documentIds: 
 }
 
 /**
- * The entry (its work's id) each of `documentIds` is recorded as: one query for
- * a listing page, so the Büroablage can mark its standards (ADR-0163).
+ * The entry (its edition's id, the id an entry is found by) each of
+ * `documentIds` is recorded as: one query for a listing page, so the Büroablage
+ * can mark its standards (ADR-0163). Each document has its own edition, also
+ * when its work is shared with another edition and so belongs to no document.
  */
 export async function entryIdsForDocuments(organizationId: string, documentIds: readonly string[]): Promise<Map<string, string>> {
   if (documentIds.length === 0) return new Map()
@@ -479,7 +481,7 @@ export async function entryIdsForDocuments(organizationId: string, documentIds: 
       .where(
         and(
           eq(knowledgeRecords.organizationId, organizationId),
-          eq(knowledgeRecords.type, 'work'),
+          eq(knowledgeRecords.type, 'edition'),
           inArray(knowledgeRecords.documentId, [...documentIds])
         )
       )

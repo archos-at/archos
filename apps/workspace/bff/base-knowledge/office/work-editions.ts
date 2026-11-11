@@ -6,9 +6,11 @@
  * on its in-force date, else the day it was issued, as the platform counts a
  * non-law edition (`datedEdition` in `chain/resolve.ts`). Pure.
  *
- * One office edition without a usable date (a commentary that names only its
+ * An office edition without a usable date (a commentary that names only its
  * year) is still the office's edition: when the rule determines none, the
- * newest confirmed edition answers, and the answer names which one it is.
+ * newest undated confirmed edition answers, and the answer names which one it
+ * is. A dated edition that has not come into force, or has expired, answers on
+ * no such day.
  */
 
 import { newestInForce } from '../time/editions'
@@ -32,7 +34,9 @@ export function editionOnDay(editions: readonly StoredEntry[], day: string): Sto
     day,
   )
   if (found.status === 'determined') return confirmed.find((entry) => entry.editionId === found.edition.id) ?? null
-  return [...confirmed].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+  // Only an edition without a date falls back: a dated one not yet or no longer in force is in force on no day asked.
+  const undated = confirmed.filter((entry) => startOf(entry) === null)
+  return undated.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
 }
 
 /** Every edition of `entry`'s work the office holds, newest start first, with the one in force on `day` marked. */
@@ -48,4 +52,13 @@ export function editionsOf(entry: StoredEntry, works: ReadonlyMap<string, Stored
       status: edition.confirmed ? 'confirmed' : 'proposed',
       inForceToday: edition === current,
     }))
+}
+
+/**
+ * A work's designation without one edition's date (`ÖNORM B 1600:2017` →
+ * `ÖNORM B 1600`): the work spans its editions, and each edition says its own
+ * through its label. The `:year` suffix is how standards bodies cite an edition.
+ */
+export function workDesignation(designation: string | null): string | null {
+  return designation?.replace(/\s*:\s*\d{4}(-\d{2}){0,2}$/, '') ?? null
 }

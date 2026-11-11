@@ -69,8 +69,20 @@ export const deleteBaseKnowledgeFolder = async (folderId: string): Promise<void>
   await json(await fetch(`/api/office-shelf/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' }), 'delete the folder')
 }
 
-export const listBaseKnowledgeFolders = async (): Promise<BaseKnowledgeFolders> =>
-  json(await fetch(`${ENDPOINT}/folders`), 'load base-knowledge folders')
+/** Every base-knowledge folder, page after page: a move offers each of them, not only the first page's. */
+export const listBaseKnowledgeFolders = async (): Promise<BaseKnowledgeFolders> => {
+  const first = await json<BaseKnowledgeFolders>(await fetch(`${ENDPOINT}/folders`), 'load base-knowledge folders')
+  const folders = [...first.folders]
+  for (let cursor = first.nextCursor; cursor; ) {
+    const page = await json<BaseKnowledgeFolders>(
+      await fetch(`${ENDPOINT}/folders?cursor=${encodeURIComponent(cursor)}`),
+      'load base-knowledge folders',
+    )
+    folders.push(...page.folders)
+    cursor = page.nextCursor
+  }
+  return { rootId: first.rootId, folders, nextCursor: null }
+}
 
 export const createBaseKnowledgeFolder = async (body: CreateFolderBody): Promise<BaseKnowledgeFolder> =>
   json(await fetch(`${ENDPOINT}/folders`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'create a folder')
@@ -135,9 +147,9 @@ export const recordBaseKnowledgeCheck = async (entryId: string, body: RecordChec
     'record a check',
   )
 
-export const removeBaseKnowledge = async (entryId: string): Promise<void> => {
-  await json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'DELETE' }), 'remove base knowledge')
-}
+/** The receipt of a removal: `removed` is false when a store could not be cleared, and removing again finishes it. */
+export const removeBaseKnowledge = async (entryId: string): Promise<{ removed: boolean }> =>
+  json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'DELETE' }), 'remove base knowledge')
 
 /** An office shelf document a person can record as base knowledge. */
 export interface ShelfCandidate {
@@ -146,9 +158,12 @@ export interface ShelfCandidate {
 }
 
 /** The office shelf's documents, whole shelf, newest first (one page of 200). */
-export const listShelfCandidates = async (): Promise<ShelfCandidate[]> => {
+/** Office shelf documents by name: the newest 200, or the 200 a search finds across the whole shelf. */
+export const listShelfCandidates = async (q = ''): Promise<ShelfCandidate[]> => {
+  const query = new URLSearchParams({ scope: 'office_shelf', limit: '200' })
+  if (q.trim()) query.set('q', q.trim())
   const body = await json<{ documents: { id: string; filename: string; displayName?: string | null }[] }>(
-    await fetch('/api/documents?scope=office_shelf&limit=200'),
+    await fetch(`/api/documents?${query.toString()}`),
     'load the office shelf',
   )
   return body.documents.map((document) => ({ id: document.id, name: document.displayName ?? document.filename }))

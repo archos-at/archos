@@ -24,12 +24,28 @@ describe('a superseded edition', () => {
       textUse: 'used',
       freshness: { overdue: true },
       editions: [
-        { id: 'e2023', inForceToday: true },
-        { id: 'e2005', inForceToday: false },
+        { id: 'e2023', startsOn: '2023-02-01', inForceToday: true },
+        { id: 'e2005', startsOn: '2005-03-01', inForceToday: false },
       ],
     } as unknown as Parameters<typeof needs>[0]
     expect(needs(entry, 'check_due')).toBe(false)
     // Positive control: the same entry alone is due.
-    expect(needs({ ...entry, editions: [{ id: 'e2005', inForceToday: true }] } as typeof entry, 'check_due')).toBe(true)
+    expect(needs({ ...entry, editions: [{ id: 'e2005', startsOn: '2005-03-01', inForceToday: true }] } as typeof entry, 'check_due')).toBe(true)
+  })
+
+  it('is not an edition still to come: a confirmed future edition without a check is due', async () => {
+    const { needs, isSuperseded } = await import('./listing')
+    const upcoming = {
+      id: 'e2027',
+      status: 'confirmed',
+      textUse: 'used',
+      freshness: { overdue: true },
+      editions: [
+        { id: 'e2023', startsOn: '2023-02-01', inForceToday: true },
+        { id: 'e2027', startsOn: '2027-01-01', inForceToday: false },
+      ],
+    } as unknown as Parameters<typeof needs>[0]
+    expect(isSuperseded(upcoming)).toBe(false)
+    expect(needs(upcoming, 'check_due')).toBe(true)
   })
 })

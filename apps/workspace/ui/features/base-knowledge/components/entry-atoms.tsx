@@ -16,8 +16,9 @@ import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
 import { isSuperseded, needs } from '@/lib/base-knowledge/office/listing'
 
+/** A date for a person: a date alone (an edition's start, YYYY-MM-DD) is that calendar day, a timestamp the reader's own day. */
 export const day = (iso: string, locale: string) =>
-  new Date(iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
+  new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

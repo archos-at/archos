@@ -136,6 +136,8 @@ export const baseKnowledgeOperations = [
     method: 'POST',
     path: '/api/base-knowledge/bulk',
     body: bulkEntriesBodySchema,
+    // `remove` deletes documents: the person confirms it, as they confirm a single removal.
+    destructive: true,
     load: () => import('@/app/api/base-knowledge/bulk/route'),
   },
   {

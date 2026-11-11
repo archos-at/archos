@@ -42,6 +42,7 @@ import type { EntryValues } from '@/lib/base-knowledge/wire'
 import { Chip } from '@/components/ui/chip'
 import { day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
+import { editionReplaced } from '@/lib/base-knowledge/office/listing'
 
 interface EntryPageProps {
   entry: BaseKnowledgeEntry | null
@@ -155,7 +156,9 @@ function LicenceSection({
   run: Run
 }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
-  if (values.licenceClass !== 'licensed') return null
+  if (values.licenceClass !== 'licensed') {
+    return entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
+  }
   const aiAllowed = entry.textUse === 'used'
   return (
     <section className="space-y-3" data-testid="base-knowledge-licence">
@@ -202,12 +205,76 @@ function LicenceSection({
               {aiAllowed ? t('detail.withdrawAi') : t('detail.allowAi')}
             </Button>
           )}
+          {canManage && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void run(() => setBaseKnowledgeLicence(entry.id, { licenceClass: 'public_open' }))}
+            >
+              {t('detail.markPublic')}
+            </Button>
+          )}
         </>
       )}
     </section>
   )
 }
 
+/**
+ * A confirmed copy recorded as freely available that turns out to be bought:
+ * the class changes only with the office's licence statement, as at confirming,
+ * so its text is never read on a licence nobody stated.
+ */
+function BoughtAfterAll({ entry, busy, run }: { entry: BaseKnowledgeEntry; busy: boolean; run: Run }): JSX.Element {
+  const t = useTranslations(baseKnowledgeCopy)
+  const [open, setOpen] = useState(false)
+  const [attest, setAttest] = useState({ licence: false, ai: false })
+  if (!open) {
+    return (
+      <section className="space-y-2" data-testid="base-knowledge-licence">
+        <SectionLabel as="h3">{t('detail.licenceSection')}</SectionLabel>
+        <p className="text-muted-foreground text-sm">{t('detail.publicNow')}</p>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)}>
+          {t('detail.markLicensed')}
+        </Button>
+      </section>
+    )
+  }
+  return (
+    <section className="space-y-3" data-testid="base-knowledge-licence">
+      <SectionLabel as="h3">{t('detail.licenceSection')}</SectionLabel>
+      <p className="text-muted-foreground text-sm">{t('detail.licenceWhy')}</p>
+      <label className="flex items-start gap-2 text-sm">
+        <Checkbox checked={attest.licence} onCheckedChange={(on) => setAttest({ ...attest, licence: on === true })} />
+        {t('detail.attest')}
+      </label>
+      <label className="flex items-start gap-2 text-sm">
+        <Checkbox checked={attest.ai} onCheckedChange={(on) => setAttest({ ...attest, ai: on === true })} />
+        <span>
+          {t('detail.attestAi')}
+          <span className="text-muted-foreground block text-xs">{t('detail.attestAiHint')}</span>
+        </span>
+      </label>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={busy || !attest.licence}
+          onClick={() =>
+            void run(() =>
+              setBaseKnowledgeLicence(entry.id, { licenceClass: 'licensed', licenceAttested: true, aiProcessingAttested: attest.ai }),
+            )
+          }
+        >
+          {t('detail.saveLicensed')}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
+          {t('detail.cancel')}
+        </Button>
+      </div>
+    </section>
+  )
+}
 
 function CheckSection({
   entry,
@@ -258,7 +325,8 @@ function CheckSection({
                 event.target.value = ''
                 if (chosen)
                   void run(
-                    async () => (await addBaseKnowledgeEdition(entry.id, chosen), null),
+                    // The new edition opens, a proposal to confirm, whatever the list's filters show.
+                    () => addBaseKnowledgeEdition(entry.id, chosen),
                     t('detail.newEditionDone')
                   )
               }}
@@ -390,7 +458,13 @@ function SheetBody({
             description={t('detail.removeBody')}
             confirmLabel={t('detail.remove')}
             cancelLabel={t('detail.cancel')}
-            onConfirm={() => run(async () => (await removeBaseKnowledge(entry.id), null))}
+            onConfirm={() =>
+              run(async () => {
+                // The records are gone either way, so the page closes; a store that kept something is said, not hidden.
+                if (!(await removeBaseKnowledge(entry.id)).removed) toast.warning(t('detail.removeIncomplete'))
+                return null
+              }, t('detail.removed'))
+            }
           />
         </div>
       )}
@@ -430,7 +504,13 @@ function Editions({ entry, onOpen }: { entry: BaseKnowledgeEntry; onOpen: (entry
               {edition.startsOn && <span className="font-normal text-muted-foreground"> · {t('detail.startsOn', { date: day(edition.startsOn, locale) })}</span>}
             </button>
             <Chip size="sm" variant={edition.status === 'proposed' ? 'info' : edition.inForceToday ? 'success' : 'muted'}>
-              {edition.status === 'proposed' ? t('status.proposed') : edition.inForceToday ? t('detail.inForceToday') : t('status.superseded')}
+              {edition.status === 'proposed'
+                ? t('status.proposed')
+                : edition.inForceToday
+                  ? t('detail.inForceToday')
+                  : editionReplaced(entry.editions, edition.id)
+                    ? t('status.superseded')
+                    : t('detail.notInForce')}
             </Chip>
           </li>
         ))}

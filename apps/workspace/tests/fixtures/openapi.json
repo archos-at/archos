@@ -21753,7 +21753,7 @@
         "x-mcp-annotations": {
           "title": "Check, move or remove many base-knowledge entries at once",
           "readOnlyHint": false,
-          "destructiveHint": false,
+          "destructiveHint": true,
           "idempotentHint": false,
           "openWorldHint": false
         }

@@ -65,7 +65,7 @@ import { platformKnowledge } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { editionOnDay, editionsByWork, editionsOf, workDesignation } from './work-editions'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
 import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
@@ -128,7 +128,8 @@ export async function listBaseKnowledge(
   ])
   const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
-  const works = editionsByWork(stored)
+  // An edition the reader may not see (an upload still in screening, ADR-0086) adds nothing to another's history.
+  const works = editionsByWork(stored.filter((entry) => documents.has(entry.documentId)))
   const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
     return document ? [toEntry(entry, document, now, names, works)] : []
@@ -155,14 +156,17 @@ async function findEntry(
   // By its edition; an id from before editions shared a work is the work's, whose first edition it was.
   const stored = all.find((entry) => entry.editionId === entryId) ?? all.find((entry) => entry.workId === entryId && !entry.workStandsAlone)
   if (!stored) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
+  const editions = all.filter((entry) => entry.workId === stored.workId)
   const [documents, names] = await Promise.all([
-    visibleOfficeDocuments(session.organizationId, [stored.documentId], await reader(session)),
+    visibleOfficeDocuments(session.organizationId, editions.map((entry) => entry.documentId), await reader(session)),
     loadOrganizationDirectory(session.organizationId),
   ])
   const document = documents.get(stored.documentId)
   if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
   const now = new Date()
-  return { stored, entry: toEntry(stored, document, now, names, editionsByWork(all)), document }
+  // Its history holds only the editions this reader may see (ADR-0086).
+  const works = editionsByWork(editions.filter((entry) => documents.has(entry.documentId)))
+  return { stored, entry: toEntry(stored, document, now, names, works), document }
 }
 
 /** The stored records of an entry the session may see, for a caller that builds on them (a newer edition). */
@@ -179,6 +183,11 @@ export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId:
 function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
   const defined = Object.fromEntries(Object.entries(given).filter(([, value]) => value !== undefined))
   const values = { ...base, ...defined } as EntryValues
+  // An edition starts on its in-force date, else its issue date; an end on or before that leaves it in force on no day.
+  const start = values.inForceFrom ?? values.issuedOn
+  if (start && values.inForceTo && values.inForceTo <= start) {
+    throw new UnprocessableError(`inForceTo (${values.inForceTo}) is not after the edition's start (${start}); an edition ends after it starts.`)
+  }
   // Only a directive addresses an authority.
   return values.kind === 'authority_directive' ? values : { ...values, addressees: [] }
 }
@@ -308,7 +317,9 @@ async function writeValues(
   firstCheck: boolean
 ): Promise<void> {
   const terms = termsAfter(stored.terms, body, session.userId, new Date())
-  await writeConfirmedValues(stored, values, {
+  // A work its editions share is cited without one edition's date; each edition's own is its label.
+  const written = stored.workStandsAlone ? { ...values, designation: workDesignation(values.designation) } : values
+  await writeConfirmedValues(stored, written, {
     organizationId: session.organizationId,
     createdBy: session.userId,
     provenance: { proposedBy: stored.provenance.proposedBy ?? 'reading', confirmedBy: session.userId },
@@ -434,13 +445,15 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   const facts = profile?.profile?.facts ?? {}
   // Of a standard's editions, the one the platform's rule puts in force on the project's reference day.
   const day = referenceDayOfProfile(facts, dayOf(new Date()))
-  const works = editionsByWork(all)
-  const stored = all.filter((entry) =>
+  // The edition in force is chosen among those the model may read, so a held upload never displaces a readable one.
+  const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
+  const readable = all.filter((entry) => documents.has(entry.documentId))
+  const works = editionsByWork(readable)
+  const stored = readable.filter((entry) =>
     entry.confirmed ? editionOnDay(works.get(entry.workId) ?? [entry], day) === entry : entry.values.licenceClass === 'licensed'
   )
   const held = stored.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  const [documents, listed, setupRecords] = await Promise.all([
-    visibleOfficeDocuments(organizationId, stored.map((entry) => entry.documentId), SCREENED_ONLY),
+  const [listed, setupRecords] = await Promise.all([
     platformKnowledge().listedNotHeld(organizationId, held),
     readSetupRecords(organizationId),
   ])

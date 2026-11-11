@@ -33,6 +33,14 @@ async function moveEntry(session: AuthorizedSession, entryId: string, folderId: 
   if (!moved.ok) throw new UnprocessableError(moved.error)
 }
 
+/** A removal some store could not finish is not reported as clean: the records are gone, and the answer names what was left. */
+async function removeEntry(session: AuthorizedSession, entryId: string, request: Request): Promise<void> {
+  const removal = await removeBaseKnowledge(session, entryId, request)
+  if (removal.removed) return
+  const left = Object.entries(removal.stores).flatMap(([store, state]) => (state === 'removed' || state === 'none' ? [] : [store]))
+  throw new UnprocessableError(`Removed and no longer quoted, but ${left.join(', ')} could not be cleared right away.`)
+}
+
 export async function bulkBaseKnowledge(
   session: AuthorizedSession,
   body: BulkEntriesBody,
@@ -51,7 +59,7 @@ export async function bulkBaseKnowledge(
       await runOne(entryId, () => {
         if (action.type === 'check') return recordBaseKnowledgeCheck(session, entryId, { result: action.result, note: action.note })
         if (action.type === 'move') return moveEntry(session, entryId, action.folderId)
-        return removeBaseKnowledge(session, entryId, request)
+        return removeEntry(session, entryId, request)
       }),
     )
   }

@@ -58,9 +58,9 @@ function Optional({ children }: { children: string }): JSX.Element {
   )
 }
 
-function TerritoryField({ values, set, disabled, territories, optional }: {
+function TerritoryField({ values, onTerritories, disabled, territories, optional }: {
   values: EntryValues
-  set: <K extends keyof EntryValues>(key: K, value: EntryValues[K]) => void
+  onTerritories: (ids: string[]) => void
   disabled: boolean
   territories: readonly TerritoryChoice[]
   optional: boolean
@@ -74,7 +74,7 @@ function TerritoryField({ values, set, disabled, territories, optional }: {
       <MultiSelect
         options={options}
         value={values.territoryIds}
-        onValueChange={(ids) => set('territoryIds', ids)}
+        onValueChange={onTerritories}
         placeholder={t('field.territoryPlaceholder')}
         label={t('field.territoryIds')}
         searchPlaceholder={t('field.territorySearch')}
@@ -94,6 +94,13 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
   const directive = values.kind === 'authority_directive'
   const placed = PLACED.has(values.kind)
   const authorityTerritory = values.territoryIds[0] ?? values.addressees[0]?.territoryId ?? null
+  // The authority sits where the directive applies: a new territory moves it along, so the form never saves the old one.
+  const setTerritories = (ids: string[]) =>
+    onChange({
+      ...values,
+      territoryIds: ids,
+      addressees: values.addressees.map((addressee) => ({ ...addressee, territoryId: ids[0] ?? addressee.territoryId })),
+    })
   return (
     <div className="grid gap-4" data-testid="base-knowledge-form">
       <Field>
@@ -135,7 +142,7 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
           <FieldDescription>{t('field.editionLabelHint')}</FieldDescription>
         </Field>
       </div>
-      {placed && <TerritoryField values={values} set={set} disabled={disabled} territories={territories} optional={false} />}
+      {placed && <TerritoryField values={values} onTerritories={setTerritories} disabled={disabled} territories={territories} optional={false} />}
       {directive && (
         <Field>
           <FieldLabel htmlFor="bk-authority">{t('field.authority')}</FieldLabel>
@@ -185,7 +192,7 @@ export function EntryForm({ values, onChange, disabled, showLicence, territories
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="grid gap-4 pt-2">
-          {!placed && <TerritoryField values={values} set={set} disabled={disabled} territories={territories} optional />}
+          {!placed && <TerritoryField values={values} onTerritories={setTerritories} disabled={disabled} territories={territories} optional />}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="bk-issuer">

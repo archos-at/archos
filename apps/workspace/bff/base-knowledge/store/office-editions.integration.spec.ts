@@ -38,6 +38,13 @@ const VALUES = {
 }
 const NEWER = { ...VALUES, designation: 'ÖNORM B 1600:2023', editionLabel: '2023-02-01', issuedOn: '2023-02-01' }
 
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
+
 describe.skipIf(!url)('a newer edition of an office standard against Postgres', () => {
   let repo: typeof import('./repository')
   let editions: typeof import('./office-editions')
@@ -99,12 +106,15 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
     expect(first.workStandsAlone).toBe(false)
     const secondDocument = await newDocument()
     const ids = await editions.insertEditionOfWork(secondDocument, first, NEWER, context)
-    await repo.writeConfirmedValues(ids, NEWER, { ...context, firstCheck: true })
+    // Confirmed as the service writes it once the work is shared (`writeValues`): without the edition's date.
+    await repo.writeConfirmedValues(ids, { ...NEWER, designation: 'ÖNORM B 1600' }, { ...context, firstCheck: true })
 
     const all = await repo.readOfficeEntries(ORG)
     const series = all.filter((entry) => entry.workId === ids.workId)
     expect(series.map((entry) => entry.values.editionLabel).sort()).toEqual(['2017-04-01', '2023-02-01'])
     expect(series.every((entry) => entry.workStandsAlone && entry.confirmed)).toBe(true)
+    // One work, cited without either edition's date; each edition says its own through its label.
+    expect(series.map((entry) => entry.values.designation)).toEqual(['ÖNORM B 1600', 'ÖNORM B 1600'])
     // The read the platform's „which edition applied“ takes: both editions, one work.
     const read = await time.readWorkInTime(ORG, ids.workId)
     expect(read?.work.editions.map((edition) => edition.label).sort()).toEqual(['2017-04-01', '2023-02-01'])
@@ -120,6 +130,20 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
     expect(left).toMatchObject({ editionId: ids.editionId, workId: ids.workId, values: { editionLabel: '2023-02-01', title: VALUES.title } })
     expect(await editions.deleteWorkIfUnused(ORG, ids.workId)).toBe(false)
     expect(await recordExists(ids.workId)).toBe(true)
+  })
+
+  it('ends two newer editions added at once in one work, though both read the first before either wrote', async () => {
+    const { documentId: firstDocument, stored: first } = await confirmedFirst()
+    const [a, b] = await Promise.all([newDocument(), newDocument()])
+    // Both callers hold the same stale read: the first edition still belongs to its document's work.
+    const [one, two] = await Promise.all([
+      editions.insertEditionOfWork(a, first, NEWER, context),
+      editions.insertEditionOfWork(b, first, { ...NEWER, editionLabel: '2024-01-01' }, context),
+    ])
+    expect(two.workId).toBe(one.workId)
+    // The Büroablage finds each document's own edition, also now that the work belongs to no document.
+    const marks = await repo.entryIdsForDocuments(ORG, [firstDocument, a, b])
+    expect(marks).toEqual(new Map([[firstDocument, first.editionId], [a, one.editionId], [b, two.editionId]]))
   })
 
   it('leaves no work behind once the last edition is gone', async () => {

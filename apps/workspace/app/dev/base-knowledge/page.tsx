@@ -64,8 +64,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname === '/api/base-knowledge' && (init?.method ?? 'GET') === 'GET')
         return Response.json(list(url, variant))
+      const entryId = /^\/api\/base-knowledge\/([^/]+)/.exec(url.pathname)?.[1]
+      const entry = entryId ? BASE_KNOWLEDGE_ENTRIES.find((candidate) => candidate.id === decodeURIComponent(entryId)) : undefined
+      // An entry's own path answers with the entry; a write leaves the fixture as it is.
+      if (entry) return Response.json(entry)
       if (url.pathname.startsWith('/api/base-knowledge')) return Response.json({ results: [] })
-      if (url.pathname === '/api/documents') {
+      if (url.pathname === '/api/documents' && url.searchParams.get('scope') === 'office_shelf') {
         return Response.json({
           documents: [
             { id: 'doc_shelf_1', filename: 'OIB-RL_2_Brandschutz_2023.pdf', displayName: null },

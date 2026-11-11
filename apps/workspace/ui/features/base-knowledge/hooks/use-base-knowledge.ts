@@ -76,7 +76,10 @@ export function useBaseKnowledge(initial: Partial<BaseKnowledgeFilters> = {}): B
       setFolders(nextFolders)
       setFailed(false)
     } catch {
-      if (mine === sequence.current) setFailed(true)
+      if (mine !== sequence.current) return
+      // The list on screen answered other filters: show the failure and its retry, never the old entries as the new answer.
+      setList(null)
+      setFailed(true)
     }
   }, [query])
 
