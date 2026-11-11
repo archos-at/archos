@@ -18,12 +18,12 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
-import { parityCases, parityRow } from './setup-parity.fixtures'
+import { AUSTRIA_RELEASED, parityCases, parityRow } from './setup-parity.fixtures'
 
 type Row = ReturnType<typeof parityRow>
 
 const FIXTURE: Row[] = JSON.parse(readFileSync(join(process.cwd(), 'tests/fixtures/setup-parity.json'), 'utf8'))
-const ROWS = parityCases().map(parityRow)
+const ROWS = parityCases().map((parityCase) => parityRow(parityCase))
 const READINGS = ['needs', 'derivations', 'register', 'derived'] as const
 
 /** The readings of one row that differ from develop's. */
@@ -88,5 +88,11 @@ describe('the setup on records, against develop', () => {
   ] as const)('changes for a project %s only what is listed, on purpose', (placement, known) => {
     const changed = new Set(ROWS.flatMap((row, index) => (row.placement === placement ? differences(index) : [])))
     expect([...changed].sort()).toEqual(known)
+  })
+
+  it('reads every profile the same once Austria’s pack is released as from the build’s records', () => {
+    expect(AUSTRIA_RELEASED.some((record) => record.id.startsWith('shipped:'))).toBe(false)
+    const released = parityCases().map((parityCase) => parityRow(parityCase, AUSTRIA_RELEASED))
+    expect(released).toEqual(ROWS)
   })
 })

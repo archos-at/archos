@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BaseKnowledgeEntry } from '../wire'
 import { officeAnswerLabel } from './answer-label'
 import { projectTerritory } from './authority'
+import { AT_SUBDIVISIONS } from '@/lib/project-intake/at-setup.fixtures'
 
 const ENTRY: BaseKnowledgeEntry = {
   id: 'work_1',
@@ -36,7 +37,7 @@ const ENTRY: BaseKnowledgeEntry = {
 
 describe('the data of an answer’s label on an office copy', () => {
   it('carries what "Norm, Büroexemplar Ausgabe 2017, zuletzt geprüft am 12.09.2026" is made of', () => {
-    expect(officeAnswerLabel(ENTRY, projectTerritory({ federalState: 'vienna' }))).toEqual({
+    expect(officeAnswerLabel(ENTRY, projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS))).toEqual({
       documentId: 'doc_1',
       fileName: 'ÖNORM B 1600.pdf',
       kind: 'technical_standard',
@@ -54,12 +55,12 @@ describe('the data of an answer’s label on an office copy', () => {
 
   it('makes a commentary interpretation and gives a directive its verdict for the project', () => {
     const commentary = { ...ENTRY, values: { ...ENTRY.values, kind: 'commentary' as const } }
-    expect(officeAnswerLabel(commentary, projectTerritory({})).role).toBe('interpretation')
+    expect(officeAnswerLabel(commentary, projectTerritory({}, AT_SUBDIVISIONS)).role).toBe('interpretation')
     const directive = {
       ...ENTRY,
       values: { ...ENTRY.values, kind: 'authority_directive' as const, addressees: [{ name: 'MA 37', territoryId: 'AT-9' }] },
     }
-    expect(officeAnswerLabel(directive, projectTerritory({ federalState: 'styria' }))).toMatchObject({
+    expect(officeAnswerLabel(directive, projectTerritory({ federalState: 'styria' }, AT_SUBDIVISIONS))).toMatchObject({
       role: 'authority_practice',
       directive: { verdict: 'does_not_apply', territoryId: 'AT-6' },
     })

@@ -49,10 +49,12 @@ export type ClassificationOutcome = z.infer<typeof outcomeSchema>
 
 export const classificationEvaluationSchema = z.object({
   /**
-   * `site_unknown`: nothing places the project; `no_classification`: its country has no classification record;
+   * `site_unknown`: nothing places the project; `not_published`: its country's setup records are not published (or not
+   * entitled) yet, so nothing is derived or asked, never another country's; `no_classification`: the country's setup
+   * is published and holds no classification record;
    * `undetermined`: the project's knowledge context withholds law (`gate` says why), so no class is named.
    */
-  status: z.enum(['evaluated', 'site_unknown', 'no_classification', 'undetermined']),
+  status: z.enum(['evaluated', 'site_unknown', 'not_published', 'no_classification', 'undetermined']),
   /** The knowledge context's gate when it withholds law (ADR-0173), else null: the same gate the turn reads. */
   gate: z.object({ state: z.enum(GATE_STATES), reason: z.enum(SITE_UNKNOWN_REASONS).nullable() }).nullable(),
   site: z.object({ chain: z.array(z.string()) }),

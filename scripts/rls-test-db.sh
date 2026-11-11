@@ -218,6 +218,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/agent-api/operation-proposals.integration.spec.ts \
     bff/agent-api/read-gate.integration.spec.ts \
     bff/project-intake/repository.integration.spec.ts \
+    bff/project-intake/setup-records.integration.spec.ts \
     bff/changes/repository.integration.spec.ts \
     bff/push/repository.integration.spec.ts \
     bff/agent-asks/repository.integration.spec.ts \
@@ -4248,10 +4249,10 @@ check_in pm_0232 "SELECT count(*) FROM pg_indexes WHERE tablename = 'personal_me
 apply_in pm_0232 0232_personal_memory_content_key.sql
 check_in pm_0232 "SELECT count(*) FROM personal_memory WHERE organization_id = 'org_0232' AND content_key IS NOT NULL" "2" "0232 applies again after its down, and every note has a key"
 echo "==> 0232 content key and its down migration verified"
-# 0228: one operator alone, on a deployment that says so. Without the setting a
+# 0233: one operator alone, on a deployment that says so. Without the setting a
 # request is never single without its second review, by update or insert; with
 # it (the dev stack's BFF sets it per transaction) it is. The down hands such a
-# request its second review back and restores 0214's CHECK; 0228 applies again.
+# request its second review back and restores 0214's CHECK; 0233 applies again.
 # ---------------------------------------------------------------------------
 echo "==> verifying 0233 one operator alone and its down migration on so_0233"
 migrate_before so_0233 0233_knowledge_single_operator

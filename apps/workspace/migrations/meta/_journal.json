@@ -1639,6 +1639,13 @@
       "when": 1794800000000,
       "tag": "0233_knowledge_single_operator",
       "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1794900000000,
+      "tag": "0234_territory_zone",
+      "breakpoints": true
     }
   ]
 }

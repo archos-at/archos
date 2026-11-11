@@ -21,6 +21,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
@@ -489,7 +493,7 @@ describe('recordIntakeValues — what a value becomes', () => {
       { key: 'storeys_above_ground@bldg1', decisive: true },
       { key: 'building_position@bldg1', decisive: false },
     ])
-    expect(computeNeeds).toHaveBeenCalledWith(expect.anything(), expect.anything(), { mode: 'active', dismissed: [] })
+    expect(computeNeeds).toHaveBeenCalledWith(expect.anything(), expect.anything(), { mode: 'active', dismissed: [], records: expect.any(Array) })
   })
 
   it('plans again on the fresh profile after a lost optimistic lock', async () => {

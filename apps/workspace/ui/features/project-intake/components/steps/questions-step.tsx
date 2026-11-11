@@ -71,7 +71,12 @@ export function QuestionsStep({ view, canDecide, busy, canUpload, onDecide, onFi
   ) : undefined
   const footer: RoundFooter = { progress, desk }
 
-  const note: ReactNode = reading ? (
+  const note: ReactNode = view.setupPublished === false ? (
+    <p className="flex gap-1.5" data-testid="questions-unpublished-note" role="status">
+      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      {t('unpublishedNote')}
+    </p>
+  ) : reading ? (
     <p className="flex gap-1.5" data-testid="questions-reading-note" role="status">
       <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       {t('readingNote')}

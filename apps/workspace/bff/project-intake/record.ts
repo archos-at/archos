@@ -52,7 +52,7 @@ import {
   isBuildingClassKey,
   withDerivedClass,
 } from './derivation-view'
-import { classificationInputs, type SetupScopeOptions } from './setup-scope'
+import { classificationInputs, setupUnpublished, type SetupScopeOptions } from './setup-scope'
 import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import {
   isMeaningfulValue,
@@ -130,8 +130,8 @@ export interface RecordContext {
   /** The reading's job id: a suggestion it creates carries it, and only it may withdraw that suggestion. */
   readingId: string
   needs: ComputeNeedsOptions
-  /** The setup records to classify by; the shipped pack by default. */
-  records?: readonly StoredRuleset[]
+  /** The released setup records to classify by. */
+  records: readonly StoredRuleset[]
   /** The project's knowledge context withholds law at its site: no class is derived, and a derived one goes. */
   lawWithheld?: boolean
 }
@@ -194,8 +194,11 @@ function withClassesDerived(
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
   now: string,
-  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'> = {}
+  scope: Pick<SetupScopeOptions, 'records' | 'lawWithheld'>
 ): ProjectProfile {
+  // No records released for the country (before or after the batch): nothing can be derived, so
+  // nothing may be taken away either; the stored classes stay until the records publish.
+  if (setupUnpublished(before, scope.records) && setupUnpublished(profile, scope.records)) return profile
   let current = profile
   // Read before the loop: a class written below moves no input, and the site is the batch's.
   const classification = classificationFor(current, scope)

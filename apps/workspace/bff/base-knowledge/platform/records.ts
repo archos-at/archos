@@ -102,6 +102,8 @@ export function bodyOf(record: ProposedRecord): Record<string, unknown> {
         // Only a stated coverage is a claim a reviewer decides; unstated inherits (0213).
         ...(record.coverageLevel === null ? {} : { coverageLevel: record.coverageLevel }),
         ...(record.municipalLaw === null ? {} : { municipalLaw: record.municipalLaw }),
+        // Only a stated zone is a claim; unstated inherits from the parent (0228).
+        ...(record.zone === null ? {} : { zone: record.zone }),
       }
     case 'relation':
       return {

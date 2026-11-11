@@ -1,0 +1,13 @@
+-- 0234: a territory states its time zone (country-as-data, step 3). "Today" in
+-- the node that legislates is read in its zone (design §3.6): an open permit
+-- procedure's window runs to that day. It was a table in code
+-- (`time/today.ts`), one entry per country; it is a claim on the territory's
+-- revision now, proposed, reviewed and released like every other platform
+-- claim, so a country's zone is data a release changes.
+--
+-- NULL states none: the node inherits the nearest parent that does, and a
+-- chain that none states answers `zone_unknown` (fail closed).
+--
+-- A nullable column on a table that already carries its policies (0202, 0205);
+-- revisions stay append-only, so a zone changes by a new revision.
+ALTER TABLE "knowledge_territory_revisions" ADD COLUMN IF NOT EXISTS "zone" text;

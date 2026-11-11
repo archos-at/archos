@@ -16,6 +16,7 @@ import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profil
 import type { ProjectIntakeRow } from '@/lib/db/schema/project-intakes'
 import { buildingClassKey, deriveAll, withDerivedClass, withoutDerivedClasses } from './derivation-view'
 import { buildIntakeView } from './view'
+import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 
 const NOW = '2026-11-10T09:00:00.000Z'
 const CLASS = buildingClassKey('bldg1')
@@ -43,18 +44,19 @@ function vienna(): ProjectProfile {
   return profile
 }
 
-const derived = () => withDerivedClass(vienna(), definition, 'bldg1', NOW).profile
+const records = AT_SETUP_RECORDS
+const derived = () => withDerivedClass(vienna(), definition, 'bldg1', NOW, { records }).profile
 
 describe('a class while the knowledge context withholds law', () => {
   it('is derived and written where law is named, so the cases below test something', () => {
-    expect(deriveAll(vienna(), definition)[0]?.value).not.toBeNull()
+    expect(deriveAll(vienna(), definition, { records })[0]?.value).not.toBeNull()
     expect(derived().assumptions[CLASS]?.value).toBeDefined()
   })
 
   it('is neither derived nor written, and a derived one already written goes', () => {
-    expect(deriveAll(vienna(), definition, { lawWithheld: true })).toEqual([])
-    expect(withDerivedClass(vienna(), definition, 'bldg1', NOW, { lawWithheld: true }).profile.assumptions[CLASS]).toBeUndefined()
-    expect(withDerivedClass(derived(), definition, 'bldg1', NOW, { lawWithheld: true }).profile.assumptions[CLASS]).toBeUndefined()
+    expect(deriveAll(vienna(), definition, { lawWithheld: true, records })).toEqual([])
+    expect(withDerivedClass(vienna(), definition, 'bldg1', NOW, { lawWithheld: true, records }).profile.assumptions[CLASS]).toBeUndefined()
+    expect(withDerivedClass(derived(), definition, 'bldg1', NOW, { lawWithheld: true, records }).profile.assumptions[CLASS]).toBeUndefined()
   })
 
   it('is not shown on the profile a person reads, but a class a document stated stays', () => {
@@ -66,7 +68,7 @@ describe('a class while the knowledge context withholds law', () => {
 
   it('is not in the intake the review shows', () => {
     const row = { projectId: 'p1', status: 'read', mode: 'active', documentsRead: [] } as unknown as ProjectIntakeRow
-    const input = { row, profile: derived(), definition, needs: [], unreadDocuments: 0, canDecide: true, canComplete: false }
+    const input = { row, profile: derived(), definition, needs: [], records, unreadDocuments: 0, canDecide: true, canComplete: false }
     const named = buildIntakeView({ ...input, applicableLaw: { gate: 'core', uses: [], factLabels: {} } })
     expect(named.derivations[0]?.value).not.toBeNull()
     const withheld = buildIntakeView({ ...input, applicableLaw: { gate: 'not_entitled', uses: [], factLabels: {} } })

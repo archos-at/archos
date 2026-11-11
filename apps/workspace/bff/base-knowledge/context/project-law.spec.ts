@@ -11,6 +11,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/project-intake/setup-records', async () => ({
+  // The records an operator publishes for Austria, as `readSetupRecords` hands them over (the database read is its own spec).
+  readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
+}))
 const { findProjectProfileInOrg, loadGraph, officeTimeZone, readOrganizationCountries } = vi.hoisted(() => ({
   findProjectProfileInOrg: vi.fn(),
   loadGraph: vi.fn(),
@@ -31,6 +35,7 @@ import { graphFromProposals } from '../chain/from-proposals'
 import { gateNamesLaw } from '../wire/project-law'
 import { lawOf, projectLawFor } from './project-law'
 import { knowledgeContextForTurn } from './service'
+import { AT_SETUP_RECORDS } from '@/lib/project-intake/at-setup.fixtures'
 
 /** A synthetic scope shaped like a guideline for production buildings (ADR-0178); the real one is a record citing its clause. */
 const PRODUCTION_ONLY = {
@@ -199,7 +204,7 @@ describe('lawOf', () => {
     (state) => {
       const use = { workId: 'work:x', editionId: null, role: 'binding' as const, qualifier: null, via: 'territory' as const, date: '2026-11-10', freshness: 'current' as const, lastCheckedAt: null, connectsBy: ['site' as const], labels: [], corpusFiles: [], designation: null, editionLabel: null, sourceRefs: [], sourceUrl: null, route: null, roleSince: null, language: null, textStatus: null, applicability: null }
       const context = { gate: { state, reason: null, leaves: [] }, packs: [], chains: {}, date: '2026-11-10', procedures: [], uses: [use], text: null, retrieval: { countries: [] } }
-      expect(lawOf(context)).toEqual({ gate: state, uses: [], factLabels: {} })
+      expect(lawOf(context, AT_SETUP_RECORDS)).toEqual({ gate: state, uses: [], factLabels: {} })
     },
   )
 
