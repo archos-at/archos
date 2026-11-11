@@ -83,22 +83,22 @@ def test_both_agents_reach_the_same_knowledge_and_ris_tools(config: dict):
     the question.
 
     The corpus is the invariant, not the tool list. Since the RIS consolidation
-    the two surfaces reach Austrian law by different doors: chat has one
-    `ris_lookup_tool` that runs search → fetch → extract inside one charged
+    the two surfaces reach the law by different doors: chat has one
+    `law_lookup` that runs search → fetch → extract inside one charged
     call, deep research still drives the three tools itself because it plans
     retrieval across up to six researchers and has its own budget shape. Both
-    reach RIS; neither reaches a corpus the other cannot.
+    reach the legal database; neither reaches a corpus the other cannot.
     """
     shallow = set(_tools(config, "shallow_research_agent"))
     deep = set(_tools(config, "deep_research_agent"))
     shared = {"knowledge_search", "look"}
     assert shared <= shallow
     assert shared <= deep
-    assert "ris_lookup_tool" in shallow
+    assert "law_lookup" in shallow
     assert {"ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"} <= deep
 
 
-def test_the_chat_surface_reaches_ris_through_one_tool(config: dict, functions: dict):
+def test_the_chat_surface_reaches_the_law_through_one_tool(config: dict, functions: dict):
     """The consolidation, as the line that would undo it.
 
     Three tools plus a taught sequence cost two or three of seven charged calls
@@ -106,29 +106,27 @@ def test_the_chat_surface_reaches_ris_through_one_tool(config: dict, functions: 
     Citation key — so nothing downstream treated it as evidence. Putting any of
     the three back on this list re-creates that, silently.
     """
-    entry = functions.get("ris_lookup_tool")
-    assert entry is not None, "ris_lookup_tool must be declared under `functions:`"
-    # The country-neutral lookup, bound under the old name until step 4b renames the model tool.
+    entry = functions.get("law_lookup")
+    assert entry is not None, "law_lookup must be declared under `functions:`"
+    # The country-neutral lookup under its own name (country-as-data step 4b).
     assert entry["_type"] == "law_lookup"
-    assert entry["tool_name"] == "ris_lookup"
+    assert entry["tool_name"] == "law_lookup"
     shallow = set(_tools(config, "shallow_research_agent"))
-    assert shallow.isdisjoint({"ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"})
+    assert shallow.isdisjoint({"ris_lookup_tool", "ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"})
 
 
-def test_every_ris_tool_resolves_to_the_ris_data_source(config: dict):
+def test_every_law_tool_resolves_to_a_data_source(config: dict):
     """`_capture_sources` drops a result whose tool name resolves to no source.
 
-    All four names are listed, not just the bound one: a result arriving under
-    a name the registry does not know is never captured as citable, and the
-    answer's citations are then stripped as unsupported.
+    Every bound name is listed: a result arriving under a name the registry does
+    not know is never captured as citable, and the answer's citations are then
+    stripped as unsupported. The lookup has its own source, named for what it
+    does; a selection stored under the old id `ris` still selects it.
     """
     sources = {source["id"]: source for source in config["functions"]["data_sources"]["sources"]}
-    assert {
-        "ris_lookup_tool",
-        "ris_search_tool",
-        "ris_fetch_tool",
-        "ris_catalog_lookup_tool",
-    } <= set(sources["ris"]["tools"])
+    assert sources["law_lookup"]["tools"] == ["law_lookup"]
+    assert sources["law_lookup"]["aliases"] == ["ris"]
+    assert {"ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"} <= set(sources["ris"]["tools"])
 
 
 def test_the_deep_researcher_can_show_a_file_and_not_only_cite_it(config: dict):

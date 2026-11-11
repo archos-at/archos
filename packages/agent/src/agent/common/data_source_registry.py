@@ -57,6 +57,8 @@ class DataSourceMeta:
     description: str
     default_enabled: bool = True
     requires_auth: bool = False
+    #: Ids this source was known by before a rename: a stored selection or switch naming one still means it.
+    aliases: tuple[str, ...] = ()
 
 
 # ── Global state ──
@@ -81,6 +83,10 @@ class DataSourceEntry(BaseModel):
     description: str = Field(default="", description="Human-readable description")
     default_enabled: bool = Field(default=True, description="Whether enabled by default")
     requires_auth: bool = Field(default=False, description="Whether the source requires user authentication")
+    aliases: list[str] = Field(
+        default_factory=list,
+        description="Ids the source had before a rename; a stored selection or switch naming one still names it",
+    )
     tools: list[FunctionRef] = Field(
         default_factory=list,
         description="NAT functions or function groups that belong to this data source",
@@ -117,6 +123,7 @@ def _populate(sources: list[dict], group_names: set[str] | None = None) -> None:
             description=entry.get("description", ""),
             default_enabled=entry.get("default_enabled", True),
             requires_auth=entry.get("requires_auth", False),
+            aliases=tuple(entry.get("aliases", ())),
         )
         for ref_name in entry.get("tools", []):
             if ref_name in group_names:
@@ -145,6 +152,7 @@ async def data_source_registry_fn(config: DataSourceRegistryConfig, builder: Any
             "description": entry.description,
             "default_enabled": entry.default_enabled,
             "requires_auth": entry.requires_auth,
+            "aliases": list(entry.aliases),
             "tools": [str(ref) for ref in entry.tools],
         }
         for entry in config.sources
@@ -185,6 +193,18 @@ def get_all_sources() -> list[DataSourceMeta]:
 
 def get_source(source_id: str) -> DataSourceMeta | None:
     return _registry.get(source_id)
+
+
+def with_aliased_sources(source_ids: set[str]) -> set[str]:
+    """``source_ids`` (lower case) and every source one of them names by an old id (``DataSourceMeta.aliases``)."""
+    renamed = {meta.id.lower() for meta in _registry.values() if source_ids & {alias.lower() for alias in meta.aliases}}
+    return source_ids | renamed
+
+
+def names_of(source_ids: set[str]) -> set[str]:
+    """Every id ``source_ids`` answer to: their own and their old ones (``DataSourceMeta.aliases``), as given."""
+    old = {alias for meta in _registry.values() if meta.id in source_ids for alias in meta.aliases}
+    return source_ids | old
 
 
 def get_source_id_for_tool(tool_name: str) -> str | None:

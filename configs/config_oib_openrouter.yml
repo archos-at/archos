@@ -419,15 +419,23 @@ functions:
           # turn whose only finding was a precedent was replaced by the canned
           # "search unavailable" reply (found by the precedent eval).
           - project_lookup
+      - id: law_lookup
+        name: "Law lookup"
+        description: "Look up a law at its official source and read the provision."
+        # A selection or a switch stored before the rename names the old id: a
+        # job plan's `ris` still selects this source (`unavailable_source_ids`).
+        aliases:
+          - ris
+        tools:
+          # `get_source_id_for_tool` must resolve the name a tool result
+          # arrives under, or nothing it returned is captured as a citable source.
+          - law_lookup
       - id: ris
         name: "RIS – Österreichisches Recht"
         description: "Search Austrian federal/state law and case law in the official RIS (Rechtsinformationssystem des Bundes) and fetch entire documents on demand."
         tools:
-          # All four, deliberately: `get_source_id_for_tool` must resolve the
-          # name a tool result arrives under, or nothing it returned is captured
-          # as a citable source. `ris_lookup_tool` is the chat surface's one RIS
-          # tool; the other three are deep research's (and its own internals).
-          - ris_lookup_tool
+          # Deep research's three RIS tools (and its own internals); the chat
+          # surface reads law through `law_lookup` above.
           - ris_search_tool
           - ris_fetch_tool
           - ris_catalog_lookup_tool
@@ -489,18 +497,18 @@ functions:
   # country-neutral lookup (`agent.knowledge.law_lookup`, ADR-0174 amendment
   # 2026-11-11) reads the source the turn's knowledge context carries for its
   # country; `source` is the repository record it falls back to while no
-  # released record reaches the turn. Bound under the old name until the model
-  # tool is renamed (country-as-data plan step 4b): `tool_name` keeps its errors,
-  # sources step and span as the citation parser and the evals read them.
+  # released record reaches the turn. `tool_name` is the name its errors,
+  # sources step and `retrieve.law_lookup` span state; a turn stored before the
+  # rename says `ris_lookup`, which the citation parser and the evals still read.
   # Its bounds are its own (candidates 3, fetches 2, passages 6), one module per
   # stage; they are not tunable here, because each is a claim about what one
   # charged call may cost. `planner_llm` serves BOTH internal model calls:
   # planning a live search and picking the answering provisions out of a law's
   # headings. Neither happens when the catalog answers and the caller named one.
-  ris_lookup_tool:
+  law_lookup:
     _type: law_lookup
     source: at-ris
-    tool_name: ris_lookup
+    tool_name: law_lookup
     planner_llm: ris_planner_llm
     ingest_into_knowledge: true
 
@@ -829,14 +837,14 @@ functions:
       - list_files
       - look
       - show_in_viewer
-      # ONE RIS tool on the chat surface. Search → pick → fetch → find the
+      # ONE law tool on the chat surface. Search → pick → fetch → find the
       # paragraph was three charged calls and a 40 000-character blob that
       # carried no Citation key, so nothing downstream could treat it as
-      # evidence; `ris_lookup` runs that path inside itself and returns passages
-      # in the knowledge layer's own grounding grammar. The other three stay
-      # registered and stay bound to deep research below, which has its own
-      # budget shape.
-      - ris_lookup_tool
+      # evidence; `law_lookup` runs that path inside itself and returns passages
+      # in the knowledge layer's own grounding grammar. The three older RIS
+      # tools stay registered and stay bound to deep research below, which has
+      # its own budget shape.
+      - law_lookup
       - remember
       # No `emit_card`: every chat card travels in the answer envelope's
       # `cards` field (cards/envelope.py), at no extra call. Bound, the tool

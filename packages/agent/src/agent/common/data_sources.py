@@ -26,6 +26,7 @@ from langchain_core.messages import BaseMessage
 from .data_source_registry import get_all_sources
 from .data_source_registry import get_source
 from .data_source_registry import get_source_id_for_tool
+from .data_source_registry import with_aliased_sources
 
 # Default to web_search when no data sources specified
 DEFAULT_DATA_SOURCES: list[str] = ["web_search"]
@@ -128,9 +129,11 @@ def unavailable_source_ids(
     if disabled_sources is None:
         disabled_sources = get_disabled_sources_from_context()
     unavailable = {str(source_id).strip().lower() for source_id in disabled_sources if str(source_id).strip()}
+    # A switch or a selection stored before a source was renamed names its old id (a job plan's ``ris``).
+    unavailable = with_aliased_sources(unavailable)
     if data_sources is None:
         return frozenset(unavailable)
-    selected = {source_id.strip().lower() for source_id in data_sources if source_id.strip()}
+    selected = with_aliased_sources({source_id.strip().lower() for source_id in data_sources if source_id.strip()})
     unavailable |= {meta.id.lower() for meta in get_all_sources() if meta.id.lower() not in selected}
     return frozenset(unavailable)
 
