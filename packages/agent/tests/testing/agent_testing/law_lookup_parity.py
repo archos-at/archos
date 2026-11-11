@@ -289,8 +289,9 @@ def _turn_carrying(record: dict[str, Any] | None):
     if record is not None:
         # A revision names one content, as on the platform: the lookup builds a record once per revision.
         revision = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:16]
-        source = TurnSource(key=record["id"], revision_id=revision, country="AT", config=record)
-        set_turn_knowledge_context(KnowledgeContext(gate="core", site_country="AT", sources=(source,)))
+        country = record["territory"][:2]
+        source = TurnSource(key=record["id"], revision_id=revision, country=country, config=record)
+        set_turn_knowledge_context(KnowledgeContext(gate="core", site_country=country, sources=(source,)))
     try:
         yield
     finally:

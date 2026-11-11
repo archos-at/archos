@@ -14,6 +14,8 @@ import logging
 import re
 from dataclasses import dataclass
 
+from public_sources.access.base import fold
+
 from agent.knowledge.law_lookup.address import Address
 from agent.knowledge.law_lookup.as_of import in_force_on
 from agent.knowledge.law_lookup.as_of import parse_day
@@ -72,6 +74,10 @@ async def collect_candidates(search: Search, question: str, address: Address, tr
     if addressed is not None:
         trace.searched = f"the address you passed ({addressed.citation_url})"
         return [addressed]
+    listed = listed_candidates(question, address, search.law)
+    if listed is not None:
+        trace.searched = f"the documents {search.law.wording.source} lists, for {address.law or question!r}"
+        return listed[:MAX_CANDIDATES]
     use_catalog = not trace.collection and not _signals_case_law(question, search.law)
     catalog = catalog_candidates(question, address, search) if use_catalog else []
     if any(candidate.fetchable for candidate in catalog):
@@ -103,6 +109,24 @@ def candidate_from_address(address: Address, law: LawSource) -> Candidate | None
     if not url:
         return None
     return Candidate(title="", url=url, citation_url=url, document_number=address.document_number, origin="address")
+
+
+def listed_candidates(question: str, address: Address, law: LawSource) -> list[Candidate] | None:
+    """The documents a source without a search lists in its record, matched by title; None for a searchable source.
+
+    A portal that publishes each statute as a page (``web_document``) names its documents in the record;
+    the one the reference or the question names is read, and a source that lists one document reads it.
+    """
+    documents = getattr(law.access.config, "documents", None)
+    if law.lookup.search or not documents:
+        return None
+    wanted = fold(f"{address.law} {question}")
+    named = [document for document in documents if document.title and fold(document.title) in wanted]
+    chosen = named or (list(documents) if len(documents) == 1 else [])
+    return [
+        Candidate(title=document.title, url=document.url, citation_url=document.url, origin="record")
+        for document in chosen
+    ]
 
 
 def catalog_candidates(question: str, address: Address, search: Search) -> list[Candidate]:

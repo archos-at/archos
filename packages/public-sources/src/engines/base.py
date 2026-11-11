@@ -73,6 +73,21 @@ class Engine:
         """``url`` on the host the source's citations use; the same URL for a format with one host."""
         return url
 
+    def text(self, markup: str) -> tuple[str, str]:
+        """A page as ``(title, plain text)`` for a law lookup's provision grammar.
+
+        Each passage becomes its heading on a line of its own, then its number and text
+        (``§ 2. No building …``): the consolidated-text shape the grammar cuts. A format
+        whose page is already that text (``ris_xml``) reads it directly instead.
+        """
+        parsed = self.document(markup.encode("utf-8"))
+        lines: list[str] = []
+        for passage in parsed.passages:
+            if passage.heading:
+                lines.append(passage.heading)
+            lines.append(f"{passage.number}. {passage.text}" if passage.number else passage.text)
+        return parsed.title, "\n".join(lines)
+
     def recorded_document(self, text: str, *, url: str = "", content_type: str = "") -> ParsedDocument:
         """The document read from a citation capture's text instead of the body (a fixture's recording).
 
