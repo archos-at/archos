@@ -376,3 +376,50 @@ documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-files
 
 The rule lives in [`docs/adr/AGENTS.md`](../adr/AGENTS.md) and in the
 template's comments.
+
+## Cost a move before you build it
+
+On 11 November 2026 an audit asked which of our own sweeps, leases and clocks
+the workflow engine could take over
+([`hatchet-use-2026-11.md`](../audit/hatchet-use-2026-11.md)). Nine moves
+looked like obvious wins from the inventory. Read against the code, six were
+not: the job row's second wait had three readers that cannot ask the engine,
+the housekeeping clocks had to stay for deployments that run without it, a
+research run's cancel was already pushed, and three more would have added code
+or a second mechanism. The one that was built before anyone costed it, the
+folder-card build, added about 140 lines where a reduction had been promised.
+
+The costing that finally ran took one reader two minutes a move and asked four
+things: what exists today and how many lines of it would go, which construct
+replaces it and what that costs in new lines, what behaviour changes or is
+lost, and the verdict with the net figure. It answered "do not" three times
+out of three, with reasons that are now written where the code is. That is the
+order: cost first, in the code, and build only what clears the bar the owner
+set (there: less code, fewer mechanisms, nothing lost).
+
+A frame is not a finding either. The day began as "find every implicit state
+machine" and found 120; declaring a lifecycle was worth it for about a dozen
+records. What paid was a reader with one plain question about one area: what
+can go wrong here? The forty defects of that day came from that question, not
+from the label.
+
+## Dead here is not dead in production
+
+The same day a migration dropped `bff_job_lane_turns`. A scout had proven the
+table dead: no reader and no writer anywhere on the branch. Production was two
+weeks and a whole workflow engine behind `develop`, and its running release
+still claimed every background job through that table. The drop would have
+broken production's old pods during the rollout of its next release, and any
+rollback to it. `ci/migration_contract.py` caught it; no person and no agent
+had.
+
+So a removal is checked against what production runs, not against the branch:
+`git fetch origin prod`, then `git grep` on `FETCH_HEAD` for the table, column,
+route or variable, before the migration is written. The folder-card table's
+unused columns stayed for the same reason. The `migration:contract` label says
+"production is past every build that reads this"; whoever sets it has looked.
+
+The wider lesson is the gap itself. Thirty-six migrations and one engine apart,
+every removal on `develop` is a guess about production, and every promotion is
+a single large step. Promoting in small steps, often, is what makes the check
+above cheap.

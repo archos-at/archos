@@ -125,6 +125,19 @@ guess is a bandage even when it works. When the fast fix and the correct fix
 disagree, take the correct one, or say plainly that you are deferring it and
 why.
 
+**Cost a move before you build it.** Before moving a thing onto another
+mechanism, or converting it to a pattern, read the code and write down four
+answers: what exists and how many lines would go, what replaces it and what
+that costs, what behaviour changes or is lost, and the net. Build only what
+clears the bar the user set. An inventory row that says "an engine feature could
+do this" is a lead, and a scout's "verified" is too.
+[`working-style.md`](docs/contributing/working-style.md#cost-a-move-before-you-build-it).
+
+**Dead here is not dead in production.** Before you remove a table, column,
+route or variable, check it against what production runs (`git fetch origin
+prod`, then `git grep` on `FETCH_HEAD`), not only against your branch.
+[`working-style.md`](docs/contributing/working-style.md#dead-here-is-not-dead-in-production).
+
 **Ratchet every correction.** A ratchet turns one way. Fix the output, then
 close the layer that let it through, preferring the layer that holds while
 people are tired: a database CHECK constraint asks nobody to remember anything.
