@@ -3596,6 +3596,10 @@
     "de": "Auf der Seite „Subprocessors“ werden jetzt Cloudflare, das Anfragen zu den ARCHOS-Webadressen beantwortet, und die Suchsoftware genannt, die ARCHOS tatsächlich auf eigenen Servern betreibt."
   },
   {
+    "en": "The U-value and sound insulation checks no longer treat a wall or slab without a readable IsExternal value as internal. The Prüfbuch now shows it as not decidable, and Was dem Modell fehlt lists the missing value.",
+    "de": "Die Prüfung von U-Wert und Schalldämmung behandelt eine Wand oder Decke ohne auswertbaren IsExternal-Wert nicht mehr als innenliegend. Im Prüfbuch erscheint sie jetzt als nicht entscheidbar, und „Was dem Modell fehlt“ nennt den fehlenden Wert."
+  },
+  {
     "en": "The address field in the new project dialog suggests Austrian addresses as you type and fills in the Bundesland.",
     "de": "Das Adressfeld im Dialog für ein neues Projekt schlägt während der Eingabe österreichische Adressen vor und füllt das Bundesland automatisch aus."
   },
