@@ -61,7 +61,7 @@ def test_the_dpa_annex_is_current(register) -> None:
 @pytest.mark.parametrize(
     "flow",
     [
-        "komoot-photon",  # address keystrokes, default since 2026-11-03
+        "komoot-photon",  # address keystrokes; conditional since ADR-0159 made address search opt-in per deployment
         "elevenlabs",  # dictation audio through OpenRouter
         "slack",  # staff notices from PostHog destinations
         "posthog",  # support tickets with the report's masked text
@@ -71,7 +71,7 @@ def test_the_dpa_annex_is_current(register) -> None:
 )
 def test_the_flows_the_design_review_found_are_listed_on_the_page(register, flow: str) -> None:
     row = next(row for row in register.rows if row["id"] == flow)
-    assert row["status"] == "active"
+    assert row["status"] in generate.LISTED
     names = [cells[0] for cells in generate.page_tables(register, "de")["processors"]["rows"]]
     assert row["copy"]["name"]["de"] in names
 

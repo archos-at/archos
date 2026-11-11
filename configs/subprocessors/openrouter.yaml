@@ -61,6 +61,16 @@ sdks:
 evidence:
   - packages/agent/src/agent/common/openrouter.py
   - configs/config_oib_openrouter.yml
+agreement:
+  entity: OpenRouter, Inc., 169 Madison Avenue, New York, NY 10016, USA
+  dpa: Part of the terms of service; effective when the customer accepts the terms. Standard contractual clauses (module 2) included. A countersigned copy on request
+  dpa_url: https://openrouter.ai/data-processing-agreement
+  subprocessors: https://trust.openrouter.ai/ (subscription by e-mail; 30 days' notice of a new subprocessor)
+  note: The EU endpoint (eu.openrouter.ai) is offered on the Business and Enterprise plans only. No statement on the EU-US Data Privacy Framework found.
+  checked: '2026-11-11'
+  sources:
+    - https://openrouter.ai/terms
+    - https://openrouter.ai/data-processing-agreement
 copy:
   name:
     de: OpenRouter, Inc.
