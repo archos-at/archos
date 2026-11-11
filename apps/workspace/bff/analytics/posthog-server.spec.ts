@@ -120,11 +120,11 @@ describe('captureServer', () => {
     enable()
     vi.stubEnv('GIT_SHA', 'abc1234')
     vi.stubEnv('OTEL_SERVICE_NAME', 'grid-ui')
-    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.piloti.at/api/auth/callback')
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.example.test/api/auth/callback')
 
     getPosthogServer()
 
-    expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.dev.piloti.at' })
+    expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.dev.example.test' })
   })
 
   test('a blank service name falls back, and app_host comes from the MCP resource URL when the redirect URI is unset', () => {
