@@ -161,4 +161,17 @@ describe('lawMapOf', () => {
     const guide = [...REVISIONS, revision('work', 'work:guide-n', { kind: 'guideline', title: 'Guide', identifiers: { eli: 'https://publisher.xa.example/guide' }, territoryIds: ['XA-2'] })]
     expect(lawMapOf('XA', guide, CAPTURES).statements.find((statement) => statement.territoryId === 'XA-2')?.sourceKind).toBe('secondary')
   })
+
+  it('reads an edition with several texts the same in any order: one marked wrong keeps it open, the first by record id is shown', () => {
+    const texts = [
+      revision('manifestation', 'manifestation:mc-2-2023-a', { editionId: 'edition:mc-2-2023', corpusFile: 'a.pdf' }, { decision: 'accepted' }),
+      revision('manifestation', 'manifestation:mc-2-2023-b', { editionId: 'edition:mc-2-2023', corpusFile: 'b.pdf' }, { decision: 'rejected' }),
+    ]
+    const base = REVISIONS.filter((one) => one.recordId !== 'manifestation:mc-2-2023-text')
+    for (const order of [texts, [...texts].reverse()]) {
+      const edition = lawMapOf('XA', [...base, ...order], CAPTURES).editions.get('edition:mc-2-2023')
+      expect(edition?.review).toBe('rejected')
+      expect(edition?.text?.file).toBe('a.pdf')
+    }
+  })
 })
