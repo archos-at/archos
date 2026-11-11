@@ -154,3 +154,28 @@ DROP TRIGGER IF EXISTS knowledge_change_requests_starts_four_eyes ON "knowledge_
 CREATE TRIGGER knowledge_change_requests_starts_four_eyes BEFORE INSERT ON "knowledge_change_requests"
   FOR EACH ROW WHEN (NEW.approval = 'single' AND NEW.second_review IS NULL)
   EXECUTE FUNCTION knowledge_change_request_starts_four_eyes();
+--> statement-breakpoint
+-- A source counts as reviewed when two people approved its release: a four-eyes approval, or one approved alone
+-- whose second review confirmed it. Before, a null second review meant four eyes; on one operator's deployment
+-- a single approval now has none, and its release must not count (identical on a deployment that never sets it).
+CREATE OR REPLACE FUNCTION knowledge_source_reviewed(source text, origin text, revision text, fetched_at timestamp with time zone)
+  RETURNS boolean LANGUAGE sql STABLE AS $$
+  SELECT CASE origin
+    WHEN 'built_in' THEN source IS NOT NULL
+    WHEN 'released' THEN EXISTS (
+      SELECT 1
+      FROM knowledge_release_moves mv
+      JOIN knowledge_change_requests cr ON cr.id = mv.change_request_id
+      WHERE mv.record_id = 'source:' || source AND mv.to_revision_id::text = revision
+        AND mv.channel = 'stable' AND mv.action = 'publish' AND mv.released_at <= fetched_at
+        AND (cr.approval = 'four_eyes' OR cr.second_review = 'confirmed')
+        -- Still released, or superseded by a newer release: a rollback of this release takes its word back.
+        AND NOT EXISTS (
+          SELECT 1 FROM knowledge_release_moves rb
+          WHERE rb.record_id = mv.record_id AND rb.channel = 'stable' AND rb.action = 'rollback'
+            AND rb.from_revision_id = mv.to_revision_id AND rb.seq > mv.seq
+        )
+    )
+    ELSE false
+  END
+$$;

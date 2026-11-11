@@ -15,6 +15,7 @@ import { getPlatformOrganizationId } from '@/lib/authz/platform'
 import type { ApprovalRole, ChangeRequestApproval, ChangeRequestStatus, PersonDecisionSource, SecondReviewState } from '@/lib/base-knowledge/wire/vocab'
 import type { Tx } from '../store/repository'
 import { retractPreview } from './release'
+import { singleOperator } from './single-operator'
 import {
   awaitedApprovalRoles,
   insertApproval,
@@ -92,7 +93,8 @@ async function rejectRequest(tx: Tx, request: ChangeRequestRow, actor: Actor): P
 
 /**
  * Approve a submitted request, in a role. With `override` its author approves
- * alone: a claim nobody reviewed waits for the second review, one somebody
+ * alone: a claim nobody reviewed waits for the second review (on a deployment set
+ * to one operator alone, where none is due, every claim must be accepted first), one somebody
  * marked edited or rejected still blocks, and the trigger marks the request
  * single with a second review due (migration 0214); on a deployment set to one
  * operator alone it marks it single with none due (migration 0229).
@@ -106,7 +108,9 @@ async function approveSubmitted(tx: Tx, request: ChangeRequestRow, input: Input,
   if (!authored && input.override) {
     throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
   }
-  const open = notAccepted(revisions, (decision) => (input.override ? decision !== null && decision !== 'accepted' : decision !== 'accepted'))
+  // A claim nobody reviewed may wait for the second review; one operator alone owes none, so it reviews every claim.
+  const waivesUnreviewed = Boolean(input.override) && !singleOperator()
+  const open = notAccepted(revisions, (decision) => (waivesUnreviewed ? decision !== null && decision !== 'accepted' : decision !== 'accepted'))
   if (open.length > 0) throw new ConflictError(`${open.length} claim(s) are not accepted (${open.slice(0, 5).join(', ')}); review them first.`)
   await insertApproval(tx, {
     changeRequestId: request.id,

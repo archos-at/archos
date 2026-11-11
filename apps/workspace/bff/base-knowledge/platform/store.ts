@@ -50,7 +50,6 @@ const REASON = 'platform base knowledge: change requests'
 /** The most change requests one list returns. */
 export const MAX_CHANGE_REQUESTS = 200
 
-/** Run `fn` in one transaction as the platform role. */
 /**
  * Every change request read and write runs here. On a deployment set to one operator alone (`./single-operator.ts`)
  * the transaction tells the triggers so (migration 0229); otherwise it sets nothing.

@@ -200,3 +200,14 @@ describe("the prod image pin the deploy verifies", () => {
     expect(pins[0]).toMatch(/^sha-[0-9a-f]{40}$/);
   });
 });
+
+describe("four-eyes review of platform knowledge", () => {
+  // One operator alone (KNOWLEDGE_SINGLE_OPERATOR) is the dev stack's, by the owner's decision of 2026-11-11.
+  // Prod keeps four eyes: its stack file never turns the switch on.
+  it("is never switched off by the prod stack", () => {
+    const prod = stacks().find((stack) => stack.file === "Pulumi.prod.yaml");
+    expect(prod, "Pulumi.prod.yaml").toBeDefined();
+    const value = prod?.config["grid-oib:knowledgeSingleOperator"];
+    expect(value === undefined || value === false || value === "false").toBe(true);
+  });
+});

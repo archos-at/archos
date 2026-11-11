@@ -156,6 +156,13 @@ describe.skipIf(!url)('one operator alone on a deployment that says so (migratio
     await expect(service.decidePlatformChangeRequest(owner, id, alone)).rejects.toThrow(/check the source yourself/)
   })
 
+  it('set, refuses an approval alone over claims nobody reviewed: one operator reviews, nobody skips review', async () => {
+    vi.stubEnv('KNOWLEDGE_SINGLE_OPERATOR', 'true')
+    const id = await pastedRequest('unreviewed')
+    await expect(service.decidePlatformChangeRequest(owner, id, alone)).rejects.toThrow(/not accepted/)
+    expect(await approvalRows(id)).toHaveLength(0)
+  })
+
   it('set, lets the author review, check the source, approve alone and publish: audited, single, nothing left due', async () => {
     vi.stubEnv('KNOWLEDGE_SINGLE_OPERATOR', 'true')
     const id = await pastedRequest('alone')
