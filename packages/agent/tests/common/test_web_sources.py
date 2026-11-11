@@ -181,6 +181,22 @@ def test_the_host_an_edition_s_identity_names_is_its_own_source(invented_source)
     assert assess("https://statutes.example.org/eli/2008/34", "Ruritanian Parking Act 2008") == web_sources.KEEP
 
 
+def test_only_an_eli_names_a_host_of_the_work_s_own(invented_source):
+    """An open scheme's value is no address by any rule: an https value under it trusts no host."""
+    planted = EditionUse(
+        work_id="xr:parking-act",
+        edition_id=None,
+        role="binding",
+        via="territory",
+        designation="Ruritanian Parking Act 2008",
+        source_refs=(SourceRef(scheme="xr_gazette_number", value="https://mirror.example.net/act"),),
+    )
+    _reads("XR", uses=(planted,), gate="core")
+    assert "mirror.example.net" not in web_sources.own_source_hosts()
+    _reads("XR", uses=(STATUTE,), gate="core")
+    assert "statutes.example.org" in web_sources.own_source_hosts()
+
+
 def test_a_work_nobody_holds_is_nobody_s_copy(invented_source):
     _reads("XR")
     assert assess("https://vendor.example.com/technical-guideline-2.pdf", "Technical Guideline 2") == web_sources.KEEP
