@@ -287,3 +287,30 @@ def test_a_restricted_write_is_logged_as_restricted_for_the_turn(monkeypatch):
     finally:
         pm.end_turn_memory_log(token)
     assert pm.turn_memory_digest() is None
+
+
+def test_a_temporary_conversation_raises_its_own_error(monkeypatch):
+    """ADR-0180: the BFF refuses the write (403 ``TEMPORARY_CONVERSATION``); it is not a token mismatch."""
+    monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
+    body = json.dumps({"error": "The conversation is temporary", "code": "TEMPORARY_CONVERSATION"}).encode()
+    with _patched_opener(monkeypatch, error=_http_error(403, body)):
+        with pytest.raises(pm.TemporaryConversationError):
+            pm.insert_memory_item(
+                scope="project", project_id="p1", organization_id=None, kind="derived_fact", content="x"
+            )
+
+
+@pytest.mark.parametrize(
+    ("content", "personal_data", "secret"),
+    [
+        ("Reachable at huber@example.com.", True, False),
+        ("Call +43 660 1234567 before noon.", True, False),
+        ("The portal password is hunter2.", True, True),
+        ("IBAN AT611904300234573201 is the fee account.", True, True),
+        ("Leads the permit phase and prefers short answers.", False, False),
+        ("The permit deadline is 12/03/2027.", False, False),
+    ],
+)
+def test_the_secret_shapes_are_the_part_of_the_denylist_personal_memory_keeps(content, personal_data, secret):
+    assert pm.looks_like_personal_data(content) is personal_data
+    assert pm.looks_like_secret(content) is secret

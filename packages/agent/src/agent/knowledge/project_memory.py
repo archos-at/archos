@@ -52,6 +52,19 @@ class OrgMemoryDisabledError(ProjectMemoryError):
     """
 
 
+class TemporaryConversationError(ProjectMemoryError):
+    """The frontend refused a write from a temporary conversation (ADR-0180).
+
+    Raised when ``POST /api/internal/memory`` or ``POST
+    /api/internal/personal-memory`` answers 403 ``TEMPORARY_CONVERSATION``. A
+    temporary conversation keeps nothing, at any scope and by any path, so a
+    caller offers no way around it (no card) and does not retry.
+    """
+
+
+#: The refusal code both memory routes answer a temporary conversation's write with (403).
+TEMPORARY_CONVERSATION_CODE = "TEMPORARY_CONVERSATION"
+
 VALID_KINDS = {"decision", "constraint", "open_question", "derived_fact", "preference"}
 VALID_CONFIDENCES = {"low", "medium", "high"}
 VALID_SCOPES = {"project", "organization"}
@@ -78,6 +91,14 @@ class _TurnMemoryLog:
     writes: list[str] = field(default_factory=list)
     #: The subset of ``writes`` stored as restricted memory.
     restricted_writes: list[str] = field(default_factory=list)
+    #: The conversation is temporary (ADR-0180): nothing from it is kept, so
+    #: the ``remember`` tool answers without calling the BFF.
+    temporary: bool = False
+    #: The ``PERSONAL_MEMORY v1`` block of the person asking, for the chat
+    #: prompt's turn context. Held here and not on the graph state: the
+    #: state is checkpointed with the conversation and handed to deep research,
+    #: and both are read by people the notes are not for.
+    personal_memory: str | None = None
 
 
 #: What the ``remember`` tool wrote during THIS turn, per turn. The
@@ -89,13 +110,17 @@ class _TurnMemoryLog:
 _turn_memory_log: ContextVar[_TurnMemoryLog | None] = ContextVar("turn_memory_log", default=None)
 
 
-def begin_turn_memory_log(digest: str | None = None) -> Token:
+def begin_turn_memory_log(
+    digest: str | None = None, *, temporary: bool = False, personal_memory: str | None = None
+) -> Token:
     """Start recording this turn's memory writes; reset with the token.
 
     ``digest`` is the memory digest the agent is shown this turn, kept so the
     ``remember`` tool can tell which restricted notes were in its prompt.
+    ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180):
+    whether the conversation keeps nothing, and the asker's personal notes.
     """
-    return _turn_memory_log.set(_TurnMemoryLog(digest=digest))
+    return _turn_memory_log.set(_TurnMemoryLog(digest=digest, temporary=temporary, personal_memory=personal_memory))
 
 
 def end_turn_memory_log(token: Token) -> None:
@@ -115,6 +140,18 @@ def turn_memory_digest() -> str | None:
     """The memory digest the agent was shown this turn; None outside a turn."""
     log = _turn_memory_log.get()
     return log.digest if log is not None else None
+
+
+def turn_is_temporary() -> bool:
+    """Whether this turn's conversation is temporary (ADR-0180); False outside a turn."""
+    log = _turn_memory_log.get()
+    return log is not None and log.temporary
+
+
+def turn_personal_memory() -> str | None:
+    """The asker's ``PERSONAL_MEMORY v1`` block this turn; None outside a turn or without one."""
+    log = _turn_memory_log.get()
+    return log.personal_memory if log is not None else None
 
 
 def turn_restricted_memory_writes() -> tuple[str, ...]:
@@ -238,9 +275,15 @@ def fetch_memory_digest(
 # deadline written 12/03/2027 was being dropped as a phone number — precisely
 # the class of fact a project memory exists to carry.
 _DATE_SHAPE_RE = re.compile(r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})(?!\d)")
-_PERSONAL_DATA_PATTERNS = (
+#: Contact details: what makes a note about a person a note that can reach them.
+_CONTACT_PATTERNS = (
     re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),  # email address
     re.compile(r"(?<!\d)(?:\+?\d[\d ()/-]{7,}\d)(?!\d)"),  # phone/fax-shaped digit run
+)
+#: Secrets: an account or identity number, and the words a credential travels
+#: with. Kept out of every memory, the person's own included (ADR-0180): a
+#: note is read into every later prompt.
+_SECRET_PATTERNS = (
     re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b"),  # IBAN
     re.compile(r"\b\d{3}-?\d{2}-?\d{4}\b"),  # SSN-shaped
     re.compile(
@@ -249,16 +292,28 @@ _PERSONAL_DATA_PATTERNS = (
         re.IGNORECASE,
     ),
 )
+_PERSONAL_DATA_PATTERNS = (*_CONTACT_PATTERNS, *_SECRET_PATTERNS)
 
 
 def looks_like_personal_data(content: str) -> bool:
     """Whether a memory finding matches a coarse personal-data or secret shape.
 
     A denylist of shapes, not a privacy guarantee (audit S4). Dates are blanked
-    before the digit-run pattern looks, so a deadline survives.
+    before the digit-run pattern looks, so a deadline survives. Guards project
+    and organization memory, which other people read.
     """
     scrubbed = _DATE_SHAPE_RE.sub(" ", content or "")
     return any(pattern.search(scrubbed) for pattern in _PERSONAL_DATA_PATTERNS)
+
+
+def looks_like_secret(content: str) -> bool:
+    """Whether a note matches a secret shape: the part of the denylist that guards personal memory too.
+
+    A note about the person is what personal memory is for, so their contact
+    details pass; an account number, an identity number or a credential does not.
+    """
+    scrubbed = _DATE_SHAPE_RE.sub(" ", content or "")
+    return any(pattern.search(scrubbed) for pattern in _SECRET_PATTERNS)
 
 
 def insert_memory_item(
@@ -361,7 +416,7 @@ def insert_memory_item(
 
 
 def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:
-    """Log a refused write, and raise the named error for the two refusals a caller handles."""
+    """Log a refused write, and raise the named error for the three refusals a caller handles."""
     if 300 <= exc.status < 400:
         logger.error(
             "Internal memory endpoint redirected (%s) — an auth middleware is "
@@ -370,6 +425,9 @@ def _raise_named_refusal(exc: bff_http.BffRefusedError) -> None:
             exc.status,
             bff_http.internal_base_url(),
         )
+    elif exc.status == 403 and exc.code == TEMPORARY_CONVERSATION_CODE:
+        logger.info("Internal memory endpoint declined a write from a temporary conversation")
+        raise TemporaryConversationError("the conversation is temporary", status=403, code=exc.code) from exc
     elif exc.status == 403 and exc.code == "ORG_MEMORY_DISABLED":
         # Expected default-deny (audit finding S1), not a misconfiguration:
         # an agent's service token may not write org-wide memory, so the

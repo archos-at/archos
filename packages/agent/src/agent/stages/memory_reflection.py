@@ -39,6 +39,7 @@ from agent.common.model_overrides import AgentGroup
 from agent.stages.registry import register_stage
 from agent.stages.spec import GateDecision
 from agent.stages.spec import StageContext
+from agent.stages.spec import StageEmpty
 from agent.stages.spec import StageSpec
 from agent.stages.spec import TurnFacts
 
@@ -123,6 +124,10 @@ def _gate(facts: TurnFacts) -> GateDecision:
     opinion about its own answer. Each failed condition names itself, so the
     gate's own correctness is measurable rather than assumed.
     """
+    if facts.temporary:
+        # ADR-0180: a temporary conversation keeps nothing. The BFF refuses
+        # the write too; skipping here saves the model call and names why.
+        return GateDecision.skip("temporary_conversation")
     if facts.run_id:
         # The turn only commissioned the work; the run reflects on its own
         # report, on the worker, once that report exists.
@@ -165,7 +170,7 @@ def digest_with_turn_writes(memory_digest: str | None, written: tuple[str, ...])
     return "\n".join(([memory_digest.rstrip()] if memory_digest else []) + lines)
 
 
-async def _handler(ctx: StageContext) -> dict[str, Any] | None:
+async def _handler(ctx: StageContext) -> dict[str, Any] | StageEmpty | None:
     """One reflection pass. ``None`` when the turn established nothing durable —
     the common, correct outcome, recorded as ``empty`` rather than invented into
     a payload."""
@@ -185,13 +190,21 @@ async def _handler(ctx: StageContext) -> dict[str, Any] | None:
         conversation_id=facts.conversation_id,
         memory_digest=digest_with_turn_writes(facts.memory_digest, facts.remembered_this_turn),
         restriction=facts.restriction,
+        personal_memory=facts.personal_memory,
+        envelope=facts.envelope,
     )
     if not recorded:
         # `None` is `empty` — the common, correct outcome for a turn that
         # established nothing durable, and a first-class success rather than a
         # failure to invent output.
         return None
-    return {"items": [dict(item) for item in recorded]}
+    # The frame is stored on the answer's message, which everyone the
+    # conversation is shared with reads: it carries the project's rows only.
+    # A note written to the asker's personal memory never rides it (ADR-0180).
+    items = [
+        {key: item[key] for key in ("id", "kind", "content")} for item in recorded if item.get("about") != "person"
+    ]
+    return {"items": items} if items else StageEmpty("personal_notes_only")
 
 
 MEMORY_REFLECTION = register_stage(

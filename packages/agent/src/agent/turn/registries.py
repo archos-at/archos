@@ -113,6 +113,8 @@ async def turn_registries(
     memory_digest: str | None = None,
     shown_notes: ShownNotes | None = None,
     restricted_scope: Sequence[str] = (),
+    temporary: bool = False,
+    personal_memory: str | None = None,
 ) -> AsyncIterator[TurnRegistries]:
     """Bind the five per-turn registries; unbind and persist on exit, however it exits.
 
@@ -122,6 +124,8 @@ async def turn_registries(
     ``restricted_scope`` the restricted collections of this turn's signed
     scope: on exit this turn's restricted lines and restricted writes are added
     to the record under them, so a later turn still counts them as evidence.
+    ``temporary`` and ``personal_memory`` are the turn context's (ADR-0180),
+    kept on the memory log for the ``remember`` tool and the prompt.
     """
     earlier = shown_notes or ShownNotes()
     cards = get_or_create_card_registry(conversation_id)
@@ -130,7 +134,7 @@ async def turn_registries(
     session_token = set_session_registry(session_registry)
     card_token = set_card_registry(cards)
     image_token = begin_image_view_budget()
-    memory_token = begin_turn_memory_log(memory_digest)
+    memory_token = begin_turn_memory_log(memory_digest, temporary=temporary, personal_memory=personal_memory)
     shown_token = bind_shown_notes(earlier)
     try:
         yield registries

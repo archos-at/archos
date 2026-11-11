@@ -29,6 +29,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from agent.common.bff_http import SignedEnvelope
 from agent.common.model_overrides import AgentGroup
 from agent.memory.restriction import RestrictionEvidence
 
@@ -92,6 +93,16 @@ class TurnFacts:
     #: (ADR-0094): nothing from it is remembered, so reflection does not run.
     drew_on_other_projects: bool = False
     federal_state: str | None = None
+    #: The conversation is temporary (ADR-0180): nothing from it is kept, so
+    #: reflection does not run. The BFF refuses the write too.
+    temporary: bool = False
+    #: The asker's ``PERSONAL_MEMORY v1`` block the agent saw this turn, so
+    #: reflection does not record a personal note a second time.
+    personal_memory: str | None = None
+    #: The turn's signed envelope, for a write the BFF attributes to the asker
+    #: (a personal note). None off an authenticated chat turn. Not in the repr:
+    #: it is a credential.
+    envelope: SignedEnvelope | None = field(default=None, repr=False)
 
     #: Which path the turn took, observed after the answer (``meta`` for a
     #: direct reply, ``shallow``, ``deep``, ``error``); see

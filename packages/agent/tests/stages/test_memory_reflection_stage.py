@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+from agent.common.bff_http import SignedEnvelope
 from agent.common.canned_replies import GENERIC_ERROR_MESSAGE
 from agent.memory.restriction import RestrictionEvidence
 from agent.stages import get_stage
@@ -21,6 +22,7 @@ from agent.stages.memory_reflection import MEMORY_REFLECTION
 from agent.stages.memory_reflection import MemoryReflectionPayload
 from agent.stages.memory_reflection import matches_escalation_keywords
 from agent.stages.spec import StageContext
+from agent.stages.spec import StageEmpty
 from agent.stages.spec import TurnFacts
 
 
@@ -223,3 +225,58 @@ class TestRestrictedContent:
         with patch("agent.memory.reflection.run_memory_reflection", fake_reflection):
             await MEMORY_REFLECTION.handler(StageContext(facts=_facts(restriction=self._EVIDENCE), llm=object()))
         assert seen["restriction"] is self._EVIDENCE
+
+
+class TestTemporaryConversation:
+    """ADR-0180: a temporary conversation keeps nothing, and the skip says so by name."""
+
+    def test_the_gate_declines_and_names_the_reason(self):
+        decision = _gate(temporary=True)
+        assert (decision.run, decision.reason) == (False, "temporary_conversation")
+
+    def test_it_outranks_every_other_reason(self):
+        assert _gate(temporary=True, project_id=None, run_id="run_1", answer="").reason == "temporary_conversation"
+
+    def test_a_conversation_that_is_not_temporary_proceeds(self):
+        assert _gate(temporary=False).run
+
+
+class TestPersonalNotes:
+    """ADR-0180: the frame is stored on the answer's message, which everyone the
+    conversation is shared with reads, so a personal note never rides it."""
+
+    _ENVELOPE = SignedEnvelope(header="env-header", signature="env-signature")
+    _PERSONAL = {"id": "n-1", "kind": "profile", "content": "Leitet die Einreichplanung.", "about": "person"}
+    _PROJECT = {"id": "p-1", "kind": "constraint", "content": "Das Projekt liegt in Wien.", "about": "project"}
+
+    async def _run(self, written):
+        seen = {}
+
+        async def run(**kwargs):
+            seen.update(kwargs)
+            return written
+
+        facts = _facts(envelope=self._ENVELOPE, personal_memory="PERSONAL_MEMORY v1")
+        with patch("agent.memory.reflection.run_memory_reflection", run):
+            result = await MEMORY_REFLECTION.handler(StageContext(facts=facts, llm=object()))
+        return result, seen
+
+    @pytest.mark.asyncio
+    async def test_the_handler_hands_the_envelope_and_the_personal_block_to_the_pass(self):
+        _result, seen = await self._run([])
+        assert seen["envelope"] == self._ENVELOPE
+        assert seen["personal_memory"] == "PERSONAL_MEMORY v1"
+
+    @pytest.mark.asyncio
+    async def test_the_frame_carries_the_projects_rows_only(self):
+        result, _seen = await self._run([self._PERSONAL, self._PROJECT])
+        assert result == {"items": [{"id": "p-1", "kind": "constraint", "content": "Das Projekt liegt in Wien."}]}
+        MemoryReflectionPayload.model_validate(result)
+
+    @pytest.mark.asyncio
+    async def test_a_pass_that_wrote_only_personal_notes_is_empty_by_name(self):
+        result, _seen = await self._run([self._PERSONAL])
+        assert result == StageEmpty("personal_notes_only")
+
+    def test_the_envelope_is_not_in_the_facts_repr(self):
+        assert "env-signature" not in repr(_facts(envelope=self._ENVELOPE))

@@ -482,6 +482,8 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
         memory_digest=turn.context.stage_facts.memory_digest,
         shown_notes=turn.shown_notes,
         restricted_scope=turn.context.restricted_scope,
+        temporary=turn.context.temporary,
+        personal_memory=turn.context.personal_memory,
     ) as registries:
         answering = answer_turn(
             turn.agent,

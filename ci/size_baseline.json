@@ -288,8 +288,6 @@
     "packages/agent/src/agent/knowledge/norm_store.py::NormRegistryStore.put": 72,
     "packages/agent/src/agent/knowledge/project_memory.py::fetch_memory_digest": 91,
     "packages/agent/src/agent/knowledge/project_memory.py::insert_memory_item": 97,
-    "packages/agent/src/agent/memory/register.py::project_memory_remember": 74,
-    "packages/agent/src/agent/memory/register.py::project_memory_remember._remember": 69,
     "packages/agent/src/agent/memory/restriction.py::restriction_evidence": 61,
     "packages/agent/src/agent/observability/otel_header_redaction_exporter.py::otelcollector_redaction_telemetry_exporter": 128,
     "packages/agent/src/agent/observability/retrieval_trace.py::emit_step_span": 65,

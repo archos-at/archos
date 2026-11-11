@@ -45,13 +45,15 @@ from pydantic import Field
 from pydantic import ValidationError
 from pydantic import model_validator
 
+from agent.common.bff_http import SignedEnvelope
 from agent.common.json_utils import extract_json
-from agent.common.llm_factory import strict_json_response_format
-from agent.common.message_utils import content_to_text
-from agent.common.prompt_caching import one_shot_calls
+from agent.common.structured_reply import structured_reply
+from agent.knowledge.personal_memory import VALID_PERSONAL_KINDS
+from agent.knowledge.personal_memory import insert_personal_memory_item
 from agent.knowledge.project_memory import VALID_CONFIDENCES
 from agent.knowledge.project_memory import insert_memory_item
 from agent.knowledge.project_memory import looks_like_personal_data
+from agent.knowledge.project_memory import looks_like_secret
 from agent.memory.restriction import RestrictionDecision
 from agent.memory.restriction import RestrictionEvidence
 from agent.memory.restriction import restriction_decisions
@@ -70,6 +72,8 @@ _MAX_QUERY_CHARS = 2000
 # Head-sliced to match the query/answer slices above (the digest's ordering is
 # owned by the BFF, so we don't assume newest-first/last).
 _MAX_DIGEST_CHARS = 6000
+#: The personal block is at most 1,500 characters on the wire (ADR-0180).
+_MAX_PERSONAL_CHARS = 1600
 #: The rating a finding gets when the model did not supply a usable one. The
 #: recall scorer weighs salience at 2 of 5.5 total, so the midpoint leaves the
 #: finding neutral rather than wrong.
@@ -87,6 +91,28 @@ def _one_of(value: Any, allowed: set[str], fallback: str) -> str:
     return text if text in allowed else fallback
 
 
+#: The kinds that say on their own that a finding is about the project. A
+#: ``preference`` does not: it may be the team's or one person's.
+_PROJECT_ONLY_KINDS = frozenset({"decision", "constraint", "open_question", "derived_fact"})
+
+
+def _about(value: Any, kind: Any) -> str | None:
+    """Whose shelf a finding belongs on: ``project``, ``person``, or None when nothing says.
+
+    The model's ``about`` decides when it is readable. When it is not, the kind
+    may: the four project kinds are the project's, and ``profile`` exists only
+    in personal memory. A ``preference`` with no usable ``about`` gets None and
+    is dropped (ADR-0180): a personal note on the team's shelf is the harm, a
+    lost note is not.
+    """
+    about = _lowered(value)
+    if about in ("project", "person"):
+        return about
+    if kind in _PROJECT_ONLY_KINDS:
+        return "project"
+    return "person" if kind == "profile" else None
+
+
 def _clamped_importance(value: Any) -> int:
     """``value`` as an importance rating in 1..10, defaulting when unreadable."""
     try:
@@ -97,7 +123,7 @@ def _clamped_importance(value: Any) -> int:
 
 
 class _ReflectionFinding(BaseModel):
-    """One durable project finding proposed by the reflection stage."""
+    """One durable finding proposed by the reflection stage, about the project or about the person."""
 
     # ``forbid`` is what makes the generated json_schema carry
     # ``additionalProperties: false``, which OpenRouter's strict mode requires.
@@ -105,10 +131,21 @@ class _ReflectionFinding(BaseModel):
     # contract never costs a usable finding on the plain-call fallback.
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["decision", "constraint", "open_question", "derived_fact", "preference"] = Field(
-        description="Finding category."
+    about: Literal["project", "person"] = Field(
+        description=(
+            "Whom the finding is about. 'person': the person asking (how they want the assistant to work, "
+            "their role, responsibilities, recurring topics, anything said in confidence); kept where only "
+            "they read it. 'project': the project itself; read by every member of the project."
+        )
     )
-    content: str = Field(description="One concise, self-contained sentence about this project.")
+    kind: Literal["decision", "constraint", "open_question", "derived_fact", "preference", "profile"] = Field(
+        description=(
+            "Finding category. About the person: 'preference' or 'profile'. About the project: 'decision', "
+            "'constraint', 'open_question', 'derived_fact', or 'preference' for how the team wants the "
+            "assistant to work on this project."
+        )
+    )
+    content: str = Field(description="One concise, self-contained sentence.")
     confidence: Literal["low", "medium", "high"] = Field(description="Confidence in the finding.")
     importance: int = Field(
         ge=1,
@@ -145,6 +182,11 @@ class _ReflectionFinding(BaseModel):
             return data
         known = {key: value for key, value in data.items() if key in cls.model_fields}
         known["kind"] = _lowered(known.get("kind"))
+        # Unreadable and undecidable stays None and fails validation: dropped.
+        known["about"] = _about(known.get("about"), known["kind"])
+        if known["about"] == "person" and known["kind"] not in VALID_PERSONAL_KINDS:
+            # Personal memory has two kinds; whatever else was named is a fact about the person.
+            known["kind"] = "profile"
         known["content"] = str(known.get("content") or "").strip()[:_MAX_CONTENT_CHARS]
         known["confidence"] = _one_of(known.get("confidence"), VALID_CONFIDENCES, "medium")
         # Importance, elicited at write time the way Generative Agents rates
@@ -165,21 +207,32 @@ class ReflectionOutput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    findings: list[_ReflectionFinding] = Field(description="Durable project findings; empty list if none.")
+    findings: list[_ReflectionFinding] = Field(description="Durable findings; empty list if none.")
 
 
 REFLECTION_SYSTEM_PROMPT = (
     "You are Grid's memory-reflection step. You run in the background AFTER the user "
     "already received their answer, so you never block the reply. Read the just-finished "
-    "exchange and THIS PROJECT's existing memory, then decide whether the exchange "
-    "established any NEW durable finding about THIS PROJECT worth keeping for future "
-    "conversations.\n\n"
+    "exchange and the existing memory, then decide whether the exchange established any NEW "
+    "durable finding worth keeping for future conversations: about THIS PROJECT, or about THE "
+    "PERSON asking.\n\n"
+    "EVERY FINDING SAYS WHOM IT IS ABOUT, in `about`. Project memory is read by every member of "
+    "the project; personal memory is read only by the person it is about. So:\n"
+    "- `about: person` when the finding is about the person asking: how they want the assistant "
+    "to work (kind `preference`), or their role, responsibilities, recurring topics or anything "
+    "they said in confidence (kind `profile`). A finding about a person is NEVER `about: project`, "
+    "even when it came up in a project conversation;\n"
+    "- `about: project` when the finding is about the project itself: kind `decision`, "
+    "`constraint`, `open_question` or `derived_fact`, or kind `preference` ONLY for how the whole "
+    "TEAM wants the assistant to work on this project;\n"
+    "- when you cannot tell whether a preference is the team's or the person's, it is the "
+    "person's.\n\n"
     "Record a finding ONLY if ALL of these hold:\n"
     "- it is durable — true across future turns, not transient conversation detail;\n"
-    "- it is specific to THIS project — NEVER general building-code knowledge (OIB limits, "
+    "- it is specific to THIS project or to THIS person — NEVER general building-code knowledge (OIB limits, "
     "ÖNORM values etc. already live in the corpus) and NEVER a firm-wide policy (this stage "
-    "only records project-scoped findings; org-wide conventions are set by a human, not here);\n"
-    "- it is NOT already present in the existing memory shown below (never restate) — this bars "
+    "only records project and personal findings; org-wide conventions are set by a human, not here);\n"
+    "- it is NOT already present in the existing project or personal memory shown below (never restate) — this bars "
     "RESTATEMENTS, not CORRECTIONS: a finding that changes what an existing entry says is new;\n"
     "- it captures something the USER established (a decision, constraint, open question, "
     "concluded fact, or preference) — do not invent speculative inferences, and do not treat "
@@ -201,28 +254,35 @@ REFLECTION_SYSTEM_PROMPT = (
     "obsolete: a finding that adds detail alongside an entry, or covers a different aspect of "
     "the same topic, must leave `supersedes` as an empty string. Never quote an entry that is "
     "not shown below, and never invent one.\n\n"
-    "kind must be one of: decision, constraint, open_question, derived_fact, preference.\n"
+    "about must be one of: project, person.\n"
+    "kind must be one of: decision, constraint, open_question, derived_fact, preference, profile "
+    "(profile only with about: person).\n"
     "confidence is one of: low, medium, high.\n"
-    "content must be ONE concise, self-contained sentence about this project.\n"
+    "content must be ONE concise, self-contained sentence.\n"
     "importance is an integer 1-10: how much future answers depend on this finding — 1-3 "
     "incidental, 4-6 useful context, 7-8 shapes answers, 9-10 getting it wrong invalidates "
     "answers.\n"
-    "supersedes is the verbatim content of the entry being replaced, or an empty string.\n\n"
+    "supersedes is the verbatim content of the PROJECT memory entry being replaced, or an empty "
+    "string; always an empty string with about: person.\n\n"
     f"Return AT MOST {MAX_NEW_ITEMS} findings. If nothing qualifies, return an empty list — "
     "that is the common and correct outcome. Respond with ONLY a JSON object of the form: "
-    '{"findings": [{"kind": "...", "content": "...", "confidence": "...", "importance": 5, '
+    '{"findings": [{"about": "...", "kind": "...", "content": "...", "confidence": "...", "importance": 5, '
     '"supersedes": "..."}]}'
 )
 
 
-def _build_user_prompt(query: str, answer: str, memory_digest: str | None) -> str:
+def _build_user_prompt(query: str, answer: str, memory_digest: str | None, personal_memory: str | None = None) -> str:
     """Assemble the reflection prompt from the turn and the existing memory."""
     existing = memory_digest.strip() if memory_digest else "(no project memory recorded yet)"
     if len(existing) > _MAX_DIGEST_CHARS:
         existing = existing[:_MAX_DIGEST_CHARS] + "\n… (project memory truncated)"
+    # Bounded by the BFF and again at intake (``turn/context_client.py``); cut here for any other caller.
+    personal = (personal_memory or "").strip()[:_MAX_PERSONAL_CHARS] or "(no personal memory recorded yet)"
     return (
         "## Existing project memory\n"
         f"{existing}\n\n"
+        "## Existing personal memory of the person asking\n"
+        f"{personal}\n\n"
         "## User question\n"
         f"{query.strip()[:_MAX_QUERY_CHARS]}\n\n"
         "## Assistant answer\n"
@@ -270,18 +330,39 @@ def _content_in_digest(content: str, normalized_digest: str) -> bool:
     return bool(normalized_content) and normalized_content in normalized_digest
 
 
+def _person_finding(
+    finding: _ReflectionFinding, *, normalized_personal: str, can_write_personal: bool
+) -> _ReflectionFinding | None:
+    """A finding about the person as it may be written to their personal memory, or None."""
+    if not can_write_personal:
+        # No signed envelope names the person (a worker run, an eval): there is
+        # no personal memory to write to, and the project's is not a fallback.
+        logger.info("Memory reflection: dropped a personal finding; no envelope names its owner")
+        return None
+    if _content_in_digest(finding.content, normalized_personal):
+        return None
+    # A note about the person is the point, so the contact shapes pass; a secret never does.
+    if looks_like_secret(finding.content):
+        logger.warning("Memory reflection: dropped a personal %s finding matching a secret pattern", finding.kind)
+        return None
+    # Personal memory has no supersede: the quote could only name a project entry.
+    return finding.model_copy(update={"supersedes": ""}) if finding.supersedes else finding
+
+
 def _finding_from_entry(
     entry: Any,
     *,
     normalized_digest: str,
     digest_entries: frozenset[str],
+    normalized_personal: str = "",
+    can_write_personal: bool = False,
 ) -> _ReflectionFinding | None:
     """One insertable finding from a proposed entry, or None when it does not qualify.
 
     Drops anything malformed, out-of-vocabulary, empty, already present in the
-    digest, or matching a PII/secret shape (audit finding S4). The guard runs
-    HERE and not only at the write endpoint so a dropped finding never counts
-    against ``MAX_NEW_ITEMS``.
+    digest, without a usable ``about``, or matching a PII/secret shape (audit
+    finding S4). The guard runs HERE and not only at the write endpoint so a
+    dropped finding never counts against ``MAX_NEW_ITEMS``.
     """
     try:
         finding = _ReflectionFinding.model_validate(entry)
@@ -289,8 +370,14 @@ def _finding_from_entry(
         return None
     if not finding.content:
         return None
-    # Never re-store something already sitting in the digest we showed the LLM.
+    # Never re-store something already sitting in the digest we showed the LLM
+    # (its `this turn` lines hold what the tool wrote to either memory).
     if _content_in_digest(finding.content, normalized_digest):
+        return None
+    if finding.about == "person":
+        return _person_finding(finding, normalized_personal=normalized_personal, can_write_personal=can_write_personal)
+    if finding.kind == "profile":
+        # Contradicts itself: `profile` is a personal kind. Not guessed either way.
         return None
     if looks_like_personal_data(finding.content):
         logger.warning("Memory reflection: dropped a %s finding matching a PII/secret pattern", finding.kind)
@@ -311,88 +398,49 @@ def _sanitize_findings(
     *,
     has_project: bool,
     memory_digest: str | None = None,
+    personal_memory: str | None = None,
+    can_write_personal: bool = False,
 ) -> list[_ReflectionFinding]:
-    """Validate LLM-proposed findings into insertable **project-scoped** items.
+    """Validate LLM-proposed findings into insertable project or personal items.
 
-    The autonomous reflection stage records project-scoped findings ONLY — it
-    never writes ``organization`` scope. Firm-wide memory poisons every project
-    in the tenant and there is no write-time authorization gate or human review,
-    so org-wide writes stay a deliberate, human-driven action (audit finding S1).
+    The autonomous reflection stage never writes ``organization`` scope.
+    Firm-wide memory poisons every project in the tenant and there is no
+    write-time authorization gate or human review, so org-wide writes stay a
+    deliberate, human-driven action (audit finding S1). A finding about the
+    person is kept only when ``can_write_personal`` (ADR-0180).
 
     The cap applies to what SURVIVES the filters, not to what the model
     proposed: a dropped finding must not cost a real one its slot.
     """
     if not isinstance(raw, list) or not has_project:
         return []
-    normalized_digest = _normalize(memory_digest or "")
-    digest_entries = _digest_entry_contents(memory_digest)
-    proposed = (
-        _finding_from_entry(entry, normalized_digest=normalized_digest, digest_entries=digest_entries) for entry in raw
-    )
+    checks = {
+        "normalized_digest": _normalize(memory_digest or ""),
+        "digest_entries": _digest_entry_contents(memory_digest),
+        "normalized_personal": _normalize(personal_memory or ""),
+        "can_write_personal": can_write_personal,
+    }
+    proposed = (_finding_from_entry(entry, **checks) for entry in raw)
     return [finding for finding in proposed if finding is not None][:MAX_NEW_ITEMS]
 
 
-#: The statuses a provider answers with when it rejects the request's SHAPE (an
-#: unsupported ``response_format``) — never auth, quota, a server fault or a
-#: transport error, all of which fail the same way without the parameter and
-#: whose retry only doubles the cost of the slowest case.
-#:
-#: Duplicated from ``piloti/envelope_call.is_parameter_rejection``
-#: rather than imported: that module sits inside the research package,
-#: whose ``__init__`` pulls the whole agent in, and this one is imported from a
-#: post-answer stage. It belongs in ``common/`` — see the round-1 report.
-_PARAMETER_REJECTION_STATUSES = frozenset({400, 422})
-
-
-def _rejects_response_format(exc: BaseException) -> bool:
-    """Whether ``exc`` is the provider refusing the request's parameters.
-
-    Duck-typed on the status code so it holds for ``openai.APIStatusError``
-    (``status_code``), ``httpx.HTTPStatusError`` and ``requests.HTTPError``
-    (``response.status_code``) alike.
-    """
-    status = getattr(exc, "status_code", None)
-    if status is None:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-    return status in _PARAMETER_REJECTION_STATUSES
-
-
-async def structured_reply(llm: Any, messages: list[Any], schema: type[BaseModel]) -> str:
-    """Ask ``llm`` for a reply shaped like ``schema`` and return it as text.
-
-    Requests native strict json_schema structured output; the response-healing
-    plugin (forced on OpenRouter LLMs in llm_factory) repairs any fenced/prose
-    JSON provider-side. The call is tool-free, so binding ``response_format``
-    cannot silently cost it a tool call the way it can on a tool-bound one
-    (``piloti/envelope_call.py``). A provider that rejects the
-    parameter gets one plain retry; anything else propagates. Shared with the
-    memory restriction judge (``memory/restriction.py``), which asks the same
-    model the same way.
-    """
-    # Each caller's evidence is its own: an entry written here would never be read.
-    try:
-        with one_shot_calls():
-            response = await _ask_for_json(llm, messages, schema)
-    except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting a parameter
-        if not _rejects_response_format(exc):
-            raise
-        # Asked again without the cache switch, which a provider may not know.
-        logger.warning(
-            "%s call rejected even without response_format (%s); retrying with caching as usual", schema.__name__, exc
-        )
-        response = await _ask_for_json(llm, messages, schema)
-    return content_to_text(getattr(response, "content", response))
-
-
-async def _ask_for_json(llm: Any, messages: list[Any], schema: type) -> Any:
-    """One call under the strict JSON format, and one plain retry when the provider rejects the parameter."""
-    try:
-        return await llm.bind(response_format=strict_json_response_format(schema)).ainvoke(messages)
-    except Exception as exc:  # noqa: BLE001 - re-raised unless it is the provider rejecting the parameter
-        if not _rejects_response_format(exc):
-            raise
-        logger.warning("%s response_format rejected by the provider (%s); retrying without it", schema.__name__, exc)
-        return await llm.ainvoke(messages)
+async def _write_personal_finding(
+    finding: _ReflectionFinding, *, envelope: SignedEnvelope | None, conversation_id: str | None
+) -> dict[str, str] | None:
+    """Record one finding about the person in their personal memory, never the project's (ADR-0180)."""
+    if envelope is None:
+        return None
+    written = await asyncio.to_thread(
+        insert_personal_memory_item,
+        envelope=envelope,
+        kind=finding.kind,
+        content=finding.content,
+        conversation_id=conversation_id,
+        provenance_type="distillation",
+    )
+    if written is None:
+        return None
+    return {"id": written.id, "kind": finding.kind, "content": finding.content, "about": "person"}
 
 
 async def _write_finding(
@@ -402,8 +450,11 @@ async def _write_finding(
     organization_id: str | None,
     conversation_id: str | None,
     decision: RestrictionDecision | None = None,
+    envelope: SignedEnvelope | None = None,
 ) -> dict[str, str] | None:
-    """Record one finding, returning the row the frame carries, or None if it did not land."""
+    """Record one finding, returning the row it became, or None if it did not land."""
+    if finding.about == "person":
+        return await _write_personal_finding(finding, envelope=envelope, conversation_id=conversation_id)
     decision = decision or RestrictionDecision(None)
     item_id = await asyncio.to_thread(
         insert_memory_item,
@@ -432,7 +483,7 @@ async def _write_finding(
         return None
     if finding.supersedes:
         logger.info("Memory reflection: recorded %s item %s as a correction", finding.kind, item_id)
-    return {"id": item_id, "kind": finding.kind, "content": finding.content}
+    return {"id": item_id, "kind": finding.kind, "content": finding.content, "about": "project"}
 
 
 async def _record_findings(
@@ -442,6 +493,7 @@ async def _record_findings(
     organization_id: str | None,
     conversation_id: str | None,
     decisions: list[RestrictionDecision] | None = None,
+    envelope: SignedEnvelope | None = None,
 ) -> list[dict[str, str]]:
     """Write every finding concurrently, keeping the rows that landed, in order.
 
@@ -462,6 +514,7 @@ async def _record_findings(
                 organization_id=organization_id,
                 conversation_id=conversation_id,
                 decision=decision,
+                envelope=envelope,
             )
             for finding, decision in zip(findings, decisions, strict=True)
         ),
@@ -476,6 +529,25 @@ async def _record_findings(
     return recorded
 
 
+async def _project_restrictions(
+    findings: list[_ReflectionFinding], restriction: RestrictionEvidence | None, llm: Any
+) -> list[RestrictionDecision]:
+    """One restriction decision per finding, in order: judged for the project's, open for the person's.
+
+    A personal note is read by the one person who was in the turn, so it is
+    never restricted-folder memory and never costs a judge call (ADR-0180).
+    """
+    project = [finding for finding in findings if finding.about == "project"]
+    judged = iter(
+        await restriction_decisions(
+            [finding.content for finding in project], restriction or RestrictionEvidence(), llm=llm
+        )
+        if project
+        else []
+    )
+    return [next(judged) if finding.about == "project" else RestrictionDecision(None) for finding in findings]
+
+
 async def run_memory_reflection(
     *,
     llm: Any,
@@ -486,49 +558,47 @@ async def run_memory_reflection(
     conversation_id: str | None,
     memory_digest: str | None,
     restriction: RestrictionEvidence | None = None,
+    personal_memory: str | None = None,
+    envelope: SignedEnvelope | None = None,
 ) -> list[dict[str, str]]:
     """Run one reflection pass and record any qualifying findings.
 
-    Returns the memory items written — ``id``, ``kind`` and ``content`` each —
-    empty when nothing qualified or when every write failed. A fault on the LLM
-    call itself propagates to the stage runner, which owns the timeout and the
-    failure span.
-
-    The return carries what was WRITTEN and not merely how much, because the
-    post-answer stage wrapping this call puts it on the wire: the chip that
-    tells a reader "Piloti noted this" renders the item's own words, and a list
-    of ids would make the browser ask the database for text the writer already
-    had in hand (``docs/architecture/post-answer-stages.md`` §5.1).
+    Returns the memory items written, ``id``, ``kind``, ``content`` and
+    ``about`` (which memory it went to) each; empty when nothing qualified or
+    every write failed. The words ride along because the stage puts the
+    project's rows on the wire for the "noted this" chip
+    (``docs/architecture/post-answer-stages.md`` §5.1). A fault on the LLM call
+    propagates to the stage runner, which owns the timeout and the failure span.
 
     ``restriction`` is what the turn could have taken from restricted folders
-    (ADR-0087). Every finding goes through the one restriction decision
-    (``memory/restriction.py``), the same the ``remember`` tool uses, on the
-    same model; a finding is written as restricted memory when it depends on
-    restricted content, and never dropped for it.
+    (ADR-0087): a project finding that depends on it is written as restricted
+    memory, never dropped. ``envelope`` and ``personal_memory`` are the asker's
+    (ADR-0180): a finding about the person goes to their personal memory with
+    the envelope, is dropped without one, and never reaches project memory.
     """
     messages = [
         SystemMessage(content=REFLECTION_SYSTEM_PROMPT),
-        HumanMessage(content=_build_user_prompt(query, answer, memory_digest)),
+        HumanMessage(content=_build_user_prompt(query, answer, memory_digest, personal_memory)),
     ]
     parsed = extract_json(await structured_reply(llm, messages, ReflectionOutput))
     findings = _sanitize_findings(
         parsed.get("findings") if isinstance(parsed, dict) else None,
         has_project=bool(project_id),
         memory_digest=memory_digest,
+        personal_memory=personal_memory,
+        can_write_personal=envelope is not None,
     )
     if not findings:
         logger.info("Memory reflection: no new durable findings for this turn")
         return []
 
-    decisions = await restriction_decisions(
-        [finding.content for finding in findings], restriction or RestrictionEvidence(), llm=llm
-    )
     recorded = await _record_findings(
         findings,
         project_id=project_id,
         organization_id=organization_id,
         conversation_id=conversation_id,
-        decisions=decisions,
+        decisions=await _project_restrictions(findings, restriction, llm),
+        envelope=envelope,
     )
     if recorded:
         logger.info("Memory reflection recorded %d new memory item(s)", len(recorded))
