@@ -3,7 +3,8 @@
  */
 /**
  * The grants route is a thin adapter over `@/lib/sharing/service`; what is
- * specified here is the one thing it adds: `resource_shared` for PostHog.
+ * specified here is what it adds: `resource_shared` for PostHog, and that a
+ * refused takeover leaves it as the service's 404 (ADR-0032 decision 5).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -29,7 +30,7 @@ vi.mock('@/lib/sharing/service', () => ({
 const captureServer = vi.hoisted(() => vi.fn(() => true))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer }))
 
-import { ForbiddenError } from '@/lib/api/errors'
+import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { escalateToOwner, grantResourceAccess } from '@/lib/sharing/service'
 import { POST } from './route'
 
@@ -85,6 +86,24 @@ describe('POST /api/sharing/[resourceType]/[resourceId]/grants', () => {
 
     await post({ escalate: true })
 
+    expect(captureServer).not.toHaveBeenCalled()
+  })
+
+  it('answers a takeover of a resource the caller cannot read as not found', async () => {
+    // The service refuses a project admin with no access to a private chat; the
+    // route must neither soften nor explain that refusal.
+    vi.mocked(escalateToOwner).mockRejectedValue(new NotFoundError())
+
+    const response = await post({ escalate: true })
+
+    expect(response.status).toBe(404)
+    expect(escalateToOwner).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', organizationId: 'org-1' }),
+      'document',
+      'doc-1',
+      expect.any(Request)
+    )
+    expect(grantResourceAccess).not.toHaveBeenCalled()
     expect(captureServer).not.toHaveBeenCalled()
   })
 })

@@ -93,6 +93,25 @@ def test_reads_the_gate_coverage_packs_and_retrieval_the_bff_sends():
     assert context.chains == {"DE-NW": ("DE-NW", "DE", "EU")}
 
 
+def test_reads_the_sources_a_lookup_may_read_and_drops_one_not_of_their_shape():
+    source = {"key": "xa-gazette", "revisionId": "r1", "country": "XA", "config": {"id": "xa-gazette"}}
+    context = parse_knowledge_context(
+        {**WIRE, "sources": [source, {"key": "broken", "country": "XA"}, {**source, "config": "not a record"}]}
+    )
+
+    assert [(s.key, s.revision_id, s.country, s.config) for s in context.sources] == [
+        ("xa-gazette", "r1", "XA", {"id": "xa-gazette"})
+    ]
+    assert parse_knowledge_context(WIRE).sources == ()
+
+
+def test_a_source_the_turn_could_not_carry_is_named_in_the_trace():
+    context = parse_knowledge_context({**WIRE, "sourcesDropped": ["xa-huge-portal"]})
+
+    assert context.sources_dropped == ("xa-huge-portal",)
+    assert trace_metadata(context)["law_sources_dropped"] == "xa-huge-portal"
+
+
 @pytest.mark.parametrize(
     "raw", [None, "open", {"gate": {"state": "partial"}, "retrieval": {"countries": []}}, {"gate": {"state": "open"}}]
 )
@@ -113,6 +132,8 @@ def test_trace_metadata_names_chains_gate_coverage_packs_and_reference_dates():
         "base_updated_since_last_answer": "DE",
         "building_law_uses": 1,
         "undetermined_editions": "",
+        "law_sources": "",
+        "law_sources_dropped": "",
     }
 
 

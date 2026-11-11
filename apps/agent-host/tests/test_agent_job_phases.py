@@ -274,3 +274,80 @@ async def test_a_job_runs_its_phases_to_a_success_and_one_thread_turn(monkeypatc
     assert released == ["urls:job-1", "purge:job-1"]
     # Deep research closes its phase progress before the status changes.
     assert (agent_type == "deep_research_agent") == any(e.get("type") == "job.phase" for e in store.events)
+
+
+# --- a temporary conversation keeps nothing (ADR-0180 rule 2) -----------------
+
+
+def test_reflection_follows_the_flag_for_an_ordinary_conversation():
+    identity = {"identity": {"project_id": "proj-1", "conversation_id": "conv-1"}}
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=True, usage_context=identity)) is True
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=False, usage_context=identity)) is False
+    assert job_outcome.reflection_enabled(_request(memory_reflection_enabled=True)) is True
+
+
+def test_reflection_is_skipped_by_name_for_a_temporary_conversation(caplog):
+    request = _request(
+        memory_reflection_enabled=True,
+        usage_context={"identity": {"project_id": "proj-1"}, "temporary_conversation": True},
+    )
+    with caplog.at_level("INFO", logger=job_outcome.logger.name):
+        assert job_outcome.reflection_enabled(request) is False
+
+    skips = [record for record in caplog.records if "memory reflection skipped" in record.getMessage()]
+    assert [record.levelname for record in skips] == ["INFO"]
+    assert skips[0].getMessage() == "Job job-1: memory reflection skipped: temporary_conversation"
+
+
+def test_a_disabled_reflection_logs_no_skip_for_a_temporary_conversation(caplog):
+    request = _request(memory_reflection_enabled=False, usage_context={"temporary_conversation": True})
+    with caplog.at_level("INFO", logger=job_outcome.logger.name):
+        assert job_outcome.reflection_enabled(request) is False
+    assert not [record for record in caplog.records if "memory reflection skipped" in record.getMessage()]
+
+
+@pytest.mark.parametrize("value", ["true", 1, None, False])
+def test_only_a_literal_true_marks_the_run_temporary(value):
+    request = _request(memory_reflection_enabled=True, usage_context={"temporary_conversation": value})
+    assert job_outcome.reflection_enabled(request) is True
+
+
+@pytest.mark.asyncio
+async def test_persist_hands_the_skip_to_the_report_passes_so_no_reflection_model_is_built(monkeypatch):
+    seen: dict[str, Any] = {}
+
+    async def passes(**kwargs: Any):
+        seen.update(kwargs)
+        from agent_host.jobs.runner import CardGenerationResult
+        from agent_host.jobs.runner import ReportAnatomy
+
+        return CardGenerationResult(cards=None), ReportAnatomy(), None
+
+    monkeypatch.setattr(job_outcome, "_run_report_passes", passes)
+    monkeypatch.setattr(job_outcome, "_transparency", lambda *args, **kwargs: {})
+    monkeypatch.setattr(job_outcome, "extract_verified_sources", lambda result: None)
+    monkeypatch.setattr(job_outcome, "extract_skills_activated", lambda result: None)
+    request = _request(
+        memory_reflection_enabled=True,
+        memory_reflection_llm="card_llm",
+        usage_context={"identity": {"project_id": "proj-1"}, "temporary_conversation": True},
+    )
+    scope = SimpleNamespace(card_snapshot=[], agent_event_callback=SimpleNamespace(), event_store=SimpleNamespace())
+    models = SimpleNamespace(llm=object(), org_credential=None, zdr=True, fn_config=SimpleNamespace(type="chat"))
+    run = SimpleNamespace(memory_digest=None)
+
+    await job_outcome.persist(
+        scope, request, run, "report", agent_cls=object, models=models, builder=object(), config=None
+    )
+
+    assert seen["reflection_enabled"] is False
+
+
+def test_the_workflow_span_says_the_conversation_is_temporary_and_only_then():
+    run = SimpleNamespace(trace_id=1)
+    temporary = _request(usage_context={"temporary_conversation": True})
+    workflow, _ = agent_job_setup.trace_metadata(temporary, run)
+    assert workflow.provided_metadata["temporary_conversation"] is True
+
+    workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run)
+    assert "temporary_conversation" not in workflow.provided_metadata

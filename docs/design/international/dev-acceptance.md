@@ -6,6 +6,10 @@ The office is the test office on dev (WorkOS id `org_01KWEZPQ1B54E0KN9K838PCS89`
 
 ## Answers (`agent-ask-create`, then `agent-ask-get`)
 
+*A1 to A8 are also golden cases (`at-a1-…` to `at-a8-…` in `configs/knowledge-packs/at-golden-cases.json`), so
+`platform-knowledge-golden-run` scores them once they are published; a rule a phrase cannot tell (A4: "BayBO is
+stated as a verified requirement") stays a reviewer's reading of the answer.*
+
 The test office is entitled to AT only (`organization-countries-get`: home AT). Values come from the corpus or the records named in each row; a scenario fails on any **Fails if**, whatever else the answer gets right.
 
 | # | Project and question | Passes if (before) | Passes if (after) | Fails if |

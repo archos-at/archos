@@ -1597,6 +1597,48 @@
       "when": 1794200000000,
       "tag": "0227_deletion_queue_pending_has_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0228_golden_cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0229_personal_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0230_conversation_temporary",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0231_personal_memory_source_message",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1794700000000,
+      "tag": "0232_personal_memory_content_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0233_knowledge_single_operator",
+      "breakpoints": true
     }
   ]
 }

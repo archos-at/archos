@@ -1,5 +1,5 @@
 /**
- * Conversation detail API — read, rename, and delete a single conversation.
+ * Conversation detail API — read, rename, make temporary, and delete a single conversation.
  * Thin handlers; all logic lives in `@/lib/conversations/service`.
  */
 
@@ -12,6 +12,7 @@ import {
   updateConversationTitle,
 } from '@/lib/conversations/service'
 import { updateConversationSchema } from '@/lib/conversations/conversation-wire'
+import { setConversationTemporary } from '@/lib/conversations/temporary'
 
 type Params = { id: string }
 
@@ -23,6 +24,11 @@ export const GET = apiRoute<Params>(
 export const PATCH = apiRoute<Params>(
   async ({ session, params, request }) => {
     const body = await parseJsonBody(request, updateConversationSchema)
+    // Temporary before anything else (ADR-0180): an owner's switch, and a body
+    // that also renames or changes the mode goes on to that change below.
+    const flagged =
+      body.temporary === undefined ? null : await setConversationTemporary(session, params.id, body.temporary)
+    if (flagged && !body.engagement && body.title === undefined) return flagged
     // Engagement first: renaming needs `owner` while the mode needs only
     // `collaborator` (a thread stuck answering the wrong person must be fixable by
     // whoever is in the room), so a combined body must not be gated on the stricter
@@ -34,7 +40,7 @@ export const PATCH = apiRoute<Params>(
   },
   {
     authz: {
-      enforcedBy: 'updateConversationTitle / updateConversationEngagement (requireResourceAccess)',
+      enforcedBy: 'updateConversationTitle / updateConversationEngagement / setConversationTemporary (requireResourceAccess)',
     },
   }
 )

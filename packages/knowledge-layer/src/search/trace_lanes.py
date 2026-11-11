@@ -151,3 +151,7 @@ def _lane_source(hit, detail: str | None, *, opened: bool) -> TraceLaneSource:
     with lane_tool_scope(READ_PASSAGE_TOOL) if opened else nullcontext():
         record_lane_hit(source.name, title=source.title, detail=source.detail, shelf=source.shelf)
     return source
+
+
+#: The lane fan-out for chunks, public: what a producer outside the package (the law lookup) renders.
+trace_lanes_for_chunks = _trace_lanes_for_chunks

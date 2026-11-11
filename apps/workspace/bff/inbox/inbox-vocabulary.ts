@@ -34,6 +34,12 @@ export const INBOX_ITEM_TYPES = [
   /** Informational: you were named responsible for a resource (ADR-0047). */
   'document.assigned_to_you',
   /**
+   * Informational: a project admin took ownership of a resource you own
+   * (ADR-0032 decision 5, amended 2026-11-11). Addressed to its other owners;
+   * names who took it, and the row's time says when. Nobody loses ownership.
+   */
+  'resource.ownership_taken',
+  /**
    * A background run the reader asked for has ended (ADR-0035 named "a failed
    * workflow run" as the type the frame was built to carry). Operational, not
    * collaboration: nobody is waiting on the reader, but work was done on their

@@ -42,15 +42,27 @@ export interface StoredFollowUpsStage {
  * only ever say the same „Piloti hat sich gemerkt 5" against every answer in
  * the thread.
  *
- * `provenanceType` is not carried: this key holds the reflection stage's items
- * and nothing else, so it is `'distillation'` by construction. The in-turn
- * `remember` half of the chip is derived from the turn's own cards, and the two
- * are labelled apart where they are rendered.
+ * The frame lists everything the turn wrote to SHARED memory: the notes the
+ * `remember` tool wrote while the answer was written (`provenance: 'agent'`)
+ * and the reflection stage's own. The four optional fields are absent for the
+ * common case, a project note the stage added, so a frame stored before they
+ * existed reads the same. A note the person accepted from a card is derived
+ * from the turn's cards instead, and a PERSONAL note is never here (ADR-0180):
+ * other people read this message, so its owner's browser asks for it
+ * (`GET /api/user/memory?sourceConversationId=…`).
  */
 export interface StoredMemoryItem {
   id: string
   kind: string
   content: string
+  /** `'agent'`: the `remember` tool wrote it during the answer. Absent: the reflection stage did, after it. */
+  provenance?: 'agent'
+  /** `'organization'`: everyone in the office reads it. Absent: the project's members. */
+  scope?: 'organization'
+  /** The earlier note this one retired, quoted. Such a note is not taken back from the answer. */
+  supersedes?: string
+  /** Restricted memory (ADR-0087): shown only to people cleared for its folders. */
+  restricted?: true
 }
 
 /** `memory_reflection` payload, v1 (§5.1). */
@@ -82,10 +94,12 @@ const MAX_HINT_CHARS = 200
 
 /**
  * Reflection writes at most `MAX_NEW_ITEMS = 5` items per turn
- * (`agent/memory/reflection.py`). Six is that ceiling plus room for it
- * to move by one without this cap silently swallowing a real item.
+ * (`agent/memory/reflection.py`), and the frame lists at most
+ * `MAX_NOTED_ITEMS = 6` in-turn notes ahead of them
+ * (`agent/stages/memory_reflection.py`). Twelve is both ceilings plus room
+ * for reflection's to move by one without this cap swallowing a real item.
  */
-export const MAX_MEMORY_ITEMS = 6
+export const MAX_MEMORY_ITEMS = 12
 /** The backend's own `_MAX_CONTENT_CHARS`, so a full finding survives verbatim. */
 const MAX_MEMORY_CONTENT_CHARS = 500
 /** A uuid is 36; the slack is for an id shape that is not one. */
@@ -151,7 +165,17 @@ export function sanitizeMemoryReflectionStage(input: unknown): StoredMemoryRefle
     const content = cap(raw.content, MAX_MEMORY_CONTENT_CHARS)
     const kind = typeof raw.kind === 'string' ? raw.kind.trim() : ''
     if (!id || !content || !MEMORY_KINDS.has(kind)) continue
-    items.push({ id, kind, content })
+    const supersedes = cap(raw.supersedes, MAX_MEMORY_CONTENT_CHARS)
+    items.push({
+      id,
+      kind,
+      content,
+      // Closed values only; anything else reads as the default it is absent for.
+      ...(raw.provenance === 'agent' ? { provenance: 'agent' as const } : {}),
+      ...(raw.scope === 'organization' ? { scope: 'organization' as const } : {}),
+      ...(supersedes ? { supersedes } : {}),
+      ...(raw.restricted === true ? { restricted: true as const } : {}),
+    })
   }
 
   return items.length > 0 ? { items } : null

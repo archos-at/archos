@@ -41,6 +41,7 @@ import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
 import { attachedTexts } from './text-store'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
+import { singleOperator } from './single-operator'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView, SecondReviewRoleView } from './wire'
 
@@ -49,9 +50,18 @@ const REASON = 'platform base knowledge: change requests'
 /** The most change requests one list returns. */
 export const MAX_CHANGE_REQUESTS = 200
 
-/** Run `fn` in one transaction as the platform role. */
+/**
+ * Every change request read and write runs here. On a deployment set to one operator alone (`./single-operator.ts`)
+ * the transaction tells the triggers so (migration 0233); otherwise it sets nothing.
+ */
 export function platformTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return withPlatformAccess(REASON, () => getDb().transaction(fn))
+  if (!singleOperator()) return withPlatformAccess(REASON, () => getDb().transaction(fn))
+  return withPlatformAccess(REASON, () =>
+    getDb().transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('knowledge.single_operator', 'on', true)`)
+      return fn(tx)
+    }),
+  )
 }
 
 export type ChangeRequestRow = typeof knowledgeChangeRequests.$inferSelect
@@ -91,7 +101,7 @@ export async function setChangeRequestStatus(
 }
 
 export async function listChangeRequests(
-  filter: { status?: ChangeRequestStatus; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
+  filter: { status?: ChangeRequestStatus; countryId?: string; origin?: ChangeRequestOrigin; secondReview?: SecondReviewState },
   page: { offset: number; limit: number } = { offset: 0, limit: MAX_CHANGE_REQUESTS },
 ): Promise<ChangeRequestSummary[]> {
   const rows = await withPlatformAccess(REASON, () =>
@@ -104,6 +114,7 @@ export async function listChangeRequests(
       .where(
         and(
           filter.status ? eq(knowledgeChangeRequests.status, filter.status) : undefined,
+          filter.countryId ? eq(knowledgeChangeRequests.countryId, filter.countryId) : undefined,
           filter.origin ? eq(knowledgeChangeRequests.origin, filter.origin) : undefined,
           filter.secondReview ? eq(knowledgeChangeRequests.secondReview, filter.secondReview) : undefined,
         ),
@@ -382,7 +393,8 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       texts,
       captures,
       sourcesUnchecked: unchecked[0]?.unchecked === true,
-      secondReviewRoles: secondReviewRolesOf,
+      // A request approved alone owes a second review only where the trigger marked one due: never on one operator's dev.
+      secondReviewRoles: request.secondReview === null ? [] : secondReviewRolesOf,
       approvals: approvals.map((approval) => ({
         approver: approval.approver,
         role: approval.role,
@@ -456,8 +468,14 @@ export async function awaitedApprovalRoles(tx: Tx, requestId: string): Promise<A
  * ways out: a second person's source check, or, to approve alone, a fetch through a built-in source or a released
  * one two people have seen (ADR-0170, ADR-0176).
  */
-const SOURCE_UNCHECKED =
+const SOURCE_UNCHECKED_FOUR_EYES =
   'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source (uploaded, only named in the base corpus, or fetched through a source that is still in a draft or that one person released alone), and nobody but its author has checked it against its source. Another person checks it (sourceChecked on platform-knowledge-change-request-review); to approve alone, cite a fetched capture and attach the text with platform-knowledge-text-import, both through a built-in source or a released source another person approved.'
+
+/** On one operator's deployment the author's own source check counts (migration 0233), so the way out is theirs. */
+const SOURCE_UNCHECKED_SINGLE_OPERATOR =
+  'A record cites an operator-supplied capture, or a capture or a text nobody fetched from a reviewed source, and nobody has checked it against its source. This deployment lets one operator work alone: check the source yourself, mark sourceChecked on your verdicts with platform-knowledge-change-request-review, then approve with an override.'
+
+const sourceUnchecked = () => (singleOperator() ? SOURCE_UNCHECKED_SINGLE_OPERATOR : SOURCE_UNCHECKED_FOUR_EYES)
 
 export async function insertApproval(
   tx: Tx,
@@ -475,7 +493,7 @@ export async function insertApproval(
       throw new ConflictError('You wrote no revision in this change request, so there is nothing to override; approve it without the override.')
     }
     if (/knowledge_approvals_once/.test(message)) throw new ConflictError('You already approved this change request in this role.')
-    if (/no reviewer checked/.test(message)) throw new ConflictError(SOURCE_UNCHECKED)
+    if (/no reviewer checked/.test(message)) throw new ConflictError(sourceUnchecked())
     throw error
   }
 }
@@ -524,7 +542,7 @@ export async function insertSecondReview(
     if (/owed only in a role approved alone/.test(message)) {
       throw new ConflictError(`No approval in the ${input.role} role was given alone, so no second review is owed in it.`)
     }
-    if (/no reviewer checked/.test(message)) throw new ConflictError(SOURCE_UNCHECKED)
+    if (/no reviewer checked/.test(message)) throw new ConflictError(sourceUnchecked())
     throw error
   }
 }

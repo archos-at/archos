@@ -52,6 +52,24 @@ export function markConversationOnServer(conversationId: string): void {
 }
 
 /**
+ * Call back once the server holds the conversation: at once for an id it
+ * already has, otherwise when its create lands. For a write that has to follow
+ * the create (a conversation-level setting changed before the first message).
+ */
+export function whenConversationOnServer(conversationId: string, callback: () => void): void {
+  if (!notOnServer.has(conversationId)) {
+    callback()
+    return
+  }
+  const listener = (): void => {
+    if (notOnServer.has(conversationId)) return
+    listeners.delete(listener)
+    callback()
+  }
+  listeners.add(listener)
+}
+
+/**
  * False only for an id this page minted and has not created yet. No id is
  * false too: there is nothing to read.
  */

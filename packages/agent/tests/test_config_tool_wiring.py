@@ -108,7 +108,9 @@ def test_the_chat_surface_reaches_ris_through_one_tool(config: dict, functions: 
     """
     entry = functions.get("ris_lookup_tool")
     assert entry is not None, "ris_lookup_tool must be declared under `functions:`"
-    assert entry["_type"] == "ris_lookup"
+    # The country-neutral lookup, bound under the old name until step 4b renames the model tool.
+    assert entry["_type"] == "law_lookup"
+    assert entry["tool_name"] == "ris_lookup"
     shallow = set(_tools(config, "shallow_research_agent"))
     assert shallow.isdisjoint({"ris_search_tool", "ris_fetch_tool", "ris_catalog_lookup_tool"})
 

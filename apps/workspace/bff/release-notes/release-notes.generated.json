@@ -219,6 +219,94 @@
           "section": "features",
           "area": "office-knowledge",
           "text": {
+            "en": "What the assistant keeps about you personally, such as how you like your answers or what you are responsible for, now goes into a memory of your own that only you can read. It no longer lands in the project's memory in front of the team, even when you say it in a project chat, and it follows you into every project.",
+            "de": "Was sich der Assistent über Sie persönlich merkt, etwa wie Sie Ihre Antworten bevorzugen oder wofür Sie verantwortlich sind, wird jetzt in einem eigenen Speicher abgelegt, den nur Sie lesen können. Es landet nicht mehr im für das Team sichtbaren Projektspeicher – auch wenn Sie es in einem Projekt-Chat erwähnen – und begleitet Sie in jedes Projekt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "The assistant draws on what it keeps about you personally only in chats that you alone read. In a chat you share with colleagues it leaves those notes out, because others read the answers there.",
+            "de": "Der Assistent nutzt persönliche Informationen, die er über Sie gespeichert hat, nur in Chats, die nur Sie lesen. In einem Chat, den Sie mit Kolleginnen und Kollegen teilen, lässt er diese Notizen weg, weil dort auch andere die Antworten lesen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Your own notes have a page, \"Mein Gedächtnis\", in the menu under your name. There you read, add, correct, pin and remove what the assistant keeps about you.",
+            "de": "Ihre eigenen Notizen finden Sie auf der Seite „Mein Gedächtnis“ im Menü unter Ihrem Namen. Dort können Sie nachlesen, hinzufügen, korrigieren, pinnen und entfernen, was sich der Assistent über Sie merkt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A chat can be switched to temporary beside the message field. The assistant then keeps nothing from it, in no memory, and the chat says so for as long as the switch is on.",
+            "de": "Ein Chat lässt sich neben dem Nachrichtenfeld auf temporär umstellen. Der Assistent merkt sich daraus nichts, und der Chat weist darauf hin, solange die Einstellung aktiviert ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A project's memory now says that every member of the project reads its notes, and a private chat says that you have not shared it with anyone.",
+            "de": "Im Projekt-Memory steht jetzt, dass jedes Projektmitglied dessen Notizen liest, während in einem privaten Chat steht, dass Sie sie mit niemandem geteilt haben."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "\"Mein Gedächtnis\" has \"Alle Notizen entfernen\": after a confirmation that says how many notes go, everything the assistant keeps about you is removed in one step.",
+            "de": "In „Mein Gedächtnis“ gibt es „Alle Notizen entfernen“: Nach einer Bestätigung mit der Anzahl der zu löschenden Notizen wird alles, was der Assistent über Sie gespeichert hat, in einem Schritt entfernt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A temporary chat is marked in the chat history, and the switch beside the message field shows its word on a phone too. A note the assistant proposed cannot be saved from a chat that is temporary; the card says why.",
+            "de": "Ein temporärer Chat wird im Chatverlauf gekennzeichnet, und der Schalter neben dem Nachrichtenfeld zeigt seine Beschriftung auch auf dem Smartphone an. Eine vom Assistenten vorgeschlagene Notiz kann in einem temporären Chat nicht gespeichert werden; die Karte erklärt warum."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Every note the assistant saves while answering now appears under that answer, with who can read it and \"Entfernen\" to take it back on the spot. Notes on your own shelf are shown there to you alone.",
+            "de": "Jede Notiz, die der Assistent beim Antworten speichert, erscheint jetzt unter der jeweiligen Antwort – mit Angabe, wer sie lesen kann, und der Option „Entfernen“, um sie sofort zurückzunehmen. Notizen in Ihrer eigenen Ablage werden dort nur Ihnen angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A note that corrects an earlier one, such as a changed dimension, date or quantity, now replaces it. Before, the old value could stay and look freshly confirmed.",
+            "de": "Eine Notiz, die eine frühere korrigiert – etwa eine geänderte Abmessung, ein Datum oder eine Menge –, ersetzt diese nun. Bisher konnte der alte Wert bestehen bleiben und so wirken, als wäre er gerade bestätigt worden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Memory refuses passwords, access keys, bank account numbers and social-insurance numbers wherever a note comes from, and says what kind of thing it found.",
+            "de": "Memory weist Passwörter, Zugangsschlüssel, Bankkontonummern und Sozialversicherungsnummern unabhängig davon zurück, aus welcher Notiz sie stammen, und nennt die Art des gefundenen Inhalts."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "The words for memory are the same everywhere now: \"Projektgedächtnis\" for a project's notes, and one name for each kind of note.",
+            "de": "Die Bezeichnungen für das Gedächtnis sind jetzt überall einheitlich: „Projektgedächtnis“ für die Notizen eines Projekts und jeweils eine Bezeichnung pro Notizart."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
             "en": "Answers now name the standards the platform lists for your country even when your office holds no copy, saying the text is not available, and an authority's directives reach a project only where that authority decides.",
             "de": "Antworten nennen jetzt die Normen, die die Plattform für Ihr Land auflistet, auch wenn Ihrem Büro keine Kopie vorliegt, und weisen darauf hin, dass der Text nicht verfügbar ist. Vorgaben einer Behörde gelten für ein Projekt nur, wenn die Behörde dies festlegt."
           }
@@ -593,6 +681,14 @@
         },
         {
           "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "When a project admin takes ownership of a chat or file you own, you now get a notice in your inbox that names who took it; you remain an owner.",
+            "de": "Wenn ein Projekt-Admin einen Chat oder eine Datei übernimmt, deren Eigentümer Sie sind, erhalten Sie jetzt eine Benachrichtigung in Ihrem Posteingang mit dem Namen der übernehmenden Person; Ihr Eigentümerstatus bleibt bestehen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "administration",
           "text": {
             "en": "The subprocessor page in the legal section now names everyone who receives your data, including address search, voice dictation and our team's Slack notices, with the legal basis for each transfer, and says plainly that the AI reads whole pages of a document when a question needs them.",
@@ -909,6 +1005,38 @@
           "text": {
             "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
             "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Opening a file whose preview cannot be loaded now says so and offers to try again, instead of showing the picture of the file opened before.",
+            "de": "Kann die Vorschau einer geöffneten Datei nicht geladen werden, wird dies jetzt angezeigt und Sie können es erneut versuchen, statt das Bild der zuvor geöffneten Datei zu sehen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A suggested change that could not be loaded recovers by itself when the connection returns or you come back to the tab, and no longer offers Apply and Discard beside the message that it could not be loaded.",
+            "de": "Ein Änderungsvorschlag, der nicht geladen werden konnte, wird automatisch wiederhergestellt, sobald die Verbindung wieder besteht oder Sie zum Tab zurückkehren. Neben der Meldung, dass er nicht geladen werden konnte, werden Apply und Discard nicht mehr angeboten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A shared conversation you have left is no longer marked as read afterwards.",
+            "de": "Eine geteilte Konversation, die Sie verlassen haben, wird danach nicht mehr als gelesen markiert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "When a chat was deleted, the stored record of how its answers were produced could stay behind if removing it kept failing. It is now removed automatically and the deletion is recorded as complete.",
+            "de": "Wurde ein Chat gelöscht, konnte die gespeicherte Dokumentation dazu, wie seine Antworten zustande kamen, zurückbleiben, wenn das Entfernen wiederholt fehlschlug. Sie wird jetzt automatisch entfernt und die Löschung als abgeschlossen vermerkt."
           }
         },
         {

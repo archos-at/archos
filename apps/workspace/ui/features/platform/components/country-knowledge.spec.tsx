@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { PlatformAccessProvider } from '@/features/platform/platform-access'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { CountryKnowledge } from './country-knowledge'
+import { CountryPage } from './countries/country-page'
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
@@ -14,9 +15,10 @@ const viewer = vi.hoisted(() => ({ id: 'reviewer' }))
 vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: viewer.id } }) }))
 
 /**
- * Platform → countries (ADR-0165): the countries and the queue from the real
- * routes' shapes; a request's next step asks before it runs, and read-only
- * staff get no write control.
+ * Platform → Länder (ADR-0165): the list of countries with their stage and next
+ * step, one country's page with each section and its empty state, all from the
+ * real routes' shapes; a request opened from the review section asks before its
+ * next step runs, and read-only staff get no write control.
  */
 
 const OVERVIEW = {
@@ -56,6 +58,9 @@ function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unkn
     if (url === '/api/platform/knowledge') {
       return overviewStatus === 200 ? Response.json(OVERVIEW) : new Response('{}', { status: overviewStatus })
     }
+    if (url.startsWith('/api/platform/knowledge/change-requests?')) return Response.json({ changeRequests: OVERVIEW.queue, nextCursor: null })
+    if (url.startsWith('/api/platform/knowledge/texts')) return Response.json({ texts: [], nextCursor: null })
+    if (url === '/api/platform/knowledge/sources') return Response.json({ sources: [], builtInUnavailable: null })
     if (init?.method === 'POST' && url.endsWith('/review')) {
       decision = JSON.parse(String(init.body)).decisions[0].decision
       return Response.json({ recorded: 1 })
@@ -68,128 +73,91 @@ function serve(overviewStatus = 200, request: typeof REQUEST & { captures?: unkn
 
 beforeEach(() => {
   viewer.id = 'reviewer'
+  // The review section of the country page, where a request opens.
+  window.history.replaceState(null, '', '?section=review')
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
 
 const withPermissions = (permissions: string[]) => (
   <PlatformAccessProvider permissions={permissions}>
-    <CountryKnowledge />
+    <CountryPage countryId="AT" />
   </PlatformAccessProvider>
 )
 
 describe('CountryKnowledge', () => {
-  test('lists each country with what it released, and the queue', async () => {
+  test('lists each country with its stage and the one thing it needs, linking to its page', async () => {
     serve()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    const countries = await screen.findByTestId('country-knowledge-countries')
-    expect(within(countries).getByText('Austria')).toBeInTheDocument()
-    expect(within(countries).getByText('2 authorities · 3 works')).toBeInTheDocument()
-    expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
-  })
-
-  test('reads the next page of drafts on request, and says so when the drafts cannot be read', async () => {
-    serve()
-    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
-    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
-    const pages: Record<string, () => Response> = {
-      '/api/platform/knowledge/change-requests?status=draft': () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
-      '/api/platform/knowledge/change-requests?status=draft&cursor=50': () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null }),
-    }
-    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
-    const user = userEvent.setup()
-    const first = render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    const list = await screen.findByTestId('country-knowledge-drafts')
-    expect(within(list).queryByText('OIB 2023')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
-    expect(await within(list).findByText('OIB 2023')).toBeInTheDocument()
-    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Show more drafts' })).not.toBeInTheDocument()
-    first.unmount()
-
-    // A failed read is not "no drafts": the section says so and reads again on request.
-    pages['/api/platform/knowledge/change-requests?status=draft'] = () => new Response('no', { status: 500 })
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
-    pages['/api/platform/knowledge/change-requests?status=draft'] = () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: null })
-    await user.click(screen.getByRole('button', { name: /again/i }))
-    expect(await within(await screen.findByTestId('country-knowledge-drafts')).findByText('OIB 2019')).toBeInTheDocument()
-    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
-  })
-
-  test('says so when a refresh fails with drafts listed, and reads the first page again on request', async () => {
-    serve()
-    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
-    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
-    const FIRST = '/api/platform/knowledge/change-requests?status=draft'
-    const pages: Record<string, () => Response> = {
-      [FIRST]: () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
-      [`${FIRST}&cursor=50`]: () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null }),
-    }
-    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
-    const draftReads = () => fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith(FIRST))
-    const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    const list = await screen.findByTestId('country-knowledge-drafts')
-    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
-
-    // A verdict in the open request reads the page again, and this time the drafts do not answer.
-    pages[FIRST] = () => new Response('no', { status: 500 })
-    await user.click(within(screen.getByTestId('country-knowledge-queue')).getByRole('button', { name: 'Review' }))
-    await user.click(await screen.findByRole('button', { name: 'All correct' }))
-    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByTestId('change-request-panel')).not.toBeInTheDocument())
-    // What was listed stays, and the next page is not offered over a list that may be out of date.
-    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Show more drafts' })).not.toBeInTheDocument()
-
-    // Asking again repeats the read that failed, the first page, never the old cursor's next page.
-    pages[FIRST] = () => Response.json({ changeRequests: [draft('cr-d3', 'OIB 2027')], nextCursor: null })
-    const before = draftReads().length
-    await user.click(screen.getByRole('button', { name: /again/i }))
-    expect(await within(list).findByText('OIB 2027')).toBeInTheDocument()
-    expect(draftReads().slice(before)).toEqual([FIRST])
-    expect(within(list).queryByText('OIB 2019')).not.toBeInTheDocument()
-    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
-  })
-
-  test('repeats a failed next page with the cursor it asked with', async () => {
-    serve()
-    const draft = (id: string, title: string) => ({ ...OVERVIEW.queue[0], id, title, status: 'draft' })
-    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
-    const FIRST = '/api/platform/knowledge/change-requests?status=draft'
-    const pages: Record<string, () => Response> = {
-      [FIRST]: () => Response.json({ changeRequests: [draft('cr-d1', 'OIB 2019')], nextCursor: '50' }),
-      [`${FIRST}&cursor=50`]: () => new Response('no', { status: 500 }),
-    }
-    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => pages[url]?.() ?? routed(url, init))
-    const user = userEvent.setup()
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    const list = await screen.findByTestId('country-knowledge-drafts')
-    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
-    expect(await screen.findByText('The drafts could not be loaded')).toBeInTheDocument()
-    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
-    pages[`${FIRST}&cursor=50`] = () => Response.json({ changeRequests: [draft('cr-d2', 'OIB 2023')], nextCursor: null })
-    await user.click(screen.getByRole('button', { name: 'Show more drafts' }))
-    expect(await within(list).findByText('OIB 2023')).toBeInTheDocument()
-    expect(within(list).getByText('OIB 2019')).toBeInTheDocument()
-    expect(screen.queryByText('The drafts could not be loaded')).not.toBeInTheDocument()
-  })
-
-  test('lists the drafts, where texts are attached, and opens the one a link names', async () => {
-    serve()
-    const draft = { ...OVERVIEW.queue[0], id: 'cr-draft', title: 'OIB 2019', status: 'draft' }
-    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
-    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
-      url === '/api/platform/knowledge/change-requests?status=draft' ? Response.json({ changeRequests: [draft], nextCursor: null }) : routed(url, init),
+    render(
+      <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.settingsView]}>
+        <CountryKnowledge />
+      </PlatformAccessProvider>,
     )
+    const row = await screen.findByTestId('country-row-AT')
+    expect(within(row).getByRole('link', { name: 'Austria' })).toHaveAttribute('href', '/app/platform/countries/AT')
+    expect(within(row).getByText('Published')).toBeInTheDocument()
+    expect(within(row).getByText('Review 1 request')).toBeInTheDocument()
+  })
+
+  test('opens the request a link names on the list', async () => {
+    serve()
     window.history.replaceState(null, '', '?request=cr-1')
-    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
-    expect(within(await screen.findByTestId('country-knowledge-drafts')).getByText('OIB 2019')).toBeInTheDocument()
-    // The base corpus links a file to its request with ?request=: it opens without a click.
+    render(
+      <PlatformAccessProvider permissions={[PLATFORM_PERMISSIONS.settingsView]}>
+        <CountryKnowledge />
+      </PlatformAccessProvider>,
+    )
     expect(await screen.findByTestId('change-request-panel')).toBeInTheDocument()
-    window.history.replaceState(null, '', window.location.pathname)
+  })
+
+  test('a country page starts on its overview with the next step, and each section says what to do when empty', async () => {
+    serve()
+    window.history.replaceState(null, '', '/')
+    const user = userEvent.setup()
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
+    expect(await screen.findByTestId('country-next-step')).toHaveTextContent('A change request waits for your review')
+    await user.click(screen.getByRole('button', { name: 'Review' }))
+    expect(await screen.findByTestId('country-review-waiting')).toHaveTextContent('MA 37')
+    await user.click(screen.getByRole('tab', { name: 'Works and editions' }))
+    expect(await screen.findByText('No texts yet')).toBeInTheDocument()
+    expect(screen.getByText('No draft is open. Your assistant opens one when it proposes records.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Sources' }))
+    expect(await screen.findByText('No source yet')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Rules' }))
+    expect(await screen.findByText('No rules yet')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Quality' }))
+    expect(await screen.findByText('No test questions yet')).toBeInTheDocument()
+  })
+
+  test('lists a country’s texts by work and edition, and a draft to attach one in', async () => {
+    serve()
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    const text = (corpusFile: string, released: boolean) => ({
+      corpusFile,
+      countryId: 'AT',
+      recordId: `manifestation:${corpusFile}`,
+      editionId: 'edition:rl-1-2019',
+      editionLabel: '2019',
+      workTitle: 'Mechanische Festigkeit',
+      released,
+      changeRequestId: released ? null : 'cr-draft',
+      changeRequestTitle: released ? null : 'Texts 2019',
+      changeRequestStatus: released ? null : 'draft',
+    })
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/api/platform/knowledge/texts?countryId=AT') return Response.json({ texts: [text('a.pdf', true), text('b.pdf', false)], nextCursor: null })
+      if (url.startsWith('/api/platform/knowledge/change-requests?countryId=AT')) {
+        return Response.json({ changeRequests: [{ ...OVERVIEW.queue[0], id: 'cr-draft', title: 'Texts 2019', status: 'draft' }], nextCursor: null })
+      }
+      return routed(url, init)
+    })
+    window.history.replaceState(null, '', '?section=works')
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))
+    const works = await screen.findByTestId('country-works')
+    expect(within(works).getAllByText('Mechanische Festigkeit')).toHaveLength(1)
+    expect(within(works).getByText('Published')).toBeInTheDocument()
+    expect(within(works).getByRole('button', { name: 'Draft' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('country-works-drafts')).getByRole('button', { name: 'Attach a text' })).toBeInTheDocument()
   })
 
   test('says the caller has no access when the routes answer 403', async () => {
@@ -316,6 +284,7 @@ describe('CountryKnowledge', () => {
     await user.click(within(uploaded).getByRole('button', { name: 'Checked against the source, all correct' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
     first.unmount()
+    window.history.replaceState(null, '', '?section=review')
 
     // A text fetched through a source its own request proposed is held the same way (migration 0224).
     fetchMock.mockClear()
@@ -327,6 +296,7 @@ describe('CountryKnowledge', () => {
     await user.click(within(unreviewed).getByRole('button', { name: 'Checked against the source, all correct' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/platform/knowledge/change-requests/cr-1/review', sent(true)))
     second.unmount()
+    window.history.replaceState(null, '', '?section=review')
 
     // Positive control: a text the product fetched from a configured source asks for no such check.
     fetchMock.mockClear()

@@ -502,7 +502,7 @@ export const createMessagesSlice: StateCreator<
       }
       if (prompt) effects.push(() => void get()._appendMessage(prompt))
       const answerId = view.messageId
-      if (answerId) for (const stages of stageWrites) effects.push(() => void get()._persistStageOutput(answerId, stages))
+      if (answerId) for (const stages of stageWrites) effects.push(() => void get()._persistStageOutput(conversation.id, answerId, stages))
     }
     const current = state.currentConversation ? conversations.get(state.currentConversation.id) ?? null : null
     const update = () =>

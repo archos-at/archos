@@ -575,6 +575,48 @@
             ],
             "additionalProperties": false
           }
+        },
+        "sources": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "revisionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "config": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "key",
+              "revisionId",
+              "country",
+              "config"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sourcesDropped": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
         }
       },
       "required": [

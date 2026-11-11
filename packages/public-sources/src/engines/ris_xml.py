@@ -22,6 +22,7 @@ from typing import Any
 
 from public_sources.engines.base import Engine
 from public_sources.engines.base import EngineConfig
+from public_sources.engines.base import EngineError
 from public_sources.engines.base import ParsedDocument
 from public_sources.engines.base import Passage
 
@@ -36,8 +37,11 @@ class RisXmlConfig(EngineConfig):
     host_rewrites: tuple[tuple[str, str], ...] = ()
 
 
-class RisError(Exception):
-    """Raised for OGD-RIS API errors (validation errors, bad pages, HTTP failures)."""
+class RisError(EngineError):
+    """Raised for OGD-RIS API errors (validation errors, bad pages, HTTP failures).
+
+    An :class:`EngineError`, so a reader that knows no format catches it as one.
+    """
 
 
 @dataclass
@@ -137,6 +141,9 @@ def _as_text(value: Any) -> str:
 #: The label of ``Ausserkrafttretensdatum``: the last day a version is in force, inclusive (OGD-RIS).
 #: Readers that decide whether a version holds on a day key on this name, never on a copy of the string.
 IN_FORCE_UNTIL = "In Kraft bis"
+IN_FORCE_FROM = "In Kraft seit"
+#: The label of the territory a Land-law hit belongs to.
+TERRITORY_FIELD = "Bundesland"
 
 # Metadata fields worth surfacing to the agent, in display order.
 _METADATA_FIELDS = (
@@ -144,12 +151,12 @@ _METADATA_FIELDS = (
     ("ArtikelParagraphAnlage", "Paragraph/Artikel"),
     ("Gesetzesnummer", "Gesetzesnummer"),
     ("Kundmachungsorgan", "Kundmachungsorgan"),
-    ("Inkrafttretensdatum", "In Kraft seit"),
+    ("Inkrafttretensdatum", IN_FORCE_FROM),
     ("Ausserkrafttretensdatum", IN_FORCE_UNTIL),
     ("Geschaeftszahl", "Geschäftszahl"),
     ("Entscheidungsdatum", "Entscheidungsdatum"),
     ("Gericht", "Gericht"),
-    ("Bundesland", "Bundesland"),
+    ("Bundesland", TERRITORY_FIELD),
     ("Bgblnummer", "BGBl-Nummer"),
 )
 
@@ -323,6 +330,9 @@ class RisXml(Engine):
 
     name = "ris_xml"
     config_model = RisXmlConfig
+    in_force_from = IN_FORCE_FROM
+    in_force_until = IN_FORCE_UNTIL
+    territory_field = TERRITORY_FIELD
 
     def public_host(self, url: str) -> str:
         return public_host(url, self.config.host_rewrites)

@@ -561,11 +561,20 @@ describe('_appendMessage conversation ensure', () => {
     await useChatStore.getState()._appendMessage(message('m1'))
 
     expect(mockConversationsClient.list).not.toHaveBeenCalled()
-    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Direct chat', 'p1', null)
+    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Direct chat', 'p1', null, undefined)
     expect(mockConversationsClient.createMessage).toHaveBeenCalledWith(
       conv.id,
       expect.objectContaining({ id: 'm1' })
     )
+  })
+
+  it('creates a chat switched to temporary before its first message as temporary (ADR-0180)', async () => {
+    const conv = makeConversation({ title: 'Vertraulich', projectId: 'p1', temporary: true })
+    useChatStore.setState({ conversations: [conv], currentConversation: conv })
+
+    await useChatStore.getState()._appendMessage(message('m1'))
+
+    expect(mockConversationsClient.create).toHaveBeenCalledWith(conv.id, 'Vertraulich', 'p1', null, true)
   })
 
   it('retries the create on the next append when it failed', async () => {

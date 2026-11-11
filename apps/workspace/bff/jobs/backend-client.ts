@@ -99,6 +99,8 @@ export interface JobSubmitPayload {
   project_memory: string | null
   /** The organization's memory-reflection flag, evaluated here like the WS handshake does. */
   memory_reflection_enabled: boolean
+  /** The run's conversation is temporary (ADR-0180): the worker reflects nothing from its report. Sent only when true. */
+  temporary_conversation?: boolean
   organization_id: string
   user_id: string | null
   project_id: string | null

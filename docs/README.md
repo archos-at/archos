@@ -16,7 +16,9 @@ code, grouped by the question you arrived with. See the
    the system is, how the pieces fit, and what lives where in the checkout (§12).
 3. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for setup, branching, the merge gate.
 4. [`contributing/testing-and-verification.md`](contributing/testing-and-verification.md)
-   for `task verify` and the traps behind it.
+   for `task verify` and the traps behind it, and
+   [`contributing/local-stack.md`](contributing/local-stack.md) to run the whole
+   app on your machine, signed in, with one command (`task local:up`).
 5. [`contributing/code-conventions.md`](contributing/code-conventions.md) for
    house rules that already cost somebody an afternoon, and
    [`adr/README.md`](adr/README.md) for the decisions and why they went that way.

@@ -51,6 +51,8 @@ import { inboundMail } from './inbound-mail'
 import { mailThread } from './mail-thread'
 import { search } from './search'
 import { whatsNew } from './whats-new'
+import { personalMemory } from './personal-memory'
+import { memoryNotes } from './memory-notes'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -99,4 +101,6 @@ export const de: Dictionary = {
   mailThread,
   search,
   whatsNew,
+  personalMemory,
+  memoryNotes,
 }
