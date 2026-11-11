@@ -107,6 +107,24 @@ export const procedureContextSchema = z
   })
   .strict()
 
+/** Most sources a turn carries, and the longest configuration of one (`context/sources.ts`). */
+export const MAX_CONTEXT_SOURCES = 8
+export const MAX_SOURCE_CONFIG_CHARS = 64_000
+
+/**
+ * A released public source a law lookup may read for this turn (country-as-data plan, step 4): its
+ * record key, the revision read, its country, and its configuration without fixtures, in the shape
+ * `public_sources.source.Source` reads. Which source answers is its country, never a table in code.
+ */
+export const contextSourceSchema = z
+  .object({
+    key: z.string().min(1).max(80),
+    revisionId: z.string().min(1).max(80),
+    country: z.string().regex(/^[A-Z]{2}$/),
+    config: z.record(z.string(), z.unknown()),
+  })
+  .strict()
+
 export const knowledgeContextSchema = z
   .object({
     gate: gateSchema,
@@ -145,6 +163,11 @@ export const knowledgeContextSchema = z
       )
       .max(MAX_CONTEXT_USES)
       .optional(),
+    /**
+     * The released sources with a law lookup of the countries the turn reads
+     * (`retrieval.countries`). Absent where the turn reads no country's law.
+     */
+    sources: z.array(contextSourceSchema).max(MAX_CONTEXT_SOURCES).optional(),
   })
   .strict()
 
@@ -153,4 +176,5 @@ export type Gate = z.infer<typeof gateSchema>
 export type ContextUse = z.infer<typeof contextUseSchema>
 export type ProcedureContext = z.infer<typeof procedureContextSchema>
 export type KnowledgeContext = z.infer<typeof knowledgeContextSchema>
+export type ContextSource = z.infer<typeof contextSourceSchema>
 export type UseLabel = (typeof USE_LABELS)[number]

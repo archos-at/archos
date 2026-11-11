@@ -208,6 +208,12 @@ export const sourceRecordFields = {
     .optional()
     .describe('For a keyed source: where its key goes. The key itself is set with platform-knowledge-source-credential-set, never here.'),
   fixtures: z.array(sourceFixtureSchema).min(1).max(10).describe('Recorded exchanges that prove the record with no live call.'),
+  lookup: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      'How a law lookup reads this source, in snake case (see public_sources.lookup): the language, the locus grammar of its texts, the collections its search offers, the territory filter and the wording. Without it, no lookup reads the source.',
+    ),
 }
 
 export type SourceRecordValues = z.infer<z.ZodObject<typeof sourceRecordFields>>
@@ -235,6 +241,7 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
     ...(record.credential ? { credential: record.credential } : {}),
     access: record.access,
     engine: record.engine,
+    ...(record.lookup ? { lookup: record.lookup } : {}),
     fixtures: record.fixtures.map((fixture) => ({
       name: fixture.name,
       operation: fixture.operation,

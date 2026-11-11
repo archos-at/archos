@@ -60,3 +60,27 @@ def test_a_collection_id_used_twice_is_refused():
 
     with pytest.raises(ValueError, match="repeat"):
         Lookup.model_validate(raw)
+
+
+def test_a_released_record_is_read_without_the_fixtures_that_proved_it():
+    from public_sources.source import parse_released_source
+
+    raw = _ris_raw()
+    raw.pop("fixtures")
+
+    assert parse_released_source(raw).lookup == get_source("at-ris").lookup
+    with pytest.raises(SourceError, match="fixture"):
+        parse_source(raw)
+
+
+def test_a_released_record_is_still_checked_and_a_licensed_one_refused():
+    from public_sources.source import parse_released_source
+
+    raw = _ris_raw()
+    raw.pop("fixtures")
+    with pytest.raises(SourceError, match="licensed"):
+        parse_released_source({**raw, "terms": {**raw["terms"], "licence": "licensed"}})
+    with pytest.raises(SourceError, match="no_such_table"):
+        parse_released_source(
+            {**raw, "lookup": {**raw["lookup"], "territory": {**raw["lookup"]["territory"], "table": "no_such_table"}}}
+        )

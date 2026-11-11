@@ -134,8 +134,9 @@ class Lookup(_Strict):
 
     #: BCP 47 language of the source's texts (``de``).
     language: str = Field(min_length=2, max_length=12)
-    #: The access type's operations the lookup uses: a search and a document by its reference.
-    search: str = "search"
+    #: The access type's operations the lookup uses: a search (empty for a source that offers none, whose
+    #: documents the record lists) and a document by its reference.
+    search: str = ""
     document: str = "document"
     locus: Locus
     collections: tuple[Collection, ...] = Field(min_length=1)

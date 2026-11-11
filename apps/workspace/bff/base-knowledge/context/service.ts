@@ -38,6 +38,7 @@ import { countryOf, resolveKnowledgeContext, type SiteLeaf } from './resolve'
 import { lastAnswerPackSeqs, packsUpdatedSince } from './last-answer'
 import { rememberTurnContext } from './turn-snapshot'
 import { siteLeaves } from './site'
+import { lookupSourcesFor } from './sources'
 import type { KnowledgeContext, ProcedureContext } from './wire'
 
 /** How long a resolved context is reused: the digest changes with every input that decides it, so this only bounds the cache's size. */
@@ -149,7 +150,7 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
   const readsGraph = Boolean(inputs.homeCountry && first && country && inputs.entitled.includes(country))
   const loaded = readsGraph && first ? await time('knowledge-graph', () => loadGraph(organizationId, first.territoryId)) : null
   const graph = loaded?.graph ?? (readsGraph ? null : { territories: new Map(), works: new Map(), editions: new Map(), relations: [] })
-  return resolveKnowledgeContext({
+  const context = resolveKnowledgeContext({
     homeCountry: inputs.homeCountry,
     entitled: new Set(inputs.entitled),
     sites: inputs.sites,
@@ -161,6 +162,9 @@ async function resolveFor(organizationId: string, inputs: ContextDigestInputs, t
     packSeqs: inputs.packSeqs,
     building: inputs.buildings ?? null,
   })
+  // The sources a lookup may read follow what the turn may read: none where it reads no country's law.
+  const sources = await time('knowledge-sources', () => lookupSourcesFor(context.retrieval.countries))
+  return sources.length > 0 ? { ...context, sources } : context
 }
 
 /** The cached resolution for an office and project; throws what a read throws. */

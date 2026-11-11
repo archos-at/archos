@@ -38,6 +38,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import PrivateAttr
+from pydantic import ValidationInfo
 from pydantic import field_validator
 from pydantic import model_validator
 
@@ -64,6 +65,10 @@ def url_on_hosts(url: str, hosts: tuple[str, ...] | list[str]) -> bool:
     except ValueError:  # a port that is not a number
         return False
     return parsed.scheme == "https" and (parsed.hostname or "") in hosts and not parsed.username and port in (None, 443)
+
+
+#: The validation context of a released record read without its fixtures (:func:`parse_released_source`).
+_RELEASED = "released"
 
 
 class SourceError(ValueError):
@@ -278,8 +283,8 @@ class Source(_Strict):
 
     @field_validator("fixtures")
     @classmethod
-    def _has_fixtures(cls, value: tuple[Fixture, ...]) -> tuple[Fixture, ...]:
-        if not value:
+    def _has_fixtures(cls, value: tuple[Fixture, ...], info: ValidationInfo) -> tuple[Fixture, ...]:
+        if not value and not (info.context or {}).get(_RELEASED):
             raise ValueError("a source is used only once a recorded fixture proves it: add at least one")
         return value
 
@@ -303,7 +308,7 @@ class Source(_Strict):
             return
         operations = getattr(config, "operations", None)
         if operations is not None:
-            missing = [op for op in (self.lookup.search, self.lookup.document) if op not in operations]
+            missing = [op for op in (self.lookup.search, self.lookup.document) if op and op not in operations]
             if missing:
                 raise ValueError(f"lookup names operations the access configuration lacks: {missing}")
         tables = getattr(config, "tables", None)
@@ -375,6 +380,22 @@ def parse_inline_source(raw: dict[str, Any]) -> Source:
         repository = {}
     if source.id in repository:
         raise SourceError(f"source id {source.id!r} is a repository record; a configured source takes another id")
+    return source
+
+
+def parse_released_source(raw: dict[str, Any]) -> Source:
+    """A released source record as a turn carries it: its fixtures proved it before release and are left out.
+
+    The BFF sends only records whose head revision is released (``context/sources.ts``); everything else a
+    record must be (its protocol, format, hosts, terms, lookup) is checked as for any record, and a licensed
+    source is refused as :func:`parse_inline_source` refuses it.
+    """
+    try:
+        source = Source.model_validate({**raw, "fixtures": raw.get("fixtures") or ()}, context={_RELEASED: True})
+    except Exception as exc:
+        raise SourceError(f"source {raw.get('id', '?')!r} is invalid: {exc}") from exc
+    if source.terms.licence == "licensed":
+        raise SourceError(f"source {source.id!r} is licensed: its text may not be read by a configured record")
     return source
 
 

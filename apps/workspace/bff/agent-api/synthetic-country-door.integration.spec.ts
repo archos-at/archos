@@ -93,6 +93,13 @@ const sourceRecord = (captureId: string, overrides: Record<string, unknown> = {}
     },
   ],
   citations: [{ captureId, quote: 'the gazette is published under an open licence' }],
+  // How a law lookup reads the gazette: Xanadu's own words, as data (country-as-data plan, step 4).
+  lookup: {
+    language: 'en',
+    locus: { units: [{ sign: '§', forms: ['§'], repeatable: true, word: false }], subsection: ['para'], conjunctions: ['and'], range_words: ['to'] },
+    collections: [{ id: 'code', kind: 'statute' }],
+    wording: { source: 'Gazette', subdivision: 'province' },
+  },
   ...overrides,
 })
 
@@ -327,6 +334,18 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     await ok(expert, 'platform-knowledge-publish', { params: { changeRequestId: requestId }, body: { channel: 'preview' } }, { person: 'yes' })
     const stable = await ok(expert, 'platform-knowledge-publish', { params: { changeRequestId: requestId }, body: { channel: 'stable' } }, { person: 'yes' })
     expect(stable.moved).toBe(3)
+  })
+
+  it('gives a turn in the country its published source to look law up in, with no code naming it', async () => {
+    const { lookupSourcesFor } = await import('@/lib/base-knowledge/context/sources')
+
+    const sources = await lookupSourcesFor([COUNTRY])
+
+    const gazette = sources.find((source) => source.key === SOURCE)
+    expect(gazette).toMatchObject({ country: COUNTRY, config: { id: SOURCE, territory: COUNTRY, lookup: { language: 'en' } } })
+    // The fixtures proved it before release; a turn carries what a lookup reads.
+    expect(gazette?.config).not.toHaveProperty('fixtures')
+    expect(await lookupSourcesFor(['XB'])).toEqual([])
   })
 
   it('reads the published source’s state, and takes its key only on the person’s yes, never giving it back', async () => {
