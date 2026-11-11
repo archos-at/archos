@@ -124,8 +124,11 @@ export function keyPart(text: string, max = 60): string {
 
 /** Whether `text` prints `needle` as whole words: "2019" is not in "12019". Both normalized for the quote check. */
 function printsWords(text: string, needle: string): boolean {
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(text)
+  const wordChar = /[\p{L}\p{N}]/u
+  for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
+    if (!wordChar.test(text.charAt(at - 1)) && !wordChar.test(text.charAt(at + needle.length))) return true
+  }
+  return false
 }
 
 /**
