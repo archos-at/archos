@@ -31,21 +31,28 @@ export const SHIPPED_SETUP_RECORDS: readonly StoredRuleset[] = [
   shipped('at-setup-fact-sources', factSources),
 ]
 
-/** The countries a record is for: `AT` for `AT`, `AT-9` and `AT:gkz:90001`. */
-const countriesOf = ({ values }: StoredRuleset) => new Set(values.territoryIds.map((id) => id.slice(0, 2)))
+const inForce = ({ values }: StoredRuleset, on: string) => values.validFrom <= on && (values.validTo === null || on < values.validTo)
+
+/** A released record for the seed's own node and purpose: the one the selection would find beside it. */
+const sameNode = (record: StoredRuleset, seed: StoredRuleset) =>
+  record.values.purpose === seed.values.purpose && record.values.territoryIds.some((id) => seed.values.territoryIds.includes(id))
 
 /**
- * The released records, and a shipped record for each country and purpose no
- * released record covers. Pure.
+ * The released records, and each shipped record whose node and purpose no
+ * released record holds on `on` (a released `AT-9` record leaves the `AT` seed
+ * in place; a record released for a later day ends the seed that day). Pure.
  */
 export function withShippedFallback(
   released: readonly StoredRuleset[],
+  on: string = new Date().toISOString().slice(0, 10),
   seeds: readonly StoredRuleset[] = SHIPPED_SETUP_RECORDS
 ): StoredRuleset[] {
   // Fallback to the compiled seed until Austria is on stable on prod; deleted by #1630.
-  const covered = (seed: StoredRuleset) =>
-    released.some(
-      (record) => record.values.purpose === seed.values.purpose && [...countriesOf(seed)].some((country) => countriesOf(record).has(country))
-    )
-  return [...released, ...seeds.filter((seed) => !covered(seed))]
+  const kept = seeds.flatMap((seed) => {
+    const same = released.filter((record) => sameNode(record, seed))
+    if (same.some((record) => inForce(record, on))) return []
+    const next = same.map((record) => record.values.validFrom).filter((from) => from > on).sort()[0]
+    return [next ? { ...seed, values: { ...seed.values, validTo: next } } : seed]
+  })
+  return [...released, ...kept]
 }

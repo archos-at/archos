@@ -82,8 +82,10 @@ predicate (`project-intake/setup-records.ts`, `readSetupRecords`: the released
 `fact_definitions`, `fact_sources` and `classification` rulesets of the
 countries the office is entitled to, and its own). Austria's three records are
 also compiled into the build as seeds (`rulesets/shipped.ts`): a seed answers
-for a country and purpose with no released record (`withShippedFallback`), so
-an office reads exactly what it read before until its country is published
+for its node and purpose while no released record of that node and purpose is
+in force (`withShippedFallback`; a record released for a later day ends the seed
+that day, and one for a Land leaves the country's seed in place), so an office
+reads exactly what it read before until its country is published
 (the rollover rule, `docs/design/international/rollover-to-prod.md`). The seeds
 equal the pack (`setup-records.spec.ts`), and #1630 deletes them once Austria
 is on stable on prod. Austria's are the change request
