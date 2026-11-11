@@ -41,6 +41,7 @@ vi.mock('@/shared/context', () => ({
 const mockUploadFiles = vi.fn()
 const mockDeleteFile = vi.fn()
 const mockClearError = vi.fn()
+const mockDismissFiles = vi.fn()
 
 vi.mock('@/features/documents', () => ({
   UploadAnywayButton: () => null,
@@ -202,6 +203,48 @@ describe('FileSourcesTab', () => {
     await user.click(screen.getByRole('button', { name: /confirm delete/i }))
 
     expect(mockDeleteFile).toHaveBeenCalledWith('file-1')
+  })
+
+  test('a cancelled upload is dismissed from the list, never sent through the delete', async () => {
+    vi.mocked(useFileUpload).mockReturnValue({
+      uploadFiles: mockUploadFiles,
+      deleteFile: mockDeleteFile,
+      dismissFiles: mockDismissFiles,
+      sessionFiles: [{ id: 'file-1', fileName: 'a.pdf', status: 'canceled', collectionName: 'session-1' }],
+      isUploading: false,
+      error: null,
+      clearError: mockClearError,
+    } as unknown as ReturnType<typeof useFileUpload>)
+    render(<FileSourcesTab />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(mockDismissFiles).toHaveBeenCalledWith(['file-1'])
+    expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument()
+    expect(mockDeleteFile).not.toHaveBeenCalled()
+  })
+
+  test('a cancelled project upload can be dismissed too, though project files are not deleted here', async () => {
+    mockProjectId = 'project-1'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ collectionName: 'proj_1' }) })
+    )
+    vi.mocked(useFileUpload).mockReturnValue({
+      uploadFiles: mockUploadFiles,
+      deleteFile: mockDeleteFile,
+      dismissFiles: mockDismissFiles,
+      sessionFiles: [{ id: 'file-1', fileName: 'a.pdf', status: 'canceled', collectionName: 'proj_1' }],
+      isUploading: false,
+      error: null,
+      clearError: mockClearError,
+    } as unknown as ReturnType<typeof useFileUpload>)
+    render(<FileSourcesTab />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+
+    expect(mockDismissFiles).toHaveBeenCalledWith(['file-1'])
+    vi.unstubAllGlobals()
   })
 
   test('renders empty state when no files', () => {
