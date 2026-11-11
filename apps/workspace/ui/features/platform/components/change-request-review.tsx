@@ -14,7 +14,7 @@
  * and the last two change what offices read.
  */
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Check, ExternalLink, X } from 'lucide-react'
@@ -31,6 +31,7 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { MIN_OVERRIDE_REASON } from '@/lib/base-knowledge/platform/wire'
 import type { ApprovalRole, ChangeRequestStatus } from '@/lib/base-knowledge/wire/vocab'
 import { ApprovalBadges } from './approval-badges'
+import { ManifestationText } from './change-request-text'
 import { SectionCard } from '@/features/platform/components/section-card'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
@@ -115,6 +116,8 @@ interface RecordProps {
   busy: boolean
   /** `sourceChecked`: the reviewer compared a pasted (operator-supplied) page with its source. */
   onDecide: (claims: { path: string; decision: Verdict }[], sourceChecked?: boolean) => void
+  /** A manifestation's text, shown beside its sources (`ManifestationText`). */
+  children?: ReactNode
 }
 
 /** One citation as the reviewer checks it: the page, the quote taken from it, and whether nobody fetched it. */
@@ -137,7 +140,7 @@ function Source({ citation, capture }: { citation: RevisionView['citations'][num
   )
 }
 
-function RecordCard({ revision, captures, canDecide, busy, onDecide }: RecordProps): JSX.Element {
+function RecordCard({ revision, captures, canDecide, busy, onDecide, children }: RecordProps): JSX.Element {
   const t = useTranslations(platformCopy)
   const { locale } = useLocale()
   const wording = useMemo(() => wordingFor(t, locale), [t, locale])
@@ -176,6 +179,7 @@ function RecordCard({ revision, captures, canDecide, busy, onDecide }: RecordPro
         <p className="text-muted-foreground text-sm">{t('countryKnowledge.noSource')}</p>
       )}
       {pasted && canDecide ? <p className="text-muted-foreground text-sm">{t('countryKnowledge.pastedHint')}</p> : null}
+      {children}
       <dl className="flex flex-col">
         {claims.map((claim) => (
           <div
@@ -237,6 +241,7 @@ export function ChangeRequestReview({
   const [reason, setReason] = useState('')
   const { user } = useAuth()
   const canApproveAlone = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAlone)
+  const canWrite = usePlatformCan(PLATFORM_PERMISSIONS.knowledgeWrite)
   // Each second review is given in a role approved alone that the reviewer holds (ADR-0176).
   const holds: Record<ApprovalRole, boolean> = {
     domain_expert: usePlatformCan(PLATFORM_PERMISSIONS.knowledgeApproveAsDomainExpert),
@@ -304,6 +309,7 @@ export function ChangeRequestReview({
       null,
     )
   const captures = new Map((view.captures ?? []).map((capture) => [capture.captureId, capture]))
+  const texts = new Map((view.texts ?? []).map((text) => [text.recordId, text]))
 
   const steps = (['check', 'approve', 'preview', 'stable'] as const).map((key) => ({
     key,
@@ -403,7 +409,18 @@ export function ChangeRequestReview({
             canDecide={canDecide}
             busy={busy}
             onDecide={decide(revision.revisionId)}
-          />
+          >
+            {revision.type === 'manifestation' ? (
+              <ManifestationText
+                requestId={view.id}
+                countryId={view.countryId}
+                recordId={revision.recordId}
+                text={texts.get(revision.recordId)}
+                canAttach={canWrite && view.status === 'draft'}
+                onAttached={() => void load()}
+              />
+            ) : null}
+          </RecordCard>
         ))}
       </div>
 

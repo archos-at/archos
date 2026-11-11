@@ -117,3 +117,97 @@ Migration `apps/workspace/migrations/0205_platform_base_knowledge.sql`; code
 `apps/workspace/bff/base-knowledge/platform/`; operations
 `apps/workspace/bff/agent-api/catalog/platform-knowledge.ts`; the view
 `/app/platform/countries`.
+
+## Amendment (2026-11-11): texts are attached in the request
+
+**The problem.** A country's knowledge had two homes. The records lived in a
+change request; the file a manifestation names (`corpusFile`) was uploaded on
+another screen, into a store that showed no country. Four things went wrong for
+a person:
+
+1. An OIB guideline, which is Austrian law, looked like part of a shared pile.
+2. A request could be reviewed, approved and published before its file was
+   uploaded. Its indexing run then failed with "upload it, then publish again",
+   and a published request cannot be published again.
+3. A reviewer never saw the text the edition points to.
+4. An agent could only send the file as base64 inside a tool call, which fails
+   for a real PDF of one to four megabytes.
+
+**What a person does now.** In the draft, on the manifestation, they attach its
+text: they upload the PDF, or name a URL on a configured public source. The
+reviewer opens that text on the request, beside the edition and the cited
+capture. Publishing indexes it under the request's country. The base corpus
+page groups its files by country and names, per file, the edition and the
+change request; a file no record names is in a group that says so.
+
+**The decision.** The storage and the country filter stay as they are, and no
+table is added. Three rules do the work:
+
+- **Attach stores the file and names it in one step.** `text-import` and
+  `text-upload` put the bytes in the base corpus (where they are ingested for
+  no country, `ZZ`, ADR-0173) and append a revision of the manifestation whose
+  `corpusFile` is that file, with its `sha256`. Where the file came from
+  (upload or URL, the source, who, when) is kept on that revision's
+  `provenance.text`. The publish already marks and re-ingests the file under
+  the record's country; nothing changes there.
+- **A record never names a file the corpus does not hold.** The kit refuses it
+  (KC-1 at `/corpusFile`) on propose, validate and submit. The corpus is the
+  api tier's, so the BFF asks before the kit's transaction, as for KC-7, and an
+  unanswered question is a problem, never a pass. This is what removes the
+  ordering trap: no request reaches a reviewer before its text is there.
+- **A file is one record's text.** A name another record uses, released or on
+  its way, is not replaced under it (`NAME_TAKEN`) and not removed (409 on the
+  corpus's delete). So a file that was there at submit is there at publish.
+
+A URL is fetched and read by the public-source fetcher, never in the api pod or
+here (ADR-0162, #1592): the BFF calls `POST /v1/public-sources/corpus-text`,
+which runs the capture's guarded fetch and PDF read and hands the bytes to the
+corpus store. A body that is no PDF, or one the fetcher cannot open, is refused
+before anything is kept.
+
+**Considered and rejected.**
+
+- *A table of attachments per change request.* It would hold what the
+  manifestation revision already says (the file and its hash) and a second
+  place to keep in step with it. The revision's provenance carries the origin.
+- *A second store per country, or files held by the request until publish.*
+  The corpus store, its per-chunk country mark and the read filter are sound;
+  a second store would be a second ingest path and a move at publish.
+- *Checking the file only at publish.* By then four eyes were spent on a
+  request that cannot be released; the check belongs before the first write.
+
+**Operations.** `platform-knowledge-text-import` (a URL),
+`platform-knowledge-text-upload` (multipart) and `platform-knowledge-text-list`
+(where each file belongs), all on the platform door. `platform-knowledge-document-upload`
+stays for the corpus itself, and says that no country reads what it adds.
+
+**Deleted.** The advice "upload it, then publish again", and with it the state
+in which a published request had no text. Nothing else is removed: the plain
+corpus upload stays, because the corpus is also maintained as files (re-ingest,
+Dokumentart, removal).
+
+**Ready for another country.** Nothing here names Austria. A German or EU text
+is attached in a request of that country and indexed under it; a source for
+its publisher is a `source` record of the same request, usable there for 24
+hours before it is released (ADR-0174).
+
+**Known limits.**
+
+- The corpus is keyed by file name across all countries. `NAME_TAKEN` keeps two
+  records from sharing a name; it does not give a country its own namespace.
+- A file uploaded and published within minutes can still be indexed by the job
+  its upload queued, which carries no country (`oib_sync.mark_for_reingest`
+  leaves a waiting job alone). A re-ingest from the corpus page repairs it. The
+  cure is for the publish to wait for, or replace, that job.
+- The corpus page reads a file's country from the records. The country a
+  legacy file was marked with at the cut-over (`AT`, with no record naming it)
+  is not shown: such a file is listed as named by no record.
+
+**Confirmation.** `bff/base-knowledge/platform/text-checks.spec.ts` (the kit,
+without a database) and `texts.integration.spec.ts` under `task db:test:rls`
+(a file nobody uploaded is never written; an attached text is published with
+an indexing run the corpus accepts, marked with the request's country; a URL
+goes to `corpus-text` and nowhere else; a name is one record's; the corpus
+page's read). `apps/agent-host/tests/test_public_source_capture_route.py` (the
+bytes and their read both come from the fetcher, and without a fetcher nothing
+is fetched, parsed or kept).

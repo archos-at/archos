@@ -90,7 +90,7 @@ export async function runPlatformTextIndex(
     const mark = await corpusMarkOf(run.revisionId)
     const result = await reingestKnowledgeBaseDocuments([run.corpusFile], mark ? { [run.corpusFile]: mark } : {})
     if (result.unknown.includes(run.corpusFile) || !result.queued.includes(run.corpusFile)) {
-      await markRun(run.id, 'failed', `the base corpus has no file ${run.corpusFile}; upload it, then publish again`)
+      await markRun(run.id, 'failed', `the base corpus no longer holds ${run.corpusFile}; attach the text again in a new change request for this manifestation`)
       return
     }
     await markRun(run.id, 'queued', null)

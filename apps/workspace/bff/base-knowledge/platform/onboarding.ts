@@ -19,7 +19,7 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import { CAPTURE_REFUSAL_CODES, CaptureFetchError, type ConfiguredSource, fetchSourcePage } from './capture-fetch'
-import { sourceChecksOf } from './source-checks'
+import { checksOutsideKit } from './text-checks'
 import { activeSource, revealedCredential, type RegisteredSource, usableSource } from './sources'
 import { capturesOf, citedCaptureIds, insertCapture, sha256Of } from './captures'
 import { referencesOf } from './records'
@@ -48,8 +48,8 @@ import {
 } from './wire'
 
 /**
- * The kit on `records` as they would stand in `request`: KC-1, KC-3, KC-5, KC-6, and KC-7 as
- * `sourceChecks` hands it in (run before the transaction, `source-checks.ts`).
+ * The kit on `records` as they would stand in `request`: KC-1, KC-3, KC-5, KC-6, and what another tier
+ * answers as `sourceChecks` hands it in (KC-7 and the texts' files, run before the transaction, `text-checks.ts`).
  */
 export async function runKit(
   tx: Tx,
@@ -94,10 +94,13 @@ async function storedProposals(tx: Tx, requestId: string): Promise<{ records: Pr
   return { records, unreadable }
 }
 
-/** KC-7 on the source records a request holds, read in a short transaction of its own: what {@link validateRequest} takes. */
+/**
+ * The api tier's checks on the records a request holds (KC-7 on its sources, the base corpus on its texts' files),
+ * read in a short transaction of its own: what {@link validateRequest} takes.
+ */
 export async function requestSourceChecks(requestId: string): Promise<Map<string, Problem[]>> {
   const { records } = await platformTransaction((tx) => storedProposals(tx, requestId))
-  return sourceChecksOf(records)
+  return checksOutsideKit(records)
 }
 
 /** The kit on everything a request holds: what submit runs, and what an agent runs before it. */

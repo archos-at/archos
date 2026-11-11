@@ -18,6 +18,7 @@ import {
   knowledgeRecords,
   knowledgeRevisions,
   type KnowledgeProvenance,
+  type KnowledgeTextProvenance,
 } from '@/lib/db/schema/knowledge-records'
 import {
   knowledgeApprovals,
@@ -38,6 +39,7 @@ import type {
 } from '@/lib/base-knowledge/wire/vocab'
 import { appendRevision, BODY_TABLES, type Tx } from '../store/repository'
 import { captureViews } from './captures'
+import { attachedTexts } from './text-store'
 import { bodyOf, claimsOf, proposalKey, recordIdOf } from './records'
 import type { DatedPlatformEdition, KnownRecord } from './validate'
 import type { ChangeRequestSummary, ChangeRequestView, ProposedRecord, RevisionView, SecondReviewRoleView } from './wire'
@@ -203,7 +205,13 @@ export async function insertProposedRecords(
   tx: Tx,
   request: ChangeRequestRow,
   records: readonly ProposedRecord[],
-  context: { createdBy: string; proposedBy: KnowledgeProvenance['proposedBy']; viaClient?: string },
+  context: {
+    createdBy: string
+    proposedBy: KnowledgeProvenance['proposedBy']
+    viaClient?: string
+    /** The text just attached to the one manifestation proposed here (`./texts.ts`). */
+    text?: KnowledgeTextProvenance
+  },
 ): Promise<ProposedRevision[]> {
   await tx
     .insert(knowledgeRecords)
@@ -222,10 +230,15 @@ export async function insertProposedRecords(
   for (const record of records) {
     const recordId = recordIdOf(record)
     const current = newest.get(recordId)
-    if (current && proposalText(current.provenance.proposal) === proposalText(record)) {
+    // The same proposal again changes nothing, unless other bytes were just attached under the same file name.
+    const sameBytes = !context.text || current?.provenance.text?.sha256 === context.text.sha256
+    if (current && sameBytes && proposalText(current.provenance.proposal) === proposalText(record)) {
       written.push({ key: proposalKey(record), recordId, revisionId: current.revisionId, status: 'unchanged' })
       continue
     }
+    // A re-proposal that still names the attached file keeps where that file came from.
+    const kept = current?.provenance.text
+    const text = context.text ?? (record.type === 'manifestation' && kept && kept.fileName === record.corpusFile ? kept : undefined)
     const revisionId = await appendRevision(
       tx,
       {
@@ -238,10 +251,11 @@ export async function insertProposedRecords(
           citations: record.citations,
           proposal: record as unknown as Record<string, unknown>,
           ...(context.viaClient ? { viaClient: context.viaClient } : {}),
+          ...(text ? { text } : {}),
         },
         changeRequestId: request.id,
       },
-      bodyOf(record),
+      { ...bodyOf(record), ...(text ? { sha256: text.sha256 } : {}) },
     )
     written.push({ key: proposalKey(record), recordId, revisionId, status: 'written' })
   }
@@ -329,8 +343,9 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
   return platformTransaction(async (tx) => {
     const [request] = await tx.select().from(knowledgeChangeRequests).where(eq(knowledgeChangeRequests.id, id))
     if (!request) return null
-    const [revisions, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
+    const [revisions, texts, approvals, releases, captures, secondReviewRolesOf, unchecked] = await Promise.all([
       reviewedRevisions(tx, id),
+      attachedTexts(tx, id),
       tx.select().from(knowledgeApprovals).where(eq(knowledgeApprovals.changeRequestId, id)).orderBy(knowledgeApprovals.decidedAt),
       tx
         .select()
@@ -347,6 +362,7 @@ export async function readChangeRequest(id: string): Promise<ChangeRequestView |
       submittedAt: request.submittedAt?.toISOString() ?? null,
       publishedAt: request.publishedAt?.toISOString() ?? null,
       revisions,
+      texts,
       captures,
       sourcesUnchecked: unchecked[0]?.unchecked === true,
       secondReviewRoles: secondReviewRolesOf,

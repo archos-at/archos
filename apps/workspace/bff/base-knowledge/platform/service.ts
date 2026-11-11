@@ -40,7 +40,7 @@ import { readOverview } from './overview'
 import { audit, auditOfDecision, decideInTransaction, SECOND_REVIEW_STATUSES, type DecisionOutcome } from './decide'
 import { readOrganizationPlacements } from './organization-countries'
 import { requestSourceChecks, runKit, validateRequest } from './onboarding'
-import { sourceChecksOf } from './source-checks'
+import { checksOutsideKit } from './text-checks'
 import { requirePlatform } from './service-gate'
 import { proposalKey as keyOf, recordIdOf } from './records'
 import { DISPUTED_NOT_PUBLISHED, publishChangeRequest, rollbackChangeRequest, type PublishOutcome, type RollbackOutcome } from './release'
@@ -130,8 +130,8 @@ export async function proposePlatformRecords(
   proposedBy: 'person' | 'agent' = 'person',
 ): Promise<ProposalView> {
   const person = await requirePlatform(session, PLATFORM_PERMISSIONS.knowledgeWrite)
-  // KC-7 runs on the api tier, before the request's lock is taken (ADR-0174).
-  const sourceChecks = await sourceChecksOf(body.records)
+  // KC-7 and the texts' files are answered by the api tier, before the request's lock is taken (ADR-0174).
+  const sourceChecks = await checksOutsideKit(body.records)
   return platformTransaction(async (tx) => {
     const request = await lockChangeRequest(tx, requestId)
     if (!request) throw new NotFoundError('No change request with this id; list them first.')

@@ -153,7 +153,7 @@ const manifestationRecord = z.object({
     .regex(/^[^/\\]{1,200}\.pdf$/, 'a PDF file name in the base corpus')
     .nullable()
     .default(null)
-    .describe('The text, as a file uploaded to the base corpus; null for a listing without text.'),
+    .describe('The text’s file in the base corpus; propose null and attach the PDF with platform-knowledge-text-import or -text-upload, which set it.'),
   ...common,
 })
 
@@ -488,6 +488,7 @@ export interface ChangeRequestView extends Omit<ChangeRequestSummary, 'revisionC
   submittedAt: string | null
   publishedAt: string | null
   revisions: RevisionView[]
+  texts: import('./text-wire').AttachedTextView[]
   /** The pages the records cite, as captured (ADR-0170); their text stays on the server. */
   captures: CaptureView[]
   /** A record cites an operator-supplied capture nobody but its author checked against its source: nobody approves until another person does, alone or not. */

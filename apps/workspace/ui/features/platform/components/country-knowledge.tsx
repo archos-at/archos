@@ -38,7 +38,7 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { platformCopy } from '@/i18n/namespaces/platform'
-import type { PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
+import type { ChangeRequestSummary, PlatformKnowledgeOverview } from '@/lib/base-knowledge/platform/wire'
 
 type Load<T> =
   { state: 'loading' } | { state: 'error'; status: number } | { state: 'ready'; value: T }
@@ -58,6 +58,7 @@ export function CountryKnowledge(): JSX.Element {
   const { locale } = useLocale()
   const [overview, setOverview] = useState<Load<PlatformKnowledgeOverview>>({ state: 'loading' })
   const [openId, setOpenId] = useState<string | null>(null)
+  const [drafts, setDrafts] = useState<ChangeRequestSummary[]>([])
 
   const load = useCallback(async () => {
     const response = await fetch(BASE).catch(() => null)
@@ -66,6 +67,16 @@ export function CountryKnowledge(): JSX.Element {
       return
     }
     setOverview({ state: 'ready', value: (await response.json()) as PlatformKnowledgeOverview })
+    // Drafts are where texts are attached; the queue above holds what waits for review.
+    const open = await fetch(`${BASE}/change-requests?status=draft`).catch(() => null)
+    const listed = open?.ok ? ((await open.json().catch(() => null)) as { changeRequests?: ChangeRequestSummary[] } | null) : null
+    setDrafts(Array.isArray(listed?.changeRequests) ? listed.changeRequests : [])
+  }, [])
+
+  // A link from the base corpus opens the request a file belongs to.
+  useEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get('request')
+    if (linked) setOpenId(linked)
   }, [])
 
   useEffect(() => {
@@ -175,6 +186,27 @@ export function CountryKnowledge(): JSX.Element {
           </Table>
         ) : null}
       </SectionCard>
+
+      {drafts.length > 0 ? (
+        <SectionCard title={t('countryKnowledge.draftsTitle')} description={t('countryKnowledge.draftsDescription')}>
+          <Table data-testid="country-knowledge-drafts">
+            <TableBody>
+              {drafts.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell className="font-medium">{request.title}</TableCell>
+                  <TableCell>{countryName(request.countryId, locale)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{request.revisionCount}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" onClick={() => setOpenId(request.id)}>
+                      {t('countryKnowledge.open')}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionCard>
+      ) : null}
 
       <Dialog open={openId !== null} onOpenChange={(open) => (open ? null : setOpenId(null))}>
         <DialogContent

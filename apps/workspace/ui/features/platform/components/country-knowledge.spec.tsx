@@ -88,6 +88,21 @@ describe('CountryKnowledge', () => {
     expect(within(screen.getByTestId('country-knowledge-queue')).getByText('MA 37')).toBeInTheDocument()
   })
 
+  test('lists the drafts, where texts are attached, and opens the one a link names', async () => {
+    serve()
+    const draft = { ...OVERVIEW.queue[0], id: 'cr-draft', title: 'OIB 2019', status: 'draft' }
+    const routed = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === '/api/platform/knowledge/change-requests?status=draft' ? Response.json({ changeRequests: [draft], nextCursor: null }) : routed(url, init),
+    )
+    window.history.replaceState(null, '', '?request=cr-1')
+    render(withPermissions([PLATFORM_PERMISSIONS.settingsView, PLATFORM_PERMISSIONS.knowledgeReview]))
+    expect(within(await screen.findByTestId('country-knowledge-drafts')).getByText('OIB 2019')).toBeInTheDocument()
+    // The base corpus links a file to its request with ?request=: it opens without a click.
+    expect(await screen.findByTestId('change-request-panel')).toBeInTheDocument()
+    window.history.replaceState(null, '', window.location.pathname)
+  })
+
   test('says the caller has no access when the routes answer 403', async () => {
     serve(403)
     render(withPermissions([PLATFORM_PERMISSIONS.settingsView]))

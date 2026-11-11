@@ -6,7 +6,10 @@
  * - KC-1: every record a proposal names exists (in the batch or released or
  *   drafted on the platform) with the type it must have; a record keeps its
  *   type and its country; a territory belongs to the request's country; no
- *   record is proposed twice in one batch.
+ *   record is proposed twice in one batch. A manifestation's `corpusFile` is a
+ *   file the base corpus holds, so a publish never names a text that is not
+ *   there (ADR-0165, "Texts are attached in the request"). The corpus is the
+ *   api tier's, so that answer is handed in like KC-7's (`checkedOutside`).
  * - KC-3: intervals are ordered, and no two editions of one work are in force
  *   on the same day: two in one batch, or a new one beside one already on the
  *   platform (the as-of resolver refuses that as ambiguous, so it is refused
@@ -14,7 +17,7 @@
  * - KC-5: a ruleset's and a transition's own examples hold on the evaluator.
  * - KC-7: a source record parses as its access type and engine read it, and
  *   every recorded fixture passes with no live call (ADR-0174). The api tier
- *   runs it, so its problems are handed in (`sourceChecks`); an api tier that
+ *   runs it, so its problems are handed in (`checkedOutside`); an api tier that
  *   cannot answer is a problem, never a pass.
  * - KC-6: every record cites at least one capture of its change request, and
  *   every quote it gives is found in that capture's stored text, is long
@@ -86,9 +89,21 @@ export interface Problem {
   index?: number
 }
 
-/** A problem of the kit about `record`: for checks that run outside this module (KC-7). */
-export function kitProblem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string): Problem {
-  return problem(code, record, pointer, detail)
+/** A problem of the kit about `record`: for checks that run outside this module (KC-7, a text's file); `hint` when the check's own does not fit. */
+export function kitProblem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string, hint?: string): Problem {
+  return { ...problem(code, record, pointer, detail), ...(hint ? { hint } : {}) }
+}
+
+/** Whether a check that runs outside this module (on the api tier) must have answered for `record`. */
+export function checkedOutsideKit(record: ProposedRecord): boolean {
+  return record.type === 'source' || (record.type === 'manifestation' && record.corpusFile !== null)
+}
+
+/** Unknown fails closed: a record the api tier did not check is a problem, never a pass. */
+function uncheckedProblem(record: ProposedRecord): Problem {
+  return record.type === 'source'
+    ? problem('KC-7', record, '', 'was not checked; run the proposal again.')
+    : problem('KC-1', record, '/corpusFile', 'was not checked against the base corpus; run the proposal again.')
 }
 
 function problem(code: KitCheck, record: ProposedRecord, pointer: string, detail: string): Problem {
@@ -266,7 +281,7 @@ export function validateProposal(
   known: ReadonlyMap<string, KnownRecord>,
   captures: ReadonlyMap<string, KnownCapture>,
   existing: readonly DatedPlatformEdition[] = [],
-  sourceChecks: ReadonlyMap<string, readonly Problem[]> = new Map(),
+  checkedOutside: ReadonlyMap<string, readonly Problem[]> = new Map(),
 ): Problem[] {
   const batch = new Map<string, KnowledgeRecordType>()
   const problems: Problem[][] = records.map(() => [])
@@ -303,10 +318,7 @@ export function validateProposal(
       }
     }
     own.push(...intervalProblems(record), ...exampleProblems(record), ...citationProblems(record, captures))
-    if (record.type === 'source') {
-      // Unknown fails closed: a source the api tier did not check is a problem.
-      own.push(...(sourceChecks.get(recordIdOf(record)) ?? [problem('KC-7', record, '', 'was not checked; run the proposal again.')]))
-    }
+    if (checkedOutsideKit(record)) own.push(...(checkedOutside.get(recordIdOf(record)) ?? [uncheckedProblem(record)]))
   })
   for (const [index, found] of overlapProblems(records, existing)) problems[index]?.push(found)
   return problems.flatMap((own, index) => own.map((found) => ({ ...found, index })))

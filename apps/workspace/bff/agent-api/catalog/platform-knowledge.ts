@@ -8,7 +8,8 @@
  *
  * The flow (ADR-0170 makes it agent-grade): read the onboarding guide and
  * schema-get; change-request-create; citation-capture for each page; then
- * records-propose (dryRun first) and validate; submit; a reviewer's
+ * records-propose (dryRun first), text-import or text-upload for each
+ * manifestation's text, and validate; submit; a reviewer's
  * change-request-review per claim; change-request-decide (the person's yes,
  * never by the author); publish to preview, then stable (the person's yes);
  * rollback (the person's yes). `personDecides` makes the door ask the person,
@@ -34,7 +35,9 @@ import {
   rollbackBodySchema,
   territoryImportBodySchema,
 } from '@/lib/base-knowledge/platform/wire'
+import { importTextBodySchema, listTextsQuerySchema, uploadTextFields } from '@/lib/base-knowledge/platform/text-wire'
 import type { AgentOperation, PersonConfirmation } from '../operation'
+import { MAX_UPLOAD_BYTES, uploadBodySchemaWith } from '../upload-wire'
 
 /** Whether a review's verdicts vouch for a source (`sourceChecked`): the one verdict the person must give themselves. */
 function checksASource(body: unknown): boolean {
@@ -136,6 +139,61 @@ export const platformKnowledgeOperations = [
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/captures/route'),
   },
   {
+    name: 'platform-knowledge-text-import',
+    domain: 'platform',
+    summary: 'Attach a text to a manifestation from a URL',
+    description:
+      'Into a draft change request: the PDF at `url`, on a host of the configured source `sourceId`, becomes the text of ' +
+      'the manifestation `manifestationKey` (proposed before with platform-knowledge-records-propose, corpusFile null). ' +
+      'Fetched and read by the public-source fetcher, kept in the base corpus where nobody reads it until the request is ' +
+      'published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same PDF again ' +
+      'changes nothing. A URL that answers no PDF is refused with NOT_A_PDF, a file name another record uses with NAME_TAKEN ' +
+      '(pass another `fileName`), and a PDF the fetcher cannot read with its PDF code. Then platform-knowledge-validate.',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts',
+    params: requestParams,
+    body: importTextBodySchema,
+    idempotent: true,
+    examples: [
+      {
+        params: { changeRequestId: '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e' },
+        body: { manifestationKey: 'at-oib-rl-1-2019-text', sourceId: 'at-oib', url: 'https://www.oib.or.at/sites/default/files/oib-rl-1-2019.pdf' },
+      },
+    ],
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/route'),
+  },
+  {
+    name: 'platform-knowledge-text-upload',
+    domain: 'platform',
+    summary: 'Attach an uploaded PDF to a manifestation as its text',
+    description:
+      'Into a draft change request, when no configured source serves the PDF; otherwise use platform-knowledge-text-import, ' +
+      `which sends no bytes through the tool call. Send \`body.files[0]\` as { name, mimeType, contentBase64 } (one PDF, up to ${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB) ` +
+      'and `body.fields.manifestationKey`. The file is kept in the base corpus under its name, where nobody reads it until the ' +
+      'request is published, and set as the manifestation’s `corpusFile`. Returns the text with its `sha256`; the same file ' +
+      'again changes nothing. A name another record uses is refused with NAME_TAKEN: rename the file.',
+    method: 'POST',
+    path: '/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload',
+    params: requestParams,
+    body: uploadBodySchemaWith(uploadTextFields),
+    bodyEncoding: 'multipart',
+    idempotent: true,
+    load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload/route'),
+  },
+  {
+    name: 'platform-knowledge-text-list',
+    domain: 'platform',
+    summary: 'List where each base-corpus file belongs: its country, edition and change request',
+    description:
+      'One entry per base-corpus file a platform record names as its text: `countryId`, the manifestation (`recordId`), ' +
+      'its edition and work, the change request that named it and its status, and `released` (the country’s entitled ' +
+      'organizations read it). A file no record names is absent. Sorted by file name; `nextCursor` pages on.',
+    method: 'GET',
+    path: '/api/platform/knowledge/texts',
+    query: listTextsQuerySchema,
+    load: () => import('@/app/api/platform/knowledge/texts/route'),
+  },
+  {
     name: 'platform-knowledge-records-propose',
     domain: 'platform',
     summary: 'Propose up to 200 cited records into a draft change request',
@@ -175,7 +233,7 @@ export const platformKnowledgeOperations = [
     summary: 'Run the validation kit on a whole change request',
     description:
       'The newest proposal of every record in the request, checked as submit checks it: `valid`, and each problem with ' +
-      'its record, code (KC-1 references, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. ' +
+      'its record, code (KC-1 references and attached texts, KC-3 intervals, KC-6 captured quotes), JSON Pointer and hint. Writes nothing. ' +
       'Repair with platform-knowledge-records-propose, then submit once it is valid.',
     method: 'GET',
     path: '/api/platform/knowledge/change-requests/[changeRequestId]/validation',
