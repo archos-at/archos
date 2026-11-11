@@ -10,6 +10,8 @@ import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/i18n'
+import { lawMapCopy } from '@/i18n/namespaces/law-map'
 
 /** One row of the outline: its name on the left, its value said once on the right. */
 export function OutlineRow({
@@ -39,6 +41,7 @@ export function OutlineRow({
   size?: 'lg' | 'md' | 'sm'
   testId?: string
 }): JSX.Element {
+  const t = useTranslations(lawMapCopy)
   const body = (
     <>
       <span className="flex min-w-0 items-baseline gap-2.5">
@@ -51,6 +54,8 @@ export function OutlineRow({
         {coming ? <span className="text-warning text-xs font-medium">{coming}</span> : null}
         {confirmed ? <Check className="text-success size-3.5 self-center" aria-hidden /> : null}
         {attention ? <span className="bg-warning size-2 self-center rounded-full" aria-hidden /> : null}
+        {/* The marks are drawn for the eye; a screen reader hears the same state in words. */}
+        {confirmed || attention ? <span className="sr-only">{t(attention ? 'rowWaits' : 'rowConfirmed')}</span> : null}
       </span>
     </>
   )
