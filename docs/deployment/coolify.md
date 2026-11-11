@@ -260,11 +260,11 @@ Configure it by setting `WORKOS_CLIENT_ID`, `WORKOS_API_KEY`, and
 (the compose already injects it from the frontend FQDN). Without these the
 frontend cannot complete a login.
 
-> **Opting out for a throwaway preview.** To run a preview as a single
-> anonymous "Default User" (no WorkOS setup), set `REQUIRE_AUTH=false`
-> explicitly in that environment's variables and leave the WorkOS keys empty.
-> Do **not** do this for a production/staging environment — it disables login
-> and the backend's job access checks.
+> **No WorkOS, no session.** `REQUIRE_AUTH=false` with the WorkOS keys empty
+> does not give a preview an anonymous user: every page and route that needs a
+> session refuses (500 / 403), and only the `/dev` previews render. Do **not**
+> set it for a production/staging environment either — it disables login and
+> the backend's job access checks.
 
 `REQUIRE_AUTH` gates the token check only for *external* requests. It also turns
 on job access control (a job's owner, or a caller whose signed envelope places the
