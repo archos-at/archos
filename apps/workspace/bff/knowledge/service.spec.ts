@@ -13,6 +13,7 @@ import {
   deleteKnowledgeBaseDocument,
   getKnowledgeBaseStatus,
   getReleasedKnowledgeBaseStatus,
+  reingestKnowledgeBaseDocuments,
   syncKnowledgeBase,
   uploadKnowledgeBaseDocument,
   withdrawCorpusFile,
@@ -327,9 +328,36 @@ describe('withdrawCorpusFile', () => {
     await expect(withdrawCorpusFile('rolled-back.pdf')).rejects.toBeInstanceOf(UpstreamError)
   })
 
-  it('takes a file with no chunks as nothing to withdraw', async () => {
-    fetchMock.mockResolvedValue(new Response('{}', { status: 404 }))
-
+  it('takes a file with no chunks as withdrawn once its row is, and a 404 as a backend that wrote nothing', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ released: false, chunks: 0 }), { status: 200 }))
     await expect(withdrawCorpusFile('rolled-back.pdf')).resolves.toBeUndefined()
+
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 404 }))
+    await expect(withdrawCorpusFile('rolled-back.pdf')).rejects.toBeInstanceOf(UpstreamError)
+  })
+})
+
+describe('reingestKnowledgeBaseDocuments with release marks', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+    vi.stubEnv('ADMIN_TOKEN', 'admin-secret')
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+  const marks = { 'a.pdf': { countryId: 'XA', editionId: 'edition:one' } }
+
+  it('accepts an answer that recorded every marked file as released', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'pending', queued: ['a.pdf'], released: ['a.pdf'] }), { status: 200 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).resolves.toMatchObject({ queued: ['a.pdf'] })
+  })
+
+  it('throws, so the indexing job retries, when a backend from before the flag leaves the file unreleased', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: 'pending', queued: ['a.pdf'] }), { status: 200 }))
+
+    await expect(reingestKnowledgeBaseDocuments(['a.pdf'], marks)).rejects.toBeInstanceOf(UpstreamError)
   })
 })

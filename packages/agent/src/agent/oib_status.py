@@ -71,7 +71,8 @@ class OibFileEntry(BaseModel):
         None,
         description=(
             "The country a release marked the file with (ADR-0173): its entitled offices read it. "
-            "None for a file no release marked or one a rollback left unreleased."
+            "None for a file no release marked or one a rollback left unreleased; 'ZZ' for a rollback from before "
+            "the released flag."
         ),
     )
     ingested_at: datetime | None = Field(None, description="Completion time of the last ingestion, if tracked.")

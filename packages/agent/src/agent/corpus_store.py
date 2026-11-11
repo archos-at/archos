@@ -362,9 +362,7 @@ def released_to(name: str, countries: Iterable[str]) -> bool:
     it; unmarked, nobody's."""
     # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
     mark = get_mark(name)
-    if mark is None or mark.released is False:
-        return False
-    return mark.country_id is not None and mark.country_id in set(countries)
+    return mark is not None and mark.released is not False and mark.country_id in set(countries)
 
 
 def list_marks() -> dict[str, FileMark]:

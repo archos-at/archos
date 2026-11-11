@@ -249,7 +249,9 @@ async def test_a_withdrawal_lands_on_the_corpus_row_and_keeps_its_country_so_a_r
 
 @pytest.mark.parametrize("missing", ["chunks", "collection"])
 async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_yet(store, monkeypatch, missing):
-    """A text rolled back before it was indexed: no chunk to mark (404), and still nobody's to read as a PDF."""
+    """A text rolled back before it was indexed: no chunk to mark, and still nobody's to read as a PDF.
+
+    200 with 0 chunks, never 404: the BFF takes a 404 as a backend from before the flag that wrote nothing."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
@@ -263,7 +265,8 @@ async def test_a_withdrawal_reaches_the_corpus_row_of_a_file_that_has_no_chunks_
         {"file_name": "a-text.pdf", "released": False}, path=f"/v1/collections/{COLLECTION_NAME}/knowledge-mark"
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert (response.json()["chunks"], response.json()["released"]) == (0, False)
     assert store.written == []
     assert marks["a-text.pdf"] == corpus_store.FileMark(country_id="QA", edition_id="edition:one", released=False)
     assert not corpus_store.released_to("a-text.pdf", ["QA"])

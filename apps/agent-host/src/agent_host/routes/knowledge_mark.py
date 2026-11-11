@@ -50,13 +50,12 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
 
     # The corpus row first, chunks or none, collection or none: the row is what the PDF read and the listing
     # decide by, so a text withdrawn before it was indexed is withdrawn there too, and its next ingest stamps the mark.
-    _remember_corpus_country(collection, update)
+    # A row written is no 404 (0 chunks): the BFF then takes a 404 as a backend that wrote nothing, and retries.
+    remembered = _remember_corpus_country(collection, update)
     store = _store()
-    if not store.exists(collection):
-        return None
-    chunks = store.count(collection, {"file_name": update.file_name})
+    chunks = store.count(collection, {"file_name": update.file_name}) if store.exists(collection) else 0
     if not chunks:
-        return None
+        return 0 if remembered else None
     licence = {
         LICENCE_CLASS_FIELD: update.licence_class,
         AI_PROCESSING_FIELD: update.ai_processing_attested,
@@ -77,18 +76,19 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     return chunks
 
 
-def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> None:
+def _remember_corpus_country(collection: str, update: KnowledgeMarkUpdate) -> bool:
     """A base-corpus text's country and released flag also go on its corpus row, so a re-ingest stamps them again
-    (ADR-0173). A field the body leaves out keeps the row's value."""
+    (ADR-0173). A field the body leaves out keeps the row's value. Whether a row was written."""
     from agent import corpus_store
     from agent.oib_sync import COLLECTION_NAME
 
     named = update.model_fields_set
     if collection != COLLECTION_NAME or not named & {"country_id", "released"}:
-        return
+        return False
     current = corpus_store.get_mark(update.file_name) or corpus_store.FileMark()
     changed = {field: getattr(update, field) for field in ("country_id", "edition_id", "released") if field in named}
     corpus_store.set_mark(update.file_name, replace(current, **changed))
+    return True
 
 
 def add_knowledge_mark_routes(router: APIRouter) -> None:
@@ -108,7 +108,8 @@ def add_knowledge_mark_routes(router: APIRouter) -> None:
         403 without the internal token. 422 for a licence class outside the
         three. 404 when the collection holds no chunk of the file. 409 when
         this process has no Qdrant store installed, 502 when the store
-        refuses. Idempotent: the same body twice writes the same payload.
+        refuses; a base-corpus country or released flag lands on the corpus row first, so such a body answers 200
+        with ``chunks`` 0 instead of 404. Idempotent: the same body twice writes the same payload.
         """
         _require_internal_token(http_request)
         try:

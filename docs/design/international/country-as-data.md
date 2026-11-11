@@ -124,7 +124,7 @@ RIS becomes a source record with `rest` access and the `ris_xml` engine, which b
 | Edition scope on the edition, as a decision table (ADR-0178) | Right. One evaluator |
 | Rulesets on one three-valued evaluator (ADR-0166) | Right. Facts already carry UCUM units (`wire/setup-facts.ts:38`) |
 | Entitlements as rows, never switches (ADR-0175) | Right |
-| The `ZZ` mark for unreleased texts and the country mark written at publish | Done with row 7: `released` on the point and the corpus row, false for a rollback and an ingest no release names, read by `corpus_country_condition`. A point or row from before it has no flag and reads by its country, so nothing is rewritten and no window opens. The contract step (read only `released == true`, after a backfill of the flag) waits for the legacy deletions of the rollover's step 11 |
+| The `ZZ` mark for unreleased texts and the country mark written at publish | Done with row 7: `released` on the point and the corpus row, false for a rollback and an ingest no release names, read by `corpus_country_condition`. A point or row from before it has no flag and reads by its country, so nothing is rewritten and no readable text is hidden at any point of the rollover; while an older image serves, the BFF refuses its answers to a withdrawal or a release so the job retries (`oib-sync.md`). The contract step (read only `released == true`, after a backfill of the flag) waits for the legacy deletions of the rollover's step 11 |
 | The agent door, one operation per capability (ADR-0122) | Right. `law-lookup` must lose Austria from its description |
 | Fail closed when the context cannot be read | Right. But truncation is a budget, not a failure (3.4) |
 
