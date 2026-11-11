@@ -63,7 +63,8 @@ export function CountryKnowledge(): JSX.Element {
   const [drafts, setDrafts] = useState<ChangeRequestSummary[]>([])
   /** The next page of drafts, or null on the last; a failed read keeps what was listed and offers the read again. */
   const [draftsCursor, setDraftsCursor] = useState<string | null>(null)
-  const [draftsFailed, setDraftsFailed] = useState(false)
+  /** The read that failed, by the cursor it asked with (null: the first page), so asking again repeats that read. */
+  const [draftsFailure, setDraftsFailure] = useState<{ cursor: string | null } | null>(null)
   const [draftsLoading, setDraftsLoading] = useState(false)
 
   // Drafts are where texts are attached; the queue above holds what waits for review.
@@ -74,10 +75,10 @@ export function CountryKnowledge(): JSX.Element {
     setDraftsLoading(false)
     const page = listed?.changeRequests
     if (!Array.isArray(page)) {
-      setDraftsFailed(true)
+      setDraftsFailure({ cursor })
       return
     }
-    setDraftsFailed(false)
+    setDraftsFailure(null)
     setDrafts((listedBefore) => (cursor ? [...listedBefore, ...page] : page))
     setDraftsCursor(listed?.nextCursor ?? null)
   }, [])
@@ -113,6 +114,8 @@ export function CountryKnowledge(): JSX.Element {
   }
 
   const ready = overview.state === 'ready' ? overview.value : null
+  // The first page failed: the next page waits until the list it would extend is read again.
+  const refreshFailed = draftsFailure !== null && draftsFailure.cursor === null
   return (
     <div className="flex flex-col gap-6">
       <SectionCard
@@ -206,9 +209,10 @@ export function CountryKnowledge(): JSX.Element {
         ) : null}
       </SectionCard>
 
-      {drafts.length > 0 || draftsFailed ? (
+      {drafts.length > 0 || draftsFailure ? (
         <SectionCard title={t('countryKnowledge.draftsTitle')} description={t('countryKnowledge.draftsDescription')}>
-          {draftsFailed && drafts.length === 0 ? (
+          {/* A failed first page, with drafts listed or not: what is listed may be out of date, and the retry reads the first page again. */}
+          {refreshFailed ? (
             <LoadError title={t('countryKnowledge.draftsLoadError')} onRetry={() => loadDrafts(null)} retrying={draftsLoading} />
           ) : null}
           <Table data-testid="country-knowledge-drafts">
@@ -229,10 +233,10 @@ export function CountryKnowledge(): JSX.Element {
           </Table>
           <LoadMore
             auto={false}
-            hasMore={draftsCursor !== null}
-            loading={draftsLoading && drafts.length > 0}
-            failed={draftsFailed}
-            onLoadMore={() => void loadDrafts(draftsCursor)}
+            hasMore={draftsCursor !== null && !refreshFailed}
+            loading={draftsLoading && drafts.length > 0 && !refreshFailed}
+            failed={draftsFailure !== null}
+            onLoadMore={() => void loadDrafts(draftsFailure ? draftsFailure.cursor : draftsCursor)}
             loadMoreLabel={t('countryKnowledge.draftsMore')}
             loadingLabel={t('countryKnowledge.draftsLoadingMore')}
             failedLabel={t('countryKnowledge.draftsLoadError')}
