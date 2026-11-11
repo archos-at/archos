@@ -87,6 +87,52 @@ function EditionBody({ map, edition, t }: { map: LawMap; edition: LawMapEdition;
   )
 }
 
+/** A region's own law: its building acts, then the acts that make editions binding there, each unfolding in place. */
+function OwnLaw({ map, territoryId, statements, open, onFlip, t }: { map: LawMap; territoryId: string; statements: LawMapStatement[]; open: string | null; onFlip: (key: string) => void; t: Translator }): JSX.Element {
+  const date = useDate()
+  const statutes = map.statutes.filter((statute) => statute.territoryId === territoryId)
+  return (
+    <>
+      {statutes.map((statute) => (
+        <OutlineRow key={statute.workId} size="sm" name={statute.url ? <a href={statute.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{statute.title}</a> : statute.title} meta={t('buildingLaw')} value={statute.designation} muted />
+      ))}
+      {statements.map((statement) => {
+        const summary = summaryOf(statementEditions(map, statement))
+        return (
+          <div key={statement.key}>
+            <OutlineRow
+              size="sm"
+              name={statement.provision ?? statement.actTitle}
+              meta={t('fromDate', { date: date(statement.validFrom) })}
+              value={summary.main?.label}
+              exceptions={exceptionsText(map, summary.exceptions)}
+              attention={statement.review === 'open'}
+              confirmed={statement.review === 'accepted'}
+              expanded={open === statement.key}
+              onClick={() => onFlip(statement.key)}
+              testId={`statement-${statement.key}`}
+            />
+            {open === statement.key ? <StatementBody map={map} statement={statement} t={t} /> : null}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+const byStart = (a: LawMapStatement, b: LawMapStatement): number => (a.validFrom ?? '').localeCompare(b.validFrom ?? '')
+
+/** Every territory id at and below one, in the tree the map holds. */
+function under(map: LawMap, id: string): Set<string> {
+  const ids = new Set<string>()
+  const walk = (one: string): void => {
+    ids.add(one)
+    map.territories.get(one)?.children.forEach(walk)
+  }
+  walk(id)
+  return ids
+}
+
 export function LawMapOutline({ map, today, rootName }: { map: LawMap; today: string; rootName: string }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const date = useDate()
@@ -99,19 +145,25 @@ export function LawMapOutline({ map, today, rootName }: { map: LawMap; today: st
   const root = map.territories.get(rootId)
   const regions = root ? root.children : map.rootIds
   const worksShown = map.topics
+  const shown = new Set([...(root ? [rootId] : []), ...regions])
+  const placed = new Set(regions.flatMap((id) => [...under(map, id)]))
+  // A statement on no territory this request holds (its act is in another request): shown, never dropped.
+  const unplaced = map.statements.filter((statement) => !placed.has(statement.territoryId) && !shown.has(statement.territoryId)).sort(byStart)
+  const rootStatements = root ? map.statements.filter((statement) => statement.territoryId === rootId).sort(byStart) : []
 
   return (
     <div className="flex flex-col" data-testid="law-map-outline">
       <OutlineRow name={root?.name ?? rootName} size="lg" />
       <p className="text-muted-foreground mb-5 max-w-prose text-sm">{t('lead')}</p>
       <Branch>
+        {root ? <OwnLaw map={map} territoryId={rootId} statements={rootStatements} open={open} onFlip={flip} t={t} /> : null}
         {regions.map((id) => {
           const territory = map.territories.get(id)
           const now = summaryOn(map, id, today)
           const coming = nextChange(map, id, today)
           const comingSummary = coming ? summaryOf(statementEditions(map, coming)) : null
-          const statements = map.statements.filter((statement) => statement.territoryId === id).sort((a, b) => (a.validFrom ?? '').localeCompare(b.validFrom ?? ''))
-          const statutes = map.statutes.filter((statute) => statute.territoryId === id)
+          const statements = map.statements.filter((statement) => statement.territoryId === id).sort(byStart)
+          const below = map.statements.filter((statement) => statement.territoryId !== id && under(map, id).has(statement.territoryId))
           const isOpen = expanded.has(id)
           return (
             <div key={id}>
@@ -120,43 +172,33 @@ export function LawMapOutline({ map, today, rootName }: { map: LawMap; today: st
                 value={now.main?.label}
                 exceptions={exceptionsText(map, now.exceptions)}
                 coming={comingSummary?.main ? t('coming', { edition: comingSummary.main.label, date: date(coming?.validFrom ?? null) }) : undefined}
-                attention={statements.some((statement) => statement.review === 'open')}
+                attention={[...statements, ...below].some((statement) => statement.review === 'open')}
                 expanded={isOpen}
                 onClick={() => toggle(id)}
                 testId={`region-${id}`}
               />
               {isOpen ? (
                 <Branch>
-                  {statutes.map((statute) => (
-                    <OutlineRow key={statute.workId} size="sm" name={statute.url ? <a href={statute.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{statute.title}</a> : statute.title} meta={t('buildingLaw')} value={statute.designation} muted />
-                  ))}
                   {statements.length === 0 ? <p className="text-muted-foreground py-2.5 text-sm">{t('noActs')}</p> : null}
-                  {statements.map((statement) => {
-                    const summary = summaryOf(statementEditions(map, statement))
-                    return (
-                      <div key={statement.key}>
-                        <OutlineRow
-                          size="sm"
-                          name={statement.provision ?? statement.actTitle}
-                          meta={t('fromDate', { date: date(statement.validFrom) })}
-                          value={summary.main?.label}
-                          exceptions={exceptionsText(map, summary.exceptions)}
-                          attention={statement.review === 'open'}
-                          confirmed={statement.review === 'accepted'}
-                          expanded={open === statement.key}
-                          onClick={() => flip(statement.key)}
-                          testId={`statement-${statement.key}`}
-                        />
-                        {open === statement.key ? <StatementBody map={map} statement={statement} t={t} /> : null}
-                      </div>
-                    )
-                  })}
-                  {territory && territory.children.length > 0 ? <OutlineRow size="sm" muted name={t('below', { count: territory.children.length })} value={t('sameAs', { territory: territory.name })} /> : null}
+                  <OwnLaw map={map} territoryId={id} statements={statements} open={open} onFlip={flip} t={t} />
+                  {territory && territory.children.length > 0 ? (
+                    <OutlineRow size="sm" muted name={t('below', { count: territory.children.length })} value={below.length === 0 ? t('sameAs', { territory: territory.name }) : t('ownActs', { count: below.length })} />
+                  ) : null}
                 </Branch>
               ) : null}
             </div>
           )
         })}
+        {unplaced.length > 0 ? (
+          <div>
+            <OutlineRow name={t('unplaced')} value={t('ownActs', { count: unplaced.length })} attention={unplaced.some((statement) => statement.review === 'open')} expanded={expanded.has('unplaced')} onClick={() => toggle('unplaced')} testId="unplaced" />
+            {expanded.has('unplaced') ? (
+              <Branch>
+                <OwnLaw map={map} territoryId="" statements={unplaced} open={open} onFlip={flip} t={t} />
+              </Branch>
+            ) : null}
+          </div>
+        ) : null}
         {worksShown.length > 0 ? (
           <div className="mt-5">
             <OutlineRow name={t('works')} meta={t('worksMeta')} value={t('series', { count: worksShown.length })} expanded={expanded.has('works')} onClick={() => toggle('works')} testId="works" />

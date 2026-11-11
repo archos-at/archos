@@ -2,7 +2,8 @@
  * A country's law as a person reads it (docs/design/international/country-onboarding-ux.md):
  * the territory tree, and for each region the acts that make guideline
  * editions binding there, grouped into adoption statements. A statement is
- * one act adopting editions on one day; Austria's 135 bindings are 17 of them.
+ * one act adopting editions on one day: a country's hundred-odd bindings are
+ * a few dozen of these.
  *
  * Pure, and computed from the records of a change request as the review reads
  * them (`RevisionView`), so the map is a view of what the door already serves
@@ -110,7 +111,8 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 function reviewOf(revisions: readonly RevisionView[]): ReviewState {
   const decisions = revisions.flatMap((revision) => revision.claims.map((claim) => claim.decision))
   if (decisions.some((decision) => decision === 'rejected')) return 'rejected'
-  if (decisions.length > 0 && decisions.every((decision) => decision === 'accepted' || decision === 'edited')) return 'accepted'
+  // An edited claim is not confirmed: it blocks approval and goes into a follow-up request (`decide.ts`).
+  if (decisions.length > 0 && decisions.every((decision) => decision === 'accepted')) return 'accepted'
   return 'open'
 }
 
@@ -148,11 +150,14 @@ function territoriesOf(revisions: readonly RevisionView[]): Map<string, LawMapTe
     const body = bodyOfRevision(revision)
     const parents = Array.isArray(body.parents) ? (body.parents as { id?: unknown; validFrom?: unknown; validTo?: unknown }[]) : []
     // The tree follows the parent without dates: a union a country joined on a day is not where it sits.
-    const parent = parents.find((one) => !one.validFrom && !one.validTo) ?? null
+    // Below a country, a region with only dated parents sits under the newest of them.
+    const kind = text(body.kind) ?? 'territory'
+    const dated = kind === 'country' || kind === 'union' ? [] : [...parents].sort((a, b) => String(b.validFrom ?? '').localeCompare(String(a.validFrom ?? '')))
+    const parent = parents.find((one) => !one.validFrom && !one.validTo) ?? dated[0] ?? null
     territories.set(revision.recordId, {
       id: revision.recordId,
       name: text(body.name) ?? revision.recordId,
-      kind: text(body.kind) ?? 'territory',
+      kind,
       parentId: parent && typeof parent.id === 'string' ? parent.id : null,
       children: [],
     })
@@ -300,14 +305,17 @@ export function lawMapOf(countryId: string, revisions: readonly RevisionView[], 
 
 /** The cell that binds for a topic in a region on a day, with its statement; half-open intervals. */
 export function bindingOn(map: LawMap, territoryId: string, topicWorkId: string, date: string): { cell: LawMapCell; statement: LawMapStatement } | null {
+  let found: { cell: LawMapCell; statement: LawMapStatement } | null = null
   for (const statement of map.statements) {
     if (statement.territoryId !== territoryId) continue
     for (const cell of statement.cells) {
       if (cell.topicWorkId !== topicWorkId) continue
-      if ((cell.validFrom ?? '') <= date && (cell.validTo === null || date < cell.validTo)) return { cell, statement }
+      if ((cell.validFrom ?? '') > date || (cell.validTo !== null && date >= cell.validTo)) continue
+      // Where an older binding was left open, the newest one in force wins.
+      if (!found || (cell.validFrom ?? '') > (found.cell.validFrom ?? '')) found = { cell, statement }
     }
   }
-  return null
+  return found
 }
 
 /** How many statements under a territory (itself and below) are open, accepted or rejected. */
@@ -333,12 +341,12 @@ export function summaryOn(map: LawMap, territoryId: string, date: string): { mai
   return summaryOf(bound)
 }
 
-/** Editions said once: the label most of them share, then each one that differs. */
 /** When an edition was issued, for ordering: its date, else a year its label names. */
 export function editionOrder(edition: LawMapEdition): string {
   return edition.issuedOn ?? edition.label.match(/\b(1[89]|20)\d{2}\b/)?.[0] ?? edition.label
 }
 
+/** Editions said once: the label most of them share, then each one that differs. */
 export function summaryOf<T extends { edition: LawMapEdition }>(bound: readonly T[]): { main: LawMapEdition | null; exceptions: T[] } {
   const counts = new Map<string, number>()
   for (const { edition } of bound) counts.set(edition.label, (counts.get(edition.label) ?? 0) + 1)

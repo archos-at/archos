@@ -121,4 +121,19 @@ describe('lawMapOf', () => {
     expect(map.editions.get('edition:mc-2-2023')?.text).toEqual({ file: 'mc-2-2023.pdf', url: 'https://publisher.xa.example/mc-2-2023.pdf' })
     expect(map.editions.get('edition:mc-2-2019')?.text).toBeNull()
   })
+
+  it('does not count an edited claim as confirmed', () => {
+    const edited = REVISIONS.map((one) => (one.recordId === 'relation:n-2-19' ? { ...one, claims: one.claims.map((claim) => ({ ...claim, decision: 'edited' as const })) } : one))
+    expect(lawMapOf('XA', edited, CAPTURES).statements[0]?.review).toBe('open')
+  })
+
+  it('places a region whose only parent is dated under that parent', () => {
+    const dated = REVISIONS.map((one) => (one.recordId === 'XA-2' ? revision('territory', 'XA-2', { kind: 'state', name: 'Südland', parents: [{ id: 'XA', validFrom: '2001-01-01' }] }) : one))
+    expect(lawMapOf('XA', dated, CAPTURES).territories.get('XA')?.children).toEqual(['XA-1', 'XA-2'])
+  })
+
+  it('prefers the newest binding where an older one was left open', () => {
+    const open = REVISIONS.map((one) => (one.recordId === 'relation:n-2-19' ? binding('n-2-19', 'work:to-n', 'edition:mc-2-2019', '2020-01-01', null) : one))
+    expect(bindingOn(lawMapOf('XA', open, CAPTURES), 'XA-1', 'work:mc-2', '2025-01-01')?.cell.editionId).toBe('edition:mc-2-2023')
+  })
 })

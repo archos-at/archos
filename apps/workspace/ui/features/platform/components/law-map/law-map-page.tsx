@@ -26,17 +26,19 @@ import { LawMapOutline } from './law-map-outline'
 
 const BASE = '/api/platform/knowledge/change-requests'
 
-/** The request a reviewer works on: the newest submitted one, else the newest draft. */
+/** The request a reviewer works on: the newest submitted one, else an approved one not yet published, else the newest draft. */
 export function openRequestOf(requests: readonly ChangeRequestSummary[]): ChangeRequestSummary | null {
   const newest = (status: string) => requests.filter((one) => one.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
-  return newest('submitted') ?? newest('draft')
+  return newest('submitted') ?? newest('approved') ?? newest('draft')
 }
 
 export function LawMapPage({ countryId, today = new Date().toISOString().slice(0, 10) }: { countryId: string; today?: string }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const { locale } = useLocale()
   const params = useSearchParams()
-  const named = params.get('request')
+  // Only a request id goes into the path; anything else reads as no request named.
+  const asked = params.get('request')
+  const named = asked && /^[0-9a-f-]{36}$/i.test(asked) ? asked : null
   const list = usePlatformJson<{ changeRequests: ChangeRequestSummary[] }>(named ? null : `${BASE}?countryId=${countryId}&limit=200`)
   const requestId = named ?? (list.load.state === 'ready' ? openRequestOf(list.load.value.changeRequests)?.id ?? null : null)
   const request = usePlatformJson<ChangeRequestView>(requestId ? `${BASE}/${requestId}` : null)
@@ -59,7 +61,7 @@ export function LawMapPage({ countryId, today = new Date().toISOString().slice(0
     return (
       <div className="flex flex-col gap-6">
         {header()}
-        <SectionCard loading={!failed} error={failed} onRetry={failed ? request.reload : undefined} />
+        <SectionCard loading={!failed} error={failed} onRetry={failed ? (list.load.state === 'error' ? list.reload : request.reload) : undefined} />
       </div>
     )
   }

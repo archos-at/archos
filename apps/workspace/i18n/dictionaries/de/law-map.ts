@@ -34,6 +34,8 @@ export const lawMap = {
   below: '{count, plural, one {# Gebiet darunter} other {# Gebiete darunter}}',
   sameAs: 'wie {territory}',
   editions: '{count, plural, one {# Ausgabe} other {# Ausgaben}}',
+  ownActs: '{count, plural, one {# eigener Akt} other {# eigene Akte}}',
+  unplaced: 'Gebiet nicht in diesem Antrag',
   readOnly: 'Vorerst nur zum Lesen: Bestätigen Sie im Änderungsantrag, bis das Bestätigen von hier aus kommt.',
   openRequest: 'Änderungsantrag öffnen',
 }

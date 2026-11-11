@@ -3,7 +3,7 @@ export const lawMap = {
   title: 'Law map',
   open: 'Open the law map',
   lead: 'What binds where, from the country down. Each region names its edition once, and only the exceptions. Open a row to see what it holds.',
-  request: 'From the change request „{title}“',
+  request: 'From the change request "{title}"',
   noRequest: 'No change request is open for this country, and the law map shows a request’s records. Released records follow in a later step.',
   empty: 'This request holds no regions or adoption acts yet.',
   buildingLaw: 'Building law',
@@ -34,6 +34,8 @@ export const lawMap = {
   below: '{count, plural, one {# area below} other {# areas below}}',
   sameAs: 'same as {territory}',
   editions: '{count, plural, one {# edition} other {# editions}}',
+  ownActs: '{count, plural, one {# act of its own} other {# acts of their own}}',
+  unplaced: 'Region not in this request',
   readOnly: 'Read only for now: confirm in the change request until confirming from here ships.',
   openRequest: 'Open the change request',
 }
