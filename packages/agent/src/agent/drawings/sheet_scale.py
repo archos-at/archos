@@ -12,7 +12,10 @@ A scale belongs to a region and is ``metres_per_point``. At a point it is
   yields a number.
 
 Corroboration is local: figures vouch for the part of the sheet they dimension
-(:func:`why_not_here`). And a calibration is ``verified`` but reported as
+(:func:`why_not_here`), which is where an agreeing dimension runs past in two
+directions. And an estimate is no finer than its figures pin the scale
+(:attr:`Corroboration.pinned_error`): labels rounded to the centimetre over
+short spans agree with a scale that is off by more than the tolerance. And a calibration is ``verified`` but reported as
 contradicted when another calibration, its stored region, what the figures
 corroborate at that place, or the figures inside its own region say otherwise.
 
@@ -42,11 +45,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from agent.drawings.sheet_figures import UnitConvention
+from agent.drawings.sheet_figures import body_of
 from agent.drawings.sheet_figures import is_numeric
 from agent.drawings.sheet_figures import parse_dimension
 from agent.drawings.sheet_figures import ratios_in
 from agent.drawings.sheet_figures import scale_ratios
 from agent.drawings.sheet_figures import unit_convention
+from agent.drawings.sheet_probe import SNAP_RADIUS_PT
 from agent.drawings.sheet_probe import index_of
 from agent.drawings.sheet_types import Box
 from agent.drawings.sheet_types import Figure
@@ -125,6 +130,14 @@ class FigureCheck:
     agrees: bool
     #: The two terminators the span lies between, on the page as shown.
     ends: tuple[Point, Point]
+    #: The step the figure is printed to, in metres: its value is exact to half of it.
+    resolution: float = 0.0
+
+    @property
+    def pins_within(self) -> float:
+        """How far the true scale can lie from the hinted one, as a share, if this figure dimensions its span:
+        its deviation and half its printed step, over the span at the hinted scale."""
+        return (self.deviation + self.resolution / 2 / self.metres) / (1 - self.deviation)
 
 
 @dataclass(frozen=True)
@@ -143,6 +156,18 @@ class Corroboration:
     def corroborated(self) -> bool:
         total = len(self.checks)
         return self.agreeing >= MIN_AGREEING and self.agreeing >= MIN_AGREEING_SHARE * total
+
+    @property
+    def pinned_error(self) -> float:
+        """The relative error of the hinted scale that the agreeing figures leave open.
+
+        One figure pins the scale to its own deviation plus half the step it
+        is printed to: „1,25“ over a span drawn 1.254 m agrees with a scale
+        0.8 % off. The error is what the :data:`MIN_AGREEING` finest figures
+        all pin it within, as many as it takes to corroborate at all.
+        """
+        pinned = sorted(check.pins_within for check in self.checks if check.agrees)
+        return pinned[MIN_AGREEING - 1] if len(pinned) >= MIN_AGREEING else math.inf
 
     @property
     def why_not(self) -> str:
@@ -450,7 +475,8 @@ def _corroborate(sheet: Sheet, hint: Hint) -> Corroboration:
             continue
         span = math.dist(*ends)
         deviation = abs(span * hint.metres_per_point - parsed.metres) / parsed.metres
-        checks.append(FigureCheck(figure, parsed.metres, span, deviation, deviation <= AGREEMENT_TOLERANCE, ends))
+        agrees = deviation <= AGREEMENT_TOLERANCE
+        checks.append(FigureCheck(figure, parsed.metres, span, deviation, agrees, ends, parsed.resolution))
     return Corroboration(hint, convention, tuple(checks))
 
 
@@ -463,25 +489,46 @@ def _to_span(point: Point, ends: tuple[Point, Point]) -> float:
     return math.dist((ax + share * (bx - ax), ay + share * (by - ay)), point)
 
 
+def _runs_past(check: FigureCheck, point: Point) -> bool:
+    """Whether ``point``'s foot on the dimension's line falls within its span, a snap radius allowed at each end."""
+    (ax, ay), (bx, by) = check.ends
+    length = math.dist(*check.ends)
+    if length == 0:
+        return False
+    along = ((point[0] - ax) * (bx - ax) + (point[1] - ay) * (by - ay)) / length
+    return -SNAP_RADIUS_PT <= along <= length + SNAP_RADIUS_PT
+
+
+def _bearing(check: FigureCheck) -> int:
+    """The direction of a dimension's line in whole degrees, 0 to 179."""
+    (ax, ay), (bx, by) = check.ends
+    return round(math.degrees(math.atan2(by - ay, bx - ax))) % 180
+
+
+def _cross(first: int, second: int) -> bool:
+    apart = abs(first - second)
+    return min(apart, 180 - apart) >= _CROSSING_DEGREES
+
+
 def why_not_here(found: Corroboration, point: Point) -> str:
     """Why a corroborated hint still says nothing at ``point``; empty when it holds there.
 
     Figures vouch for the part of the sheet they dimension. A second view at
     another scale under the same note or in the same stored region has its own
     figures, or none: the dimension nearest the point must be one that agrees,
-    and the point must lie within the extent the agreeing dimensions span,
-    grown by a quarter of its longer side.
+    and an agreeing dimension must run past the point in two directions (its
+    foot on that dimension's line falls within the span). That is the floor
+    its chains dimension, and not a view beside it, between two such floors or
+    below one: the extent of all agreeing dimensions, which this once was,
+    held an undimensioned 1:50 view between two 1:100 ones.
     """
     nearest = min(found.checks, key=lambda check: _to_span(point, check.ends))
     if not nearest.agrees:
         return f"the dimension figure nearest this place ({inert(nearest.figure.text)}) does not agree with it"
-    places = [end for check in found.checks if check.agrees for end in check.ends]
-    low_x, high_x = min(x for x, _ in places), max(x for x, _ in places)
-    low_y, high_y = min(y for _, y in places), max(y for _, y in places)
-    grow = 0.25 * max(high_x - low_x, high_y - low_y)
-    if low_x - grow <= point[0] <= high_x + grow and low_y - grow <= point[1] <= high_y + grow:
+    past = {_bearing(check) for check in found.checks if check.agrees and _runs_past(check, point)}
+    if any(_cross(first, second) for first in past for second in past):
         return ""
-    return "this place lies outside the part of the sheet the agreeing dimension figures span"
+    return "no agreeing dimension figure runs past this place in two directions: it lies outside what they dimension"
 
 
 def _uncalibrated(
@@ -510,7 +557,8 @@ def _contradiction(sheet: Sheet, calibration: Calibration, point: Point, others:
 
     In turn: another calibration covering the point, the stored region there,
     what the sheet's own figures corroborate there without any calibration, and
-    the dimension figures inside the calibration's own region.
+    the dimension figures inside the calibration's own region, however few, and
+    under either unit where theirs cannot be told.
     """
     said = f"the calibration says 1:{display_ratio(calibration.metres_per_point):.1f}"
     for other in others:
@@ -526,12 +574,36 @@ def _contradiction(sheet: Sheet, calibration: Calibration, point: Point, others:
     if without.state == "estimated" and _apart(calibration, without.metres_per_point, without.relative_error):
         return f"{said} and the sheet's own figures corroborate 1:{without.ratio:.1f} here ({without.label})"
     check = corroborate(sheet, Hint("calibration", calibration.metres_per_point, calibration.box, 0.0, "calibration"))
-    if len(check.checks) >= MIN_AGREEING and not check.corroborated:
+    # Any number of figures contradicts it, two included: fewer than would corroborate a hint still say "not this".
+    if check.agreeing < MIN_AGREEING_SHARE * len(check.checks):
         return (
             f"only {check.agreeing} of the {len(check.checks)} dimension figures in the region agree with the "
             "calibration"
         )
-    return ""
+    return _under_neither_unit(sheet, calibration) if check.convention.name == "undetermined" else ""
+
+
+def _under_neither_unit(sheet: Sheet, calibration: Calibration) -> str:
+    """What whole-number figures say against a calibration although their unit cannot be told. Empty when
+    they agree with it as centimetres or as millimetres, or when there are none.
+
+    Such figures corroborate no hint (a scale wrong by ten agrees under the other unit). They still
+    contradict a calibration that fits neither reading: one at twice the true scale decided thresholds on a
+    sheet dimensioned in whole centimetres.
+    """
+    inside = [figure for figure in sheet.figures if contains(calibration.box, figure.centre) and is_numeric(figure)]
+    if len(inside) > MAX_FIGURES_CHECKED:
+        return ""
+    on_lines = [(float(body_of(figure)), ends) for figure in inside if (ends := dimension_ends(sheet, figure))]
+    spans = [(value, math.dist(*ends) * calibration.metres_per_point) for value, ends in on_lines if value > 0]
+    for unit in (0.01, 0.001):
+        agreeing = sum(1 for value, metres in spans if abs(metres - value * unit) <= AGREEMENT_TOLERANCE * value * unit)
+        if agreeing >= MIN_AGREEING_SHARE * len(spans):
+            return ""
+    return (
+        f"the {len(spans)} dimension figures in the region agree with the calibration neither as centimetres nor "
+        "as millimetres"
+    )
 
 
 def _verified(sheet: Sheet, calibration: Calibration, point: Point, covering: Sequence[Calibration]) -> ScaleReading:
@@ -572,8 +644,9 @@ def scale_at(sheet: Sheet, point: Point, calibrations: Sequence[Calibration] = (
         hint.box,
         hint.source,
         hint.label,
-        # The figures tell scales apart only to the agreement tolerance: an estimate is no finer than its check.
-        relative_error=max(hint.relative_error, AGREEMENT_TOLERANCE),
+        # The figures tell scales apart only to the agreement tolerance, and only as finely as they are printed:
+        # an estimate is no finer than its check.
+        relative_error=max(hint.relative_error, AGREEMENT_TOLERANCE, found.pinned_error),
         agreeing=found.agreeing,
         total=len(found.checks),
     )

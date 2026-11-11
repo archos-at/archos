@@ -8,9 +8,10 @@ specification's decision 9), and it refuses rather than guesses:
   within :data:`SNAP_RADIUS_PT`. Two crossings in reach, or none, and it returns
   the crossings along the probe and no span; the caller then names two by index.
 * :func:`snap` moves a point to the ONE line end or line intersection in reach,
-  and refuses two. A point that sits on a candidate (within
-  :data:`ON_POINT_PT`) and clear of the next takes it: that is how a caller
-  answers a refusal, by placing the point on the candidate it was shown.
+  and refuses two. A point that names a candidate (within
+  :data:`ON_POINT_PT` of it) takes it: that is how a caller answers a
+  refusal, by passing the candidate it was shown. A point merely near one of
+  two is refused: placed by hand, it does not say which was meant.
 
 A cell index over the page holds the segments (:class:`SegmentIndex`), so a probe looks at
 the cells it passes and never scans a million segments. Everything is in
@@ -33,8 +34,10 @@ from agent.drawings.sheet_types import Sheet
 
 #: How far an end may be moved to linework, in points (2.1 mm on paper: 21 cm at 1:100).
 SNAP_RADIUS_PT = 6.0
-#: A point this close to a candidate sits on it.
-ON_POINT_PT = 1.0
+#: A point this close to a candidate names it: a candidate handed back as it was listed, whose shares are
+#: rounded to five decimals (0.02 pt on an A0 sheet). It was 1 pt, and a point placed by hand two points from
+#: a corner then took the hatch end beside it: 13 numbers of 5,360 on the ground-truth set, none since.
+ON_POINT_PT = 0.05
 #: Crossings or snap candidates closer than this are one (two segments meeting at a corner).
 MERGE_PT = 0.25
 #: A segment within this angle of the probe runs along it and is no face.

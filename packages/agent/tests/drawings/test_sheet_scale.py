@@ -212,10 +212,13 @@ class TestTheUnitConvention:
             whole, half = divmod(centimetres, 1)
             dimension(page, start, end, str(int(whole)), raised="5" if half else "")
         page.text(900, 60, "M 1:100", size=12)
+        sheet = sheet_of(page)
 
-        reading = scale_at(sheet_of(page), (150.0, 170.0))
+        # The figures all read one way: they corroborate the note, and vouch for no place (no two directions).
+        found = sheet_scale.corroborate(sheet, sheet_scale.note_hint(sheet))
 
-        assert reading.state == "estimated" and (reading.agreeing, reading.total) == (4, 4)
+        assert found.convention.name == "centimetres"
+        assert found.corroborated and (found.agreeing, len(found.checks)) == (4, 4)
 
     def test_fewer_than_three_agreeing_figures_corroborate_nothing(self):
         page = SheetPage()
@@ -306,10 +309,26 @@ class TestWhatEndsADimension:
                 page.line(tip, y, tip + back, y - 1.5)
             page.text((100.0 + x1) / 2 - 8, y + 2, f"{metres:.2f}".replace(".", ","), size=7)
         page.text(900, 60, "M 1:100", size=12)
+        sheet = sheet_of(page)
+
+        found = sheet_scale.corroborate(sheet, sheet_scale.note_hint(sheet))
+
+        assert found.corroborated and (found.agreeing, len(found.checks)) == (3, 3)
+
+    def test_dimensions_that_all_read_one_way_vouch_for_no_place(self):
+        """Three agreeing dimensions, all horizontal: what lies under them may be another view."""
+        page = SheetPage()
+        for index, metres in enumerate((4.0, 2.5, 1.2)):
+            start = (100.0, 700.0 - 60 * index)
+            dimension(
+                page, start, (start[0] + metres / (100 * PAPER_M_PER_PT), start[1]), f"{metres:.2f}".replace(".", ",")
+            )
+        page.text(900, 60, "M 1:100", size=12)
 
         reading = scale_at(sheet_of(page), (150.0, 170.0))
 
-        assert reading.state == "estimated" and (reading.agreeing, reading.total) == (3, 3)
+        assert reading.state == "uncalibrated" and (reading.agreeing, reading.total) == (3, 3)
+        assert "runs past this place in two directions" in reading.reason
 
 
 class TestAScanAndAUserUnit:
@@ -426,7 +445,7 @@ class TestWhatAnIndependentCheckRefuted:
 
         reading = scale_at(sheet, (sheet.width_pt - 30, 40.0))
 
-        assert reading.state == "uncalibrated" and "outside the part of the sheet" in reading.reason
+        assert reading.state == "uncalibrated" and "runs past this place in two directions" in reading.reason
 
     def test_two_ratios_in_one_note_are_two_notes(self):
         drawn, _ = floor(stored_region=False, scale_note=False)
