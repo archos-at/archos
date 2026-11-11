@@ -353,7 +353,7 @@ export async function streamDocumentFile(
       // The viewer's fallback renders this stream in a same-origin iframe, and
       // the global next.config rule stamps X-Frame-Options: DENY on every
       // route. Override it here, with a matching CSP directive for modern
-      // browsers — the same pairing `streamKnowledgeBaseDocument` carries, and
+      // browsers — the same pairing `streamCorpusPdf` (knowledge/source-pdf.ts) carries, and
       // next.config carries a route-scoped override to match.
       'X-Frame-Options': 'SAMEORIGIN',
       'Content-Security-Policy': "frame-ancestors 'self'",

@@ -22484,7 +22484,7 @@
       "get": {
         "operationId": "knowledge-base-get",
         "summary": "See what the building-law corpus contains",
-        "description": "The status of the platform-owned base corpus (OIB guidelines and the like): which documents it holds and whether they are indexed. Identical for every organization. To search it use the document search with `shelf: \"base\"` (no project needed); for Austrian law itself the law lookup. This only lists what is there.",
+        "description": "The base corpus as this organization reads it: the documents released in a country the organization is entitled to, and whether each is indexed. An organization entitled to no country gets an empty list. To search it use the document search with `shelf: \"base\"` (no project needed); for the law itself the law lookup. This only lists what is there.",
         "tags": [
           "knowledge"
         ],
@@ -22526,7 +22526,7 @@
       "get": {
         "operationId": "knowledge-document-get",
         "summary": "Read a base-corpus PDF",
-        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Identical for every organization. Use it to quote a source a citation points at.",
+        "description": "The PDF of one document of the building-law base corpus (the file names are listed by knowledge-base-get), returned as an attached resource up to 5 MiB; a larger file is not sent. Only a document released in a country the organization is entitled to; any other name answers 404, whether or not such a file exists. Use it to quote a source a citation points at.",
         "tags": [
           "knowledge"
         ],
@@ -28761,6 +28761,113 @@
         }
       }
     },
+    "/api/platform/knowledge/documents": {
+      "get": {
+        "operationId": "platform-knowledge-base-get",
+        "summary": "See the whole base corpus, released or not",
+        "description": "The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.",
+        "tags": [
+          "platform"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "See the whole base corpus, released or not",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "platform-knowledge-document-upload",
+        "summary": "Upload a PDF or ZIP to the base corpus",
+        "description": "Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.",
+        "tags": [
+          "platform"
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "doc_class": {
+                    "description": "The document type for a single PDF; omit to let ingestion decide.",
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Upload a PDF or ZIP to the base corpus",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/knowledge/change-requests": {
       "post": {
         "operationId": "platform-knowledge-change-request-create",
@@ -29512,47 +29619,41 @@
           "idempotentHint": true,
           "openWorldHint": false
         }
-      }
-    },
-    "/api/platform/knowledge/documents": {
-      "post": {
-        "operationId": "platform-knowledge-document-upload",
-        "summary": "Upload a PDF or ZIP to the base corpus",
-        "description": "Adds a PDF, or a ZIP of PDFs, to the base corpus store. Up to 32 MiB per call through the agent door. Send `body.files[0]` as { name, mimeType, contentBase64 }; `body.fields.doc_class` presets the document type of a single PDF. Ingestion runs in the background: the answer is `pending`, follow it with the corpus status operations. No country reads a file added here; attach an edition’s text in its change request with platform-knowledge-text-import or -text-upload instead. Other bytes under a file a platform record names are refused with NAME_TAKEN: a named text changes only in a change request. Platform owners only.",
+      },
+      "get": {
+        "operationId": "platform-knowledge-document-get",
+        "summary": "Read any base-corpus PDF, released or not",
+        "description": "The PDF of one document of the base corpus store, returned as an attached resource up to 5 MiB; a larger file is not sent. It serves documents no organization reads too. The file name comes from platform-knowledge-base-get.",
         "tags": [
           "platform"
         ],
-        "requestBody": {
-          "required": true,
-          "description": "A multipart form: the file in the `file` part, the route’s text fields as their own parts. Over MCP send body.files[0] = { name, mimeType, contentBase64 } and body.fields instead.",
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  },
-                  "doc_class": {
-                    "description": "The document type for a single PDF; omit to let ingestion decide.",
-                    "type": "string",
-                    "maxLength": 100
-                  }
-                },
-                "required": [
-                  "file"
-                ]
-              }
-            }
+        "parameters": [
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
+            },
+            "description": "The base-corpus file name, exactly as platform-knowledge-base-get lists it."
           }
-        },
+        ],
         "responses": {
           "200": {
-            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -29573,10 +29674,10 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "Upload a PDF or ZIP to the base corpus",
-          "readOnlyHint": false,
+          "title": "Read any base-corpus PDF, released or not",
+          "readOnlyHint": true,
           "destructiveHint": false,
-          "idempotentHint": false,
+          "idempotentHint": true,
           "openWorldHint": false
         }
       }

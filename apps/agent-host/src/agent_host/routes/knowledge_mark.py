@@ -46,6 +46,9 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     from knowledge_layer.vector_store import LICENCE_CLASS_FIELD
     from knowledge_layer.vector_store import QUOTE_MAX_CHARS_FIELD
 
+    # The corpus row first, chunks or none, collection or none: the row is what the PDF read and the listing
+    # decide by, so a text withdrawn before it was indexed is withdrawn there too, and its next ingest stamps the mark.
+    _remember_corpus_country(collection, update)
     store = _store()
     if not store.exists(collection):
         return None
@@ -67,7 +70,6 @@ def _mark(collection: str, update: KnowledgeMarkUpdate) -> int | None:
     if "country_id" in named:
         payload[COUNTRY_FIELD] = update.country_id
     store.set_file_payloads(collection, {update.file_name: payload})
-    _remember_corpus_country(collection, update)
     return chunks
 
 

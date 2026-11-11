@@ -189,6 +189,30 @@ export const platformKnowledgeOperations = [
     load: () => import('@/app/api/platform/knowledge/change-requests/[changeRequestId]/texts/upload/route'),
   },
   {
+    name: 'platform-knowledge-base-get',
+    domain: 'platform',
+    summary: 'See the whole base corpus, released or not',
+    description:
+      'The whole base corpus store with each document’s indexing state: `{ collectionName, summary, files: [{ fileName, state, chunkCount, docClass, displayTitle, ... }] }`. ' +
+      'It includes documents no release marked and documents a rollback withdrew, which no organization reads. Which country reads a document is in platform-knowledge-text-list.',
+    method: 'GET',
+    path: '/api/platform/knowledge/documents',
+    load: () => import('@/app/api/platform/knowledge/documents/route'),
+  },
+  {
+    name: 'platform-knowledge-document-get',
+    domain: 'platform',
+    summary: 'Read any base-corpus PDF, released or not',
+    description:
+      'The PDF of one document of the base corpus store, returned as an attached resource up to 5 MiB; a larger file is not sent. ' +
+      'It serves documents no organization reads too. The file name comes from platform-knowledge-base-get.',
+    method: 'GET',
+    path: '/api/platform/knowledge/documents/[fileName]',
+    params: z.object({ fileName: z.string().describe('The base-corpus file name, exactly as platform-knowledge-base-get lists it.') }),
+    binaryResponse: ['application/pdf'],
+    load: () => import('@/app/api/platform/knowledge/documents/[fileName]/route'),
+  },
+  {
     name: 'platform-knowledge-text-get',
     domain: 'platform',
     summary: 'Read the text of a manifestation of a change request',
