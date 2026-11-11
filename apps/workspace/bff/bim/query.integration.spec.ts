@@ -1080,7 +1080,7 @@ describe.skipIf(!url)('BIM queries against live Postgres', () => {
     const { elements, ...summary } = index
     const documentId = await seedDocument(ORG, 'wiederhochgeladen.ifc')
     const extract = async (fireRating: string): Promise<string> => {
-      const id = await repository.startBimModel({ organizationId: ORG, projectId: null, documentId })
+      const id = await repository.startBimModel({ organizationId: ORG, projectId: PLACED_PROJECT, documentId })
       await repository.completeBimModel({
         modelId: id,
         organizationId: ORG,
