@@ -113,7 +113,12 @@ def tokens(text: str) -> tuple[str, ...]:
 
 
 def host_of(url: str) -> str:
-    return (urlparse(url).hostname or "").rstrip(".").lower()
+    """The URL's host, lower-cased without a trailing dot; "" for a URL that does not parse (a malformed hit
+    must not fail the whole search: it is screened as hostless, never trusted)."""
+    try:
+        return (urlparse(url).hostname or "").rstrip(".").lower()
+    except ValueError:
+        return ""
 
 
 def on_host(host: str, hosts: Iterable[str]) -> bool:

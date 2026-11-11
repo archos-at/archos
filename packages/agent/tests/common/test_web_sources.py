@@ -334,3 +334,14 @@ def test_no_host_and_no_law_of_a_country_is_written_into_the_screen_s_code(modul
     found = sorted(name for name in _data_names() if name.casefold() in source)
     assert not found, f"{module.name} names {found}: put it in a source record or the norm registry"
     assert not re.search(r"\boib\b|\bris\b|\b[a-z0-9-]+\.(?:at|de|ch)\b", source), module.name
+
+
+def test_a_hit_whose_url_does_not_parse_is_screened_not_raised(invented_source):
+    """A malformed hit (an unclosed IPv6 bracket) used to raise in urlparse and fail the whole search."""
+    _reads("XR")
+    found = assess("https://[::1/x", "§ 7 Building Code")
+    assert found.withheld is not None or found.note is not None
+    kept, _ = web_sources.screen(
+        [{"url": "https://[::1/x", "title": "x"}, {"url": "https://www.example.org/a", "title": "a"}]
+    )
+    assert all(hit["url"] != "https://[::1/x" for hit in kept)
