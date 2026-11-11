@@ -41,7 +41,7 @@ const OIB_PAGE = 'https://www.oib.or.at/kernaufgaben/oib-richtlinien/'
  * garage (synthetic editions): binding law and guidance by the chain, OIB-RL
  * 2.2 because a building holds a garage, OIB-RL 2.3 open until Bauwerk 2's
  * escape level is known (Bauwerk 1's 18.4 m is under 22 m), and no OIB-RL 2.1,
- * which no building needs (ADR-0176).
+ * which no building needs (ADR-0178).
  */
 export const LAW_VIENNA: ProjectLaw = {
   gate: 'core',

@@ -89,7 +89,7 @@ export function RulesCard({ view }: { view: IntakeView }): JSX.Element | null {
 }
 
 /**
- * Why a work applies to this project, or what would decide it (ADR-0176): the
+ * Why a work applies to this project, or what would decide it (ADR-0178): the
  * building facts in the country's terms, then the provision the record cites.
  */
 function ApplicabilityNote({ use, factLabels }: { use: ProjectLawUse; factLabels: Record<string, string> }): JSX.Element | null {
