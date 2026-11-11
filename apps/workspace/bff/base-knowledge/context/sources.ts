@@ -18,7 +18,7 @@ import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { sourceKeyOf } from '../platform/sources'
 import { MAX_CONTEXT_SOURCES, MAX_SOURCE_CONFIG_CHARS, type ContextSource } from './wire'
 
-interface SourceRow {
+interface SourceRow extends Record<string, unknown> {
   record_id: string
   revision_id: string
   country_id: string

@@ -94,7 +94,16 @@
           "corpusFiles": [],
           "designation": "Bgld. BauG",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/BU/1998/10/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "10000504"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -707,7 +716,16 @@
           "corpusFiles": [],
           "designation": "K-BO 1996",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/KA/1996/62/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "10000201"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -1340,7 +1358,16 @@
           "corpusFiles": [],
           "designation": "NÖ BO 2014",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/NI/2015/1/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20001079"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -1973,7 +2000,16 @@
           "corpusFiles": [],
           "designation": "Oö. BauO 1994",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/OB/1994/66/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "10000411"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -2626,7 +2662,16 @@
           "corpusFiles": [],
           "designation": "Sbg. BTG 2015",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/SA/2016/1/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20001000"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -3259,7 +3304,16 @@
           "corpusFiles": [],
           "designation": "Stmk. BauG",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/ST/1995/59/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20000070"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -3892,7 +3946,16 @@
           "corpusFiles": [],
           "designation": "TBO 2022",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/TI/2022/44/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20000911"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },
@@ -4482,7 +4545,16 @@
           "corpusFiles": [],
           "designation": "Vbg. BauG",
           "editionLabel": null,
-          "sourceRefs": [],
+          "sourceRefs": [
+            {
+              "scheme": "eli",
+              "value": "https://www.ris.bka.gv.at/eli/lgbl/VO/2001/52/"
+            },
+            {
+              "scheme": "ris_gesetzesnummer",
+              "value": "20000734"
+            }
+          ],
           "sourceUrl": null,
           "applicability": null
         },

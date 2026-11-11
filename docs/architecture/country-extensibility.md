@@ -185,6 +185,16 @@ OGD API v2.6 (`data.bka.gv.at`) and the fixture
   `source.yml`). Today's engine is named `ris_xml`, which is the publisher's
   name; the schema's own name is the neutral one to take.
 
+Status, 2026-11-11 (plan step 4a, #1624): the record carries its `lookup`
+block (the locus grammar, the applications as collections, the Bundesland
+filter, the words written back), a turn carries the released sources of its
+countries, Austria's record is a door payload
+(`configs/knowledge-packs/at-sources.json`), and the parity rig holds the
+country-neutral lookup to the RIS tool's requests and text on 26 recorded calls
+(`packages/agent/tests/knowledge/test_law_lookup_parity.py`). Step 4b renames
+the model tool and deletes the package, `LAW_SOURCE_COUNTRIES` and the
+repository file once the record is published on dev.
+
 The constraint (ADR-0162, kept by ADR-0175): **Austrian answers stay
 byte-identical.** `packages/ris-adapter/tests/test_source_record_parity.py`
 holds every request the record builds to the request the code built, and the
