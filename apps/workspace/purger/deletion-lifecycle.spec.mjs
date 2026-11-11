@@ -47,14 +47,16 @@ function movesOf(statements) {
   return { from: [...new Set(from)], to: [...new Set(to)] }
 }
 
+const CLAIM = { id: 'q1', claim_token: '2026-11-11 10:00:00.123456+00' }
+
 const WRITERS = {
   claimNext: (sql) => queue.claimNext(sql),
-  releaseHeld: (sql) => queue.releaseHeld(sql, 'q1'),
-  markPurged: (sql) => queue.markPurged(sql, 'q1'),
-  markFailed: (sql) => queue.markFailed(sql, 'q1', 'boom'),
-  markFailedPermanent: (sql) => queue.markFailedPermanent(sql, 'q1', 'boom'),
+  releaseHeld: (sql) => queue.releaseHeld(sql, CLAIM),
+  markPurged: (sql) => queue.markPurged(sql, CLAIM),
+  markFailed: (sql) => queue.markFailed(sql, CLAIM, 'boom'),
+  markFailedPermanent: (sql) => queue.markFailedPermanent(sql, CLAIM, 'boom'),
+  closeErased: (sql) => queue.closeErased(sql),
   reapStranded: (sql) => queue.reapStranded(sql),
-  reofferExhausted: (sql) => queue.reofferExhausted(sql),
 }
 
 describe('the purger’s queue writes follow the declared deletion lifecycle', () => {
@@ -88,8 +90,12 @@ describe('the purger’s queue writes follow the declared deletion lifecycle', (
       const { from, to } = movesOf(await statementsOf(run))
       for (const source of from) for (const target of to) made.add(`${source} → ${target}`)
     }
+    // `close` from `failed`: the holder of a claim the reap failed while its
+    // purge still ran (`markPurged`), and a folder that is provably erased
+    // (`closeErased`). The purger never closes a `pending` row; the chat's
+    // delete request does.
     const declared = DELETION_LIFECYCLE.moves
-      .filter((move) => ['claim', 'reclaim', 'finish', 'release', 'fail'].includes(move.event))
+      .filter((move) => ['claim', 'reclaim', 'finish', 'release', 'fail'].includes(move.event) || (move.event === 'close' && move.from === 'failed'))
       .map((move) => `${move.from} → ${move.to}`)
     expect([...made].sort()).toEqual(declared.sort())
   })

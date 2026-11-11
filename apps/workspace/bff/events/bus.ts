@@ -19,7 +19,7 @@
  * open, a publish delivered in-process to this replica's listeners and through
  * Dragonfly to the others, and the publishing replica's echo dropped by process
  * id so nobody hears an event twice. With no `REDIS_URL` it is in-process only,
- * which is correct on a single replica (dev, tests, the single-node Coolify
+ * which is correct on a single replica (dev, tests, a single-node Compose
  * deployment). Nothing here throws: an outage degrades to local-only delivery
  * instead of failing the request that triggered it.
  */

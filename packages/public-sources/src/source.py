@@ -129,6 +129,32 @@ class InlineResponse(_Strict):
         return base64.b64decode(self.text) if self.encoding == "base64" else self.text.encode("utf-8")
 
 
+#: The most text a recording carries: what a citation capture keeps (``public_sources.pdf.MAX_TEXT_CHARS``).
+MAX_RECORDING_CHARS = 2_000_000
+
+
+class CapturedResponse(_Strict):
+    """A recorded response the platform took itself: a citation capture of the URL (ADR-0174, amendment 2026-11-11).
+
+    A published document is megabytes, and nobody can paste one honestly. So a
+    record's fixture names the capture the platform fetched through the
+    public-source fetcher, whose bytes, sha256 and time are the platform's own.
+    The record keeps the capture's id and nothing else. For a check, the BFF
+    hands the capture's content type and text over with it; without them the
+    fixture awaits its recording and is not run (:mod:`public_sources.fixtures`).
+    """
+
+    #: The capture's id; ``None`` while it is not taken (a draft is proposed first, so its hosts can be fetched).
+    capture_id: str | None = Field(pattern=r"^[0-9a-fA-F-]{36}$")
+    #: The capture's content type and text, handed over for a check; never kept in a record.
+    content_type: str = ""
+    text: str | None = Field(default=None, max_length=MAX_RECORDING_CHARS)
+
+    @property
+    def recorded(self) -> bool:
+        return self.capture_id is not None and self.text is not None
+
+
 #: Headers a key may never be sent under (held again by the BFF's ``REFUSED_CREDENTIAL_HEADERS``).
 REFUSED_CREDENTIAL_HEADERS = frozenset(
     {
@@ -190,8 +216,9 @@ class Fixture(_Strict):
     name: str
     operation: str
     args: dict[str, str] = Field(default_factory=dict)
-    #: A file under ``fixtures/`` (a repository record), or the response itself (a database record).
-    responses: dict[str, str | InlineResponse]
+    #: A file under ``fixtures/`` (a repository record); the response itself, or the capture the
+    #: platform took of it (a database record).
+    responses: dict[str, str | InlineResponse | CapturedResponse]
     #: What the engine's result must show: ``kind`` (``search`` or ``document``),
     #: ``title``, ``min_hits``/``min_passages``, ``anchors`` (present, in order),
     #: ``contains`` (substrings of the text), ``version``.
@@ -389,6 +416,9 @@ def load_sources(path: str | os.PathLike[str] | None = None) -> dict[str, Source
             source = parse_source(raw, directory=file.parent)
         except SourceError as exc:
             raise SourceError(f"{file}: {exc}") from exc
+        if any(not isinstance(r, str) for fixture in source.fixtures for r in fixture.responses.values()):
+            # A capture belongs to a change request, and a file is what a reviewer of the repository reads.
+            raise SourceError(f"{file}: a repository record's fixtures name files under fixtures/")
         if source.id in sources:
             raise SourceError(f"{file}: source id {source.id!r} is used twice")
         sources[source.id] = source

@@ -295,7 +295,7 @@ def test_the_vector_channel_is_recorded(report):
     assert recorded, "vector fixture missing — re-record with `task be:eval:record-vector`"
     assert recorded["model"] == "openai/text-embedding-3-large", (
         f"recorded with {recorded['model']!r}, which is not the deployed embedding model "
-        "(deploy/compose/docker-compose.coolify.yaml) — re-record"
+        "(deploy/compose/docker-compose.yaml) — re-record"
     )
     assert len(recorded["rankings"]) == len(report.results)
     assert recorded["corpus_fingerprint"]

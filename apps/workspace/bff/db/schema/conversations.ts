@@ -79,7 +79,7 @@ export const conversations = pgTable(
      * NOTE: the database also has `conversations_job_id_idx`, PARTIAL
      * (`WHERE job_id IS NOT NULL`) so it does not carry an entry for every human
      * chat. Drizzle's index builder cannot express a partial index, so it lives
-     * only in migration 0044 — the same arrangement as `idx_jobs_due`.
+     * only in migration 0044 — the same arrangement as `idx_task_definitions_due`.
      *
      * **It is not unique, and it cannot become unique** (migration 0091's
      * header carries the record). A standing definition owns ONE thread from PR

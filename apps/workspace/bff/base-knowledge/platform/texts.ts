@@ -28,7 +28,8 @@ import type { UserSession } from '@/lib/auth/types'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { actingClientId } from '@/lib/agent-api/acting-session'
 import type { KnowledgeProvenance, KnowledgeTextProvenance } from '@/lib/db/schema/knowledge-records'
-import { getKnowledgeBaseStatus, streamKnowledgeBaseDocument, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { getKnowledgeBaseStatus, uploadKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { streamKnowledgeBaseDocumentAsPlatform } from '@/lib/knowledge/source-pdf'
 import { CaptureFetchError, type ConfiguredSource, importSourceText } from './capture-fetch'
 import { configuredSource, runKit } from './onboarding'
 import { requirePlatform } from './service-gate'
@@ -212,7 +213,7 @@ export async function readPlatformText(session: UserSession | null, requestId: s
   const found = await platformTransaction((tx) => draftManifestation(tx, requestId, recordIdOfKey(manifestationKey)))
   if (!found?.text) throw new NotFoundError(`No manifestation ${manifestationKey} with a text in this change request.`)
   const { corpusFile, sha256 } = found.text
-  const upstream = await streamKnowledgeBaseDocument(corpusFile)
+  const upstream = await streamKnowledgeBaseDocumentAsPlatform(corpusFile)
   const bytes = Buffer.from(await upstream.arrayBuffer())
   if (!sha256 || createHash('sha256').update(bytes).digest('hex') !== sha256) {
     throw new ApiError(409, 'TEXT_CHANGED', `The base corpus keeps other bytes as ${corpusFile} than the ones this change request names; the text is not shown.`, {

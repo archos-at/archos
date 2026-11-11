@@ -28,7 +28,7 @@ import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
 import { knowledgeChangeRequests } from '@/lib/db/schema/knowledge-platform'
 import { CaptureFetchError, callPublicSources, refusalDetail } from './capture-fetch'
 import { configuredSource } from './onboarding'
-import { type BuiltInSource, builtInSources, checkSourceConfig, type SourceCheck } from './source-checks'
+import { type BuiltInSource, builtInSources, checkSourceConfig, recordedConfig, type SourceCheck } from './source-checks'
 import {
   activeSources,
   credentialView,
@@ -109,7 +109,8 @@ export async function testPlatformSource(
   const { source, configured } = found
   let fixtures: SourceCheck
   try {
-    fixtures = await checkSourceConfig(source.config)
+    // A fixture may name a capture the platform took: its text goes with the check (a testing source's from its own request).
+    fixtures = await checkSourceConfig(await recordedConfig(source.config, source.state === 'testing' ? (body.changeRequestId ?? null) : null))
   } catch (error) {
     if (!(error instanceof CaptureFetchError)) throw error
     throw new ServiceUnavailableError(error.message)

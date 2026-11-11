@@ -4,6 +4,11 @@
  * Platform owners only. Repo-shipped corpus files cannot be deleted, and
  * neither can a file a platform record names as its text (409): its publish
  * or its next re-index would find no file (ADR-0165).
+ *
+ * GET streams the PDF of any file the corpus lists, released or not, for the
+ * viewer of the platform's knowledge page. An office reads only what is
+ * released to it, through `GET /api/knowledge-base/documents/[fileName]`.
+ * Platform staff with `platform:settings:view`.
  */
 
 import { NextResponse } from 'next/server'
@@ -11,6 +16,12 @@ import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { refuseRemovingNamedText } from '@/lib/base-knowledge/platform/texts'
 import { deleteKnowledgeBaseDocument } from '@/lib/knowledge/service'
+import { streamKnowledgeBaseDocumentAsPlatform } from '@/lib/knowledge/source-pdf'
+
+export const GET = platformApiRoute<{ fileName: string }>(
+  async ({ params }) => streamKnowledgeBaseDocumentAsPlatform(params.fileName),
+  { permission: PLATFORM_PERMISSIONS.settingsView }
+)
 
 export const DELETE = platformApiRoute<{ fileName: string }>(
   async ({ params }) => {

@@ -156,6 +156,7 @@ export const chat = {
       tooLarge: 'The recording is too large to transcribe.',
       notConfigured: 'Voice input is not available right now.',
       failed: 'The recording could not be transcribed. Your message is unchanged.',
+      notSaved: 'The recording could not be saved. Please dictate it again.',
     },
   },
   // Source-preset shortcut chips under the composer (empty thread).

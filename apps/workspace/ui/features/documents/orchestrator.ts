@@ -2,7 +2,7 @@
  * Upload Orchestrator
  *
  * Centralized service for managing file upload orchestration including:
- * - Polling lifecycle (start, stop, cleanup)
+ * - Following a read until it settles (start, stop, cleanup)
  * - Persistence (localStorage save/restore for page refresh)
  * - Session switching (cleanup, resume)
  * - File loading from server
@@ -11,7 +11,10 @@
  * and effect races that were previously managed in the useFileUpload hook.
  *
  * Two shelves, two transports. A project or Archiv collection is listed through
- * the v1 proxy and its ingest jobs are polled by job id. A chat's attachments
+ * the v1 proxy and its ingest jobs are asked about by job id: when the shelf's
+ * live channel says something settled ({@link UploadOrchestratorImpl.askNow},
+ * called by `useUploadOrchestrator`) and once a minute as the floor under a
+ * lost hint. A chat's attachments
  * (`shelf: 'session'`) are document rows (ADR-0047 Phase 2): they are listed
  * through `GET /api/session/documents`, which reconciles in-flight statuses on
  * every read, so polling them is re-listing until nothing is in flight. That
@@ -29,12 +32,7 @@ import type { TrackedFile } from './types'
 import { trackedStatusOfJobFile } from './utils'
 import { classifyIngestFailure, ingestFailureSentence } from './lib/ingest-failure'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
-import {
-  isJoblessIngesting,
-  nextStatusBatch,
-  readDocumentStatuses,
-  trackedPatchFromStatus,
-} from './lib/document-status-reads'
+import { createDocumentWatch } from './lib/document-watch'
 import {
   persistJob,
   removePersistedJob,
@@ -46,33 +44,35 @@ import {
   removePersistedJobForCollection,
 } from './persistence'
 
-const POLL_INTERVAL_MS = 5000
+/** A chat's listing has no live channel (an attachment is on no shelf), so it is re-read on a clock. */
+const SESSION_POLL_INTERVAL_MS = 5000
 /**
- * How long (420 × 5 s, 35 min) the orchestrator follows one job closely.
- *
- * Running out of it says nothing about the upload. A large set of drawings is
- * still being read long after that, and calling it "timed out" put a red
- * upload problem on a document that became citable a minute later. So the end
- * of the budget hands the rows on (see `handOverToListing`), it never fails them.
+ * How long (420 × 5 s, 35 min) a chat's listing is re-read closely. Running
+ * out of it says nothing about the upload: a large set of drawings is still
+ * being read long after that, so the listing is followed on, less often.
  */
-const MAX_POLL_ATTEMPTS = 420
-/** A chat's listing past the budget: still followed, just less often. */
-const SLOW_POLL_INTERVAL_MS = 60_000
+const MAX_SESSION_POLL_ATTEMPTS = 420
 /**
- * How often a row no job follows is asked about by id: a handed-over row
- * (past the budget, or its job forgotten) or a detached extraction. Slow,
- * because a workspace that is open settles the same rows every few seconds
- * itself; this is the floor for everywhere else.
+ * The floor under the shelf's live channel, and a chat's listing past its
+ * budget: how often a job or a row is asked about when no hint said it
+ * settled. Slow, because the hint is the fast path (`askNow`) and a lost one
+ * must only cost time, never strand a row.
  */
-const DOCUMENT_WATCH_INTERVAL_MS = SLOW_POLL_INTERVAL_MS
-/** One notice per hand-over burst, however many jobs reach it together. */
+export const FALLBACK_POLL_MS = 60_000
+/** After this long on one job a person is told it is still being read, once. */
+const STILL_READING_AFTER_MS = 35 * 60_000
+/** One notice, however many reads reach it together. */
 const STILL_READING_TOAST_ID = 'upload-still-reading'
 
 interface PollingState {
   jobId: string
   collectionName: string
+  /** The wait for the next ask; null while a status read is in flight. */
   timeoutId: NodeJS.Timeout | null
-  pollCount: number
+  /** A hint arrived while a read was in flight: that read may predate the settle, so ask once more. */
+  askAgain: boolean
+  /** When following began; 0 once the still-reading notice was shown. */
+  since: number
   abortController: AbortController
 }
 
@@ -114,13 +114,14 @@ class UploadOrchestratorImpl {
    * whichever hook happened to render after it and never refreshed.
    */
   private subscribers = new Set<OrchestratorCallbacks>()
-  /**
-   * Tray rows (by tracked id) that no job follows, and the timer asking about
-   * them by document id. See {@link watchDocuments}.
-   */
-  private watchedRows = new Set<string>()
-  private documentWatchTimer: ReturnType<typeof setTimeout> | null = null
-  private documentWatchOffset = 0
+  /** The tray rows no job follows, asked about by document id. See {@link watchDocuments}. */
+  private documentWatch = createDocumentWatch({
+    intervalMs: FALLBACK_POLL_MS,
+    onSettled: () => {
+      notifyDocumentsChanged()
+      this.emit('onComplete')
+    },
+  })
 
   setAuthToken(token: string | undefined): void {
     this.authToken = token
@@ -392,7 +393,7 @@ class UploadOrchestratorImpl {
   private scheduleSessionPoll(): void {
     const poll = this.sessionPoll
     if (!poll) return
-    const interval = poll.pollCount > MAX_POLL_ATTEMPTS ? SLOW_POLL_INTERVAL_MS : POLL_INTERVAL_MS
+    const interval = poll.pollCount > MAX_SESSION_POLL_ATTEMPTS ? FALLBACK_POLL_MS : SESSION_POLL_INTERVAL_MS
     poll.timeoutId = setTimeout(() => {
       void this.runSessionPoll(poll)
     }, interval)
@@ -407,7 +408,7 @@ class UploadOrchestratorImpl {
     if (this.sessionPoll !== poll) return
     const store = this.getStore()
 
-    if (poll.pollCount === MAX_POLL_ATTEMPTS) this.announceStillReading()
+    if (poll.pollCount === MAX_SESSION_POLL_ATTEMPTS) this.announceStillReading()
     poll.pollCount++
 
     try {
@@ -489,9 +490,7 @@ class UploadOrchestratorImpl {
     this.startPolling(jobId, sessionId)
   }
 
-  /**
-   * Start polling for a job
-   */
+  /** Start polling for a job. */
   startPolling(jobId: string, collectionName: string, filesToPersist?: TrackedFile[]): void {
     this.stopPolling()
 
@@ -509,7 +508,8 @@ class UploadOrchestratorImpl {
       jobId,
       collectionName,
       timeoutId: null,
-      pollCount: 0,
+      askAgain: false,
+      since: Date.now(),
       abortController,
     }
 
@@ -517,8 +517,23 @@ class UploadOrchestratorImpl {
   }
 
   /**
-   * Stop current polling
+   * Something on the shelf settled, or its live channel came (back) up: ask
+   * about the job and the watched rows now instead of at the next fallback
+   * tick. A hint, never a result: the status reads decide what is shown. One
+   * that arrives while a read is in flight is remembered, because that read
+   * may have been answered before the settle.
    */
+  askNow(): void {
+    const job = this.pollingState
+    if (job?.timeoutId) {
+      clearTimeout(job.timeoutId)
+      job.timeoutId = null
+      void this.pollJobStatus()
+    } else if (job) job.askAgain = true
+    this.documentWatch.askNow()
+  }
+
+  /** Stop current polling. */
   stopPolling(): void {
     if (this.pollingState) {
       if (this.pollingState.timeoutId) {
@@ -546,9 +561,6 @@ class UploadOrchestratorImpl {
     }
   }
 
-  /**
-   * Poll job status
-   */
   private async pollJobStatus(): Promise<void> {
     if (!this.pollingState) return
 
@@ -558,11 +570,6 @@ class UploadOrchestratorImpl {
 
     if (abortController.signal.aborted) {
       this.stopPolling()
-      return
-    }
-
-    if (this.pollingState.pollCount >= MAX_POLL_ATTEMPTS) {
-      this.handOverToListing(jobId)
       return
     }
 
@@ -625,7 +632,6 @@ class UploadOrchestratorImpl {
         return
       }
 
-      this.pollingState.pollCount++
       this.scheduleNextPoll()
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -638,9 +644,7 @@ class UploadOrchestratorImpl {
 
       if (!this.pollingState) return
 
-      // A failed status read is not a failed upload. The budget check at the
-      // top of the next poll decides when to stop asking.
-      this.pollingState.pollCount++
+      // A failed status read is not a failed upload: ask again at the floor.
       this.scheduleNextPoll()
     }
   }
@@ -670,81 +674,12 @@ class UploadOrchestratorImpl {
 
   /**
    * Follow tray rows that no ingest job will finish, by their documents'
-   * status, until each is terminal.
-   *
-   * The workspace listing settles these too, but only while a Files or Archiv
-   * page is mounted. A project upload started from the chat's side panel, or
-   * one the reader walked away from, had nothing asking at all and spun
-   * forever. This is the floor: slow, per document, and only for rows that
-   * carry a document id. Idempotent per row.
+   * status, until each is terminal (`lib/document-watch.ts`). Idempotent per row.
    *
    * @param trackedIds Tray row ids; rows that are not jobless-and-ingesting are ignored.
    */
   watchDocuments(trackedIds: readonly string[]): void {
-    const rows = new Map(this.getStore().trackedFiles.map((file) => [file.id, file]))
-    for (const id of trackedIds) {
-      const row = rows.get(id)
-      if (row && isJoblessIngesting(row)) this.watchedRows.add(id)
-    }
-    if (this.watchedRows.size > 0 && !this.documentWatchTimer) this.scheduleDocumentWatch()
-  }
-
-  private scheduleDocumentWatch(): void {
-    this.documentWatchTimer = setTimeout(() => {
-      void this.runDocumentWatch()
-    }, DOCUMENT_WATCH_INTERVAL_MS)
-  }
-
-  private stopDocumentWatch(): void {
-    if (this.documentWatchTimer) clearTimeout(this.documentWatchTimer)
-    this.documentWatchTimer = null
-    this.watchedRows.clear()
-  }
-
-  /** The rows still owed an answer, pruning any somebody else settled or removed. */
-  private watchedWaiting(): TrackedFile[] {
-    const rows = new Map(this.getStore().trackedFiles.map((file) => [file.id, file]))
-    const waiting: TrackedFile[] = []
-    for (const id of this.watchedRows) {
-      const row = rows.get(id)
-      if (row && isJoblessIngesting(row)) waiting.push(row)
-      else this.watchedRows.delete(id)
-    }
-    return waiting
-  }
-
-  private async runDocumentWatch(): Promise<void> {
-    this.documentWatchTimer = null
-    const waiting = this.watchedWaiting()
-    if (waiting.length === 0) return
-    const ids = waiting.map((row) => row.serverFileId ?? '')
-    const { batch, next } = nextStatusBatch(ids, this.documentWatchOffset)
-    this.documentWatchOffset = next
-    const reads = await readDocumentStatuses(batch)
-
-    let completed = false
-    const store = this.getStore()
-    for (const row of this.watchedWaiting()) {
-      const read = reads.get(row.serverFileId ?? '')
-      if (!read) continue
-      // Deleted meanwhile: nothing left to follow, and nothing to report.
-      if (read.kind === 'gone') {
-        this.watchedRows.delete(row.id)
-        continue
-      }
-      const patch = trackedPatchFromStatus(read.fields.status, read.fields.errorMessage)
-      if (!patch) continue
-      store.updateTrackedFile(row.id, patch)
-      this.watchedRows.delete(row.id)
-      completed = true
-    }
-    if (completed) {
-      // Same reason as the job and session polls: listings snapshotted while
-      // these were being read hold rows without chunks until told again.
-      notifyDocumentsChanged()
-      this.emit('onComplete')
-    }
-    if (this.watchedRows.size > 0 && !this.documentWatchTimer) this.scheduleDocumentWatch()
+    this.documentWatch.watch(trackedIds)
   }
 
   /** A notice, not an error: nothing failed and there is nothing to retry. */
@@ -752,15 +687,20 @@ class UploadOrchestratorImpl {
     toast.info(getStoreTranslator(filesCopy)('uploads.stillReading'), { id: STILL_READING_TOAST_ID })
   }
 
-  /**
-   * Schedule the next poll using setTimeout
-   */
+  /** Ask about the job again: at the floor, or at once when a hint arrived during the last read. */
   private scheduleNextPoll(): void {
-    if (!this.pollingState) return
-
-    this.pollingState.timeoutId = setTimeout(() => {
-      this.pollJobStatus()
-    }, POLL_INTERVAL_MS)
+    const job = this.pollingState
+    if (!job) return
+    if (job.since && Date.now() - job.since >= STILL_READING_AFTER_MS) {
+      job.since = 0
+      this.announceStillReading()
+    }
+    const wait = job.askAgain ? 0 : FALLBACK_POLL_MS
+    job.askAgain = false
+    job.timeoutId = setTimeout(() => {
+      job.timeoutId = null
+      if (this.pollingState === job) void this.pollJobStatus()
+    }, wait)
   }
 
   /**
@@ -776,13 +716,11 @@ class UploadOrchestratorImpl {
     }
   }
 
-  /**
-   * Cleanup on unmount
-   */
+  /** Cleanup on unmount. */
   cleanup(): void {
     this.stopPolling()
     this.stopSessionPolling()
-    this.stopDocumentWatch()
+    this.documentWatch.stop()
     this.jobQueue = []
     this.currentSessionId = null
     this.lastLoadedSessionId = null

@@ -7,7 +7,7 @@
  */
 
 import 'server-only'
-import { getBackendUrl } from '@/lib/backend-proxy'
+import { getBackendUrl } from '@/lib/backend-url'
 import type { DistillOutcome } from './types'
 
 const DISTILL_TIMEOUT_MS = 60_000

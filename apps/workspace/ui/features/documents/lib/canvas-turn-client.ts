@@ -33,6 +33,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
+import { watchConnectionWait } from '@/adapters/api/connection-wait'
 import {
   createTurnSocket,
   type OpenTurn,
@@ -129,6 +130,13 @@ export interface CanvasTurnClientOptions {
   onConversation?: () => void
   /** A question went out without parts its server does not read; called once per question, after it is sent. */
   onDegraded?: (turnId: string, dropped: CanvasDegradation[]) => void
+  /**
+   * The socket has been unconnected for more than a moment (true), or the
+   * wait is over (false): the chat's "connection is being restored" fact,
+   * after the same wait (`connection-wait.ts`). It says nothing of whether a
+   * question is waiting; a caller shows it only under an ask that is thinking.
+   */
+  onRestoring?: (restoring: boolean) => void
   /** Refresh the auth cookie before each socket attempt. */
   refreshAuth?: () => Promise<void>
   /** The socket factory; a fake in specs. */
@@ -349,7 +357,7 @@ export function createCanvasTurnClient(options: CanvasTurnClientOptions): Canvas
       openTurns,
       refreshAuth: options.refreshAuth,
       onEvent: receive,
-      onStatus,
+      onStatus: watchConnectionWait((restoring) => options.onRestoring?.(restoring), onStatus),
       onSilent: (turnIds) => {
         // One silent socket is reopened by the socket itself; the second in a row ends the turn.
         for (const turnId of turnIds) {

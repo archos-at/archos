@@ -11,8 +11,14 @@
  *
  * A record's fixtures carry their recorded responses inline (a repository
  * record keeps them as files beside it), so `platform-knowledge-source-test`
- * proves the record with no live call. A binary body (a `pdf_document`
- * source's PDF) is carried as base64, within the same length.
+ * proves the record with no live call. A small binary body is carried as
+ * base64, within the same length.
+ *
+ * A published document does not fit that length (a PDF is megabytes), so a
+ * `pdf_document` fixture names the response the platform recorded itself: a
+ * `fetched` citation capture of the URL (`{captureId}`), whose bytes, sha256
+ * and time are the platform's own. The record keeps the capture's id; the kit
+ * hands the capture's text to the check (`platform/source-checks.ts`).
  */
 
 import { z } from 'zod'
@@ -113,15 +119,40 @@ const recordedResponseSchema = z
     message: 'a base64 body is standard padded base64 (RFC 4648), with no line breaks',
   })
 
+/**
+ * One response the platform recorded itself: a citation capture of the URL, taken through this source with
+ * `platform-knowledge-citation-capture {basis: "fetched"}`. Nobody pastes a document's bytes.
+ */
+const capturedResponseSchema = z
+  .object({
+    captureId: z
+      .uuid()
+      .nullable()
+      .describe(
+        'The id of a fetched capture of this URL, in this change request, through this source. null while it is not ' +
+          'taken: the draft is written so its hosts can be fetched, and validate fails until the record names the capture.',
+      ),
+  })
+  .strict()
+
+export type SourceFixtureResponse = z.infer<typeof recordedResponseSchema> | z.infer<typeof capturedResponseSchema>
+
+/** Whether a fixture's response is a capture the platform took, not a body the proposer wrote. */
+export const isCapturedResponse = (response: SourceFixtureResponse): response is z.infer<typeof capturedResponseSchema> => 'captureId' in response
+
 export const sourceFixtureSchema = z
   .object({
     name: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,59}$/),
     operation: z.string().regex(/^[a-z_]{1,40}$/).describe('The access type operation, e.g. document, search, features.'),
     args: argsSchema.default({}),
     responses: z
-      .record(z.url().max(2000), recordedResponseSchema)
+      .record(z.url().max(2000), z.union([recordedResponseSchema, capturedResponseSchema]))
       .refine((responses) => Object.keys(responses).length > 0, 'a fixture records at least one response')
-      .describe('Every URL the operation requests, with the response recorded for it.'),
+      .describe(
+        'Every URL the operation requests, with the response recorded for it: `{contentType, body, encoding}` for a ' +
+          'small text or JSON response you copied, or `{captureId}` for a document the platform captured (a PDF: ' +
+          'format pdf_document reads the capture’s pages).',
+      ),
     expect: z
       .record(z.string().regex(/^[a-z_]{1,30}$/), z.unknown())
       .describe('What the engine must make of it: title, min_passages, anchors, contains, version (as public_sources.fixtures reads them).'),
@@ -189,8 +220,8 @@ export type SourceRecordValues = z.infer<z.ZodObject<typeof sourceRecordFields>>
 
 /**
  * The record as `public_sources.source.Source` reads it: snake case, the key
- * as its id, the recorded responses inline. What the body's `config` keeps and
- * what the api tier validates, tests and fetches with.
+ * as its id, the recorded responses inline or by their capture's id. What the
+ * body's `config` keeps and what the api tier validates, tests and fetches with.
  */
 export function sourceConfigOf(record: SourceRecordValues): Record<string, unknown> {
   return {
@@ -216,7 +247,12 @@ export function sourceConfigOf(record: SourceRecordValues): Record<string, unkno
       operation: fixture.operation,
       args: fixture.args,
       responses: Object.fromEntries(
-        Object.entries(fixture.responses).map(([url, response]) => [url, { content_type: response.contentType, text: response.body, encoding: response.encoding }]),
+        Object.entries(fixture.responses).map(([url, response]) => [
+          url,
+          isCapturedResponse(response)
+            ? { capture_id: response.captureId }
+            : { content_type: response.contentType, text: response.body, encoding: response.encoding },
+        ]),
       ),
       expect: fixture.expect,
     })),

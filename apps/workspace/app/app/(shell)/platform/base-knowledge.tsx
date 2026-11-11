@@ -172,7 +172,7 @@ export function BaseKnowledge(): JSX.Element {
   const loadSeqRef = useRef(0)
 
   const fetchStatus = useCallback(async (): Promise<KnowledgeBaseStatus> => {
-    const res = await fetch('/api/knowledge-base')
+    const res = await fetch('/api/platform/knowledge/documents')
     if (!res.ok) throw new Error(`Failed to load knowledge base (${res.status})`)
     return (await res.json()) as KnowledgeBaseStatus
   }, [])
@@ -1014,9 +1014,9 @@ export function BaseKnowledge(): JSX.Element {
 
       {viewerFile ? (
         <PdfViewerDialog
-          open
-          onOpenChange={(open) => !open && setViewerFile(null)}
+          open onOpenChange={(open) => !open && setViewerFile(null)}
           fileName={viewerFile}
+          src={`/api/platform/knowledge/documents/${encodeURIComponent(viewerFile)}`}
         />
       ) : null}
 

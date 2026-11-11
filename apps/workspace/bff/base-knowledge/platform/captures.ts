@@ -46,7 +46,7 @@ export const sha256Of = (text: string): string => createHash('sha256').update(te
 /** A PDF capture's text joins its pages with a form feed (`public_sources.pdf`): the page of a quote is the form feeds before it, plus one. */
 export const PAGE_BREAK = '\f'
 
-const isPdf = (contentType: string | null) => (contentType ?? '').split(';')[0].trim().toLowerCase() === 'application/pdf'
+export const isPdf = (contentType: string | null) => (contentType ?? '').split(';')[0].trim().toLowerCase() === 'application/pdf'
 
 /** A PDF capture's pages, counted from its text; null for any other capture, or a PDF that kept no text. */
 export function pagesOf(contentType: string | null, text: string | null): number | null {
@@ -117,6 +117,46 @@ export async function capturesOf(tx: Tx, changeRequestId: string, ids: readonly 
     .from(knowledgeCitationCaptures)
     .where(and(eq(knowledgeCitationCaptures.changeRequestId, changeRequestId), inArray(knowledgeCitationCaptures.id, wanted)))
   return new Map(rows.map((row) => [row.id, { text: row.text, basis: row.basis }]))
+}
+
+/** A capture as a source fixture's recording reads it (`source-checks.ts`): what it is of, how it was taken, and its text. */
+/** The phrase the reader's note carries when the text cap stopped a PDF's read (`PdfText.note`, pinned by test_pdf.py). */
+const CUT_NOTE = 'read only in part'
+/** Whether a capture's note says its text is a prefix of the document. */
+export const isCut = (note: string | null) => (note ?? '').includes(CUT_NOTE)
+
+export interface RecordingCapture {
+  id: string
+  basis: 'fetched' | 'operator_supplied'
+  sourceId: string | null
+  url: string
+  contentType: string | null
+  text: string | null
+  note: string | null
+}
+
+/**
+ * The captures `ids` name, for a source's fixtures. `changeRequestId` holds them to that request (a proposal names
+ * captures of its own request); null reads them wherever they are, for a stored source whose request validated them.
+ */
+export async function recordingCapturesOf(tx: Tx, changeRequestId: string | null, ids: readonly string[]): Promise<Map<string, RecordingCapture>> {
+  const wanted = [...new Set(ids)].filter((id) => UUID.test(id))
+  if (wanted.length === 0) return new Map()
+  const rows = await tx
+    .select({
+      id: knowledgeCitationCaptures.id,
+      basis: knowledgeCitationCaptures.basis,
+      sourceId: knowledgeCitationCaptures.sourceId,
+      url: knowledgeCitationCaptures.url,
+      contentType: knowledgeCitationCaptures.contentType,
+      text: knowledgeCitationCaptures.text,
+      note: knowledgeCitationCaptures.note,
+    })
+    .from(knowledgeCitationCaptures)
+    .where(
+      and(inArray(knowledgeCitationCaptures.id, wanted), ...(changeRequestId ? [eq(knowledgeCitationCaptures.changeRequestId, changeRequestId)] : [])),
+    )
+  return new Map(rows.map((row) => [row.id.toLowerCase(), row]))
 }
 
 /** A request's captures as a reviewer reads them, without their text (only its length). */

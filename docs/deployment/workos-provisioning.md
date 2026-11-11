@@ -360,7 +360,7 @@ nobody. The current gap in both environments, and what it costs users, is in
      `allowSignUp: false`) for Staging, and again when Production is
      provisioned.
   2. **App-side**: `DISABLE_SELF_SERVE_ORGS=true` in the deploy
-     environment (Coolify) — org creation becomes platform-team-only and
+     environment — org creation becomes platform-team-only and
      onboarding shows the invite-only notice up front.
 
 ### 5. Audit Logs (native WorkOS product)
@@ -458,7 +458,6 @@ work (`piloti.mark.decided`).
   |---|---|---|
   | Kubernetes (Pulumi) | Job `grid-app-audit-schemas` (`deploy/pulumi/src/app/audit-schemas-job.ts`), created when `requireAuth` is on | **No** — the frontend Deployment does not depend on it |
   | Docker Compose | one-shot service `audit-schemas` | **Yes** — `frontend` waits on `service_completed_successfully` |
-  | Coolify | the same one-shot service in `docker-compose.coolify.yaml` | **Yes** |
 
   On the compose paths the container exits 0 without doing anything when
   `WORKOS_API_KEY` is unset, so an anonymous stack still boots.

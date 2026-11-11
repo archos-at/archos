@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 COMPOSE_DIR = Path(__file__).resolve().parents[1] / "deploy" / "compose"
-FILES = ["docker-compose.yaml", "docker-compose.coolify.yaml"]
+FILES = ["docker-compose.yaml"]
 #: The roles whose tools read public sources, as the Kubernetes NetworkPolicy admits them.
 CALLERS = ("chat", "api", "agent-worker")
 FETCHER = "public-source-fetcher"

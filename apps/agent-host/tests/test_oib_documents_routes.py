@@ -877,7 +877,7 @@ async def test_a_document_this_replica_does_not_hold_is_fetched_and_served(app, 
     (cache_dir / "elsewhere.pdf").unlink()
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/elsewhere.pdf")
+        res = await client.get("/v1/admin/corpus/documents/elsewhere.pdf")
 
     assert res.status_code == 200
     assert res.content == b"%PDF elsewhere"
@@ -891,7 +891,7 @@ async def test_a_document_removed_elsewhere_is_not_served_from_a_stale_cache(app
     (cache_dir / "removed.pdf").write_bytes(b"%PDF stale")
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/removed.pdf")
+        res = await client.get("/v1/admin/corpus/documents/removed.pdf")
 
     assert res.status_code == 404
     assert not (cache_dir / "removed.pdf").exists()
@@ -904,7 +904,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
     bucket.objects.clear()
 
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/lost.pdf")
+        res = await client.get("/v1/admin/corpus/documents/lost.pdf")
 
     assert res.status_code == 503
 
@@ -912,7 +912,7 @@ async def test_a_listed_document_the_object_store_cannot_serve_is_503_not_404(ap
 @pytest.mark.asyncio
 async def test_the_pdf_route_refuses_what_is_not_a_plain_pdf_name(app):
     async with _client(app) as client:
-        res = await client.get("/v1/oib/documents/notes.txt")
+        res = await client.get("/v1/admin/corpus/documents/notes.txt")
 
     assert res.status_code == 404
 
@@ -993,3 +993,94 @@ class TestCorpusExport:
         with pytest.raises(corpus_store.CorpusStoreError):
             oib_routes._corpus_tarball()
         assert list(scratch.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# The source PDF is served to whom it is released (ADR-0173)
+# ---------------------------------------------------------------------------
+
+_INTERNAL_TOKEN = "an-internal-token-of-this-test"
+_INTERNAL = {"x-internal-token": _INTERNAL_TOKEN}
+
+#: One file per class a corpus holds, with the mark each carries. The countries are invented: the
+#: rule reads the mark and the caller's countries, and knows no country of its own.
+_RELEASED_HERE = "released-here.pdf"
+_FILE_CLASSES = {
+    _RELEASED_HERE: "QA",
+    "released-elsewhere.pdf": "QB",
+    "rolled-back.pdf": "ZZ",
+    "draft-upload.pdf": None,
+}
+
+
+@pytest.fixture
+def corpus(app, bucket, monkeypatch):
+    """A corpus holding one file of each class, and the internal token the BFF calls with."""
+    monkeypatch.setenv("INTERNAL_API_TOKEN", _INTERNAL_TOKEN)
+    monkeypatch.setenv("APP_ENV", "development")
+    for name, country in _FILE_CLASSES.items():
+        corpus_store.put(name, _pdf_bytes(b"%PDF-1.4 " + name.encode()))
+        if country is not None:
+            corpus_store.set_mark(name, corpus_store.FileMark(country_id=country))
+    return app
+
+
+async def _read(app, name: str, countries: tuple[str, ...] = ("QA",), headers=None):
+    async with _client(app) as client:
+        return await client.get(
+            f"/v1/corpus/documents/{name}",
+            params=[("country", country) for country in countries],
+            headers=_INTERNAL if headers is None else headers,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_file_released_in_a_country_the_office_reads_is_served(corpus):
+    res = await _read(corpus, _RELEASED_HERE)
+
+    assert res.status_code == 200
+    assert res.content == b"%PDF-1.4 " + _RELEASED_HERE.encode()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", [name for name in _FILE_CLASSES if name != _RELEASED_HERE])
+async def test_a_file_the_office_may_not_read_answers_as_a_file_that_is_not_there(corpus, name):
+    missing = await _read(corpus, "no-such-file.pdf")
+    res = await _read(corpus, name)
+
+    assert missing.status_code == 404
+    assert res.status_code == 404
+    # A name cannot tell whether the file exists: the two answers are the same bytes.
+    assert res.content == missing.content
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_names_no_country_is_served_nothing(corpus):
+    res = await _read(corpus, _RELEASED_HERE, countries=())
+
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_second_country_of_the_office_reads_its_files_too(corpus):
+    res = await _read(corpus, "released-elsewhere.pdf", countries=("QA", "QB"))
+
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_the_office_read_takes_the_internal_token(corpus):
+    res = await _read(corpus, _RELEASED_HERE, headers={})
+
+    assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", list(_FILE_CLASSES))
+async def test_the_platform_read_serves_every_file_the_corpus_lists(corpus, name):
+    async with _client(corpus) as client:
+        res = await client.get(f"/v1/admin/corpus/documents/{name}")
+        missing = await client.get("/v1/admin/corpus/documents/no-such-file.pdf")
+
+    assert res.status_code == 200
+    assert missing.status_code == 404
