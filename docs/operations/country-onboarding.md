@@ -82,14 +82,10 @@ needs, the Länder a site is placed in and the register that places an address
 are records too, read by every project of the country and by nothing else
 (ADR-0169): three `ruleset` records (`fact_definitions`, `fact_sources`,
 `classification`), the first carrying the `addressRegister`, and the country's
-territory record stating its `zone` (an IANA time zone). Until a country's are
-published its projects are asked nothing country-specific
+territory record stating its `zone` (an IANA time zone). The build ships none.
+Until a country's are published its projects are asked nothing country-specific
 (`classification-evaluate` answers `not_published`) and its addresses stay
-`unverified`; an open procedure's day is `zone_unknown`. Until #1630 deletes
-them once Austria is on stable on prod, the build still carries Austria's three
-rulesets (`rulesets/shipped.ts`) and a zone table for eight countries
-(`time/today.ts`), each read only where nothing released states the same node
-and purpose (or a zone on the chain). Austria's are
+`unverified`; an open procedure's day is `zone_unknown`. Austria's are
 `configs/knowledge-packs/at-setup.json` (the three rulesets) and the `AT`
 territory of `at.json` (with its zone): propose both after the pack, validate,
 review, publish. A second record for one node and purpose makes the selection

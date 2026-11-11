@@ -80,32 +80,25 @@ confirmed stays (`withoutDerivedClasses`, `project-intake/law-withheld.spec.ts`)
 record, and read through the one knowledge read path and its entitlement
 predicate (`project-intake/setup-records.ts`, `readSetupRecords`: the released
 `fact_definitions`, `fact_sources` and `classification` rulesets of the
-countries the office is entitled to, and its own). Austria's three records are
-also compiled into the build as seeds (`rulesets/shipped.ts`): a seed answers
-for its node and purpose while no released record of that node and purpose is
-in force (`withShippedFallback`; a record released for a later day ends the seed
-that day, and one for a Land leaves the country's seed in place), so an office
-reads exactly what it read before until its country is published
-(the rollover rule, `docs/design/international/rollover-to-prod.md`). The seeds
-equal the pack (`setup-records.spec.ts`), and #1630 deletes them once Austria
-is on stable on prod. Austria's are the change request
+countries the office is entitled to, and its own). The build ships none
+(country-as-data step 3; until then Austria's three records were seeds compiled
+into it, `rulesets/shipped.ts`). Austria's are the change request
 `configs/knowledge-packs/at-setup.json`, proposed through the platform door like
 `at.json`; the file holds the records, an operator's agent adds the captures.
 Every reader (the intake, the classification, the location register, the turn's
 site leaf, the BIM rules, the Steckbrief's labels) takes the records it selects
-from as an argument, so a country with neither a released record nor a seed
-is read as such: no subdivision, class or request, and `classification-evaluate`
-answers `not_published`, never another country's value. An office's or the platform's
+from as an argument, so a country whose records are not published is read as
+such: no subdivision, class or request, and `classification-evaluate` answers
+`not_published`, never another country's value. An office's or the platform's
 second record in force for one node and purpose stays ambiguous and gives
 nothing.
 
 `fact_definitions.v1` also carries the country's `addressRegister`: who
 publishes it, how a row names a municipality's territory and its state, its
 postcode shape, the bulk file's address (ADR-0172). The resolver searches no
-register a record does not describe. A territory record states its `zone`
-(migration 0234): the day a procedure still open is read in is the nearest zone
-on the chain; where none states one, the build's zone of the country
-(`time/today.ts`, deleted with the seeds), and otherwise `zone_unknown`.
+register a published record does not describe. A territory record states its
+`zone` (migration 0234): the day a procedure still open is read in is the
+nearest zone on the chain, and none is `zone_unknown`.
 
 ### Rejected options and the premise each rests on
 
@@ -130,10 +123,12 @@ on the chain; where none states one, the build's zone of the country
   profile saying `country=at` with the Land „außerhalb Österreichs" is read as
   in no named country by the derivation too, not only by the register. A BIM
   model in no project, or in an unplaced one, is no longer judged as Austrian.
-- Bad: until Austria's records are published on every environment, the build
-  carries a second copy of them, and deleting it (#1630) waits for prod. The
-  site picker's Länder (`SITE_SUBDIVISIONS`) are still read from the seed; a
-  picker that reads them from the record is the deferred part.
+- Bad: until Austria's records are published, a project in Austria is derived,
+  asked and requested nothing country-specific (`not_published`); publishing
+  `at-setup.json` on every environment is a deploy prerequisite. The site
+  picker's Länder (`SITE_SUBDIVISIONS`) are still one table in code, held to the
+  published record by a spec; a picker that reads them from the record is the
+  deferred part.
 
 ### Confirmation
 

@@ -216,7 +216,7 @@ carried on the view as `locationRegister` for step 4, Rückfragen. The ticket's
 „Der Standort bestimmt den Informationsbedarf" and its table „Standortinformationen
 aus den Unterlagen", as data: since ADR-0169 the `fact_sources` record of the
 country the site selects (`lib/project-intake/setup-scope.ts`; Austria's is
-the record of `configs/knowledge-packs/at-setup.json`, published like any platform change, and its seed in the build until then). A project nothing
+the record of `configs/knowledge-packs/at-setup.json`, published like any platform change). A project nothing
 places is asked for its site and requested no document; a country without a
 record gets no request. Per determinant (Grundstück,
 Widmung und Bebauungsbestimmungen, Denkmal- und Ortsbildschutz, Naturgefahren

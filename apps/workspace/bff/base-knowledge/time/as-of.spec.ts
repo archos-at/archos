@@ -235,16 +235,6 @@ describe('today in the node’s zone', () => {
     ]).toEqual(['Europe/Vienna', 'Europe/Berlin', 'Europe/Lisbon', null])
   })
 
-  it('is a synthetic country’s zone from its record alone, and the build’s zone where no record states one', () => {
-    expect(zoneOf(['XA-N', 'XA'], { XA: 'Asia/Tokyo' })).toBe('Asia/Tokyo')
-    // Nothing released states a zone: the zone the build lists for the leaf's country, as before the records.
-    expect([zoneOf(['AT:gkz:90001', 'AT-9', 'AT'], {}), zoneOf(['DE-BE', 'DE'], {}), zoneOf(['XA-N', 'XA'], {})]).toEqual([
-      'Europe/Vienna',
-      'Europe/Berlin',
-      null,
-    ])
-  })
-
   it('is the zone’s calendar day, not UTC’s', () => {
     expect(dayIn('Europe/Vienna', new Date('2026-12-31T23:30:00Z'))).toBe('2027-01-01')
   })

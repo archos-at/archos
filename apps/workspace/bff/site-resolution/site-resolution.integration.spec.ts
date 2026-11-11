@@ -215,18 +215,12 @@ describe.skipIf(!url)('site resolution against Postgres', () => {
     expect(resolution).toMatchObject({ status: 'unverified', reason: 'no_register', candidates: [] })
   })
 
-  it('places an address by the build’s register where no record is released, as by the released one', async () => {
+  it('searches no register a published record does not describe, though a release is active (fail closed)', async () => {
     await importFixture('2025-10-01')
-    try {
-      // An office with no released setup records: the release is the cell's, the register's rules the build's seed.
-      const unpublished = { organizationId: `${ORG}_unpublished`, userId: USER } as import('@/lib/auth/types').AuthorizedSession
-      const fromBuild = await service.resolveSite(unpublished, 'Herrengasse 16, 8010 Graz', now)
-      const fromRecord = await service.resolveSite(session, 'Herrengasse 16, 8010 Graz', now)
-      expect(fromBuild).toMatchObject({ status: 'verified', site: { country: 'AT', state: { territoryId: 'AT-6', federalState: 'styria' } } })
-      expect(fromBuild.status === 'verified' && fromBuild.site.municipality).toEqual(fromRecord.status === 'verified' && fromRecord.site.municipality)
-    } finally {
-      await withPlatform((tx) => tx`DELETE FROM address_register_releases WHERE register = 'at-bev'`.then(() => undefined))
-    }
+    // An office with no published setup records: the release is the cell's, the register's rules are the country's records.
+    const unpublished = { organizationId: `${ORG}_unpublished`, userId: USER } as import('@/lib/auth/types').AuthorizedSession
+    expect(await service.resolveSite(unpublished, 'Herrengasse 16, 8010 Graz', now)).toMatchObject({ status: 'unverified', reason: 'no_register' })
+    await withPlatform((tx) => tx`DELETE FROM address_register_releases WHERE register = 'at-bev'`.then(() => undefined))
   })
 
   it('imports the fixture as the active release', async () => {

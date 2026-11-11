@@ -13,8 +13,8 @@
  * its own country's subdivisions, class and requests (ADR-0169), the A6 class
  * of the dev acceptance comes from the stored ruleset, and a synthetic country
  * `XA` is published as a platform change request and read only by an office
- * entitled to it. Where nothing is published, every reader reads the records
- * compiled into the build, as before (`rulesets/shipped.ts`).
+ * entitled to it. Where nothing is published, every reader says so and invents
+ * nothing.
  */
 
 import { sql } from 'drizzle-orm'
@@ -23,7 +23,6 @@ import { publishedRequest } from '@/lib/base-knowledge/platform/testing/lifecycl
 import { proposedRecordSchema } from '@/lib/base-knowledge/platform/wire'
 import { rulesetValuesSchema, type RulesetValues } from '@/lib/base-knowledge/wire/ruleset'
 import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
-import { SHIPPED_SETUP_RECORDS } from '@/lib/base-knowledge/rulesets/shipped'
 import { AT_SETUP_RECORDS } from './at-setup.fixtures'
 import { deriveAll } from './derivation-view'
 import { locationRegisterFor } from './location-register'
@@ -139,21 +138,15 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     const profile = placedProfile({ country: 'at', federal_state: 'vienna', ...building })
     const fromDatabase = deriveAll(profile, projectIntakeDefinitionV1, { records })
     expect(fromDatabase[0]).toMatchObject({ citation: expect.stringMatching(/^OIB-Richtlinien/) })
-    // An office with nothing published reads the build's table, and derives the same class.
-    const fromBuild = deriveAll(profile, projectIntakeDefinitionV1, { records: await readSetupRecords(EMPTY) })
-    expect(fromBuild.map(({ value, citation }) => ({ value, citation }))).toEqual(fromDatabase.map(({ value, citation }) => ({ value, citation })))
+    // The same project reads no class while Austria's records are not published for the office.
+    expect(deriveAll(profile, projectIntakeDefinitionV1, { records: await readSetupRecords(EMPTY) })).toEqual([])
   })
 
-  it('reads the build’s records where nothing is published, exactly as before the records', async () => {
+  it('reads nothing where nothing is published, and says so rather than inventing Austria', async () => {
     const records = await readSetupRecords(EMPTY)
-    expect(records).toEqual(SHIPPED_SETUP_RECORDS)
-    expect((await scopeOf({ country: 'at', federal_state: 'vienna' }, EMPTY)).chain).toEqual(['AT-9', 'AT'])
-    // Nothing of another country stands in: a German project finds no record.
-    expect(hasSetupRecords(records, 'DE', ON)).toBe(false)
-  })
-
-  it('reads the released records instead of the build’s, record id by record id', async () => {
-    expect((await readSetupRecords(ORG)).some((record) => record.id.startsWith('shipped:'))).toBe(false)
+    expect(records).toEqual([])
+    expect(hasSetupRecords(records, 'AT', ON)).toBe(false)
+    expect((await scopeOf({ country: 'at', federal_state: 'vienna' }, EMPTY)).chain).toEqual(['AT'])
   })
 
   it('reads a released platform record only for an office entitled to its country', async () => {
@@ -165,10 +158,5 @@ describe.skipIf(!url)('the setup readers against Postgres', () => {
     expect(hasSetupRecords(other, 'XA', ON)).toBe(false)
     const chain = (await scopeOf({ country: 'xa', federal_state: 'xanadu_north' }, XA_OFFICE)).chain
     expect(chain).toEqual(['XA-N', 'XA'])
-    // Its class comes from its released table alone: no code names XA.
-    const building = { 'building_type@bldg1': 'building', 'storeys_above_ground@bldg1': 3 }
-    const profile = placedProfile({ country: 'xa', federal_state: 'xanadu_north', ...building })
-    expect(deriveAll(profile, projectIntakeDefinitionV1, { records: entitled })[0]).toMatchObject({ value: 3, missing: [] })
-    expect(deriveAll(profile, projectIntakeDefinitionV1, { records: other })).toEqual([])
   })
 })

@@ -246,7 +246,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
 
   it('reads the zone a day is in from the territory record, through the office’s entitlement', async () => {
     expect(await repository.readTerritoryZones(ORG, [NODE, 'AT-3', 'AT'])).toEqual({ AT: 'Europe/Vienna' })
-    // An office not entitled to Austria does not read its record.
+    // An office not entitled to Austria does not read its record: no zone, so an open procedure is undetermined, never the server's day.
     expect(await repository.readTerritoryZones(OUTSIDER, ['AT'])).toEqual({})
     const read = await repository.readWorkInTime(ORG, workId())
     const chain = await repository.readTerritoryChain(ORG, NODE, '2026-11-10')
@@ -261,9 +261,8 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
         procedure: procedureSchema.parse({ filedOn: '2023-02-01', decidedOn: 'pending' }),
         now: NOW,
       })
+    expect(open({})).toEqual({ status: 'undetermined', reason: 'zone_unknown' })
     expect(open(await repository.readTerritoryZones(ORG, chain))).toMatchObject({ status: 'determined' })
-    // No zone released on the chain: the build's zone of the country answers, as before the records.
-    expect(open({})).toEqual(open(await repository.readTerritoryZones(ORG, chain)))
   })
 
   it('asks for the filing day it does not have, and refuses a day before the history held', async () => {
