@@ -9,7 +9,7 @@
  */
 
 import type { JSX, ReactNode } from 'react'
-import { editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
+import { bindingOn, editionOrder, nextChange, summaryOf, summaryOn, type LawMap, type LawMapEdition, type LawMapStatement } from '@/lib/base-knowledge/platform/law-map'
 import { useLocale, useTranslations } from '@/i18n'
 import type { Translator } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
@@ -43,6 +43,8 @@ interface Outline {
   open: string | null
   flip: (key: string) => void
   t: Translator
+  /** The map's day: what binds is read on it. */
+  today: string
 }
 
 /** A unit's row marks: a dot while it waits for a verdict, a check once confirmed. */
@@ -80,9 +82,11 @@ function StatementBody({ o, statement }: { o: Outline; statement: LawMapStatemen
 }
 
 function EditionBody({ o, edition }: { o: Outline; edition: LawMapEdition }): JSX.Element {
-  const { map, t } = o
+  const { map, t, today } = o
   const date = useDate()
-  const lands = [...new Set(map.statements.filter((statement) => statement.cells.some((cell) => cell.editionId === edition.id)).map((statement) => map.territories.get(statement.territoryId)?.name ?? statement.territoryId))]
+  // Where it binds on the map's day, not everywhere it ever did.
+  const territoryIds = [...new Set(map.statements.map((statement) => statement.territoryId))]
+  const lands = territoryIds.filter((id) => bindingOn(map, id, edition.workId, today)?.cell.editionId === edition.id).map((id) => map.territories.get(id)?.name ?? id)
   return (
     <Unfold>
       <p>
@@ -196,13 +200,14 @@ function under(map: LawMap, id: string): Set<string> {
 /** The branches a unit sits in, so opening it from "next" also shows it. */
 /** The regions the outline lists: the root's children, or the topmost territories when the request holds no root. */
 export function regionsOf(map: LawMap): string[] {
-  const root = map.territories.get(map.rootIds[0] ?? '')
+  // The country is the root when the request holds it; else every topmost region is a region of its own.
+  const root = map.territories.get(map.countryId)
   return root ? root.children : map.rootIds
 }
 
 export function branchesOf(map: LawMap, unit: ReviewUnit): string[] {
   const regionFor = (territoryId: string): string[] => {
-    if (territoryId === map.rootIds[0] && map.territories.has(territoryId)) return []
+    if (territoryId === map.countryId && map.territories.has(territoryId)) return []
     const region = regionsOf(map).find((id) => under(map, id).has(territoryId))
     return [region ?? 'unplaced']
   }
@@ -227,9 +232,10 @@ export function LawMapOutline({ map, units, confirm, today, rootName, expanded, 
 }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const date = useDate()
-  const o: Outline = { map, units, confirm, open, flip: (id) => setOpen(open === id ? null : id), t }
+  const o: Outline = { map, units, confirm, open, flip: (id) => setOpen(open === id ? null : id), t, today }
 
-  const rootId = map.rootIds[0] ?? ''
+  // The country is the root when the request holds it; else every topmost region is a region of its own.
+  const rootId = map.countryId
   const root = map.territories.get(rootId)
   const regions = regionsOf(map)
   const placed = new Set([...(root ? [rootId] : []), ...regions.flatMap((id) => [...under(map, id)])])
