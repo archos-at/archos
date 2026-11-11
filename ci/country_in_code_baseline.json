@@ -103,7 +103,7 @@
   "apps/workspace/bff/proxy/collection-authz.ts": 1,
   "apps/workspace/bff/references/service.ts": 3,
   "apps/workspace/bff/references/types.ts": 1,
-  "apps/workspace/bff/retrieval-scope/collection-scope-request.ts": 2,
+  "apps/workspace/bff/retrieval-scope/collection-scope-request.ts": 1,
   "apps/workspace/bff/retrieval-scope/collection-scope.ts": 1,
   "apps/workspace/bff/retrieval-settings/catalog.ts": 11,
   "apps/workspace/bff/ris/": 1,
