@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { RUN_PHASES, RUN_STATUSES, RUN_LEDGER_WIRE_SCHEMAS } from './run-ledger-types'
+import { RUN_LEDGER_LIFECYCLE, RUN_PHASES, RUN_STATUSES, RUN_LEDGER_WIRE_SCHEMAS, TERMINAL_RUN_STATUSES } from './run-ledger-types'
 import { runLedgerJsonSchema } from './run-ledger-schema'
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/run-ledger.schema.json')
@@ -47,6 +47,16 @@ describe('run ledger JSON Schema', () => {
     expect(properties.status.enum).toEqual([...RUN_STATUSES])
     const phases = properties.phases as { items: Node }
     expect((phases.items.properties as Record<string, Node>).phase.enum).toEqual([...RUN_PHASES])
+  })
+
+  it('carries the status moves and the ended states, for the tier that mirrors them by hand', () => {
+    const lifecycle = runLedgerJsonSchema()['x-lifecycle'] as { initial: string; states: Record<string, Node>; ended: string[] }
+    expect(lifecycle.initial).toBe(RUN_LEDGER_LIFECYCLE.initial)
+    expect(Object.keys(lifecycle.states)).toEqual([...RUN_STATUSES])
+    expect(lifecycle.ended).toEqual([...TERMINAL_RUN_STATUSES])
+    for (const move of RUN_LEDGER_LIFECYCLE.moves) {
+      expect((lifecycle.states[move.from].on as Record<string, string>)[move.event]).toBe(move.to)
+    }
   })
 
   it('describes the request as a closed two-op union', () => {

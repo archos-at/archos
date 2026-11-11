@@ -260,6 +260,31 @@ class TestTheMapping:
         assert "error" not in ledger
         assert client.finishes[-1].result.report_message_id == "msg-1"
 
+    async def test_an_error_after_the_report_is_stored_does_not_unmake_the_run(self) -> None:
+        """A teardown that raises after the verdict: the job store says SUCCESS, and so does the ledger."""
+        fold, _store, client = make_fold()
+        fold.observe(phase_event(PHASE_WRITING_STARTED))
+        fold.note_result(report_message_id="msg-1")
+        fold.observe({"type": "job.error", "data": {"error": "exporter stop failed", "error_type": "X"}})
+        await fold.close()
+
+        ledger = fold.snapshot()
+        assert ledger["status"] == "done"
+        assert "error" not in ledger
+        assert [body.status for body in client.appends if body.status] == ["done"]
+        assert client.finishes[-1].error is None
+
+    async def test_a_failed_run_stays_failed_whatever_is_reported_afterwards(self) -> None:
+        fold, _store, client = make_fold()
+        fold.observe(phase_event(PHASE_RESEARCH_STARTED, batch_index=1))
+        fold.observe({"type": "job.error", "data": {"error": "Der Anbieter hat abgebrochen.", "error_type": "X"}})
+        fold.observe({"type": "job.cancelled", "data": {}})
+        fold.note_result(report_message_id="msg-1")
+        await fold.close(status="running")
+
+        assert fold.snapshot()["status"] == "failed"
+        assert all(body.status in (None, "failed") for body in client.appends)
+
     async def test_a_finished_run_says_what_it_left_behind(self) -> None:
         fold, _store, client = make_fold()
         fold.observe(phase_event(PHASE_WRITING_STARTED))

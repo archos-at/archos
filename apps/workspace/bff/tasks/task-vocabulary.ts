@@ -10,6 +10,7 @@
  * moves.
  */
 
+import { defineLifecycle } from '@/shared/lifecycle/define-lifecycle'
 import { DELEGATABLE_TASK_KINDS } from '@/shared/vocabularies.generated'
 
 export { DELEGATABLE_TASK_KINDS }
@@ -88,13 +89,40 @@ export const TASK_RUN_STATUSES = [
 export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number]
 
 /**
+ * One run's row, `task_runs.status`, and every move a writer makes on it
+ * (ADR-0179).
+ *
+ * A run is born `queued`, or `running` when it has no message for the
+ * worker's first flush to start it by (`submittedRunStatus`), or already
+ * ended as `skipped` or `error` when the fire never reached the agent. The
+ * worker's first flush starts a queued run (`markRunStarted`). An ending is
+ * written once, from a live state, by compare-and-set (`closeActiveRun`): the
+ * worker's report, the reconciler, the kill switch and a failed submission
+ * cannot overwrite each other, so the first final word stands.
+ */
+export const TASK_RUN_LIFECYCLE = defineLifecycle<TaskRunStatus, 'start' | 'succeed' | 'fail' | 'interrupt'>({
+  id: 'task-run',
+  initial: 'queued',
+  bornAs: ['running', 'skipped', 'error'],
+  states: {
+    queued: { on: { start: 'running', succeed: 'succeeded', fail: 'failed', interrupt: 'interrupted' } },
+    running: { on: { succeed: 'succeeded', fail: 'failed', interrupt: 'interrupted' } },
+    succeeded: { type: 'final' },
+    failed: { type: 'final' },
+    interrupted: { type: 'final' },
+    skipped: { type: 'final' },
+    error: { type: 'final' },
+  },
+})
+
+/**
  * The run is still in the worker's hands: nothing about it can be judged yet,
  * and it is the only state a cancel can reach. `queued` counts — a run stuck
  * before its first status transition would otherwise be un-cancellable while
  * still holding a slot (the same reason the backend cancels `SUBMITTED` jobs).
  */
 export function isActiveTaskRunStatus(status: TaskRunStatus): boolean {
-  return status === 'queued' || status === 'running'
+  return TASK_RUN_LIFECYCLE.liveStates.includes(status)
 }
 
 /**
