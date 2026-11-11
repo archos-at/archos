@@ -878,6 +878,11 @@ export const chat = {
         visibility: 'Visibility',
         permissions: 'Permissions',
         sortOrder: 'Order',
+        page: 'Page',
+        region: 'Region',
+        from: 'From',
+        to: 'To',
+        lengthM: 'Length (m)',
       },
       // A path id named after the object it resolved to.
       targetType: {
@@ -889,6 +894,23 @@ export const chat = {
         upload_batch: 'Upload',
         proposal: 'Proposal',
         member: 'Person',
+      },
+      // A proposed calibration (`drawing-calibration-set`) is a question answered by a look at the clip:
+      // no action, no coordinates.
+      calibration: {
+        title: 'Confirm the scale',
+        question: 'Is the marked length {length}?',
+        // „{ratio}“ is the ratio as a drawing states it, e.g. 1:100.
+        meaning: 'Then the scale in the marked area is {ratio}.',
+        caption: '{document} · page {page}',
+        captionPage: 'Page {page}',
+        picture: 'Page {page}, clip with the marked length',
+        accept: 'Confirm',
+        accepting: 'Confirming…',
+        // While the clip is not on screen there is nothing to confirm.
+        loading: 'The clip is still loading.',
+        applied: 'Scale confirmed.',
+        dismissed: 'Scale not confirmed.',
       },
       inputLabel: 'Inputs',
       // A long value is shortened at first; „Apply“ waits until every one has been read in full.

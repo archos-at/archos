@@ -39,7 +39,7 @@ function RegionThumb({ region }: { region: CalibrationRegion }): JSX.Element {
   return (
     <span aria-hidden data-slot="region-thumb" className="border-border bg-card relative mt-0.5 block h-7 w-9 shrink-0 rounded-[2px] border">
       <span
-        className="bg-foreground/60 absolute rounded-[1px]"
+        className="bg-foreground/10 border-foreground/60 absolute rounded-[1px] border"
         style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%` }}
       />
     </span>

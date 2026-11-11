@@ -1,0 +1,9 @@
+---
+# area: answers
+features:
+  - >
+    When the assistant measures on a drawing whose scale it can only estimate,
+    it can now ask you to confirm the scale: a card shows the drawing with one
+    printed dimension marked, and you accept or dismiss it. Until you accept,
+    it states lengths with a caveat and decides no minimum or maximum, for
+    offices with drawing measurement switched on.

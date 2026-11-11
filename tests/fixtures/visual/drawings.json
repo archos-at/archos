@@ -1,5 +1,5 @@
 {
- "$comment": "Fixture drawings of the visual eval (ADR-0128). Every figure on a page is an element with its box in shares of the page, origin top left (the frame of `look`'s region). scripts/turn_census/render_fixture_drawings.py draws the pages from this file at suite start; no image is committed. A drawing with \"render\": \"vector\" is written as page objects (text and lines, render_fixture_drawings_vector.py) and drawn true to the scale its title block states; the others are raster pages. Gold boxes for IoU are these boxes. Names, numbers and parties are invented.",
+ "$comment": "A drawing with \"render\": \"ground_truth\" is one sheet of the measuring engine's ground-truth set (knowledge_layer_testing.ground_truth_sheets, the builder named in \"builder\"), drawn at known dimensions; its elements here are only the gold boxes, held to the sheet by tests/test_visual_eval.py. Fixture drawings of the visual eval (ADR-0128). Every figure on a page is an element with its box in shares of the page, origin top left (the frame of `look`'s region). scripts/turn_census/render_fixture_drawings.py draws the pages from this file at suite start; no image is committed. A drawing with \"render\": \"vector\" is written as page objects (text and lines, render_fixture_drawings_vector.py) and drawn true to the scale its title block states; the others are raster pages. Gold boxes for IoU are these boxes. Names, numbers and parties are invented.",
  "dpi": 200,
  "sheets": {"A3": [420, 297], "A1": [841, 594]},
  "drawings": [
@@ -156,6 +156,24 @@
       {"id": "title-index", "kind": "title_field", "box": [0.75, 0.77, 0.2, 0.04], "key": "Index", "value": "A", "text": "Index: A"},
       {"id": "title-date", "kind": "title_field", "box": [0.75, 0.82, 0.2, 0.04], "key": "Datum", "value": "17.03.2026", "text": "Datum: 17.03.2026"},
       {"id": "title-scale", "kind": "title_field", "box": [0.75, 0.87, 0.2, 0.04], "key": "Maßstab", "value": "1:50", "text": "Maßstab: 1:50"}
+     ]
+    }
+   ]
+  },
+  {
+   "file_name": "EP-04_Grundriss_KG.pdf",
+   "folder": "Einreichung/Pläne",
+   "sheet": "A1",
+   "render": "ground_truth",
+   "builder": "note_only",
+   "pages": [
+    {
+     "number": 1,
+     "storey": "KG",
+     "index_text": "Grundriss Kellergeschoss, Hubergasse 14, Vektorplot aus CAD",
+     "elements": [
+      {"id": "plan-area", "kind": "plan_area", "box": [0.064, 0.2466, 0.2973, 0.3064]},
+      {"id": "title-scale", "kind": "title_field", "box": [0.79, 0.915, 0.035, 0.022], "key": "Maßstab", "value": "1:50", "text": "M 1:50"}
      ]
     }
    ]

@@ -91,6 +91,33 @@ describe('PageRegionThumbnail', () => {
     expect(parseFloat(screen.getByTestId('region-mark').style.left)).toBeCloseTo(60, 5)
   })
 
+  test('an overlay is told where a point of the page lies in the drawn part', async () => {
+    restore = installLayoutObservers({ frameWidth: 300 })
+    const points: Array<[number, number]> = []
+    const overlay = (toDrawn: (point: readonly [number, number]) => [number, number]) => {
+      points.push(toDrawn([0.6, 0.05]), toDrawn([0.9, 0.25]))
+      return <span data-testid="overlay" />
+    }
+    const { unmount } = render(<PageRegionThumbnail place={PLACE} clip={false} overlay={overlay} />)
+    const whole = await screen.findByTestId('overlay')
+    // The whole page is drawn: a point is where it was, and the overlay sits in the sheet.
+    expect(whole.closest('[data-slot="page-sheet"]')).not.toBeNull()
+    expect(points.at(-2)).toEqual([0.6, 0.05])
+    expect(points.at(-1)).toEqual([0.9, 0.25])
+    unmount()
+
+    // Clipped: the box's corners are the corners of its mark in the drawn part.
+    render(<PageRegionThumbnail place={PLACE} overlay={overlay} />)
+    await screen.findByTestId('overlay')
+    const mark = screen.getByTestId('region-mark')
+    const [left, top] = points.at(-2)!
+    const [right, bottom] = points.at(-1)!
+    expect(left * 100).toBeCloseTo(parseFloat(mark.style.left), 6)
+    expect(top * 100).toBeCloseTo(parseFloat(mark.style.top), 6)
+    expect((right - left) * 100).toBeCloseTo(parseFloat(mark.style.width), 6)
+    expect((bottom - top) * 100).toBeCloseTo(parseFloat(mark.style.height), 6)
+  })
+
   test('a reader who may not open the document sees a tile, not the page', async () => {
     restore = installLayoutObservers()
     pdf.status = 404

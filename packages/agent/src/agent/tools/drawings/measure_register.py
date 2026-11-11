@@ -44,6 +44,8 @@ from agent.drawings.sheet_answers import render
 from agent.drawings.sheet_figures import Kind
 from agent.drawings.sheet_listing import Listing
 from agent.drawings.sheet_measure import Request
+from agent.drawings.sheet_proposal import proposal_for
+from agent.drawings.sheet_proposal import proposal_lines
 from agent.knowledge.restricted_use import may_name
 from nat.plugin_api import Builder
 from nat.plugin_api import FunctionBaseConfig
@@ -173,6 +175,14 @@ def _listed(found: Listing) -> str:
     return "\n".join(parts)
 
 
+def _confirmation(loaded: LoadedSheet, result: Answer) -> list[str]:
+    """The call that puts the region's estimated scale to a person, where the sheet offers a reference for it."""
+    if not loaded.document_id:
+        return []
+    proposal = proposal_for(loaded.sheet, result.scale, loaded.page)
+    return [] if proposal is None else proposal_lines(proposal, loaded.document_id)
+
+
 def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bool]:
     """The operation's text, and whether it answered (a number, or a listing) rather than refused."""
     head = f"File: {loaded.file_name}, page {loaded.page}"
@@ -182,7 +192,8 @@ def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bo
         )
     if arguments.operation in MEASURING:
         result = measure(loaded, arguments)
-        return f"{head}\n{render(result)}", not isinstance(result, NoNumber)
+        lines = [head, render(result), *_confirmation(loaded, result)]
+        return "\n".join(lines), not isinstance(result, NoNumber)
     return "\n".join([head, *(_listed(found) for found in listing(loaded, arguments))]), True
 
 

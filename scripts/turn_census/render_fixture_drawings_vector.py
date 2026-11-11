@@ -11,6 +11,11 @@ Two element fields only a vector drawing reads: a ``dimension`` may carry ``line
 y1]`` in shares of the page), the dimension line its figure belongs to, drawn with a tick at each
 end; and any text may carry ``angle: 90`` to read bottom to top. A vector sheet is drawn true to the
 scale its title block states, so a later measurement has a ground truth.
+
+A drawing that says ``"render": "ground_truth"`` is not drawn from its elements at all: it is one sheet
+of the measuring engine's ground-truth set (``knowledge_layer_testing.ground_truth_sheets``), the one
+its ``builder`` names, with walls, a door swing, furniture and dimension chains at known dimensions.
+Its elements are only the gold boxes of the rows that ask about it.
 """
 
 from __future__ import annotations
@@ -135,6 +140,16 @@ def draw_element(sheet: _Sheet, element: dict[str, Any]) -> None:
         sheet.text([x + w * 0.26, y, w * 0.74, h], element["text"])
     elif kind != "plan_area":
         raise ValueError(f"unknown element kind {kind!r}")
+
+
+def render_ground_truth_pdf(drawing: dict[str, Any]) -> bytes:
+    """The sheet of the ground-truth set the drawing names, as PDF bytes."""
+    from knowledge_layer_testing import ground_truth_sheets
+
+    builders = {build.__name__: build for build in ground_truth_sheets.BUILDERS}
+    if drawing.get("builder") not in builders:
+        raise ValueError(f"{drawing['file_name']}: builder must be one of {', '.join(sorted(builders))}")
+    return build_sheet_pdf([builders[drawing["builder"]]().page])
 
 
 def render_vector_pdf(spec: dict[str, Any], drawing: dict[str, Any]) -> bytes:

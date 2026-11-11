@@ -72,6 +72,12 @@ export interface ProposalReceiptProps<K extends ProposedChangeKind> {
    * stay where they are; applying does nothing until this is gone.
    */
   acceptBlocked?: string
+  /**
+   * The accept button in the body's own words, where „Übernehmen“ is not what
+   * the person does („Bestätigen“ for a question the body asks). `prompt` is
+   * the line beside the buttons; null where the body already asked.
+   */
+  accept?: { label: string; working: string; prompt: string | null }
 }
 
 export function ProposalReceipt<K extends ProposedChangeKind>({
@@ -83,6 +89,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
   decidedBody,
   alternative,
   acceptBlocked,
+  accept,
 }: ProposalReceiptProps<K>) {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
@@ -170,7 +177,9 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
 
       {proposal?.canDecide && (
         <div className={DECISION_ROW}>
-          <p className="text-muted-foreground text-sm sm:mr-auto">{t('cards.proposalReceipt.prompt')}</p>
+          {accept?.prompt !== null && (
+            <p className="text-muted-foreground text-sm sm:mr-auto">{accept?.prompt ?? t('cards.proposalReceipt.prompt')}</p>
+          )}
           <Button
             type="button"
             size="sm"
@@ -183,8 +192,8 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           >
             <StackedLabel
               busy={busy?.action === 'apply' && !busy.withBody}
-              idle={t('cards.proposalReceipt.accept')}
-              working={t('cards.proposalReceipt.applying')}
+              idle={accept?.label ?? t('cards.proposalReceipt.accept')}
+              working={accept?.working ?? t('cards.proposalReceipt.applying')}
             />
           </Button>
           {alternative && (

@@ -396,10 +396,9 @@
     "step": null
    },
    "chat": {
-    "kind": "gap",
-    "slice": "drawing-measure slice 6",
-    "reason": "The chat has no card that asks a person to confirm a scale yet: a calibration is set and withdrawn in the review view only, and an answer that needs one cannot ask for it.",
-    "card": null,
+    "kind": "rendering",
+    "component": "features/cards/components/CalibrationProposalPreview.tsx",
+    "card": "operation_proposal",
     "step": null
    }
   }

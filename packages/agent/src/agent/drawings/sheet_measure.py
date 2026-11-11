@@ -96,7 +96,7 @@ def _aligned(figure: Figure, start: Point, end: Point) -> bool:
 @dataclass(frozen=True)
 class SpanFigure:
     """A dimension figure lying on a span: the figure, its value in metres (None when the region's unit convention
-    is undetermined) and the size of its last printed digit."""
+    is undetermined) and the step it is printed to."""
 
     figure: Figure
     metres: float | None

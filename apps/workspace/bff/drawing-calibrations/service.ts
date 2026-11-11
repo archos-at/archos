@@ -13,6 +13,7 @@
  */
 
 import 'server-only'
+import { captureServer, type ServerEvent } from '@/lib/analytics/posthog-server'
 import { ConflictError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import { nextOffsetCursor, offsetPageOf } from '@/lib/api/offset-page'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -38,6 +39,21 @@ import {
   type ListCalibrationsQuery,
   type SetCalibrationRequest,
 } from './wire'
+
+/** Counted once per act, in the service every surface passes: the review tool, the card and an agent's call. */
+function captured(
+  session: AuthorizedSession,
+  event: Extract<ServerEvent, 'drawing_calibration_set' | 'drawing_calibration_withdrawn'>,
+  documentId: string,
+  page: number
+): void {
+  captureServer({
+    event,
+    distinctId: session.userId,
+    organizationId: session.organizationId,
+    properties: { document_id: documentId, page },
+  })
+}
 
 function requireEntitlement(session: AuthorizedSession): void {
   if (!isDrawingMeasureEnabled(session)) throw new FeatureDisabledError(FEATURE_FLAGS.drawingMeasure)
@@ -127,6 +143,7 @@ export async function setCalibration(
       lengthM: input.lengthM,
       createdBy: session.userId,
     })
+    captured(session, 'drawing_calibration_set', doc.id, row.page)
     return { calibration: toView(row) }
   } catch (error) {
     if (error instanceof CalibrationSetConflictError) {
@@ -161,5 +178,6 @@ export async function withdrawCalibration(
       ? await withdrawDrawingCalibration(session.organizationId, doc.id, existing.id, session.userId)
       : null
   if (!withdrawn) throw new ConflictError('This calibration is no longer active; only an active one can be withdrawn.')
+  captured(session, 'drawing_calibration_withdrawn', doc.id, withdrawn.page)
   return { calibration: toView(withdrawn) }
 }

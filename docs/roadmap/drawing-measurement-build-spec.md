@@ -8,8 +8,10 @@ slice. Where the two disagree, this file is newer and wins; the differences are
 under [What changed against the plan](#what-changed-against-the-plan).*
 
 **Slices 1 to 3 are built** (the reader, `look` returning the text in its crop,
-scale and probe as pure functions, and the tool, dark), and so is slice 5's
-review-view tool, against slice 4's wire; the rest is not. Every path named as existing was read on 2026-11-11.
+scale and probe as pure functions, and the tool, dark), and so are slice 4 (a
+person's calibration, headless), slice 5 (the calibrate tool in the review
+view), slice 6 (the card that asks a person to confirm a scale) and, of slice 7,
+the ground-truth set, the release gate and the eval rows; the rest is not. Every path named as existing was read on 2026-11-11.
 Every number under [Measured](#measured) was produced that day; the scripts were
 research and are not committed.
 
@@ -197,14 +199,24 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
      large, and figures printed in centimetres agree with it.
    * *Corroboration is local.* Figures vouch for the part of the sheet they
      dimension: the dimension nearest the place asked about must be one that
-     agrees, and the place must lie within the extent the agreeing dimensions
-     span, grown by a quarter of its longer side. Otherwise a second view at
-     1:50 under a note that says 1:100 was `estimated` on the strength of the
-     other view's eight figures.
+     agrees, and an agreeing dimension must run past the place in two
+     directions (the place's foot on that dimension's line falls within its
+     span, 6 pt allowed at each end; two directions are 30° apart or more).
+     Otherwise a second view at 1:50 under a note that says 1:100 was
+     `estimated` on the strength of the other view's eight figures. Until
+     slice 7 the rule was the extent of all agreeing dimensions grown by a
+     quarter, and a view without dimensions between two dimensioned ones lay
+     inside it. The cost: a sheet dimensioned in one direction only (heights
+     in a section) is `uncalibrated` everywhere, and so is a place beside the
+     chains, the dimension line itself included.
    * *An estimate is no finer than its check.* An `estimated` reading carries
      a relative error of at least 0.5 %, whatever decision 10 gives its source:
      a stored factor 0.4 % off is corroborated, and at 0.1 % its interval did
-     not hold the true value.
+     not hold the true value. Since slice 7 it also carries what its figures
+     pin: one figure pins the scale to its deviation plus half the step it is
+     printed to („1,25“ over 1.254 m agrees with a scale 0.8 % off), and the
+     error is what the three finest agreeing figures all pin it within
+     (`Corroboration.pinned_error`).
 
    On the fixture floor (eight dimensions, drawn exactly) 8 of 8 agree on all
    four rotations, cropped, and in a view turned by 20°, and 0 of 8 at ×0.5,
@@ -277,7 +289,9 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
    1.20 m). Between lines that are not parallel it is the piece of the probe
    between them, the answer says so, and no verdict is given. `distance`, `path`
    and `area` move each point to the ONE line end or intersection within 6 pt
-   and refuse two, listing them; a point placed on a listed candidate takes it.
+   and refuse two, listing them; a point that names a listed candidate (within
+   0.05 pt of it, `ON_POINT_PT`) takes it. That was 1 pt until slice 7, and a
+   point placed by hand near a corner took the hatch end beside it.
    No number comes from a point the engine could not tie to linework.
    *Refused outright:* a probe that meets either line flatter than 65° (past a
    25° slant the width was once taken along the probe and came out a tenth too
@@ -298,14 +312,23 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
     a length is never finer than 0.25 pt, the distance below which two lines
     are one. A calibration counts as contradicted by another calibration over
     the same place, by its stored region, by what the figures corroborate at
-    that place without it, or by the figures inside its own region. What stays
+    that place without it, or by the figures inside its own region: any
+    number of them, two included, and whole-number figures whose unit cannot
+    be told under both readings (slice 7; before it fewer than three figures
+    and whole centimetres contradicted nothing). What stays
     undetected: a calibration within 0.5 % of the truth where no stored region
-    says otherwise. The figure check cannot see finer, and the calibration's
+    says otherwise, one ten times off over whole-number figures, and any
+    calibration over a view without a dimension figure. The figure check
+    cannot see finer, and the calibration's
     own stated error (one point over its reference length) is the person's.
+    A contradicted calibration still states its length, at the calibration's
+    scale and with its interval; only the verdict is withheld.
 11. **Figures keep their text.** A figure is returned as printed, with its place,
     direction and height, and a parsed value only where the form is unambiguous. A
     figure is returned whole or not at all: one whose centre lies outside a crop is
-    left out, never cut. A raised final digit stays in its figure. The sheet's unit
+    left out, never cut. A raised final digit stays in its figure, and a raised 5
+    says the figure is printed to the half centimetre (its step is 0.005 m, not
+    0.001 m: „4,96⁵“ stands for 4.9625 to 4.9675 m). The sheet's unit
     convention is an inference stated with its evidence, never applied silently.
 12. **The tool is `drawing_measure`, separate from `dxf_measure`.** It is bound
     where the organization holds the feature and the project holds a PDF. Which
@@ -606,6 +629,39 @@ otherwise to state as „not verified because“ in the closing checklist.
 * **Also:** `docs/architecture/proposed-changes.md` line 45 puts the `operation`
   kind in migration 0176 while line 95 says 0175. Read both migrations and make
   the document say what they do.
+* **The costing, as done** (four answers per route):
+
+  | | The `operation` kind with a richer receipt | A fifth kind `drawing_scale` |
+  |---|---|---|
+  | What exists | `proposeOperation`, the open-call index, the applier, the decisions block, `OperationReceipt`, the MCP App frame: all carry a `drawing-calibration-set` call unchanged once slice 4's operation is offered to the in-product agent | the same machinery, none of it reusable without a branch per kind |
+  | What it costs | one preview module in the receipt (the crop with the reference span, one sentence), one module in the engine that picks the reference, about 400 lines with specs; no migration | a migration for the kind's CHECK, a payload schema, an applier, a receipt body, a card model and its generated schemas, a decisions branch, the MCP App body: every list in `proposed-changes.md`, about 1,500 lines |
+  | What changes or is lost | the receipt shows the reference span and its length, not „1:N from the stored region, 8 of 8 agree“: the ratio, its source and the agreeing count are in the answer's text, not on the card. The value cannot be changed in the card | nothing lost; the card could show the ratio and take another value |
+  | Net | builds on what is there; a person checks one printed dimension by eye | pays 1,100 lines for two display fields and an input no proposal card has |
+
+  **Built on the `operation` kind.** The costing did not call for a fifth
+  kind, so nothing was put to the product owner as a blocker; the two things
+  the card does not show are listed for them in the pull request.
+* **As built:** the engine picks the reference
+  (`agent/drawings/sheet_proposal.py`): the longest agreeing dimension figure
+  inside the region, its two ends and its PRINTED value. A measurement on an
+  `estimated` region ends with the one call that proposes it
+  (`workspace__call`, `drawing-calibration-set`, the input given whole), and
+  the model makes the call: the tool files nothing itself, so the card exists
+  when the model follows the line, not by construction. The same sheet and
+  region give the same call, so a repeat opens no second card. A proposal is
+  offered only for a region the FILE stores: under a printed scale note alone
+  no region has an edge, and a box drawn around the agreeing dimensions could
+  take in a neighbouring view at another scale, which the calibration would
+  then make `verified`. And it is offered only on a CORROBORATED estimate. Where the figures do not corroborate
+  the hint, the unit they are printed in is not settled, and a reference taken
+  from one could be wrong by ten behind a card that looks the same: that
+  region gets no card and is calibrated by hand in the review view. A region
+  with no hint gets none either. Accepting writes one active calibration as
+  the decider, through the route, under their own right.
+* **Not built:** the measured span's own crop on the answer (decision 9's
+  second way to a verdict). A verdict still needs a printed figure on the span
+  that agrees. Changing the value in the card. „Open the sheet with the
+  calibrate tool pre-filled“ from the card.
 
 ### 7. Proof and counting
 
@@ -624,6 +680,146 @@ otherwise to state as „not verified because“ in the closing checklist.
   measured (see the last section).
 * **Release gate:** on the eval set, no answer states a number whose true value
   lies outside its stated interval.
+* **As built (2026-11-11): the set, the gate and the counting; not the events, not the score.**
+  The set is `knowledge_layer_testing.ground_truth_sheets` (17 sheets, each a
+  `FloorView` of `ground_truth_views.py` drawn at known dimensions: hatched
+  walls, a door swing, furniture, two rows of dimension chains), and every
+  probe carries the value it was drawn at. `agent_testing.ground_truth` asks
+  each probe through `sheet_measure` as placed and with every point moved by
+  up to 1 and 2 pt (seeded), without a calibration and with a correct one.
+  `packages/agent/tests/drawings/test_ground_truth.py` holds the gate;
+  `scripts/drawing_ground_truth_report.py` prints the counts below and takes
+  a few minutes. The product events and the Langfuse score are not built.
+
+  **The gate holds: 0 of 352 numbers without a calibration and 0 of 719 with
+  one state an interval that misses the true value**, and 0 of 2,710 verdicts
+  given with a correct calibration are wrong. It did not hold when the set was
+  first run. Five things were found and closed in the stricter direction:
+
+  | Found | What was stated | Now |
+  |---|---|---|
+  | A 1:50 view without dimensions between two dimensioned 1:100 views, one note „1:100“ | 3.60 m for 1.80 m, `estimated`: the view lay inside the extent of its neighbours' agreeing dimensions (55 numbers, each twice the true value) | No number. An agreeing dimension must run past the place in two directions (decision 5) |
+  | Thirteen equal bays of 1.254 m printed „1,25“, plotted at 99.2 % under a note „1:100“ | 9.952 ± 0.050 m for 10.032 m: 13 of 15 figures agree with a scale 0.8 % off, and ±0.5 % was stated (17 numbers) | The interval is what the figures pin: ±0.89 % here (decision 5) |
+  | A printed figure „4,96⁵“ over a span drawn 4.967 m, in a region without a scale | 4.965 ± 0.0005 m | ± 0.0025 m: a raised 5 is the half centimetre (decision 11) |
+  | A calibration at twice the true scale on a sheet with two dimension figures, or on one dimensioned in whole centimetres | `met` and `not_met`: 28 of 56 verdicts wrong on the whole-centimetre sheet | Contradicted, `undecidable` (decision 10) |
+  | A point placed by hand 2 pt from a corner, within 1 pt of the hatch end beside it | The distance to the hatch end, ± the stroke: 13 of 5,360 numbers at 2 pt, 26 of 5,335 at 3 pt (twelve seeds) | Refused, the candidates listed: 0 of 5,313 and 0 of 5,269 (decision 9) |
+
+  **What the two-direction rule costs on a real plot.** The one real
+  dimensioned floor plan measured in slice 2 (a basement floor, A1, 1:50, 52 of
+  65 figures agreeing) was asked for its scale at a 30 by 30 grid of places
+  over the page, margins included. Before the rule: 514 of 900 places
+  `estimated`. With it: 131 of 900. The other 383 now answer „uncalibrated: no
+  agreeing dimension runs past this place in two directions“ and need a
+  person's calibration. No threshold was loosened to win them back; whether the
+  rule is too strict for real drafting is the product owner's call, on the
+  pilot offices' files.
+
+  What the set costs in refusals, by sheet (a probe is counted once as placed
+  and six times moved):
+
+  | sheet | probes | numbers, no calibration | of them outside | numbers, calibrated | of them outside |
+  |---|---|---|---|---|---|
+  | stored_region | 91 | 30 | 0 | 30 | 0 |
+  | note_only | 91 | 80 | 0 | 80 | 0 |
+  | two_regions | 196 | 46 | 0 | 46 | 0 |
+  | two_views_one_note | 196 | 1 | 0 | 46 | 0 |
+  | undimensioned_detail | 266 | 62 | 0 | 107 | 0 |
+  | rotated_view | 91 | 32 | 0 | 32 | 0 |
+  | centimetres | 91 | 34 | 0 | 34 | 0 |
+  | centimetres_whole | 91 | 0 | 0 | 35 | 0 |
+  | wrong_note | 91 | 1 | 0 | 35 | 0 |
+  | wrong_stored_region | 91 | 0 | 0 | 32 | 0 |
+  | replotted_a2 | 91 | 0 | 0 | 29 | 0 |
+  | replotted_to_fit | 91 | 0 | 0 | 31 | 0 |
+  | print_rounded | 91 | 0 | 0 | 30 | 0 |
+  | print_rounded_long | 91 | 33 | 0 | 33 | 0 |
+  | half_centimetre_labels | 91 | 1 | 0 | 34 | 0 |
+  | equal_bays_to_fit | 91 | 31 | 0 | 31 | 0 |
+  | two_dimensions_only | 91 | 1 | 0 | 54 | 0 |
+  | ALL | 1932 | 352 | 0 | 719 | 0 |
+
+  Why no number was stated:
+
+  | why no number | no calibration | calibrated |
+  |---|---|---|
+  | span not picked: several lines in reach of an end | 604 | 604 |
+  | point not tied: several line ends in reach | 524 | 524 |
+  | no scale: the hint is not corroborated by the figures | 288 | 0 |
+  | span not picked: no line in reach of an end | 49 | 49 |
+  | span not picked: a line met too flat | 30 | 30 |
+  | no scale: the hint is corroborated elsewhere, not here | 49 | 0 |
+  | no scale: the figures' unit cannot be told | 35 | 0 |
+  | touches two scale regions | 1 | 6 |
+
+  With a calibration, 1,128 of the 1,213 refusals are the engine declining to
+  pick between lines: 3 pt hatching puts a second line within 6 pt of nearly
+  every wall face and corner. On `note_only`, which is not hatched, 80 of 91
+  probes are answered; on `stored_region`, the same floor hatched, 30 of 91.
+  That is the price of decision 9 on a hatched sheet, and it is high.
+
+  How far a stated value lies from the truth, as a share of the half interval
+  stated: all 719 `vector_verified` values within 0.001; of 343
+  `vector_estimated` values 313 within a quarter and 18 between three quarters
+  and one (the sheets whose scale is truly a little off), worst 0.913; of 9
+  `printed_figure` values worst 0.8.
+
+  **A less steady hand than the set's** (a correct calibration, four seeds):
+
+  | every point moved by up to | probes | numbers | of them outside |
+  |---|---|---|---|
+  | 1 pt | 5520 | 1818 | 0 |
+  | 2 pt | 5520 | 1764 | 0 |
+  | 3 pt | 5520 | 1724 | 0 |
+  | 4 pt | 5520 | 1591 | 1 |
+  | 6 pt | 5520 | 906 | 21 |
+  | 9 pt | 5520 | 331 | 49 |
+
+  Past the snap radius a placed point is out of reach of its face and in
+  reach of another line (a bed 20 cm from a wall), and the engine measures to
+  that. The answer names the points and how far each moved; it cannot know
+  what was meant. This is not closed, and it is why a verdict needs the crop.
+
+  **The constants at half and at double** (no constant was changed):
+
+  | constant | value | numbers, no calibration | outside | refused | numbers, calibrated | outside | refused | verdicts given (calibrated) | wrong verdicts |
+  |---|---|---|---|---|---|---|---|---|---|
+  | AGREEMENT_TOLERANCE | 0.0025 | 290 | 0 | 1642 | 719 | 0 | 1213 | 2394 | 0 |
+  | AGREEMENT_TOLERANCE | 0.005 (as built) | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | AGREEMENT_TOLERANCE | 0.01 | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | MIN_AGREEING | 2 | 405 | 0 | 1527 | 719 | 0 | 1213 | 2710 | 0 |
+  | MIN_AGREEING | 3 (as built) | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | MIN_AGREEING | 6 | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | MIN_AGREEING_SHARE | 0.4 | 408 | 0 | 1524 | 719 | 0 | 1213 | 2856 | 0 |
+  | MIN_AGREEING_SHARE | 0.8 (as built) | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | MIN_AGREEING_SHARE | 1 | 322 | 0 | 1610 | 719 | 0 | 1213 | 2710 | 0 |
+  | SNAP_RADIUS_PT | 3 | 453 | 6 | 1479 | 914 | 10 | 1018 | 2778 | 0 |
+  | SNAP_RADIUS_PT | 6 (as built) | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | SNAP_RADIUS_PT | 12 | 298 | 0 | 1634 | 601 | 0 | 1331 | 2307 | 0 |
+  | VERDICT_FLOOR_M | 0.01 | 352 | 0 | 1580 | 719 | 0 | 1213 | 2732 | 0 |
+  | VERDICT_FLOOR_M | 0.02 (as built) | 352 | 0 | 1580 | 719 | 0 | 1213 | 2710 | 0 |
+  | VERDICT_FLOOR_M | 0.04 | 352 | 0 | 1580 | 719 | 0 | 1213 | 1700 | 0 |
+
+  Read with care, the set is small. The tolerance halved loses 62 numbers
+  (the two sheets whose labels are rounded to the centimetre) and doubled
+  gains none; no value makes a number wrong, because an estimate's interval
+  follows the tolerance. `MIN_AGREEING` at 2 answers the one sheet with two
+  figures, correctly. `MIN_AGREEING_SHARE` at 0.4 answers the sheet where
+  half the figures disagree by rounding, correctly. Only the snap
+  radius at 3 pt breaks the gate: the set moves a point by up to 2 pt from a
+  place 2.5 pt inside the face, and at 3 pt that point reaches a neighbour and
+  not its face. At 12 pt more is refused and nothing is wrong. The verdict
+  floor changes no number; at 0.04 it withholds 1,010 verdicts, at 0.01 it
+  gives 22 more, none wrong, on sheets drawn exactly. Nothing here says the
+  floor is right for a drawn wall: synthetic faces have no finish layer.
+* **Eval rows:** four `measure` rows in
+  `tests/fixtures/visual/visual_questions.yaml` ask about EP-04, the set's
+  `note_only` sheet written into the visual eval's fixture project
+  (`"render": "ground_truth"` in `drawings.json`). `mentions` cannot say „a
+  number near the truth, or no number and confirm the scale“, so a row
+  carries `expect.measure` (`scripts/turn_census/measure_answers.py`), held to
+  the set by `tests/test_visual_eval.py`. The rows have not been run against a
+  model: the suite's fixture turn does not yet state the entitlement and the
+  `pdf` kind the tool is bound by.
 * **Needs the product owner:** a Langfuse score is declared in code and published
   with `task langfuse:provision -- --apply`.
 

@@ -69,7 +69,7 @@ describe('CalibrationPanel', () => {
 
     const save = screen.getByTestId('calibration-save')
     expect(save).toBeDisabled()
-    expect(screen.getByTestId('calibration-region-state')).toHaveTextContent('Still missing')
+    expect(screen.getByTestId('calibration-region-state')).toHaveTextContent('no frame yet')
     const why = screen.getByTestId('calibration-next')
     expect(why).toHaveTextContent('Drag a frame around the drawing the scale holds for. It must contain both points.')
     expect(save).toHaveAttribute('aria-describedby', why.id)

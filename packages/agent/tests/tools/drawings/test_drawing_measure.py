@@ -502,3 +502,53 @@ async def test_a_stored_calibration_that_is_none_is_counted_and_not_used(store: 
 
     assert "2 stored calibration(s) of this page could not be read and were not used." in text
     assert "vector_estimated" in text
+
+
+# ---- the calibration put to a person (slice 6) ----
+
+
+async def test_an_estimated_measurement_names_the_one_call_that_asks_a_person(store: _Store) -> None:
+    import json
+
+    text = await _run(operation="clearance", **CLEARANCE)
+    again = await _run(operation="clearance", **CLEARANCE)
+
+    line = next(line for line in text.splitlines() if "drawing-calibration-set" in line)
+    call = json.loads(line[line.index("with input ") + len("with input ") :])
+    assert call["params"] == {"id": "doc-1"} and call["body"]["page"] == 1
+    assert set(call["body"]) == {"page", "region", "from", "to", "lengthM"}
+    assert "no threshold is decided" in text
+    assert again == text  # the same call, so the workspace files one card
+
+
+async def test_a_calibrated_region_asks_for_no_second_calibration(store: _Store) -> None:
+    region = _around((1.0, 1.0), (9.0, 6.0))
+    store.calibrations = [_calibration(1.0, 3.0, 9.0, 3.0, 8.0, region)]  # type: ignore[attr-defined]
+
+    text = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in text and "drawing-calibration-set" not in text
+
+
+async def test_the_proposed_calibration_once_accepted_verifies_the_same_measurement(store: _Store) -> None:
+    import json
+
+    estimated = await _run(operation="clearance", **CLEARANCE)
+    line = next(line for line in estimated.splitlines() if "drawing-calibration-set" in line)
+    body = json.loads(line[line.index("with input ") + len("with input ") :])["body"]
+    store.calibrations = [{"id": "cal-9", **body}]  # type: ignore[attr-defined]  # the person accepted the card
+
+    verified = await _run(operation="clearance", **CLEARANCE)
+
+    assert "vector_verified" in verified and "CONTRADICTED" not in verified
+    assert "1.20" in estimated and "1.20" in verified
+
+
+async def test_a_listing_and_a_sheet_without_a_document_id_propose_nothing(store: _Store, monkeypatch) -> None:
+    assert "drawing-calibration-set" not in await _run(operation="sheet")
+
+    def get_json(path: str, **kwargs: Any) -> dict[str, Any]:
+        return {"storageKey": "org/v1/x.pdf"}
+
+    monkeypatch.setattr(sheet_source.bff_http, "get_json", get_json)
+    assert "drawing-calibration-set" not in await _run(operation="clearance", **CLEARANCE)

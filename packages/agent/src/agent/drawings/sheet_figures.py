@@ -20,7 +20,9 @@ never per figure:
   figures under the other reading, so no reading is assumed.
 
 A raised final digit is half of the last printed unit where it is a 5, and in
-general the next decimal: „2,38⁵“ is 2.385 m, „238⁵“ is 238.5 cm.
+general the next decimal: „2,38⁵“ is 2.385 m, „238⁵“ is 238.5 cm. A raised 5
+says the figure is printed to the half centimetre, not to the millimetre: its
+step is 0.005 m (:func:`_step`), and a span drawn 4.967 m is printed „4,96⁵“.
 """
 
 from __future__ import annotations
@@ -61,7 +63,8 @@ class UnitConvention:
 
 @dataclass(frozen=True)
 class ParsedDimension:
-    """A dimension figure's value in metres and the size of its last printed digit, in metres."""
+    """A dimension figure's value in metres and the step it is printed to, in metres: the length it stands for
+    lies within half that step of the value."""
 
     metres: float
     resolution: float
@@ -138,6 +141,14 @@ def unit_convention(figures: Iterable[Figure]) -> UnitConvention:
     )
 
 
+def _step(unit: float, raised: str) -> float:
+    """The step a figure is printed to: its last digit; half of it under a raised 5; the next decimal under any
+    other raised digit."""
+    if not raised:
+        return unit
+    return unit / 2 if raised == "5" else unit * 10.0 ** -len(raised)
+
+
 def parse_dimension(figure: Figure, convention: UnitConvention) -> ParsedDimension | None:
     """The figure's length under ``convention``, or None when its form does not parse under it."""
     if convention.name == "undetermined":
@@ -146,10 +157,12 @@ def parse_dimension(figure: Figure, convention: UnitConvention) -> ParsedDimensi
     decimal = _DECIMAL.match(body)
     if decimal and convention.name == "metres_and_centimetres":
         digits = decimal.group(2) + figure.raised
-        return ParsedDimension(float(f"{decimal.group(1)}.{digits}"), 10.0 ** -len(digits))
+        return ParsedDimension(
+            float(f"{decimal.group(1)}.{digits}"), _step(10.0 ** -len(decimal.group(2)), figure.raised)
+        )
     if _WHOLE.match(body):
         centimetres = float(f"{body}.{figure.raised}") if figure.raised else float(body)
-        return ParsedDimension(centimetres / 100, 0.01 * 10.0 ** -len(figure.raised))
+        return ParsedDimension(centimetres / 100, _step(0.01, figure.raised))
     return None
 
 

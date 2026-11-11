@@ -71,6 +71,15 @@ Chosen: **store what the person did, per version, per region**.
   proposal for an organization without it: such a card could only fail when
   accepted.
 
+* **The agent may ask, never set.** On a corroborated estimate in a region the
+  file itself stores, the measuring tool names one call that proposes a calibration: the longest agreeing
+  dimension figure of the region, its two ends and its printed value
+  (`agent/drawings/sheet_proposal.py`). The call goes through the existing
+  `operation` proposal kind, so a person sees the crop with the reference span
+  and accepts or dismisses; the route then writes the row as that person. No
+  fifth proposal kind. Where the figures do not corroborate the hint nothing is
+  proposed: the region is calibrated by hand.
+
 ### Consequences
 
 * Good, because nothing a model or a client computes can make a number
